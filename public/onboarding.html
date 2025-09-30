@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil vervollständigen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen py-12">
+
+    <div id="loading" class="text-center">
+        <p class="text-lg">Lade...</p>
+    </div>
+
+    <div id="onboarding-container" class="w-full max-w-md bg-white rounded-lg shadow-md p-8 hidden">
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-2">Fast geschafft!</h2>
+        <p class="text-center text-gray-600 mb-8">Bitte gib deine Daten ein, um dein Profil zu vervollständigen.</p>
+        
+        <form id="onboarding-form" class="space-y-4">
+            <div>
+                <label for="first-name" class="block text-gray-700 text-sm font-bold mb-2">Vorname</label>
+                <input type="text" id="first-name" name="first-name" required
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label for="last-name" class="block text-gray-700 text-sm font-bold mb-2">Nachname</label>
+                <input type="text" id="last-name" name="last-name" required
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            
+            <!-- NEUES FELD: Geburtstag -->
+            <div>
+                <label for="birthday" class="block text-gray-700 text-sm font-bold mb-2">Geburtstag</label>
+                <input type="date" id="birthday" name="birthday" required
+                       class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <!-- NEUES FELD: Geschlecht -->
+            <div>
+                <label for="gender" class="block text-gray-700 text-sm font-bold mb-2">Geschlecht</label>
+                <select id="gender" name="gender" required
+                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Bitte auswählen</option>
+                    <option value="male">Männlich</option>
+                    <option value="female">Weiblich</option>
+                    <option value="diverse">Divers</option>
+                </select>
+            </div>
+            
+            <div id="error-message" class="text-red-500 text-sm pt-2 text-center"></div>
+
+            <div class="pt-4">
+                <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full focus:outline-none focus:shadow-outline transition duration-300">
+                    Profil speichern
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { firebaseConfig } from './js/firebase-config.js';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const loadingDiv = document.getElementById('loading');
+        const onboardingContainer = document.getElementById('onboarding-container');
+        const onboardingForm = document.getElementById('onboarding-form');
+        const errorMessageDiv = document.getElementById('error-message');
+
+        let currentUser = null;
+        let userData = null;
+
+        // Seitenschutz: Prüfen, ob der Nutzer angemeldet ist
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if(userDocSnap.exists()) {
+                    userData = userDocSnap.data();
+                    loadingDiv.classList.add('hidden');
+                    onboardingContainer.classList.remove('hidden');
+                } else {
+                    window.location.replace('/index.html');
+                }
+            } else {
+                window.location.replace('/index.html');
+            }
+        });
+
+        // Formular-Listener zum Speichern der Daten
+        onboardingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorMessageDiv.textContent = '';
+            
+            const firstName = onboardingForm['first-name'].value.trim();
+            const lastName = onboardingForm['last-name'].value.trim();
+            const birthday = onboardingForm['birthday'].value;
+            const gender = onboardingForm['gender'].value;
+
+
+            if (!firstName || !lastName || !birthday || !gender) {
+                errorMessageDiv.textContent = 'Bitte fülle alle Felder aus.';
+                return;
+            }
+
+            try {
+                // Schritt 1: Das Nutzerdokument in Firestore aktualisieren
+                const userDocRef = doc(db, 'users', currentUser.uid);
+                await updateDoc(userDocRef, {
+                    firstName: firstName,
+                    lastName: lastName,
+                    birthday: birthday,
+                    gender: gender,
+                    onboardingComplete: true
+                });
+
+                // Schritt 2: Basierend auf der Rolle zum richtigen Dashboard weiterleiten
+                if (userData.role === 'admin') {
+                    window.location.href = '/admin.html';
+                } else if (userData.role === 'coach') {
+                    window.location.href = '/coach.html'; // NEUE WEITERLEITUNG FÜR COACHES
+                } else {
+                    window.location.href = '/dashboard.html'; // Für Spieler
+                }
+
+            } catch (error) {
+                console.error("Fehler beim Speichern des Profils:", error);
+                errorMessageDiv.textContent = "Profil konnte nicht gespeichert werden.";
+            }
+        });
+    </script>
+</body>
+</html>
+
