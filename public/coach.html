@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coach Dashboard - TTV Champions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal { transition: opacity 0.25s ease; }
+        .modal-active { display: flex; }
+        /* Zeigt einen Lade-Spinner an, bis die Seite bereit ist */
+        #page-loader {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f3f4f6;
+            z-index: 9999;
+        }
+        #main-content {
+            display: none; /* Hauptinhalt standardmäßig ausblenden */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="page-loader">
+        <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+
+    <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+                <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
+            </div>
+            <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
+                Logout
+            </button>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="md:col-span-1 space-y-8">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Offline Spieler hinzufügen</h2>
+                    <form id="add-offline-player-form" class="space-y-4">
+                        <div>
+                            <label for="firstName" class="block text-sm font-medium text-gray-700">Vorname</label>
+                            <input type="text" id="firstName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label for="lastName" class="block text-sm font-medium text-gray-700">Nachname</label>
+                            <input type="text" id="lastName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                            Spieler erstellen
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Spieler Management</h2>
+                    <button id="open-player-modal-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                        Spielerliste anzeigen
+                    </button>
+                </div>
+            </div>
+            
+            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Vereinsübersicht</h2>
+                <div id="club-info" class="text-gray-600">
+                    <p>Hier könnten bald Vereinsstatistiken angezeigt werden.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Spielerliste Modal -->
+    <div id="player-list-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl leading-6 font-medium text-gray-900">Spielerliste</h3>
+                    <button id="close-player-modal-button" class="text-gray-400 hover:text-gray-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                <div id="modal-loader" class="text-center py-8"><p>Lade Spielerdaten...</p></div>
+                <div id="modal-player-list-container" class="mt-2 text-left hidden">
+                     <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-player-list" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="invite-link-display" class="mt-4 p-3 bg-gray-100 rounded-md text-sm text-gray-900 break-words hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot, query, where, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { firebaseConfig } from './js/firebase-config.js';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const pageLoader = document.getElementById('page-loader');
+        const mainContent = document.getElementById('main-content');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const logoutButton = document.getElementById('logout-button');
+        const addOfflinePlayerForm = document.getElementById('add-offline-player-form');
+        const openPlayerModalButton = document.getElementById('open-player-modal-button');
+        const closePlayerModalButton = document.getElementById('close-player-modal-button');
+        const playerListModal = document.getElementById('player-list-modal');
+        const modalPlayerList = document.getElementById('modal-player-list');
+        const modalLoader = document.getElementById('modal-loader');
+        const modalPlayerListContainer = document.getElementById('modal-player-list-container');
+        const inviteLinkDisplay = document.getElementById('invite-link-display');
+
+        let currentUserData = null;
+        let unsubscribePlayerList = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                try {
+                    const userDocRef = doc(db, "users", user.uid);
+                    const userDocSnap = await getDoc(userDocRef);
+
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        
+                        if (userData.role === 'coach' || userData.role === 'admin') {
+                            currentUserData = userData;
+                            initializeCoachPage(userData);
+                        } else {
+                            // Rolle ist nicht berechtigt
+                            window.location.href = '/index.html';
+                        }
+                    } else {
+                        // Nutzer-Dokument nicht gefunden
+                        window.location.href = '/index.html';
+                    }
+                } catch (error) {
+                    console.error("Fehler bei der Nutzer-Verifizierung:", error);
+                    window.location.href = '/index.html';
+                }
+            } else {
+                // Kein Nutzer eingeloggt
+                window.location.href = '/index.html';
+            }
+        });
+        
+        function initializeCoachPage(userData) {
+            // Lade-Spinner ausblenden und Inhalt anzeigen
+            pageLoader.style.display = 'none';
+            mainContent.style.display = 'block';
+
+            welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
+            
+            logoutButton.addEventListener('click', () => {
+                signOut(auth).catch(error => console.error("Logout Fehler:", error));
+            });
+
+            addOfflinePlayerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const firstName = e.target.firstName.value;
+                const lastName = e.target.lastName.value;
+                try {
+                    await addDoc(collection(db, "users"), {
+                        firstName, lastName, clubId: userData.clubId, role: 'player', isOffline: true, onboardingComplete: false, createdAt: new Date()
+                    });
+                    alert('Offline Spieler erfolgreich erstellt!');
+                    e.target.reset();
+                } catch (error) { 
+                    console.error("Fehler beim Erstellen des Offline Spielers:", error);
+                    alert('Fehler: Der Spieler konnte nicht erstellt werden.');
+                }
+            });
+
+            openPlayerModalButton.addEventListener('click', () => {
+                playerListModal.classList.remove('hidden');
+                playerListModal.classList.add('modal-active');
+                loadPlayerList(userData.clubId);
+            });
+
+            closePlayerModalButton.addEventListener('click', () => {
+                playerListModal.classList.add('hidden');
+                playerListModal.classList.remove('modal-active');
+                if (unsubscribePlayerList) unsubscribePlayerList();
+                inviteLinkDisplay.classList.add('hidden');
+            });
+        }
+
+        function loadPlayerList(clubId) {
+            modalLoader.style.display = 'block';
+            modalPlayerListContainer.classList.add('hidden');
+            
+            const q = query(collection(db, "users"), where("clubId", "==", clubId));
+
+            if (unsubscribePlayerList) unsubscribePlayerList();
+
+            unsubscribePlayerList = onSnapshot(q, (snapshot) => {
+                modalPlayerList.innerHTML = '';
+                if (snapshot.empty) {
+                     modalPlayerList.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Keine Spieler in diesem Verein gefunden.</td></tr>';
+                } else {
+                    snapshot.docs.sort((a,b) => a.data().lastName.localeCompare(b.data().lastName)).forEach(doc => {
+                        const player = doc.data(); 
+                        player.id = doc.id;
+                        const row = document.createElement('tr');
+                        
+                        let statusHtml = player.isOffline ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
+                        let actionsHtml = '';
+
+                        if (player.isOffline) { 
+                            actionsHtml += `<button data-id="${player.id}" class="send-invite-btn text-indigo-600 hover:text-indigo-900 text-sm font-medium">Link schicken</button>`; 
+                        }
+                        if (player.role === 'player') { 
+                            actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn text-purple-600 hover:text-purple-900 text-sm font-medium ml-4">Zum Coach ernennen</button>`;
+                        }
+                        actionsHtml += `<button data-id="${player.id}" class="delete-player-btn text-red-600 hover:text-red-900 text-sm font-medium ml-4">Löschen</button>`;
+                        
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</div>
+                                ${player.email ? `<div class="text-sm text-gray-500">${player.email}</div>` : ''}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-left">${actionsHtml}</td>`;
+                        modalPlayerList.appendChild(row);
+                    });
+                }
+                modalLoader.style.display = 'none';
+                modalPlayerListContainer.classList.remove('hidden');
+            }, error => {
+                console.error("Fehler beim Laden der Spielerliste:", error);
+                modalPlayerList.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Fehler beim Laden der Spieler.</td></tr>';
+                modalLoader.style.display = 'none';
+                modalPlayerListContainer.classList.remove('hidden');
+            });
+        }
+
+        modalPlayerList.addEventListener('click', async (e) => {
+            const target = e.target;
+            const playerId = target.dataset.id;
+            if (!playerId || !currentUserData) return;
+
+            if (target.classList.contains('send-invite-btn')) {
+                try {
+                    const docRef = await addDoc(collection(db, "invitationTokens"), { 
+                        targetUserId: playerId, 
+                        role: 'player', 
+                        clubId: currentUserData.clubId, 
+                        isUsed: false, 
+                        createdAt: new Date() 
+                    });
+                    const url = `${window.location.origin}/register.html?token=${docRef.id}`;
+                    inviteLinkDisplay.textContent = `Einladungslink: ${url}`;
+                    inviteLinkDisplay.classList.remove('hidden');
+                } catch (error) { 
+                    console.error("Fehler beim Erstellen des Tokens: ", error); 
+                    alert('Fehler: Der Einladungslink konnte nicht erstellt werden.');
+                }
+            }
+            if (target.classList.contains('delete-player-btn')) {
+                if (confirm('Möchten Sie diesen Spieler wirklich löschen?')) {
+                    try { 
+                        await deleteDoc(doc(db, "users", playerId)); 
+                    } catch (error) { 
+                        console.error("Fehler beim Löschen: ", error); 
+                        alert('Fehler: Der Spieler konnte nicht gelöscht werden.');
+                    }
+                }
+            }
+            if (target.classList.contains('promote-coach-btn')) {
+                if (confirm('Möchten Sie diesen Spieler zum Coach ernennen?')) {
+                    try { 
+                        await updateDoc(doc(db, "users", playerId), { role: 'coach' }); 
+                        alert('Spieler wurde zum Coach befördert.'); 
+                    } catch (error) { 
+                        console.error("Fehler bei Beförderung: ", error); 
+                        alert('Fehler: Der Spieler konnte nicht befördert werden.');
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+

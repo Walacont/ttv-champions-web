@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - TTV Champions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .modal { transition: opacity 0.25s ease; }
+        .modal-active { display: flex; }
+        #page-loader { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #f3f4f6; z-index: 9999; }
+        #main-content { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="page-loader">
+        <svg class="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+
+    <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
+            </div>
+            <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
+                Logout
+            </button>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="md:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Neuen Coach einladen</h2>
+                <form id="invite-coach-form" class="space-y-4">
+                    <div>
+                        <label for="clubId" class="block text-sm font-medium text-gray-700">Vereins-ID</label>
+                        <input type="text" id="clubId" placeholder="z.B. ttv-musterstadt" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                        Einladungslink erstellen
+                    </button>
+                </form>
+                <div id="invite-link-display" class="mt-4 p-3 bg-gray-100 rounded-md text-sm text-gray-900 break-words hidden"></div>
+            </div>
+
+            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Registrierte Vereine</h2>
+                <div id="club-list-container" class="space-y-3">
+                    <p id="club-list-loader">Lade Vereine...</p>
+                    <!-- Club list will be rendered here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Club-Mitglieder Modal -->
+    <div id="club-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full hidden justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-club-name" class="text-xl leading-6 font-medium text-gray-900">Mitgliederliste</h3>
+                <button id="close-club-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rolle</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-club-members" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { firebaseConfig } from './js/firebase-config.js';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // DOM Elements
+        const pageLoader = document.getElementById('page-loader');
+        const mainContent = document.getElementById('main-content');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const logoutButton = document.getElementById('logout-button');
+        const inviteCoachForm = document.getElementById('invite-coach-form');
+        const inviteLinkDisplay = document.getElementById('invite-link-display');
+        const clubListContainer = document.getElementById('club-list-container');
+        const clubListLoader = document.getElementById('club-list-loader');
+        const clubModal = document.getElementById('club-modal');
+        const modalClubName = document.getElementById('modal-club-name');
+        const modalClubMembers = document.getElementById('modal-club-members');
+        const closeClubModalButton = document.getElementById('close-club-modal-button');
+
+        let allUsers = [];
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDocRef = doc(db, "users", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists() && userDocSnap.data().role === 'admin') {
+                    initializeAppPage(userDocSnap.data());
+                } else {
+                    window.location.href = '/index.html';
+                }
+            } else {
+                window.location.href = '/index.html';
+            }
+        });
+
+        function initializeAppPage(adminData) {
+            pageLoader.style.display = 'none';
+            mainContent.style.display = 'block';
+            welcomeMessage.textContent = `Willkommen, ${adminData.firstName || adminData.email}!`;
+            
+            logoutButton.addEventListener('click', () => signOut(auth));
+
+            inviteCoachForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const clubId = e.target.clubId.value.trim();
+                if (!clubId) return;
+                try {
+                    const docRef = await addDoc(collection(db, "invitationTokens"), { role: 'coach', clubId, isUsed: false });
+                    const url = `${window.location.origin}/register.html?token=${docRef.id}`;
+                    inviteLinkDisplay.textContent = `Link für ${clubId}: ${url}`;
+                    inviteLinkDisplay.classList.remove('hidden');
+                    e.target.reset();
+                } catch (error) { console.error("Error creating token:", error); }
+            });
+
+            // Listen for all users to build the club list
+            const usersQuery = query(collection(db, "users"));
+            onSnapshot(usersQuery, (snapshot) => {
+                allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderClubList();
+            });
+
+            closeClubModalButton.addEventListener('click', () => {
+                clubModal.classList.add('hidden');
+                clubModal.classList.remove('modal-active');
+            });
+        }
+
+        function renderClubList() {
+            const clubs = {}; // { clubId: [user1, user2], ... }
+            allUsers.forEach(user => {
+                if (!user.clubId) return;
+                if (!clubs[user.clubId]) {
+                    clubs[user.clubId] = [];
+                }
+                clubs[user.clubId].push(user);
+            });
+
+            clubListLoader.style.display = 'none';
+            clubListContainer.innerHTML = '';
+
+            if (Object.keys(clubs).length === 0) {
+                clubListContainer.innerHTML = '<p class="text-gray-500">Noch keine Vereine registriert.</p>';
+                return;
+            }
+            
+            // Sort clubs alphabetically by ID
+            const sortedClubIds = Object.keys(clubs).sort();
+
+            sortedClubIds.forEach(clubId => {
+                const memberCount = clubs[clubId].length;
+                const clubElement = document.createElement('div');
+                clubElement.className = 'p-4 border rounded-lg hover:bg-gray-50 cursor-pointer flex justify-between items-center';
+                clubElement.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-indigo-600">${clubId}</p>
+                        <p class="text-sm text-gray-500">${memberCount} Mitglied(er)</p>
+                    </div>
+                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                `;
+                clubElement.addEventListener('click', () => showClubModal(clubId, clubs[clubId]));
+                clubListContainer.appendChild(clubElement);
+            });
+        }
+
+        function showClubModal(clubId, members) {
+            modalClubName.textContent = `Mitgliederliste für: ${clubId}`;
+            modalClubMembers.innerHTML = '';
+
+            members.sort((a,b) => a.lastName.localeCompare(b.lastName)).forEach(member => {
+                const row = document.createElement('tr');
+                const roleDisplay = member.role.charAt(0).toUpperCase() + member.role.slice(1);
+                const statusHtml = member.isOffline ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4"><div class="text-sm font-medium text-gray-900">${member.firstName} ${member.lastName}</div><div class="text-sm text-gray-500">${member.email || 'Keine E-Mail'}</div></td>
+                    <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleDisplay === 'Admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">${roleDisplay}</span></td>
+                    <td class="px-6 py-4">${statusHtml}</td>
+                `;
+                modalClubMembers.appendChild(row);
+            });
+
+            clubModal.classList.remove('hidden');
+            clubModal.classList.add('modal-active');
+        }
+    </script>
+</body>
+</html>
+
