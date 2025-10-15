@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ & Regeln - TTV Champions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-3xl">
+        <header class="flex justify-between items-start mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">FAQ & Regeln</h1>
+                <p class="text-gray-600">Alles, was du über TTV Champions wissen musst.</p>
+            </div>
+            <a href="/dashboard.html" id="back-link" class="text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap pt-1">
+                &larr; Zurück zum Dashboard
+            </a>
+        </header>
+
+        <div class="bg-white p-6 rounded-xl shadow-md space-y-6">
+
+            <div>
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Das Punktesystem</h2>
+                <div class="space-y-4">
+                    <details class="group">
+                        <summary class="flex justify-between items-center cursor-pointer">
+                            <span class="font-medium">Wie kann ich Punkte sammeln?</span>
+                            <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        <div class="mt-2 text-gray-700">
+                            Du kannst auf viele Weisen Punkte sammeln:
+                            <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li><strong>Anwesenheit beim Training:</strong> +10 Punkte für jedes Training, an dem du teilnimmst.</li>
+                                <li><strong>Anwesenheits-Streak:</strong> +5 Bonuspunkte, wenn du 3x hintereinander da warst.</li>
+                                <li><strong>Übungen abschließen:</strong> Je nach Schwierigkeit gibt es zwischen 5 und 50 Punkte.</li>
+                                <li><strong>Challenges meistern:</strong> Für besondere Herausforderungen kannst du 20 bis 100 Punkte bekommen.</li>
+                                <li><strong>Besondere Leistungen:</strong> Dein Trainer kann dir Bonuspunkte für Fairness, Teamgeist oder tolle Fortschritte geben.</li>
+                                 <li><strong>Liga-Aufstieg:</strong> +50 Bonuspunkte, wenn du am Monatsende aufsteigst.</li>
+                            </ul>
+                        </div>
+                    </details>
+                     <details class="group">
+                        <summary class="flex justify-between items-center cursor-pointer">
+                            <span class="font-medium">Kann ich auch Punkte verlieren?</span>
+                             <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        <div class="mt-2 text-gray-700">
+                            Ja, in bestimmten Fällen können Punkte abgezogen werden:
+                             <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li><strong>Unsportliches Verhalten:</strong> Dein Trainer kann dir bei Regelverstößen oder unfairem Verhalten Punkte abziehen (-10 bis -30).</li>
+                                <li><strong>Abwesenheit:</strong> Du verlierst keine Punkte, aber dein Anwesenheits-Streak wird zurückgesetzt.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Spielmechaniken</h2>
+                <div class="space-y-4">
+                    <details class="group">
+                        <summary class="flex justify-between items-center cursor-pointer">
+                            <span class="font-medium">Was ist ein "Streak"?</span>
+                            <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        <p class="mt-2 text-gray-700">Ein "Streak" ist eine Serie. Wenn du mehrmals hintereinander am Training teilnimmst, baust du eine Anwesenheits-Serie (Streak) auf. Ab dem dritten Mal in Folge erhältst du Bonuspunkte. Wenn du ein Training verpasst, wird dein Streak zurückgesetzt.</p>
+                    </details>
+                    <details class="group">
+                        <summary class="flex justify-between items-center cursor-pointer">
+                            <span class="font-medium">Wie funktionieren die Ligen und das Leaderboard?</span>
+                            <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        <div class="mt-2 text-gray-700">
+                            <p>Alle Spieler starten in der Bronze-Liga. Im Leaderboard kannst du sehen, welchen Rang du in deiner Liga hast.</p>
+                            <p class="mt-2">Am Ende jedes Monats ("Saison") passiert Folgendes:</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li>Die <strong>Top 3</strong> der Liga steigen in die nächsthöhere Liga auf.</li>
+                                <li>Die <strong>letzten 3</strong> der Liga steigen ab (außer in der Bronze-Liga).</li>
+                                <li>Danach werden die Punkte aller Spieler für die neue Saison zurückgesetzt, damit jeder wieder die gleiche Chance hat.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="/js/faq.js"></script>
+</body>
+</html>

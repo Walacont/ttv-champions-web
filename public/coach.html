@@ -3,309 +3,449 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coach Dashboard - TTV Champions</title>
+    <title>Mein Dashboard - TTV Champions</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .modal { transition: opacity 0.25s ease; }
-        .modal-active { display: flex; }
-        /* Zeigt einen Lade-Spinner an, bis die Seite bereit ist */
         #page-loader {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: #f3f4f6;
-            z-index: 9999;
+            display: flex; justify-content: center; align-items: center; position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh; background-color: #f3f4f6; z-index: 9999;
         }
-        #main-content {
-            display: none; /* Hauptinhalt standardmäßig ausblenden */
+        #main-content, #auth-error-container { display: none; }
+        .tab-active {
+            border-color: #4f46e5; /* indigo-600 */
+            color: #4f46e5;
+            background-color: #eef2ff; /* indigo-50 */
         }
+        .modal { transition: opacity 0.25s ease; }
+        .league-icon-active { transform: scale(1.1); border-color: #4f46e5; }
+        .league-select-btn-active { background-color: #4f46e5; color: white; border-color: #4f46e5;}
+        .toggle-btn-active { background-color: #4f46e5; color: white; }
+        .calendar-day-present { background-color: #10b981; color: white; border-color: #059669; }
+        .calendar-day-today { ring: 2px; ring-color: #4f46e5; }
+        .calendar-day:not(.disabled) { cursor: pointer; }
+        .calendar-day:not(.disabled):hover { background-color: #eef2ff; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <div id="page-loader">
-        <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <div class="text-center">
+            <svg class="animate-spin h-10 w-10 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p id="loader-text" class="mt-4 text-sm font-medium text-gray-600">Lade Daten...</p>
+        </div>
+    </div>
+
+    <div id="auth-error-container" class="hidden items-center justify-center fixed inset-0">
+        <div class="text-center p-8 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-red-600 mb-4">Zugriff verweigert</h2>
+            <p id="auth-error-message" class="text-gray-700">Die Seite konnte nicht geladen werden.</p>
+            <button id="error-logout-button" class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                Zurück zum Login
+            </button>
+        </div>
     </div>
 
     <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
-        <!-- Header -->
-        <header class="flex justify-between items-center mb-8">
+        <header class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
                 <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
             </div>
-            <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
-                Logout
-            </button>
+            <div class="flex items-center space-x-4">
+                <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </a>
+                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
+                    Logout
+                </button>
+            </div>
         </header>
 
-        <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="md:col-span-1 space-y-8">
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Offline Spieler hinzufügen</h2>
-                    <form id="add-offline-player-form" class="space-y-4">
-                        <div>
-                            <label for="firstName" class="block text-sm font-medium text-gray-700">Vorname</label>
-                            <input type="text" id="firstName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <button id="open-player-modal-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center justify-center space-x-2">
+                <i class="fas fa-users"></i>
+                <span>Spieler verwalten</span>
+            </button>
+            <button id="add-offline-player-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center justify-center space-x-2">
+                <i class="fas fa-user-plus"></i>
+                <span>Offline-Spieler erstellen</span>
+            </button>
+        </div>
+
+
+        <div class="mb-6 border-b border-gray-200">
+            <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="dashboard">
+                    Dashboard
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="attendance">
+                    Kalender & Anwesenheit
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="matches">
+                    Wettkampf
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="points">
+                    Punkte vergeben
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="challenges">
+                    Challenges
+                </button>
+                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="exercises">
+                    Übungen
+                </button>
+            </nav>
+        </div>
+
+        <main>
+            <div id="tab-content-dashboard" class="tab-content">
+                 <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900 text-center">Vereins-Leaderboard</h2>
+                        <div id="coach-league-select" class="flex items-center space-x-2">
                         </div>
-                        <div>
-                            <label for="lastName" class="block text-sm font-medium text-gray-700">Nachname</label>
-                            <input type="text" id="lastName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div id="league-icons-container" class="flex justify-center items-end space-x-4 mb-4"></div>
+                    <h2 id="league-name" class="text-xl font-bold text-gray-800 text-center">Leaderboard</h2>
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg flex justify-between items-center max-w-sm mx-auto">
+                        <div class="text-center">
+                            <p class="text-sm text-gray-500">Saison endet in:</p>
+                            <p id="season-countdown" class="font-mono font-semibold text-indigo-600"></p>
                         </div>
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
-                            Spieler erstellen
-                        </button>
-                    </form>
-                </div>
-                
-                <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Spieler Management</h2>
-                    <button id="open-player-modal-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
-                        Spielerliste anzeigen
-                    </button>
+                    </div>
+                    <div id="leaderboard-list-club" class="mt-6 space-y-2 max-w-lg mx-auto">
+                         <p class="text-center text-gray-500 py-8">Leaderboard wird geladen...</p>
+                    </div>
                 </div>
             </div>
-            
-            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-semibold mb-4">Vereinsübersicht</h2>
-                <div id="club-info" class="text-gray-600">
-                    <p>Hier könnten bald Vereinsstatistiken angezeigt werden.</p>
+
+            <div id="tab-content-attendance" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <button id="prev-month-btn" class="p-2 rounded-full hover:bg-gray-200"><i class="fas fa-chevron-left"></i></button>
+                        <h2 id="calendar-month-year" class="text-xl font-bold"></h2>
+                        <button id="next-month-btn" class="p-2 rounded-full hover:bg-gray-200"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-gray-500 mb-2">
+                        <div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div><div>So</div>
+                    </div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                        </div>
+                </div>
+            </div>
+
+            <div id="tab-content-matches" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+                    <h2 class="text-xl font-semibold mb-4">Wettkampf-Match melden</h2>
+                    <p class="text-sm text-gray-600 mb-4">Wähle zwei Spieler aus, um ein Match zu melden. Das System berechnet automatisch einen Handicap-Vorschlag, um das Spiel fairer zu gestalten.</p>
+                    <form id="match-form" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="player-a-select" class="block text-sm font-medium text-gray-700">Spieler A</label>
+                                <select id="player-a-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <div>
+                                <label for="player-b-select" class="block text-sm font-medium text-gray-700">Spieler B</label>
+                                <select id="player-b-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                        </div>
+
+                        <div id="handicap-suggestion" class="p-3 bg-indigo-50 rounded-md text-center hidden">
+                            <p class="text-sm font-medium text-indigo-800">Handicap-Vorschlag: <span id="handicap-text" class="font-bold"></span></p>
+                        </div>
+
+                        <div id="handicap-toggle-container" class="py-2 hidden">
+                            <label for="handicap-toggle" class="flex items-center justify-center cursor-pointer">
+                                <div class="relative">
+                                    <input type="checkbox" id="handicap-toggle" class="sr-only peer">
+                                    <div class="w-14 h-8 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors"></div>
+                                    <div class="absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform transform peer-checked:translate-x-full"></div>
+                                </div>
+                                <div class="ml-3 text-gray-700 font-medium">
+                                    Wurde der Handicap-Vorschlag angewendet?
+                                </div>
+                            </label>
+                        </div>
+
+                        <div>
+                            <label for="winner-select" class="block text-sm font-medium text-gray-700">Wer hat gewonnen?</label>
+                            <select id="winner-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="">Bitte Gewinner wählen...</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Match-Ergebnis speichern</button>
+                        <p id="match-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                    </form>
+                </div>
+            </div>
+
+            <div id="tab-content-points" class="tab-content hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Punkte vergeben</h2>
+                        <form id="points-form" class="space-y-4">
+                            <div>
+                                <label for="player-select" class="block text-sm font-medium text-gray-700">Spieler auswählen</label>
+                                <select id="player-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">Spieler wählen...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="reason-select" class="block text-sm font-medium text-gray-700">Grund</label>
+                                <select id="reason-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="">Grund wählen...</option>
+                                    <option value="exercise">Übung abgeschlossen</option>
+                                    <option value="challenge">Challenge gemeistert</option>
+                                    <option value="manual">Manuelle Vergabe</option>
+                                </select>
+                            </div>
+                            <div id="exercise-select-container" class="hidden">
+                                <label for="exercise-select" class="block text-sm font-medium text-gray-700">Übung auswählen</label>
+                                <select id="exercise-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <div id="challenge-select-container" class="hidden">
+                                <label for="challenge-select" class="block text-sm font-medium text-gray-700">Challenge auswählen</label>
+                                <select id="challenge-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <div id="manual-points-container" class="hidden space-y-4">
+                                <div>
+                                    <label for="manual-points" class="block text-sm font-medium text-gray-700">Anzahl Punkte</label>
+                                    <input type="number" id="manual-points" placeholder="z.B. 10 oder -5" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label for="manual-reason" class="block text-sm font-medium text-gray-700">Begründung</label>
+                                    <input type="text" id="manual-reason" placeholder="z.B. Faires Spiel" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Punkte speichern</button>
+                            <p id="points-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                        </form>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
+                        <div>
+                            <label for="history-player-filter" class="block text-sm font-medium text-gray-700">Spieler filtern</label>
+                            <select id="history-player-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                <option value="">Bitte Spieler wählen...</option>
+                            </select>
+                        </div>
+                        <ul id="coach-points-history-list" class="mt-4 space-y-3 max-h-96 overflow-y-auto">
+                            <li class="text-center text-gray-500 py-4">Bitte einen Spieler auswählen, um die Historie anzuzeigen.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-content-challenges" class="tab-content hidden">
+                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Neue Challenge erstellen</h2>
+                         <form id="create-challenge-form" class="space-y-4">
+                             <div>
+                                <label for="challenge-title" class="block text-sm font-medium text-gray-700">Titel</label>
+                                <input type="text" id="challenge-title" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="challenge-type" class="block text-sm font-medium text-gray-700">Typ (Dauer)</label>
+                                <select id="challenge-type" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                                    <option value="daily">Täglich</option>
+                                    <option value="weekly">Wöchentlich</option>
+                                    <option value="monthly">Monatlich</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="challenge-description" class="block text-sm font-medium text-gray-700">Beschreibung</label>
+                                <textarea id="challenge-description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            </div>
+                            <div>
+                                <label for="challenge-points" class="block text-sm font-medium text-gray-700">Punkte</label>
+                                <input type="number" id="challenge-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Challenge erstellen</button>
+                             <p id="challenge-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                        </form>
+                    </div>
+                     <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Aktive Challenges im Verein</h2>
+                        <div id="active-challenges-list" class="space-y-4">
+                            <p class="text-gray-500">Aktive Challenges werden geladen...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-content-exercises" class="tab-content hidden">
+                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                     <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Neue Übung erstellen</h2>
+                        <form id="create-exercise-form" class="space-y-4">
+                            <div>
+                                <label for="exercise-title-form" class="block text-sm font-medium text-gray-700">Titel</label>
+                                <input type="text" id="exercise-title-form" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="exercise-description-form" class="block text-sm font-medium text-gray-700">Beschreibung</label>
+                                <textarea id="exercise-description-form" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            </div>
+                            <div>
+                                <label for="exercise-points-form" class="block text-sm font-medium text-gray-700">Punkte</label>
+                                <input type="number" id="exercise-points-form" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="exercise-tags-form" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
+                                <input type="text" id="exercise-tags-form" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="exercise-image-form" class="block text-sm font-medium text-gray-700">Bild</label>
+                                <input type="file" id="exercise-image-form" accept="image/*" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            </div>
+                            <button type="submit" id="create-exercise-submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                                Übung speichern
+                            </button>
+                        </form>
+                        <p id="exercise-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                    </div>
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Globaler Übungskatalog</h2>
+                        <div id="exercises-list-coach" class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
+                            <p>Übungen werden geladen...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
-    
-    <!-- Spielerliste Modal -->
-    <div id="player-list-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden justify-center items-center">
-        <div class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl leading-6 font-medium text-gray-900">Spielerliste</h3>
-                    <button id="close-player-modal-button" class="text-gray-400 hover:text-gray-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                <div id="modal-loader" class="text-center py-8"><p>Lade Spielerdaten...</p></div>
-                <div id="modal-player-list-container" class="mt-2 text-left hidden">
-                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modal-player-list" class="bg-white divide-y divide-gray-200"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div id="invite-link-display" class="mt-4 p-3 bg-gray-100 rounded-md text-sm text-gray-900 break-words hidden"></div>
+
+    <div id="exercise-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-exercise-title" class="text-xl leading-6 font-medium text-gray-900"></h3>
+                <button id="close-exercise-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <img id="modal-exercise-image" src="" alt="Übungsbild" class="w-full max-h-96 object-contain rounded-md mb-4">
+            <div id="modal-exercise-tags" class="mb-4"></div>
+            <p id="modal-exercise-description" class="text-sm text-gray-600 mb-4" style="white-space: pre-wrap;"></p>
+            <div class="text-right">
+                <span id="modal-exercise-points" class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"></span>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot, query, where, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { firebaseConfig } from './js/firebase-config.js';
+    <div id="attendance-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Anwesenheit am <span id="attendance-modal-date"></span></h3>
+                <button id="close-attendance-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="attendance-form" class="space-y-4">
+                <input type="hidden" id="attendance-date-input">
+                <input type="hidden" id="attendance-doc-id-input">
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-md font-medium text-gray-800">Anwesende Spieler</h4>
+                        <span class="text-sm text-gray-500">Ausgewählt: <span id="attendance-count" class="font-bold">0</span></span>
+                    </div>
+                    <div id="attendance-player-list" class="mt-2 space-y-2 max-h-60 overflow-y-auto border p-2 rounded-md">
+                        <p class="text-gray-400">Spieler werden geladen...</p>
+                    </div>
+                </div>
+                <div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                        Anwesenheit speichern
+                    </button>
+                    <p id="attendance-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                </div>
+            </form>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+            <div class="mt-6 border-t pt-4">
+                <h4 class="text-md font-medium text-gray-800">Wettkampf-Paarungen</h4>
+                <p class="text-sm text-gray-500 mb-3">Erstellt zufällige Matches für alle anwesenden und match-bereiten Spieler.</p>
+                <button id="generate-pairings-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                    <i class="fas fa-random mr-2"></i> Paarungen erstellen
+                </button>
+            </div>
+        </div>
+    </div>
 
-        const pageLoader = document.getElementById('page-loader');
-        const mainContent = document.getElementById('main-content');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const logoutButton = document.getElementById('logout-button');
-        const addOfflinePlayerForm = document.getElementById('add-offline-player-form');
-        const openPlayerModalButton = document.getElementById('open-player-modal-button');
-        const closePlayerModalButton = document.getElementById('close-player-modal-button');
-        const playerListModal = document.getElementById('player-list-modal');
-        const modalPlayerList = document.getElementById('modal-player-list');
-        const modalLoader = document.getElementById('modal-loader');
-        const modalPlayerListContainer = document.getElementById('modal-player-list-container');
-        const inviteLinkDisplay = document.getElementById('invite-link-display');
-
-        let currentUserData = null;
-        let unsubscribePlayerList = null;
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                try {
-                    const userDocRef = doc(db, "users", user.uid);
-                    const userDocSnap = await getDoc(userDocRef);
-
-                    if (userDocSnap.exists()) {
-                        const userData = userDocSnap.data();
-                        
-                        if (userData.role === 'coach' || userData.role === 'admin') {
-                            currentUserData = userData;
-                            initializeCoachPage(userData);
-                        } else {
-                            // Rolle ist nicht berechtigt
-                            window.location.href = '/index.html';
-                        }
-                    } else {
-                        // Nutzer-Dokument nicht gefunden
-                        window.location.href = '/index.html';
-                    }
-                } catch (error) {
-                    console.error("Fehler bei der Nutzer-Verifizierung:", error);
-                    window.location.href = '/index.html';
-                }
-            } else {
-                // Kein Nutzer eingeloggt
-                window.location.href = '/index.html';
-            }
-        });
-        
-        function initializeCoachPage(userData) {
-            // Lade-Spinner ausblenden und Inhalt anzeigen
-            pageLoader.style.display = 'none';
-            mainContent.style.display = 'block';
-
-            welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
+     <div id="player-list-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-start pt-10">
+        <div class="relative mx-auto p-5 border w-full max-w-6xl shadow-lg rounded-md bg-white">
+             <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Spielerverwaltung</h3>
+                <button id="close-player-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
             
-            logoutButton.addEventListener('click', () => {
-                signOut(auth).catch(error => console.error("Logout Fehler:", error));
-            });
+            <div id="modal-loader" class="text-center py-8">
+                <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+            <div id="modal-player-list-container" class="hidden overflow-x-auto">
+                 <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Match-Bereit</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-player-list" class="bg-white divide-y divide-gray-200"></tbody>
+                 </table>
+            </div>
+        </div>
+    </div>
 
-            addOfflinePlayerForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const firstName = e.target.firstName.value;
-                const lastName = e.target.lastName.value;
-                try {
-                    await addDoc(collection(db, "users"), {
-                        firstName, lastName, clubId: userData.clubId, role: 'player', isOffline: true, onboardingComplete: false, createdAt: new Date()
-                    });
-                    alert('Offline Spieler erfolgreich erstellt!');
-                    e.target.reset();
-                } catch (error) { 
-                    console.error("Fehler beim Erstellen des Offline Spielers:", error);
-                    alert('Fehler: Der Spieler konnte nicht erstellt werden.');
-                }
-            });
+    <div id="add-offline-player-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
+         <div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Offline-Spieler erstellen</h3>
+                <button id="close-add-player-modal-button" class="text-gray-400 hover:text-gray-600">
+                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="add-offline-player-form" class="space-y-4">
+                 <div>
+                    <label for="firstName" class="block text-sm font-medium text-gray-700">Vorname</label>
+                    <input type="text" id="firstName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                 <div>
+                    <label for="lastName" class="block text-sm font-medium text-gray-700">Nachname</label>
+                    <input type="text" id="lastName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">E-Mail (optional)</label>
+                    <input type="email" id="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Für Online-Einladung nötig">
+                </div>
+                 <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Spieler erstellen</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="pairings-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">
+                    <i class="fas fa-random mr-2 text-green-600"></i> Erstellte Paarungen
+                </h3>
+                <button id="close-pairings-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="modal-pairings-content" class="space-y-4">
+                <p class="text-center text-gray-500">Paarungen werden geladen...</p>
+            </div>
+        </div>
+    </div>
 
-            openPlayerModalButton.addEventListener('click', () => {
-                playerListModal.classList.remove('hidden');
-                playerListModal.classList.add('modal-active');
-                loadPlayerList(userData.clubId);
-            });
-
-            closePlayerModalButton.addEventListener('click', () => {
-                playerListModal.classList.add('hidden');
-                playerListModal.classList.remove('modal-active');
-                if (unsubscribePlayerList) unsubscribePlayerList();
-                inviteLinkDisplay.classList.add('hidden');
-            });
-        }
-
-        function loadPlayerList(clubId) {
-            modalLoader.style.display = 'block';
-            modalPlayerListContainer.classList.add('hidden');
-            
-            const q = query(collection(db, "users"), where("clubId", "==", clubId));
-
-            if (unsubscribePlayerList) unsubscribePlayerList();
-
-            unsubscribePlayerList = onSnapshot(q, (snapshot) => {
-                modalPlayerList.innerHTML = '';
-                if (snapshot.empty) {
-                     modalPlayerList.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">Keine Spieler in diesem Verein gefunden.</td></tr>';
-                } else {
-                    snapshot.docs.sort((a,b) => a.data().lastName.localeCompare(b.data().lastName)).forEach(doc => {
-                        const player = doc.data(); 
-                        player.id = doc.id;
-                        const row = document.createElement('tr');
-                        
-                        let statusHtml = player.isOffline ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
-                        let actionsHtml = '';
-
-                        if (player.isOffline) { 
-                            actionsHtml += `<button data-id="${player.id}" class="send-invite-btn text-indigo-600 hover:text-indigo-900 text-sm font-medium">Link schicken</button>`; 
-                        }
-                        if (player.role === 'player') { 
-                            actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn text-purple-600 hover:text-purple-900 text-sm font-medium ml-4">Zum Coach ernennen</button>`;
-                        }
-                        actionsHtml += `<button data-id="${player.id}" class="delete-player-btn text-red-600 hover:text-red-900 text-sm font-medium ml-4">Löschen</button>`;
-                        
-                        row.innerHTML = `
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</div>
-                                ${player.email ? `<div class="text-sm text-gray-500">${player.email}</div>` : ''}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-left">${actionsHtml}</td>`;
-                        modalPlayerList.appendChild(row);
-                    });
-                }
-                modalLoader.style.display = 'none';
-                modalPlayerListContainer.classList.remove('hidden');
-            }, error => {
-                console.error("Fehler beim Laden der Spielerliste:", error);
-                modalPlayerList.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-red-500">Fehler beim Laden der Spieler.</td></tr>';
-                modalLoader.style.display = 'none';
-                modalPlayerListContainer.classList.remove('hidden');
-            });
-        }
-
-        modalPlayerList.addEventListener('click', async (e) => {
-            const target = e.target;
-            const playerId = target.dataset.id;
-            if (!playerId || !currentUserData) return;
-
-            if (target.classList.contains('send-invite-btn')) {
-                try {
-                    const docRef = await addDoc(collection(db, "invitationTokens"), { 
-                        targetUserId: playerId, 
-                        role: 'player', 
-                        clubId: currentUserData.clubId, 
-                        isUsed: false, 
-                        createdAt: new Date() 
-                    });
-                    const url = `${window.location.origin}/register.html?token=${docRef.id}`;
-                    inviteLinkDisplay.textContent = `Einladungslink: ${url}`;
-                    inviteLinkDisplay.classList.remove('hidden');
-                } catch (error) { 
-                    console.error("Fehler beim Erstellen des Tokens: ", error); 
-                    alert('Fehler: Der Einladungslink konnte nicht erstellt werden.');
-                }
-            }
-            if (target.classList.contains('delete-player-btn')) {
-                if (confirm('Möchten Sie diesen Spieler wirklich löschen?')) {
-                    try { 
-                        await deleteDoc(doc(db, "users", playerId)); 
-                    } catch (error) { 
-                        console.error("Fehler beim Löschen: ", error); 
-                        alert('Fehler: Der Spieler konnte nicht gelöscht werden.');
-                    }
-                }
-            }
-            if (target.classList.contains('promote-coach-btn')) {
-                if (confirm('Möchten Sie diesen Spieler zum Coach ernennen?')) {
-                    try { 
-                        await updateDoc(doc(db, "users", playerId), { role: 'coach' }); 
-                        alert('Spieler wurde zum Coach befördert.'); 
-                    } catch (error) { 
-                        console.error("Fehler bei Beförderung: ", error); 
-                        alert('Fehler: Der Spieler konnte nicht befördert werden.');
-                    }
-                }
-            }
-        });
-    </script>
+    <script type="module" src="/js/coach.js"></script>
 </body>
 </html>
-

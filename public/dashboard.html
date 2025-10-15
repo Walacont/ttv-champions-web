@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mein Dashboard - TTV Champions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #page-loader {
+            display: flex; justify-content: center; align-items: center; position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh; background-color: #f3f4f6; z-index: 9999;
+        }
+        #main-content { display: none; }
+        .tab-active {
+            border-color: #4f46e5; /* indigo-600 */
+            color: #4f46e5;
+            background-color: #eef2ff; /* indigo-50 */
+        }
+        .modal { transition: opacity 0.25s ease; }
+        .league-icon-active { transform: scale(1.1); border-color: #4f46e5; }
+        .toggle-btn-active { background-color: #4f46e5; color: white; }
+        .calendar-day-present { 
+            background-color: #10b981; /* green-500 */
+            color: white; 
+            border-color: #059669; /* green-700 */
+        }
+        .calendar-day-streak {
+            background-color: #f59e0b; /* amber-500 */
+            color: white;
+            border-color: #b45309; /* amber-700 */
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #f59e0b;
+            font-weight: bold;
+            position: relative;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="page-loader">
+        <div class="text-center">
+            <svg class="animate-spin h-10 w-10 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p id="loader-text" class="mt-4 text-sm font-medium text-gray-600">Lade Daten...</p>
+        </div>
+    </div>
+
+    <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+        <header class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Mein Dashboard</h1>
+                <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </a>
+                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <div class="mb-6 border-b border-gray-200">
+            <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="overview">
+                    Übersicht
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="profile">
+                    Mein Profil
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="exercises">
+                    Übungskatalog
+                </button>
+                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="leaderboard">
+                    Leaderboard
+                </button>
+                <a href="/faq.html" class="whitespace-nowrap py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                    FAQ & Regeln
+                </a>
+            </nav>
+        </div>
+
+        <main>
+            <div id="tab-content-overview" class="tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md text-center">
+                        <h2 class="text-lg font-semibold text-gray-500 mb-2">Dein Punktestand (aktuelle Saison)</h2>
+                        <div class="flex items-center justify-center text-5xl font-bold text-indigo-600">
+                            <i class="fas fa-star text-yellow-400 mr-4"></i>
+                            <span id="player-points">0</span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Dein Rivale</h2>
+                        <div id="rival-info" class="text-gray-600"><p>Daten werden geladen...</p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md md:col-span-1 lg:col-span-2">
+                        <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
+                        <ul id="points-history" class="space-y-3 max-h-64 overflow-y-auto"><li>Historie wird geladen...</li></ul>
+                    </div>
+                    <div class="md:col-span-2 lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Aktive Challenges</h2>
+                        <div id="challenges-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><p>Challenges werden geladen...</p></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="tab-content-profile" class="tab-content hidden">
+                 <div class="space-y-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">Monatsübersicht</h2>
+                            <div class="flex items-center space-x-4">
+                                <button id="prev-month" class="text-gray-500 hover:text-indigo-600"><i class="fas fa-chevron-left"></i></button>
+                                <h3 id="calendar-month-year" class="font-semibold text-lg w-32 text-center"></h3>
+                                <button id="next-month" class="text-gray-500 hover:text-indigo-600"><i class="fas fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-gray-500 mb-2">
+                            <div>Mo</div><div>Di</div><div>Mi</div><div>Do</div><div>Fr</div><div>Sa</div><div>So</div>
+                        </div>
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
+                        <div class="mt-6 pt-6 border-t">
+                            <h3 class="text-xl font-semibold mb-4">Statistiken für <span id="stats-month-name"></span></h3>
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="text-sm text-gray-500">Trainingstage</p>
+                                    <p id="stats-training-days" class="text-2xl font-bold text-indigo-600">0</p>
+                                </div>
+                                 <div class="bg-gray-50 p-4 rounded-lg">
+                                    <p class="text-sm text-gray-500">Aktueller Streak</p>
+                                    <p id="stats-current-streak" class="text-2xl font-bold text-pink-600">0 🔥</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+                        <h2 class="text-xl font-semibold mb-4">Deine Erfolge</h2>
+                        <p class="text-gray-500">Hier werden bald deine freigeschalteten Abzeichen und Erfolge angezeigt.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-content-exercises" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                    <div id="tags-filter-container" class="flex flex-wrap gap-2 mb-6">
+                        </div>
+                    <div id="exercises-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><p>Übungen werden geladen...</p></div>
+                </div>
+            </div>
+
+            <div id="tab-content-leaderboard" class="tab-content hidden">
+                 <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+                    <div id="league-icons-container" class="flex justify-center items-end space-x-4 mb-4"></div>
+                    <h2 id="league-name" class="text-2xl font-bold text-gray-900 text-center">Leaderboard</h2>
+                    <div class="mt-4 p-4 bg-gray-50 rounded-lg flex justify-between items-center">
+                        <div class="text-center">
+                            <p class="text-sm text-gray-500">Saison endet in:</p>
+                            <p id="season-countdown" class="font-mono font-semibold text-indigo-600"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+                        <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
+                        <button id="toggle-global" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Global</button>
+                    </div>
+
+                    <div id="leaderboard-club-container">
+                        <div id="leaderboard-list-club" class="mt-6 space-y-2">
+                             <p class="text-center text-gray-500 py-8">Leaderboard wird geladen...</p>
+                        </div>
+                    </div>
+
+                    <div id="leaderboard-global-container" class="hidden">
+                         <div id="leaderboard-list-global" class="mt-6 space-y-2">
+                             <p class="text-center text-gray-500 py-8">Globales Leaderboard wird geladen...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="exercise-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-exercise-title" class="text-xl leading-6 font-medium text-gray-900"></h3>
+                <button id="close-exercise-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <img id="modal-exercise-image" src="" alt="Übungsbild" class="w-full max-h-96 object-contain rounded-md mb-4">
+            <div id="modal-exercise-tags" class="mb-4"></div>
+            <p id="modal-exercise-description" class="text-sm text-gray-600 mb-4" style="white-space: pre-wrap;"></p>
+            <div class="text-right">
+                <span id="modal-exercise-points" class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="challenge-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-challenge-title" class="text-xl leading-6 font-medium text-gray-900"></h3>
+                <button id="close-challenge-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <p id="modal-challenge-description" class="text-sm text-gray-600 mb-4" style="white-space: pre-wrap;"></p>
+            <div class="text-right">
+                 <span id="modal-challenge-points" class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"></span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/js/dashboard.js"></script>
+</body>
+</html>

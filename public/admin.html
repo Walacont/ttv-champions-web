@@ -6,214 +6,231 @@
     <title>Admin Dashboard - TTV Champions</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         .modal { transition: opacity 0.25s ease; }
-        .modal-active { display: flex; }
-        #page-loader { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #f3f4f6; z-index: 9999; }
-        #main-content { display: none; }
+        #page-loader, #auth-error-container {
+            display: flex; justify-content: center; align-items: center; position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh; background-color: #f3f4f6; z-index: 9999;
+        }
+        #main-content, #auth-error-container { display: none; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <div id="page-loader">
         <svg class="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
+    </div>
+
+    <div id="auth-error-container">
+        <div class="text-center p-8 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-red-600 mb-4">Zugriff verweigert</h2>
+            <p id="auth-error-message" class="text-gray-700">Die Seite konnte nicht geladen werden.</p>
+            <button id="error-logout-button" class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                Zurück zum Login
+            </button>
+        </div>
     </div>
 
     <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
+                <p id="welcome-message" class="text-gray-600">Willkommen!</p>
             </div>
-            <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
-                Logout
-            </button>
+             <div class="flex items-center space-x-4">
+                <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </a>
+                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
+                    Logout
+                </button>
+            </div>
         </header>
 
-        <main class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div class="md:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-semibold mb-4">Neuen Coach einladen</h2>
-                <form id="invite-coach-form" class="space-y-4">
-                    <div>
-                        <label for="clubId" class="block text-sm font-medium text-gray-700">Vereins-ID</label>
-                        <input type="text" id="clubId" placeholder="z.B. ttv-musterstadt" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+        <main class="space-y-8">
+            <section id="statistics-section">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Statistik-Übersicht</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                        <div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-users text-indigo-600 text-xl"></i></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Gesamte Nutzer</p>
+                            <p id="stats-total-users" class="text-2xl font-bold">0</p>
+                        </div>
                     </div>
-                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
-                        Einladungslink erstellen
-                    </button>
-                </form>
-                <div id="invite-link-display" class="mt-4 p-3 bg-gray-100 rounded-md text-sm text-gray-900 break-words hidden"></div>
-            </div>
-
-            <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-xl font-semibold mb-4">Registrierte Vereine</h2>
-                <div id="club-list-container" class="space-y-3">
-                    <p id="club-list-loader">Lade Vereine...</p>
-                    <!-- Club list will be rendered here -->
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                        <div class="bg-teal-100 p-3 rounded-full"><i class="fas fa-shield-alt text-teal-600 text-xl"></i></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Vereine</p>
+                            <p id="stats-total-clubs" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                     <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                        <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-star text-amber-600 text-xl"></i></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Vergebene Punkte</p>
+                            <p id="stats-total-points" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                        <div class="bg-rose-100 p-3 rounded-full"><i class="fas fa-calendar-check text-rose-600 text-xl"></i></div>
+                        <div>
+                            <p class="text-sm text-gray-500">Anwesenheiten</p>
+                            <p id="stats-total-attendance" class="text-2xl font-bold">0</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-lg font-semibold mb-4">Geschlechterverteilung</h3>
+                        <canvas id="gender-chart"></canvas>
+                    </div>
+                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                         <h3 class="text-lg font-semibold mb-4">Anwesenheit pro Monat</h3>
+                        <canvas id="attendance-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="management-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-1 space-y-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Neuen Coach einladen</h2>
+                        <form id="invite-coach-form" class="space-y-4">
+                            <div>
+                                <label for="clubId" class="block text-sm font-medium text-gray-700">Neue Vereins-ID</label>
+                                <input type="text" id="clubId" required="" placeholder="z.B. ttv-musterstadt" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                                Einladungslink erstellen
+                            </button>
+                        </form>
+                        <div id="invite-link-container" class="mt-4 hidden">
+                            <label class="block text-sm font-medium text-gray-700">Generierter Link:</label>
+                            <input type="text" id="invite-link-input" readonly="" class="mt-1 w-full bg-gray-100 p-2 border rounded-md text-sm">
+                            <button id="copy-link-button" class="w-full mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
+                                Kopieren
+                            </button>
+                        </div>
+                    </div>
+                     <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Übung erstellen</h2>
+                        <form id="create-exercise-form" class="space-y-4">
+                            <div>
+                                <label for="exercise-title" class="block text-sm font-medium text-gray-700">Titel</label>
+                                <input type="text" id="exercise-title" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="exercise-description" class="block text-sm font-medium text-gray-700">Beschreibung</label>
+                                <textarea id="exercise-description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            </div>
+                            <div>
+                                <label for="exercise-points" class="block text-sm font-medium text-gray-700">Punkte</label>
+                                <input type="number" id="exercise-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="exercise-tags" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
+                                <input type="text" id="exercise-tags" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="exercise-image" class="block text-sm font-medium text-gray-700">Bild</label>
+                                <input type="file" id="exercise-image" accept="image/*" required class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                            </div>
+                            <button type="submit" id="create-exercise-submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
+                                Übung speichern
+                            </button>
+                        </form>
+                        <p id="exercise-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 space-y-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Vereinsübersicht</h2>
+                        <div id="clubs-list" class="space-y-3"><p>Vereine werden geladen...</p></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                        <div id="exercises-list-admin" class="grid grid-cols-1 sm:grid-cols-2 gap-6"><p>Übungen werden geladen...</p></div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
-    <!-- Club-Mitglieder Modal -->
-    <div id="club-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full hidden justify-center items-center">
-        <div class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+    <div id="player-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
             <div class="flex justify-between items-center mb-4">
-                <h3 id="modal-club-name" class="text-xl leading-6 font-medium text-gray-900">Mitgliederliste</h3>
-                <button id="close-club-modal-button" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+                <h3 id="modal-club-id" class="text-xl font-semibold"></h3>
+                <button id="close-player-modal-button" class="text-gray-500 hover:text-gray-800">×</button>
             </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rolle</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="modal-club-members" class="bg-white divide-y divide-gray-200"></tbody>
-                </table>
+            <div id="modal-player-list" class="max-h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <div id="exercise-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-exercise-title" class="text-xl font-semibold"></h3>
+                <button id="close-exercise-modal-button" class="text-gray-500 hover:text-gray-800">×</button>
+            </div>
+            <img id="modal-exercise-image" src="" alt="Übungsbild" class="w-full max-h-96 object-contain rounded-md mb-4">
+            <div id="modal-exercise-tags" class="mb-4"></div>
+            <p id="modal-exercise-description" class="text-sm text-gray-600 mb-4" style="white-space: pre-wrap;"></p>
+            <div class="flex justify-between items-center">
+                <span id="modal-exercise-points" class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"></span>
+                <div class="flex gap-4">
+                     <button id="modal-edit-exercise-button" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
+                        Bearbeiten
+                    </button>
+                    <button id="modal-delete-exercise-button" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">
+                        Löschen
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-        import { firebaseConfig } from './js/firebase-config.js';
+    <div id="edit-exercise-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 class="text-xl font-semibold mb-4">Übung bearbeiten</h3>
+            <form id="edit-exercise-form" class="space-y-4">
+                <input type="hidden" id="edit-exercise-id">
+                <div>
+                    <label for="edit-exercise-title" class="block text-sm font-medium text-gray-700">Titel</label>
+                    <input type="text" id="edit-exercise-title" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="edit-exercise-description" class="block text-sm font-medium text-gray-700">Beschreibung</label>
+                    <textarea id="edit-exercise-description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                </div>
+                <div>
+                    <label for="edit-exercise-points" class="block text-sm font-medium text-gray-700">Punkte</label>
+                    <input type="number" id="edit-exercise-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="edit-exercise-tags" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
+                    <input type="text" id="edit-exercise-tags" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex justify-end gap-4 pt-4">
+                    <button type="button" id="close-edit-exercise-modal-button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-300">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">
+                        Änderungen speichern
+                    </button>
+                </div>
+                 <p id="edit-exercise-feedback" class="mt-2 text-sm text-center"></p>
+            </form>
+        </div>
+    </div>
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
 
-        // DOM Elements
-        const pageLoader = document.getElementById('page-loader');
-        const mainContent = document.getElementById('main-content');
-        const welcomeMessage = document.getElementById('welcome-message');
-        const logoutButton = document.getElementById('logout-button');
-        const inviteCoachForm = document.getElementById('invite-coach-form');
-        const inviteLinkDisplay = document.getElementById('invite-link-display');
-        const clubListContainer = document.getElementById('club-list-container');
-        const clubListLoader = document.getElementById('club-list-loader');
-        const clubModal = document.getElementById('club-modal');
-        const modalClubName = document.getElementById('modal-club-name');
-        const modalClubMembers = document.getElementById('modal-club-members');
-        const closeClubModalButton = document.getElementById('close-club-modal-button');
-
-        let allUsers = [];
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userDocRef = doc(db, "users", user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists() && userDocSnap.data().role === 'admin') {
-                    initializeAppPage(userDocSnap.data());
-                } else {
-                    window.location.href = '/index.html';
-                }
-            } else {
-                window.location.href = '/index.html';
-            }
-        });
-
-        function initializeAppPage(adminData) {
-            pageLoader.style.display = 'none';
-            mainContent.style.display = 'block';
-            welcomeMessage.textContent = `Willkommen, ${adminData.firstName || adminData.email}!`;
-            
-            logoutButton.addEventListener('click', () => signOut(auth));
-
-            inviteCoachForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const clubId = e.target.clubId.value.trim();
-                if (!clubId) return;
-                try {
-                    const docRef = await addDoc(collection(db, "invitationTokens"), { role: 'coach', clubId, isUsed: false });
-                    const url = `${window.location.origin}/register.html?token=${docRef.id}`;
-                    inviteLinkDisplay.textContent = `Link für ${clubId}: ${url}`;
-                    inviteLinkDisplay.classList.remove('hidden');
-                    e.target.reset();
-                } catch (error) { console.error("Error creating token:", error); }
-            });
-
-            // Listen for all users to build the club list
-            const usersQuery = query(collection(db, "users"));
-            onSnapshot(usersQuery, (snapshot) => {
-                allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderClubList();
-            });
-
-            closeClubModalButton.addEventListener('click', () => {
-                clubModal.classList.add('hidden');
-                clubModal.classList.remove('modal-active');
-            });
-        }
-
-        function renderClubList() {
-            const clubs = {}; // { clubId: [user1, user2], ... }
-            allUsers.forEach(user => {
-                if (!user.clubId) return;
-                if (!clubs[user.clubId]) {
-                    clubs[user.clubId] = [];
-                }
-                clubs[user.clubId].push(user);
-            });
-
-            clubListLoader.style.display = 'none';
-            clubListContainer.innerHTML = '';
-
-            if (Object.keys(clubs).length === 0) {
-                clubListContainer.innerHTML = '<p class="text-gray-500">Noch keine Vereine registriert.</p>';
-                return;
-            }
-            
-            // Sort clubs alphabetically by ID
-            const sortedClubIds = Object.keys(clubs).sort();
-
-            sortedClubIds.forEach(clubId => {
-                const memberCount = clubs[clubId].length;
-                const clubElement = document.createElement('div');
-                clubElement.className = 'p-4 border rounded-lg hover:bg-gray-50 cursor-pointer flex justify-between items-center';
-                clubElement.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-indigo-600">${clubId}</p>
-                        <p class="text-sm text-gray-500">${memberCount} Mitglied(er)</p>
-                    </div>
-                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
-                `;
-                clubElement.addEventListener('click', () => showClubModal(clubId, clubs[clubId]));
-                clubListContainer.appendChild(clubElement);
-            });
-        }
-
-        function showClubModal(clubId, members) {
-            modalClubName.textContent = `Mitgliederliste für: ${clubId}`;
-            modalClubMembers.innerHTML = '';
-
-            members.sort((a,b) => a.lastName.localeCompare(b.lastName)).forEach(member => {
-                const row = document.createElement('tr');
-                const roleDisplay = member.role.charAt(0).toUpperCase() + member.role.slice(1);
-                const statusHtml = member.isOffline ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>' : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
-                
-                row.innerHTML = `
-                    <td class="px-6 py-4"><div class="text-sm font-medium text-gray-900">${member.firstName} ${member.lastName}</div><div class="text-sm text-gray-500">${member.email || 'Keine E-Mail'}</div></td>
-                    <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleDisplay === 'Admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">${roleDisplay}</span></td>
-                    <td class="px-6 py-4">${statusHtml}</td>
-                `;
-                modalClubMembers.appendChild(row);
-            });
-
-            clubModal.classList.remove('hidden');
-            clubModal.classList.add('modal-active');
-        }
-    </script>
+    <script type="module" src="/js/admin.js"></script>
 </body>
 </html>
-
