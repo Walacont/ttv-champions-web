@@ -6,6 +6,8 @@ import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } 
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, loadLeaderboardForCoach } from './leaderboard.js';
+import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount } from './attendance.js';
+import { handleCreateChallenge, loadActiveChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns } from './challenges.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -40,7 +42,6 @@ let unsubscribeLeaderboard = null;
 let unsubscribePointsHistory = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
-let monthlyAttendance = new Map();
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -94,14 +95,18 @@ function initializeCoachPage(userData) {
 
     setupTabs();
     loadPlayersForDropdown(userData.clubId);
-    loadChallengesForDropdown(userData.clubId);
+    loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown();
-    loadActiveChallenges(userData.clubId);
+    loadActiveChallenges(userData.clubId, db);
     loadAllExercises();
     loadLeaguesForSelector(userData.clubId);
-    loadPlayersForAttendance(userData.clubId);
+    loadPlayersForAttendance(userData.clubId, db, (players) => {
+        clubPlayers = players;
+        populateMatchDropdowns();
+        populateHistoryFilterDropdown();
+    });
     updateSeasonCountdown();
-    renderCalendar(currentCalendarDate);
+    renderCalendar(currentCalendarDate, db, userData);
 
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
@@ -114,8 +119,8 @@ function initializeCoachPage(userData) {
     document.getElementById('add-offline-player-form').addEventListener('submit', handleAddOfflinePlayer);
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
     document.getElementById('points-form').addEventListener('submit', handlePointsFormSubmit);
-    document.getElementById('create-challenge-form').addEventListener('submit', handleCreateChallenge);
-    document.getElementById('attendance-form').addEventListener('submit', handleAttendanceSave);
+    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
+    document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
     document.getElementById('create-exercise-form').addEventListener('submit', handleCreateExercise);
     document.getElementById('match-form').addEventListener('submit', handleMatchSave);
     document.getElementById('generate-pairings-button').addEventListener('click', handleGeneratePairings);
@@ -123,9 +128,9 @@ function initializeCoachPage(userData) {
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModal(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', () => document.getElementById('exercise-modal').classList.add('hidden'));
     document.getElementById('modal-player-list').addEventListener('click', handlePlayerListActions);
-    document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate); });
-    document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate); });
-    document.getElementById('calendar-grid').addEventListener('click', handleCalendarDayClick);
+    document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
+    document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
+    document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, updatePairingsButtonState));
     document.getElementById('player-a-select').addEventListener('change', updateMatchUI);
     document.getElementById('player-b-select').addEventListener('change', updateMatchUI);
 
@@ -339,53 +344,7 @@ function updatePairingsButtonState() {
 // ===== ANWESENHEITS-FUNKTIONEN (Angepasst & Neu) =====
 // =============================================================
 
-// NEUE Funktion
-function updateAttendanceCount() {
-    const countEl = document.getElementById('attendance-count');
-    const checkedCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
-    if (countEl) {
-        countEl.textContent = checkedCheckboxes.length;
-    }
-}
-
 // ERSETZTE Funktion
-async function handleCalendarDayClick(e) {
-    const dayCell = e.target.closest('.calendar-day');
-    if (!dayCell || dayCell.classList.contains('disabled')) return;
-    const date = dayCell.dataset.date;
-    const attendanceData = monthlyAttendance.get(date);
-    const modal = document.getElementById('attendance-modal');
-    document.getElementById('attendance-modal-date').textContent = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    document.getElementById('attendance-date-input').value = date;
-    document.getElementById('attendance-doc-id-input').value = attendanceData ? attendanceData.id : '';
-
-    const playerListContainer = document.getElementById('attendance-player-list');
-    playerListContainer.innerHTML = '';
-    clubPlayers.forEach(player => {
-        const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
-        const div = document.createElement('div');
-        div.className = 'flex items-center p-1'; // Layout korrigiert
-        div.innerHTML = `
-            <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-            <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700">${player.firstName} ${player.lastName}</label>
-            ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
-        `;
-        playerListContainer.appendChild(div);
-    });
-
-    // Event Listener für Zähler und Paarungs-Button hinzufügen
-    playerListContainer.addEventListener('change', () => {
-        updateAttendanceCount();
-        updatePairingsButtonState();
-    });
-    
-    modal.classList.remove('hidden');
-    
-    // Initialen Zustand für Zähler und Button setzen
-    updateAttendanceCount();
-    updatePairingsButtonState();
-}
-
 async function handleMatchSave(e) {
     e.preventDefault();
     const feedbackEl = document.getElementById('match-feedback');
@@ -794,222 +753,7 @@ async function handleCreateExercise(e) {
     }
 }
 
-async function renderCalendar(date) {
-    const calendarGrid = document.getElementById('calendar-grid');
-    if(!calendarGrid) return;
-    const calendarMonthYear = document.getElementById('calendar-month-year');
-    
-    calendarGrid.innerHTML = '';
-    
-    const month = date.getMonth();
-    const year = date.getFullYear();
-    calendarMonthYear.textContent = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-    
-    await fetchMonthlyAttendance(year, month);
-    
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
-    const startOffset = (firstDayOfMonth === 0) ? 6 : firstDayOfMonth - 1;
 
-    for (let i = 0; i < startOffset; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'p-2 border rounded-md bg-gray-50';
-        calendarGrid.appendChild(emptyCell);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dayCell = document.createElement('div');
-        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        
-        dayCell.className = 'calendar-day p-2 border rounded-md text-center';
-        dayCell.textContent = day;
-        dayCell.dataset.date = dateString;
-
-        if (monthlyAttendance.has(dateString)) {
-            dayCell.classList.add('calendar-day-present');
-        }
-        
-        calendarGrid.appendChild(dayCell);
-    }
-}
-
-async function fetchMonthlyAttendance(year, month) {
-    monthlyAttendance.clear();
-    const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-    const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
-
-    const q = query(collection(db, 'attendance'),
-        where('clubId', '==', currentUserData.clubId),
-        where('date', '>=', startDate),
-        where('date', '<=', endDate)
-    );
-
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach(doc => {
-        monthlyAttendance.set(doc.data().date, { id: doc.id, ...doc.data() });
-    });
-}
-
-async function handleAttendanceSave(e) {
-    e.preventDefault();
-    const feedbackEl = document.getElementById('attendance-feedback');
-    feedbackEl.textContent = 'Speichere...';
-
-    const date = document.getElementById('attendance-date-input').value;
-    const docId = document.getElementById('attendance-doc-id-input').value;
-    const ATTENDANCE_POINTS_BASE = 10;
-
-    const allPlayerCheckboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
-    const presentPlayerIds = Array.from(allPlayerCheckboxes)
-        .filter(checkbox => checkbox.checked)
-        .map(checkbox => checkbox.value);
-
-    const previousAttendanceData = monthlyAttendance.get(date);
-    const previouslyPresentIdsOnThisDay = previousAttendanceData ? previousAttendanceData.presentPlayerIds : [];
-
-    try {
-        const batch = writeBatch(db);
-
-        // NEU: Finde den letzten Trainingstag vor dem aktuellen Datum
-        const attendanceColl = collection(db, 'attendance');
-        const q = query(
-            attendanceColl,
-            where('clubId', '==', currentUserData.clubId),
-            where('date', '<', date),
-            orderBy('date', 'desc'),
-            limit(1)
-        );
-        const previousTrainingSnapshot = await getDocs(q);
-
-        let previousTrainingPresentIds = [];
-        if (!previousTrainingSnapshot.empty) {
-            previousTrainingPresentIds = previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
-        }
-
-        // --- Aktualisiere Anwesenheitsdokument für den aktuellen Tag ---
-        const attendanceRef = docId ? doc(db, 'attendance', docId) : doc(attendanceColl);
-        batch.set(attendanceRef, { date, clubId: currentUserData.clubId, presentPlayerIds, updatedAt: serverTimestamp() }, { merge: true });
-
-        // --- Gehe JEDEN Spieler durch und aktualisiere Streak und Punkte ---
-        for (const player of clubPlayers) {
-            const playerRef = doc(db, 'users', player.id);
-            const isPresentToday = presentPlayerIds.includes(player.id);
-            const wasPresentPreviouslyOnThisDay = previouslyPresentIdsOnThisDay.includes(player.id);
-
-            // FALL 1: Spieler ist heute anwesend
-            if (isPresentToday) {
-                // Nur ausführen, wenn der Spieler NEU für diesen Tag als anwesend markiert wurde
-                if (!wasPresentPreviouslyOnThisDay) {
-                    const currentStreak = player.streak || 0;
-                    const wasPresentLastTraining = previousTrainingPresentIds.includes(player.id);
-                    
-                    // NEU: Streak-Logik
-                    const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
-
-                    // NEU: Bonus-Punkte-Logik
-                    let pointsToAdd = ATTENDANCE_POINTS_BASE;
-                    let reason = "Anwesenheit beim Training";
-
-                    if (newStreak >= 5) {
-                        pointsToAdd = 20; // 10 Basis + 10 Bonus
-                        reason = `Anwesenheit (${newStreak}x Super-Streak)`;
-                    } else if (newStreak >= 3) {
-                        pointsToAdd = 15; // 10 Basis + 5 Bonus
-                        reason = `Anwesenheit (${newStreak}x Streak-Bonus)`;
-                    }
-                    
-                    batch.update(playerRef, {
-                        streak: newStreak,
-                        points: increment(pointsToAdd)
-                    });
-                    
-                    const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
-                    batch.set(historyRef, {
-                        points: pointsToAdd,
-                        reason,
-                        timestamp: serverTimestamp(),
-                        awardedBy: "System (Anwesenheit)"
-                    });
-                }
-            }
-            // FALL 2: Spieler ist heute NICHT anwesend
-            else {
-                // NEU: Setze den Streak für jeden abwesenden Spieler auf 0
-                batch.update(playerRef, { streak: 0 });
-
-                // Falls der Coach den Spieler für diesen Tag abgewählt hat, ziehe die Basispunkte ab
-                if (wasPresentPreviouslyOnThisDay) {
-                    batch.update(playerRef, { points: increment(-ATTENDANCE_POINTS_BASE) });
-                    // Optional: Negativen Eintrag in der Historie erstellen
-                    const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
-                     batch.set(historyRef, {
-                        points: -ATTENDANCE_POINTS_BASE,
-                        reason: "Anwesenheit korrigiert (abgemeldet)",
-                        timestamp: serverTimestamp(),
-                        awardedBy: "System (Anwesenheit)"
-                    });
-                }
-            }
-        }
-
-        await batch.commit();
-
-        feedbackEl.textContent = 'Anwesenheit erfolgreich gespeichert!';
-        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
-        
-        setTimeout(() => {
-            document.getElementById('attendance-modal').classList.add('hidden');
-            feedbackEl.textContent = '';
-            renderCalendar(currentCalendarDate); // Kalender neu laden, um visuelles Feedback zu geben
-        }, 1500);
-
-    } catch (error) {
-        console.error("Fehler beim Speichern der Anwesenheit:", error);
-        feedbackEl.textContent = `Fehler: ${error.message}`;
-        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
-    }
-}
-
-// ERSETZTE Funktion
-function loadPlayersForAttendance(clubId) {
-    const q = query(collection(db, 'users'), where('clubId', '==', clubId), where('role', '==', 'player'));
-    onSnapshot(q, (snapshot) => {
-        clubPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        clubPlayers.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
-        
-        populateMatchDropdowns();
-        populateHistoryFilterDropdown(); // NEU: Diesen Aufruf hinzufügen
-    }, (error) => {
-        console.error("Fehler beim Laden der Spieler für die Anwesenheit:", error);
-    });
-}
-
-async function handleCreateChallenge(e) {
-    e.preventDefault();
-    const feedbackEl = document.getElementById('challenge-feedback');
-    const title = document.getElementById('challenge-title').value;
-    const type = document.getElementById('challenge-type').value;
-    const description = document.getElementById('challenge-description').value;
-    const points = parseInt(document.getElementById('challenge-points').value);
-    feedbackEl.textContent = '';
-    if (!title || !type || isNaN(points) || points <= 0) {
-        feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
-        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
-        return;
-    }
-    try {
-        await addDoc(collection(db, "challenges"), { title, type, description, points, clubId: currentUserData.clubId, isActive: true, createdAt: serverTimestamp() });
-        feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
-        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
-        e.target.reset();
-    } catch (error) {
-        console.error("Fehler beim Erstellen der Challenge:", error);
-        feedbackEl.textContent = 'Fehler: Challenge konnte nicht erstellt werden.';
-        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
-    }
-    setTimeout(() => { feedbackEl.textContent = ''; }, 4000);
-}
 
 async function handlePointsFormSubmit(e) {
     e.preventDefault();
@@ -1084,27 +828,6 @@ function loadPlayersForDropdown(clubId) {
     });
 }
 
-function loadChallengesForDropdown(clubId) { 
-    const select = document.getElementById('challenge-select'); 
-    if(!select) return;
-    const q = query(collection(db, 'challenges'), where('clubId', '==', clubId), where('isActive', '==', true)); 
-    onSnapshot(q, snapshot => { 
-        if(snapshot.empty) { 
-            select.innerHTML = '<option value="">Keine aktiven Challenges</option>'; 
-            return; 
-        } 
-        select.innerHTML = '<option value="">Challenge wählen...</option>'; 
-        snapshot.forEach(doc => { 
-            const c = doc.data(); 
-            const option = document.createElement('option'); 
-            option.value = doc.id; 
-            option.textContent = `${c.title} (+${c.points} P.)`; 
-            option.dataset.points = c.points; 
-            option.dataset.title = c.title; 
-            select.appendChild(option); 
-        }); 
-    }); 
-}
 
 function loadExercisesForDropdown() { 
     const select = document.getElementById('exercise-select'); 
@@ -1128,55 +851,6 @@ function loadExercisesForDropdown() {
     }); 
 }
     
-function loadActiveChallenges(clubId) {
-    const activeChallengesList = document.getElementById('active-challenges-list');
-    if(!activeChallengesList) return;
-    const q = query(collection(db, "challenges"), where("clubId", "==", clubId), where("isActive", "==", true), orderBy("createdAt", "desc"));
-    onSnapshot(q, (snapshot) => {
-        activeChallengesList.innerHTML = '';
-        const now = new Date();
-        const challenges = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(challenge => calculateExpiry(challenge.createdAt, challenge.type) > now);
-        if (challenges.length === 0) {
-            activeChallengesList.innerHTML = '<p class="text-gray-500">Keine aktiven Challenges für deinen Verein gefunden.</p>';
-            return;
-        }
-        challenges.forEach(challenge => {
-            const card = document.createElement('div');
-            card.className = 'p-4 border rounded-lg bg-gray-50';
-            const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
-            card.innerHTML = ` <div class="flex justify-between items-center"> <h3 class="font-bold">${challenge.title}</h3> <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span> </div> <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p> <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t"> <span class="font-bold text-indigo-600">+${challenge.points} Punkte</span> <span class="challenge-countdown font-mono text-red-600" data-expires-at="${expiresAt.toISOString()}">Berechne...</span> </div> `;
-            activeChallengesList.appendChild(card);
-        });
-        updateAllCountdowns();
-    }, error => {
-        console.error("Fehler beim Laden der aktiven Challenges:", error);
-        activeChallengesList.innerHTML = '<p class="text-red-500">Fehler beim Laden der Challenges. Möglicherweise wird ein Index benötigt.</p>';
-    });
-}
-
-function calculateExpiry(createdAt, type) { if (!createdAt || !createdAt.toDate) return new Date(); const startDate = createdAt.toDate(); const expiryDate = new Date(startDate); switch (type) { case 'daily': expiryDate.setDate(startDate.getDate() + 1); break; case 'weekly': expiryDate.setDate(startDate.getDate() + 7); break; case 'monthly': expiryDate.setMonth(startDate.getMonth() + 1); break; } return expiryDate; }
-    
-function updateAllCountdowns() {
-    const countdownElements = document.querySelectorAll('.challenge-countdown');
-    const now = new Date();
-    countdownElements.forEach(el => {
-        const expiresAt = new Date(el.dataset.expiresAt);
-        const diff = expiresAt - now;
-        if (diff <= 0) {
-            el.textContent = "Abgelaufen";
-            el.classList.remove('text-red-600');
-            el.classList.add('text-gray-500');
-            return;
-        }
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        el.textContent = `Verbleibend: ${days}T ${hours}h ${minutes}m ${seconds}s`;
-    });
-}
     
 function loadAllExercises() {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
