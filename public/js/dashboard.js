@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/fi
 import { getFirestore, doc, getDoc, collection, onSnapshot, query, where, orderBy, getDocs, updateDoc, writeBatch, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
+import { loadExercises, handleExerciseClick, closeExerciseModal } from './exercises.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -72,7 +73,7 @@ function initializeDashboard(userData) {
 
     loadOverviewData(userData);
     loadProfileData(userData);
-    loadExercises();
+    loadExercises(db, unsubscribes);
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
     loadTodaysMatches(userData);
@@ -526,125 +527,6 @@ function loadTodaysMatches(userData) {
 
 // --- Übungs-Tab Funktionen ---
 
-function loadExercises() {
-    const exercisesListEl = document.getElementById('exercises-list');
-    const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
-
-    const exerciseListener = onSnapshot(q, (snapshot) => {
-        if (snapshot.empty) {
-            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
-            return;
-        }
-
-        exercisesListEl.innerHTML = '';
-        const allTags = new Set();
-        const exercises = [];
-
-        snapshot.forEach(doc => {
-            const exercise = doc.data();
-            const card = document.createElement('div');
-            card.className = 'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300';
-            card.dataset.title = exercise.title;
-            card.dataset.description = exercise.description || '';
-            card.dataset.imageUrl = exercise.imageUrl;
-            card.dataset.points = exercise.points;
-            card.dataset.tags = JSON.stringify(exercise.tags || []);
-            
-            const exerciseTags = exercise.tags || [];
-            exerciseTags.forEach(tag => allTags.add(tag));
-
-            const tagsHtml = exerciseTags.map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
-            
-            card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
-                              <div class="p-4 flex flex-col flex-grow">
-                                  <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
-                                  <div class="mb-2">${tagsHtml}</div>
-                                  <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
-                                  <div class="mt-4 text-right">
-                                      <span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>
-                                  </div>
-                              </div>`;
-            exercises.push({ card, tags: exerciseTags });
-            exercisesListEl.appendChild(card);
-        });
-
-        renderTagFilters(allTags, exercises);
-    });
-
-    unsubscribes.push(exerciseListener);
-}
-
-function renderTagFilters(tags, exercises) {
-    const filterContainer = document.getElementById('tags-filter-container');
-    if (!filterContainer) return;
-    
-    filterContainer.innerHTML = '';
-
-    const allButton = document.createElement('button');
-    allButton.className = 'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
-    allButton.textContent = 'Alle';
-    allButton.dataset.tag = 'all';
-    filterContainer.appendChild(allButton);
-
-    tags.forEach(tag => {
-        const button = document.createElement('button');
-        button.className = 'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
-        button.textContent = tag;
-        button.dataset.tag = tag;
-        filterContainer.appendChild(button);
-    });
-
-    filterContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('tag-filter-btn')) {
-            const selectedTag = e.target.dataset.tag;
-
-            document.querySelectorAll('.tag-filter-btn').forEach(btn => {
-                btn.classList.remove('active-filter', 'bg-indigo-600', 'text-white');
-                btn.classList.add('bg-gray-200', 'text-gray-700');
-            });
-            e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
-            e.target.classList.remove('bg-gray-200', 'text-gray-700');
-
-            exercises.forEach(({ card, tags }) => {
-                if (selectedTag === 'all' || tags.includes(selectedTag)) {
-                    card.classList.remove('hidden');
-                } else {
-                    card.classList.add('hidden');
-                }
-            });
-        }
-    });
-}
-
-
-// --- Modal-Funktionen ---
-
-function handleExerciseClick(event) {
-    const card = event.target.closest('[data-title]');
-    if (card) {
-        const { title, description, imageUrl, points, tags } = card.dataset;
-        openExerciseModal(title, description, imageUrl, points, tags);
-    }
-}
-
-function openExerciseModal(title, description, imageUrl, points, tags) {
-    document.getElementById('modal-exercise-title').textContent = title;
-    document.getElementById('modal-exercise-image').src = imageUrl;
-    document.getElementById('modal-exercise-image').alt = title;
-    document.getElementById('modal-exercise-description').textContent = description;
-    document.getElementById('modal-exercise-points').textContent = `+${points} P.`;
-    
-    const tagsContainer = document.getElementById('modal-exercise-tags');
-    const tagsArray = JSON.parse(tags || '[]');
-    if (tagsArray && tagsArray.length > 0) {
-        tagsContainer.innerHTML = tagsArray.map(tag => `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">${tag}</span>`).join('');
-    } else {
-        tagsContainer.innerHTML = '';
-    }
-    
-    document.getElementById('exercise-modal').classList.remove('hidden');
-}
-
-function closeExerciseModal() {
-    document.getElementById('exercise-modal').classList.add('hidden');
-}
+// =============================================================
+// ===== EXERCISE FUNCTIONS - NOW IN exercises.js =====
+// =============================================================
