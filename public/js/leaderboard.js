@@ -131,16 +131,94 @@ export function loadGlobalLeaderboard(userData, db, unsubscribes) {
 }
 
 /**
+ * Loads and displays the club leaderboard for coaches (allows selecting specific league)
+ * @param {string} clubId - The club ID to filter players
+ * @param {string} leagueToShow - The specific league to display
+ * @param {Object} db - Firestore database instance
+ * @param {Function} unsubscribeCallback - Callback to handle the unsubscribe function
+ */
+export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCallback) {
+    const leaderboardListClubEl = document.getElementById('leaderboard-list-club');
+    const leagueNameEl = document.getElementById('league-name');
+    const leagueIconsContainer = document.getElementById('league-icons-container');
+
+    if (!leaderboardListClubEl) return;
+
+    if (leagueNameEl) leagueNameEl.textContent = `${leagueToShow}-Liga`;
+
+    if (leagueIconsContainer) {
+        leagueIconsContainer.innerHTML = '';
+        for (const leagueKey in LEAGUES) {
+            const isActive = leagueKey === leagueToShow;
+            const iconDiv = document.createElement('div');
+            iconDiv.className = `p-2 border-2 rounded-lg transition-transform transform ${isActive ? 'league-icon-active bg-indigo-100' : 'bg-gray-200 opacity-50'}`;
+            iconDiv.innerHTML = `<svg class="h-8 w-8 ${LEAGUES[leagueKey].color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${LEAGUES[leagueKey].icon}</svg>`;
+            leagueIconsContainer.appendChild(iconDiv);
+        }
+    }
+
+    const q = query(
+        collection(db, "users"),
+        where("clubId", "==", clubId),
+        where("league", "==", leagueToShow),
+        where("role", "==", "player"),
+        orderBy("points", "desc")
+    );
+
+    const leaderboardListener = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Liga gefunden.</div>`;
+            return;
+        }
+
+        const sortedPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const totalPlayers = sortedPlayers.length;
+
+        leaderboardListClubEl.innerHTML = '';
+        if (totalPlayers > PROMOTION_COUNT) {
+            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-green-100 text-green-800 font-bold text-sm rounded-t-lg">Aufstiegszone</div>`;
+        }
+        sortedPlayers.slice(0, PROMOTION_COUNT).forEach((player, index) =>
+            renderPlayerRow(player, index, null, leaderboardListClubEl, totalPlayers)
+        );
+
+        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
+            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
+            sortedPlayers.slice(PROMOTION_COUNT, totalPlayers - DEMOTION_COUNT).forEach((player, index) =>
+                renderPlayerRow(player, index + PROMOTION_COUNT, null, leaderboardListClubEl, totalPlayers)
+            );
+        } else if (totalPlayers > PROMOTION_COUNT) {
+            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
+            sortedPlayers.slice(PROMOTION_COUNT).forEach((player, index) =>
+                renderPlayerRow(player, index + PROMOTION_COUNT, null, leaderboardListClubEl, totalPlayers)
+            );
+        }
+
+        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
+            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-red-100 text-red-800 font-bold text-sm">Abstiegszone</div>`;
+            sortedPlayers.slice(totalPlayers - DEMOTION_COUNT).forEach((player, index) =>
+                renderPlayerRow(player, index + totalPlayers - DEMOTION_COUNT, null, leaderboardListClubEl, totalPlayers)
+            );
+        }
+    }, (error) => {
+        console.error("Fehler beim Laden des Leaderboards:", error);
+        leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-red-500">Fehler beim Laden des Leaderboards.</div>`;
+    });
+
+    if (unsubscribeCallback) unsubscribeCallback(leaderboardListener);
+}
+
+/**
  * Renders a single player row in the leaderboard
  * @param {Object} player - Player data
  * @param {number} index - Player's index in the sorted list
- * @param {string} currentUserId - Current user's ID
+ * @param {string|null} currentUserId - Current user's ID (null for coach view, no highlighting)
  * @param {HTMLElement} container - Container element to append the row to
  * @param {number} totalPlayers - Total number of players in the leaderboard
  * @param {boolean} isGlobal - Whether this is for the global leaderboard
  */
-export function renderPlayerRow(player, index, currentUserId, container, totalPlayers, isGlobal = false) {
-    const isCurrentUser = player.id === currentUserId;
+export function renderPlayerRow(player, index, currentUserId = null, container, totalPlayers = 0, isGlobal = false) {
+    const isCurrentUser = currentUserId ? player.id === currentUserId : false;
     const rank = index + 1;
 
     const playerDiv = document.createElement('div');
@@ -154,10 +232,14 @@ export function renderPlayerRow(player, index, currentUserId, container, totalPl
     let zoneClass = '';
     if (isGlobal) {
         zoneClass = isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-white';
+    } else if (currentUserId === null) {
+        // Coach view: simple background, no user highlighting
+        zoneClass = 'bg-gray-50';
     } else {
-         if (rank <= PROMOTION_COUNT) zoneClass = 'bg-green-50';
-         else if (rank > totalPlayers - DEMOTION_COUNT && totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) zoneClass = 'bg-red-50';
-         if(isCurrentUser) zoneClass += ' font-bold bg-indigo-100';
+        // Player view: zone colors and user highlighting
+        if (rank <= PROMOTION_COUNT) zoneClass = 'bg-green-50';
+        else if (rank > totalPlayers - DEMOTION_COUNT && totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) zoneClass = 'bg-red-50';
+        if (isCurrentUser) zoneClass += ' font-bold bg-indigo-100';
     }
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${zoneClass}`;

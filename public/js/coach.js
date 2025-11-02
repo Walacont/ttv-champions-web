@@ -5,6 +5,7 @@ import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, que
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
+import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, loadLeaderboardForCoach } from './leaderboard.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -32,15 +33,6 @@ if (window.location.hostname === "localhost" || window.location.hostname === "12
 
 
 // --- State ---
-const LEAGUES = {
-    'Bronze': { color: 'text-orange-500', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'},
-    'Silver': { color: 'text-gray-400', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'},
-    'Gold': { color: 'text-yellow-500', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>'},
-    'Diamond': { color: 'text-blue-400', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01"></path>'}
-};
-const PROMOTION_COUNT = 4;
-const DEMOTION_COUNT = 4;
-
 let currentUserData = null;
 let unsubscribePlayerList = null;
 let unsubscribeLeaderboard = null;
@@ -693,7 +685,10 @@ async function loadLeaguesForSelector(clubId) {
             button.addEventListener('click', () => {
                 document.querySelectorAll('.league-select-btn').forEach(btn => btn.classList.remove('league-select-btn-active'));
                 button.classList.add('league-select-btn-active');
-                loadLeaderboard(clubId, league);
+                loadLeaderboardForCoach(clubId, league, db, (unsub) => {
+                    if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+                    unsubscribeLeaderboard = unsub;
+                });
             });
             coachLeagueSelect.appendChild(button);
         });
@@ -701,85 +696,16 @@ async function loadLeaguesForSelector(clubId) {
         if (leagues.length > 0) {
             coachLeagueSelect.querySelector('button').click();
         } else {
-            loadLeaderboard(clubId, 'Bronze');
+            loadLeaderboardForCoach(clubId, 'Bronze', db, (unsub) => {
+                if (unsubscribeLeaderboard) unsubscribeLeaderboard();
+                unsubscribeLeaderboard = unsub;
+            });
         }
     } catch (error) {
         console.error("Fehler beim Laden der Ligen:", error);
     }
 }
 
-function loadLeaderboard(clubId, leagueToShow) {
-    const leaderboardListClubEl = document.getElementById('leaderboard-list-club');
-    const leagueNameEl = document.getElementById('league-name');
-    const leagueIconsContainer = document.getElementById('league-icons-container');
-    if(!leaderboardListClubEl) return;
-    
-    leagueNameEl.textContent = `${leagueToShow}-Liga`;
-    
-    leagueIconsContainer.innerHTML = '';
-    for (const leagueKey in LEAGUES) {
-        const isActive = leagueKey === leagueToShow;
-        const iconDiv = document.createElement('div');
-        iconDiv.className = `p-2 border-2 rounded-lg transition-transform transform ${isActive ? 'league-icon-active bg-indigo-100' : 'bg-gray-200 opacity-50'}`;
-        iconDiv.innerHTML = `<svg class="h-8 w-8 ${LEAGUES[leagueKey].color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${LEAGUES[leagueKey].icon}</svg>`;
-        leagueIconsContainer.appendChild(iconDiv);
-    }
-
-    const q = query(collection(db, "users"), where("clubId", "==", clubId), where("league", "==", leagueToShow), where("role", "==", "player"), orderBy("points", "desc"));
-    
-    if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-
-    unsubscribeLeaderboard = onSnapshot(q, (snapshot) => {
-        if (snapshot.empty) {
-            leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Liga gefunden.</div>`;
-            return;
-        }
-        
-        const sortedPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const totalPlayers = sortedPlayers.length;
-        
-        leaderboardListClubEl.innerHTML = '';
-        if (totalPlayers > PROMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-green-100 text-green-800 font-bold text-sm rounded-t-lg">Aufstiegszone</div>`;
-        }
-        sortedPlayers.slice(0, PROMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index, leaderboardListClubEl));
-        
-        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
-            sortedPlayers.slice(PROMOTION_COUNT, totalPlayers - DEMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index + PROMOTION_COUNT, leaderboardListClubEl));
-        } else if (totalPlayers > PROMOTION_COUNT) {
-             leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
-             sortedPlayers.slice(PROMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index + PROMOTION_COUNT, leaderboardListClubEl));
-        }
-
-        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-red-100 text-red-800 font-bold text-sm">Abstiegszone</div>`;
-            sortedPlayers.slice(totalPlayers - DEMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index + totalPlayers - DEMOTION_COUNT, leaderboardListClubEl));
-        }
-    }, (error) => {
-        console.error("Fehler beim Laden des Leaderboards:", error);
-        leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-red-500">Fehler beim Laden des Leaderboards.</div>`;
-    });
-}
-
-function renderPlayerRow(player, index, container) {
-    const rank = index + 1;
-    const playerDiv = document.createElement('div');
-    let rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
-    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-    
-    playerDiv.className = 'flex items-center p-3 rounded-lg bg-gray-50';
-    playerDiv.innerHTML = `
-        <div class="w-10 text-center font-bold text-lg">${rankDisplay || rank}</div>
-        <img src="${avatarSrc}" alt="Avatar" class="h-10 w-10 rounded-full object-cover mr-4">
-        <div class="flex-grow">
-            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
-        </div>
-        <div class="text-sm font-bold text-gray-900">${player.points || 0} P.</div>
-    `;
-    container.appendChild(playerDiv);
-}
 
 function updateSeasonCountdown() {
     const seasonCountdownEl = document.getElementById('season-countdown');
