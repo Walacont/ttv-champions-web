@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, collection, onSnapshot, query, where, orderBy, getDocs, updateDoc, writeBatch, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
-import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard } from './leaderboard.js';
+import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -59,9 +59,17 @@ function initializeDashboard(userData) {
     const mainContent = document.getElementById('main-content');
     const welcomeMessage = document.getElementById('welcome-message');
     const logoutButton = document.getElementById('logout-button');
-    
+
     welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
-    
+
+    // Render leaderboard HTML
+    renderLeaderboardHTML('tab-content-leaderboard', {
+        showToggle: true,
+        showLeagueSelect: false,
+        showLeagueIcons: true,
+        showSeasonCountdown: true
+    });
+
     loadOverviewData(userData);
     loadProfileData(userData);
     loadExercises();

@@ -5,7 +5,7 @@ import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, que
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
-import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, loadLeaderboardForCoach } from './leaderboard.js';
+import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, loadLeaderboardForCoach, loadGlobalLeaderboard, renderLeaderboardHTML, setupLeaderboardToggle } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns } from './challenges.js';
 
@@ -87,13 +87,22 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeCoachPage(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
-    
+
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
-    
+
     document.getElementById('welcome-message').textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
 
+    // Render leaderboard HTML for coach
+    renderLeaderboardHTML('tab-content-dashboard', {
+        showToggle: true,
+        showLeagueSelect: true,
+        showLeagueIcons: true,
+        showSeasonCountdown: true
+    });
+
     setupTabs();
+    setupLeaderboardToggle();
     loadPlayersForDropdown(userData.clubId);
     loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown();
@@ -105,6 +114,7 @@ function initializeCoachPage(userData) {
         populateMatchDropdowns();
         populateHistoryFilterDropdown();
     });
+    loadGlobalLeaderboard(userData, db, []); // Global leaderboard für Coach
     updateSeasonCountdown();
     renderCalendar(currentCalendarDate, db, userData);
 

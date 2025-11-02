@@ -1,5 +1,74 @@
 import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
+/**
+ * Renders the leaderboard HTML into a container
+ * @param {string} containerId - ID of the container element
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.showToggle - Show Club/Global toggle (default: true)
+ * @param {boolean} options.showLeagueSelect - Show league selector buttons for coaches (default: false)
+ * @param {boolean} options.showLeagueIcons - Show league icons (default: true)
+ * @param {boolean} options.showSeasonCountdown - Show season countdown (default: true)
+ */
+export function renderLeaderboardHTML(containerId, options = {}) {
+    const {
+        showToggle = true,
+        showLeagueSelect = false,
+        showLeagueIcons = true,
+        showSeasonCountdown = true
+    } = options;
+
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container with ID "${containerId}" not found`);
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+            ${showLeagueSelect ? `
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Vereins-Leaderboard</h2>
+                    <div id="coach-league-select" class="flex items-center space-x-2"></div>
+                </div>
+            ` : ''}
+
+            ${showLeagueIcons ? '<div id="league-icons-container" class="flex justify-center items-end space-x-4 mb-4"></div>' : ''}
+
+            <h2 id="league-name" class="text-2xl font-bold text-gray-900 text-center">Leaderboard</h2>
+
+            ${showSeasonCountdown ? `
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg flex justify-between items-center">
+                    <div class="text-center flex-1">
+                        <p class="text-sm text-gray-500">Saison endet in:</p>
+                        <p id="season-countdown" class="font-mono font-semibold text-indigo-600"></p>
+                    </div>
+                </div>
+            ` : ''}
+
+            ${showToggle ? `
+                <div class="mt-6 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+                    <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
+                    <button id="toggle-global" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Global</button>
+                </div>
+            ` : ''}
+
+            <div id="leaderboard-club-container" ${!showToggle ? '' : ''}>
+                <div id="leaderboard-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Leaderboard wird geladen...</p>
+                </div>
+            </div>
+
+            ${showToggle ? `
+                <div id="leaderboard-global-container" class="hidden">
+                    <div id="leaderboard-list-global" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Globales Leaderboard wird geladen...</p>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
 // --- Leaderboard Constants ---
 export const LEAGUES = {
     'Bronze': { color: 'text-orange-500', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'},
