@@ -95,20 +95,20 @@ function initializeCoachPage(userData) {
 
     // Render leaderboard HTML for coach
     renderLeaderboardHTML('tab-content-dashboard', {
-        showToggle: true,
-        showLeagueSelect: true,
+        showToggle: true,  // Club/Global Toggle
+        showLeagueSelect: true,  // Liga-Auswahl für Club-Ansicht
         showLeagueIcons: true,
         showSeasonCountdown: true
     });
 
     setupTabs();
-    setupLeaderboardToggle();
+    setupLeaderboardToggle();  // Setup für Club/Global Toggle
     loadPlayersForDropdown(userData.clubId);
     loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown();
     loadActiveChallenges(userData.clubId, db);
     loadAllExercises();
-    loadLeaguesForSelector(userData.clubId);
+    loadLeaguesForSelector(userData.clubId);  // Setup für Liga-Buttons
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players;
         populateMatchDropdowns();

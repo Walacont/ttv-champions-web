@@ -88,6 +88,9 @@ export function setupLeaderboardToggle() {
     const toggleGlobalBtn = document.getElementById('toggle-global');
     const leaderboardClubContainer = document.getElementById('leaderboard-club-container');
     const leaderboardGlobalContainer = document.getElementById('leaderboard-global-container');
+    const coachLeagueSelect = document.getElementById('coach-league-select');
+    const leagueIconsContainer = document.getElementById('league-icons-container');
+    const leagueNameEl = document.getElementById('league-name');
 
     if (!toggleClubBtn || !toggleGlobalBtn) return;
 
@@ -97,12 +100,23 @@ export function setupLeaderboardToggle() {
         toggleGlobalBtn.classList.remove('toggle-btn-active');
         leaderboardClubContainer.classList.remove('hidden');
         leaderboardGlobalContainer.classList.add('hidden');
+
+        // Zeige Liga-Auswahl und Icons für Club-Ansicht
+        if (coachLeagueSelect) coachLeagueSelect.classList.remove('hidden');
+        if (leagueIconsContainer) leagueIconsContainer.classList.remove('hidden');
     });
     toggleGlobalBtn.addEventListener('click', () => {
         toggleGlobalBtn.classList.add('toggle-btn-active');
         toggleClubBtn.classList.remove('toggle-btn-active');
         leaderboardGlobalContainer.classList.remove('hidden');
         leaderboardClubContainer.classList.add('hidden');
+
+        // Verstecke Liga-Auswahl und Icons für Global-Ansicht
+        if (coachLeagueSelect) coachLeagueSelect.classList.add('hidden');
+        if (leagueIconsContainer) leagueIconsContainer.classList.add('hidden');
+
+        // Ändere Titel zu "Globales Leaderboard"
+        if (leagueNameEl) leagueNameEl.textContent = 'Globales Leaderboard';
     });
 }
 
