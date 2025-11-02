@@ -77,8 +77,8 @@ function initializeDashboard(userData) {
         showSeasonCountdown: true
     });
 
-    loadOverviewData(userData, db, loadRivalData, loadChallenges, loadPointsHistory);
-    loadProfileData(userData, renderCalendar, currentDisplayDate);
+    loadOverviewData(userData, db, unsubscribes, loadRivalData, loadChallenges, loadPointsHistory);
+    loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate);
     loadExercises(db, unsubscribes);
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);

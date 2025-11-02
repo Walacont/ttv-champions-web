@@ -9,16 +9,17 @@ import { collection, getDocs, query, where } from "https://www.gstatic.com/fireb
  * Loads overview data for the player (points, rivals, challenges)
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
  * @param {Function} loadRivalDataCallback - Callback to load rival data
  * @param {Function} loadChallengesCallback - Callback to load challenges
  * @param {Function} loadPointsHistoryCallback - Callback to load points history
  */
-export function loadOverviewData(userData, db, loadRivalDataCallback, loadChallengesCallback, loadPointsHistoryCallback) {
+export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallback, loadChallengesCallback, loadPointsHistoryCallback) {
     const playerPointsEl = document.getElementById('player-points');
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
     loadRivalDataCallback(userData, db);
-    loadPointsHistoryCallback(userData, db);
-    loadChallengesCallback(userData, db);
+    loadPointsHistoryCallback(userData, db, unsubscribes);
+    loadChallengesCallback(userData, db, unsubscribes);
 }
 
 /**
