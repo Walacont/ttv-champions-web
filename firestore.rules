@@ -58,8 +58,11 @@ service cloud.firestore {
         // Users can read their own points history
         allow read: if isOwner(userId);
 
-        // Coaches can read and write points history for players in their club
-        allow read, write: if isCoachOfClub(get(/databases/$(database)/documents/users/$(userId)).data.clubId);
+        // Coaches can read points history for players in their club
+        allow read: if isCoachOrAdmin();
+
+        // Coaches can write points history
+        allow write: if isCoachOrAdmin();
       }
 
       // Subcollection: xpHistory (NEW for rank system)
@@ -67,8 +70,11 @@ service cloud.firestore {
         // Users can read their own XP history
         allow read: if isOwner(userId);
 
-        // Coaches can read and write XP history for players in their club
-        allow read, write: if isCoachOfClub(get(/databases/$(database)/documents/users/$(userId)).data.clubId);
+        // Coaches can read XP history for players in their club
+        allow read: if isCoachOrAdmin();
+
+        // Coaches can write XP history
+        allow write: if isCoachOrAdmin();
       }
     }
 
@@ -80,22 +86,30 @@ service cloud.firestore {
 
     // Attendance collection
     match /attendance/{attendanceId} {
-      // Coaches can read/write attendance for their club
-      allow read, write: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+      // Players can read attendance for their club
+      allow read: if isAuthenticated() &&
+        ((resource == null && isSameClub(request.resource.data.clubId)) ||
+         (resource != null && isSameClub(resource.data.clubId)));
+
+      // Coaches can create attendance for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
 
-      // Players can read attendance for their club
-      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+      // Coaches can update/delete attendance for their club
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
     }
 
     // Matches collection
     match /matches/{matchId} {
       // Anyone in the club can read matches
-      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+      allow read: if isAuthenticated() &&
+        ((resource == null && isSameClub(request.resource.data.clubId)) ||
+         (resource != null && isSameClub(resource.data.clubId)));
 
-      // Coaches can write matches
-      allow write: if isCoachOfClub(resource.data.clubId);
+      // Coaches can create matches for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+
+      // Coaches can update/delete matches for their club
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
     // Challenges collection
@@ -103,9 +117,11 @@ service cloud.firestore {
       // Anyone can read challenges
       allow read: if isAuthenticated();
 
-      // Coaches can create/update/delete challenges for their club
-      allow write: if isCoachOfClub(resource.data.clubId);
+      // Coaches can create challenges for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+
+      // Coaches can update/delete challenges for their club
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
     // Exercises collection (global)
