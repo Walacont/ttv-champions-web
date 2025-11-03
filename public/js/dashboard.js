@@ -6,7 +6,7 @@ import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLe
 import { loadExercises, handleExerciseClick, closeExerciseModal } from './exercises.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
-import { loadOverviewData, loadRivalData, loadProfileData } from './profile.js';
+import { loadOverviewData, loadRivalData, loadProfileData, updateRankDisplay } from './profile.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 import { handleSeasonReset } from './season.js';
@@ -113,6 +113,7 @@ function updateDashboard(userData) {
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
     if (statsCurrentStreak) statsCurrentStreak.innerHTML = `${userData.streak || 0} 🔥`;
 
+    updateRankDisplay(userData);  // Update rank display when data changes
     loadRivalData(userData);
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
