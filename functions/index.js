@@ -28,9 +28,44 @@ const CONFIG = {
     K_FACTOR: 32,
     SEASON_POINT_FACTOR: 0.5,
     HANDICAP_SEASON_POINTS: 8, // Feste Punktzahl für Handicap-Spiele
+    // Elo Gates: Once reached, Elo can never fall below these thresholds
+    GATES: [1250, 1300, 1400, 1550, 1750, 2000],
   },
   REGION: "europe-west3",
 };
+
+// ========================================================================
+// ===== FUNKTION: Elo-Gates =====
+// ========================================================================
+/**
+ * Find the highest Elo gate a player has reached
+ * @param {number} currentElo - Player's current Elo
+ * @param {number} highestElo - Player's highest Elo ever
+ * @return {number} The highest gate reached (or 0 if none)
+ */
+function getHighestEloGate(currentElo, highestElo) {
+  const maxReached = Math.max(currentElo, highestElo || 0);
+  const gates = CONFIG.ELO.GATES;
+
+  for (let i = gates.length - 1; i >= 0; i--) {
+    if (maxReached >= gates[i]) {
+      return gates[i];
+    }
+  }
+  return 0; // No gate reached
+}
+
+/**
+ * Apply Elo gate protection: Elo can never fall below the highest gate reached
+ * @param {number} newElo - The calculated new Elo
+ * @param {number} currentElo - Player's current Elo
+ * @param {number} highestElo - Player's highest Elo ever
+ * @return {number} Protected Elo (at least as high as the gate)
+ */
+function applyEloGate(newElo, currentElo, highestElo) {
+  const gate = getHighestEloGate(currentElo, highestElo);
+  return Math.max(newElo, gate);
+}
 
 // ========================================================================
 // ===== FUNKTION: Elo-Berechnung =====
@@ -102,12 +137,21 @@ exports.processMatchResult = onDocumentCreated(
 
       const winnerElo = winnerData.eloRating || CONFIG.ELO.DEFAULT_RATING;
       const loserElo = loserData.eloRating || CONFIG.ELO.DEFAULT_RATING;
+      const winnerHighestElo = winnerData.highestElo || winnerElo;
+      const loserHighestElo = loserData.highestElo || loserElo;
 
       const {newWinnerElo, newLoserElo, eloDelta} = calculateElo(
         winnerElo,
         loserElo,
         CONFIG.ELO.K_FACTOR
       );
+
+      // Apply Elo gate protection for loser
+      const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserHighestElo);
+
+      // Update highest Elo if new records are set
+      const newWinnerHighestElo = Math.max(newWinnerElo, winnerHighestElo);
+      const newLoserHighestElo = Math.max(protectedLoserElo, loserHighestElo);
 
       let seasonPointChange;
       let matchTypeReason = "Wettkampf";
@@ -128,14 +172,21 @@ exports.processMatchResult = onDocumentCreated(
 
       const batch = db.batch();
 
+      // Update winner with XP tracking and highest Elo
       batch.update(winnerRef, {
         eloRating: newWinnerElo,
+        highestElo: newWinnerHighestElo,
         points: admin.firestore.FieldValue.increment(seasonPointChange),
+        xp: admin.firestore.FieldValue.increment(seasonPointChange), // XP = points for matches
+        lastXPUpdate: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      // Update loser (Elo protected by gates, XP never decreases!)
       batch.update(loserRef, {
-        eloRating: newLoserElo,
+        eloRating: protectedLoserElo,
+        highestElo: newLoserHighestElo,
         points: admin.firestore.FieldValue.increment(-seasonPointChange),
+        // Note: XP is NOT decremented - it only goes up!
       });
 
       const winnerHistoryRef = winnerRef
@@ -157,6 +208,17 @@ exports.processMatchResult = onDocumentCreated(
         points: -seasonPointChange,
         reason: `Niederlage im ${matchTypeReason} gegen ${
           winnerData.firstName || "Gegner"
+        }`,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        awardedBy: "System (Wettkampf)",
+      });
+
+      // Track XP in separate history for winner only (losers don't lose XP)
+      const winnerXPHistoryRef = winnerRef.collection("xpHistory").doc();
+      batch.set(winnerXPHistoryRef, {
+        xp: seasonPointChange,
+        reason: `Sieg im ${matchTypeReason} gegen ${
+          loserData.firstName || "Gegner"
         }`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         awardedBy: "System (Wettkampf)",
