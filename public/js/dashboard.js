@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, collection, onSnapshot, query, where, orderBy, getDocs, updateDoc, writeBatch, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
-import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
+import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
 import { loadExercises, handleExerciseClick, closeExerciseModal } from './exercises.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
@@ -69,12 +69,9 @@ function initializeDashboard(userData) {
 
     welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
 
-    // Render leaderboard HTML
+    // Render leaderboard HTML (new 3-tab system)
     renderLeaderboardHTML('tab-content-leaderboard', {
-        showToggle: true,
-        showLeagueSelect: false,
-        showLeagueIcons: true,
-        showSeasonCountdown: true
+        showToggle: true
     });
 
     loadOverviewData(userData, db, unsubscribes, loadRivalData, loadChallenges, loadPointsHistory);
@@ -84,11 +81,10 @@ function initializeDashboard(userData) {
     loadGlobalLeaderboard(userData, db, unsubscribes);
     loadTodaysMatches(userData, db, unsubscribes);
 
-    updateSeasonCountdown(true);  // Reload on season end for players
-    setInterval(() => updateSeasonCountdown(true), 1000);
     logoutButton.addEventListener('click', () => signOut(auth));
     setupTabs('overview');  // 'overview' is default tab for dashboard
-    setupLeaderboardToggle();
+    setupLeaderboardTabs();  // Setup 3-tab navigation
+    setupLeaderboardToggle();  // Setup club/global toggle
 
     // Event Listeners for Modals
     document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
