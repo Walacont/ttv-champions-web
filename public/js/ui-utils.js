@@ -1,0 +1,68 @@
+/**
+ * UI Utils Module
+ * Common UI utility functions for tabs and countdown timers
+ */
+
+/**
+ * Sets up tab navigation for both dashboard and coach views
+ * @param {string} defaultTab - The default tab to show (e.g., 'overview', 'dashboard')
+ */
+export function setupTabs(defaultTab = 'overview') {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const defaultButton = document.querySelector(`.tab-button[data-tab="${defaultTab}"]`);
+
+    if (defaultButton) {
+        defaultButton.classList.add('tab-active');
+        const defaultContent = document.getElementById(`tab-content-${defaultTab}`);
+        if (defaultContent) defaultContent.classList.remove('hidden');
+    }
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.dataset.tab;
+            tabButtons.forEach(btn => btn.classList.remove('tab-active'));
+            tabContents.forEach(content => content.classList.add('hidden'));
+            button.classList.add('tab-active');
+            const targetContent = document.getElementById(`tab-content-${tabName}`);
+            if (targetContent) targetContent.classList.remove('hidden');
+        });
+    });
+}
+
+/**
+ * Updates the season countdown timer
+ * Season ends on the 15th of each month or at end of month
+ * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false for coach, true for player)
+ */
+export function updateSeasonCountdown(reloadOnEnd = false) {
+    const seasonCountdownEl = document.getElementById('season-countdown');
+    if (!seasonCountdownEl) return;
+
+    const now = new Date();
+    let endOfSeason;
+
+    // Season ends either on the 15th or at month end
+    if (now.getDate() < 15) {
+        endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 0, 0, 0);
+    } else {
+        endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    }
+
+    const diff = endOfSeason - now;
+
+    if (diff <= 0) {
+        seasonCountdownEl.textContent = "Saison beendet!";
+        if (reloadOnEnd) {
+            setTimeout(() => window.location.reload(), 5000);
+        }
+        return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    seasonCountdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
+}
