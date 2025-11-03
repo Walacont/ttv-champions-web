@@ -38,8 +38,11 @@ export function updateRankDisplay(userData) {
 
     if (!rankInfoEl) return;
 
-    const progress = getRankProgress(userData.eloRating, userData.xp);
-    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, isMaxRank } = progress;
+    // Get Grundlagen count from user data (defaults to 0)
+    const grundlagenCount = userData.grundlagenCompleted || 0;
+
+    const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
+    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
 
     // Update rank badge
     rankInfoEl.innerHTML = `
@@ -57,7 +60,7 @@ export function updateRankDisplay(userData) {
                 <!-- Elo Progress -->
                 <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Elo: ${userData.eloRating || 1200}/${nextRank.minElo}</span>
+                        <span>Elo: ${userData.eloRating || 0}/${nextRank.minElo}</span>
                         <span>${eloProgress}%</span>
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2">
@@ -67,7 +70,7 @@ export function updateRankDisplay(userData) {
                 </div>
 
                 <!-- XP Progress -->
-                <div>
+                <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
                         <span>XP: ${userData.xp || 0}/${nextRank.minXP}</span>
                         <span>${xpProgress}%</span>
@@ -77,12 +80,26 @@ export function updateRankDisplay(userData) {
                     </div>
                     ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
                 </div>
+
+                ${nextRank.requiresGrundlagen ? `
+                    <!-- Grundlagen Requirement (Bronze only) -->
+                    <div>
+                        <div class="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Grundlagen-Übungen: ${grundlagenCount}/4</span>
+                            <span>${grundlagenProgress}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
+                        </div>
+                        ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Grundlagen-Übungen benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen</p>`}
+                    </div>
+                ` : ''}
             </div>
         ` : '<p class="text-sm text-green-600 font-medium mt-2">🏆 Höchster Rang erreicht!</p>'}
     `;
 
     // Update Elo display if element exists
-    if (eloDisplayEl) eloDisplayEl.textContent = userData.eloRating || 1200;
+    if (eloDisplayEl) eloDisplayEl.textContent = userData.eloRating || 0;
 
     // Update XP display if element exists
     if (xpDisplayEl) xpDisplayEl.textContent = userData.xp || 0;

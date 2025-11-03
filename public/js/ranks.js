@@ -6,6 +6,7 @@
 /**
  * Rank definitions with requirements
  * Both Elo AND XP must be met to achieve a rank
+ * Adjusted for 8-week study: starting from 0 Elo with lower thresholds
  */
 export const RANKS = {
     REKRUT: {
@@ -13,55 +14,61 @@ export const RANKS = {
         name: 'Rekrut',
         emoji: '🎖️',
         color: '#9CA3AF', // gray-400
-        minElo: 1200,
+        minElo: 0,
         minXP: 0,
         description: 'Willkommen! Absolviere die Grundlagen-Übungen.',
-        isOnboarding: true
+        isOnboarding: true,
+        requiresGrundlagen: false
     },
     BRONZE: {
         id: 1,
         name: 'Bronze',
         emoji: '🥉',
         color: '#CD7F32',
-        minElo: 1250,
-        minXP: 150,
-        description: 'Du hast die Grundlagen gemeistert!'
+        minElo: 50,
+        minXP: 100,
+        description: 'Du hast die Grundlagen gemeistert!',
+        requiresGrundlagen: true  // Special: Requires 4 "Grundlage" exercises
     },
     SILBER: {
         id: 2,
         name: 'Silber',
         emoji: '🥈',
         color: '#C0C0C0',
-        minElo: 1300,
-        minXP: 500,
-        description: 'Du bist auf dem besten Weg!'
+        minElo: 100,
+        minXP: 250,
+        description: 'Du bist auf dem besten Weg!',
+        requiresGrundlagen: false
     },
     GOLD: {
         id: 3,
         name: 'Gold',
         emoji: '🥇',
         color: '#FFD700',
-        minElo: 1400,
-        minXP: 1500,
-        description: 'Ein echter Champion!'
+        minElo: 250,
+        minXP: 500,
+        description: 'Ein echter Champion!',
+        requiresGrundlagen: false
     },
     PLATIN: {
         id: 4,
         name: 'Platin',
         emoji: '💎',
         color: '#E5E4E2',
-        minElo: 1550,
-        minXP: 4000,
-        description: 'Du gehörst zur Elite!'
+        minElo: 500,
+        minXP: 1000,
+        description: 'Du gehörst zur Elite!',
+        requiresGrundlagen: false
     },
     MEISTER: {
         id: 5,
         name: 'Meister',
         emoji: '👑',
         color: '#9333EA', // purple-600
-        minElo: 1750,
-        minXP: 10000,
-        description: 'Ein wahrer Meister des Tischtennissports!'
+        minElo: 1000,
+        minXP: 2000,
+        description: 'Ein wahrer Meister des Tischtennissports!',
+        requiresGrundlagen: false
     },
     GROSSMEISTER: {
         id: 6,
@@ -69,8 +76,9 @@ export const RANKS = {
         emoji: '🏆',
         color: '#DC2626', // red-600
         minElo: 2000,
-        minXP: 25000,
-        description: 'Legende! Du hast alles erreicht!'
+        minXP: 5000,
+        description: 'Legende! Du hast alles erreicht!',
+        requiresGrundlagen: false
     }
 };
 
@@ -92,17 +100,29 @@ export const RANK_ORDER = [
  * Returns the HIGHEST rank where BOTH requirements are met
  * @param {number} eloRating - Player's current Elo rating
  * @param {number} xp - Player's total XP
+ * @param {number} grundlagenCount - Number of completed "Grundlage" exercises (optional)
  * @returns {Object} Rank object
  */
-export function calculateRank(eloRating, xp) {
-    const elo = eloRating || 1200; // Default starting Elo
+export function calculateRank(eloRating, xp, grundlagenCount = 0) {
+    const elo = eloRating || 0; // Default starting Elo is now 0
     const totalXP = xp || 0;
 
     // Start from highest rank and work down
     for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
         const rank = RANK_ORDER[i];
-        if (elo >= rank.minElo && totalXP >= rank.minXP) {
-            return rank;
+
+        // Check basic requirements (Elo + XP)
+        const meetsBasicRequirements = elo >= rank.minElo && totalXP >= rank.minXP;
+
+        // Check special Grundlagen requirement for Bronze
+        if (rank.requiresGrundlagen) {
+            if (meetsBasicRequirements && grundlagenCount >= 4) {
+                return rank;
+            }
+        } else {
+            if (meetsBasicRequirements) {
+                return rank;
+            }
         }
     }
 
@@ -114,10 +134,11 @@ export function calculateRank(eloRating, xp) {
  * Get the next rank and progress towards it
  * @param {number} eloRating - Player's current Elo rating
  * @param {number} xp - Player's total XP
- * @returns {Object} { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded }
+ * @param {number} grundlagenCount - Number of completed "Grundlage" exercises
+ * @returns {Object} { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded }
  */
-export function getRankProgress(eloRating, xp) {
-    const currentRank = calculateRank(eloRating, xp);
+export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
+    const currentRank = calculateRank(eloRating, xp, grundlagenCount);
     const currentIndex = RANK_ORDER.findIndex(r => r.id === currentRank.id);
 
     // Check if max rank
@@ -129,29 +150,34 @@ export function getRankProgress(eloRating, xp) {
             xpProgress: 100,
             eloNeeded: 0,
             xpNeeded: 0,
+            grundlagenNeeded: 0,
             isMaxRank: true
         };
     }
 
     const nextRank = RANK_ORDER[currentIndex + 1];
-    const elo = eloRating || 1200;
+    const elo = eloRating || 0;
     const totalXP = xp || 0;
 
     // Calculate progress towards next rank
     const eloNeeded = Math.max(0, nextRank.minElo - elo);
     const xpNeeded = Math.max(0, nextRank.minXP - totalXP);
+    const grundlagenNeeded = nextRank.requiresGrundlagen ? Math.max(0, 4 - grundlagenCount) : 0;
 
     // Progress percentage (0-100)
-    const eloProgress = eloNeeded === 0 ? 100 : Math.min(100, (elo / nextRank.minElo) * 100);
-    const xpProgress = xpNeeded === 0 ? 100 : Math.min(100, (totalXP / nextRank.minXP) * 100);
+    const eloProgress = nextRank.minElo === 0 ? 100 : Math.min(100, (elo / nextRank.minElo) * 100);
+    const xpProgress = nextRank.minXP === 0 ? 100 : Math.min(100, (totalXP / nextRank.minXP) * 100);
+    const grundlagenProgress = nextRank.requiresGrundlagen ? Math.min(100, (grundlagenCount / 4) * 100) : 100;
 
     return {
         currentRank,
         nextRank,
         eloProgress: Math.round(eloProgress),
         xpProgress: Math.round(xpProgress),
+        grundlagenProgress: Math.round(grundlagenProgress),
         eloNeeded,
         xpNeeded,
+        grundlagenNeeded,
         isMaxRank: false
     };
 }

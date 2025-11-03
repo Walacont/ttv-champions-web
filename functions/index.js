@@ -24,12 +24,12 @@ const CONFIG = {
     POINTS_HISTORY: "pointsHistory",
   },
   ELO: {
-    DEFAULT_RATING: 1200,
+    DEFAULT_RATING: 0, // Start at 0 Elo for 8-week study
     K_FACTOR: 32,
     SEASON_POINT_FACTOR: 0.5,
     HANDICAP_SEASON_POINTS: 8, // Feste Punktzahl für Handicap-Spiele
-    // Elo Gates: Once reached, Elo can never fall below these thresholds
-    GATES: [1250, 1300, 1400, 1550, 1750, 2000],
+    // Elo Gates: Once reached, Elo can never fall below these thresholds (adjusted for study)
+    GATES: [50, 100, 250, 500, 1000, 2000],
   },
   REGION: "europe-west3",
 };
