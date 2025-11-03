@@ -155,11 +155,26 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             const playerDoc = await transaction.get(playerDocRef);
             if (!playerDoc.exists()) throw new Error("Spieler nicht gefunden.");
 
-            transaction.update(playerDocRef, { points: increment(points) });
+            // Update both points and XP (XP = points for exercises/challenges)
+            transaction.update(playerDocRef, {
+                points: increment(points),
+                xp: increment(points), // XP = same as points
+                lastXPUpdate: serverTimestamp()
+            });
 
+            // Points history
             const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
             transaction.set(doc(historyColRef), {
                 points,
+                reason,
+                timestamp: serverTimestamp(),
+                awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
+            });
+
+            // XP history
+            const xpHistoryColRef = collection(db, `users/${playerId}/xpHistory`);
+            transaction.set(doc(xpHistoryColRef), {
+                xp: points,
                 reason,
                 timestamp: serverTimestamp(),
                 awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`

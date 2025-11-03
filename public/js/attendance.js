@@ -3,6 +3,7 @@ import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, ser
 /**
  * Attendance Module
  * Handles calendar rendering and attendance tracking for coaches
+ * Now also tracks XP (Experience Points) for the new rank system
  */
 
 // Module state
@@ -201,12 +202,23 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
                     batch.update(playerRef, {
                         streak: newStreak,
-                        points: increment(pointsToAdd)
+                        points: increment(pointsToAdd),
+                        xp: increment(pointsToAdd), // XP = same as points for attendance
+                        lastXPUpdate: serverTimestamp()
                     });
 
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
                         points: pointsToAdd,
+                        reason,
+                        timestamp: serverTimestamp(),
+                        awardedBy: "System (Anwesenheit)"
+                    });
+
+                    // Track XP in separate history
+                    const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
+                    batch.set(xpHistoryRef, {
+                        xp: pointsToAdd,
                         reason,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
