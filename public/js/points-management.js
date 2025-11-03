@@ -125,6 +125,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     let points = 0;
     let reason = '';
     let challengeId = null;
+    let exerciseId = null;
 
     try {
         switch (reasonType) {
@@ -142,6 +143,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 if (!eOption || !eOption.value) throw new Error('Bitte eine Übung auswählen.');
                 points = parseInt(eOption.dataset.points);
                 reason = `Übung: ${eOption.dataset.title}`;
+                exerciseId = eOption.value;
                 break;
             case 'manual':
                 points = parseInt(document.getElementById('manual-points').value);
@@ -150,17 +152,52 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 break;
         }
 
+        let grundlagenMessage = '';
+
         await runTransaction(db, async (transaction) => {
             const playerDocRef = doc(db, 'users', playerId);
             const playerDoc = await transaction.get(playerDocRef);
             if (!playerDoc.exists()) throw new Error("Spieler nicht gefunden.");
 
-            // Update both points and XP (XP = points for exercises/challenges)
-            transaction.update(playerDocRef, {
+            const playerData = playerDoc.data();
+            let grundlagenCount = playerData.grundlagenCompleted || 0;
+            let isGrundlagenExercise = false;
+
+            // Check if this is a "Grundlage" exercise
+            if (exerciseId) {
+                const exerciseRef = doc(db, 'exercises', exerciseId);
+                const exerciseDoc = await transaction.get(exerciseRef);
+                if (exerciseDoc.exists()) {
+                    const exerciseData = exerciseDoc.data();
+                    const tags = exerciseData.tags || [];
+                    isGrundlagenExercise = tags.includes('Grundlage');
+                }
+            }
+
+            // Prepare update object
+            const updateData = {
                 points: increment(points),
-                xp: increment(points), // XP = same as points
+                xp: increment(points),
                 lastXPUpdate: serverTimestamp()
-            });
+            };
+
+            // Track Grundlagen exercises
+            if (isGrundlagenExercise && grundlagenCount < 5) {
+                grundlagenCount++;
+                updateData.grundlagenCompleted = grundlagenCount;
+
+                // Set message for feedback
+                const remaining = 5 - grundlagenCount;
+                if (grundlagenCount >= 5) {
+                    updateData.isMatchReady = true;
+                    grundlagenMessage = ' 🎉 Grundlagen abgeschlossen - Wettkämpfe freigeschaltet!';
+                } else {
+                    grundlagenMessage = ` (${grundlagenCount}/5 Grundlagen - noch ${remaining} bis Wettkämpfe)`;
+                }
+            }
+
+            // Update player document
+            transaction.update(playerDocRef, updateData);
 
             // Points history
             const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
@@ -186,7 +223,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         });
 
-        feedbackEl.textContent = `Erfolgreich ${points} Punkte vergeben!`;
+        feedbackEl.textContent = `Erfolgreich ${points} Punkte vergeben!${grundlagenMessage}`;
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
         handleReasonChangeCallback();

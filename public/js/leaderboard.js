@@ -29,7 +29,7 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                     💪 Fleiß
                 </button>
                 <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    🏆 Gürtel
+                    🏆 Level
                 </button>
             </div>
 
@@ -76,7 +76,7 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             <!-- Ranks Tab Content (always club-based) -->
             <div id="content-ranks" class="leaderboard-tab-content hidden">
                 <div id="ranks-list" class="mt-6 space-y-4">
-                    <p class="text-center text-gray-500 py-8">Lade Gürtel-Übersicht...</p>
+                    <p class="text-center text-gray-500 py-8">Lade Level-Übersicht...</p>
                 </div>
             </div>
         </div>

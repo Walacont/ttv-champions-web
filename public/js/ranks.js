@@ -28,7 +28,8 @@ export const RANKS = {
         minElo: 50,
         minXP: 100,
         description: 'Du hast die Grundlagen gemeistert!',
-        requiresGrundlagen: true  // Special: Requires 4 "Grundlage" exercises
+        requiresGrundlagen: true,  // Special: Requires 5 "Grundlage" exercises
+        grundlagenRequired: 5
     },
     SILBER: {
         id: 2,
@@ -116,7 +117,8 @@ export function calculateRank(eloRating, xp, grundlagenCount = 0) {
 
         // Check special Grundlagen requirement for Bronze
         if (rank.requiresGrundlagen) {
-            if (meetsBasicRequirements && grundlagenCount >= 4) {
+            const required = rank.grundlagenRequired || 5;
+            if (meetsBasicRequirements && grundlagenCount >= required) {
                 return rank;
             }
         } else {
@@ -162,12 +164,13 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
     // Calculate progress towards next rank
     const eloNeeded = Math.max(0, nextRank.minElo - elo);
     const xpNeeded = Math.max(0, nextRank.minXP - totalXP);
-    const grundlagenNeeded = nextRank.requiresGrundlagen ? Math.max(0, 4 - grundlagenCount) : 0;
+    const grundlagenRequired = nextRank.grundlagenRequired || 5;
+    const grundlagenNeeded = nextRank.requiresGrundlagen ? Math.max(0, grundlagenRequired - grundlagenCount) : 0;
 
     // Progress percentage (0-100)
     const eloProgress = nextRank.minElo === 0 ? 100 : Math.min(100, (elo / nextRank.minElo) * 100);
     const xpProgress = nextRank.minXP === 0 ? 100 : Math.min(100, (totalXP / nextRank.minXP) * 100);
-    const grundlagenProgress = nextRank.requiresGrundlagen ? Math.min(100, (grundlagenCount / 4) * 100) : 100;
+    const grundlagenProgress = nextRank.requiresGrundlagen ? Math.min(100, (grundlagenCount / grundlagenRequired) * 100) : 100;
 
     return {
         currentRank,

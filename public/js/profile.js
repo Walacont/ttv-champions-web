@@ -85,13 +85,13 @@ export function updateRankDisplay(userData) {
                     <!-- Grundlagen Requirement (Bronze only) -->
                     <div>
                         <div class="flex justify-between text-xs text-gray-600 mb-1">
-                            <span>Grundlagen-Übungen: ${grundlagenCount}/4</span>
+                            <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
                             <span>${grundlagenProgress}%</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2">
                             <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
                         </div>
-                        ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Grundlagen-Übungen benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen</p>`}
+                        ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
                     </div>
                 ` : ''}
             </div>
