@@ -172,23 +172,3 @@ function initializeCoachPage(userData) {
     setInterval(updateAllCountdowns, 1000);
 }
 
-// =============================================================
-// ===== POINTS HISTORY - NOW IN points-management.js =====
-// =============================================================
-
-
-// =============================================================
-// ===== MATCH & PAIRING FUNCTIONS - NOW IN matches.js =====
-// =============================================================
-
-// =============================================================
-// ===== PLAYER MANAGEMENT, UI, SEASON - NOW IN SEPARATE MODULES =====
-// =============================================================
-
-// =============================================================
-// ===== EXERCISE FUNCTIONS - NOW IN exercises.js =====
-// =============================================================
-
-
-
-// Points management and player dropdowns now in points-management.js and player-management.js
