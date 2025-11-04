@@ -1,4 +1,5 @@
 import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
 /**
  * Profile Module
@@ -6,7 +7,7 @@ import { collection, getDocs, query, where } from "https://www.gstatic.com/fireb
  */
 
 /**
- * Loads overview data for the player (points, rivals, challenges)
+ * Loads overview data for the player (points, rivals, challenges, rank)
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
@@ -17,9 +18,91 @@ import { collection, getDocs, query, where } from "https://www.gstatic.com/fireb
 export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallback, loadChallengesCallback, loadPointsHistoryCallback) {
     const playerPointsEl = document.getElementById('player-points');
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
+
+    // Display current rank
+    updateRankDisplay(userData);
+
     loadRivalDataCallback(userData, db);
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
+}
+
+/**
+ * Updates the rank display in the overview section
+ * @param {Object} userData - User data with eloRating and xp
+ */
+export function updateRankDisplay(userData) {
+    const rankInfoEl = document.getElementById('rank-info');
+    const eloDisplayEl = document.getElementById('elo-display');
+    const xpDisplayEl = document.getElementById('xp-display');
+
+    if (!rankInfoEl) return;
+
+    // Get Grundlagen count from user data (defaults to 0)
+    const grundlagenCount = userData.grundlagenCompleted || 0;
+
+    const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
+    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
+
+    // Update rank badge
+    rankInfoEl.innerHTML = `
+        <div class="flex items-center justify-center space-x-2 mb-2">
+            <span class="text-4xl">${currentRank.emoji}</span>
+            <div>
+                <p class="font-bold text-xl" style="color: ${currentRank.color};">${currentRank.name}</p>
+                <p class="text-xs text-gray-500">${currentRank.description}</p>
+            </div>
+        </div>
+        ${!isMaxRank ? `
+            <div class="mt-3 text-sm">
+                <p class="text-gray-600 font-medium mb-2">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
+
+                <!-- Elo Progress -->
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Elo: ${userData.eloRating || 0}/${nextRank.minElo}</span>
+                        <span>${eloProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full transition-all" style="width: ${eloProgress}%"></div>
+                    </div>
+                    ${eloNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${eloNeeded} Elo benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ Elo-Anforderung erfüllt</p>`}
+                </div>
+
+                <!-- XP Progress -->
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>XP: ${userData.xp || 0}/${nextRank.minXP}</span>
+                        <span>${xpProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-purple-600 h-2 rounded-full transition-all" style="width: ${xpProgress}%"></div>
+                    </div>
+                    ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
+                </div>
+
+                ${nextRank.requiresGrundlagen ? `
+                    <!-- Grundlagen Requirement (Bronze only) -->
+                    <div>
+                        <div class="flex justify-between text-xs text-gray-600 mb-1">
+                            <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
+                            <span>${grundlagenProgress}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
+                        </div>
+                        ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
+                    </div>
+                ` : ''}
+            </div>
+        ` : '<p class="text-sm text-green-600 font-medium mt-2">🏆 Höchster Rang erreicht!</p>'}
+    `;
+
+    // Update Elo display if element exists
+    if (eloDisplayEl) eloDisplayEl.textContent = userData.eloRating || 0;
+
+    // Update XP display if element exists
+    if (xpDisplayEl) xpDisplayEl.textContent = userData.xp || 0;
 }
 
 /**

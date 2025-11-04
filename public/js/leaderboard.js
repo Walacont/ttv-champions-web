@@ -1,21 +1,14 @@
 import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 
 /**
- * Renders the leaderboard HTML into a container
+ * Renders the new 3-tab leaderboard HTML into a container
  * @param {string} containerId - ID of the container element
  * @param {Object} options - Configuration options
  * @param {boolean} options.showToggle - Show Club/Global toggle (default: true)
- * @param {boolean} options.showLeagueSelect - Show league selector buttons for coaches (default: false)
- * @param {boolean} options.showLeagueIcons - Show league icons (default: true)
- * @param {boolean} options.showSeasonCountdown - Show season countdown (default: true)
  */
 export function renderLeaderboardHTML(containerId, options = {}) {
-    const {
-        showToggle = true,
-        showLeagueSelect = false,
-        showLeagueIcons = true,
-        showSeasonCountdown = true
-    } = options;
+    const { showToggle = true } = options;
 
     const container = document.getElementById(containerId);
     if (!container) {
@@ -25,51 +18,72 @@ export function renderLeaderboardHTML(containerId, options = {}) {
 
     container.innerHTML = `
         <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-            ${showLeagueSelect ? `
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-900">Vereins-Leaderboard</h2>
-                    <div id="coach-league-select" class="flex items-center space-x-2"></div>
-                </div>
-            ` : ''}
+            <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
-            ${showLeagueIcons ? '<div id="league-icons-container" class="flex justify-center items-end space-x-4 mb-4"></div>' : ''}
+            <!-- Tab Selector -->
+            <div class="flex justify-center border-b border-gray-200 mb-4">
+                <button id="tab-skill" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    ⚡ Skill
+                </button>
+                <button id="tab-effort" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    💪 Fleiß
+                </button>
+                <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    🏆 Level
+                </button>
+            </div>
 
-            <h2 id="league-name" class="text-2xl font-bold text-gray-900 text-center">Leaderboard</h2>
-
-            ${showSeasonCountdown ? `
-                <div class="mt-4 p-4 bg-gray-50 rounded-lg flex justify-between items-center">
-                    <div class="text-center flex-1">
-                        <p class="text-sm text-gray-500">Saison endet in:</p>
-                        <p id="season-countdown" class="font-mono font-semibold text-indigo-600"></p>
-                    </div>
-                </div>
-            ` : ''}
-
+            <!-- Club/Global Toggle (only for Skill and Effort tabs) -->
             ${showToggle ? `
-                <div class="mt-6 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+                <div id="scope-toggle-container" class="mt-4 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
                     <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
                     <button id="toggle-global" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Global</button>
                 </div>
             ` : ''}
 
-            <div id="leaderboard-club-container" ${!showToggle ? '' : ''}>
-                <div id="leaderboard-list-club" class="mt-6 space-y-2">
-                    <p class="text-center text-gray-500 py-8">Leaderboard wird geladen...</p>
-                </div>
-            </div>
-
-            ${showToggle ? `
-                <div id="leaderboard-global-container" class="hidden">
-                    <div id="leaderboard-list-global" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Globales Leaderboard wird geladen...</p>
+            <!-- Skill Tab Content -->
+            <div id="content-skill" class="leaderboard-tab-content hidden">
+                <div id="skill-club-container">
+                    <div id="skill-list-club" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Lade Skill-Rangliste...</p>
                     </div>
                 </div>
-            ` : ''}
+                ${showToggle ? `
+                    <div id="skill-global-container" class="hidden">
+                        <div id="skill-list-global" class="mt-6 space-y-2">
+                            <p class="text-center text-gray-500 py-8">Lade globale Skill-Rangliste...</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+
+            <!-- Effort Tab Content -->
+            <div id="content-effort" class="leaderboard-tab-content hidden">
+                <div id="effort-club-container">
+                    <div id="effort-list-club" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
+                    </div>
+                </div>
+                ${showToggle ? `
+                    <div id="effort-global-container" class="hidden">
+                        <div id="effort-list-global" class="mt-6 space-y-2">
+                            <p class="text-center text-gray-500 py-8">Lade globale Fleiß-Rangliste...</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+
+            <!-- Ranks Tab Content (always club-based) -->
+            <div id="content-ranks" class="leaderboard-tab-content hidden">
+                <div id="ranks-list" class="mt-6 space-y-4">
+                    <p class="text-center text-gray-500 py-8">Lade Level-Übersicht...</p>
+                </div>
+            </div>
         </div>
     `;
 }
 
-// --- Leaderboard Constants ---
+// --- Leaderboard Constants (deprecated for new rank system) ---
 export const LEAGUES = {
     'Bronze': { color: 'text-orange-500', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'},
     'Silver': { color: 'text-gray-400', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'},
@@ -80,261 +94,391 @@ export const LEAGUES = {
 export const PROMOTION_COUNT = 4;
 export const DEMOTION_COUNT = 4;
 
+let currentActiveTab = 'skill';
+
 /**
- * Sets up the toggle buttons to switch between club and global leaderboards
+ * Sets up the tab navigation for the new 3-tab leaderboard
+ */
+export function setupLeaderboardTabs() {
+    const tabSkillBtn = document.getElementById('tab-skill');
+    const tabEffortBtn = document.getElementById('tab-effort');
+    const tabRanksBtn = document.getElementById('tab-ranks');
+    const scopeToggleContainer = document.getElementById('scope-toggle-container');
+
+    if (!tabSkillBtn || !tabEffortBtn || !tabRanksBtn) return;
+
+    const switchTab = (tabName) => {
+        currentActiveTab = tabName;
+
+        // Hide all tab contents
+        document.querySelectorAll('.leaderboard-tab-content').forEach(el => el.classList.add('hidden'));
+
+        // Remove active state from all tabs
+        document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
+            btn.classList.remove('border-indigo-600', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-600');
+        });
+
+        // Show selected tab content
+        const selectedContent = document.getElementById(`content-${tabName}`);
+        if (selectedContent) selectedContent.classList.remove('hidden');
+
+        // Add active state to selected tab
+        const selectedTab = document.getElementById(`tab-${tabName}`);
+        if (selectedTab) {
+            selectedTab.classList.add('border-indigo-600', 'text-indigo-600');
+            selectedTab.classList.remove('border-transparent', 'text-gray-600');
+        }
+
+        // Show/hide scope toggle based on tab (Ranks tab doesn't have global view)
+        if (scopeToggleContainer) {
+            if (tabName === 'ranks') {
+                scopeToggleContainer.classList.add('hidden');
+            } else {
+                scopeToggleContainer.classList.remove('hidden');
+            }
+        }
+    };
+
+    tabSkillBtn.addEventListener('click', () => switchTab('skill'));
+    tabEffortBtn.addEventListener('click', () => switchTab('effort'));
+    tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
+
+    // Activate first tab by default
+    switchTab('skill');
+}
+
+/**
+ * Sets up the club/global toggle for Skill and Effort tabs
  */
 export function setupLeaderboardToggle() {
     const toggleClubBtn = document.getElementById('toggle-club');
     const toggleGlobalBtn = document.getElementById('toggle-global');
-    const leaderboardClubContainer = document.getElementById('leaderboard-club-container');
-    const leaderboardGlobalContainer = document.getElementById('leaderboard-global-container');
-    const coachLeagueSelect = document.getElementById('coach-league-select');
-    const leagueIconsContainer = document.getElementById('league-icons-container');
-    const leagueNameEl = document.getElementById('league-name');
 
     if (!toggleClubBtn || !toggleGlobalBtn) return;
 
-    toggleClubBtn.classList.add('toggle-btn-active');
-    toggleClubBtn.addEventListener('click', () => {
-        toggleClubBtn.classList.add('toggle-btn-active');
-        toggleGlobalBtn.classList.remove('toggle-btn-active');
-        leaderboardClubContainer.classList.remove('hidden');
-        leaderboardGlobalContainer.classList.add('hidden');
+    const switchScope = (scope) => {
+        const tab = currentActiveTab;
 
-        // Zeige Liga-Auswahl und Icons für Club-Ansicht
-        if (coachLeagueSelect) coachLeagueSelect.classList.remove('hidden');
-        if (leagueIconsContainer) leagueIconsContainer.classList.remove('hidden');
-    });
-    toggleGlobalBtn.addEventListener('click', () => {
-        toggleGlobalBtn.classList.add('toggle-btn-active');
-        toggleClubBtn.classList.remove('toggle-btn-active');
-        leaderboardGlobalContainer.classList.remove('hidden');
-        leaderboardClubContainer.classList.add('hidden');
+        if (scope === 'club') {
+            toggleClubBtn.classList.add('toggle-btn-active');
+            toggleGlobalBtn.classList.remove('toggle-btn-active');
 
-        // Verstecke Liga-Auswahl und Icons für Global-Ansicht
-        if (coachLeagueSelect) coachLeagueSelect.classList.add('hidden');
-        if (leagueIconsContainer) leagueIconsContainer.classList.add('hidden');
+            const clubContainer = document.getElementById(`${tab}-club-container`);
+            const globalContainer = document.getElementById(`${tab}-global-container`);
+            if (clubContainer) clubContainer.classList.remove('hidden');
+            if (globalContainer) globalContainer.classList.add('hidden');
+        } else {
+            toggleGlobalBtn.classList.add('toggle-btn-active');
+            toggleClubBtn.classList.remove('toggle-btn-active');
 
-        // Ändere Titel zu "Globales Leaderboard"
-        if (leagueNameEl) leagueNameEl.textContent = 'Globales Leaderboard';
-    });
+            const clubContainer = document.getElementById(`${tab}-club-container`);
+            const globalContainer = document.getElementById(`${tab}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+        }
+    };
+
+    toggleClubBtn.addEventListener('click', () => switchScope('club'));
+    toggleGlobalBtn.addEventListener('click', () => switchScope('global'));
+
+    // Activate club view by default
+    switchScope('club');
 }
 
 /**
- * Loads and displays the club leaderboard for the user's league
+ * Loads all 3 leaderboard tabs for a player
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadLeaderboard(userData, db, unsubscribes) {
-    const leaderboardListClubEl = document.getElementById('leaderboard-list-club');
-    const leagueNameEl = document.getElementById('league-name');
-    const leagueIconsContainer = document.getElementById('league-icons-container');
-    const userLeague = userData.league || 'Bronze';
-
-    if (leagueNameEl) leagueNameEl.textContent = `${userLeague}-Liga`;
-
-    if (leagueIconsContainer) {
-        leagueIconsContainer.innerHTML = '';
-        for (const leagueKey in LEAGUES) {
-            const isActive = leagueKey === userLeague;
-            const iconDiv = document.createElement('div');
-            iconDiv.className = `p-2 border-2 rounded-lg transition-transform transform ${isActive ? 'league-icon-active bg-indigo-100' : 'bg-gray-200 opacity-50'}`;
-            iconDiv.innerHTML = `<svg class="h-8 w-8 ${LEAGUES[leagueKey].color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${LEAGUES[leagueKey].icon}</svg>`;
-            leagueIconsContainer.appendChild(iconDiv);
-        }
-    }
-
-    const q = query(collection(db, "users"), where("clubId", "==", userData.clubId), where("role", "==", "player"));
-    const leaderboardListener = onSnapshot(q, (snapshot) => {
-        if (!leaderboardListClubEl) return;
-
-        if (snapshot.empty) {
-            leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
-            return;
-        }
-
-        const playersInLeague = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(player => (player.league || 'Bronze') === userLeague);
-        if (playersInLeague.length === 0) {
-            leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Liga.</div>`;
-            return;
-        }
-        const sortedPlayers = playersInLeague.sort((a, b) => (b.points || 0) - (a.points || 0));
-        const totalPlayers = sortedPlayers.length;
-
-        leaderboardListClubEl.innerHTML = '';
-        if (totalPlayers > PROMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-green-100 text-green-800 font-bold text-sm rounded-t-lg">Aufstiegszone</div>`;
-        }
-        sortedPlayers.slice(0, PROMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index, userData.id, leaderboardListClubEl, totalPlayers));
-
-        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
-            sortedPlayers.slice(PROMOTION_COUNT, totalPlayers - DEMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index + PROMOTION_COUNT, userData.id, leaderboardListClubEl, totalPlayers));
-        } else if (totalPlayers > PROMOTION_COUNT) {
-             leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
-             sortedPlayers.slice(PROMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index + PROMOTION_COUNT, userData.id, leaderboardListClubEl, totalPlayers));
-        }
-
-        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-red-100 text-red-800 font-bold text-sm">Abstiegszone</div>`;
-            sortedPlayers.slice(totalPlayers - DEMOTION_COUNT).forEach((player, index) => renderPlayerRow(player, index + totalPlayers - DEMOTION_COUNT, userData.id, leaderboardListClubEl, totalPlayers));
-        }
-    });
-
-    if (unsubscribes) unsubscribes.push(leaderboardListener);
+    loadSkillLeaderboard(userData, db, unsubscribes);
+    loadEffortLeaderboard(userData, db, unsubscribes);
+    loadRanksView(userData, db, unsubscribes);
 }
 
 /**
- * Loads and displays the global leaderboard with all players
+ * Loads the Skill leaderboard (sorted by Elo) - Club view
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadSkillLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('skill-list-club');
+    if (!listEl) return;
+
+    const q = query(
+        collection(db, "users"),
+        where("clubId", "==", userData.clubId),
+        where("role", "==", "player"),
+        orderBy("eloRating", "desc")
+    );
+
+    const listener = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
+            return;
+        }
+
+        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        listEl.innerHTML = '';
+        players.forEach((player, index) => {
+            renderSkillRow(player, index, userData.id, listEl);
+        });
+    });
+
+    if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the Effort leaderboard (sorted by XP) - Club view
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadEffortLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('effort-list-club');
+    if (!listEl) return;
+
+    const q = query(
+        collection(db, "users"),
+        where("clubId", "==", userData.clubId),
+        where("role", "==", "player"),
+        orderBy("xp", "desc")
+    );
+
+    const listener = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
+            return;
+        }
+
+        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        listEl.innerHTML = '';
+        players.forEach((player, index) => {
+            renderEffortRow(player, index, userData.id, listEl);
+        });
+    });
+
+    if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the Ranks view (grouped by rank) - Club view only
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadRanksView(userData, db, unsubscribes) {
+    const listEl = document.getElementById('ranks-list');
+    if (!listEl) return;
+
+    const q = query(
+        collection(db, "users"),
+        where("clubId", "==", userData.clubId),
+        where("role", "==", "player")
+    );
+
+    const listener = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
+            return;
+        }
+
+        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const grouped = groupPlayersByRank(players);
+
+        listEl.innerHTML = '';
+
+        // Display ranks from highest to lowest
+        for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
+            const rank = RANK_ORDER[i];
+            const playersInRank = grouped[rank.id] || [];
+
+            if (playersInRank.length === 0) continue;
+
+            // Sort by XP within rank
+            playersInRank.sort((a, b) => (b.xp || 0) - (a.xp || 0));
+
+            const rankSection = document.createElement('div');
+            rankSection.className = 'rank-section';
+            rankSection.innerHTML = `
+                <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: ${rank.color}20; border-left: 4px solid ${rank.color};">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl">${rank.emoji}</span>
+                        <span class="font-bold text-lg" style="color: ${rank.color};">${rank.name}</span>
+                    </div>
+                    <span class="text-sm text-gray-600">${playersInRank.length} Spieler</span>
+                </div>
+                <div class="mt-2 space-y-1 pl-4">
+                    ${playersInRank.map((player, idx) => {
+                        const isCurrentUser = player.id === userData.id;
+                        const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+                        const avatarSrc = player.photoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+
+                        return `
+                            <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
+                                <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3">
+                                <div class="flex-grow">
+                                    <p class="text-sm">${player.firstName} ${player.lastName}</p>
+                                </div>
+                                <div class="text-xs text-gray-600">
+                                    ${player.eloRating || 1200} Elo | ${player.xp || 0} XP
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            listEl.appendChild(rankSection);
+        }
+    });
+
+    if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the global leaderboards (Skill and Effort)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadGlobalLeaderboard(userData, db, unsubscribes) {
-    const leaderboardListGlobalEl = document.getElementById('leaderboard-list-global');
-    const q = query(collection(db, "users"), where("role", "==", "player"), orderBy("points", "desc"));
-
-    const globalListener = onSnapshot(q, (snapshot) => {
-        if (!leaderboardListGlobalEl) return;
-
-        if (snapshot.empty) {
-            leaderboardListGlobalEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>`;
-            return;
-        }
-        const allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        leaderboardListGlobalEl.innerHTML = '';
-        allPlayers.forEach((player, index) => {
-            renderPlayerRow(player, index, userData.id, leaderboardListGlobalEl, allPlayers.length, true);
-        });
-    });
-
-    if (unsubscribes) unsubscribes.push(globalListener);
+    loadGlobalSkillLeaderboard(userData, db, unsubscribes);
+    loadGlobalEffortLeaderboard(userData, db, unsubscribes);
 }
 
 /**
- * Loads and displays the club leaderboard for coaches (allows selecting specific league)
- * @param {string} clubId - The club ID to filter players
- * @param {string} leagueToShow - The specific league to display
- * @param {Object} db - Firestore database instance
- * @param {Function} unsubscribeCallback - Callback to handle the unsubscribe function
+ * Loads the global Skill leaderboard (sorted by Elo)
  */
-export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCallback) {
-    const leaderboardListClubEl = document.getElementById('leaderboard-list-club');
-    const leagueNameEl = document.getElementById('league-name');
-    const leagueIconsContainer = document.getElementById('league-icons-container');
-
-    if (!leaderboardListClubEl) return;
-
-    if (leagueNameEl) leagueNameEl.textContent = `${leagueToShow}-Liga`;
-
-    if (leagueIconsContainer) {
-        leagueIconsContainer.innerHTML = '';
-        for (const leagueKey in LEAGUES) {
-            const isActive = leagueKey === leagueToShow;
-            const iconDiv = document.createElement('div');
-            iconDiv.className = `p-2 border-2 rounded-lg transition-transform transform ${isActive ? 'league-icon-active bg-indigo-100' : 'bg-gray-200 opacity-50'}`;
-            iconDiv.innerHTML = `<svg class="h-8 w-8 ${LEAGUES[leagueKey].color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">${LEAGUES[leagueKey].icon}</svg>`;
-            leagueIconsContainer.appendChild(iconDiv);
-        }
-    }
+function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('skill-list-global');
+    if (!listEl) return;
 
     const q = query(
         collection(db, "users"),
-        where("clubId", "==", clubId),
-        where("league", "==", leagueToShow),
         where("role", "==", "player"),
-        orderBy("points", "desc")
+        orderBy("eloRating", "desc")
     );
 
-    const leaderboardListener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, (snapshot) => {
         if (snapshot.empty) {
-            leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Liga gefunden.</div>`;
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>`;
             return;
         }
 
-        const sortedPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const totalPlayers = sortedPlayers.length;
-
-        leaderboardListClubEl.innerHTML = '';
-        if (totalPlayers > PROMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-green-100 text-green-800 font-bold text-sm rounded-t-lg">Aufstiegszone</div>`;
-        }
-        sortedPlayers.slice(0, PROMOTION_COUNT).forEach((player, index) =>
-            renderPlayerRow(player, index, null, leaderboardListClubEl, totalPlayers)
-        );
-
-        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
-            sortedPlayers.slice(PROMOTION_COUNT, totalPlayers - DEMOTION_COUNT).forEach((player, index) =>
-                renderPlayerRow(player, index + PROMOTION_COUNT, null, leaderboardListClubEl, totalPlayers)
-            );
-        } else if (totalPlayers > PROMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-gray-100 text-gray-800 font-bold text-sm">Sicherheitszone</div>`;
-            sortedPlayers.slice(PROMOTION_COUNT).forEach((player, index) =>
-                renderPlayerRow(player, index + PROMOTION_COUNT, null, leaderboardListClubEl, totalPlayers)
-            );
-        }
-
-        if (totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-            leaderboardListClubEl.innerHTML += `<div class="p-2 bg-red-100 text-red-800 font-bold text-sm">Abstiegszone</div>`;
-            sortedPlayers.slice(totalPlayers - DEMOTION_COUNT).forEach((player, index) =>
-                renderPlayerRow(player, index + totalPlayers - DEMOTION_COUNT, null, leaderboardListClubEl, totalPlayers)
-            );
-        }
-    }, (error) => {
-        console.error("Fehler beim Laden des Leaderboards:", error);
-        leaderboardListClubEl.innerHTML = `<div class="text-center py-8 text-red-500">Fehler beim Laden des Leaderboards.</div>`;
+        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        listEl.innerHTML = '';
+        players.forEach((player, index) => {
+            renderSkillRow(player, index, userData.id, listEl, true);
+        });
     });
 
-    if (unsubscribeCallback) unsubscribeCallback(leaderboardListener);
+    if (unsubscribes) unsubscribes.push(listener);
 }
 
 /**
- * Renders a single player row in the leaderboard
- * @param {Object} player - Player data
- * @param {number} index - Player's index in the sorted list
- * @param {string|null} currentUserId - Current user's ID (null for coach view, no highlighting)
- * @param {HTMLElement} container - Container element to append the row to
- * @param {number} totalPlayers - Total number of players in the leaderboard
- * @param {boolean} isGlobal - Whether this is for the global leaderboard
+ * Loads the global Effort leaderboard (sorted by XP)
  */
-export function renderPlayerRow(player, index, currentUserId = null, container, totalPlayers = 0, isGlobal = false) {
-    const isCurrentUser = currentUserId ? player.id === currentUserId : false;
+function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('effort-list-global');
+    if (!listEl) return;
+
+    const q = query(
+        collection(db, "users"),
+        where("role", "==", "player"),
+        orderBy("xp", "desc")
+    );
+
+    const listener = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>`;
+            return;
+        }
+
+        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        listEl.innerHTML = '';
+        players.forEach((player, index) => {
+            renderEffortRow(player, index, userData.id, listEl, true);
+        });
+    });
+
+    if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * @deprecated This function is deprecated and will be removed in future versions.
+ * Use the new 3-tab leaderboard system instead.
+ */
+export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCallback) {
+    console.warn('loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.');
+}
+
+/**
+ * Renders a player row in the Skill leaderboard (shows Elo and Rank)
+ */
+function renderSkillRow(player, index, currentUserId, container, isGlobal = false) {
+    const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
+    const playerRank = calculateRank(player.eloRating, player.xp);
 
     const playerDiv = document.createElement('div');
-
-    let rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+    const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
     const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+    const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
 
-    const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId}</p>` : '';
-
-    let zoneClass = '';
-    if (isGlobal) {
-        zoneClass = isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-white';
-    } else if (currentUserId === null) {
-        // Coach view: simple background, no user highlighting
-        zoneClass = 'bg-gray-50';
-    } else {
-        // Player view: zone colors and user highlighting
-        if (rank <= PROMOTION_COUNT) zoneClass = 'bg-green-50';
-        else if (rank > totalPlayers - DEMOTION_COUNT && totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) zoneClass = 'bg-red-50';
-        if (isCurrentUser) zoneClass += ' font-bold bg-indigo-100';
-    }
-
-    playerDiv.className = `flex items-center p-3 rounded-lg ${zoneClass}`;
-
+    playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
-        <div class="w-10 text-center font-bold text-lg">${rankDisplay || rank}</div>
+        <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
         <div class="flex-grow">
             <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
             ${clubInfo}
         </div>
-        <div class="text-sm font-bold text-gray-900">${player.points || 0} P.</div>
+        <div class="text-right">
+            <p class="text-sm font-bold text-gray-900">${player.eloRating || 1200} Elo</p>
+            <p class="text-xs text-gray-500">${playerRank.emoji} ${playerRank.name}</p>
+        </div>
     `;
     container.appendChild(playerDiv);
+}
+
+/**
+ * Renders a player row in the Effort leaderboard (shows XP and Rank)
+ */
+function renderEffortRow(player, index, currentUserId, container, isGlobal = false) {
+    const isCurrentUser = player.id === currentUserId;
+    const rank = index + 1;
+    const playerRank = calculateRank(player.eloRating, player.xp);
+
+    const playerDiv = document.createElement('div');
+    const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+    const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
+
+    playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
+    playerDiv.innerHTML = `
+        <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
+        <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
+        <div class="flex-grow">
+            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
+            ${clubInfo}
+        </div>
+        <div class="text-right">
+            <p class="text-sm font-bold text-gray-900">${player.xp || 0} XP</p>
+            <p class="text-xs text-gray-500">${playerRank.emoji} ${playerRank.name}</p>
+        </div>
+    `;
+    container.appendChild(playerDiv);
+}
+
+/**
+ * @deprecated This function is deprecated and will be removed in future versions.
+ * Use renderSkillRow or renderEffortRow instead.
+ */
+export function renderPlayerRow(player, index, currentUserId = null, container, totalPlayers = 0, isGlobal = false) {
+    console.warn('renderPlayerRow is deprecated. Use renderSkillRow or renderEffortRow instead.');
 }

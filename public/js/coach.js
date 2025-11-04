@@ -5,7 +5,7 @@ import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, que
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
-import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, loadLeaderboardForCoach, loadGlobalLeaderboard, renderLeaderboardHTML, setupLeaderboardToggle } from './leaderboard.js';
+import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
@@ -99,32 +99,29 @@ function initializeCoachPage(userData) {
 
     document.getElementById('welcome-message').textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
 
-    // Render leaderboard HTML for coach
+    // Render leaderboard HTML for coach (new 3-tab system)
     renderLeaderboardHTML('tab-content-dashboard', {
-        showToggle: true,  // Club/Global Toggle
-        showLeagueSelect: true,  // Liga-Auswahl für Club-Ansicht
-        showLeagueIcons: true,
-        showSeasonCountdown: true
+        showToggle: true  // Club/Global Toggle
     });
 
     setupTabs('dashboard');  // Use 'dashboard' as default tab for coach
+    setupLeaderboardTabs();  // Setup für 3-Tab-Navigation (Skill, Fleiß, Gürtel)
     setupLeaderboardToggle();  // Setup für Club/Global Toggle
     loadPlayersForDropdown(userData.clubId, db);
     loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown(db);
     loadActiveChallenges(userData.clubId, db);
     loadAllExercises(db);
-    loadLeaguesForSelector(userData.clubId, db, (unsub) => {
-        if (unsubscribeLeaderboard) unsubscribeLeaderboard();
-        unsubscribeLeaderboard = unsub;
-    });  // Setup für Liga-Buttons
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players;
         populateMatchDropdowns(clubPlayers);
         populateHistoryFilterDropdown(clubPlayers);
     });
-    loadGlobalLeaderboard(userData, db, []); // Global leaderboard für Coach
-    updateSeasonCountdown(false);  // No reload for coach
+
+    // Load all 3 leaderboard tabs
+    loadLeaderboard(userData, db, []); // Club leaderboards for all tabs
+    loadGlobalLeaderboard(userData, db, []); // Global leaderboards for Skill and Effort tabs
+
     renderCalendar(currentCalendarDate, db, userData);
 
     // --- Event Listeners ---
