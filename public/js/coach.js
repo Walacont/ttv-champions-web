@@ -7,7 +7,7 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://w
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount } from './attendance.js';
-import { handleCreateChallenge, loadActiveChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns } from './challenges.js';
+import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
@@ -111,6 +111,7 @@ function initializeCoachPage(userData) {
     loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown(db);
     loadActiveChallenges(userData.clubId, db);
+    loadExpiredChallenges(userData.clubId, db);
     loadAllExercises(db);
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players;
@@ -174,3 +175,43 @@ function initializeCoachPage(userData) {
     setInterval(updateAllCountdowns, 1000);
 }
 
+
+// Global challenge handlers (called from onclick in HTML)
+let currentChallengeId = null;
+
+window.showReactivateModal = function(challengeId, title) {
+    currentChallengeId = challengeId;
+    document.getElementById('reactivate-challenge-title').textContent = title;
+    document.getElementById('reactivate-challenge-modal').classList.remove('hidden');
+    document.getElementById('reactivate-challenge-modal').classList.add('flex');
+};
+
+window.handleReactivate = async function(duration) {
+    if (!currentChallengeId) return;
+
+    const result = await reactivateChallenge(currentChallengeId, duration, db);
+    if (result.success) {
+        alert('Challenge erfolgreich reaktiviert!');
+        document.getElementById('reactivate-challenge-modal').classList.add('hidden');
+        document.getElementById('reactivate-challenge-modal').classList.remove('flex');
+    } else {
+        alert(`Fehler: ${result.error}`);
+    }
+};
+
+window.confirmEndChallenge = async function(challengeId, title) {
+    if (confirm(`Möchten Sie die Challenge "${title}" wirklich vorzeitig beenden?`)) {
+        const result = await endChallenge(challengeId, db);
+        if (result.success) {
+            alert('Challenge wurde beendet.');
+        } else {
+            alert(`Fehler: ${result.error}`);
+        }
+    }
+};
+
+// Close reactivate modal
+document.getElementById('close-reactivate-modal')?.addEventListener('click', () => {
+    document.getElementById('reactivate-challenge-modal').classList.add('hidden');
+    document.getElementById('reactivate-challenge-modal').classList.remove('flex');
+});

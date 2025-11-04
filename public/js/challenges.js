@@ -1,4 +1,4 @@
-import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Challenges Module
@@ -60,7 +60,23 @@ export function loadActiveChallenges(clubId, db) {
             const card = document.createElement('div');
             card.className = 'p-4 border rounded-lg bg-gray-50';
             const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
-            card.innerHTML = ` <div class="flex justify-between items-center"> <h3 class="font-bold">${challenge.title}</h3> <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span> </div> <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p> <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t"> <span class="font-bold text-indigo-600">+${challenge.points} Punkte</span> <span class="challenge-countdown font-mono text-red-600" data-expires-at="${expiresAt.toISOString()}">Berechne...</span> </div> `;
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold">${challenge.title}</h3>
+                    <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
+                </div>
+                <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p>
+                <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
+                    <span class="font-bold text-indigo-600">+${challenge.points} Punkte</span>
+                    <span class="challenge-countdown font-mono text-red-600" data-expires-at="${expiresAt.toISOString()}">Berechne...</span>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="confirmEndChallenge('${challenge.id}', '${challenge.title}')"
+                            class="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded">
+                        🛑 Beenden
+                    </button>
+                </div>
+            `;
             activeChallengesList.appendChild(card);
         });
         updateAllCountdowns();
@@ -85,13 +101,26 @@ export function loadChallengesForDropdown(clubId, db) {
             return;
         }
         select.innerHTML = '<option value="">Challenge wählen...</option>';
-        snapshot.forEach(doc => {
-            const c = doc.data();
+
+        const now = new Date();
+        const activeChallenges = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(challenge => {
+                const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+                return expiresAt > now; // Only show non-expired challenges
+            });
+
+        if (activeChallenges.length === 0) {
+            select.innerHTML = '<option value="">Alle Challenges abgelaufen</option>';
+            return;
+        }
+
+        activeChallenges.forEach(challenge => {
             const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = `${c.title} (+${c.points} P.)`;
-            option.dataset.points = c.points;
-            option.dataset.title = c.title;
+            option.value = challenge.id;
+            option.textContent = `${challenge.title} (+${challenge.points} P.)`;
+            option.dataset.points = challenge.points;
+            option.dataset.title = challenge.title;
             select.appendChild(option);
         });
     });
@@ -119,6 +148,105 @@ export function calculateExpiry(createdAt, type) {
             break;
     }
     return expiryDate;
+}
+
+/**
+ * Loads expired challenges for the club
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ */
+export function loadExpiredChallenges(clubId, db) {
+    const expiredChallengesList = document.getElementById('expired-challenges-list');
+    if (!expiredChallengesList) return;
+
+    const q = query(collection(db, "challenges"), where("clubId", "==", clubId), orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+        expiredChallengesList.innerHTML = '';
+        const now = new Date();
+
+        const expiredChallenges = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(challenge => {
+                const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+                // Show if expired OR manually ended
+                return expiresAt <= now || challenge.isActive === false;
+            });
+
+        if (expiredChallenges.length === 0) {
+            expiredChallengesList.innerHTML = '<p class="text-gray-500">Keine abgelaufenen Challenges gefunden.</p>';
+            return;
+        }
+
+        expiredChallenges.forEach(challenge => {
+            const card = document.createElement('div');
+            card.className = 'p-4 border rounded-lg bg-gray-50';
+            const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+            const wasManuallyEnded = challenge.isActive === false;
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-gray-700">${challenge.title}</h3>
+                    <span class="text-xs font-semibold bg-gray-300 text-gray-600 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
+                </div>
+                <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p>
+                <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
+                    <span class="font-bold text-gray-600">+${challenge.points} Punkte</span>
+                    <span class="text-xs text-gray-500">
+                        ${wasManuallyEnded ? 'Vorzeitig beendet' : 'Abgelaufen am ' + expiresAt.toLocaleDateString('de-DE')}
+                    </span>
+                </div>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="showReactivateModal('${challenge.id}', '${challenge.title}')"
+                            class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-3 rounded">
+                        🔄 Reaktivieren
+                    </button>
+                </div>
+            `;
+            expiredChallengesList.appendChild(card);
+        });
+    }, error => {
+        console.error("Fehler beim Laden der abgelaufenen Challenges:", error);
+        expiredChallengesList.innerHTML = '<p class="text-red-500">Fehler beim Laden.</p>';
+    });
+}
+
+/**
+ * Reactivates a challenge with a new duration
+ * @param {string} challengeId - Challenge ID
+ * @param {string} duration - New duration (daily, weekly, monthly)
+ * @param {Object} db - Firestore database instance
+ */
+export async function reactivateChallenge(challengeId, duration, db) {
+    try {
+        const challengeRef = doc(db, 'challenges', challengeId);
+        await updateDoc(challengeRef, {
+            createdAt: serverTimestamp(),
+            type: duration,
+            isActive: true
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Error reactivating challenge:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Ends a challenge early
+ * @param {string} challengeId - Challenge ID
+ * @param {Object} db - Firestore database instance
+ */
+export async function endChallenge(challengeId, db) {
+    try {
+        const challengeRef = doc(db, 'challenges', challengeId);
+        await updateDoc(challengeRef, {
+            isActive: false
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Error ending challenge:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 /**
