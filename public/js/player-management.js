@@ -204,12 +204,15 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">${rankHtml}</td>
                         <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-left" onclick="event.stopPropagation()">${actionsHtml}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-left actions-cell">${actionsHtml}</td>
                     `;
 
-                    // Add click handler to show details
-                    row.addEventListener('click', () => {
-                        showPlayerDetails(player);
+                    // Add click handler to show details (but not on action buttons)
+                    row.addEventListener('click', (e) => {
+                        // Don't show details if clicking on action buttons
+                        if (!e.target.closest('.actions-cell')) {
+                            showPlayerDetails(player);
+                        }
                     });
 
                     modalPlayerList.appendChild(row);
