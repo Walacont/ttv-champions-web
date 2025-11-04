@@ -27,6 +27,9 @@ export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallba
     // Display current rank
     updateRankDisplay(userData);
 
+    // Display Grundlagen progress
+    updateGrundlagenDisplay(userData);
+
     loadRivalDataCallback(userData, db);
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
@@ -156,6 +159,42 @@ export async function loadRivalData(userData, db) {
         `;
     } else {
         rivalInfoEl.innerHTML = `<p>Keine Ranglistendaten gefunden.</p>`;
+    }
+}
+
+/**
+ * Updates the Grundlagen progress display
+ * @param {Object} userData - User data with grundlagenCompleted
+ */
+export function updateGrundlagenDisplay(userData) {
+    const grundlagenCard = document.getElementById('grundlagen-card');
+    const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
+    const grundlagenStatus = document.getElementById('grundlagen-status');
+
+    if (!grundlagenCard) return;
+
+    const grundlagenCount = userData.grundlagenCompleted || 0;
+    const grundlagenRequired = 5;
+
+    // Only show card if player hasn't completed all Grundlagen
+    if (grundlagenCount < grundlagenRequired) {
+        grundlagenCard.classList.remove('hidden');
+        const progress = (grundlagenCount / grundlagenRequired) * 100;
+
+        if (grundlagenProgressBar) {
+            grundlagenProgressBar.style.width = `${progress}%`;
+        }
+
+        if (grundlagenStatus) {
+            grundlagenStatus.textContent = `${grundlagenCount}/${grundlagenRequired} Grundlagen-Übungen absolviert`;
+
+            if (grundlagenCount > 0) {
+                grundlagenStatus.classList.remove('text-gray-600');
+                grundlagenStatus.classList.add('text-green-600', 'font-semibold');
+            }
+        }
+    } else {
+        grundlagenCard.classList.add('hidden');
     }
 }
 

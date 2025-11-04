@@ -227,10 +227,66 @@ export function loadPlayersForDropdown(clubId, db) {
                 const option = document.createElement('option');
                 option.value = p.id;
                 option.textContent = `${p.firstName} ${p.lastName}`;
+                // Store player data in data attributes for Grundlagen display
+                option.dataset.grundlagen = p.grundlagenCompleted || 0;
+                option.dataset.rank = p.rank || 'Rekrut';
                 select.appendChild(option);
             });
     }, (error) => {
         console.error("Fehler beim Laden der Spieler für das Dropdown:", error);
         select.innerHTML = '<option value="">Fehler beim Laden der Spieler</option>';
     });
+}
+
+/**
+ * Updates the Grundlagen progress display for a selected player (coach view)
+ * @param {string} playerId - The selected player ID
+ */
+export function updateCoachGrundlagenDisplay(playerId) {
+    const grundlagenInfo = document.getElementById('coach-grundlagen-info');
+    const grundlagenText = document.getElementById('coach-grundlagen-text');
+    const grundlagenBar = document.getElementById('coach-grundlagen-bar');
+
+    if (!grundlagenInfo || !playerId) {
+        if (grundlagenInfo) grundlagenInfo.classList.add('hidden');
+        return;
+    }
+
+    // Get data from selected option
+    const select = document.getElementById('player-select');
+    const selectedOption = select.options[select.selectedIndex];
+
+    if (!selectedOption || !selectedOption.value) {
+        grundlagenInfo.classList.add('hidden');
+        return;
+    }
+
+    const grundlagenCount = parseInt(selectedOption.dataset.grundlagen) || 0;
+    const grundlagenRequired = 5;
+    const progress = (grundlagenCount / grundlagenRequired) * 100;
+
+    // Show the info box
+    grundlagenInfo.classList.remove('hidden');
+
+    // Update text
+    if (grundlagenCount >= grundlagenRequired) {
+        grundlagenText.innerHTML = `✅ <strong>${grundlagenCount}/${grundlagenRequired}</strong> - Grundlagen abgeschlossen! Wettkämpfe freigeschaltet.`;
+        grundlagenText.className = 'mt-1 text-sm text-green-700 font-semibold';
+    } else {
+        const remaining = grundlagenRequired - grundlagenCount;
+        grundlagenText.innerHTML = `<strong>${grundlagenCount}/${grundlagenRequired}</strong> - Noch <strong>${remaining}</strong> Grundlagen-Übung${remaining > 1 ? 'en' : ''} bis Wettkämpfe freigeschaltet werden.`;
+        grundlagenText.className = 'mt-1 text-sm text-blue-700';
+    }
+
+    // Update progress bar
+    if (grundlagenBar) {
+        grundlagenBar.style.width = `${progress}%`;
+        if (grundlagenCount >= grundlagenRequired) {
+            grundlagenBar.classList.remove('bg-blue-600');
+            grundlagenBar.classList.add('bg-green-600');
+        } else {
+            grundlagenBar.classList.remove('bg-green-600');
+            grundlagenBar.classList.add('bg-blue-600');
+        }
+    }
 }

@@ -11,7 +11,7 @@ import { handleCreateChallenge, loadActiveChallenges, loadChallengesForDropdown,
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
-import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown } from './player-management.js';
+import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 
@@ -162,6 +162,11 @@ function initializeCoachPage(userData) {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
             unsubscribePointsHistory = unsub;
         });
+    });
+
+    // Event listener für Spieler-Auswahl (zeigt Grundlagen-Status)
+    document.getElementById('player-select').addEventListener('change', (e) => {
+        updateCoachGrundlagenDisplay(e.target.value);
     });
 
     // Intervals
