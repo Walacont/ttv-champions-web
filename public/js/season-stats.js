@@ -14,12 +14,11 @@ export function loadTopXPPlayers(clubId, db) {
     const topXPElement = document.getElementById('top-xp-players');
     if (!topXPElement) return;
 
+    // Simplified query - get all players from club, then filter and sort in JS
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', clubId),
-        where('role', '==', 'player'),
-        orderBy('xp', 'desc'),
-        limit(3)
+        where('role', '==', 'player')
     );
 
     onSnapshot(q, (snapshot) => {
@@ -28,7 +27,16 @@ export function loadTopXPPlayers(clubId, db) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Sort by XP in JavaScript instead of Firestore
+        const players = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+            .slice(0, 3);
+
+        if (players.length === 0) {
+            topXPElement.innerHTML = '<p class="text-gray-400 text-xs">Keine Daten</p>';
+            return;
+        }
 
         topXPElement.innerHTML = players.map((player, index) => {
             const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
@@ -55,12 +63,11 @@ export function loadTopWinsPlayers(clubId, db) {
     const topWinsElement = document.getElementById('top-wins-players');
     if (!topWinsElement) return;
 
-    // Get all matches from this season where players from this club won
+    // Simplified query - get all matches from club, filter and count in JS
     const q = query(
         collection(db, 'matches'),
         where('clubId', '==', clubId),
-        where('processed', '==', true),
-        orderBy('createdAt', 'desc')
+        where('processed', '==', true)
     );
 
     onSnapshot(q, async (snapshot) => {
