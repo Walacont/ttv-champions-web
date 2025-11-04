@@ -7,6 +7,7 @@ import { loadExercises, handleExerciseClick, closeExerciseModal } from './exerci
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
 import { loadOverviewData, loadRivalData, loadProfileData, updateRankDisplay, updateGrundlagenDisplay } from './profile.js';
+import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 import { handleSeasonReset } from './season.js';
@@ -80,6 +81,14 @@ function initializeDashboard(userData) {
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
     loadTodaysMatches(userData, db, unsubscribes);
+
+    // Load season statistics
+    loadTopXPPlayers(userData.clubId, db);
+    loadTopWinsPlayers(userData.clubId, db);
+
+    // Start season countdown timer
+    updateSeasonCountdown(true);
+    setInterval(() => updateSeasonCountdown(true), 1000);
 
     logoutButton.addEventListener('click', () => signOut(auth));
     setupTabs('overview');  // 'overview' is default tab for dashboard
