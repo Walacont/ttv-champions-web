@@ -20,20 +20,18 @@ export function renderLeaderboardHTML(containerId, options = {}) {
         <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
             <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
-            <!-- Tab Selector -->
             <div class="flex justify-center border-b border-gray-200 mb-4">
-                <button id="tab-skill" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    ⚡ Skill
-                </button>
                 <button id="tab-effort" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                     💪 Fleiß
+                </button>
+                <button id="tab-skill" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    ⚡ Skill
                 </button>
                 <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                     🏆 Level
                 </button>
             </div>
 
-            <!-- Club/Global Toggle (only for Skill and Effort tabs) -->
             ${showToggle ? `
                 <div id="scope-toggle-container" class="mt-4 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
                     <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
@@ -41,7 +39,6 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                 </div>
             ` : ''}
 
-            <!-- Skill Tab Content -->
             <div id="content-skill" class="leaderboard-tab-content hidden">
                 <div id="skill-club-container">
                     <div id="skill-list-club" class="mt-6 space-y-2">
@@ -57,7 +54,6 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                 ` : ''}
             </div>
 
-            <!-- Effort Tab Content -->
             <div id="content-effort" class="leaderboard-tab-content hidden">
                 <div id="effort-club-container">
                     <div id="effort-list-club" class="mt-6 space-y-2">
@@ -73,7 +69,6 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                 ` : ''}
             </div>
 
-            <!-- Ranks Tab Content (always club-based) -->
             <div id="content-ranks" class="leaderboard-tab-content hidden">
                 <div id="ranks-list" class="mt-6 space-y-4">
                     <p class="text-center text-gray-500 py-8">Lade Level-Übersicht...</p>
@@ -94,7 +89,7 @@ export const LEAGUES = {
 export const PROMOTION_COUNT = 4;
 export const DEMOTION_COUNT = 4;
 
-let currentActiveTab = 'skill';
+let currentActiveTab = 'effort'; // GEÄNDERT: Standard-Tab ist jetzt 'effort'
 
 /**
  * Sets up the tab navigation for the new 3-tab leaderboard
@@ -145,7 +140,7 @@ export function setupLeaderboardTabs() {
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
 
     // Activate first tab by default
-    switchTab('skill');
+    switchTab('effort'); // GEÄNDERT: Standard-Tab ist jetzt 'effort'
 }
 
 /**
@@ -421,7 +416,7 @@ export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCal
 function renderSkillRow(player, index, currentUserId, container, isGlobal = false) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
-    const playerRank = calculateRank(player.eloRating, player.xp);
+    const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
@@ -451,7 +446,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
 function renderEffortRow(player, index, currentUserId, container, isGlobal = false) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
-    const playerRank = calculateRank(player.eloRating, player.xp);
+    const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
