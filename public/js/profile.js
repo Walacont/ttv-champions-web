@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
 /**
@@ -27,10 +27,12 @@ export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallba
     // Display current rank
     updateRankDisplay(userData);
 
-    // Display Grundlagen progress
-    updateGrundlagenDisplay(userData);
+    // Display Grundlagen progress (wird jetzt in updateRankDisplay behandelt)
+    // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
 
-    loadRivalDataCallback(userData, db);
+    // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
+    loadRivalDataCallback(userData, db, unsubscribes);
+    
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
 }
@@ -65,7 +67,7 @@ export function updateRankDisplay(userData) {
             <div class="mt-3 text-sm">
                 <p class="text-gray-600 font-medium mb-2">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
 
-                <!-- Elo Progress -->
+                ${nextRank.minElo > 0 ? `
                 <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
                         <span>Elo: ${userData.eloRating || 0}/${nextRank.minElo}</span>
@@ -76,8 +78,7 @@ export function updateRankDisplay(userData) {
                     </div>
                     ${eloNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${eloNeeded} Elo benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ Elo-Anforderung erfüllt</p>`}
                 </div>
-
-                <!-- XP Progress -->
+                ` : ''} 
                 <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
                         <span>XP: ${userData.xp || 0}/${nextRank.minXP}</span>
@@ -90,7 +91,6 @@ export function updateRankDisplay(userData) {
                 </div>
 
                 ${nextRank.requiresGrundlagen ? `
-                    <!-- Grundlagen Requirement (Bronze only) -->
                     <div>
                         <div class="flex justify-between text-xs text-gray-600 mb-1">
                             <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
@@ -114,53 +114,85 @@ export function updateRankDisplay(userData) {
 }
 
 /**
- * Loads rival data (player ahead or behind in the leaderboard)
+ * Zeigt die Rivalen-Information für einen bestimmten Metrik (Skill oder Effort) an.
+ * @param {string} metric - 'Skill' or 'Fleiß'
+ * @param {Array} ranking - Die sortierte Spielerliste
+ * @param {number} myRankIndex - Der Index des aktuellen Spielers (0-basiert)
+ * @param {HTMLElement} el - Das HTML-Element, das befüllt werden soll
+ * @param {number} myValue - Der Wert des aktuellen Spielers (z.B. seine Elo-Zahl)
+ * @param {string} unit - Die Einheit (z.B. "Elo" oder "XP")
+ */
+function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
+    if (!el) return;
+
+    if (myRankIndex === 0) {
+        // Spieler ist auf Platz 1
+        el.innerHTML = `
+            <p class="text-lg text-green-600 font-semibold">
+                🎉 Glückwunsch!
+            </p>
+            <p class="text-sm">Du bist auf dem 1. Platz in ${metric}!</p>
+        `;
+    } else if (myRankIndex > 0) {
+        // Spieler ist nicht auf Platz 1
+        const rival = ranking[myRankIndex - 1];
+        const rivalValue = (unit === 'Elo' ? rival.eloRating : rival.xp) || 0;
+        const pointsDiff = rivalValue - myValue;
+
+        el.innerHTML = `
+            <p class="font-semibold text-lg">${rival.firstName} ${rival.lastName}</p>
+            <p class="text-sm">${unit}: ${rivalValue}</p>
+            <p class="text-sm text-red-500 font-medium">
+                Du benötigst ${pointsDiff} ${unit}, um aufzuholen!
+            </p>
+        `;
+    } else {
+        // Spieler nicht gefunden (sollte nicht passieren)
+        el.innerHTML = `<p>Keine Ranglistendaten gefunden.</p>`;
+    }
+}
+
+/**
+ * Lädt Rivalen-Daten für Skill (Elo) und Effort (XP)
+ * *** JETZT MIT onSnapshot FÜR ECHTZEIT-UPDATES ***
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array zum Speichern des Listeners
  */
-export async function loadRivalData(userData, db) {
-    const rivalInfoEl = document.getElementById('rival-info');
-    if (!rivalInfoEl) return;
+export function loadRivalData(userData, db, unsubscribes) {
+    const rivalSkillEl = document.getElementById('rival-skill-info');
+    const rivalEffortEl = document.getElementById('rival-effort-info');
 
+    // 1. Hole alle Spieler aus dem Verein (ohne den alten league-Filter)
     const q = query(
         collection(db, "users"),
         where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
-        where("league", "==", userData.league || 'Bronze')
+        where("role", "==", "player")
     );
 
-    const querySnapshot = await getDocs(q);
-    const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // *** KORREKTUR: von getDocs zu onSnapshot geändert ***
+    const rivalListener = onSnapshot(q, (querySnapshot) => {
+        const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-    const sortedPlayers = players.sort((a, b) => (b.points || 0) - (a.points || 0));
-    const myRankIndex = sortedPlayers.findIndex(p => p.id === userData.id);
+        // 2. Erstelle zwei separate Ranglisten
+        
+        // Skill-Rangliste (sortiert nach eloRating)
+        const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
+        const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
+        displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, (userData.eloRating || 0), 'Elo');
 
-    if (myRankIndex === 0) {
-        // Player is in first place
-        if (sortedPlayers.length > 1) {
-            const rival = sortedPlayers[1];
-            const pointsDiff = (userData.points || 0) - (rival.points || 0);
-            rivalInfoEl.innerHTML = `
-                <p class="font-semibold text-lg">${rival.firstName} ${rival.lastName}</p>
-                <p class="text-sm">Punkte: ${rival.points || 0}</p>
-                <p class="text-sm text-green-600 font-medium">Du hast einen Vorsprung von ${pointsDiff} Punkten!</p>
-            `;
-        } else {
-            rivalInfoEl.innerHTML = `<p class="text-green-600 font-semibold">🎉 Du bist alleiniger Herrscher dieser Liga!</p>`;
-        }
-    } else if (myRankIndex > 0) {
-        // Player is not in first place
-        const rival = sortedPlayers[myRankIndex - 1];
-        const pointsDiff = (rival.points || 0) - (userData.points || 0);
-        rivalInfoEl.innerHTML = `
-            <p class="font-semibold text-lg">${rival.firstName} ${rival.lastName}</p>
-            <p class="text-sm">Punkte: ${rival.points || 0}</p>
-            <p class="text-sm text-red-500 font-medium">Du benötigst ${pointsDiff} Punkte, um aufzuholen!</p>
-        `;
-    } else {
-        rivalInfoEl.innerHTML = `<p>Keine Ranglistendaten gefunden.</p>`;
+        // Effort-Rangliste (sortiert nach xp)
+        const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
+        const myEffortIndex = effortRanking.findIndex(p => p.id === userData.id);
+        displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (userData.xp || 0), 'XP');
+    });
+
+    // *** KORREKTUR: Listener zur Unsubscribe-Liste hinzufügen ***
+    if (unsubscribes) {
+        unsubscribes.push(rivalListener);
     }
 }
+
 
 /**
  * Updates the Grundlagen progress display
@@ -171,6 +203,7 @@ export function updateGrundlagenDisplay(userData) {
     const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
     const grundlagenStatus = document.getElementById('grundlagen-status');
 
+    // *** KORREKTUR: Die 'grundlagen-card' existiert nicht mehr, wir brechen hier sicher ab ***
     if (!grundlagenCard) return;
 
     const grundlagenCount = userData.grundlagenCompleted || 0;

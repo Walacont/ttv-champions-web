@@ -74,6 +74,7 @@ function initializeDashboard(userData) {
         showToggle: true
     });
 
+    // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
     loadOverviewData(userData, db, unsubscribes, loadRivalData, loadChallenges, loadPointsHistory);
     loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate);
     loadExercises(db, unsubscribes);
@@ -113,16 +114,24 @@ function updateDashboard(userData) {
     const playerEloEl = document.getElementById('player-elo');
     const statsCurrentStreak = document.getElementById('stats-current-streak');
 
+    // Diese Elemente werden direkt aus dem userData-Objekt aktualisiert
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
     if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
     if (statsCurrentStreak) statsCurrentStreak.innerHTML = `${userData.streak || 0} 🔥`;
 
-    updateRankDisplay(userData);  // Update rank display when data changes
-    updateGrundlagenDisplay(userData);  // Update Grundlagen progress
-    loadRivalData(userData, db);
-    loadLeaderboard(userData, db, unsubscribes);
-    loadGlobalLeaderboard(userData, db, unsubscribes);
+    updateRankDisplay(userData);  // Aktualisiert die Rang-Karte
+    updateGrundlagenDisplay(userData);  // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
+
+    // *** KORREKTUR: ***
+    // Die folgenden Zeilen wurden entfernt.
+    // Sie sind nicht nötig, da 'initializeDashboard' bereits 'onSnapshot'-Listener
+    // (Echtzeit-Updates) für Rivalen und Ranglisten eingerichtet hat.
+    // Ein erneuter Aufruf hier würde unnötig neue Listener erstellen (Memory Leak).
+    
+    // loadRivalData(userData, db); <-- ENTFERNT
+    // loadLeaderboard(userData, db, unsubscribes); <-- ENTFERNT
+    // loadGlobalLeaderboard(userData, db, unsubscribes); <-- ENTFERNT
 }
 
 // --- Navigation ---

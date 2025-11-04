@@ -27,6 +27,11 @@
         .calendar-day-today { ring: 2px; ring-color: #4f46e5; }
         .calendar-day:not(.disabled) { cursor: pointer; }
         .calendar-day:not(.disabled):hover { background-color: #eef2ff; }
+        
+        /* Styles für das ausklappbare FAQ-Menü */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] summary svg { transform: rotate(180deg); }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -104,8 +109,7 @@
 
         <main>
             <div id="tab-content-dashboard" class="tab-content">
-                <!-- Leaderboard HTML wird dynamisch von leaderboard.js generiert -->
-            </div>
+                </div>
 
             <div id="tab-content-attendance" class="tab-content hidden">
                 <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
@@ -168,6 +172,112 @@
             </div>
 
             <div id="tab-content-points" class="tab-content hidden">
+                
+                <details class="mb-6 bg-white rounded-xl shadow-md">
+                    <summary class="flex justify-between items-center cursor-pointer p-6">
+                        <h2 class="text-xl font-semibold text-gray-900">
+                            <i class="fas fa-book-open text-indigo-600 mr-3"></i> Regeln & Punktesystem (Anzeigen/Verstecken)
+                        </h2>
+                        <svg class="h-6 w-6 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </summary>
+                    <div class="p-6 border-t border-gray-200 space-y-6">
+                        <div>
+                            <h2 class="text-xl font-semibold mb-4 border-b pb-2">Das Punktesystem</h2>
+                            <div class="space-y-4">
+                                <details class="group">
+                                    <summary class="flex justify-between items-center cursor-pointer">
+                                        <span class="font-medium">Was ist der Unterschied zwischen Elo, XP und Saison-Punkten?</span>
+                                        <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </summary>
+                                    <div class="mt-2 text-gray-700">
+                                        Es gibt drei Arten von Punkten, die du sammelst:
+                                        <ul class="list-disc list-inside mt-2 space-y-2">
+                                            <li><strong>⚡ Skill (Elo):</strong> Dies ist deine permanente Spielstärke. Du gewinnst Elo-Punkte, indem du Wettkampf-Matches gegen andere gewinnst. Du verlierst sie, wenn du verlierst. Dein Elo-Wert bestimmt maßgeblich deinen Rang.</li>
+                                            <li><strong>💪 Fleiß (XP):</strong> Das sind deine permanenten Erfahrungspunkte. Du erhältst XP für fast alles: Anwesenheit, Übungen, Challenges und Match-Siege. XP werden nie abgezogen und sind (genau wie Elo) für deinen Rangaufstieg nötig.</li>
+                                            <li><strong>🏆 Saison-Punkte:</strong> Diese Punkte sind nur für den "Saison-Wettbewerb" (z.B. alle 8 Wochen). Sie werden für Anwesenheit, Übungen, Challenges und Matches vergeben. Im Gegensatz zu XP kannst du Saison-Punkte bei Match-Niederlagen oder durch Strafen (siehe unten) verlieren. Am Ende der Saison werden sie zurückgesetzt.</li>
+                                        </ul>
+                                    </div>
+                                </details>
+                                <details class="group">
+                                    <summary class="flex justify-between items-center cursor-pointer">
+                                        <span class="font-medium">Wie funktionieren die Punkte bei Matches?</span>
+                                        <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </summary>
+                                    <div class="mt-2 text-gray-700">
+                                       <p>Wenn du ein Wettkampf-Match (kein Handicap-Match) spielst, werden deine <strong>Elo-Punkte</strong> und deine <strong>Saison-Punkte</strong> angepasst. Deine <strong>XP</strong> können nur steigen.</p>
+                                       <ul class="list-disc list-inside mt-2 space-y-1">
+                                            <li><strong>Sieg:</strong> Du gewinnst Elo-Punkte, Saison-Punkte und XP.</li>
+                                            <li><strong>Niederlage:</strong> Du verlierst Elo-Punkte und Saison-Punkte. Du verlierst <strong>keine</strong> XP.</li>
+                                            <li><strong>Fairness:</strong> Gewinnst du gegen einen stärkeren Spieler (höheres Elo), erhältst du mehr Punkte. Verlierst du gegen einen stärkeren Spieler, verlierst du nur wenige Punkte.</li>
+                                       </ul>
+                                    </div>
+                                </details>
+                                <details class="group">
+                                    <summary class="flex justify-between items-center cursor-pointer">
+                                        <span class="font-medium">Kann ich auch Punkte verlieren?</span>
+                                         <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </summary>
+                                    <div class="mt-2 text-gray-700">
+                                        Ja, aber nur deine <strong>Saison-Punkte</strong> und <strong>Elo-Punkte</strong>. Deine <strong>XP (Fleiß)</strong> kannst du nie verlieren!
+                                         <ul class="list-disc list-inside mt-2 space-y-2">
+                                            <li><strong>Match-Niederlage:</strong> Du verlierst Elo und Saison-Punkte (siehe oben).</li>
+                                            <li><strong>Unsportliches Verhalten:</strong><br>
+                                                Respektloses Verhalten gegenüber Trainern oder Mitspielern wird mit <strong>-15 bis -30 Saison-Punkten</strong> bestraft.
+                                            </li>
+                                            <li><strong>Mangelnde Disziplin & Mitarbeit:</strong><br>
+                                                <ul class="list-disc list-inside ml-4">
+                                                    <li>Hört nicht auf Anweisungen der Trainer: <strong>-5 Saison-Punkte</strong></li>
+                                                    <li>Hilft nicht beim Auf- und Abbauen: <strong>-5 Saison-Punkte</strong></li>
+                                                    <li>Trainiert nicht ordentlich / macht Quatsch: <strong>-5 Saison-Punkte</strong></li>
+                                                    <li>Wirft mit Bällen oder anderem Material: <strong>-10 Saison-Punkte</strong></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold mb-4 border-b pb-2">Spielmechaniken</h2>
+                            <div class="space-y-4">
+                                <details class="group">
+                                    <summary class="flex justify-between items-center cursor-pointer">
+                                        <span class="font-medium">Was ist ein "Streak"?</span>
+                                        <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </summary>
+                                    <p class="mt-2 text-gray-700">Ein "Streak" ist eine Serie. Wenn du mehrmals hintereinander am Training teilnimmst, baust du eine Anwesenheits-Serie auf. <strong>Ab dem dritten Mal in Folge erhältst du +15 Bonuspunkte (Saison & XP), ab dem fünften Mal sogar +20.</strong> Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt.</p>
+                                </details>
+                                <details class="group">
+                                    <summary class="flex justify-between items-center cursor-pointer">
+                                        <span class="font-medium">Wie funktionieren die Ränge und das Leaderboard?</span>
+                                        <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </summary>
+                                    <div class="mt-2 text-gray-700">
+                                        <p>Dein Rang (z.B. Rekrut, Bronze, Silber) ist <strong>permanent</strong> und wird nie zurückgesetzt. Um im Rang aufzusteigen, musst du bestimmte Meilensteine bei <strong>Elo (Skill)</strong> und <strong>XP (Fleiß)</strong> erreichen.</p>
+                                        <p class="mt-2"><strong>Wichtig:</strong> Du musst immer <strong>beide</strong> Anforderungen (Elo und XP) für den nächsten Rang erfüllen.</p>
+                                        <p class="mt-2"><strong>Beispiel (Bronze-Rang):</strong></p>
+                                        <ul class="list-disc list-inside mt-2 space-y-1">
+                                            <li>Du startest als <strong>Rekrut</strong> (0 Elo, 0 XP).</li>
+                                            <li>Um <strong>Bronze</strong> zu werden, brauchst du:
+                                                <ul class="list-disc list-inside ml-4">
+                                                    <li>100 XP (Fleiß)</li>
+                                                    <li>5 absolvierte "Grundlagen"-Übungen</li>
+                                                </ul>
+                                            </li>
+                                            <li>(Elo ist für Bronze noch nicht nötig, damit du erst die Grundlagen lernst!)</li>
+                                        </ul>
+                                        <p class="mt-2"><strong>Das Leaderboard ist in 3 Tabs aufgeteilt:</strong></p>
+                                         <ul class="list-disc list-inside mt-2 space-y-1">
+                                            <li><strong>⚡ Skill:</strong> Zeigt die Rangliste basierend auf Elo-Punkten.</li>
+                                            <li><strong>💪 Fleiß:</strong> Zeigt die Rangliste basierend auf XP.</li>
+                                            <li><strong>🏆 Level:</strong> Zeigt alle Spieler gruppiert nach ihrem aktuellen Rang (z.B. alle in Bronze, alle in Silber).</li>
+                                        </ul>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                </details>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">Punkte vergeben</h2>
@@ -178,7 +288,6 @@
                                     <option value="">Spieler wählen...</option>
                                 </select>
                             </div>
-                            <!-- Grundlagen Progress Info -->
                             <div id="coach-grundlagen-info" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                 <div class="flex items-start">
                                     <div class="flex-shrink-0">
@@ -271,7 +380,6 @@
                         </form>
                     </div>
                      <div class="lg:col-span-2 space-y-6">
-                        <!-- Active Challenges -->
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Aktive Challenges im Verein</h2>
                             <div id="active-challenges-list" class="space-y-4">
@@ -279,7 +387,6 @@
                             </div>
                         </div>
 
-                        <!-- Expired Challenges -->
                         <div class="bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Abgelaufene Challenges</h2>
                             <div id="expired-challenges-list" class="space-y-4">
@@ -402,7 +509,6 @@
 
             <div id="modal-player-list-container" class="hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Player List -->
                     <div class="lg:col-span-2">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -419,7 +525,6 @@
                         </div>
                     </div>
 
-                    <!-- Player Detail Panel -->
                     <div class="lg:col-span-1">
                         <div id="player-detail-panel" class="bg-gray-50 p-4 rounded-lg hidden">
                             <h4 class="text-lg font-semibold mb-3">Spieler-Details</h4>
@@ -479,7 +584,6 @@
     <script type="module" src="/js/coach.js"></script>
 </body>
 </html>
-    <!-- Reactivate Challenge Modal -->
     <div id="reactivate-challenge-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
         <div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">
@@ -505,4 +609,3 @@
             </div>
         </div>
     </div>
-

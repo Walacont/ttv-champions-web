@@ -30,21 +30,18 @@
             <div>
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2">Das Punktesystem</h2>
                 <div class="space-y-4">
+
                     <details class="group">
                         <summary class="flex justify-between items-center cursor-pointer">
-                            <span class="font-medium">Wie kann ich Punkte sammeln?</span>
+                            <span class="font-medium">Was ist der Unterschied zwischen Elo, XP und Saison-Punkten?</span>
                             <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </summary>
                         <div class="mt-2 text-gray-700">
-                            Du kannst auf viele Weisen Punkte für die Saison-Rangliste sammeln:
-                            <ul class="list-disc list-inside mt-2 space-y-1">
-                                <li><strong>Anwesenheit beim Training:</strong> +10 Punkte für jedes Training.</li>
-                                <li><strong>Anwesenheits-Streak:</strong> <strong>+15 Bonuspunkte</strong>, wenn du 3x hintereinander da warst. <strong>Ab 5x in Folge gibt es sogar +20 Punkte</strong>.</li>
-                                <li><strong>Match-Ergebnisse (Elo):</strong> Für Siege im Training bekommst du Punkte gutgeschrieben. Mehr dazu unten.</li>
-                                <li><strong>Mentoring:</strong> <strong>+7 Punkte</strong>, wenn du einem anderen Spieler gezielt hilfst, eine Übung zu meistern (wird vom Trainer vergeben).</li>
-                                <li><strong>Übungen & Challenges:</strong> Je nach Schwierigkeit gibt es zwischen 5 und 100 Punkte.</li>
-                                <li><strong>Liga-Aufstieg:</strong> +50 Bonuspunkte, wenn du am Monatsende aufsteigst.</li>
-                                <li><strong>Besondere Leistungen:</strong> Dein Trainer kann dir Bonuspunkte für außergewöhnliche Fairness, Teamgeist oder tolle Fortschritte geben.</li>
+                            Es gibt drei Arten von Punkten, die du sammelst:
+                            <ul class="list-disc list-inside mt-2 space-y-2">
+                                <li><strong>⚡ Skill (Elo):</strong> Dies ist deine permanente Spielstärke. Du gewinnst Elo-Punkte, indem du Wettkampf-Matches gegen andere gewinnst. Du verlierst sie, wenn du verlierst. Dein Elo-Wert bestimmt maßgeblich deinen Rang.</li>
+                                <li><strong>💪 Fleiß (XP):</strong> Das sind deine permanenten Erfahrungspunkte. Du erhältst XP für fast alles: Anwesenheit, Übungen, Challenges und Match-Siege. XP werden nie abgezogen und sind (genau wie Elo) für deinen Rangaufstieg nötig.</li>
+                                <li><strong>🏆 Saison-Punkte:</strong> Diese Punkte sind nur für den "Saison-Wettbewerb" (z.B. alle 8 Wochen). Sie werden für Anwesenheit, Übungen, Challenges und Matches vergeben. Im Gegensatz zu XP kannst du Saison-Punkte bei Match-Niederlagen oder durch Strafen (siehe unten) verlieren. Am Ende der Saison werden sie zurückgesetzt.</li>
                             </ul>
                         </div>
                     </details>
@@ -55,13 +52,12 @@
                             <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </summary>
                         <div class="mt-2 text-gray-700">
-                           <p>Wir verwenden ein Elo-System, das die Stärke der Spieler berücksichtigt. Das macht die Punktevergabe fair:</p>
+                           <p>Wenn du ein Wettkampf-Match (kein Handicap-Match) spielst, werden deine <strong>Elo-Punkte</strong> und deine <strong>Saison-Punkte</strong> angepasst. Deine <strong>XP</strong> können nur steigen.</p>
                            <ul class="list-disc list-inside mt-2 space-y-1">
-                                <li><strong>Gegen gleichstarke Gegner:</strong> Gewinnst du, bekommst du <strong>+8 Punkte</strong>. Verlierst du, werden dir <strong>-8 Punkte</strong> abgezogen.</li>
-                                <li><strong>Gegen stärkere Gegner:</strong> Ein Sieg wird hoch belohnt (z.B. +12 Punkte), eine Niederlage kostet dich aber nur sehr wenige Punkte (z.B. -3 Punkte).</li>
-                                <li><strong>Gegen schwächere Gegner:</strong> Ein Sieg gibt dir weniger Punkte (z.B. +3 Punkte), eine überraschende Niederlage kostet dich aber deutlich mehr (z.B. -12 Punkte).</li>
+                                <li><strong>Sieg:</strong> Du gewinnst Elo-Punkte, Saison-Punkte und XP.</li>
+                                <li><strong>Niederlage:</strong> Du verlierst Elo-Punkte und Saison-Punkte. Du verlierst <strong>keine</strong> XP.</li>
+                                <li><strong>Fairness:</strong> Gewinnst du gegen einen stärkeren Spieler (höheres Elo), erhältst du mehr Punkte. Verlierst du gegen einen stärkeren Spieler, verlierst du nur wenige Punkte.</li>
                            </ul>
-                           <p class="mt-2 text-sm text-gray-500">Die genauen Werte hängen vom Elo-Unterschied ab und werden automatisch berechnet.</p>
                         </div>
                     </details>
 
@@ -71,20 +67,20 @@
                              <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </summary>
                         <div class="mt-2 text-gray-700">
-                            Ja, neben Niederlagen im Spiel können Punkte bei Regelverstößen abgezogen werden. Wir unterscheiden dabei zwei Kategorien:
+                            Ja, aber nur deine <strong>Saison-Punkte</strong> und <strong>Elo-Punkte</strong>. Deine <strong>XP (Fleiß)</strong> kannst du nie verlieren!
                              <ul class="list-disc list-inside mt-2 space-y-2">
+                                <li><strong>Match-Niederlage:</strong> Du verlierst Elo und Saison-Punkte (siehe oben).</li>
                                 <li><strong>Unsportliches Verhalten:</strong><br>
-                                    Respektloses Verhalten gegenüber Trainern oder Mitspielern wird mit <strong>-15 bis -30 Punkten</strong> bestraft.
+                                    Respektloses Verhalten gegenüber Trainern oder Mitspielern wird mit <strong>-15 bis -30 Saison-Punkten</strong> bestraft.
                                 </li>
                                 <li><strong>Mangelnde Disziplin & Mitarbeit:</strong><br>
                                     <ul class="list-disc list-inside ml-4">
-                                        <li>Hört nicht auf Anweisungen der Trainer: <strong>-5 Punkte</strong></li>
-                                        <li>Hilft nicht beim Auf- und Abbauen: <strong>-5 Punkte</strong></li>
-                                        <li>Trainiert nicht ordentlich / macht Quatsch: <strong>-5 Punkte</strong></li>
-                                        <li>Wirft mit Bällen oder anderem Material: <strong>-10 Punkte</strong></li>
+                                        <li>Hört nicht auf Anweisungen der Trainer: <strong>-5 Saison-Punkte</strong></li>
+                                        <li>Hilft nicht beim Auf- und Abbauen: <strong>-5 Saison-Punkte</strong></li>
+                                        <li>Trainiert nicht ordentlich / macht Quatsch: <strong>-5 Saison-Punkte</strong></li>
+                                        <li>Wirft mit Bällen oder anderem Material: <strong>-10 Saison-Punkte</strong></li>
                                     </ul>
                                 </li>
-                                 <li><strong>Abwesenheit:</strong> Du verlierst keine Punkte, aber dein Anwesenheits-Streak wird zurückgesetzt.</li>
                             </ul>
                         </div>
                     </details>
@@ -99,20 +95,36 @@
                             <span class="font-medium">Was ist ein "Streak"?</span>
                             <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </summary>
-                        <p class="mt-2 text-gray-700">Ein "Streak" ist eine Serie. Wenn du mehrmals hintereinander am Training teilnimmst, baust du eine Anwesenheits-Serie auf. <strong>Ab dem dritten Mal in Folge erhältst du +15 Bonuspunkte, ab dem fünften Mal sogar +20.</strong> Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt.</p>
+                        <p class="mt-2 text-gray-700">Ein "Streak" ist eine Serie. Wenn du mehrmals hintereinander am Training teilnimmst, baust du eine Anwesenheits-Serie auf. <strong>Ab dem dritten Mal in Folge erhältst du +15 Bonuspunkte (Saison & XP), ab dem fünften Mal sogar +20.</strong> Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt.</p>
                     </details>
+                    
                     <details class="group">
                         <summary class="flex justify-between items-center cursor-pointer">
-                            <span class="font-medium">Wie funktionieren die Ligen und das Leaderboard?</span>
+                            <span class="font-medium">Wie funktionieren die Ränge und das Leaderboard?</span>
                             <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </summary>
                         <div class="mt-2 text-gray-700">
-                            <p>Alle Spieler starten in der Bronze-Liga. Im Leaderboard kannst du sehen, welchen Rang du basierend auf deinen in diesem Monat gesammelten Punkten in deiner Liga hast.</p>
-                            <p class="mt-2">Am Ende jedes Monats ("Saison") passiert Folgendes:</p>
+                            <p>Dein Rang (z.B. Rekrut, Bronze, Silber) ist <strong>permanent</strong> und wird nie zurückgesetzt. Um im Rang aufzusteigen, musst du bestimmte Meilensteine bei <strong>Elo (Skill)</strong> und <strong>XP (Fleiß)</strong> erreichen.</p>
+                            
+                            <p class="mt-2"><strong>Wichtig:</strong> Du musst immer <strong>beide</strong> Anforderungen (Elo und XP) für den nächsten Rang erfüllen.</p>
+
+                            <p class="mt-2"><strong>Beispiel (Bronze-Rang):</strong></p>
                             <ul class="list-disc list-inside mt-2 space-y-1">
-                                <li>Die <strong>Top 3</strong> der Liga steigen in die nächsthöhere Liga auf.</li>
-                                <li>Die <strong>letzten 3</strong> der Liga steigen ab (außer in der Bronze-Liga).</li>
-                                <li>Danach werden die Punkte aller Spieler für die neue Saison zurückgesetzt, damit jeder wieder die gleiche Chance hat. Deine Elo-Wertung bleibt davon unberührt.</li>
+                                <li>Du startest als <strong>Rekrut</strong> (0 Elo, 0 XP).</li>
+                                <li>Um <strong>Bronze</strong> zu werden, brauchst du:
+                                    <ul class="list-disc list-inside ml-4">
+                                        <li>100 XP (Fleiß)</li>
+                                        <li>5 absolvierte "Grundlagen"-Übungen</li>
+                                    </ul>
+                                </li>
+                                <li>(Elo ist für Bronze noch nicht nötig, damit du erst die Grundlagen lernst!)</li>
+                            </ul>
+                            
+                            <p class="mt-2"><strong>Das Leaderboard ist in 3 Tabs aufgeteilt:</strong></p>
+                             <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li><strong>⚡ Skill:</strong> Zeigt die Rangliste basierend auf Elo-Punkten.</li>
+                                <li><strong>💪 Fleiß:</strong> Zeigt die Rangliste basierend auf XP.</li>
+                                <li><strong>🏆 Level:</strong> Zeigt alle Spieler gruppiert nach ihrem aktuellen Rang (z.B. alle in Bronze, alle in Silber).</li>
                             </ul>
                         </div>
                     </details>

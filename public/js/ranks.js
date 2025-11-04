@@ -6,7 +6,7 @@
 /**
  * Rank definitions with requirements
  * Both Elo AND XP must be met to achieve a rank
- * Adjusted for 8-week study: starting from 0 Elo with lower thresholds
+ * *** NEUE, ANGEPASSTE SCHWELLENWERTE ***
  */
 export const RANKS = {
     REKRUT: {
@@ -25,7 +25,7 @@ export const RANKS = {
         name: 'Bronze',
         emoji: '🥉',
         color: '#CD7F32',
-        minElo: 50,
+        minElo: 0,        // GEÄNDERT: Elo-Anforderung entfernt
         minXP: 100,
         description: 'Du hast die Grundlagen gemeistert!',
         requiresGrundlagen: true,  // Special: Requires 5 "Grundlage" exercises
@@ -36,7 +36,7 @@ export const RANKS = {
         name: 'Silber',
         emoji: '🥈',
         color: '#C0C0C0',
-        minElo: 100,
+        minElo: 50,       // GEÄNDERT (war 100)
         minXP: 250,
         description: 'Du bist auf dem besten Weg!',
         requiresGrundlagen: false
@@ -46,7 +46,7 @@ export const RANKS = {
         name: 'Gold',
         emoji: '🥇',
         color: '#FFD700',
-        minElo: 250,
+        minElo: 100,      // GEÄNDERT (war 250)
         minXP: 500,
         description: 'Ein echter Champion!',
         requiresGrundlagen: false
@@ -56,8 +56,8 @@ export const RANKS = {
         name: 'Platin',
         emoji: '💎',
         color: '#E5E4E2',
-        minElo: 500,
-        minXP: 1000,
+        minElo: 250,      // GEÄNDERT (war 500)
+        minXP: 700,       // GEÄNDERT (war 1000)
         description: 'Du gehörst zur Elite!',
         requiresGrundlagen: false
     },
@@ -66,8 +66,8 @@ export const RANKS = {
         name: 'Meister',
         emoji: '👑',
         color: '#9333EA', // purple-600
-        minElo: 1000,
-        minXP: 2000,
+        minElo: 500,      // GEÄNDERT (war 1000)
+        minXP: 1000,      // GEÄNDERT (war 2000)
         description: 'Ein wahrer Meister des Tischtennissports!',
         requiresGrundlagen: false
     },
@@ -76,8 +76,8 @@ export const RANKS = {
         name: 'Großmeister',
         emoji: '🏆',
         color: '#DC2626', // red-600
-        minElo: 2000,
-        minXP: 5000,
+        minElo: 1000,     // GEÄNDERT (war 2000)
+        minXP: 1500,      // GEÄNDERT (war 5000)
         description: 'Legende! Du hast alles erreicht!',
         requiresGrundlagen: false
     }
@@ -168,9 +168,11 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
     const grundlagenNeeded = nextRank.requiresGrundlagen ? Math.max(0, grundlagenRequired - grundlagenCount) : 0;
 
     // Progress percentage (0-100)
-    const eloProgress = nextRank.minElo === 0 ? 100 : Math.min(100, (elo / nextRank.minElo) * 100);
-    const xpProgress = nextRank.minXP === 0 ? 100 : Math.min(100, (totalXP / nextRank.minXP) * 100);
+    // Handle potential division by zero if minElo/minXP is 0
+    const eloProgress = nextRank.minElo === 0 ? (elo > 0 ? 100 : 0) : Math.min(100, (elo / nextRank.minElo) * 100);
+    const xpProgress = nextRank.minXP === 0 ? (totalXP > 0 ? 100 : 0) : Math.min(100, (totalXP / nextRank.minXP) * 100);
     const grundlagenProgress = nextRank.requiresGrundlagen ? Math.min(100, (grundlagenCount / grundlagenRequired) * 100) : 100;
+
 
     return {
         currentRank,
@@ -229,9 +231,16 @@ export function groupPlayersByRank(players) {
 
     // Categorize players
     players.forEach(player => {
-        const rank = calculateRank(player.eloRating, player.xp);
-        grouped[rank.id].push({
+        // Spieler-Objekt um grundlagenCount erweitern, falls es fehlt
+        const playerWithGrundlagen = {
             ...player,
+            grundlagenCompleted: player.grundlagenCompleted || 0
+        };
+        
+        const rank = calculateRank(playerWithGrundlagen.eloRating, playerWithGrundlagen.xp, playerWithGrundlagen.grundlagenCompleted);
+        
+        grouped[rank.id].push({
+            ...playerWithGrundlagen,
             rank
         });
     });

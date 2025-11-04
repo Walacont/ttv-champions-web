@@ -135,8 +135,13 @@ exports.processMatchResult = onDocumentCreated(
       const winnerData = winnerDoc.data();
       const loserData = loserDoc.data();
 
-      const winnerElo = winnerData.eloRating || CONFIG.ELO.DEFAULT_RATING;
-      const loserElo = loserData.eloRating || CONFIG.ELO.DEFAULT_RATING;
+      // *** HIER IST DIE KORREKTUR ***
+      // Wir verwenden '??' (Nullish Coalescing Operator) statt '||' (Logisches ODER).
+      // '??' behandelt 0 als gültigen Wert und greift nur auf 0 zurück, 
+      // wenn 'eloRating' null oder undefined ist.
+      const winnerElo = winnerData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
+      const loserElo = loserData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
+      
       const winnerHighestElo = winnerData.highestElo || winnerElo;
       const loserHighestElo = loserData.highestElo || loserElo;
 
