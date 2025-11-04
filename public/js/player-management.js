@@ -59,29 +59,11 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
  */
 export async function handlePlayerListActions(e, db, auth, functions) {
     const target = e.target;
-    const playerId = target.dataset.id;
-    if (!playerId) return;
-
-    // Handle match-ready toggle
-    if (target.classList.contains('match-ready-toggle')) {
-        const newStatus = target.checked;
-        const playerRef = doc(db, 'users', playerId);
-        target.disabled = true;
-
-        try {
-            await updateDoc(playerRef, { isMatchReady: newStatus });
-        } catch (error) {
-            console.error("Fehler beim Aktualisieren des Match-Status:", error);
-            alert("Der Status konnte nicht geändert werden.");
-            target.checked = !newStatus;
-        } finally {
-            target.disabled = false;
-        }
-        return;
-    }
-
     const button = target.closest('button');
     if (!button) return;
+
+    const playerId = button.dataset.id;
+    if (!playerId) return;
 
     // Handle invite button
     if (button.classList.contains('send-invite-btn')) {
@@ -155,46 +137,61 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
         } else {
             const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            players.forEach(player => {
-                const row = document.createElement('tr');
-                const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-                const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-                const statusHtml = player.isOffline
-                    ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>'
-                    : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
+            // Import ranks module to calculate ranks
+            import('./ranks.js').then(({ calculateRank }) => {
+                players.forEach(player => {
+                    const row = document.createElement('tr');
+                    row.classList.add('cursor-pointer', 'hover:bg-gray-50', 'player-row');
+                    row.dataset.playerId = player.id;
 
-                let actionsHtml = '';
-                if (player.isOffline) {
-                    actionsHtml += `<button data-id="${player.id}" data-email="${player.email || ''}" class="send-invite-btn text-indigo-600 hover:text-indigo-900 text-sm font-medium">Einladung senden</button>`;
-                }
-                if (player.role === 'player') {
-                    actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn text-purple-600 hover:text-purple-900 text-sm font-medium ml-4">Zum Coach ernennen</button>`;
-                }
-                actionsHtml += `<button data-id="${player.id}" class="delete-player-btn text-red-600 hover:text-red-900 text-sm font-medium ml-4">Löschen</button>`;
+                    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+                    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+                    const statusHtml = player.isOffline
+                        ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Offline</span>'
+                        : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Online</span>';
 
-                const isChecked = player.isMatchReady ? 'checked' : '';
-                const matchReadyToggleHtml = `
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" data-id="${player.id}" class="sr-only peer match-ready-toggle" ${isChecked}>
-                        <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
-                `;
-
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    // Calculate rank
+                    const rank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
+                    const rankHtml = `
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10"><img class="h-10 w-10 rounded-full object-cover" src="${avatarSrc}" alt=""></div>
-                            <div class="ml-4">
-                                <div class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</div>
-                                <div class="text-sm text-gray-500">${player.email || 'Keine E-Mail'}</div>
-                            </div>
+                            <span class="text-xl mr-1">${rank.emoji}</span>
+                            <span class="text-sm font-medium" style="color: ${rank.color};">${rank.name}</span>
                         </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${matchReadyToggleHtml}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-left">${actionsHtml}</td>
-                `;
-                modalPlayerList.appendChild(row);
+                    `;
+
+                    let actionsHtml = '';
+                    if (player.isOffline) {
+                        actionsHtml += `<button data-id="${player.id}" data-email="${player.email || ''}" class="send-invite-btn text-indigo-600 hover:text-indigo-900 text-sm font-medium">Einladung senden</button>`;
+                    }
+                    if (player.role === 'player') {
+                        actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn text-purple-600 hover:text-purple-900 text-sm font-medium ml-4">Zum Coach</button>`;
+                    }
+                    actionsHtml += `<button data-id="${player.id}" class="delete-player-btn text-red-600 hover:text-red-900 text-sm font-medium ml-4">Löschen</button>`;
+
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10"><img class="h-10 w-10 rounded-full object-cover" src="${avatarSrc}" alt=""></div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</div>
+                                    <div class="text-sm text-gray-500">${player.email || 'Keine E-Mail'}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">${rankHtml}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${statusHtml}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-left" onclick="event.stopPropagation()">${actionsHtml}</td>
+                    `;
+
+                    // Add click handler to show details
+                    row.addEventListener('click', () => {
+                        showPlayerDetails(player);
+                    });
+
+                    modalPlayerList.appendChild(row);
+                });
+            }).catch(error => {
+                console.error('Error loading ranks:', error);
             });
         }
         if (loader) loader.style.display = 'none';
@@ -235,6 +232,106 @@ export function loadPlayersForDropdown(clubId, db) {
     }, (error) => {
         console.error("Fehler beim Laden der Spieler für das Dropdown:", error);
         select.innerHTML = '<option value="">Fehler beim Laden der Spieler</option>';
+    });
+}
+
+/**
+ * Shows detailed player information in the player management modal
+ * @param {Object} player - Player data object
+ */
+export function showPlayerDetails(player) {
+    const detailPanel = document.getElementById('player-detail-panel');
+    const detailPlaceholder = document.getElementById('player-detail-placeholder');
+    const detailContent = document.getElementById('player-detail-content');
+
+    if (!detailPanel || !detailContent) return;
+
+    // Import ranks module functions (we'll use dynamic import)
+    import('./ranks.js').then(({ getRankProgress, formatRank }) => {
+        const grundlagenCount = player.grundlagenCompleted || 0;
+        const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
+        const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
+
+        detailContent.innerHTML = `
+            <div class="space-y-4">
+                <!-- Player Name & Rank -->
+                <div class="text-center pb-3 border-b">
+                    <h5 class="text-lg font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
+                    <div class="flex items-center justify-center mt-2">
+                        <span class="text-3xl">${currentRank.emoji}</span>
+                        <span class="ml-2 text-md font-semibold" style="color: ${currentRank.color};">${currentRank.name}</span>
+                    </div>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-blue-50 p-2 rounded">
+                        <p class="text-xs text-gray-600">Elo</p>
+                        <p class="text-lg font-bold text-blue-600">${player.eloRating || 0}</p>
+                    </div>
+                    <div class="bg-purple-50 p-2 rounded">
+                        <p class="text-xs text-gray-600">XP</p>
+                        <p class="text-lg font-bold text-purple-600">${player.xp || 0}</p>
+                    </div>
+                    <div class="bg-yellow-50 p-2 rounded">
+                        <p class="text-xs text-gray-600">Saison-P.</p>
+                        <p class="text-lg font-bold text-yellow-600">${player.points || 0}</p>
+                    </div>
+                </div>
+
+                ${!isMaxRank ? `
+                    <!-- Progress to Next Rank -->
+                    <div>
+                        <p class="text-sm font-semibold text-gray-700 mb-2">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
+
+                        <!-- Elo Progress -->
+                        <div class="mb-3">
+                            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>Elo: ${player.eloRating || 0}/${nextRank.minElo}</span>
+                                <span>${eloProgress}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all" style="width: ${eloProgress}%"></div>
+                            </div>
+                            ${eloNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${eloNeeded} Elo</p>` : `<p class="text-xs text-green-600 mt-1">✓ Erfüllt</p>`}
+                        </div>
+
+                        <!-- XP Progress -->
+                        <div class="mb-3">
+                            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>XP: ${player.xp || 0}/${nextRank.minXP}</span>
+                                <span>${xpProgress}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-purple-600 h-2 rounded-full transition-all" style="width: ${xpProgress}%"></div>
+                            </div>
+                            ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP</p>` : `<p class="text-xs text-green-600 mt-1">✓ Erfüllt</p>`}
+                        </div>
+
+                        ${nextRank.requiresGrundlagen ? `
+                            <!-- Grundlagen Requirement -->
+                            <div>
+                                <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                    <span>Grundlagen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
+                                    <span>${grundlagenProgress}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
+                                </div>
+                                ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''}</p>` : `<p class="text-xs text-green-600 mt-1">✓ Erfüllt</p>`}
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : '<p class="text-sm text-green-600 font-semibold text-center">🏆 Höchster Rang erreicht!</p>'}
+            </div>
+        `;
+
+        // Show panel, hide placeholder
+        detailPanel.classList.remove('hidden');
+        if (detailPlaceholder) detailPlaceholder.classList.add('hidden');
+    }).catch(error => {
+        console.error('Error loading ranks module:', error);
+        detailContent.innerHTML = '<p class="text-sm text-red-500">Fehler beim Laden der Rang-Information</p>';
     });
 }
 
