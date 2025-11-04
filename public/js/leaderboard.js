@@ -324,7 +324,7 @@ function loadRanksView(userData, db, unsubscribes) {
                                     <p class="text-sm">${player.firstName} ${player.lastName}</p>
                                 </div>
                                 <div class="text-xs text-gray-600">
-                                    ${player.eloRating || 1200} Elo | ${player.xp || 0} XP
+                                    ${player.eloRating || 0} Elo | ${player.xp || 0} XP
                                 </div>
                             </div>
                         `;
@@ -438,7 +438,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
             ${clubInfo}
         </div>
         <div class="text-right">
-            <p class="text-sm font-bold text-gray-900">${player.eloRating || 1200} Elo</p>
+            <p class="text-sm font-bold text-gray-900">${player.eloRating || 0} Elo</p>
             <p class="text-xs text-gray-500">${playerRank.emoji} ${playerRank.name}</p>
         </div>
     `;

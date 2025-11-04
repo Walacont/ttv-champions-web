@@ -35,6 +35,10 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             isMatchReady: false,
             onboardingComplete: false,
             points: 0,
+            eloRating: 0,
+            highestElo: 0,
+            xp: 0,
+            grundlagenCompleted: 0,
             createdAt: serverTimestamp()
         };
         if (email) {
@@ -82,11 +86,31 @@ export async function handlePlayerListActions(e, db, auth, functions) {
         if (confirm(`Soll eine Einrichtungs-E-Mail an ${playerEmail} gesendet werden?`)) {
             try {
                 const createAuthUser = httpsCallable(functions, 'createAuthUserForPlayer');
-                await createAuthUser({ playerId, playerEmail });
+                console.log('Creating auth user for player:', playerId, playerEmail);
+                const result = await createAuthUser({ playerId, playerEmail });
+                console.log('Auth user created:', result);
+
+                console.log('Sending password reset email to:', playerEmail);
                 await sendPasswordResetEmail(auth, playerEmail);
+                console.log('Password reset email sent successfully');
+
                 alert(`Einrichtungs-E-Mail an ${playerEmail} wurde erfolgreich gesendet!`);
             } catch (error) {
-                alert(`Fehler: ${error.message}`);
+                console.error('Error sending invitation:', error);
+                let errorMessage = error.message || 'Unbekannter Fehler';
+
+                // Provide more helpful error messages
+                if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Ungültige E-Mail-Adresse';
+                } else if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Benutzer nicht gefunden. Versuche es erneut.';
+                } else if (error.code === 'functions/not-found') {
+                    errorMessage = 'Cloud Function nicht gefunden. Bitte deploye die Functions.';
+                } else if (error.code === 'functions/unauthenticated') {
+                    errorMessage = 'Keine Berechtigung. Bitte melde dich erneut an.';
+                }
+
+                alert(`Fehler beim Senden der Einladung:\n${errorMessage}\n\nDetails: ${error.code || 'N/A'}`);
             } finally {
                 button.disabled = false;
                 button.textContent = 'Einladung senden';

@@ -155,7 +155,7 @@ export async function awardManualXP(playerId, xpAmount, reason, db, awardedBy) {
  */
 export function getPlayerXPInfo(userData) {
     const xp = userData.xp || 0;
-    const eloRating = userData.eloRating || 1200;
+    const eloRating = userData.eloRating || 0;
 
     return {
         xp,

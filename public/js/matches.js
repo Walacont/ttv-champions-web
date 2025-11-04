@@ -12,8 +12,8 @@ import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/fir
  * @returns {Object|null} Handicap object with player and points, or null if no handicap needed
  */
 export function calculateHandicap(playerA, playerB) {
-    const eloA = playerA.eloRating || 1200;
-    const eloB = playerB.eloRating || 1200;
+    const eloA = playerA.eloRating || 0;
+    const eloB = playerB.eloRating || 0;
     const eloDiff = Math.abs(eloA - eloB);
 
     if (eloDiff < 25) {
@@ -46,7 +46,7 @@ export function handleGeneratePairings(clubPlayers) {
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
     const matchReadyAndPresentPlayers = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady);
 
-    matchReadyAndPresentPlayers.sort((a, b) => (a.eloRating || 1200) - (b.eloRating || 1200));
+    matchReadyAndPresentPlayers.sort((a, b) => (a.eloRating || 0) - (b.eloRating || 0));
 
     const pairingsByGroup = {};
     const groupSize = 4;
@@ -117,7 +117,7 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
                         <span class="text-gray-500 mx-2">vs.</span>
                         <span class="font-bold text-indigo-700">${playerB.firstName} ${playerB.lastName}</span>
                     </div>
-                    <div class="text-xs text-gray-400">(${Math.round(playerA.eloRating || 1200)} vs ${Math.round(playerB.eloRating || 1200)})</div>
+                    <div class="text-xs text-gray-400">(${Math.round(playerA.eloRating || 0)} vs ${Math.round(playerB.eloRating || 0)})</div>
                 </div>
                 ${handicapHTML}
             `;
@@ -270,7 +270,7 @@ export function populateMatchDropdowns(clubPlayers) {
     matchReadyPlayers.forEach(player => {
         const option = document.createElement('option');
         option.value = player.id;
-        option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 1200)})`;
+        option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 0)})`;
         playerASelect.appendChild(option.cloneNode(true));
         playerBSelect.appendChild(option);
     });
