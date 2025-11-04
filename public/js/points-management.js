@@ -163,7 +163,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             let grundlagenCount = playerData.grundlagenCompleted || 0;
             let isGrundlagenExercise = false;
 
-            // Check if this is a "Grundlage" exercise
+            // Check if this is a "Grundlage" exercise (from exercise selection)
             if (exerciseId) {
                 const exerciseRef = doc(db, 'exercises', exerciseId);
                 const exerciseDoc = await transaction.get(exerciseRef);
@@ -172,6 +172,11 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     const tags = exerciseData.tags || [];
                     isGrundlagenExercise = tags.includes('Grundlage');
                 }
+            }
+            // Also check if manual reason contains "Grundlage"
+            else if (reasonType === 'manual') {
+                const lowerReason = reason.toLowerCase();
+                isGrundlagenExercise = lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
             }
 
             // Prepare update object
