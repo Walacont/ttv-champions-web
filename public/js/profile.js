@@ -17,7 +17,12 @@ import { calculateRank, getRankProgress, formatRank } from './ranks.js';
  */
 export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallback, loadChallengesCallback, loadPointsHistoryCallback) {
     const playerPointsEl = document.getElementById('player-points');
+    const playerXpEl = document.getElementById('player-xp');
+    const playerEloEl = document.getElementById('player-elo');
+
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
+    if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
+    if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
 
     // Display current rank
     updateRankDisplay(userData);

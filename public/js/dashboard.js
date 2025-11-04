@@ -109,12 +109,17 @@ function initializeDashboard(userData) {
 
 function updateDashboard(userData) {
     const playerPointsEl = document.getElementById('player-points');
+    const playerXpEl = document.getElementById('player-xp');
+    const playerEloEl = document.getElementById('player-elo');
     const statsCurrentStreak = document.getElementById('stats-current-streak');
+
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
+    if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
+    if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
     if (statsCurrentStreak) statsCurrentStreak.innerHTML = `${userData.streak || 0} 🔥`;
 
     updateRankDisplay(userData);  // Update rank display when data changes
-    loadRivalData(userData);
+    loadRivalData(userData, db);
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
 }
