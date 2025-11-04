@@ -7,6 +7,9 @@ import { httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
  * Handles offline player creation, player list management, and player dropdowns for coaches
  */
 
+// Keep track of the current Grundlagen listener to avoid duplicates
+let currentGrundlagenListener = null;
+
 /**
  * Handles offline player creation
  * @param {Event} e - Form submit event
@@ -365,52 +368,63 @@ export function showPlayerDetails(player) {
 /**
  * Updates the Grundlagen progress display for a selected player (coach view)
  * @param {string} playerId - The selected player ID
+ * @param {Object} db - Firestore database instance
  */
-export function updateCoachGrundlagenDisplay(playerId) {
+export function updateCoachGrundlagenDisplay(playerId, db) {
     const grundlagenInfo = document.getElementById('coach-grundlagen-info');
     const grundlagenText = document.getElementById('coach-grundlagen-text');
     const grundlagenBar = document.getElementById('coach-grundlagen-bar');
 
-    if (!grundlagenInfo || !playerId) {
+    // Cleanup old listener if exists
+    if (currentGrundlagenListener) {
+        currentGrundlagenListener();
+        currentGrundlagenListener = null;
+    }
+
+    if (!grundlagenInfo || !playerId || !db) {
         if (grundlagenInfo) grundlagenInfo.classList.add('hidden');
         return;
     }
 
-    // Get data from selected option
-    const select = document.getElementById('player-select');
-    const selectedOption = select.options[select.selectedIndex];
-
-    if (!selectedOption || !selectedOption.value) {
-        grundlagenInfo.classList.add('hidden');
-        return;
-    }
-
-    const grundlagenCount = parseInt(selectedOption.dataset.grundlagen) || 0;
-    const grundlagenRequired = 5;
-    const progress = (grundlagenCount / grundlagenRequired) * 100;
-
-    // Show the info box
-    grundlagenInfo.classList.remove('hidden');
-
-    // Update text
-    if (grundlagenCount >= grundlagenRequired) {
-        grundlagenText.innerHTML = `✅ <strong>${grundlagenCount}/${grundlagenRequired}</strong> - Grundlagen abgeschlossen! Wettkämpfe freigeschaltet.`;
-        grundlagenText.className = 'mt-1 text-sm text-green-700 font-semibold';
-    } else {
-        const remaining = grundlagenRequired - grundlagenCount;
-        grundlagenText.innerHTML = `<strong>${grundlagenCount}/${grundlagenRequired}</strong> - Noch <strong>${remaining}</strong> Grundlagen-Übung${remaining > 1 ? 'en' : ''} bis Wettkämpfe freigeschaltet werden.`;
-        grundlagenText.className = 'mt-1 text-sm text-blue-700';
-    }
-
-    // Update progress bar
-    if (grundlagenBar) {
-        grundlagenBar.style.width = `${progress}%`;
-        if (grundlagenCount >= grundlagenRequired) {
-            grundlagenBar.classList.remove('bg-blue-600');
-            grundlagenBar.classList.add('bg-green-600');
-        } else {
-            grundlagenBar.classList.remove('bg-green-600');
-            grundlagenBar.classList.add('bg-blue-600');
+    // Set up real-time listener on selected player
+    const playerRef = doc(db, 'users', playerId);
+    currentGrundlagenListener = onSnapshot(playerRef, (docSnap) => {
+        if (!docSnap.exists()) {
+            grundlagenInfo.classList.add('hidden');
+            return;
         }
-    }
+
+        const playerData = docSnap.data();
+        const grundlagenCount = playerData.grundlagenCompleted || 0;
+        const grundlagenRequired = 5;
+        const progress = (grundlagenCount / grundlagenRequired) * 100;
+
+        // Show the info box
+        grundlagenInfo.classList.remove('hidden');
+
+        // Update text
+        if (grundlagenCount >= grundlagenRequired) {
+            grundlagenText.innerHTML = `✅ <strong>${grundlagenCount}/${grundlagenRequired}</strong> - Grundlagen abgeschlossen! Wettkämpfe freigeschaltet.`;
+            grundlagenText.className = 'mt-1 text-sm text-green-700 font-semibold';
+        } else {
+            const remaining = grundlagenRequired - grundlagenCount;
+            grundlagenText.innerHTML = `<strong>${grundlagenCount}/${grundlagenRequired}</strong> - Noch <strong>${remaining}</strong> Grundlagen-Übung${remaining > 1 ? 'en' : ''} bis Wettkämpfe freigeschaltet werden.`;
+            grundlagenText.className = 'mt-1 text-sm text-blue-700';
+        }
+
+        // Update progress bar
+        if (grundlagenBar) {
+            grundlagenBar.style.width = `${progress}%`;
+            if (grundlagenCount >= grundlagenRequired) {
+                grundlagenBar.classList.remove('bg-blue-600');
+                grundlagenBar.classList.add('bg-green-600');
+            } else {
+                grundlagenBar.classList.remove('bg-green-600');
+                grundlagenBar.classList.add('bg-blue-600');
+            }
+        }
+    }, (error) => {
+        console.error('Error loading player grundlagen:', error);
+        grundlagenInfo.classList.add('hidden');
+    });
 }

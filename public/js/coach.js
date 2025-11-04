@@ -167,7 +167,7 @@ function initializeCoachPage(userData) {
 
     // Event listener für Spieler-Auswahl (zeigt Grundlagen-Status)
     document.getElementById('player-select').addEventListener('change', (e) => {
-        updateCoachGrundlagenDisplay(e.target.value);
+        updateCoachGrundlagenDisplay(e.target.value, db);
     });
 
     // Intervals
