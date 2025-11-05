@@ -6,15 +6,17 @@ import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } 
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
-import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount } from './attendance.js';
+import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
-import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay } from './player-management.js';
+import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
+import { checkAndMigrate } from './migration.js';
+import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions } from './subgroups-management.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -45,10 +47,11 @@ if (window.location.hostname === "localhost" || window.location.hostname === "12
 let currentUserData = null;
 let unsubscribePlayerList = null;
 let unsubscribeLeaderboard = null;
-// NEU HINZUGEFÜGT
 let unsubscribePointsHistory = null;
+let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
+let currentSubgroupFilter = 'all'; // 'all' or a specific subgroup ID
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -91,9 +94,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function initializeCoachPage(userData) {
+async function initializeCoachPage(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
+    const loaderText = document.getElementById('loader-text');
+
+    // Run migration if needed before initializing the page
+    if (loaderText) loaderText.textContent = 'Prüfe Datenbank-Migration...';
+    try {
+        const migrationResult = await checkAndMigrate(userData.clubId, db);
+        if (migrationResult.success && !migrationResult.skipped) {
+            console.log('[Coach] Migration completed successfully:', migrationResult.stats);
+            if (loaderText) loaderText.textContent = 'Migration abgeschlossen! Lade Dashboard...';
+        } else if (migrationResult.success && migrationResult.skipped) {
+            console.log('[Coach] Migration not needed');
+        } else {
+            console.error('[Coach] Migration failed:', migrationResult.error);
+            alert(`Warnung: Datenbank-Migration fehlgeschlagen. Bitte kontaktiere den Support.\nFehler: ${migrationResult.error}`);
+        }
+    } catch (error) {
+        console.error('[Coach] Error during migration check:', error);
+        alert(`Warnung: Fehler beim Prüfen der Datenbank-Migration.\nFehler: ${error.message}`);
+    }
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
@@ -114,6 +136,17 @@ function initializeCoachPage(userData) {
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
             loadStatistics(userData, db);
+        });
+    }
+
+    // Setup Subgroups Tab - Load subgroups when tab is clicked
+    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
+    if (subgroupsTabButton) {
+        subgroupsTabButton.addEventListener('click', () => {
+            loadSubgroupsList(userData.clubId, db, (unsub) => {
+                if (unsubscribeSubgroups) unsubscribeSubgroups();
+                unsubscribeSubgroups = unsub;
+            });
         });
     }
 
@@ -146,7 +179,10 @@ function initializeCoachPage(userData) {
         });
     });
     document.getElementById('close-player-modal-button').addEventListener('click', () => { document.getElementById('player-list-modal').classList.add('hidden'); if (unsubscribePlayerList) unsubscribePlayerList(); });
-    document.getElementById('add-offline-player-button').addEventListener('click', () => document.getElementById('add-offline-player-modal').classList.remove('hidden'));
+    document.getElementById('add-offline-player-button').addEventListener('click', () => {
+        document.getElementById('add-offline-player-modal').classList.remove('hidden');
+        loadSubgroupsForPlayerForm(userData.clubId, db);
+    });
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => document.getElementById('add-offline-player-modal').classList.add('hidden'));
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => document.getElementById('attendance-modal').classList.add('hidden'));
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
@@ -180,10 +216,86 @@ function initializeCoachPage(userData) {
         updateCoachGrundlagenDisplay(e.target.value);
     });
 
+    // Event listener für Subgroups Management
+    document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
+    document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
+
+    // Populate and setup subgroup filter
+    populateSubgroupFilter(userData.clubId, db);
+    document.getElementById('subgroup-filter').addEventListener('change', (e) => {
+        currentSubgroupFilter = e.target.value;
+        handleSubgroupFilterChange(userData);
+    });
+
     // Intervals
     setInterval(() => updateSeasonCountdown(false), 1000);
     setInterval(updateAllCountdowns, 1000);
 }
+
+/**
+ * Populates the subgroup filter dropdown
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ */
+function populateSubgroupFilter(clubId, db) {
+    const select = document.getElementById('subgroup-filter');
+    if (!select) return;
+
+    const q = query(
+        collection(db, 'subgroups'),
+        where('clubId', '==', clubId),
+        orderBy('createdAt', 'asc')
+    );
+
+    onSnapshot(q, (snapshot) => {
+        // Keep the "Alle" option
+        const currentValue = select.value;
+        select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
+
+        snapshot.forEach(doc => {
+            const subgroup = doc.data();
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = subgroup.name;
+            select.appendChild(option);
+        });
+
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+            select.value = currentValue;
+        }
+    }, (error) => {
+        console.error("Error loading subgroups for filter:", error);
+    });
+}
+
+/**
+ * Handles subgroup filter changes - reloads all filtered modules
+ * @param {Object} userData - Current user data
+ */
+function handleSubgroupFilterChange(userData) {
+    console.log(`[Coach] Subgroup filter changed to: ${currentSubgroupFilter}`);
+
+    // Update attendance module's filter
+    setAttendanceSubgroupFilter(currentSubgroupFilter);
+
+    // Reload calendar/attendance view
+    renderCalendar(currentCalendarDate, db, userData);
+
+    // Reload leaderboards
+    loadLeaderboard(userData, db, []);
+    loadGlobalLeaderboard(userData, db, []);
+
+    // Reload statistics if the tab is active
+    const statisticsTab = document.getElementById('tab-content-statistics');
+    if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
+        loadStatistics(userData, db);
+    }
+
+    // Note: Players for attendance will be filtered dynamically when opening the modal
+    // Challenges and points management will filter based on currentSubgroupFilter
+}
+
 
 
 // Global challenge handlers (called from onclick in HTML)

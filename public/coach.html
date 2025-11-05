@@ -58,10 +58,25 @@
     </div>
 
     <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
-        <header class="flex justify-between items-center mb-6">
-            <div>
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div class="flex-1">
                 <h1 class="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
                 <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- Subgroup Switcher -->
+                <div class="flex items-center gap-2">
+                    <label for="subgroup-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        👥 Ansicht:
+                    </label>
+                    <select
+                        id="subgroup-filter"
+                        class="block w-full sm:w-48 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                    >
+                        <option value="all">Alle (Gesamtverein)</option>
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
             </div>
             <div class="flex items-center space-x-4">
                 <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
@@ -107,6 +122,9 @@
                 </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="statistics">
                     📊 Statistik
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="subgroups">
+                    👥 Gruppen
                 </button>
             </nav>
         </div>
@@ -551,6 +569,52 @@
                     </div>
                 </div>
             </div>
+
+            <div id="tab-content-subgroups" class="tab-content hidden">
+                <div class="max-w-6xl mx-auto">
+                    <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h2 class="text-lg font-semibold text-blue-900 mb-2">📚 Was sind Untergruppen?</h2>
+                        <p class="text-sm text-blue-800">
+                            Untergruppen ermöglichen es dir, mehrere Trainingsgruppen innerhalb deines Vereins zu verwalten (z.B. "U10", "U13", "Leistungsteam").
+                            Jede Gruppe hat separate Anwesenheitslisten und Streaks, während Elo, XP und Ränge für alle Spieler global bleiben.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Create Subgroup Form -->
+                        <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-semibold mb-4">Neue Untergruppe erstellen</h2>
+                            <form id="create-subgroup-form" class="space-y-4">
+                                <div>
+                                    <label for="subgroup-name" class="block text-sm font-medium text-gray-700">Gruppenname</label>
+                                    <input
+                                        type="text"
+                                        id="subgroup-name"
+                                        required
+                                        placeholder="z.B. U10, Leistungsteam"
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    >
+                                </div>
+                                <button
+                                    type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
+                                >
+                                    Gruppe erstellen
+                                </button>
+                                <p id="subgroup-form-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                            </form>
+                        </div>
+
+                        <!-- Subgroups List -->
+                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-semibold mb-4">Bestehende Untergruppen</h2>
+                            <div id="subgroups-list" class="space-y-4">
+                                <p class="text-gray-500 text-center py-8">Lade Untergruppen...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -674,6 +738,12 @@
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700">E-Mail (optional)</label>
                     <input type="email" id="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Für Online-Einladung nötig">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Untergruppen zuweisen</label>
+                    <div id="player-subgroups-checkboxes" class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+                        <p class="text-xs text-gray-500">Lade Gruppen...</p>
+                    </div>
                 </div>
                  <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Spieler erstellen</button>
             </form>

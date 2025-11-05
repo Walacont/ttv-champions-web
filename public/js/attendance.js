@@ -1,13 +1,23 @@
-import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, serverTimestamp, increment, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, serverTimestamp, increment, onSnapshot, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Attendance Module
  * Handles calendar rendering and attendance tracking for coaches
  * Now also tracks XP (Experience Points) for the new rank system
+ * Updated to support subgroups with separate streaks per subgroup
  */
 
 // Module state
 let monthlyAttendance = new Map();
+let currentSubgroupFilter = 'all'; // Current active subgroup filter
+
+/**
+ * Sets the current subgroup filter for attendance operations
+ * @param {string} subgroupId - Subgroup ID or 'all' for all subgroups
+ */
+export function setAttendanceSubgroupFilter(subgroupId) {
+    currentSubgroupFilter = subgroupId || 'all';
+}
 
 /**
  * Renders the calendar for a given month and year
@@ -67,15 +77,42 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
-    const q = query(collection(db, 'attendance'),
-        where('clubId', '==', currentUserData.clubId),
-        where('date', '>=', startDate),
-        where('date', '<=', endDate)
-    );
+    // Build query based on subgroup filter
+    let q;
+    if (currentSubgroupFilter === 'all') {
+        // Show all attendance events for the club
+        q = query(collection(db, 'attendance'),
+            where('clubId', '==', currentUserData.clubId),
+            where('date', '>=', startDate),
+            where('date', '<=', endDate)
+        );
+    } else {
+        // Show only attendance events for the selected subgroup
+        q = query(collection(db, 'attendance'),
+            where('clubId', '==', currentUserData.clubId),
+            where('subgroupId', '==', currentSubgroupFilter),
+            where('date', '>=', startDate),
+            where('date', '<=', endDate)
+        );
+    }
 
     const querySnapshot = await getDocs(q);
+
+    // When filter is "all", we might have multiple events per day (different subgroups)
+    // We'll mark a day as present if ANY subgroup had a training that day
     querySnapshot.forEach(doc => {
-        monthlyAttendance.set(doc.data().date, { id: doc.id, ...doc.data() });
+        const data = doc.data();
+        const dateKey = data.date;
+
+        if (currentSubgroupFilter === 'all') {
+            // For "all" view, just mark the day - don't store specific event data
+            if (!monthlyAttendance.has(dateKey)) {
+                monthlyAttendance.set(dateKey, { id: doc.id, ...data });
+            }
+        } else {
+            // For specific subgroup, store the event data
+            monthlyAttendance.set(dateKey, { id: doc.id, ...data });
+        }
     });
 }
 
@@ -125,6 +162,7 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
 
 /**
  * Saves attendance data and calculates points/streaks
+ * Now supports subgroups with separate streaks per subgroup
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} currentUserData - Current user's data
@@ -141,6 +179,13 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
     const docId = document.getElementById('attendance-doc-id-input').value;
     const ATTENDANCE_POINTS_BASE = 10;
 
+    // When filter is "all", prevent saving (user must select a specific subgroup)
+    if (currentSubgroupFilter === 'all') {
+        feedbackEl.textContent = 'Bitte wähle eine spezifische Untergruppe aus, um Anwesenheit zu erfassen.';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        return;
+    }
+
     const allPlayerCheckboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
     const presentPlayerIds = Array.from(allPlayerCheckboxes)
         .filter(checkbox => checkbox.checked)
@@ -152,11 +197,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
     try {
         const batch = writeBatch(db);
 
-        // Finde den letzten Trainingstag vor dem aktuellen Datum
+        // Find the last training day for THIS SUBGROUP before the current date
         const attendanceColl = collection(db, 'attendance');
         const q = query(
             attendanceColl,
             where('clubId', '==', currentUserData.clubId),
+            where('subgroupId', '==', currentSubgroupFilter),
             where('date', '<', date),
             orderBy('date', 'desc'),
             limit(1)
@@ -168,40 +214,63 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             previousTrainingPresentIds = previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
         }
 
-        // Aktualisiere Anwesenheitsdokument für den aktuellen Tag
+        // Update/create attendance document for this day and subgroup
         const attendanceRef = docId ? doc(db, 'attendance', docId) : doc(attendanceColl);
-        batch.set(attendanceRef, { date, clubId: currentUserData.clubId, presentPlayerIds, updatedAt: serverTimestamp() }, { merge: true });
+        batch.set(attendanceRef, {
+            date,
+            clubId: currentUserData.clubId,
+            subgroupId: currentSubgroupFilter,
+            presentPlayerIds,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
 
-        // Gehe JEDEN Spieler durch und aktualisiere Streak und Punkte
-        for (const player of clubPlayers) {
+        // Process EVERY player in the club and update their subgroup-specific streak and points
+        // Filter to only process players who are members of this subgroup
+        const playersInSubgroup = clubPlayers.filter(p =>
+            p.subgroupIDs && p.subgroupIDs.includes(currentSubgroupFilter)
+        );
+
+        for (const player of playersInSubgroup) {
             const playerRef = doc(db, 'users', player.id);
+            const streakRef = doc(db, `users/${player.id}/streaks`, currentSubgroupFilter);
+
             const isPresentToday = presentPlayerIds.includes(player.id);
             const wasPresentPreviouslyOnThisDay = previouslyPresentIdsOnThisDay.includes(player.id);
 
-            // FALL 1: Spieler ist heute anwesend
+            // CASE 1: Player is present today
             if (isPresentToday) {
-                // Nur ausführen, wenn der Spieler NEU für diesen Tag als anwesend markiert wurde
+                // Only execute if player was NEWLY marked as present for this day
                 if (!wasPresentPreviouslyOnThisDay) {
-                    const currentStreak = player.streak || 0;
+                    // Get current streak from subcollection
+                    const streakDoc = await getDoc(streakRef);
+                    const currentStreak = streakDoc.exists() ? (streakDoc.data().count || 0) : 0;
+
                     const wasPresentLastTraining = previousTrainingPresentIds.includes(player.id);
 
-                    // Streak-Logik
+                    // Streak logic
                     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
-                    // Bonus-Punkte-Logik
+                    // Bonus points logic
                     let pointsToAdd = ATTENDANCE_POINTS_BASE;
                     let reason = "Anwesenheit beim Training";
 
                     if (newStreak >= 5) {
-                        pointsToAdd = 20; // 10 Basis + 10 Bonus
+                        pointsToAdd = 20; // 10 base + 10 bonus
                         reason = `Anwesenheit (${newStreak}x Super-Streak)`;
                     } else if (newStreak >= 3) {
-                        pointsToAdd = 15; // 10 Basis + 5 Bonus
+                        pointsToAdd = 15; // 10 base + 5 bonus
                         reason = `Anwesenheit (${newStreak}x Streak-Bonus)`;
                     }
 
+                    // Update streak in subcollection
+                    batch.set(streakRef, {
+                        count: newStreak,
+                        subgroupId: currentSubgroupFilter,
+                        lastUpdated: serverTimestamp()
+                    });
+
+                    // Update global player points and XP
                     batch.update(playerRef, {
-                        streak: newStreak,
                         points: increment(pointsToAdd),
                         xp: increment(pointsToAdd), // XP = same as points for attendance
                         lastXPUpdate: serverTimestamp()
@@ -225,17 +294,21 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     });
                 }
             }
-            // FALL 2: Spieler ist heute NICHT anwesend
+            // CASE 2: Player is NOT present today
             else {
-                // Setze den Streak für jeden abwesenden Spieler auf 0
-                batch.update(playerRef, { streak: 0 });
+                // Reset the streak for this subgroup to 0 for absent players
+                batch.set(streakRef, {
+                    count: 0,
+                    subgroupId: currentSubgroupFilter,
+                    lastUpdated: serverTimestamp()
+                });
 
-                // Falls der Coach den Spieler für diesen Tag abgewählt hat, ziehe die Basispunkte ab
+                // If coach unchecked the player for this day, deduct base points
                 if (wasPresentPreviouslyOnThisDay) {
                     batch.update(playerRef, { points: increment(-ATTENDANCE_POINTS_BASE) });
-                    // Optional: Negativen Eintrag in der Historie erstellen
+                    // Optional: Create negative entry in history
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
-                     batch.set(historyRef, {
+                    batch.set(historyRef, {
                         points: -ATTENDANCE_POINTS_BASE,
                         reason: "Anwesenheit korrigiert (abgemeldet)",
                         timestamp: serverTimestamp(),

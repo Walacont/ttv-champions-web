@@ -25,6 +25,15 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         return;
     }
 
+    // Get selected subgroups from checkboxes
+    const subgroupCheckboxes = document.querySelectorAll('#player-subgroups-checkboxes input[type="checkbox"]:checked');
+    const subgroupIDs = Array.from(subgroupCheckboxes).map(cb => cb.value);
+
+    if (subgroupIDs.length === 0) {
+        alert('Bitte wähle mindestens eine Untergruppe aus.');
+        return;
+    }
+
     try {
         const playerData = {
             firstName,
@@ -39,6 +48,7 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             highestElo: 0,
             xp: 0,
             grundlagenCompleted: 0,
+            subgroupIDs: subgroupIDs,
             createdAt: serverTimestamp()
         };
         if (email) {
@@ -359,6 +369,58 @@ export function showPlayerDetails(player) {
     }).catch(error => {
         console.error('Error loading ranks module:', error);
         detailContent.innerHTML = '<p class="text-sm text-red-500">Fehler beim Laden der Rang-Information</p>';
+    });
+}
+
+/**
+ * Loads subgroups as checkboxes for player assignment
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ * @param {string} containerId - Container element ID
+ * @param {Array} selectedSubgroupIDs - Pre-selected subgroup IDs (optional)
+ */
+export function loadSubgroupsForPlayerForm(clubId, db, containerId = 'player-subgroups-checkboxes', selectedSubgroupIDs = []) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const q = query(
+        collection(db, 'subgroups'),
+        where('clubId', '==', clubId),
+        orderBy('createdAt', 'asc')
+    );
+
+    onSnapshot(q, (snapshot) => {
+        container.innerHTML = '';
+
+        if (snapshot.empty) {
+            container.innerHTML = '<p class="text-xs text-gray-500">Keine Gruppen verfügbar. Erstelle zuerst eine Gruppe im "Gruppen"-Tab.</p>';
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const subgroup = doc.data();
+            const isChecked = selectedSubgroupIDs.includes(doc.id);
+            const isDefault = subgroup.isDefault || false;
+
+            const div = document.createElement('div');
+            div.className = 'flex items-center';
+            div.innerHTML = `
+                <input
+                    type="checkbox"
+                    id="subgroup-${doc.id}"
+                    value="${doc.id}"
+                    ${isChecked ? 'checked' : ''}
+                    class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                >
+                <label for="subgroup-${doc.id}" class="ml-2 block text-sm text-gray-700">
+                    ${subgroup.name} ${isDefault ? '<span class="text-xs text-blue-600">(Standard)</span>' : ''}
+                </label>
+            `;
+            container.appendChild(div);
+        });
+    }, (error) => {
+        console.error("Error loading subgroups for player form:", error);
+        container.innerHTML = `<p class="text-xs text-red-500">Fehler beim Laden: ${error.message}</p>`;
     });
 }
 
