@@ -19,14 +19,15 @@ let rankDistributionChart = null;
  * Initialize the statistics tab
  * @param {Object} userData - Current coach user data
  * @param {Object} db - Firestore database instance
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export async function loadStatistics(userData, db) {
+export async function loadStatistics(userData, db, currentSubgroupFilter = 'all') {
     try {
         // Load all statistics sections
         await Promise.all([
-            loadTrainingAnalysis(userData, db),
-            loadTeamOverview(userData, db),
-            loadActivityMonitor(userData, db)
+            loadTrainingAnalysis(userData, db, currentSubgroupFilter),
+            loadTeamOverview(userData, db, currentSubgroupFilter),
+            loadActivityMonitor(userData, db, currentSubgroupFilter)
         ]);
     } catch (error) {
         console.error("Error loading statistics:", error);
@@ -37,10 +38,23 @@ export async function loadStatistics(userData, db) {
  * 📈 Section 1: Trainings-Analyse
  * Displays attendance statistics and trends
  */
-async function loadTrainingAnalysis(userData, db) {
+async function loadTrainingAnalysis(userData, db, currentSubgroupFilter = 'all') {
     try {
         const attendanceRef = collection(db, "attendance");
-        const q = query(attendanceRef, where("clubId", "==", userData.clubId), orderBy("date", "desc"));
+        let q;
+
+        // Filter by subgroup
+        if (currentSubgroupFilter !== 'all') {
+            q = query(attendanceRef,
+                where("clubId", "==", userData.clubId),
+                where("subgroupId", "==", currentSubgroupFilter),
+                orderBy("date", "desc"));
+        } else {
+            q = query(attendanceRef,
+                where("clubId", "==", userData.clubId),
+                orderBy("date", "desc"));
+        }
+
         const snapshot = await getDocs(q);
 
         const attendanceData = [];
@@ -174,15 +188,24 @@ function getWeekNumber(date) {
  * 👥 Section 2: Team-Übersicht
  * Displays team demographics and distribution charts
  */
-async function loadTeamOverview(userData, db) {
+async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
     try {
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("clubId", "==", userData.clubId), where("role", "==", "player"));
         const snapshot = await getDocs(q);
 
-        const players = [];
+        let players = [];
         snapshot.forEach(doc => {
-            players.push({ id: doc.id, ...doc.data() });
+            const playerData = { id: doc.id, ...doc.data() };
+
+            // Filter by subgroup
+            if (currentSubgroupFilter !== 'all') {
+                if (playerData.subgroupIDs && playerData.subgroupIDs.includes(currentSubgroupFilter)) {
+                    players.push(playerData);
+                }
+            } else {
+                players.push(playerData);
+            }
         });
 
         // Calculate team statistics
@@ -395,21 +418,44 @@ function renderRankDistributionChart(players) {
  * 🔥 Section 3: Aktivitäts-Monitor
  * Displays player engagement metrics
  */
-async function loadActivityMonitor(userData, db) {
+async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') {
     try {
         // Get players with attendance data
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("clubId", "==", userData.clubId), where("role", "==", "player"));
         const snapshot = await getDocs(q);
 
-        const players = [];
+        let players = [];
         snapshot.forEach(doc => {
-            players.push({ id: doc.id, ...doc.data() });
+            const playerData = { id: doc.id, ...doc.data() };
+
+            // Filter by subgroup
+            if (currentSubgroupFilter !== 'all') {
+                if (playerData.subgroupIDs && playerData.subgroupIDs.includes(currentSubgroupFilter)) {
+                    players.push(playerData);
+                }
+            } else {
+                players.push(playerData);
+            }
         });
 
-        // Get all attendance records
+        // Get all attendance records filtered by subgroup
         const attendanceRef = collection(db, "attendance");
-        const attendanceQuery = query(attendanceRef, where("clubId", "==", userData.clubId), orderBy("date", "desc"), limit(50));
+        let attendanceQuery;
+
+        if (currentSubgroupFilter !== 'all') {
+            attendanceQuery = query(attendanceRef,
+                where("clubId", "==", userData.clubId),
+                where("subgroupId", "==", currentSubgroupFilter),
+                orderBy("date", "desc"),
+                limit(50));
+        } else {
+            attendanceQuery = query(attendanceRef,
+                where("clubId", "==", userData.clubId),
+                orderBy("date", "desc"),
+                limit(50));
+        }
+
         const attendanceSnapshot = await getDocs(attendanceQuery);
 
         const attendanceRecords = [];

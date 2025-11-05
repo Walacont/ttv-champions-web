@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, getDoc, doc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateExpiry } from './challenges.js';
 
 /**
@@ -20,14 +20,21 @@ export async function loadChallenges(userData, db, unsubscribes) {
     const completedChallengeIds = completedChallengesSnap.docs.map(doc => doc.id);
     const q = query(collection(db, "challenges"), where("clubId", "==", userData.clubId), where("isActive", "==", true));
 
-    const challengesListener = onSnapshot(q, (snapshot) => {
+    const challengesListener = onSnapshot(q, async (snapshot) => {
         const now = new Date();
-        const activeChallenges = snapshot.docs
+        const playerSubgroups = userData.subgroupIDs || [];
+
+        let activeChallenges = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(challenge => {
                 const isCompleted = completedChallengeIds.includes(challenge.id);
                 const isExpired = calculateExpiry(challenge.createdAt, challenge.type) < now;
-                return !isCompleted && !isExpired;
+
+                // Only show challenges for player's subgroups or "all"
+                const subgroupId = challenge.subgroupId || 'all';
+                const isForPlayer = subgroupId === 'all' || playerSubgroups.includes(subgroupId);
+
+                return !isCompleted && !isExpired && isForPlayer;
             });
 
         if (activeChallenges.length === 0) {
@@ -35,6 +42,21 @@ export async function loadChallenges(userData, db, unsubscribes) {
                 ? `<p class="text-gray-400">Derzeit keine aktiven Challenges.</p>`
                 : `<p class="text-green-500">Super! Du hast alle aktiven Challenges abgeschlossen.</p>`;
             return;
+        }
+
+        // Load subgroup names for badges
+        const subgroupNamesMap = {};
+        for (const challenge of activeChallenges) {
+            if (challenge.subgroupId && challenge.subgroupId !== 'all' && !subgroupNamesMap[challenge.subgroupId]) {
+                try {
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', challenge.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+                    }
+                } catch (error) {
+                    console.error("Error loading subgroup name:", error);
+                }
+            }
         }
 
         challengesListEl.innerHTML = '';
@@ -47,9 +69,16 @@ export async function loadChallenges(userData, db, unsubscribes) {
             card.dataset.points = challenge.points;
             card.dataset.type = challenge.type;
 
+            const subgroupBadge = challenge.subgroupId && challenge.subgroupId !== 'all'
+                ? `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full ml-2">👥 ${subgroupNamesMap[challenge.subgroupId] || challenge.subgroupId}</span>`
+                : '';
+
             card.innerHTML = `
-                <div class="flex justify-between items-center pointer-events-none">
-                    <h3 class="font-bold">${challenge.title}</h3>
+                <div class="flex justify-between items-start pointer-events-none">
+                    <div class="flex items-center flex-wrap gap-1">
+                        <h3 class="font-bold">${challenge.title}</h3>
+                        ${subgroupBadge}
+                    </div>
                     <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
                 </div>
                 <p class="text-sm text-gray-600 my-2 pointer-events-none">${challenge.description || ''}</p>

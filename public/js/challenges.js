@@ -10,8 +10,9 @@ import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp,
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} currentUserData - Current user's data
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export async function handleCreateChallenge(e, db, currentUserData) {
+export async function handleCreateChallenge(e, db, currentUserData, currentSubgroupFilter = 'all') {
     e.preventDefault();
     const feedbackEl = document.getElementById('challenge-feedback');
     const title = document.getElementById('challenge-title').value;
@@ -25,7 +26,19 @@ export async function handleCreateChallenge(e, db, currentUserData) {
         return;
     }
     try {
-        await addDoc(collection(db, "challenges"), { title, type, description, points, clubId: currentUserData.clubId, isActive: true, createdAt: serverTimestamp() });
+        // Save subgroupId: "all" if Hauptgruppe/Alle view, otherwise specific subgroup
+        const challengeData = {
+            title,
+            type,
+            description,
+            points,
+            clubId: currentUserData.clubId,
+            subgroupId: currentSubgroupFilter,
+            isActive: true,
+            createdAt: serverTimestamp()
+        };
+
+        await addDoc(collection(db, "challenges"), challengeData);
         feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
@@ -41,19 +54,28 @@ export async function handleCreateChallenge(e, db, currentUserData) {
  * Loads and displays active challenges for the club
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export function loadActiveChallenges(clubId, db) {
+export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') {
     const activeChallengesList = document.getElementById('active-challenges-list');
     if (!activeChallengesList) return;
     const q = query(collection(db, "challenges"), where("clubId", "==", clubId), where("isActive", "==", true), orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
         activeChallengesList.innerHTML = '';
         const now = new Date();
-        const challenges = snapshot.docs
+        let challenges = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(challenge => calculateExpiry(challenge.createdAt, challenge.type) > now);
+
+        // Filter by subgroup
+        if (currentSubgroupFilter !== 'all') {
+            challenges = challenges.filter(challenge =>
+                challenge.subgroupId === currentSubgroupFilter || challenge.subgroupId === 'all'
+            );
+        }
+
         if (challenges.length === 0) {
-            activeChallengesList.innerHTML = '<p class="text-gray-500">Keine aktiven Challenges für deinen Verein gefunden.</p>';
+            activeChallengesList.innerHTML = '<p class="text-gray-500">Keine aktiven Challenges für diese Ansicht gefunden.</p>';
             return;
         }
         challenges.forEach(challenge => {
@@ -87,11 +109,12 @@ export function loadActiveChallenges(clubId, db) {
 }
 
 /**
- * Loads challenges for dropdown selection
+ * Loads challenges for dropdown selection (used in points assignment)
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export function loadChallengesForDropdown(clubId, db) {
+export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'all') {
     const select = document.getElementById('challenge-select');
     if (!select) return;
     const q = query(collection(db, 'challenges'), where('clubId', '==', clubId), where('isActive', '==', true));
@@ -103,15 +126,22 @@ export function loadChallengesForDropdown(clubId, db) {
         select.innerHTML = '<option value="">Challenge wählen...</option>';
 
         const now = new Date();
-        const activeChallenges = snapshot.docs
+        let activeChallenges = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(challenge => {
                 const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
                 return expiresAt > now; // Only show non-expired challenges
             });
 
+        // Filter by subgroup (only show challenges for current subgroup or "all")
+        if (currentSubgroupFilter !== 'all') {
+            activeChallenges = activeChallenges.filter(challenge =>
+                challenge.subgroupId === currentSubgroupFilter || challenge.subgroupId === 'all'
+            );
+        }
+
         if (activeChallenges.length === 0) {
-            select.innerHTML = '<option value="">Alle Challenges abgelaufen</option>';
+            select.innerHTML = '<option value="">Keine passenden Challenges</option>';
             return;
         }
 

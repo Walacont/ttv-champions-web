@@ -126,7 +126,7 @@ async function initializeCoachPage(userData) {
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
-            loadStatistics(userData, db);
+            loadStatistics(userData, db, currentSubgroupFilter);
         });
     }
 
@@ -143,9 +143,9 @@ async function initializeCoachPage(userData) {
 
     // Load initial data
     loadPlayersForDropdown(userData.clubId, db);
-    loadChallengesForDropdown(userData.clubId, db);
+    loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
     loadExercisesForDropdown(db);
-    loadActiveChallenges(userData.clubId, db);
+    loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadExpiredChallenges(userData.clubId, db);
     loadAllExercises(db);
     loadPlayersForAttendance(userData.clubId, db, (players) => {
@@ -191,7 +191,7 @@ async function initializeCoachPage(userData) {
     // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
-    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
+    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData, currentSubgroupFilter));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
     document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
@@ -354,10 +354,14 @@ function handleSubgroupFilterChange(userData) {
     loadLeaderboard(userData, db, []);
     loadGlobalLeaderboard(userData, db, []);
 
+    // Reload challenges for current subgroup
+    loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
+    loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
+
     // Reload statistics if the tab is active
     const statisticsTab = document.getElementById('tab-content-statistics');
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
-        loadStatistics(userData, db);
+        loadStatistics(userData, db, currentSubgroupFilter);
     }
 }
 
