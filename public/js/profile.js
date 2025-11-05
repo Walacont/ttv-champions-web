@@ -208,7 +208,7 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
 
         // Skill-Rangliste (sortiert nach eloRating)
         const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
-        
+
         // Finde den aktuellen User in der Liste (für aktuelle Werte)
         const currentUserInList = players.find(p => p.id === userData.id) || userData;
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
@@ -220,10 +220,8 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (currentUserInList.xp || 0), 'XP');
     });
 
-    // *** KORREKTUR: Listener zur Unsubscribe-Liste hinzufügen ***
-    if (unsubscribes) {
-        unsubscribes.push(rivalListener);
-    }
+    // Return the unsubscribe function so caller can manage it
+    return rivalListener;
 }
 
 /**

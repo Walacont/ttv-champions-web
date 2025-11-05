@@ -16,8 +16,16 @@ export async function loadChallenges(userData, db, unsubscribes) {
     const challengesListEl = document.getElementById('challenges-list');
     if (!challengesListEl) return;
 
-    const completedChallengesSnap = await getDocs(collection(db, `users/${userData.id}/completedChallenges`));
-    const completedChallengeIds = completedChallengesSnap.docs.map(doc => doc.id);
+    // Load completed challenges with error handling
+    let completedChallengeIds = [];
+    try {
+        const completedChallengesSnap = await getDocs(collection(db, `users/${userData.id}/completedChallenges`));
+        completedChallengeIds = completedChallengesSnap.docs.map(doc => doc.id);
+    } catch (error) {
+        console.warn('Could not load completed challenges (this is normal for new users):', error.message);
+        // Continue with empty array - user hasn't completed any challenges yet
+    }
+
     const q = query(collection(db, "challenges"), where("clubId", "==", userData.clubId), where("isActive", "==", true));
 
     const challengesListener = onSnapshot(q, async (snapshot) => {

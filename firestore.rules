@@ -85,6 +85,15 @@ service cloud.firestore {
         // Coaches can read/write streaks for players in their club
         allow read, write: if isCoachOrAdmin();
       }
+
+      // Subcollection: completedChallenges
+      match /completedChallenges/{challengeId} {
+        // Users can read and write their own completed challenges
+        allow read, write: if isOwner(userId);
+
+        // Coaches can read completed challenges for players in their club
+        allow read: if isCoachOrAdmin();
+      }
     }
 
     // Clubs collection
