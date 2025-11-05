@@ -35,8 +35,11 @@ export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallba
     // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
 
     // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
-    loadRivalDataCallback(userData, db, unsubscribes);
-    
+    // Check if callback is provided before calling (rival data is loaded separately in dashboard.js)
+    if (typeof loadRivalDataCallback === 'function') {
+        loadRivalDataCallback(userData, db, unsubscribes);
+    }
+
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
 }
