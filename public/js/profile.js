@@ -267,9 +267,42 @@ export function updateGrundlagenDisplay(userData) {
  * @param {Object} userData - User data
  * @param {Function} renderCalendarCallback - Callback to render calendar
  * @param {Date} currentDisplayDate - Current display date for calendar
+ * @param {Object} db - Firestore database instance
  */
-export function loadProfileData(userData, renderCalendarCallback, currentDisplayDate) {
+export async function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
     const streakEl = document.getElementById('stats-current-streak');
-    if (streakEl) streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+
+    // Load streaks from subcollection (per subgroup)
+    if (streakEl && userData.id && db) {
+        try {
+            const streaksSnapshot = await getDocs(collection(db, `users/${userData.id}/streaks`));
+
+            if (streaksSnapshot.empty) {
+                streakEl.innerHTML = `0 🔥`;
+            } else {
+                // Get all streaks and find the highest one
+                let maxStreak = 0;
+
+                streaksSnapshot.forEach(doc => {
+                    const streakData = doc.data();
+                    const count = streakData.count || 0;
+                    if (count > maxStreak) {
+                        maxStreak = count;
+                    }
+                });
+
+                // Display the highest streak
+                streakEl.innerHTML = `${maxStreak} 🔥`;
+            }
+        } catch (error) {
+            console.error("Error loading streaks:", error);
+            // Fallback to old userData.streak field
+            streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+        }
+    } else if (streakEl) {
+        // Fallback if no db provided
+        streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+    }
+
     renderCalendarCallback(currentDisplayDate);
 }

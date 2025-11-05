@@ -85,7 +85,7 @@ async function initializeDashboard(userData) {
 
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
-    loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate);
+    loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate, db);
     loadExercises(db, unsubscribes);
 
     // Set leaderboard filter to 'all' for initial load (club view)
