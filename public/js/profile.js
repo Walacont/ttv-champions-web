@@ -31,8 +31,11 @@ export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallba
     // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
 
     // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
-    loadRivalDataCallback(userData, db, unsubscribes);
-    
+    // loadRivalDataCallback is now managed externally (deprecated parameter, kept for backwards compatibility)
+    if (loadRivalDataCallback) {
+        loadRivalDataCallback(userData, db, unsubscribes);
+    }
+
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
 }
@@ -157,25 +160,44 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
  * *** JETZT MIT onSnapshot FÜR ECHTZEIT-UPDATES ***
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array zum Speichern des Listeners
+ * @param {string} currentSubgroupFilter - Current subgroup filter ("club", "global", or subgroupId)
+ * @returns {Function} Unsubscribe function for the listener
  */
-export function loadRivalData(userData, db, unsubscribes) {
+export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     const rivalSkillEl = document.getElementById('rival-skill-info');
     const rivalEffortEl = document.getElementById('rival-effort-info');
 
-    // 1. Hole alle Spieler aus dem Verein (ohne den alten league-Filter)
-    const q = query(
-        collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player")
-    );
+    // 1. Determine query based on filter
+    let q;
+    if (currentSubgroupFilter === 'club') {
+        // Show all players in club
+        q = query(
+            collection(db, "users"),
+            where("clubId", "==", userData.clubId),
+            where("role", "==", "player")
+        );
+    } else if (currentSubgroupFilter === 'global') {
+        // Show all players globally
+        q = query(
+            collection(db, "users"),
+            where("role", "==", "player")
+        );
+    } else {
+        // Show players in specific subgroup
+        q = query(
+            collection(db, "users"),
+            where("clubId", "==", userData.clubId),
+            where("role", "==", "player"),
+            where("subgroupIDs", "array-contains", currentSubgroupFilter)
+        );
+    }
 
     // *** KORREKTUR: von getDocs zu onSnapshot geändert ***
     const rivalListener = onSnapshot(q, (querySnapshot) => {
         const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // 2. Erstelle zwei separate Ranglisten
-        
+
         // Skill-Rangliste (sortiert nach eloRating)
         const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
@@ -187,10 +209,8 @@ export function loadRivalData(userData, db, unsubscribes) {
         displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (userData.xp || 0), 'XP');
     });
 
-    // *** KORREKTUR: Listener zur Unsubscribe-Liste hinzufügen ***
-    if (unsubscribes) {
-        unsubscribes.push(rivalListener);
-    }
+    // Return listener so caller can manage it
+    return rivalListener;
 }
 
 

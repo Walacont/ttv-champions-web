@@ -20,6 +20,8 @@ const db = getFirestore(app);
 let currentUserData = null;
 let unsubscribes = [];
 let currentDisplayDate = new Date();
+let currentSubgroupFilter = 'club'; // Default: show club view
+let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -72,14 +74,17 @@ async function initializeDashboard(userData) {
 
     // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {
-        showToggle: false  // We use dropdown instead
+        showToggle: false  // No toggle needed, global filter controls everything
     });
 
-    // Populate subgroup options in dropdown
-    await populatePlayerLeaderboardDropdown(userData, db);
+    // Populate subgroup options in global filter dropdown
+    await populatePlayerSubgroupFilter(userData, db);
 
     // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
-    loadOverviewData(userData, db, unsubscribes, loadRivalData, loadChallenges, loadPointsHistory);
+    loadOverviewData(userData, db, unsubscribes, null, loadChallenges, loadPointsHistory);
+
+    // Load rivals with current subgroup filter and store listener separately
+    rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
     loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate);
     loadExercises(db, unsubscribes);
     loadLeaderboard(userData, db, unsubscribes);
@@ -98,11 +103,11 @@ async function initializeDashboard(userData) {
     setupTabs('overview');  // 'overview' is default tab for dashboard
     setupLeaderboardTabs();  // Setup 3-tab navigation
 
-    // Setup dropdown change handler for player leaderboard view
-    const leaderboardViewDropdown = document.getElementById('player-leaderboard-view');
-    if (leaderboardViewDropdown) {
-        leaderboardViewDropdown.addEventListener('change', () => {
-            handlePlayerLeaderboardViewChange(userData, db, unsubscribes);
+    // Setup global subgroup filter change handler
+    const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
+    if (subgroupFilterDropdown) {
+        subgroupFilterDropdown.addEventListener('change', () => {
+            handlePlayerSubgroupFilterChange(userData, db, unsubscribes);
         });
     }
 
@@ -167,19 +172,19 @@ function updateDashboard(userData) {
 // =============================================================
 // ===== EXERCISE FUNCTIONS - NOW IN exercises.js =====
 // =============================================================
-// --- Player Leaderboard View Dropdown Functions ---
+// --- Player Global Subgroup Filter Functions ---
 
 /**
- * Populates the player leaderboard dropdown with user's subgroups
+ * Populates the global player subgroup filter with user's subgroups
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  */
-async function populatePlayerLeaderboardDropdown(userData, db) {
-    const dropdown = document.getElementById('player-leaderboard-view');
+async function populatePlayerSubgroupFilter(userData, db) {
+    const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
 
     const subgroupIDs = userData.subgroupIDs || [];
-    
+
     if (subgroupIDs.length === 0) {
         // User not in any subgroups, keep just club and global
         return;
@@ -215,7 +220,7 @@ async function populatePlayerLeaderboardDropdown(userData, db) {
         const globalOption = dropdown.querySelector('option[value="global"]');
         dropdown.innerHTML = '';
 
-        // Add subgroup options first
+        // Add subgroup options first (if any)
         if (subgroups.length > 0) {
             subgroups.forEach(subgroup => {
                 const option = document.createElement('option');
@@ -230,58 +235,53 @@ async function populatePlayerLeaderboardDropdown(userData, db) {
         dropdown.appendChild(globalOption);
 
     } catch (error) {
-        console.error('Error populating leaderboard dropdown:', error);
+        console.error('Error populating subgroup filter:', error);
     }
 }
 
 /**
- * Handles leaderboard view change from dropdown
+ * Handles global subgroup filter change - reloads all filtered content
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array of unsubscribe functions
  */
-function handlePlayerLeaderboardViewChange(userData, db, unsubscribes) {
-    const dropdown = document.getElementById('player-leaderboard-view');
+function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
+    const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
 
     const selectedValue = dropdown.value;
 
-    // Unsubscribe from existing leaderboard listeners
-    unsubscribes.forEach(unsub => {
-        if (unsub && typeof unsub === 'function') {
-            try {
-                unsub();
-            } catch (e) {
-                // Ignore errors
-            }
-        }
-    });
-    unsubscribes.length = 0;
-
+    // Update current filter
     if (selectedValue === 'club') {
-        // Show club leaderboard
-        loadLeaderboard(userData, db, unsubscribes);
+        currentSubgroupFilter = 'club';
     } else if (selectedValue === 'global') {
-        // Show global leaderboard
-        loadGlobalLeaderboard(userData, db, unsubscribes);
+        currentSubgroupFilter = 'global';
     } else if (selectedValue.startsWith('subgroup:')) {
-        // Show subgroup leaderboard
-        const subgroupId = selectedValue.replace('subgroup:', '');
-        loadSubgroupLeaderboard(userData, db, unsubscribes, subgroupId);
+        currentSubgroupFilter = selectedValue.replace('subgroup:', '');
     }
-}
 
-/**
- * Loads leaderboard for a specific subgroup
- * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
- * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {string} subgroupId - Subgroup ID to filter by
- */
-function loadSubgroupLeaderboard(userData, db, unsubscribes, subgroupId) {
-    // Import and use existing leaderboard functions with subgroup filter
-    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB }) => {
-        setLeaderboardSubgroupFilter(subgroupId);
-        loadLB(userData, db, unsubscribes);
-    });
+    console.log(`[Player] Subgroup filter changed to: ${currentSubgroupFilter}`);
+
+    // Unsubscribe old rival listener and reload with new filter
+    if (rivalListener && typeof rivalListener === 'function') {
+        try {
+            rivalListener();
+        } catch (e) {
+            console.error("Error unsubscribing rival listener:", e);
+        }
+    }
+    rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
+
+    // Reload leaderboard
+    if (currentSubgroupFilter === 'club') {
+        loadLeaderboard(userData, db, unsubscribes);
+    } else if (currentSubgroupFilter === 'global') {
+        loadGlobalLeaderboard(userData, db, unsubscribes);
+    } else {
+        // Specific subgroup
+        import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB }) => {
+            setLeaderboardSubgroupFilter(currentSubgroupFilter);
+            loadLB(userData, db, unsubscribes);
+        });
+    }
 }
