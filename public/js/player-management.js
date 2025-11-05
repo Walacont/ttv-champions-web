@@ -157,8 +157,8 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
     const detailPanel = document.getElementById('player-detail-panel');
     const detailPlaceholder = document.getElementById('player-detail-placeholder');
 
-    if (loader) loader.style.display = 'block';
-    if (tableContainer) tableContainer.style.display = 'none';
+    if (loader) loader.classList.remove('hidden');
+    if (tableContainer) tableContainer.classList.add('hidden');
     if (detailPanel) detailPanel.classList.add('hidden');
     if (detailPlaceholder) detailPlaceholder.classList.remove('hidden');
 
@@ -234,13 +234,13 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                 console.error('Error loading ranks:', error);
             });
         }
-        if (loader) loader.style.display = 'none';
-        if (tableContainer) tableContainer.style.display = 'block';
+        if (loader) loader.classList.add('hidden');
+        if (tableContainer) tableContainer.classList.remove('hidden');
     }, (error) => {
         console.error("Spielerliste Ladefehler:", error);
         modalPlayerList.innerHTML = `<p class="p-4 text-center text-red-500">Fehler: ${error.message}</p>`;
-        if (loader) loader.style.display = 'none';
-        if (tableContainer) tableContainer.style.display = 'block';
+        if (loader) loader.classList.add('hidden');
+        if (tableContainer) tableContainer.classList.remove('hidden');
     });
 
     setUnsubscribe(unsubscribe);
