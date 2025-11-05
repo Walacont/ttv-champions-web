@@ -376,6 +376,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
                         points: pointsToAdd,
+                        xp: pointsToAdd, // Track XP change (same as points for attendance)
+                        eloChange: 0, // No Elo change for attendance
                         reason,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
@@ -407,6 +409,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
                         points: -ATTENDANCE_POINTS_BASE,
+                        xp: -ATTENDANCE_POINTS_BASE, // Track XP change
+                        eloChange: 0, // No Elo change
                         reason: "Anwesenheit korrigiert (abgemeldet)",
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"

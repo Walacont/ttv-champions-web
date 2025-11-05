@@ -23,14 +23,37 @@ export function loadPointsHistory(userData, db, unsubscribes) {
             const pointsClass = entry.points >= 0 ? 'text-green-600' : 'text-red-600';
             const sign = entry.points >= 0 ? '+' : '';
             const date = entry.timestamp ? entry.timestamp.toDate().toLocaleDateString('de-DE') : '...';
+
+            // Build detailed points breakdown
+            const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
+            const eloChange = entry.eloChange !== undefined ? entry.eloChange : 0;
+
+            let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
+
+            // Add XP and Elo details if they exist
+            const details = [];
+            if (xpChange !== 0) {
+                const xpSign = xpChange >= 0 ? '+' : '';
+                details.push(`${xpSign}${xpChange} XP`);
+            }
+            if (eloChange !== 0) {
+                const eloSign = eloChange >= 0 ? '+' : '';
+                const eloClass = eloChange >= 0 ? 'text-blue-600' : 'text-red-600';
+                details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
+            }
+
+            if (details.length > 0) {
+                detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
+            }
+
             const li = document.createElement('li');
-            li.className = 'flex justify-between items-center text-sm';
+            li.className = 'flex justify-between items-start text-sm';
             li.innerHTML = `
                 <div>
                     <p class="font-medium">${entry.reason}</p>
                     <p class="text-xs text-gray-500">${date}</p>
                 </div>
-                <span class="font-bold ${pointsClass}">${sign}${entry.points}</span>
+                <div class="text-right">${detailsHTML}</div>
             `;
             pointsHistoryEl.appendChild(li);
         });
@@ -69,14 +92,36 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
             const sign = entry.points >= 0 ? '+' : '';
             const date = entry.timestamp ? entry.timestamp.toDate().toLocaleDateString('de-DE') : '...';
 
+            // Build detailed points breakdown
+            const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
+            const eloChange = entry.eloChange !== undefined ? entry.eloChange : 0;
+
+            let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
+
+            // Add XP and Elo details if they exist
+            const details = [];
+            if (xpChange !== 0) {
+                const xpSign = xpChange >= 0 ? '+' : '';
+                details.push(`${xpSign}${xpChange} XP`);
+            }
+            if (eloChange !== 0) {
+                const eloSign = eloChange >= 0 ? '+' : '';
+                const eloClass = eloChange >= 0 ? 'text-blue-600' : 'text-red-600';
+                details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
+            }
+
+            if (details.length > 0) {
+                detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
+            }
+
             const li = document.createElement('li');
-            li.className = 'flex justify-between items-center text-sm bg-gray-50 p-2 rounded-md';
+            li.className = 'flex justify-between items-start text-sm bg-gray-50 p-2 rounded-md';
             li.innerHTML = `
                 <div>
                     <p class="font-medium">${entry.reason}</p>
                     <p class="text-xs text-gray-500">${date} - ${entry.awardedBy || 'Unbekannt'}</p>
                 </div>
-                <span class="font-bold ${pointsClass}">${sign}${entry.points}</span>
+                <div class="text-right">${detailsHTML}</div>
             `;
             historyListEl.appendChild(li);
         });
@@ -208,6 +253,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
             transaction.set(doc(historyColRef), {
                 points,
+                xp: points, // Track XP change (same as points for manual awards)
+                eloChange: 0, // No Elo change for manual points
                 reason,
                 timestamp: serverTimestamp(),
                 awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
