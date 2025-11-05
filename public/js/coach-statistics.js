@@ -7,7 +7,7 @@
  */
 
 import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { RANKS } from './ranks.js';
+import { RANK_ORDER } from './ranks.js';
 
 // Chart instances (global to allow cleanup)
 let attendanceTrendChart = null;
@@ -348,7 +348,7 @@ function renderRankDistributionChart(players) {
 
     // Count players by rank
     const rankCounts = {};
-    RANKS.forEach(rank => {
+    RANK_ORDER.forEach(rank => {
         rankCounts[rank.name] = 0;
     });
 
@@ -603,12 +603,12 @@ function calculateTeamProgress(players) {
 
     // Calculate average rank index
     const totalRankIndex = players.reduce((sum, p) => {
-        const rankIndex = RANKS.findIndex(r => r.name === (p.rankName || 'Rekrut'));
+        const rankIndex = RANK_ORDER.findIndex(r => r.name === (p.rankName || 'Rekrut'));
         return sum + (rankIndex !== -1 ? rankIndex : 0);
     }, 0);
 
     const avgRankIndex = totalRankIndex / players.length;
-    const progressPercent = Math.round((avgRankIndex / (RANKS.length - 1)) * 100);
+    const progressPercent = Math.round((avgRankIndex / (RANK_ORDER.length - 1)) * 100);
 
     document.getElementById('stats-team-progress').textContent = `${progressPercent}%`;
 }

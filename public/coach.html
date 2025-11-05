@@ -33,6 +33,12 @@
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         details[open] summary svg { transform: rotate(180deg); }
+
+        /* NEU: Hebt das aktive Item in der Spieler-Liste hervor */
+        .player-list-item-active {
+            background-color: #eef2ff; /* indigo-50 */
+            border-right: 3px solid #4f46e5; /* indigo-600 */
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -64,7 +70,6 @@
                 <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
             </div>
             <div class="flex items-center gap-4">
-                <!-- Subgroup Switcher -->
                 <div class="flex items-center gap-2">
                     <label for="subgroup-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
                         👥 Ansicht:
@@ -74,8 +79,7 @@
                         class="block w-full sm:w-48 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
                     >
                         <option value="all">Alle (Gesamtverein)</option>
-                        <!-- Options will be populated dynamically -->
-                    </select>
+                        </select>
                 </div>
             </div>
             <div class="flex items-center space-x-4">
@@ -461,7 +465,6 @@
 
             <div id="tab-content-statistics" class="tab-content hidden">
                 <div class="space-y-8">
-                    <!-- 📈 Trainings-Analyse -->
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-6 flex items-center">
                             <span class="mr-3">📈</span> Trainings-Analyse
@@ -489,7 +492,6 @@
                         </div>
                     </div>
 
-                    <!-- 👥 Team-Übersicht -->
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-6 flex items-center">
                             <span class="mr-3">👥</span> Team-Übersicht
@@ -528,7 +530,6 @@
                         </div>
                     </div>
 
-                    <!-- 🔥 Aktivitäts-Monitor -->
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-6 flex items-center">
                             <span class="mr-3">🔥</span> Aktivitäts-Monitor
@@ -581,7 +582,6 @@
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <!-- Create Subgroup Form -->
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Neue Untergruppe erstellen</h2>
                             <form id="create-subgroup-form" class="space-y-4">
@@ -605,7 +605,6 @@
                             </form>
                         </div>
 
-                        <!-- Subgroups List -->
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Bestehende Untergruppen</h2>
                             <div id="subgroups-list" class="space-y-4">
@@ -673,44 +672,53 @@
         </div>
     </div>
 
-     <div id="player-list-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-start pt-10">
-        <div class="relative mx-auto p-5 border w-full max-w-6xl shadow-lg rounded-md bg-white">
-             <div class="flex justify-between items-center mb-4">
+    <div id="player-list-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center p-4">
+        
+        <div class="relative mx-auto border w-full max-w-6xl shadow-lg rounded-2xl bg-white flex flex-col h-[90vh]">
+             
+             <div class="flex justify-between items-center p-5 border-b">
                 <h3 class="text-xl leading-6 font-medium text-gray-900">Spielerverwaltung</h3>
                 <button id="close-player-modal-button" class="text-gray-400 hover:text-gray-600">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
 
-            <div id="modal-loader" class="text-center py-8">
+            <div id="modal-loader" class="text-center py-20">
                 <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <p class="mt-2 text-sm text-gray-600">Lade Spieler...</p>
             </div>
 
-            <div id="modal-player-list-container" class="hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="lg:col-span-2">
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rang</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aktionen</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="modal-player-list" class="bg-white divide-y divide-gray-200"></tbody>
-                            </table>
+            <div id="modal-player-list-container" class="hidden grid grid-cols-1 md:grid-cols-3 flex-grow overflow-hidden">
+                
+                <div class="md:col-span-1 h-full flex flex-col border-r border-gray-200 bg-gray-50">
+                    <div class="p-3 border-b border-gray-200">
+                        <input type="text" id="player-search-input" placeholder="Spieler suchen..." class="w-full px-3 py-2 text-sm border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div id="modal-player-list" class="overflow-y-auto flex-grow divide-y divide-gray-200">
+                        </div>
+                </div>
+
+                <div class="md:col-span-2 h-full overflow-y-auto">
+                    <div id="player-detail-panel" class="p-6 hidden">
+                        <h4 class="text-2xl font-bold text-gray-900 mb-6">Spieler-Details</h4>
+                        
+                        <div id="player-detail-content" class="space-y-6">
+                            </div>
+
+                        <div class="mt-8 pt-6 border-t border-gray-200">
+                             <h5 class="text-lg font-medium text-gray-900">Aktionen</h5>
+                             <div id="player-detail-actions" class="mt-4 space-y-3">
+                                </div>
                         </div>
                     </div>
 
-                    <div class="lg:col-span-1">
-                        <div id="player-detail-panel" class="bg-gray-50 p-4 rounded-lg hidden">
-                            <h4 class="text-lg font-semibold mb-3">Spieler-Details</h4>
-                            <div id="player-detail-content"></div>
-                        </div>
-                        <div id="player-detail-placeholder" class="bg-gray-50 p-4 rounded-lg text-center text-gray-500">
-                            <p>Klicke auf einen Spieler, um Details anzuzeigen</p>
+                    <div id="player-detail-placeholder" class="h-full flex items-center justify-center text-center text-gray-500">
+                        <div class="p-6">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                            </svg>
+                            <h3 class="mt-2 text-sm font-medium text-gray-900">Spieler auswählen</h3>
+                            <p class="mt-1 text-sm text-gray-500">Wähle einen Spieler aus der Liste links, um seine Details und Aktionen anzuzeigen.</p>
                         </div>
                     </div>
                 </div>
