@@ -135,7 +135,36 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
 
     const playerListContainer = document.getElementById('attendance-player-list');
     playerListContainer.innerHTML = '';
-    clubPlayers.forEach(player => {
+
+    // Show warning if "Alle" view is active
+    if (currentSubgroupFilter === 'all') {
+        playerListContainer.innerHTML = `
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                <p class="text-sm text-yellow-800 font-semibold">⚠️ Bitte wähle eine spezifische Untergruppe aus</p>
+                <p class="text-xs text-yellow-700 mt-1">Du kannst nur Anwesenheit für eine bestimmte Gruppe erfassen.</p>
+            </div>
+        `;
+        modal.classList.remove('hidden');
+        return;
+    }
+
+    // Filter players: Only show players who are members of the current subgroup
+    const playersInCurrentSubgroup = clubPlayers.filter(player =>
+        player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+    );
+
+    if (playersInCurrentSubgroup.length === 0) {
+        playerListContainer.innerHTML = `
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                <p class="text-sm text-gray-600">Keine Spieler in dieser Gruppe gefunden.</p>
+                <p class="text-xs text-gray-500 mt-1">Weise Spieler im "Spieler verwalten"-Modal zu.</p>
+            </div>
+        `;
+        modal.classList.remove('hidden');
+        return;
+    }
+
+    playersInCurrentSubgroup.forEach(player => {
         const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
         const div = document.createElement('div');
         div.className = 'flex items-center p-1';

@@ -217,11 +217,11 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                         <td class="px-6 py-4 whitespace-nowrap text-left actions-cell">${actionsHtml}</td>
                     `;
 
-                    // Add click handler to show details (but not on action buttons)
+                    // Add click handler to show details with edit option (but not on action buttons)
                     row.addEventListener('click', (e) => {
                         // Don't show details if clicking on action buttons
                         if (!e.target.closest('.actions-cell')) {
-                            showPlayerDetails(player);
+                            showPlayerDetails(player, true); // true = show edit button
                         }
                     });
 
@@ -273,10 +273,96 @@ export function loadPlayersForDropdown(clubId, db) {
 }
 
 /**
+ * Opens the edit player modal
+ * @param {Object} player - Player data object
+ * @param {Object} db - Firestore database instance
+ * @param {string} clubId - Club ID
+ */
+export function openEditPlayerModal(player, db, clubId) {
+    const modal = document.getElementById('edit-player-modal');
+    const nameEl = document.getElementById('edit-player-name');
+    const feedbackEl = document.getElementById('edit-player-feedback');
+
+    if (!modal || !nameEl) return;
+
+    nameEl.textContent = `${player.firstName} ${player.lastName}`;
+    if (feedbackEl) feedbackEl.textContent = '';
+
+    // Load subgroups with pre-selected player's subgroups
+    loadSubgroupsForPlayerForm(clubId, db, 'edit-player-subgroups-checkboxes', player.subgroupIDs || []);
+
+    modal.classList.remove('hidden');
+
+    // Store player ID for saving
+    modal.dataset.playerId = player.id;
+}
+
+/**
+ * Saves updated subgroup assignments for a player
+ * @param {Object} db - Firestore database instance
+ */
+export async function handleSavePlayerSubgroups(db) {
+    const modal = document.getElementById('edit-player-modal');
+    const playerId = modal.dataset.playerId;
+    const feedbackEl = document.getElementById('edit-player-feedback');
+
+    if (!playerId) {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Fehler: Spieler-ID nicht gefunden.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+        return;
+    }
+
+    // Get selected subgroups
+    const checkboxes = document.querySelectorAll('#edit-player-subgroups-checkboxes input[type="checkbox"]:checked');
+    const subgroupIDs = Array.from(checkboxes).map(cb => cb.value);
+
+    if (subgroupIDs.length === 0) {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Bitte wähle mindestens eine Untergruppe aus.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+        return;
+    }
+
+    try {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Speichere...';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
+        }
+
+        const playerRef = doc(db, 'users', playerId);
+        await updateDoc(playerRef, {
+            subgroupIDs: subgroupIDs,
+            updatedAt: serverTimestamp()
+        });
+
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Erfolgreich gespeichert!';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        }
+
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            if (feedbackEl) feedbackEl.textContent = '';
+        }, 1500);
+
+    } catch (error) {
+        console.error("Error updating player subgroups:", error);
+        if (feedbackEl) {
+            feedbackEl.textContent = `Fehler: ${error.message}`;
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+    }
+}
+
+/**
  * Shows detailed player information in the player management modal
  * @param {Object} player - Player data object
+ * @param {boolean} showEditButton - Whether to show edit button
  */
-export function showPlayerDetails(player) {
+export function showPlayerDetails(player, showEditButton = false) {
     const detailPanel = document.getElementById('player-detail-panel');
     const detailPlaceholder = document.getElementById('player-detail-placeholder');
     const detailContent = document.getElementById('player-detail-content');
@@ -289,6 +375,9 @@ export function showPlayerDetails(player) {
         const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
         const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
 
+        // Store player data for edit button
+        detailPanel.dataset.playerData = JSON.stringify(player);
+
         detailContent.innerHTML = `
             <div class="space-y-4">
                 <!-- Player Name & Rank -->
@@ -298,6 +387,11 @@ export function showPlayerDetails(player) {
                         <span class="text-3xl">${currentRank.emoji}</span>
                         <span class="ml-2 text-md font-semibold" style="color: ${currentRank.color};">${currentRank.name}</span>
                     </div>
+                    ${showEditButton ? `
+                        <button id="edit-player-groups-btn" class="mt-3 text-sm text-indigo-600 hover:text-indigo-900 font-medium">
+                            👥 Gruppen bearbeiten
+                        </button>
+                    ` : ''}
                 </div>
 
                 <!-- Stats Overview -->

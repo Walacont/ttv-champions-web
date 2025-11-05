@@ -1,5 +1,16 @@
-import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, where, orderBy, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
+
+// Module state for subgroup filtering
+let currentLeaderboardSubgroupFilter = 'all';
+
+/**
+ * Sets the current subgroup filter for leaderboard
+ * @param {string} subgroupId - Subgroup ID or 'all'
+ */
+export function setLeaderboardSubgroupFilter(subgroupId) {
+    currentLeaderboardSubgroupFilter = subgroupId || 'all';
+}
 
 /**
  * Renders the new 3-tab leaderboard HTML into a container
@@ -216,7 +227,20 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by subgroup if not "all"
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            players = players.filter(p =>
+                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            );
+        }
+
+        if (players.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
+            return;
+        }
+
         listEl.innerHTML = '';
         players.forEach((player, index) => {
             renderSkillRow(player, index, userData.id, listEl);
@@ -249,7 +273,20 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by subgroup if not "all"
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            players = players.filter(p =>
+                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            );
+        }
+
+        if (players.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
+            return;
+        }
+
         listEl.innerHTML = '';
         players.forEach((player, index) => {
             renderEffortRow(player, index, userData.id, listEl);
@@ -281,7 +318,20 @@ function loadRanksView(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by subgroup if not "all"
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            players = players.filter(p =>
+                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            );
+        }
+
+        if (players.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
+            return;
+        }
+
         const grouped = groupPlayersByRank(players);
 
         listEl.innerHTML = '';
