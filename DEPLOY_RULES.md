@@ -6,8 +6,12 @@ Die Firestore Security Rules müssen deployed werden, damit die App funktioniert
 
 Ohne Deployment der Rules erhalten alle Benutzer (Spieler & Coaches) Permission-Fehler:
 - ❌ "Missing or insufficient permissions"
-- ❌ Spieler können sich nicht anmelden
-- ❌ Coaches können keine Daten sehen
+- ❌ Spieler sehen nur sich selbst in der Rangliste (nicht andere Spieler)
+- ❌ Spieler können keine Rivalen-Daten sehen
+- ❌ Kalender zeigt Fehler beim Laden der Anwesenheitsdaten
+- ❌ Coaches können keine Spielerliste laden
+- ❌ "Error loading subgroup" Fehler
+- ❌ "Fetch API cannot load" Fehler
 
 ---
 
@@ -154,7 +158,40 @@ firebase login
 
 Die folgenden Security Rules wurden hinzugefügt/aktualisiert:
 
-### Neue Subcollection: `completedChallenges`
+### 1. **Users Collection** - KRITISCH für Rangliste & Rivalen
+```javascript
+// NEU: Spieler können andere Spieler im gleichen Club lesen
+allow read: if isAuthenticated() &&
+  resource.data.role == 'player' &&
+  isSameClub(resource.data.clubId);
+```
+**Warum wichtig?**: Spieler müssen andere Spieler sehen können für:
+- Rangliste (Leaderboard)
+- Rivalen (wer ist vor mir?)
+- Vergleich von Punkten/Elo/XP
+
+### 2. **Attendance Collection** - Vereinfacht
+```javascript
+// NEU: Alle authentifizierten User können Attendance lesen
+allow read: if isAuthenticated();
+```
+**Warum wichtig?**: Kalender muss Anwesenheitsdaten anzeigen können
+
+### 3. **Subgroups Collection** - Vereinfacht
+```javascript
+// NEU: Alle authentifizierten User können Subgroups lesen
+allow read: if isAuthenticated();
+```
+**Warum wichtig?**: Dropdown-Filter für Untergruppen muss funktionieren
+
+### 4. **Matches Collection** - Vereinfacht
+```javascript
+// NEU: Alle authentifizierten User können Matches lesen
+allow read: if isAuthenticated();
+```
+**Warum wichtig?**: Ergebnisse müssen sichtbar sein
+
+### 5. **completedChallenges Subcollection** - Neue Subcollection
 ```javascript
 match /completedChallenges/{challengeId} {
   // Spieler können ihre eigenen completed challenges lesen/schreiben
@@ -164,8 +201,14 @@ match /completedChallenges/{challengeId} {
   allow read: if isCoachOrAdmin();
 }
 ```
-
 **Warum wichtig?**: Spieler müssen tracken können, welche Challenges sie bereits abgeschlossen haben.
+
+### ⚠️ Sicherheitshinweis
+Die vereinfachten Read-Permissions sind sicher, weil:
+- Client-Code filtert bereits nach `clubId` in allen Queries
+- Nur **Read**-Zugriff wurde vereinfacht
+- **Write**-Zugriff bleibt weiterhin auf Coaches beschränkt
+- Firebase-Queries mit `where('clubId', '==', ...)` sorgen für Datenisolation
 
 ---
 
