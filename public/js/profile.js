@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, onSnapshot, query, where, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
 /**
@@ -16,6 +16,10 @@ import { calculateRank, getRankProgress, formatRank } from './ranks.js';
  * @param {Function} loadPointsHistoryCallback - Callback to load points history
  */
 export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallback, loadChallengesCallback, loadPointsHistoryCallback) {
+    // ⚠️ WICHTIG: Wir setzen KEINEN Listener für das User-Dokument hier auf,
+    // da das bereits in dashboard.js passiert!
+    // Wir zeigen nur die initialen Werte an:
+    
     const playerPointsEl = document.getElementById('player-points');
     const playerXpEl = document.getElementById('player-xp');
     const playerEloEl = document.getElementById('player-elo');
@@ -24,21 +28,18 @@ export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallba
     if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
 
-    // Display current rank
+    // Display current rank (wird automatisch durch dashboard.js aktualisiert)
     updateRankDisplay(userData);
 
-    // Display Grundlagen progress (wird jetzt in updateRankDisplay behandelt)
-    // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
-
-    // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
+    // Load other data
     loadRivalDataCallback(userData, db, unsubscribes);
-    
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
 }
 
 /**
  * Updates the rank display in the overview section
+ * ⚠️ Diese Funktion wird von dashboard.js aufgerufen, wenn sich userData ändert!
  * @param {Object} userData - User data with eloRating and xp
  */
 export function updateRankDisplay(userData) {
@@ -50,6 +51,9 @@ export function updateRankDisplay(userData) {
 
     // Get Grundlagen count from user data (defaults to 0)
     const grundlagenCount = userData.grundlagenCompleted || 0;
+
+    // 🔍 DEBUG: Aktiviere diese Zeile, um zu sehen, welchen Wert wir WIRKLICH haben
+    console.log('🔍 updateRankDisplay called with grundlagen:', grundlagenCount, 'userData:', userData);
 
     const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
     const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
@@ -170,7 +174,7 @@ export function loadRivalData(userData, db, unsubscribes) {
         where("role", "==", "player")
     );
 
-    // *** KORREKTUR: von getDocs zu onSnapshot geändert ***
+    // *** onSnapshot für Echtzeit-Updates ***
     const rivalListener = onSnapshot(q, (querySnapshot) => {
         const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -178,24 +182,26 @@ export function loadRivalData(userData, db, unsubscribes) {
         
         // Skill-Rangliste (sortiert nach eloRating)
         const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
+        
+        // Finde den aktuellen User in der Liste (für aktuelle Werte)
+        const currentUserInList = players.find(p => p.id === userData.id) || userData;
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
-        displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, (userData.eloRating || 0), 'Elo');
+        displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, (currentUserInList.eloRating || 0), 'Elo');
 
         // Effort-Rangliste (sortiert nach xp)
         const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
         const myEffortIndex = effortRanking.findIndex(p => p.id === userData.id);
-        displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (userData.xp || 0), 'XP');
+        displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (currentUserInList.xp || 0), 'XP');
     });
 
-    // *** KORREKTUR: Listener zur Unsubscribe-Liste hinzufügen ***
     if (unsubscribes) {
         unsubscribes.push(rivalListener);
     }
 }
 
-
 /**
  * Updates the Grundlagen progress display
+ * ⚠️ DEPRECATED: Diese Funktion wird nicht mehr verwendet, da Grundlagen jetzt in updateRankDisplay() angezeigt werden
  * @param {Object} userData - User data with grundlagenCompleted
  */
 export function updateGrundlagenDisplay(userData) {
@@ -203,7 +209,7 @@ export function updateGrundlagenDisplay(userData) {
     const grundlagenProgressBar = document.getElementById('grundlagen-progress-bar');
     const grundlagenStatus = document.getElementById('grundlagen-status');
 
-    // *** KORREKTUR: Die 'grundlagen-card' existiert nicht mehr, wir brechen hier sicher ab ***
+    // ⚠️ Die 'grundlagen-card' existiert nicht mehr im neuen Design
     if (!grundlagenCard) return;
 
     const grundlagenCount = userData.grundlagenCompleted || 0;
