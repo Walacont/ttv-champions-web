@@ -85,7 +85,7 @@ async function initializeDashboard(userData) {
 
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
-    loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate, db);
+    loadProfileData(userData, (date) => renderCalendar(date, userData, db, currentSubgroupFilter), currentDisplayDate, db);
     loadExercises(db, unsubscribes);
 
     // Set leaderboard filter to 'all' for initial load (club view)
@@ -130,8 +130,8 @@ async function initializeDashboard(userData) {
     document.getElementById('close-challenge-modal').addEventListener('click', () => document.getElementById('challenge-modal').classList.add('hidden'));
 
     // Calendar listeners
-    document.getElementById('prev-month').addEventListener('click', () => { currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1); renderCalendar(currentDisplayDate, currentUserData, db); });
-    document.getElementById('next-month').addEventListener('click', () => { currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1); renderCalendar(currentDisplayDate, currentUserData, db); });
+    document.getElementById('prev-month').addEventListener('click', () => { currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1); renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter); });
+    document.getElementById('next-month').addEventListener('click', () => { currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1); renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter); });
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
@@ -292,4 +292,7 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
             loadLB(userData, db, unsubscribes);
         }
     });
+
+    // Reload calendar with new filter
+    renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
 }

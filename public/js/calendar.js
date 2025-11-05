@@ -37,8 +37,9 @@ export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90
  * @param {Date} date - Date to render
  * @param {Object} currentUserData - Current user data
  * @param {Object} db - Firestore database instance
+ * @param {string} subgroupFilter - Subgroup filter ('club', 'global', or subgroupId)
  */
-export async function renderCalendar(date, currentUserData, db) {
+export async function renderCalendar(date, currentUserData, db, subgroupFilter = 'club') {
     const calendarGrid = document.getElementById('calendar-grid');
     const calendarMonthYear = document.getElementById('calendar-month-year');
     const statsMonthName = document.getElementById('stats-month-name');
@@ -56,8 +57,15 @@ export async function renderCalendar(date, currentUserData, db) {
 
     const allClubTrainings = await getClubAttendanceForPeriod(currentUserData.clubId, db);
 
+    // Filter trainings by subgroup if a specific subgroup is selected
+    let filteredTrainings = allClubTrainings;
+    if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+        // Filter to only show trainings for the selected subgroup
+        filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
+    }
+
     const presentDatesSet = new Set();
-    allClubTrainings.forEach(training => {
+    filteredTrainings.forEach(training => {
         if (training.presentPlayerIds.includes(currentUserData.id)) {
             presentDatesSet.add(training.date);
         }
@@ -70,7 +78,7 @@ export async function renderCalendar(date, currentUserData, db) {
     if (statsTrainingDays) statsTrainingDays.textContent = trainingDaysThisMonth;
 
     const streakDates = new Set();
-    for (const training of allClubTrainings) { // Already sorted descending
+    for (const training of filteredTrainings) { // Already sorted descending, use filtered trainings
         if (presentDatesSet.has(training.date)) {
             streakDates.add(training.date);
         } else {
