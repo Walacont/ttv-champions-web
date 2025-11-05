@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function initializeDashboard(userData) {
+async function initializeDashboard(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
     const welcomeMessage = document.getElementById('welcome-message');
@@ -70,10 +70,13 @@ function initializeDashboard(userData) {
 
     welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
 
-    // Render leaderboard HTML (new 3-tab system)
-    renderLeaderboardHTML('tab-content-leaderboard', {
-        showToggle: true
+    // Render leaderboard HTML (new 3-tab system) into wrapper
+    renderLeaderboardHTML('leaderboard-content-wrapper', {
+        showToggle: false  // We use dropdown instead
     });
+
+    // Populate subgroup options in dropdown
+    await populatePlayerLeaderboardDropdown(userData, db);
 
     // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
     loadOverviewData(userData, db, unsubscribes, loadRivalData, loadChallenges, loadPointsHistory);
@@ -94,7 +97,14 @@ function initializeDashboard(userData) {
     logoutButton.addEventListener('click', () => signOut(auth));
     setupTabs('overview');  // 'overview' is default tab for dashboard
     setupLeaderboardTabs();  // Setup 3-tab navigation
-    setupLeaderboardToggle();  // Setup club/global toggle
+
+    // Setup dropdown change handler for player leaderboard view
+    const leaderboardViewDropdown = document.getElementById('player-leaderboard-view');
+    if (leaderboardViewDropdown) {
+        leaderboardViewDropdown.addEventListener('change', () => {
+            handlePlayerLeaderboardViewChange(userData, db, unsubscribes);
+        });
+    }
 
     // Event Listeners for Modals
     document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
@@ -157,3 +167,113 @@ function updateDashboard(userData) {
 // =============================================================
 // ===== EXERCISE FUNCTIONS - NOW IN exercises.js =====
 // =============================================================
+// --- Player Leaderboard View Dropdown Functions ---
+
+/**
+ * Populates the player leaderboard dropdown with user's subgroups
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+async function populatePlayerLeaderboardDropdown(userData, db) {
+    const dropdown = document.getElementById('player-leaderboard-view');
+    if (!dropdown) return;
+
+    const subgroupIDs = userData.subgroupIDs || [];
+    
+    if (subgroupIDs.length === 0) {
+        // User not in any subgroups, keep just club and global
+        return;
+    }
+
+    try {
+        // Load subgroup names
+        const subgroupPromises = subgroupIDs.map(async (subgroupId) => {
+            try {
+                const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+                if (subgroupDoc.exists()) {
+                    return { id: subgroupId, name: subgroupDoc.data().name };
+                }
+                return null;
+            } catch (error) {
+                console.error(`Error loading subgroup ${subgroupId}:`, error);
+                return null;
+            }
+        });
+
+        const subgroups = (await Promise.all(subgroupPromises)).filter(sg => sg !== null);
+
+        // Clear existing options except club and global
+        const clubOption = dropdown.querySelector('option[value="club"]');
+        const globalOption = dropdown.querySelector('option[value="global"]');
+        dropdown.innerHTML = '';
+
+        // Add subgroup options first
+        if (subgroups.length > 0) {
+            subgroups.forEach(subgroup => {
+                const option = document.createElement('option');
+                option.value = `subgroup:${subgroup.id}`;
+                option.textContent = `👥 ${subgroup.name}`;
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Re-add club and global options
+        dropdown.appendChild(clubOption);
+        dropdown.appendChild(globalOption);
+
+    } catch (error) {
+        console.error('Error populating leaderboard dropdown:', error);
+    }
+}
+
+/**
+ * Handles leaderboard view change from dropdown
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array of unsubscribe functions
+ */
+function handlePlayerLeaderboardViewChange(userData, db, unsubscribes) {
+    const dropdown = document.getElementById('player-leaderboard-view');
+    if (!dropdown) return;
+
+    const selectedValue = dropdown.value;
+
+    // Unsubscribe from existing leaderboard listeners
+    unsubscribes.forEach(unsub => {
+        if (unsub && typeof unsub === 'function') {
+            try {
+                unsub();
+            } catch (e) {
+                // Ignore errors
+            }
+        }
+    });
+    unsubscribes.length = 0;
+
+    if (selectedValue === 'club') {
+        // Show club leaderboard
+        loadLeaderboard(userData, db, unsubscribes);
+    } else if (selectedValue === 'global') {
+        // Show global leaderboard
+        loadGlobalLeaderboard(userData, db, unsubscribes);
+    } else if (selectedValue.startsWith('subgroup:')) {
+        // Show subgroup leaderboard
+        const subgroupId = selectedValue.replace('subgroup:', '');
+        loadSubgroupLeaderboard(userData, db, unsubscribes, subgroupId);
+    }
+}
+
+/**
+ * Loads leaderboard for a specific subgroup
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ * @param {string} subgroupId - Subgroup ID to filter by
+ */
+function loadSubgroupLeaderboard(userData, db, unsubscribes, subgroupId) {
+    // Import and use existing leaderboard functions with subgroup filter
+    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB }) => {
+        setLeaderboardSubgroupFilter(subgroupId);
+        loadLB(userData, db, unsubscribes);
+    });
+}

@@ -176,7 +176,27 @@
             </div>
 
             <div id="tab-content-leaderboard" class="tab-content hidden">
+                <!-- Leaderboard View Selector -->
+                <div class="bg-white p-4 rounded-xl shadow-md mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <label for="player-leaderboard-view" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                            📊 Rangliste anzeigen für:
+                        </label>
+                        <select
+                            id="player-leaderboard-view"
+                            class="flex-1 sm:max-w-md px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="club">🏠 Mein Verein</option>
+                            <option value="global">🌍 Global (Alle Spieler)</option>
+                            <!-- Subgroup options will be added dynamically -->
+                        </select>
+                    </div>
                 </div>
+
+                <!-- Leaderboard Content -->
+                <div id="leaderboard-content-wrapper">
+                </div>
+            </div>
         </main>
     </div>
 
