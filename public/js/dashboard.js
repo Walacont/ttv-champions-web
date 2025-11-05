@@ -20,6 +20,8 @@ const db = getFirestore(app);
 let currentUserData = null;
 let unsubscribes = [];
 let currentDisplayDate = new Date();
+let currentSubgroupFilter = 'club'; // Default: show club view
+let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -62,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function initializeDashboard(userData) {
+async function initializeDashboard(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
     const welcomeMessage = document.getElementById('welcome-message');
@@ -70,13 +72,19 @@ function initializeDashboard(userData) {
 
     welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
 
-    // Render leaderboard HTML (new 3-tab system)
-    renderLeaderboardHTML('tab-content-leaderboard', {
-        showToggle: true
+    // Render leaderboard HTML (new 3-tab system) into wrapper
+    renderLeaderboardHTML('leaderboard-content-wrapper', {
+        showToggle: false  // No toggle needed, global filter controls everything
     });
 
+    // Populate subgroup options in global filter dropdown
+    await populatePlayerSubgroupFilter(userData, db);
+
     // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
-    loadOverviewData(userData, db, unsubscribes, loadRivalData, loadChallenges, loadPointsHistory);
+    loadOverviewData(userData, db, unsubscribes, null, loadChallenges, loadPointsHistory);
+
+    // Load rivals with current subgroup filter and store listener separately
+    rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
     loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate);
     loadExercises(db, unsubscribes);
     loadLeaderboard(userData, db, unsubscribes);
@@ -94,7 +102,14 @@ function initializeDashboard(userData) {
     logoutButton.addEventListener('click', () => signOut(auth));
     setupTabs('overview');  // 'overview' is default tab for dashboard
     setupLeaderboardTabs();  // Setup 3-tab navigation
-    setupLeaderboardToggle();  // Setup club/global toggle
+
+    // Setup global subgroup filter change handler
+    const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
+    if (subgroupFilterDropdown) {
+        subgroupFilterDropdown.addEventListener('change', () => {
+            handlePlayerSubgroupFilterChange(userData, db, unsubscribes);
+        });
+    }
 
     // Event Listeners for Modals
     document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
@@ -157,3 +172,116 @@ function updateDashboard(userData) {
 // =============================================================
 // ===== EXERCISE FUNCTIONS - NOW IN exercises.js =====
 // =============================================================
+// --- Player Global Subgroup Filter Functions ---
+
+/**
+ * Populates the global player subgroup filter with user's subgroups
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+async function populatePlayerSubgroupFilter(userData, db) {
+    const dropdown = document.getElementById('player-subgroup-filter');
+    if (!dropdown) return;
+
+    const subgroupIDs = userData.subgroupIDs || [];
+
+    if (subgroupIDs.length === 0) {
+        // User not in any subgroups, keep just club and global
+        return;
+    }
+
+    try {
+        // Load subgroup names
+        const subgroupPromises = subgroupIDs.map(async (subgroupId) => {
+            try {
+                const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+                if (subgroupDoc.exists()) {
+                    const data = subgroupDoc.data();
+                    return {
+                        id: subgroupId,
+                        name: data.name,
+                        isDefault: data.isDefault || false
+                    };
+                }
+                return null;
+            } catch (error) {
+                console.error(`Error loading subgroup ${subgroupId}:`, error);
+                return null;
+            }
+        });
+
+        // Filter out null values and default "Hauptgruppe" to avoid confusion
+        // Only show specialized subgroups (U10, U13, etc.)
+        const subgroups = (await Promise.all(subgroupPromises))
+            .filter(sg => sg !== null && !sg.isDefault);
+
+        // Clear existing options except club and global
+        const clubOption = dropdown.querySelector('option[value="club"]');
+        const globalOption = dropdown.querySelector('option[value="global"]');
+        dropdown.innerHTML = '';
+
+        // Add subgroup options first (if any)
+        if (subgroups.length > 0) {
+            subgroups.forEach(subgroup => {
+                const option = document.createElement('option');
+                option.value = `subgroup:${subgroup.id}`;
+                option.textContent = `👥 ${subgroup.name}`;
+                dropdown.appendChild(option);
+            });
+        }
+
+        // Re-add club and global options
+        dropdown.appendChild(clubOption);
+        dropdown.appendChild(globalOption);
+
+    } catch (error) {
+        console.error('Error populating subgroup filter:', error);
+    }
+}
+
+/**
+ * Handles global subgroup filter change - reloads all filtered content
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array of unsubscribe functions
+ */
+function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
+    const dropdown = document.getElementById('player-subgroup-filter');
+    if (!dropdown) return;
+
+    const selectedValue = dropdown.value;
+
+    // Update current filter
+    if (selectedValue === 'club') {
+        currentSubgroupFilter = 'club';
+    } else if (selectedValue === 'global') {
+        currentSubgroupFilter = 'global';
+    } else if (selectedValue.startsWith('subgroup:')) {
+        currentSubgroupFilter = selectedValue.replace('subgroup:', '');
+    }
+
+    console.log(`[Player] Subgroup filter changed to: ${currentSubgroupFilter}`);
+
+    // Unsubscribe old rival listener and reload with new filter
+    if (rivalListener && typeof rivalListener === 'function') {
+        try {
+            rivalListener();
+        } catch (e) {
+            console.error("Error unsubscribing rival listener:", e);
+        }
+    }
+    rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
+
+    // Reload leaderboard
+    if (currentSubgroupFilter === 'club') {
+        loadLeaderboard(userData, db, unsubscribes);
+    } else if (currentSubgroupFilter === 'global') {
+        loadGlobalLeaderboard(userData, db, unsubscribes);
+    } else {
+        // Specific subgroup
+        import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB }) => {
+            setLeaderboardSubgroupFilter(currentSubgroupFilter);
+            loadLB(userData, db, unsubscribes);
+        });
+    }
+}

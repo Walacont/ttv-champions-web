@@ -51,18 +51,36 @@
     </div>
 
     <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
-        <header class="flex justify-between items-center mb-6">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">Mein Dashboard</h1>
-                <p id="welcome-message" class="text-gray-600">Willkommen zurück!</p>
+        <header class="mb-6">
+            <!-- Top Row: Title + Settings/Logout -->
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
+                    <p id="welcome-message" class="text-sm sm:text-base text-gray-600">Willkommen zurück!</p>
+                </div>
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </a>
+                    <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105">
+                        Logout
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center space-x-4">
-                <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </a>
-                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
-                    Logout
-                </button>
+
+            <!-- Second Row: Gruppen-Switcher (Full Width on Mobile) -->
+            <div class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm">
+                <label for="player-subgroup-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    👥 Ansicht:
+                </label>
+                <select
+                    id="player-subgroup-filter"
+                    class="flex-1 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                >
+                    <option value="club">🏠 Mein Verein</option>
+                    <option value="global">🌍 Global</option>
+                    <!-- Subgroup options will be added dynamically -->
+                </select>
             </div>
         </header>
 
@@ -176,7 +194,10 @@
             </div>
 
             <div id="tab-content-leaderboard" class="tab-content hidden">
+                <!-- Leaderboard Content (filter controlled by global header switch) -->
+                <div id="leaderboard-content-wrapper">
                 </div>
+            </div>
         </main>
     </div>
 

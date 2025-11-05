@@ -76,12 +76,33 @@ service cloud.firestore {
         // Coaches can write XP history
         allow write: if isCoachOrAdmin();
       }
+
+      // Subcollection: streaks (NEW for subgroups feature)
+      match /streaks/{subgroupId} {
+        // Users can read their own streaks
+        allow read: if isOwner(userId);
+
+        // Coaches can read/write streaks for players in their club
+        allow read, write: if isCoachOrAdmin();
+      }
     }
 
     // Clubs collection
     match /clubs/{clubId} {
       allow read: if isAuthenticated() && isSameClub(clubId);
       allow write: if isCoachOfClub(clubId);
+    }
+
+    // Subgroups collection (NEW for subgroups feature)
+    match /subgroups/{subgroupId} {
+      // Anyone in the club can read subgroups
+      allow read: if isAuthenticated() &&
+        ((resource == null && isSameClub(request.resource.data.clubId)) ||
+         (resource != null && isSameClub(resource.data.clubId)));
+
+      // Coaches can create/update/delete subgroups for their club
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
     // Attendance collection
