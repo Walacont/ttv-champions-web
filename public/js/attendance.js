@@ -224,9 +224,9 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         // Apply special background color if player is in other subgroups
         div.className = `flex items-center p-2 rounded-md ${isInOtherSubgroup ? 'bg-amber-50 border border-amber-200' : ''}`;
         div.innerHTML = `
-            <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-            <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700">${player.firstName} ${player.lastName}</label>
-            ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔄 In ${otherSubgroups.join(', ')}</span>` : ''}
+            <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} ${isInOtherSubgroup ? 'disabled' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 ${isInOtherSubgroup ? 'opacity-50 cursor-not-allowed' : ''}">
+            <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium ${isInOtherSubgroup ? 'text-gray-400' : 'text-gray-700'}">${player.firstName} ${player.lastName}</label>
+            ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔒 Bereits in ${otherSubgroups.join(', ')}</span>` : ''}
             ${!isInOtherSubgroup && !player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
         `;
         playerListContainer.appendChild(div);
@@ -269,6 +269,17 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
         feedbackEl.textContent = 'Bitte wähle eine spezifische Untergruppe aus, um Anwesenheit zu erfassen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
+    }
+
+    // Load subgroup name for history
+    let subgroupName = currentSubgroupFilter;
+    try {
+        const subgroupDoc = await getDoc(doc(db, 'subgroups', currentSubgroupFilter));
+        if (subgroupDoc.exists()) {
+            subgroupName = subgroupDoc.data().name;
+        }
+    } catch (error) {
+        console.error("Error loading subgroup name:", error);
     }
 
     const allPlayerCheckboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
@@ -337,14 +348,14 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
                     // Bonus points logic
                     let pointsToAdd = ATTENDANCE_POINTS_BASE;
-                    let reason = "Anwesenheit beim Training";
+                    let reason = `Anwesenheit beim Training - ${subgroupName}`;
 
                     if (newStreak >= 5) {
                         pointsToAdd = 20; // 10 base + 10 bonus
-                        reason = `Anwesenheit (${newStreak}x Super-Streak)`;
+                        reason = `Anwesenheit beim Training - ${subgroupName} (${newStreak}x Super-Streak)`;
                     } else if (newStreak >= 3) {
                         pointsToAdd = 15; // 10 base + 5 bonus
-                        reason = `Anwesenheit (${newStreak}x Streak-Bonus)`;
+                        reason = `Anwesenheit beim Training - ${subgroupName} (${newStreak}x Streak-Bonus)`;
                     }
 
                     // Update streak in subcollection
