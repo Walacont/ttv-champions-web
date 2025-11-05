@@ -25,20 +25,11 @@ const storage = getStorage(app);
 const functions = getFunctions(app, 'europe-west3');
 
 // NEU: Der Emulator-Block
-// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
 if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
     console.log("Coach.js: Verbinde mit lokalen Firebase Emulatoren...");
-    
-    // Auth Emulator
     connectAuthEmulator(auth, "http://localhost:9099");
-    
-    // Firestore Emulator
     connectFirestoreEmulator(db, "localhost", 8080);
-    
-    // Functions Emulator
     connectFunctionsEmulator(functions, "localhost", 5001);
-
-    // Storage Emulator
     connectStorageEmulator(storage, "localhost", 9199);
 }
 
@@ -51,7 +42,7 @@ let unsubscribePointsHistory = null;
 let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
-let currentSubgroupFilter = 'all'; // 'all' or a specific subgroup ID
+let currentSubgroupFilter = 'all'; 
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -99,7 +90,7 @@ async function initializeCoachPage(userData) {
     const mainContent = document.getElementById('main-content');
     const loaderText = document.getElementById('loader-text');
 
-    // Run migration if needed before initializing the page
+    // Run migration if needed
     if (loaderText) loaderText.textContent = 'Prüfe Datenbank-Migration...';
     try {
         const migrationResult = await checkAndMigrate(userData.clubId, db);
@@ -122,16 +113,16 @@ async function initializeCoachPage(userData) {
 
     document.getElementById('welcome-message').textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
 
-    // Render leaderboard HTML for coach (new 3-tab system)
+    // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
-        showToggle: true  // Club/Global Toggle
+        showToggle: true 
     });
 
-    setupTabs('dashboard');  // Use 'dashboard' as default tab for coach
-    setupLeaderboardTabs();  // Setup für 3-Tab-Navigation (Skill, Fleiß, Gürtel)
-    setupLeaderboardToggle();  // Setup für Club/Global Toggle
+    setupTabs('dashboard'); 
+    setupLeaderboardTabs(); 
+    setupLeaderboardToggle(); 
 
-    // Setup Statistics Tab - Load statistics when tab is clicked
+    // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
@@ -139,7 +130,7 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Setup Subgroups Tab - Load subgroups when tab is clicked
+    // Setup Subgroups Tab
     const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
     if (subgroupsTabButton) {
         subgroupsTabButton.addEventListener('click', () => {
@@ -150,6 +141,7 @@ async function initializeCoachPage(userData) {
         });
     }
 
+    // Load initial data
     loadPlayersForDropdown(userData.clubId, db);
     loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown(db);
@@ -157,20 +149,21 @@ async function initializeCoachPage(userData) {
     loadExpiredChallenges(userData.clubId, db);
     loadAllExercises(db);
     loadPlayersForAttendance(userData.clubId, db, (players) => {
-        clubPlayers = players;
+        clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers);
         populateHistoryFilterDropdown(clubPlayers);
     });
 
-    // Load all 3 leaderboard tabs
-    loadLeaderboard(userData, db, []); // Club leaderboards for all tabs
-    loadGlobalLeaderboard(userData, db, []); // Global leaderboards for Skill and Effort tabs
+    loadLeaderboard(userData, db, []); 
+    loadGlobalLeaderboard(userData, db, []); 
 
     renderCalendar(currentCalendarDate, db, userData);
 
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
     document.getElementById('error-logout-button').addEventListener('click', () => signOut(auth));
+    
+    // Player Modal Listeners
     document.getElementById('open-player-modal-button').addEventListener('click', () => {
         document.getElementById('player-list-modal').classList.remove('hidden');
         loadPlayerList(userData.clubId, db, (unsub) => {
@@ -179,44 +172,90 @@ async function initializeCoachPage(userData) {
         });
     });
     document.getElementById('close-player-modal-button').addEventListener('click', () => { document.getElementById('player-list-modal').classList.add('hidden'); if (unsubscribePlayerList) unsubscribePlayerList(); });
+    
+    // Add Offline Player Modal Listeners
     document.getElementById('add-offline-player-button').addEventListener('click', () => {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
-        loadSubgroupsForPlayerForm(userData.clubId, db);
+        // === KORREKTUR 1: Container-ID für Checkboxen übergeben ===
+        loadSubgroupsForPlayerForm(userData.clubId, db, 'player-subgroups-checkboxes');
     });
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => document.getElementById('add-offline-player-modal').classList.add('hidden'));
+    
+    // Edit Player Modal Listeners
     document.getElementById('close-edit-player-modal-button').addEventListener('click', () => document.getElementById('edit-player-modal').classList.add('hidden'));
     document.getElementById('save-player-subgroups-button').addEventListener('click', () => handleSavePlayerSubgroups(db));
+    
+    // Attendance Modal Listeners
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => document.getElementById('attendance-modal').classList.add('hidden'));
 
-    // Delegate event listener for edit player button (created dynamically)
-    document.addEventListener('click', (e) => {
-        if (e.target.id === 'edit-player-groups-btn') {
-            const detailPanel = document.getElementById('player-detail-panel');
-            if (detailPanel && detailPanel.dataset.playerData) {
-                const player = JSON.parse(detailPanel.dataset.playerData);
-                openEditPlayerModal(player, db, userData.clubId);
-            }
-        }
-    });
+    // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
-    document.getElementById('reason-select').addEventListener('change', handleReasonChange);
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
     document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
     document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
+    document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
+
+    // Other UI Listeners
+    document.getElementById('reason-select').addEventListener('change', handleReasonChange);
     document.getElementById('generate-pairings-button').addEventListener('click', () => handleGeneratePairings(clubPlayers));
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
-    document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions));
     document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers)));
     document.getElementById('player-a-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('player-b-select').addEventListener('change', () => updateMatchUI(clubPlayers));
+    document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
 
-    // NEU: Event listener für den Punkte-Historie-Filter HINZUGEFÜGT
+    // === KORREKTUR 2: VERALTETEN LISTENER ERSETZEN ===
+    // Diese Zeile hat auf Klicks in der *Liste* gelauscht, um Aktionen auszuführen.
+    // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions)); // <--- ALT & FALSCH
+    
+    // NEU: Listener für das *Aktions-Panel* (wo die Buttons jetzt sind)
+    document.getElementById('player-detail-actions').addEventListener('click', async (e) => {
+        const button = e.target.closest('button');
+        if (!button) return;
+
+        // Führt deine bestehenden Aktionen aus (Löschen, Einladen, Befördern)
+        await handlePlayerListActions(e, db, auth, functions);
+
+        // NEU: Logik für den "Gruppen bearbeiten"-Button
+        if (button.classList.contains('edit-subgroups-btn')) {
+            const playerId = button.dataset.id;
+            
+            // Finde den Spieler aus dem `clubPlayers`-Array (hat alle Daten)
+            const player = clubPlayers.find(p => p.id === playerId);
+
+            if (player) {
+                // Rufe die importierte Funktion auf, um das Modal zu öffnen und zu befüllen
+                openEditPlayerModal(player, db, userData.clubId);
+            } else {
+                console.error("Spieler nicht im lokalen Cache gefunden.");
+                alert("Fehler: Spielerdaten konnten nicht geladen werden.");
+            }
+        }
+    });
+
+    // NEU: Listener für die Suchleiste im Spieler-Modal
+    document.getElementById('player-search-input').addEventListener('keyup', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const items = document.querySelectorAll('#modal-player-list .player-list-item');
+        items.forEach(item => {
+            const name = item.dataset.playerName; // Benutzt das data-Attribut
+            if (name.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    // === KORREKTUR ENDE ===
+
+
+    // Filter Listeners
     document.getElementById('history-player-filter').addEventListener('change', (e) => {
         loadPointsHistoryForCoach(e.target.value, db, (unsub) => {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
@@ -224,16 +263,12 @@ async function initializeCoachPage(userData) {
         });
     });
 
-    // Event listener für Spieler-Auswahl (zeigt Grundlagen-Status)
     document.getElementById('player-select').addEventListener('change', (e) => {
-        updateCoachGrundlagenDisplay(e.target.value);
+        // === KORREKTUR 3: 'db' Instanz übergeben ===
+        updateCoachGrundlagenDisplay(e.target.value, db);
     });
 
-    // Event listener für Subgroups Management
-    document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
-    document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
-
-    // Populate and setup subgroup filter
+    // Subgroup Filter
     populateSubgroupFilter(userData.clubId, db);
     document.getElementById('subgroup-filter').addEventListener('change', (e) => {
         currentSubgroupFilter = e.target.value;
@@ -257,7 +292,7 @@ function populateSubgroupFilter(clubId, db) {
     const q = query(
         collection(db, 'subgroups'),
         where('clubId', '==', clubId),
-        orderBy('createdAt', 'asc')
+        orderBy('createdAt', 'asc') // 'createdAt' muss existieren
     );
 
     onSnapshot(q, (snapshot) => {
@@ -307,9 +342,6 @@ function handleSubgroupFilterChange(userData) {
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, db);
     }
-
-    // Note: Players for attendance will be filtered dynamically when opening the modal
-    // Challenges and points management will filter based on currentSubgroupFilter
 }
 
 
