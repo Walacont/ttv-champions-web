@@ -154,16 +154,16 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
     const modalPlayerList = document.getElementById('modal-player-list');
     const tableContainer = document.getElementById('modal-player-list-container');
     const loader = document.getElementById('modal-loader');
-    const detailPanel = document.getElementById('player-detail-panel');
-    const detailPlaceholder = document.getElementById('player-detail-placeholder');
+    const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
+    const detailPlaceholderDesktop = document.getElementById('player-detail-placeholder-desktop');
 
     if (loader) loader.classList.remove('hidden');
     if (tableContainer) tableContainer.classList.add('hidden');
-    if (detailPanel) detailPanel.classList.add('hidden');
-    if (detailPlaceholder) detailPlaceholder.classList.remove('hidden');
+    if (detailPanelDesktop) detailPanelDesktop.classList.add('hidden');
+    if (detailPlaceholderDesktop) detailPlaceholderDesktop.classList.remove('hidden');
 
     document.querySelectorAll('.player-list-item-active').forEach(item => item.classList.remove('player-list-item-active'));
-    
+
     const q = query(collection(db, "users"), where("clubId", "==", clubId), orderBy("lastName"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -199,33 +199,46 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                         </div>
                     `;
 
-                    // === HIER IST DIE MAGIE ===
-                    // Füge den Klick-Listener hinzu, der die Details + Buttons anzeigt
+                    // Click handler für Desktop und Mobile
                     card.addEventListener('click', () => {
-                        // 1. Zeige Spieler-Details
-                        showPlayerDetails(player);
-                        if (detailPanel) detailPanel.classList.remove('hidden');
-                        if (detailPlaceholder) detailPlaceholder.classList.add('hidden');
-
-                        // 2. Erstelle die Aktions-Buttons für diesen Spieler
-                        const actionsContainer = document.getElementById('player-detail-actions');
-                        if (actionsContainer) {
-                            let actionsHtml = '';
-                            if (player.isOffline) {
-                                actionsHtml += `<button data-id="${player.id}" data-email="${player.email || ''}" class="send-invite-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung senden</button>`;
-                            }
-                            if (player.role === 'player') {
-                                actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-900"><i class="fas fa-user-shield w-5 mr-2"></i> Zum Coach ernennen</button>`;
-                            }
-                            actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="edit-subgroups-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 hover:text-gray-900"><i class="fas fa-users-cog w-5 mr-2"></i> Gruppen bearbeiten</button>`;
-                            actionsHtml += `<button data-id="${player.id}" class="delete-player-btn block w-full text-left mt-4 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 hover:text-red-900"><i class="fas fa-trash-alt w-5 mr-2"></i> Spieler löschen</button>`;
-                            
-                            actionsContainer.innerHTML = actionsHtml;
-                        }
-
-                        // 3. Highlight-Styling
+                        // Highlight aktiven Spieler
                         document.querySelectorAll('.player-list-item').forEach(item => item.classList.remove('player-list-item-active'));
                         card.classList.add('player-list-item-active');
+
+                        // Erstelle Aktions-Buttons HTML
+                        let actionsHtml = '';
+                        if (player.isOffline) {
+                            actionsHtml += `<button data-id="${player.id}" data-email="${player.email || ''}" class="send-invite-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung senden</button>`;
+                        }
+                        if (player.role === 'player') {
+                            actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-900"><i class="fas fa-user-shield w-5 mr-2"></i> Zum Coach ernennen</button>`;
+                        }
+                        actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="edit-subgroups-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 hover:text-gray-900"><i class="fas fa-users-cog w-5 mr-2"></i> Gruppen bearbeiten</button>`;
+                        actionsHtml += `<button data-id="${player.id}" class="delete-player-btn block w-full text-left mt-4 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 hover:text-red-900"><i class="fas fa-trash-alt w-5 mr-2"></i> Spieler löschen</button>`;
+
+                        // Desktop: Zeige Details im rechten Panel
+                        const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
+                        const detailPlaceholderDesktop = document.getElementById('player-detail-placeholder-desktop');
+                        const detailContentDesktop = document.getElementById('player-detail-content-desktop');
+                        const actionsContainerDesktop = document.getElementById('player-detail-actions-desktop');
+
+                        if (detailPanelDesktop && detailPlaceholderDesktop && detailContentDesktop && actionsContainerDesktop) {
+                            showPlayerDetails(player, detailContentDesktop, db);
+                            actionsContainerDesktop.innerHTML = actionsHtml;
+                            detailPanelDesktop.classList.remove('hidden');
+                            detailPlaceholderDesktop.classList.add('hidden');
+                        }
+
+                        // Mobile: Öffne Modal
+                        const mobileModal = document.getElementById('player-detail-mobile-modal');
+                        const detailContentMobile = document.getElementById('player-detail-content-mobile');
+                        const actionsContainerMobile = document.getElementById('player-detail-actions-mobile');
+
+                        if (mobileModal && detailContentMobile && actionsContainerMobile) {
+                            showPlayerDetails(player, detailContentMobile, db);
+                            actionsContainerMobile.innerHTML = actionsHtml;
+                            mobileModal.classList.remove('hidden');
+                        }
                     });
 
                     modalPlayerList.appendChild(card);
@@ -277,26 +290,45 @@ export function loadPlayersForDropdown(clubId, db) {
 /**
  * Shows detailed player information in the player management modal
  * @param {Object} player - Player data object
+ * @param {HTMLElement} detailContent - Target element for content
+ * @param {Object} db - Firestore database instance
  */
-export function showPlayerDetails(player) {
-    const detailPanel = document.getElementById('player-detail-panel');
-    const detailPlaceholder = document.getElementById('player-detail-placeholder');
-    const detailContent = document.getElementById('player-detail-content');
+export async function showPlayerDetails(player, detailContent, db) {
+    if (!detailContent) return;
 
-    if (!detailPanel || !detailContent) return;
+    // Import ranks module functions
+    const { getRankProgress } = await import('./ranks.js');
+    const grundlagenCount = player.grundlagenCompleted || 0;
+    const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
+    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
 
-    import('./ranks.js').then(({ getRankProgress, formatRank }) => {
-        const grundlagenCount = player.grundlagenCompleted || 0;
-        const progress = getRankProgress(player.eloRating, player.xp, grundlagenCount);
-        const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
+    // Lade Gruppen-Namen statt nur IDs
+    const subgroups = player.subgroupIDs || [];
+    let subgroupHtml = '<p class="text-sm text-gray-500">Keinen Gruppen zugewiesen</p>';
 
-        // Gruppen-Tags anzeigen
-        const subgroups = player.subgroupIDs || [];
-        // Lade die *Namen* der Gruppen, nicht nur die IDs
-        // Diese Logik ist vereinfacht - idealerweise würdest du die Namen aus einer globalen Variable holen
-        const subgroupHtml = subgroups.length > 0
-            ? subgroups.map(tagId => `<span class="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tagId}</span>`).join('') // Zeigt vorerst IDs
-            : '<p class="text-sm text-gray-500">Keinen Gruppen zugewiesen</p>';
+    if (subgroups.length > 0 && db) {
+        try {
+            const subgroupNames = await Promise.all(
+                subgroups.map(async (subgroupId) => {
+                    try {
+                        const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+                        return subgroupDoc.exists() ? subgroupDoc.data().name : subgroupId;
+                    } catch (error) {
+                        console.error(`Error loading subgroup ${subgroupId}:`, error);
+                        return subgroupId;
+                    }
+                })
+            );
+            subgroupHtml = subgroupNames
+                .map(name => `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-xs font-semibold mr-2 mb-2">${name}</span>`)
+                .join('');
+        } catch (error) {
+            console.error('Error loading subgroup names:', error);
+            subgroupHtml = subgroups
+                .map(id => `<span class="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${id}</span>`)
+                .join('');
+        }
+    }
 
         detailContent.innerHTML = `
             <div class="space-y-4">
@@ -372,13 +404,6 @@ export function showPlayerDetails(player) {
                 ` : '<p class="text-sm text-green-600 font-semibold text-center">🏆 Höchster Rang erreicht!</p>'}
             </div>
         `;
-
-        detailPanel.classList.remove('hidden');
-        if (detailPlaceholder) detailPlaceholder.classList.add('hidden');
-    }).catch(error => {
-        console.error('Error loading ranks module:', error);
-        detailContent.innerHTML = '<p class="text-sm text-red-500">Fehler beim Laden der Rang-Information</p>';
-    });
 }
 
 /**

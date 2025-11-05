@@ -214,30 +214,47 @@ async function initializeCoachPage(userData) {
     // Diese Zeile hat auf Klicks in der *Liste* gelauscht, um Aktionen auszuführen.
     // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions)); // <--- ALT & FALSCH
     
-    // NEU: Listener für das *Aktions-Panel* (wo die Buttons jetzt sind)
-    document.getElementById('player-detail-actions').addEventListener('click', async (e) => {
+    // Event-Handler für Aktions-Buttons (Desktop)
+    const handleActionClick = async (e) => {
         const button = e.target.closest('button');
         if (!button) return;
 
-        // Führt deine bestehenden Aktionen aus (Löschen, Einladen, Befördern)
+        // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern)
         await handlePlayerListActions(e, db, auth, functions);
 
-        // NEU: Logik für den "Gruppen bearbeiten"-Button
+        // Logik für "Gruppen bearbeiten"-Button
         if (button.classList.contains('edit-subgroups-btn')) {
             const playerId = button.dataset.id;
-            
-            // Finde den Spieler aus dem `clubPlayers`-Array (hat alle Daten)
             const player = clubPlayers.find(p => p.id === playerId);
 
             if (player) {
-                // Rufe die importierte Funktion auf, um das Modal zu öffnen und zu befüllen
                 openEditPlayerModal(player, db, userData.clubId);
             } else {
                 console.error("Spieler nicht im lokalen Cache gefunden.");
                 alert("Fehler: Spielerdaten konnten nicht geladen werden.");
             }
         }
-    });
+    };
+
+    // Listener für Desktop Aktions-Panel
+    const actionsDesktop = document.getElementById('player-detail-actions-desktop');
+    if (actionsDesktop) {
+        actionsDesktop.addEventListener('click', handleActionClick);
+    }
+
+    // Listener für Mobile Aktions-Panel
+    const actionsMobile = document.getElementById('player-detail-actions-mobile');
+    if (actionsMobile) {
+        actionsMobile.addEventListener('click', handleActionClick);
+    }
+
+    // Mobile Modal Close Button
+    const closeMobileBtn = document.getElementById('close-player-detail-mobile');
+    if (closeMobileBtn) {
+        closeMobileBtn.addEventListener('click', () => {
+            document.getElementById('player-detail-mobile-modal').classList.add('hidden');
+        });
+    }
 
     // NEU: Listener für die Suchleiste im Spieler-Modal
     document.getElementById('player-search-input').addEventListener('keyup', (e) => {
