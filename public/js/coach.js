@@ -14,6 +14,7 @@ import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
+import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -107,6 +108,15 @@ function initializeCoachPage(userData) {
     setupTabs('dashboard');  // Use 'dashboard' as default tab for coach
     setupLeaderboardTabs();  // Setup für 3-Tab-Navigation (Skill, Fleiß, Gürtel)
     setupLeaderboardToggle();  // Setup für Club/Global Toggle
+
+    // Setup Statistics Tab - Load statistics when tab is clicked
+    const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
+    if (statisticsTabButton) {
+        statisticsTabButton.addEventListener('click', () => {
+            loadStatistics(userData, db);
+        });
+    }
+
     loadPlayersForDropdown(userData.clubId, db);
     loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown(db);

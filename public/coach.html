@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         #page-loader {
@@ -103,6 +104,9 @@
                 </button>
                  <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="exercises">
                     Übungen
+                </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="statistics">
+                    📊 Statistik
                 </button>
             </nav>
         </div>
@@ -432,6 +436,117 @@
                         <h2 class="text-xl font-semibold mb-4">Globaler Übungskatalog</h2>
                         <div id="exercises-list-coach" class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
                             <p>Übungen werden geladen...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-content-statistics" class="tab-content hidden">
+                <div class="space-y-8">
+                    <!-- 📈 Trainings-Analyse -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-6 flex items-center">
+                            <span class="mr-3">📈</span> Trainings-Analyse
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="bg-indigo-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Diese Woche</p>
+                                <p id="stats-attendance-week" class="text-3xl font-bold text-indigo-600">-</p>
+                                <p class="text-xs text-gray-500 mt-1">Ø Teilnehmer</p>
+                            </div>
+                            <div class="bg-blue-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Dieser Monat</p>
+                                <p id="stats-attendance-month" class="text-3xl font-bold text-blue-600">-</p>
+                                <p class="text-xs text-gray-500 mt-1">Ø Teilnehmer</p>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Gesamt Trainingstage</p>
+                                <p id="stats-total-trainings" class="text-3xl font-bold text-purple-600">-</p>
+                                <p class="text-xs text-gray-500 mt-1">Diese Saison</p>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-4">Trend (Letzte 12 Wochen)</h3>
+                            <canvas id="attendance-trend-chart" height="80"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 👥 Team-Übersicht -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-6 flex items-center">
+                            <span class="mr-3">👥</span> Team-Übersicht
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                            <div class="bg-green-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Team-Größe</p>
+                                <p id="stats-team-size" class="text-3xl font-bold text-green-600">-</p>
+                            </div>
+                            <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Ø Alter</p>
+                                <p id="stats-avg-age" class="text-3xl font-bold text-yellow-600">-</p>
+                            </div>
+                            <div class="bg-pink-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Ø Elo</p>
+                                <p id="stats-avg-elo" class="text-3xl font-bold text-pink-600">-</p>
+                            </div>
+                            <div class="bg-cyan-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Ø XP</p>
+                                <p id="stats-avg-xp" class="text-3xl font-bold text-cyan-600">-</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold mb-4 text-center">Altersverteilung</h3>
+                                <canvas id="age-distribution-chart"></canvas>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold mb-4 text-center">Geschlechterverteilung</h3>
+                                <canvas id="gender-distribution-chart"></canvas>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold mb-4 text-center">Level-Verteilung</h3>
+                                <canvas id="rank-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🔥 Aktivitäts-Monitor -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-2xl font-bold mb-6 flex items-center">
+                            <span class="mr-3">🔥</span> Aktivitäts-Monitor
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-orange-50 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                    🏆 Top Streak
+                                </h3>
+                                <ul id="stats-top-streaks" class="space-y-2">
+                                    <li class="text-gray-500">Lade Daten...</li>
+                                </ul>
+                            </div>
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <h3 class="text-lg font-semibold mb-3 flex items-center">
+                                    ⚠️ Gefährdete Spieler
+                                </h3>
+                                <p class="text-xs text-gray-500 mb-3">Nicht beim Training seit &gt;2 Wochen</p>
+                                <ul id="stats-inactive-players" class="space-y-2">
+                                    <li class="text-gray-500">Lade Daten...</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                            <div class="bg-gray-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Matches/Woche</p>
+                                <p id="stats-matches-per-week" class="text-3xl font-bold text-gray-700">-</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Grundlagen-Quote</p>
+                                <p id="stats-grundlagen-rate" class="text-3xl font-bold text-gray-700">-</p>
+                            </div>
+                            <div class="bg-gray-50 p-4 rounded-lg text-center">
+                                <p class="text-sm text-gray-600 mb-1">Team-Fortschritt</p>
+                                <p id="stats-team-progress" class="text-3xl font-bold text-gray-700">-</p>
+                            </div>
                         </div>
                     </div>
                 </div>
