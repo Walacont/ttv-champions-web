@@ -35,8 +35,11 @@ export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallba
     // updateGrundlagenDisplay(userData); // Diese Funktion ist nicht mehr nötig
 
     // *** KORREKTUR HIER: 'unsubscribes' wird jetzt an die Callback-Funktion übergeben ***
-    loadRivalDataCallback(userData, db, unsubscribes);
-    
+    // Check if callback is provided before calling (rival data is loaded separately in dashboard.js)
+    if (typeof loadRivalDataCallback === 'function') {
+        loadRivalDataCallback(userData, db, unsubscribes);
+    }
+
     loadPointsHistoryCallback(userData, db, unsubscribes);
     loadChallengesCallback(userData, db, unsubscribes);
 }
@@ -205,7 +208,7 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
 
         // Skill-Rangliste (sortiert nach eloRating)
         const skillRanking = [...players].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0));
-        
+
         // Finde den aktuellen User in der Liste (für aktuelle Werte)
         const currentUserInList = players.find(p => p.id === userData.id) || userData;
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
@@ -217,10 +220,8 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (currentUserInList.xp || 0), 'XP');
     });
 
-    // *** KORREKTUR: Listener zur Unsubscribe-Liste hinzufügen ***
-    if (unsubscribes) {
-        unsubscribes.push(rivalListener);
-    }
+    // Return the unsubscribe function so caller can manage it
+    return rivalListener;
 }
 
 /**
@@ -266,9 +267,42 @@ export function updateGrundlagenDisplay(userData) {
  * @param {Object} userData - User data
  * @param {Function} renderCalendarCallback - Callback to render calendar
  * @param {Date} currentDisplayDate - Current display date for calendar
+ * @param {Object} db - Firestore database instance
  */
-export function loadProfileData(userData, renderCalendarCallback, currentDisplayDate) {
+export async function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
     const streakEl = document.getElementById('stats-current-streak');
-    if (streakEl) streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+
+    // Load streaks from subcollection (per subgroup)
+    if (streakEl && userData.id && db) {
+        try {
+            const streaksSnapshot = await getDocs(collection(db, `users/${userData.id}/streaks`));
+
+            if (streaksSnapshot.empty) {
+                streakEl.innerHTML = `0 🔥`;
+            } else {
+                // Get all streaks and find the highest one
+                let maxStreak = 0;
+
+                streaksSnapshot.forEach(doc => {
+                    const streakData = doc.data();
+                    const count = streakData.count || 0;
+                    if (count > maxStreak) {
+                        maxStreak = count;
+                    }
+                });
+
+                // Display the highest streak
+                streakEl.innerHTML = `${maxStreak} 🔥`;
+            }
+        } catch (error) {
+            console.error("Error loading streaks:", error);
+            // Fallback to old userData.streak field
+            streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+        }
+    } else if (streakEl) {
+        // Fallback if no db provided
+        streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+    }
+
     renderCalendarCallback(currentDisplayDate);
 }

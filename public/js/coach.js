@@ -150,7 +150,7 @@ async function initializeCoachPage(userData) {
     loadAllExercises(db);
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
-        populateMatchDropdowns(clubPlayers);
+        populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateHistoryFilterDropdown(clubPlayers);
     });
 
@@ -199,13 +199,13 @@ async function initializeCoachPage(userData) {
 
     // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
-    document.getElementById('generate-pairings-button').addEventListener('click', () => handleGeneratePairings(clubPlayers));
+    document.getElementById('generate-pairings-button').addEventListener('click', () => handleGeneratePairings(clubPlayers, currentSubgroupFilter));
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
     document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
-    document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers), db, userData.clubId));
+    document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter), db, userData.clubId));
     document.getElementById('player-a-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('player-b-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
@@ -357,6 +357,12 @@ function handleSubgroupFilterChange(userData) {
     // Reload challenges for current subgroup
     loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
+
+    // Reload match dropdowns with new filter
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
+
+    // Update pairings button state with new filter
+    updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
 
     // Reload statistics if the tab is active
     const statisticsTab = document.getElementById('tab-content-statistics');

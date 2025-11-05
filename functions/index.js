@@ -175,6 +175,11 @@ exports.processMatchResult = onDocumentCreated(
         );
       }
 
+      // Calculate actual points changes (considering floor at 0)
+      const winnerCurrentPoints = winnerData.points || 0;
+      const loserCurrentPoints = loserData.points || 0;
+      const loserActualPointsChange = Math.max(-loserCurrentPoints, -seasonPointChange); // Can't go below 0
+
       const batch = db.batch();
 
       // Update winner with XP tracking and highest Elo
@@ -194,11 +199,17 @@ exports.processMatchResult = onDocumentCreated(
         // Note: XP is NOT decremented - it only goes up!
       });
 
+      // Calculate Elo changes
+      const winnerEloChange = newWinnerElo - winnerElo;
+      const loserEloChange = protectedLoserElo - loserElo;
+
       const winnerHistoryRef = winnerRef
         .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
         .doc();
       batch.set(winnerHistoryRef, {
         points: seasonPointChange,
+        xp: seasonPointChange, // Winner gains XP equal to points
+        eloChange: winnerEloChange,
         reason: `Sieg im ${matchTypeReason} gegen ${
           loserData.firstName || "Gegner"
         }`,
@@ -210,7 +221,9 @@ exports.processMatchResult = onDocumentCreated(
         .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
         .doc();
       batch.set(loserHistoryRef, {
-        points: -seasonPointChange,
+        points: loserActualPointsChange, // Use actual change (floored at 0)
+        xp: 0, // Loser doesn't lose XP
+        eloChange: loserEloChange,
         reason: `Niederlage im ${matchTypeReason} gegen ${
           winnerData.firstName || "Gegner"
         }`,

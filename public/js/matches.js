@@ -40,11 +40,19 @@ export function calculateHandicap(playerA, playerB) {
 /**
  * Generates match pairings from present and match-ready players
  * @param {Array} clubPlayers - Array of all club players
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export function handleGeneratePairings(clubPlayers) {
+export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all') {
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
-    const matchReadyAndPresentPlayers = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady);
+    let matchReadyAndPresentPlayers = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady);
+
+    // Filter by subgroup if not "all"
+    if (currentSubgroupFilter !== 'all') {
+        matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(player =>
+            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        );
+    }
 
     matchReadyAndPresentPlayers.sort((a, b) => (a.eloRating || 0) - (b.eloRating || 0));
 
@@ -139,12 +147,22 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 /**
  * Updates the state of the pairings button based on eligible players
  * @param {Array} clubPlayers - Array of all club players
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export function updatePairingsButtonState(clubPlayers) {
+export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = 'all') {
     const pairingsButton = document.getElementById('generate-pairings-button');
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
-    const eligiblePlayerCount = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady).length;
+    let eligiblePlayers = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady);
+
+    // Filter by subgroup if not "all"
+    if (currentSubgroupFilter !== 'all') {
+        eligiblePlayers = eligiblePlayers.filter(player =>
+            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        );
+    }
+
+    const eligiblePlayerCount = eligiblePlayers.length;
 
     if (eligiblePlayerCount >= 2) {
         pairingsButton.disabled = false;
@@ -249,20 +267,32 @@ export function updateMatchUI(clubPlayers) {
 /**
  * Populates match dropdowns with match-ready players
  * @param {Array} clubPlayers - Array of all club players
+ * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export function populateMatchDropdowns(clubPlayers) {
+export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
 
     playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
     playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
 
-    const matchReadyPlayers = clubPlayers.filter(p => p.isMatchReady === true);
+    // Filter by match-ready status
+    let matchReadyPlayers = clubPlayers.filter(p => p.isMatchReady === true);
+
+    // Filter by subgroup if not "all"
+    if (currentSubgroupFilter !== 'all') {
+        matchReadyPlayers = matchReadyPlayers.filter(player =>
+            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        );
+    }
 
     if (matchReadyPlayers.length < 2) {
          const handicapSuggestion = document.getElementById('handicap-suggestion');
          if(handicapSuggestion) {
-            handicapSuggestion.innerHTML = '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
+            const message = currentSubgroupFilter !== 'all'
+                ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
+                : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
+            handicapSuggestion.innerHTML = message;
             handicapSuggestion.classList.remove('hidden');
          }
     }

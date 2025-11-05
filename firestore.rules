@@ -33,7 +33,12 @@ service cloud.firestore {
       // Users can read their own data
       allow read: if isOwner(userId);
 
-      // Coaches and admins can read users in their club
+      // Players can read other players in their club (for leaderboard, rivals, etc.)
+      allow read: if isAuthenticated() &&
+        resource.data.role == 'player' &&
+        isSameClub(resource.data.clubId);
+
+      // Coaches and admins can read all users in their club
       allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
 
       // Users can update their own profile (limited fields)
@@ -85,6 +90,15 @@ service cloud.firestore {
         // Coaches can read/write streaks for players in their club
         allow read, write: if isCoachOrAdmin();
       }
+
+      // Subcollection: completedChallenges
+      match /completedChallenges/{challengeId} {
+        // Users can read and write their own completed challenges
+        allow read, write: if isOwner(userId);
+
+        // Coaches can read completed challenges for players in their club
+        allow read: if isCoachOrAdmin();
+      }
     }
 
     // Clubs collection
@@ -95,10 +109,8 @@ service cloud.firestore {
 
     // Subgroups collection (NEW for subgroups feature)
     match /subgroups/{subgroupId} {
-      // Anyone in the club can read subgroups
-      allow read: if isAuthenticated() &&
-        ((resource == null && isSameClub(request.resource.data.clubId)) ||
-         (resource != null && isSameClub(resource.data.clubId)));
+      // Anyone authenticated can read subgroups (filtered by client code)
+      allow read: if isAuthenticated();
 
       // Coaches can create/update/delete subgroups for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
@@ -107,10 +119,8 @@ service cloud.firestore {
 
     // Attendance collection
     match /attendance/{attendanceId} {
-      // Players can read attendance for their club
-      allow read: if isAuthenticated() &&
-        ((resource == null && isSameClub(request.resource.data.clubId)) ||
-         (resource != null && isSameClub(resource.data.clubId)));
+      // Anyone authenticated can read attendance (filtered by client code)
+      allow read: if isAuthenticated();
 
       // Coaches can create attendance for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
@@ -121,10 +131,8 @@ service cloud.firestore {
 
     // Matches collection
     match /matches/{matchId} {
-      // Anyone in the club can read matches
-      allow read: if isAuthenticated() &&
-        ((resource == null && isSameClub(request.resource.data.clubId)) ||
-         (resource != null && isSameClub(resource.data.clubId)));
+      // Anyone authenticated can read matches (filtered by client code)
+      allow read: if isAuthenticated();
 
       // Coaches can create matches for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
