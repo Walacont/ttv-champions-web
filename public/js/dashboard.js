@@ -87,6 +87,11 @@ async function initializeDashboard(userData) {
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
     loadProfileData(userData, (date) => renderCalendar(date, userData, db), currentDisplayDate);
     loadExercises(db, unsubscribes);
+
+    // Set leaderboard filter to 'all' for initial load (club view)
+    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
+        setLeaderboardSubgroupFilter('all');
+    });
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
     loadTodaysMatches(userData, db, unsubscribes);
@@ -272,16 +277,19 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     }
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
-    // Reload leaderboard
-    if (currentSubgroupFilter === 'club') {
-        loadLeaderboard(userData, db, unsubscribes);
-    } else if (currentSubgroupFilter === 'global') {
-        loadGlobalLeaderboard(userData, db, unsubscribes);
-    } else {
-        // Specific subgroup
-        import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB }) => {
+    // Reload leaderboard with correct filter
+    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB, loadGlobalLeaderboard: loadGlobalLB }) => {
+        if (currentSubgroupFilter === 'club') {
+            // Reset to 'all' for club view
+            setLeaderboardSubgroupFilter('all');
+            loadLB(userData, db, unsubscribes);
+        } else if (currentSubgroupFilter === 'global') {
+            // Global view doesn't use subgroup filter
+            loadGlobalLB(userData, db, unsubscribes);
+        } else {
+            // Specific subgroup - set the filter
             setLeaderboardSubgroupFilter(currentSubgroupFilter);
             loadLB(userData, db, unsubscribes);
-        });
-    }
+        }
+    });
 }
