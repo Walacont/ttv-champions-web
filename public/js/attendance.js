@@ -117,13 +117,61 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 }
 
 /**
+ * Checks if a player is present in other subgroups on a specific date
+ * @param {string} playerId - Player ID
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @param {string} currentSubgroupId - Current subgroup ID to exclude
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<Array>} Array of subgroup names where player was present
+ */
+async function checkPlayerInOtherSubgroups(playerId, date, currentSubgroupId, clubId, db) {
+    try {
+        // Query attendance for this date and club, but exclude current subgroup
+        const q = query(
+            collection(db, 'attendance'),
+            where('clubId', '==', clubId),
+            where('date', '==', date)
+        );
+
+        const snapshot = await getDocs(q);
+        const otherSubgroups = [];
+
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            // Check if this attendance is for a different subgroup
+            if (data.subgroupId !== currentSubgroupId && data.presentPlayerIds && data.presentPlayerIds.includes(playerId)) {
+                // Get subgroup name
+                try {
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', data.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        otherSubgroups.push(subgroupDoc.data().name);
+                    } else {
+                        otherSubgroups.push(data.subgroupId);
+                    }
+                } catch (err) {
+                    otherSubgroups.push(data.subgroupId);
+                }
+            }
+        }
+
+        return otherSubgroups;
+    } catch (error) {
+        console.error("Error checking player in other subgroups:", error);
+        return [];
+    }
+}
+
+/**
  * Handles calendar day click to open attendance modal
  * @param {Event} e - Click event
  * @param {Array} clubPlayers - List of club players
  * @param {Function} updateAttendanceCount - Callback to update attendance count
  * @param {Function} updatePairingsButtonState - Callback to update pairings button
+ * @param {Object} db - Firestore database instance
+ * @param {string} clubId - Club ID
  */
-export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, updatePairingsButtonState) {
+export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, updatePairingsButtonState, db, clubId) {
     const dayCell = e.target.closest('.calendar-day');
     if (!dayCell || dayCell.classList.contains('disabled')) return;
     const date = dayCell.dataset.date;
@@ -164,17 +212,25 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         return;
     }
 
-    playersInCurrentSubgroup.forEach(player => {
+    // Render players with async check for other subgroup attendance
+    for (const player of playersInCurrentSubgroup) {
         const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
+
+        // Check if player is present in other subgroups on this date
+        const otherSubgroups = await checkPlayerInOtherSubgroups(player.id, date, currentSubgroupFilter, clubId, db);
+        const isInOtherSubgroup = otherSubgroups.length > 0;
+
         const div = document.createElement('div');
-        div.className = 'flex items-center p-1';
+        // Apply special background color if player is in other subgroups
+        div.className = `flex items-center p-2 rounded-md ${isInOtherSubgroup ? 'bg-amber-50 border border-amber-200' : ''}`;
         div.innerHTML = `
             <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
             <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700">${player.firstName} ${player.lastName}</label>
-            ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
+            ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔄 In ${otherSubgroups.join(', ')}</span>` : ''}
+            ${!isInOtherSubgroup && !player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
         `;
         playerListContainer.appendChild(div);
-    });
+    }
 
     // Event Listener für Zähler und Paarungs-Button hinzufügen
     playerListContainer.addEventListener('change', () => {

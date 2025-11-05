@@ -39,35 +39,61 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
             const isDefault = subgroup.isDefault || false;
 
             const card = document.createElement('div');
-            card.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow';
+            card.className = 'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
             card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1">
-                            <h3 class="text-lg font-semibold text-gray-900">${subgroup.name}</h3>
-                            ${isDefault ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
+                <div class="p-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <button
+                                    data-subgroup-id="${subgroup.id}"
+                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                                >
+                                    <svg class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    <h3 class="text-lg font-semibold text-gray-900">${subgroup.name}</h3>
+                                </button>
+                                ${isDefault ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
+                            </div>
+                            <p class="text-sm text-gray-500 ml-7">ID: ${subgroup.id}</p>
+                            <p class="text-xs text-gray-400 ml-7 mt-1">Erstellt: ${subgroup.createdAt ? new Date(subgroup.createdAt.toDate()).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
                         </div>
-                        <p class="text-sm text-gray-500">ID: ${subgroup.id}</p>
-                        <p class="text-xs text-gray-400 mt-1">Erstellt: ${subgroup.createdAt ? new Date(subgroup.createdAt.toDate()).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <button
-                            data-id="${subgroup.id}"
-                            data-name="${subgroup.name}"
-                            data-is-default="${isDefault}"
-                            class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
-                        >
-                            Bearbeiten
-                        </button>
-                        ${!isDefault ? `
+                        <div class="flex gap-2">
                             <button
                                 data-id="${subgroup.id}"
                                 data-name="${subgroup.name}"
-                                class="delete-subgroup-btn text-red-600 hover:text-red-900 px-3 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                data-is-default="${isDefault}"
+                                class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
                             >
-                                Löschen
+                                Bearbeiten
                             </button>
-                        ` : '<span class="text-xs text-gray-400 px-3 py-1">Standard kann nicht gelöscht werden</span>'}
+                            ${!isDefault ? `
+                                <button
+                                    data-id="${subgroup.id}"
+                                    data-name="${subgroup.name}"
+                                    class="delete-subgroup-btn text-red-600 hover:text-red-900 px-3 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                >
+                                    Löschen
+                                </button>
+                            ` : '<span class="text-xs text-gray-400 px-3 py-1">Standard kann nicht gelöscht werden</span>'}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expandable Player List -->
+                <div id="player-list-${subgroup.id}" class="hidden bg-gray-50 border-t border-gray-200 p-4">
+                    <div class="mb-3 flex justify-between items-center">
+                        <h4 class="text-sm font-semibold text-gray-700">👥 Spieler zuweisen</h4>
+                        <button
+                            data-subgroup-id="${subgroup.id}"
+                            class="save-player-assignments-btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1 px-3 rounded-md transition-colors"
+                        >
+                            Änderungen speichern
+                        </button>
+                    </div>
+                    <div id="player-checkboxes-${subgroup.id}" class="max-h-80 overflow-y-auto space-y-2">
+                        <p class="text-sm text-gray-500">Spieler werden geladen...</p>
                     </div>
                 </div>
             `;
@@ -287,6 +313,128 @@ export async function getSubgroups(clubId, db) {
 }
 
 /**
+ * Loads club players and displays them as checkboxes for a subgroup
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ */
+export async function loadPlayerCheckboxes(subgroupId, clubId, db) {
+    const container = document.getElementById(`player-checkboxes-${subgroupId}`);
+    if (!container) return;
+
+    try {
+        // Query all players in the club
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            orderBy('firstName', 'asc')
+        );
+
+        const playersSnapshot = await getDocs(playersQuery);
+
+        if (playersSnapshot.empty) {
+            container.innerHTML = '<p class="text-sm text-gray-500">Keine Spieler im Verein gefunden.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+
+        playersSnapshot.forEach(playerDoc => {
+            const player = { id: playerDoc.id, ...playerDoc.data() };
+            const isInSubgroup = (player.subgroupIDs || []).includes(subgroupId);
+
+            const checkboxItem = document.createElement('label');
+            checkboxItem.className = 'flex items-center gap-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors';
+            checkboxItem.innerHTML = `
+                <input
+                    type="checkbox"
+                    data-player-id="${player.id}"
+                    ${isInSubgroup ? 'checked' : ''}
+                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                >
+                <span class="text-sm text-gray-700">
+                    ${player.firstName || ''} ${player.lastName || ''}
+                    ${player.email ? `<span class="text-xs text-gray-400">(${player.email})</span>` : ''}
+                </span>
+            `;
+
+            container.appendChild(checkboxItem);
+        });
+
+    } catch (error) {
+        console.error("Error loading player checkboxes:", error);
+        container.innerHTML = `<p class="text-sm text-red-500">Fehler beim Laden: ${error.message}</p>`;
+    }
+}
+
+/**
+ * Saves player assignments for a subgroup
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ */
+export async function savePlayerAssignments(subgroupId, clubId, db) {
+    const container = document.getElementById(`player-checkboxes-${subgroupId}`);
+    if (!container) return;
+
+    try {
+        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+        const batch = writeBatch(db);
+        let changesCount = 0;
+
+        // Get all players to check current assignments
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId)
+        );
+        const playersSnapshot = await getDocs(playersQuery);
+        const playersMap = new Map();
+        playersSnapshot.forEach(doc => {
+            playersMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        checkboxes.forEach(checkbox => {
+            const playerId = checkbox.dataset.playerId;
+            const isChecked = checkbox.checked;
+            const player = playersMap.get(playerId);
+
+            if (!player) return;
+
+            const currentSubgroups = player.subgroupIDs || [];
+            const isCurrentlyInSubgroup = currentSubgroups.includes(subgroupId);
+
+            // Add player to subgroup
+            if (isChecked && !isCurrentlyInSubgroup) {
+                const updatedSubgroups = [...currentSubgroups, subgroupId];
+                const playerRef = doc(db, 'users', playerId);
+                batch.update(playerRef, { subgroupIDs: updatedSubgroups });
+                changesCount++;
+            }
+
+            // Remove player from subgroup
+            if (!isChecked && isCurrentlyInSubgroup) {
+                const updatedSubgroups = currentSubgroups.filter(id => id !== subgroupId);
+                const playerRef = doc(db, 'users', playerId);
+                batch.update(playerRef, { subgroupIDs: updatedSubgroups });
+                changesCount++;
+            }
+        });
+
+        if (changesCount === 0) {
+            alert('Keine Änderungen vorgenommen.');
+            return;
+        }
+
+        await batch.commit();
+        alert(`${changesCount} Spieler erfolgreich zugewiesen/entfernt!`);
+
+    } catch (error) {
+        console.error("Error saving player assignments:", error);
+        alert(`Fehler beim Speichern: ${error.message}`);
+    }
+}
+
+/**
  * Handles click events on subgroup action buttons
  * @param {Event} e - Click event
  * @param {Object} db - Firestore database instance
@@ -296,6 +444,41 @@ export async function handleSubgroupActions(e, db, clubId) {
     const target = e.target;
     const button = target.closest('button');
     if (!button) return;
+
+    // Handle toggle player list
+    if (button.classList.contains('toggle-player-list-btn')) {
+        const subgroupId = button.dataset.subgroupId;
+        const playerListDiv = document.getElementById(`player-list-${subgroupId}`);
+        const arrow = button.querySelector('svg');
+
+        if (playerListDiv && arrow) {
+            const isHidden = playerListDiv.classList.contains('hidden');
+
+            if (isHidden) {
+                // Show player list
+                playerListDiv.classList.remove('hidden');
+                arrow.style.transform = 'rotate(90deg)';
+
+                // Load players if not already loaded
+                const container = document.getElementById(`player-checkboxes-${subgroupId}`);
+                if (container && container.querySelector('p')) {
+                    await loadPlayerCheckboxes(subgroupId, clubId, db);
+                }
+            } else {
+                // Hide player list
+                playerListDiv.classList.add('hidden');
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+        return;
+    }
+
+    // Handle save player assignments
+    if (button.classList.contains('save-player-assignments-btn')) {
+        const subgroupId = button.dataset.subgroupId;
+        await savePlayerAssignments(subgroupId, clubId, db);
+        return;
+    }
 
     // Handle edit button
     if (button.classList.contains('edit-subgroup-btn')) {

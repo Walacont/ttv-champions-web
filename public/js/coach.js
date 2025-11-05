@@ -205,7 +205,7 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
     document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
-    document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers)));
+    document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers), db, userData.clubId));
     document.getElementById('player-a-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('player-b-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
