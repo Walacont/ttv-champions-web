@@ -137,8 +137,8 @@ async function checkPlayerInOtherSubgroups(playerId, date, currentSubgroupId, cl
         const snapshot = await getDocs(q);
         const otherSubgroups = [];
 
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
+        for (const attendanceDoc of snapshot.docs) {
+            const data = attendanceDoc.data();
             // Check if this attendance is for a different subgroup
             if (data.subgroupId !== currentSubgroupId && data.presentPlayerIds && data.presentPlayerIds.includes(playerId)) {
                 // Get subgroup name
@@ -150,6 +150,7 @@ async function checkPlayerInOtherSubgroups(playerId, date, currentSubgroupId, cl
                         otherSubgroups.push(data.subgroupId);
                     }
                 } catch (err) {
+                    console.error(`Error loading subgroup name for ${data.subgroupId}:`, err);
                     otherSubgroups.push(data.subgroupId);
                 }
             }
