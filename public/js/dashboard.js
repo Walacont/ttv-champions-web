@@ -191,7 +191,12 @@ async function populatePlayerLeaderboardDropdown(userData, db) {
             try {
                 const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
                 if (subgroupDoc.exists()) {
-                    return { id: subgroupId, name: subgroupDoc.data().name };
+                    const data = subgroupDoc.data();
+                    return {
+                        id: subgroupId,
+                        name: data.name,
+                        isDefault: data.isDefault || false
+                    };
                 }
                 return null;
             } catch (error) {
@@ -200,7 +205,10 @@ async function populatePlayerLeaderboardDropdown(userData, db) {
             }
         });
 
-        const subgroups = (await Promise.all(subgroupPromises)).filter(sg => sg !== null);
+        // Filter out null values and default "Hauptgruppe" to avoid confusion
+        // Only show specialized subgroups (U10, U13, etc.)
+        const subgroups = (await Promise.all(subgroupPromises))
+            .filter(sg => sg !== null && !sg.isDefault);
 
         // Clear existing options except club and global
         const clubOption = dropdown.querySelector('option[value="club"]');
