@@ -1,12 +1,10 @@
 /**
  * Player Invitation Management
- * Handles offline player creation with optional invitations (Email or Code)
+ * Handles offline player creation with code-based invitations
  * and sending invitations to existing offline players
  */
 
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import {
     generateInvitationCode,
     getExpirationDate,
@@ -16,8 +14,6 @@ import {
 } from './invitation-code-utils.js';
 
 let db;
-let auth;
-let functions;
 let currentClubId;
 let currentCoachId;
 let currentSubgroups = [];
@@ -30,8 +26,7 @@ let currentPlayerId = null; // For send invitation modal
  */
 export function initPlayerInvitationManagement(firestore, authInstance, functionsInstance, clubId, coachId) {
     db = firestore;
-    auth = authInstance;
-    functions = functionsInstance;
+    // auth and functions no longer needed (email invitations removed)
     currentClubId = clubId;
     currentCoachId = coachId;
 
@@ -70,38 +65,25 @@ function setupEventListeners() {
 
 /**
  * Handle radio button change for invitation type in offline player modal
+ * (Email option removed - only 'none' and 'code' are available)
  */
 function handleInvitationTypeChange(e) {
-    const emailContainer = document.getElementById('email-input-container');
-    const value = e.target.value;
-
-    if (value === 'email') {
-        emailContainer.classList.remove('hidden');
-        document.getElementById('email').required = true;
-    } else {
-        emailContainer.classList.add('hidden');
-        document.getElementById('email').required = false;
-    }
+    // No email container anymore - function kept for compatibility
+    // Only 'none' and 'code' options exist
 }
 
 /**
  * Handle radio button change for send invitation modal
+ * (Email option removed - only 'code' is available)
  */
 function handleSendInvitationTypeChange(e) {
-    const emailContainer = document.getElementById('send-invitation-email-container');
-    const value = e.target.value;
-
-    if (value === 'email') {
-        emailContainer.classList.remove('hidden');
-        document.getElementById('send-invitation-email').required = true;
-    } else {
-        emailContainer.classList.add('hidden');
-        document.getElementById('send-invitation-email').required = false;
-    }
+    // No email container anymore - function kept for compatibility
+    // Only 'code' option exists
 }
 
 /**
  * Handle invitation sending after offline player creation
+ * (Email option removed - only 'none' and 'code' are available)
  */
 export async function handlePostPlayerCreationInvitation(playerId, playerData) {
     const invitationType = document.querySelector('input[name="invitation-type"]:checked').value;
@@ -110,33 +92,6 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
         // No invitation needed, just close modal
         closeOfflinePlayerModal();
         return { success: true, type: 'none' };
-    }
-
-    if (invitationType === 'email') {
-        const email = document.getElementById('email').value;
-
-        if (!email) {
-            alert('Bitte gib eine E-Mail-Adresse ein.');
-            return { success: false, error: 'No email provided' };
-        }
-
-        try {
-            // Update player document with email
-            await updateDoc(doc(db, 'users', playerId), { email: email });
-
-            // Create Auth User and send password reset email
-            const createAuthUser = httpsCallable(functions, 'createAuthUserForPlayer');
-            await createAuthUser({ playerId, playerEmail: email });
-            await sendPasswordResetEmail(auth, email);
-
-            alert(`Einrichtungs-E-Mail wurde erfolgreich an ${email} gesendet!`);
-            closeOfflinePlayerModal();
-            return { success: true, type: 'email', email };
-        } catch (error) {
-            console.error('Error sending email invitation:', error);
-            alert('Fehler beim Senden der Email-Einladung: ' + error.message);
-            return { success: false, error: error.message };
-        }
     }
 
     if (invitationType === 'code') {
@@ -229,7 +184,6 @@ function closeOfflinePlayerModal() {
     document.getElementById('add-offline-player-form').reset();
     document.getElementById('add-offline-player-form').classList.remove('hidden');
     document.getElementById('generated-code-display').classList.add('hidden');
-    document.getElementById('email-input-container').classList.add('hidden');
 
     lastGeneratedCode = null;
     lastGeneratedFirstName = '';
@@ -242,7 +196,6 @@ export function openSendInvitationModal(playerId, playerName, playerEmail = '') 
     currentPlayerId = playerId;
     const modal = document.getElementById('send-invitation-modal');
     const nameElement = document.getElementById('invitation-player-name');
-    const emailInput = document.getElementById('send-invitation-email');
 
     nameElement.textContent = playerName;
     modal.classList.remove('hidden');
@@ -252,12 +205,6 @@ export function openSendInvitationModal(playerId, playerName, playerEmail = '') 
     document.getElementById('send-invitation-form').reset();
     document.getElementById('send-invitation-form').classList.remove('hidden');
     document.getElementById('send-invitation-code-display').classList.add('hidden');
-    document.getElementById('send-invitation-email-container').classList.remove('hidden');
-
-    // Pre-fill email if available
-    if (playerEmail && emailInput) {
-        emailInput.value = playerEmail;
-    }
 }
 
 /**
@@ -275,6 +222,7 @@ function closeSendInvitationModal() {
 
 /**
  * Handle send invitation form submission
+ * (Email option removed - only 'code' is available)
  */
 async function handleSendInvitation(e) {
     e.preventDefault();
@@ -284,55 +232,29 @@ async function handleSendInvitation(e) {
         return;
     }
 
-    const invitationType = document.querySelector('input[name="send-invitation-type"]:checked').value;
+    // Only code option available now
+    try {
+        // Get player data
+        const playerDoc = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js")
+            .then(mod => mod.getDoc(mod.doc(db, 'users', currentPlayerId)));
 
-    if (invitationType === 'email') {
-        const email = document.getElementById('send-invitation-email').value;
-
-        if (!email) {
-            alert('Bitte gib eine E-Mail-Adresse ein.');
-            return;
+        if (!playerDoc.exists()) {
+            throw new Error('Spieler nicht gefunden');
         }
 
-        try {
-            // Update player document with email
-            await updateDoc(doc(db, 'users', currentPlayerId), { email: email });
+        const playerData = playerDoc.data();
+        const code = await generateCodeForPlayer(playerData);
 
-            // Create Auth User and send password reset email
-            const createAuthUser = httpsCallable(functions, 'createAuthUserForPlayer');
-            await createAuthUser({ playerId: currentPlayerId, playerEmail: email });
-            await sendPasswordResetEmail(auth, email);
+        lastGeneratedCode = code;
+        lastGeneratedFirstName = playerData.firstName;
 
-            alert(`Einrichtungs-E-Mail wurde erfolgreich an ${email} gesendet!`);
-            closeSendInvitationModal();
-        } catch (error) {
-            console.error('Error sending email invitation:', error);
-            alert('Fehler beim Senden der Email-Einladung: ' + error.message);
-        }
-    } else if (invitationType === 'code') {
-        try {
-            // Get player data
-            const playerDoc = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js")
-                .then(mod => mod.getDoc(mod.doc(db, 'users', currentPlayerId)));
-
-            if (!playerDoc.exists()) {
-                throw new Error('Spieler nicht gefunden');
-            }
-
-            const playerData = playerDoc.data();
-            const code = await generateCodeForPlayer(playerData);
-
-            lastGeneratedCode = code;
-            lastGeneratedFirstName = playerData.firstName;
-
-            // Show code display
-            document.getElementById('send-invitation-form').classList.add('hidden');
-            document.getElementById('send-invitation-code-display').classList.remove('hidden');
-            document.getElementById('send-invitation-code-text').textContent = code;
-        } catch (error) {
-            console.error('Error generating code:', error);
-            alert('Fehler beim Generieren des Codes: ' + error.message);
-        }
+        // Show code display
+        document.getElementById('send-invitation-form').classList.add('hidden');
+        document.getElementById('send-invitation-code-display').classList.remove('hidden');
+        document.getElementById('send-invitation-code-text').textContent = code;
+    } catch (error) {
+        console.error('Error generating code:', error);
+        alert('Fehler beim Generieren des Codes: ' + error.message);
     }
 }
 

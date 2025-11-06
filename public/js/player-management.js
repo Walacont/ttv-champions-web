@@ -1,6 +1,4 @@
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 
 /**
@@ -104,43 +102,7 @@ export async function handlePlayerListActions(e, db, auth, functions) {
         return;
     }
 
-    // Handle old invite button (kept for backward compatibility if needed)
-    if (button.classList.contains('send-invite-btn')) {
-        button.disabled = true;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin w-5 mr-2"></i> Sende...'; // Lade-Spinner
-        let playerEmail = button.dataset.email;
-        if (!playerEmail) {
-            playerEmail = prompt("Für diesen Spieler ist keine E-Mail hinterlegt. Bitte gib eine E-Mail-Adresse ein:");
-            if (!playerEmail) {
-                button.disabled = false;
-                button.innerHTML = '<i class="fas fa-paper-plane w-5 mr-2"></i> Einladung senden';
-                return;
-            }
-            await updateDoc(doc(db, "users", playerId), { email: playerEmail });
-            button.dataset.email = playerEmail; 
-        }
-        if (confirm(`Soll eine Einrichtungs-E-Mail an ${playerEmail} gesendet werden?`)) {
-            try {
-                const createAuthUser = httpsCallable(functions, 'createAuthUserForPlayer');
-                await createAuthUser({ playerId, playerEmail });
-                await sendPasswordResetEmail(auth, playerEmail);
-                alert(`Einrichtungs-E-Mail an ${playerEmail} wurde erfolgreich gesendet!`);
-            } catch (error) {
-                console.error('Error sending invitation:', error);
-                let errorMessage = error.message || 'Unbekannter Fehler';
-                if (error.code === 'auth/invalid-email') errorMessage = 'Ungültige E-Mail-Adresse';
-                else if (error.code === 'auth/user-not-found') errorMessage = 'Benutzer nicht gefunden.';
-                else if (error.code === 'functions/unauthenticated') errorMessage = 'Keine Berechtigung.';
-                alert(`Fehler beim Senden der Einladung:\n${errorMessage}`);
-            } finally {
-                button.disabled = false;
-                button.innerHTML = '<i class="fas fa-paper-plane w-5 mr-2"></i> Einladung senden';
-            }
-        } else {
-            button.disabled = false;
-            button.innerHTML = '<i class="fas fa-paper-plane w-5 mr-2"></i> Einladung senden';
-        }
-    }
+    // Old email invite button removed - now using code-based invitations only
 
     // Handle delete button
     if (button.classList.contains('delete-player-btn')) {

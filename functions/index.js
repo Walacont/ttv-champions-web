@@ -263,75 +263,7 @@ exports.processMatchResult = onDocumentCreated(
 );
 
 // ========================================================================
-// ===== FUNKTION 2: Erstellt Auth User für einen Spieler =====
-// ========================================================================
-exports.createAuthUserForPlayer = onCall(
-  {region: CONFIG.REGION},
-  async (request) => {
-    const callerUid = request.auth.uid;
-    const callerDoc = await db
-      .collection(CONFIG.COLLECTIONS.USERS)
-      .doc(callerUid)
-      .get();
-
-    if (
-      !callerDoc.exists ||
-      !["admin", "coach"].includes(callerDoc.data().role)
-    ) {
-      throw new HttpsError(
-        "permission-denied",
-        "Nur Coaches oder Admins dürfen diese Aktion ausführen."
-      );
-    }
-
-    const {playerId, playerEmail} = request.data;
-    if (!playerId || !playerEmail) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Spieler-ID und E-Mail sind erforderlich."
-      );
-    }
-
-    try {
-      await admin.auth().createUser({
-        uid: playerId,
-        email: playerEmail,
-      });
-
-      const playerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(playerId);
-      await playerRef.update({
-        isOffline: false,
-        email: playerEmail,
-      });
-
-      logger.info(`Auth-Benutzer für Spieler ${playerId} wurde erstellt.`);
-      return {success: true};
-    } catch (error) {
-      logger.error(`Fehler beim Erstellen des Auth-Users für ${playerId}:`, error);
-
-      if (error.code === "auth/email-already-exists") {
-        const user = await admin.auth().getUserByEmail(playerEmail);
-        if (user.uid === playerId) {
-          logger.info(
-            `Auth-Benutzer ${playerId} existiert bereits. Überspringe.`
-          );
-          return {success: true};
-        }
-        throw new HttpsError(
-          "already-exists",
-          "Diese E-Mail wird bereits von einem anderen Account verwendet."
-        );
-      }
-      throw new HttpsError(
-        "internal",
-        "Der Auth-Benutzer konnte nicht erstellt werden."
-      );
-    }
-  }
-);
-
-// ========================================================================
-// ===== FUNKTION 3: Alte Invitation-Tokens automatisch löschen =====
+// ===== FUNKTION 2: Alte Invitation-Tokens automatisch löschen =====
 // ========================================================================
 exports.cleanupInvitationTokens = onSchedule(
   {
@@ -370,7 +302,7 @@ exports.cleanupInvitationTokens = onSchedule(
 );
 
 // ========================================================================
-// ===== FUNKTION 4: Setzt Custom Claims bei User-Änderung =====
+// ===== FUNKTION 3: Setzt Custom Claims bei User-Änderung =====
 // ========================================================================
 exports.setCustomUserClaims = onDocumentWritten(
   {
@@ -405,7 +337,7 @@ exports.setCustomUserClaims = onDocumentWritten(
 );
 
 // ========================================================================
-// ===== FUNKTION 5: Claim Invitation Code (Code-basierte Registrierung) =====
+// ===== FUNKTION 4: Claim Invitation Code (Code-basierte Registrierung) =====
 // ========================================================================
 exports.claimInvitationCode = onCall(
   {region: CONFIG.REGION},
@@ -517,7 +449,7 @@ exports.claimInvitationCode = onCall(
 );
 
 // ========================================================================
-// ===== FUNKTION 6: Claim Invitation Token (Email-basierte Registrierung) =====
+// ===== FUNKTION 5: Claim Invitation Token (Email-basierte Registrierung) =====
 // ========================================================================
 exports.claimInvitationToken = onCall(
   {region: CONFIG.REGION},
@@ -622,7 +554,7 @@ exports.claimInvitationToken = onCall(
 );
 
 // ========================================================================
-// ===== FUNKTION 7: Cleanup Expired Invitation Codes (Scheduled) =====
+// ===== FUNKTION 6: Cleanup Expired Invitation Codes (Scheduled) =====
 // ========================================================================
 exports.cleanupExpiredInvitationCodes = onSchedule(
   {
