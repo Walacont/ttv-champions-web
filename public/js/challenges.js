@@ -1,4 +1,4 @@
-import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Challenges Module
@@ -62,7 +62,7 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
     const activeChallengesList = document.getElementById('active-challenges-list');
     if (!activeChallengesList) return;
     const q = query(collection(db, "challenges"), where("clubId", "==", clubId), where("isActive", "==", true), orderBy("createdAt", "desc"));
-    onSnapshot(q, (snapshot) => {
+    onSnapshot(q, async (snapshot) => {
         activeChallengesList.innerHTML = '';
         const now = new Date();
         let challenges = snapshot.docs
@@ -80,14 +80,44 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
             activeChallengesList.innerHTML = '<p class="text-gray-500">Keine aktiven Challenges für diese Ansicht gefunden.</p>';
             return;
         }
+
+        // Load subgroup names for badges
+        const subgroupNamesMap = {};
+        for (const challenge of challenges) {
+            if (challenge.subgroupId && challenge.subgroupId !== 'all' && !subgroupNamesMap[challenge.subgroupId]) {
+                try {
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', challenge.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+                    }
+                } catch (error) {
+                    console.error("Error loading subgroup name:", error);
+                }
+            }
+        }
+
         challenges.forEach(challenge => {
             const card = document.createElement('div');
             card.className = 'p-4 border rounded-lg bg-gray-50';
             const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+
+            // Determine subgroup badge
+            let subgroupBadge = '';
+            if (challenge.subgroupId === 'all') {
+                subgroupBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">🏠 Alle (Gesamtverein)</span>';
+            } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
+                subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
+            }
+
             card.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <h3 class="font-bold">${challenge.title}</h3>
-                    <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-bold">${challenge.title}</h3>
+                        <div class="flex gap-2 mt-1">
+                            <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
+                            ${subgroupBadge}
+                        </div>
+                    </div>
                 </div>
                 <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p>
                 <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
@@ -192,7 +222,7 @@ export function loadExpiredChallenges(clubId, db) {
     if (!expiredChallengesList) return;
 
     const q = query(collection(db, "challenges"), where("clubId", "==", clubId), orderBy("createdAt", "desc"));
-    onSnapshot(q, (snapshot) => {
+    onSnapshot(q, async (snapshot) => {
         expiredChallengesList.innerHTML = '';
         const now = new Date();
 
@@ -209,16 +239,44 @@ export function loadExpiredChallenges(clubId, db) {
             return;
         }
 
+        // Load subgroup names for badges
+        const subgroupNamesMap = {};
+        for (const challenge of expiredChallenges) {
+            if (challenge.subgroupId && challenge.subgroupId !== 'all' && !subgroupNamesMap[challenge.subgroupId]) {
+                try {
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', challenge.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+                    }
+                } catch (error) {
+                    console.error("Error loading subgroup name:", error);
+                }
+            }
+        }
+
         expiredChallenges.forEach(challenge => {
             const card = document.createElement('div');
             card.className = 'p-4 border rounded-lg bg-gray-50';
             const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
             const wasManuallyEnded = challenge.isActive === false;
 
+            // Determine subgroup badge
+            let subgroupBadge = '';
+            if (challenge.subgroupId === 'all') {
+                subgroupBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">🏠 Alle (Gesamtverein)</span>';
+            } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
+                subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
+            }
+
             card.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-gray-700">${challenge.title}</h3>
-                    <span class="text-xs font-semibold bg-gray-300 text-gray-600 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-bold text-gray-700">${challenge.title}</h3>
+                        <div class="flex gap-2 mt-1">
+                            <span class="text-xs font-semibold bg-gray-300 text-gray-600 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
+                            ${subgroupBadge}
+                        </div>
+                    </div>
                 </div>
                 <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p>
                 <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
