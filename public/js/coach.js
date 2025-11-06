@@ -336,6 +336,10 @@ function populateSubgroupFilter(clubId, db) {
 
         snapshot.forEach(doc => {
             const subgroup = doc.data();
+            // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
+            if (subgroup.isDefault) {
+                return;
+            }
             const option = document.createElement('option');
             option.value = doc.id;
             option.textContent = subgroup.name;
