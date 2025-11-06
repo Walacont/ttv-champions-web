@@ -145,16 +145,22 @@ service cloud.firestore {
     match /invitationCodes/{codeId} {
       // Jeder kann Codes lesen (für Login-Validierung)
       allow read: if true;
-      
+
       // ADMIN kann Codes für JEDEN Club erstellen
       allow create: if isAdmin();
-      
+
       // Coaches können nur Codes für ihren eigenen Club erstellen
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
-      
+
+      // ADMIN kann alle Codes updaten (z.B. zum Invalidieren)
+      allow update: if isAdmin();
+
+      // Coaches können nur Codes ihres Clubs updaten (z.B. zum Invalidieren alter Codes)
+      allow update: if isCoachOfClub(resource.data.clubId);
+
       // ADMIN kann alle Codes löschen
       allow delete: if isAdmin();
-      
+
       // Coaches können nur Codes ihres Clubs löschen
       allow delete: if isCoachOfClub(resource.data.clubId);
     }
