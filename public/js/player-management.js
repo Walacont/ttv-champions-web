@@ -111,8 +111,19 @@ export async function handlePlayerListActions(e, db, auth, functions) {
             try {
                 await deleteDoc(doc(db, "users", playerId));
                 alert('Spieler gelöscht.');
-                document.getElementById('player-detail-panel').classList.add('hidden');
-                document.getElementById('player-detail-placeholder').classList.remove('hidden');
+
+                // Close desktop detail panel
+                const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
+                const detailPlaceholderDesktop = document.getElementById('player-detail-placeholder-desktop');
+                if (detailPanelDesktop) detailPanelDesktop.classList.add('hidden');
+                if (detailPlaceholderDesktop) detailPlaceholderDesktop.classList.remove('hidden');
+
+                // Close mobile modal
+                const mobileModal = document.getElementById('player-detail-mobile-modal');
+                if (mobileModal) mobileModal.classList.add('hidden');
+
+                // Remove active highlight
+                document.querySelectorAll('.player-list-item-active').forEach(item => item.classList.remove('player-list-item-active'));
             } catch (error) {
                 console.error("Fehler beim Löschen des Spielers:", error);
                 alert("Fehler: Der Spieler konnte nicht gelöscht werden.");
