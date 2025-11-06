@@ -1,8 +1,12 @@
 [
   {
-    "origin": ["*"],
-    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"]
+    "origin": [
+      "https://ttv-champions-prod.web.app",
+      "http://localhost:5005",
+      "http://127.0.0.1:5005"
+    ],
+    "method": ["GET", "POST", "PUT", "HEAD", "DELETE"],
+    "responseHeader": ["Content-Type", "Access-Control-Allow-Origin"],
+    "maxAgeSeconds": 3600
   }
 ]

@@ -16,6 +16,10 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
     function isCoachOrAdmin() {
       return isAuthenticated() && getUserData().role in ['coach', 'admin'];
     }
@@ -41,6 +45,9 @@ service cloud.firestore {
       // Coaches and admins can read all users in their club
       allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
 
+      // ADMIN can read ALL users (for statistics and club management)
+      allow read: if isAdmin();
+
       // Users can update their own profile (limited fields)
       allow update: if isOwner(userId) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
@@ -50,53 +57,37 @@ service cloud.firestore {
         isSameClub(resource.data.clubId) &&
         resource.data.role == 'player';
 
-      // Coaches can create new players in their club
+      // Coaches can create new players in their club (offline players)
       allow create: if isCoachOrAdmin() &&
         isSameClub(request.resource.data.clubId) &&
         request.resource.data.role == 'player';
 
       // Only admins can delete users
-      allow delete: if isAuthenticated() && getUserData().role == 'admin';
+      allow delete: if isAdmin();
 
       // Subcollection: pointsHistory
       match /pointsHistory/{historyId} {
-        // Users can read their own points history
         allow read: if isOwner(userId);
-
-        // Coaches can read points history for players in their club
         allow read: if isCoachOrAdmin();
-
-        // Coaches can write points history
         allow write: if isCoachOrAdmin();
       }
 
-      // Subcollection: xpHistory (NEW for rank system)
+      // Subcollection: xpHistory
       match /xpHistory/{historyId} {
-        // Users can read their own XP history
         allow read: if isOwner(userId);
-
-        // Coaches can read XP history for players in their club
         allow read: if isCoachOrAdmin();
-
-        // Coaches can write XP history
         allow write: if isCoachOrAdmin();
       }
 
-      // Subcollection: streaks (NEW for subgroups feature)
+      // Subcollection: streaks
       match /streaks/{subgroupId} {
-        // Users can read their own streaks
         allow read: if isOwner(userId);
-
-        // Coaches can read/write streaks for players in their club
         allow read, write: if isCoachOrAdmin();
       }
 
       // Subcollection: completedChallenges
       match /completedChallenges/{challengeId} {
-        // Users can read and write their own completed challenges
         allow read, write: if isOwner(userId);
-
-        // Coaches can read completed challenges for players in their club
         allow read: if isCoachOrAdmin();
       }
     }
@@ -104,103 +95,74 @@ service cloud.firestore {
     // Clubs collection
     match /clubs/{clubId} {
       allow read: if isAuthenticated() && isSameClub(clubId);
+      allow read: if isAdmin();
       allow write: if isCoachOfClub(clubId);
+      allow write: if isAdmin();
     }
 
-    // Subgroups collection (NEW for subgroups feature)
+    // Subgroups collection
     match /subgroups/{subgroupId} {
-      // Anyone authenticated can read subgroups (filtered by client code)
       allow read: if isAuthenticated();
-
-      // Coaches can create/update/delete subgroups for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
       allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
     // Attendance collection
     match /attendance/{attendanceId} {
-      // Anyone authenticated can read attendance (filtered by client code)
       allow read: if isAuthenticated();
-
-      // Coaches can create attendance for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
-
-      // Coaches can update/delete attendance for their club
       allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
     }
 
     // Matches collection
     match /matches/{matchId} {
-      // Anyone authenticated can read matches (filtered by client code)
       allow read: if isAuthenticated();
-
-      // Coaches can create matches for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
-
-      // Coaches can update/delete matches for their club
       allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
     // Challenges collection
     match /challenges/{challengeId} {
-      // Anyone can read challenges
       allow read: if isAuthenticated();
-
-      // Coaches can create challenges for their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
-
-      // Coaches can update/delete challenges for their club
       allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
     // Exercises collection (global)
     match /exercises/{exerciseId} {
-      // Anyone can read exercises
       allow read: if isAuthenticated();
-
-      // Only coaches and admins can write exercises
       allow write: if isCoachOrAdmin();
     }
 
     // Invitations collection
     match /invitations/{invitationId} {
-      // Users can read their own invitations
       allow read: if isAuthenticated() && resource.data.email == request.auth.token.email;
-
-      // Coaches can create invitations for their club
       allow create: if isCoachOfClub(request.resource.data.clubId);
-
-      // Users can delete their own invitations (after accepting)
       allow delete: if isAuthenticated() && resource.data.email == request.auth.token.email;
     }
 
-    // Invitation Codes collection (NEW for code-based registration)
+    // Invitation Codes collection - WICHTIG: Öffentlich lesbar!
     match /invitationCodes/{codeId} {
-      // Anyone authenticated can read codes (for validation on login/registration)
-      allow read: if isAuthenticated();
-
-      // Coaches can create codes for their club
+      // Jeder kann Codes lesen (für Login-Validierung)
+      allow read: if true;
+      
+      // ADMIN kann Codes für JEDEN Club erstellen
+      allow create: if isAdmin();
+      
+      // Coaches können nur Codes für ihren eigenen Club erstellen
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
-
-      // Coaches can update codes (e.g., mark as used) for their club
-      allow update: if isCoachOfClub(resource.data.clubId);
-
-      // Coaches can delete codes for their club
+      
+      // ADMIN kann alle Codes löschen
+      allow delete: if isAdmin();
+      
+      // Coaches können nur Codes ihres Clubs löschen
       allow delete: if isCoachOfClub(resource.data.clubId);
     }
 
-    // Invitation Tokens collection (email-based invitations)
+    // Invitation Tokens collection - WICHTIG: Öffentlich lesbar!
     match /invitationTokens/{tokenId} {
-      // Anyone can read tokens (for validation)
       allow read: if true;
-
-      // Coaches can create tokens for their club
       allow create: if isCoachOrAdmin();
-
-      // System can update tokens (mark as used)
-      allow update: if true;
-
-      // System can delete expired tokens
       allow delete: if true;
     }
 
