@@ -1,0 +1,344 @@
+/**
+ * Player Invitation Management
+ * Handles offline player creation with optional invitations (Email or Code)
+ * and sending invitations to existing offline players
+ */
+
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    generateInvitationCode,
+    getExpirationDate,
+    createWhatsAppShareUrl,
+    copyToClipboard,
+    CODE_CONFIG
+} from './invitation-code-utils.js';
+
+let db;
+let currentClubId;
+let currentCoachId;
+let currentSubgroups = [];
+let lastGeneratedCode = null;
+let lastGeneratedFirstName = '';
+let currentPlayerId = null; // For send invitation modal
+
+/**
+ * Initialisiert das Player Invitation Management
+ */
+export function initPlayerInvitationManagement(firestore, clubId, coachId) {
+    db = firestore;
+    currentClubId = clubId;
+    currentCoachId = coachId;
+
+    setupEventListeners();
+}
+
+/**
+ * Setzt alle Event Listeners auf
+ */
+function setupEventListeners() {
+    // Offline Player Modal: Invitation Type Radio Buttons
+    const invitationTypeRadios = document.querySelectorAll('input[name="invitation-type"]');
+    invitationTypeRadios.forEach(radio => {
+        radio.addEventListener('change', handleInvitationTypeChange);
+    });
+
+    // Close after code generated
+    document.getElementById('close-after-code-button')?.addEventListener('click', closeOfflinePlayerModal);
+
+    // Send Invitation Modal
+    const sendInvitationTypeRadios = document.querySelectorAll('input[name="send-invitation-type"]');
+    sendInvitationTypeRadios.forEach(radio => {
+        radio.addEventListener('change', handleSendInvitationTypeChange);
+    });
+
+    document.getElementById('close-send-invitation-modal-button')?.addEventListener('click', closeSendInvitationModal);
+    document.getElementById('send-invitation-form')?.addEventListener('submit', handleSendInvitation);
+    document.getElementById('copy-invitation-code-button')?.addEventListener('click', () => copyInvitationCode('send'));
+    document.getElementById('whatsapp-invitation-share-button')?.addEventListener('click', () => shareInvitationWhatsApp('send'));
+    document.getElementById('close-send-invitation-after-code-button')?.addEventListener('click', closeSendInvitationModal);
+
+    // Code buttons for offline player modal
+    document.getElementById('copy-code-button')?.addEventListener('click', () => copyInvitationCode('offline'));
+    document.getElementById('whatsapp-share-button')?.addEventListener('click', () => shareInvitationWhatsApp('offline'));
+}
+
+/**
+ * Handle radio button change for invitation type in offline player modal
+ */
+function handleInvitationTypeChange(e) {
+    const emailContainer = document.getElementById('email-input-container');
+    const value = e.target.value;
+
+    if (value === 'email') {
+        emailContainer.classList.remove('hidden');
+        document.getElementById('email').required = true;
+    } else {
+        emailContainer.classList.add('hidden');
+        document.getElementById('email').required = false;
+    }
+}
+
+/**
+ * Handle radio button change for send invitation modal
+ */
+function handleSendInvitationTypeChange(e) {
+    const emailContainer = document.getElementById('send-invitation-email-container');
+    const value = e.target.value;
+
+    if (value === 'email') {
+        emailContainer.classList.remove('hidden');
+        document.getElementById('send-invitation-email').required = true;
+    } else {
+        emailContainer.classList.add('hidden');
+        document.getElementById('send-invitation-email').required = false;
+    }
+}
+
+/**
+ * Handle invitation sending after offline player creation
+ */
+export async function handlePostPlayerCreationInvitation(playerId, playerData) {
+    const invitationType = document.querySelector('input[name="invitation-type"]:checked').value;
+
+    if (invitationType === 'none') {
+        // No invitation needed, just close modal
+        closeOfflinePlayerModal();
+        return { success: true, type: 'none' };
+    }
+
+    if (invitationType === 'email') {
+        const email = document.getElementById('email').value;
+        // TODO: Send email invitation (use existing email invitation system)
+        // For now, just log it
+        console.log('Send email invitation to:', email, 'for player:', playerId);
+        closeOfflinePlayerModal();
+        return { success: true, type: 'email', email };
+    }
+
+    if (invitationType === 'code') {
+        try {
+            // Generate code
+            const code = await generateCodeForPlayer(playerData);
+            lastGeneratedCode = code;
+            lastGeneratedFirstName = playerData.firstName;
+
+            // Show code display, hide form
+            document.getElementById('add-offline-player-form').classList.add('hidden');
+            document.getElementById('generated-code-display').classList.remove('hidden');
+            document.getElementById('generated-code-text').textContent = code;
+
+            return { success: true, type: 'code', code };
+        } catch (error) {
+            console.error('Error generating code:', error);
+            alert('Fehler beim Generieren des Codes: ' + error.message);
+            return { success: false, error: error.message };
+        }
+    }
+}
+
+/**
+ * Generate invitation code for a player
+ */
+async function generateCodeForPlayer(playerData) {
+    let code = generateInvitationCode();
+    let isUnique = false;
+    let attempts = 0;
+
+    // Ensure code is unique
+    while (!isUnique && attempts < 10) {
+        const existingCode = await checkCodeExists(code);
+        if (!existingCode) {
+            isUnique = true;
+        } else {
+            code = generateInvitationCode();
+            attempts++;
+        }
+    }
+
+    if (!isUnique) {
+        throw new Error('Konnte keinen eindeutigen Code generieren.');
+    }
+
+    // Save code to Firestore
+    const expiresAt = getExpirationDate();
+    const codeData = {
+        code,
+        clubId: currentClubId,
+        createdBy: currentCoachId,
+        createdAt: serverTimestamp(),
+        expiresAt,
+        maxUses: 1,
+        used: false,
+        usedBy: null,
+        usedAt: null,
+        firstName: playerData.firstName,
+        lastName: playerData.lastName,
+        subgroupIds: playerData.subgroupIds || []
+    };
+
+    await addDoc(collection(db, 'invitationCodes'), codeData);
+    return code;
+}
+
+/**
+ * Check if code already exists
+ */
+async function checkCodeExists(code) {
+    const {query, where, getDocs, collection} = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+    const q = query(
+        collection(db, 'invitationCodes'),
+        where('code', '==', code)
+    );
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+}
+
+/**
+ * Close offline player modal
+ */
+function closeOfflinePlayerModal() {
+    const modal = document.getElementById('add-offline-player-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    // Reset form
+    document.getElementById('add-offline-player-form').reset();
+    document.getElementById('add-offline-player-form').classList.remove('hidden');
+    document.getElementById('generated-code-display').classList.add('hidden');
+    document.getElementById('email-input-container').classList.add('hidden');
+
+    lastGeneratedCode = null;
+    lastGeneratedFirstName = '';
+}
+
+/**
+ * Open send invitation modal for existing player
+ */
+export function openSendInvitationModal(playerId, playerName) {
+    currentPlayerId = playerId;
+    const modal = document.getElementById('send-invitation-modal');
+    const nameElement = document.getElementById('invitation-player-name');
+
+    nameElement.textContent = playerName;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // Reset form
+    document.getElementById('send-invitation-form').reset();
+    document.getElementById('send-invitation-form').classList.remove('hidden');
+    document.getElementById('send-invitation-code-display').classList.add('hidden');
+    document.getElementById('send-invitation-email-container').classList.remove('hidden');
+}
+
+/**
+ * Close send invitation modal
+ */
+function closeSendInvitationModal() {
+    const modal = document.getElementById('send-invitation-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    currentPlayerId = null;
+    lastGeneratedCode = null;
+    lastGeneratedFirstName = '';
+}
+
+/**
+ * Handle send invitation form submission
+ */
+async function handleSendInvitation(e) {
+    e.preventDefault();
+
+    if (!currentPlayerId) {
+        alert('Kein Spieler ausgewählt');
+        return;
+    }
+
+    const invitationType = document.querySelector('input[name="send-invitation-type"]:checked').value;
+
+    if (invitationType === 'email') {
+        const email = document.getElementById('send-invitation-email').value;
+        // TODO: Send email invitation
+        console.log('Send email to:', email, 'for player:', currentPlayerId);
+        alert('Email-Einladung wurde gesendet!');
+        closeSendInvitationModal();
+    } else if (invitationType === 'code') {
+        try {
+            // Get player data
+            const playerDoc = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js")
+                .then(mod => mod.getDoc(mod.doc(db, 'users', currentPlayerId)));
+
+            if (!playerDoc.exists()) {
+                throw new Error('Spieler nicht gefunden');
+            }
+
+            const playerData = playerDoc.data();
+            const code = await generateCodeForPlayer(playerData);
+
+            lastGeneratedCode = code;
+            lastGeneratedFirstName = playerData.firstName;
+
+            // Show code display
+            document.getElementById('send-invitation-form').classList.add('hidden');
+            document.getElementById('send-invitation-code-display').classList.remove('hidden');
+            document.getElementById('send-invitation-code-text').textContent = code;
+        } catch (error) {
+            console.error('Error generating code:', error);
+            alert('Fehler beim Generieren des Codes: ' + error.message);
+        }
+    }
+}
+
+/**
+ * Copy invitation code to clipboard
+ */
+async function copyInvitationCode(type) {
+    if (!lastGeneratedCode) return;
+
+    const success = await copyToClipboard(lastGeneratedCode);
+    const buttonId = type === 'offline' ? 'copy-code-button' : 'copy-invitation-code-button';
+    const button = document.getElementById(buttonId);
+
+    if (success && button) {
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check mr-2"></i>Kopiert!';
+        button.classList.add('bg-green-100', 'text-green-800');
+
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('bg-green-100', 'text-green-800');
+        }, 2000);
+    }
+}
+
+/**
+ * Share invitation code via WhatsApp
+ */
+function shareInvitationWhatsApp(type) {
+    if (!lastGeneratedCode) return;
+
+    const url = createWhatsAppShareUrl(lastGeneratedCode, lastGeneratedFirstName);
+    window.open(url, '_blank');
+}
+
+/**
+ * Load subgroups for offline player form
+ */
+export function loadSubgroupsForOfflinePlayerForm(subgroups) {
+    currentSubgroups = subgroups;
+    const container = document.getElementById('player-subgroups-checkboxes');
+
+    if (!container) return;
+
+    if (subgroups.length === 0) {
+        container.innerHTML = '<p class="text-xs text-gray-500">Keine Untergruppen vorhanden</p>';
+        return;
+    }
+
+    container.innerHTML = subgroups.map(subgroup => `
+        <label class="flex items-center space-x-2 text-sm cursor-pointer">
+            <input type="checkbox" value="${subgroup.id}" class="subgroup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+            <span>${subgroup.name}</span>
+        </label>
+    `).join('');
+}
