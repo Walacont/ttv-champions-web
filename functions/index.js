@@ -370,6 +370,14 @@ exports.claimInvitationCode = onCall(
       }
 
       const codeData = codeDoc.data();
+      logger.info(`Code-Daten geladen: ${JSON.stringify({
+        code: codeData.code,
+        playerId: codeData.playerId || 'NICHT VORHANDEN',
+        used: codeData.used,
+        superseded: codeData.superseded,
+        firstName: codeData.firstName,
+        lastName: codeData.lastName
+      })}`);
 
       // 3. Validate code
       if (codeData.code !== code) {
@@ -468,6 +476,9 @@ exports.claimInvitationCode = onCall(
         logger.info(`Altes Offline-User-Dokument ${codeData.playerId} gelöscht`);
       } else {
         // 5b. Create NEW user document (not a migration)
+        logger.info(`⚠️ KEIN playerId im Code - erstelle NEUEN Spieler statt Migration!`);
+        logger.info(`Code enthält: firstName=${codeData.firstName}, lastName=${codeData.lastName}`);
+
         const userData = {
           email: request.auth.token.email || "",
           firstName: codeData.firstName || "",

@@ -96,8 +96,8 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
 
     if (invitationType === 'code') {
         try {
-            // Generate code
-            const code = await generateCodeForPlayer(playerData);
+            // Generate code WITH playerId to enable migration
+            const code = await generateCodeForPlayer(playerData, playerId);
             lastGeneratedCode = code;
             lastGeneratedFirstName = playerData.firstName;
 
