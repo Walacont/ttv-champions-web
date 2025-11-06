@@ -6,6 +6,7 @@
     <title>Login - TTV Champions</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
@@ -16,6 +17,16 @@
             <h2 id="form-title" class="mt-6 text-center text-3xl font-extrabold text-gray-900">
                 Anmelden
             </h2>
+        </div>
+
+        <!-- Tabs: Email-Login vs. Code-Login -->
+        <div class="flex border-b border-gray-200">
+            <button id="email-login-tab" class="flex-1 py-3 px-4 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50">
+                Email-Login
+            </button>
+            <button id="code-login-tab" class="flex-1 py-3 px-4 text-sm font-medium text-gray-600 border-b-2 border-transparent hover:border-gray-300">
+                Mit Code anmelden
+            </button>
         </div>
 
         <form id="login-form" class="mt-8 space-y-6">
@@ -41,6 +52,32 @@
             <div>
                 <button type="submit" id="login-submit-button" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                     Anmelden
+                </button>
+            </div>
+        </form>
+
+        <!-- Code-Login Form -->
+        <form id="code-form" class="mt-8 space-y-6 hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p class="text-sm text-blue-800 text-center">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Hast du einen Einladungscode von deinem Trainer erhalten? Gib ihn hier ein!
+                </p>
+            </div>
+
+            <div>
+                <label for="invitation-code" class="block text-sm font-medium text-gray-700 mb-2">Einladungscode</label>
+                <input id="invitation-code" type="text" maxlength="11" required
+                    class="appearance-none block w-full px-4 py-3 border border-gray-300 placeholder-gray-400 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-center text-xl font-bold tracking-wider uppercase"
+                    placeholder="TTV-XXX-YYY"
+                    pattern="[A-Za-z0-9]{3}-[A-Za-z0-9]{3}-[A-Za-z0-9]{3}">
+                <p class="mt-2 text-xs text-gray-500 text-center">Format: TTV-XXX-YYY</p>
+            </div>
+
+            <div>
+                <button type="submit" class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <i class="fas fa-arrow-right mr-2"></i>
+                    Weiter zur Registrierung
                 </button>
             </div>
         </form>

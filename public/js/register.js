@@ -10,6 +10,11 @@ import {
   getFirestore,
   doc,
   getDoc,
+  query,
+  collection,
+  where,
+  getDocs,
+  updateDoc,
   connectFirestoreEmulator,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import {
@@ -18,6 +23,7 @@ import {
   connectFunctionsEmulator,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { isCodeExpired, validateCodeFormat } from "./invitation-code-utils.js";
 
 // ===== INITIALISIERUNG =====
 const app = initializeApp(firebaseConfig);
@@ -49,31 +55,80 @@ const formSubtitle = document.getElementById("form-subtitle");
 const submitButton = document.getElementById("submit-button");
 
 let tokenId = null;
+let invitationCode = null;
+let invitationCodeData = null;
+let registrationType = null; // 'token' or 'code'
 
-// ===== TOKEN BEIM SEITENLADEN PRÜFEN =====
+// ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN =====
 window.addEventListener("load", async () => {
   const urlParams = new URLSearchParams(window.location.search);
   tokenId = urlParams.get("token");
+  invitationCode = urlParams.get("code");
 
-  if (!tokenId) {
-    return displayError("Kein Einladungstoken gefunden.");
+  // Prüfe ob Token ODER Code vorhanden
+  if (!tokenId && !invitationCode) {
+    return displayError("Kein Einladungstoken oder -code gefunden.");
   }
 
   try {
-    const tokenDocRef = doc(db, "invitationTokens", tokenId);
-    const tokenDocSnap = await getDoc(tokenDocRef);
+    // ===== CODE-FLOW =====
+    if (invitationCode) {
+      registrationType = 'code';
+      invitationCode = invitationCode.trim().toUpperCase();
 
-    if (tokenDocSnap.exists() && !tokenDocSnap.data().isUsed) {
-      const tokenData = tokenDocSnap.data();
-      formSubtitle.textContent = `Willkommen im Verein ${tokenData.clubId}!`;
+      // Validiere Format
+      if (!validateCodeFormat(invitationCode)) {
+        return displayError("Ungültiges Code-Format.");
+      }
+
+      // Suche Code in Firestore
+      const q = query(
+        collection(db, 'invitationCodes'),
+        where('code', '==', invitationCode)
+      );
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        return displayError("Dieser Code existiert nicht.");
+      }
+
+      invitationCodeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+
+      // Prüfe ob Code bereits verwendet wurde
+      if (invitationCodeData.used) {
+        return displayError("Dieser Code wurde bereits verwendet.");
+      }
+
+      // Prüfe ob Code abgelaufen ist
+      if (isCodeExpired(invitationCodeData.expiresAt)) {
+        return displayError("Dieser Code ist abgelaufen.");
+      }
+
+      // Code gültig - Zeige Formular mit vorausgefüllten Daten
+      formSubtitle.textContent = `Willkommen ${invitationCodeData.firstName}! Vervollständige deine Registrierung.`;
       loader.classList.add("hidden");
       registrationFormContainer.classList.remove("hidden");
-    } else {
-      displayError("Dieser Einladungslink ist ungültig oder wurde bereits verwendet.");
+
     }
+    // ===== TOKEN-FLOW (Bisheriger Flow) =====
+    else if (tokenId) {
+      registrationType = 'token';
+      const tokenDocRef = doc(db, "invitationTokens", tokenId);
+      const tokenDocSnap = await getDoc(tokenDocRef);
+
+      if (tokenDocSnap.exists() && !tokenDocSnap.data().isUsed) {
+        const tokenData = tokenDocSnap.data();
+        formSubtitle.textContent = `Willkommen im Verein ${tokenData.clubId}!`;
+        loader.classList.add("hidden");
+        registrationFormContainer.classList.remove("hidden");
+      } else {
+        displayError("Dieser Einladungslink ist ungültig oder wurde bereits verwendet.");
+      }
+    }
+
   } catch (error) {
-    console.error("Token validation error:", error);
-    displayError("Fehler beim Überprüfen des Tokens.");
+    console.error("Token/Code validation error:", error);
+    displayError("Fehler beim Überprüfen der Einladung.");
   }
 });
 
@@ -106,17 +161,38 @@ registrationForm.addEventListener("submit", async (e) => {
     // 3️⃣ Sicherheitshalber frisches Auth-Token abrufen
     await user.getIdToken(true);
 
-    // 4️⃣ Callable Cloud Function aufrufen
-    const claimInvitationToken = httpsCallable(functions, "claimInvitationToken");
-    const result = await claimInvitationToken({ tokenId });
+    // ===== CODE-FLOW =====
+    if (registrationType === 'code') {
+      // 4️⃣ Callable Cloud Function aufrufen für Code-basierte Registrierung
+      const claimInvitationCode = httpsCallable(functions, "claimInvitationCode");
+      const result = await claimInvitationCode({
+        code: invitationCode,
+        codeId: invitationCodeData.id
+      });
 
-    if (result.data.success) {
-      console.log("✅ Token erfolgreich eingelöst");
-      // 5️⃣ Weiterleitung zum Onboarding
-      window.location.href = "/onboarding.html";
-    } else {
-      throw new Error("Ein unbekannter Fehler ist aufgetreten.");
+      if (result.data.success) {
+        console.log("✅ Code erfolgreich eingelöst");
+        // 5️⃣ Weiterleitung zum Onboarding
+        window.location.href = "/onboarding.html";
+      } else {
+        throw new Error("Ein unbekannter Fehler ist aufgetreten.");
+      }
     }
+    // ===== TOKEN-FLOW (Bisheriger Flow) =====
+    else if (registrationType === 'token') {
+      // 4️⃣ Callable Cloud Function aufrufen
+      const claimInvitationToken = httpsCallable(functions, "claimInvitationToken");
+      const result = await claimInvitationToken({ tokenId });
+
+      if (result.data.success) {
+        console.log("✅ Token erfolgreich eingelöst");
+        // 5️⃣ Weiterleitung zum Onboarding
+        window.location.href = "/onboarding.html";
+      } else {
+        throw new Error("Ein unbekannter Fehler ist aufgetreten.");
+      }
+    }
+
   } catch (error) {
     console.error("❌ Fehler bei der Registrierung:", error);
 

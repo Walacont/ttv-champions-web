@@ -17,6 +17,7 @@ import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
 import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions } from './subgroups-management.js';
+import { initInvitationCodeManagement, loadSubgroupsForCodeForm } from './invitation-code-management.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -118,9 +119,12 @@ async function initializeCoachPage(userData) {
         showToggle: true 
     });
 
-    setupTabs('dashboard'); 
-    setupLeaderboardTabs(); 
-    setupLeaderboardToggle(); 
+    setupTabs('dashboard');
+    setupLeaderboardTabs();
+    setupLeaderboardToggle();
+
+    // Initialize Invitation Code Management
+    initInvitationCodeManagement(db, userData.clubId, userData.id);
 
     // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
@@ -173,13 +177,23 @@ async function initializeCoachPage(userData) {
     });
     document.getElementById('close-player-modal-button').addEventListener('click', () => { document.getElementById('player-list-modal').classList.add('hidden'); if (unsubscribePlayerList) unsubscribePlayerList(); });
     
-    // Add Offline Player Modal Listeners
-    document.getElementById('add-offline-player-button').addEventListener('click', () => {
+    // Add Player/Code Modal Listeners
+    document.getElementById('add-offline-player-button').addEventListener('click', async () => {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
-        // === KORREKTUR 1: Container-ID für Checkboxen übergeben ===
+        document.getElementById('add-offline-player-modal').classList.add('flex');
+
+        // Lade Subgroups für beide Forms
+        const subgroupsQuery = query(collection(db, 'subgroups'), where('clubId', '==', userData.clubId));
+        const subgroupsSnap = await getDocs(subgroupsQuery);
+        const subgroups = subgroupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
         loadSubgroupsForPlayerForm(userData.clubId, db, 'player-subgroups-checkboxes');
+        loadSubgroupsForCodeForm(subgroups);
     });
-    document.getElementById('close-add-player-modal-button').addEventListener('click', () => document.getElementById('add-offline-player-modal').classList.add('hidden'));
+    document.getElementById('close-add-player-modal-button').addEventListener('click', () => {
+        document.getElementById('add-offline-player-modal').classList.add('hidden');
+        document.getElementById('add-offline-player-modal').classList.remove('flex');
+    });
     
     // Edit Player Modal Listeners
     document.getElementById('close-edit-player-modal-button').addEventListener('click', () => document.getElementById('edit-player-modal').classList.add('hidden'));

@@ -21,6 +21,7 @@ const CONFIG = {
     USERS: "users",
     MATCHES: "matches",
     INVITATION_TOKENS: "invitationTokens",
+    INVITATION_CODES: "invitationCodes",
     POINTS_HISTORY: "pointsHistory",
   },
   ELO: {
@@ -399,6 +400,159 @@ exports.setCustomUserClaims = onDocumentWritten(
       } catch (error) {
         logger.error(`Fehler beim Setzen der Claims für ${userId}:`, error);
       }
+    }
+  }
+);
+
+// ========================================================================
+// ===== FUNKTION 5: Claim Invitation Code (Code-basierte Registrierung) =====
+// ========================================================================
+exports.claimInvitationCode = onCall(
+  {region: CONFIG.REGION},
+  async (request) => {
+    // 1. Check if user is authenticated
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Du musst angemeldet sein, um einen Code einzulösen."
+      );
+    }
+
+    const userId = request.auth.uid;
+    const {code, codeId} = request.data;
+
+    if (!code || !codeId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Code und Code-ID sind erforderlich."
+      );
+    }
+
+    try {
+      // 2. Get code document
+      const codeRef = db.collection(CONFIG.COLLECTIONS.INVITATION_CODES).doc(codeId);
+      const codeDoc = await codeRef.get();
+
+      if (!codeDoc.exists) {
+        throw new HttpsError("not-found", "Dieser Code existiert nicht.");
+      }
+
+      const codeData = codeDoc.data();
+
+      // 3. Validate code
+      if (codeData.code !== code) {
+        throw new HttpsError("invalid-argument", "Code stimmt nicht überein.");
+      }
+
+      if (codeData.used) {
+        throw new HttpsError("already-exists", "Dieser Code wurde bereits verwendet.");
+      }
+
+      const now = admin.firestore.Timestamp.now();
+      if (codeData.expiresAt.toMillis() < now.toMillis()) {
+        throw new HttpsError("failed-precondition", "Dieser Code ist abgelaufen.");
+      }
+
+      // 4. Check if user document already exists
+      const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+      const userDoc = await userRef.get();
+
+      if (userDoc.exists) {
+        throw new HttpsError(
+          "already-exists",
+          "Ein Profil für diesen Benutzer existiert bereits."
+        );
+      }
+
+      // 5. Create user document with data from code
+      const userData = {
+        email: request.auth.token.email || "",
+        firstName: codeData.firstName || "",
+        lastName: codeData.lastName || "",
+        clubId: codeData.clubId,
+        role: "player",
+        subgroupIds: codeData.subgroupIds || [],
+        points: 0,
+        xp: 0,
+        eloRating: CONFIG.ELO.DEFAULT_RATING,
+        highestElo: CONFIG.ELO.DEFAULT_RATING,
+        wins: 0,
+        losses: 0,
+        onboardingComplete: false,
+        isOffline: false,
+        createdAt: now,
+        photoURL: "",
+      };
+
+      await userRef.set(userData);
+      logger.info(`User-Dokument für ${userId} erstellt via Code ${code}`);
+
+      // 6. Mark code as used
+      await codeRef.update({
+        used: true,
+        usedBy: userId,
+        usedAt: now,
+      });
+
+      logger.info(`Code ${code} als verwendet markiert von User ${userId}`);
+
+      return {
+        success: true,
+        message: "Code erfolgreich eingelöst!",
+      };
+    } catch (error) {
+      logger.error(`Fehler beim Einlösen des Codes ${code}:`, error);
+
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      throw new HttpsError(
+        "internal",
+        "Ein unerwarteter Fehler ist aufgetreten."
+      );
+    }
+  }
+);
+
+// ========================================================================
+// ===== FUNKTION 6: Cleanup Expired Invitation Codes (Scheduled) =====
+// ========================================================================
+exports.cleanupExpiredInvitationCodes = onSchedule(
+  {
+    schedule: "every 24 hours",
+    region: CONFIG.REGION,
+    timeZone: "Europe/Berlin",
+  },
+  async (event) => {
+    const now = admin.firestore.Timestamp.now();
+    const codesRef = db.collection(CONFIG.COLLECTIONS.INVITATION_CODES);
+
+    try {
+      const expiredCodesSnapshot = await codesRef
+        .where("expiresAt", "<", now)
+        .get();
+
+      if (expiredCodesSnapshot.empty) {
+        logger.info("Keine abgelaufenen Einladungscodes gefunden.");
+        return null;
+      }
+
+      const batch = db.batch();
+      let deleteCount = 0;
+
+      expiredCodesSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+        deleteCount++;
+      });
+
+      await batch.commit();
+      logger.info(`${deleteCount} abgelaufene Einladungscodes gelöscht.`);
+
+      return {success: true, deletedCount: deleteCount};
+    } catch (error) {
+      logger.error("Fehler beim Bereinigen der Einladungscodes:", error);
+      return {success: false, error: error.message};
     }
   }
 );

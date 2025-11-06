@@ -95,14 +95,18 @@
             </div>
         </header>
 
-         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <button id="open-player-modal-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center justify-center space-x-2">
                 <i class="fas fa-users"></i>
                 <span>Spieler verwalten</span>
             </button>
             <button id="add-offline-player-button" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center justify-center space-x-2">
                 <i class="fas fa-user-plus"></i>
-                <span>Offline-Spieler erstellen</span>
+                <span>Spieler einladen</span>
+            </button>
+            <button id="manage-invitation-codes-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center justify-center space-x-2">
+                <i class="fas fa-key"></i>
+                <span>Codes verwalten</span>
             </button>
         </div>
 
@@ -789,11 +793,23 @@
     <div id="add-offline-player-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
          <div class="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl leading-6 font-medium text-gray-900">Offline-Spieler erstellen</h3>
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Spieler einladen</h3>
                 <button id="close-add-player-modal-button" class="text-gray-400 hover:text-gray-600">
                      <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
+
+            <!-- Tabs: Email-Einladung vs. Code-Generierung -->
+            <div class="flex mb-4 border-b border-gray-200">
+                <button id="email-invite-tab" class="flex-1 py-2 px-4 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-gray-300 tab-active">
+                    <i class="fas fa-envelope mr-2"></i>Email-Einladung
+                </button>
+                <button id="code-invite-tab" class="flex-1 py-2 px-4 text-sm font-medium text-gray-700 border-b-2 border-transparent hover:border-gray-300">
+                    <i class="fas fa-qrcode mr-2"></i>Code-Einladung
+                </button>
+            </div>
+
+            <!-- Email-Einladung Form (Standard) -->
             <form id="add-offline-player-form" class="space-y-4">
                  <div>
                     <label for="firstName" class="block text-sm font-medium text-gray-700">Vorname</label>
@@ -815,9 +831,88 @@
                 </div>
                  <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Spieler erstellen</button>
             </form>
+
+            <!-- Code-Einladung Form (Neu) -->
+            <form id="generate-code-form" class="space-y-4 hidden">
+                 <div>
+                    <label for="code-firstName" class="block text-sm font-medium text-gray-700">Vorname</label>
+                    <input type="text" id="code-firstName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                 <div>
+                    <label for="code-lastName" class="block text-sm font-medium text-gray-700">Nachname</label>
+                    <input type="text" id="code-lastName" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Untergruppen zuweisen</label>
+                    <div id="code-player-subgroups-checkboxes" class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
+                        <p class="text-xs text-gray-500">Lade Gruppen...</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p class="text-xs text-blue-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Ein Einladungscode wird generiert, den du dem Spieler mitteilen kannst (z.B. per WhatsApp). Gültig für 7 Tage.
+                    </p>
+                </div>
+
+                 <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                    <i class="fas fa-key mr-2"></i>Code generieren
+                </button>
+            </form>
+
+            <!-- Code-Anzeige (nach Generierung) -->
+            <div id="generated-code-display" class="hidden space-y-4">
+                <div class="bg-green-50 border-2 border-green-300 rounded-lg p-6 text-center">
+                    <p class="text-sm text-green-800 mb-2 font-semibold">
+                        <i class="fas fa-check-circle mr-1"></i>Code erfolgreich erstellt!
+                    </p>
+                    <div class="bg-white border-2 border-green-400 rounded-lg p-4 my-4">
+                        <p id="generated-code-text" class="text-3xl font-bold text-gray-900 tracking-wider">TTV-XXX-YYY</p>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-4">
+                        Gültig für <span id="code-validity-days" class="font-semibold">7 Tage</span>
+                    </p>
+
+                    <div class="flex flex-col space-y-2">
+                        <button id="copy-code-button" class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fas fa-copy mr-2"></i>Code kopieren
+                        </button>
+                        <button id="whatsapp-share-button" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition">
+                            <i class="fab fa-whatsapp mr-2"></i>Per WhatsApp teilen
+                        </button>
+                    </div>
+                </div>
+
+                <button id="create-another-code-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                    Weiteren Code erstellen
+                </button>
+            </div>
         </div>
     </div>
-    
+
+    <!-- Modal: Code-Verwaltung -->
+    <div id="invitation-codes-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
+        <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">
+                    <i class="fas fa-key mr-2 text-indigo-600"></i>Einladungscodes verwalten
+                </h3>
+                <button id="close-invitation-codes-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div id="invitation-codes-list" class="space-y-3 max-h-96 overflow-y-auto">
+                <p class="text-center text-gray-500">Lade Codes...</p>
+            </div>
+
+            <div class="mt-4 text-center text-sm text-gray-600">
+                <p><i class="fas fa-info-circle mr-1"></i>Codes sind 7 Tage gültig und nur einmalig verwendbar</p>
+            </div>
+        </div>
+    </div>
+
     <div id="pairings-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center">
         <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
             <div class="flex justify-between items-center mb-4">

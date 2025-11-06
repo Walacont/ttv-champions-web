@@ -174,6 +174,36 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && resource.data.email == request.auth.token.email;
     }
 
+    // Invitation Codes collection (NEW for code-based registration)
+    match /invitationCodes/{codeId} {
+      // Anyone authenticated can read codes (for validation on login/registration)
+      allow read: if isAuthenticated();
+
+      // Coaches can create codes for their club
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+
+      // Coaches can update codes (e.g., mark as used) for their club
+      allow update: if isCoachOfClub(resource.data.clubId);
+
+      // Coaches can delete codes for their club
+      allow delete: if isCoachOfClub(resource.data.clubId);
+    }
+
+    // Invitation Tokens collection (email-based invitations)
+    match /invitationTokens/{tokenId} {
+      // Anyone can read tokens (for validation)
+      allow read: if true;
+
+      // Coaches can create tokens for their club
+      allow create: if isCoachOrAdmin();
+
+      // System can update tokens (mark as used)
+      allow update: if true;
+
+      // System can delete expired tokens
+      allow delete: if true;
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;

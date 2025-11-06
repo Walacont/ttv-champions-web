@@ -1,8 +1,9 @@
 // NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, query, collection, where, getDocs, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
+import { validateCodeFormat, formatCode, isCodeExpired } from './invitation-code-utils.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -22,11 +23,65 @@ if (window.location.hostname === "localhost" || window.location.hostname === "12
 
 const loginForm = document.getElementById('login-form');
 const resetForm = document.getElementById('reset-form');
+const codeForm = document.getElementById('code-form');
 const feedbackMessage = document.getElementById('feedback-message');
 const formTitle = document.getElementById('form-title');
 
+const emailLoginTab = document.getElementById('email-login-tab');
+const codeLoginTab = document.getElementById('code-login-tab');
 const forgotPasswordButton = document.getElementById('forgot-password-button');
 const backToLoginButton = document.getElementById('back-to-login-button');
+const invitationCodeInput = document.getElementById('invitation-code');
+
+// Check URL for code parameter (direct link from WhatsApp/etc)
+const urlParams = new URLSearchParams(window.location.search);
+const codeFromUrl = urlParams.get('code');
+if (codeFromUrl) {
+    // Switch to code tab and prefill
+    switchToCodeTab();
+    invitationCodeInput.value = codeFromUrl;
+}
+
+// Tab Switching
+emailLoginTab.addEventListener('click', switchToEmailTab);
+codeLoginTab.addEventListener('click', switchToCodeTab);
+
+function switchToEmailTab() {
+    emailLoginTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-indigo-50');
+    emailLoginTab.classList.remove('text-gray-600', 'border-transparent');
+    codeLoginTab.classList.add('text-gray-600', 'border-transparent');
+    codeLoginTab.classList.remove('text-indigo-600', 'border-indigo-600', 'bg-indigo-50');
+
+    loginForm.classList.remove('hidden');
+    codeForm.classList.add('hidden');
+    resetForm.classList.add('hidden');
+    formTitle.textContent = 'Anmelden';
+    feedbackMessage.textContent = '';
+}
+
+function switchToCodeTab() {
+    codeLoginTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-indigo-50');
+    codeLoginTab.classList.remove('text-gray-600', 'border-transparent');
+    emailLoginTab.classList.add('text-gray-600', 'border-transparent');
+    emailLoginTab.classList.remove('text-indigo-600', 'border-indigo-600', 'bg-indigo-50');
+
+    codeForm.classList.remove('hidden');
+    loginForm.classList.add('hidden');
+    resetForm.classList.add('hidden');
+    formTitle.textContent = 'Mit Code anmelden';
+    feedbackMessage.textContent = '';
+}
+
+// Auto-format code input (add dashes)
+invitationCodeInput?.addEventListener('input', (e) => {
+    let value = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    if (value.length > 3 && value.length <= 6) {
+        value = value.slice(0, 3) + '-' + value.slice(3);
+    } else if (value.length > 6) {
+        value = value.slice(0, 3) + '-' + value.slice(3, 6) + '-' + value.slice(6, 9);
+    }
+    e.target.value = value;
+});
 
 // *** VEREINFACHTE LOGIK ***
 // Dieser Listener ist jetzt NUR für bereits eingeloggte Nutzer, die die Seite neu laden.
@@ -95,6 +150,66 @@ resetForm.addEventListener('submit', async (e) => {
     } catch (error) {
         console.error("Passwort-Reset Fehler:", error);
         feedbackMessage.textContent = 'Fehler beim Senden der E-Mail. Bitte überprüfen Sie die Adresse.';
+        feedbackMessage.classList.add('text-red-600');
+    }
+});
+
+// Code Form Handler
+codeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = invitationCodeInput.value.trim().toUpperCase();
+    feedbackMessage.textContent = '';
+    feedbackMessage.className = 'mt-2 text-center text-sm';
+
+    // Validiere Format
+    if (!validateCodeFormat(code)) {
+        feedbackMessage.textContent = 'Ungültiges Code-Format. Format: TTV-XXX-YYY';
+        feedbackMessage.classList.add('text-red-600');
+        return;
+    }
+
+    try {
+        // Suche Code in Firestore
+        const q = query(
+            collection(db, 'invitationCodes'),
+            where('code', '==', code)
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+            feedbackMessage.textContent = 'Dieser Code existiert nicht. Bitte überprüfe den Code.';
+            feedbackMessage.classList.add('text-red-600');
+            return;
+        }
+
+        const codeData = snapshot.docs[0].data();
+        const codeId = snapshot.docs[0].id;
+
+        // Prüfe ob Code bereits verwendet wurde
+        if (codeData.used) {
+            feedbackMessage.textContent = 'Dieser Code wurde bereits verwendet.';
+            feedbackMessage.classList.add('text-red-600');
+            return;
+        }
+
+        // Prüfe ob Code abgelaufen ist
+        if (isCodeExpired(codeData.expiresAt)) {
+            feedbackMessage.textContent = 'Dieser Code ist leider abgelaufen. Bitte fordere einen neuen Code an.';
+            feedbackMessage.classList.add('text-red-600');
+            return;
+        }
+
+        // Code ist gültig! Weiterleitung zur Registrierung
+        feedbackMessage.textContent = 'Code gültig! Weiterleitung zur Registrierung...';
+        feedbackMessage.classList.add('text-green-600');
+
+        setTimeout(() => {
+            window.location.href = `/register.html?code=${code}`;
+        }, 1000);
+
+    } catch (error) {
+        console.error('Fehler bei Code-Validierung:', error);
+        feedbackMessage.textContent = 'Fehler beim Überprüfen des Codes. Bitte versuche es erneut.';
         feedbackMessage.classList.add('text-red-600');
     }
 });
