@@ -121,6 +121,9 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
  * @param {string} [playerId] - Optional: ID of existing offline player to link
  */
 async function generateCodeForPlayer(playerData, playerId = null) {
+    // First, invalidate any old unused codes for the same player
+    await invalidateOldCodesForPlayer(playerId, playerData);
+
     let code = generateInvitationCode();
     let isUnique = false;
     let attempts = 0;
@@ -165,6 +168,55 @@ async function generateCodeForPlayer(playerData, playerId = null) {
 
     await addDoc(collection(db, 'invitationCodes'), codeData);
     return code;
+}
+
+/**
+ * Invalidate old unused codes for the same player
+ * @param {string} [playerId] - ID of the player (if existing offline player)
+ * @param {Object} playerData - Player data with firstName, lastName
+ */
+async function invalidateOldCodesForPlayer(playerId, playerData) {
+    const {query, where, getDocs, updateDoc, collection: firestoreCollection} = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+
+    let q;
+
+    if (playerId) {
+        // Find codes by playerId (for existing offline players)
+        q = query(
+            firestoreCollection(db, 'invitationCodes'),
+            where('playerId', '==', playerId),
+            where('used', '==', false)
+        );
+    } else {
+        // Find codes by firstName + lastName + clubId (for new players)
+        q = query(
+            firestoreCollection(db, 'invitationCodes'),
+            where('firstName', '==', playerData.firstName),
+            where('lastName', '==', playerData.lastName),
+            where('clubId', '==', currentClubId),
+            where('used', '==', false)
+        );
+    }
+
+    try {
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+            console.log(`Invalidiere ${snapshot.size} alte Code(s) für Spieler ${playerData.firstName} ${playerData.lastName}`);
+
+            const updatePromises = snapshot.docs.map(docSnapshot =>
+                updateDoc(docSnapshot.ref, {
+                    superseded: true,
+                    supersededAt: serverTimestamp()
+                })
+            );
+
+            await Promise.all(updatePromises);
+        }
+    } catch (error) {
+        console.error('Fehler beim Invalidieren alter Codes:', error);
+        // Don't throw - we still want to create the new code even if invalidation fails
+    }
 }
 
 /**

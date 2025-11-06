@@ -380,6 +380,13 @@ exports.claimInvitationCode = onCall(
         throw new HttpsError("already-exists", "Dieser Code wurde bereits verwendet.");
       }
 
+      if (codeData.superseded) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Dieser Code wurde durch einen neueren Code ersetzt und ist nicht mehr gültig."
+        );
+      }
+
       const now = admin.firestore.Timestamp.now();
       if (codeData.expiresAt.toMillis() < now.toMillis()) {
         throw new HttpsError("failed-precondition", "Dieser Code ist abgelaufen.");

@@ -294,9 +294,15 @@ async function loadInvitationCodes() {
             codes.push({ id: doc.id, ...doc.data() });
         });
 
-        // Sortiere: Aktive zuerst, dann nach Erstellungsdatum
+        // Sortiere: Aktive zuerst, dann supersedierte/verwendete, dann nach Erstellungsdatum
         codes.sort((a, b) => {
-            if (a.used !== b.used) return a.used ? 1 : -1;
+            // Active codes first (not used and not superseded)
+            const aActive = !a.used && !a.superseded;
+            const bActive = !b.used && !b.superseded;
+
+            if (aActive !== bActive) return aActive ? -1 : 1;
+
+            // Then by creation date (newest first)
             return b.createdAt?.seconds - a.createdAt?.seconds;
         });
 
@@ -319,9 +325,31 @@ async function loadInvitationCodes() {
 function renderCodeItem(codeData) {
     const expired = isCodeExpired(codeData.expiresAt);
     const remainingDays = getRemainingDays(codeData.expiresAt);
-    const statusClass = codeData.used ? 'bg-gray-100 border-gray-300' : expired ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300';
-    const statusIcon = codeData.used ? '✅' : expired ? '⏰' : '🟢';
-    const statusText = codeData.used ? 'Verwendet' : expired ? 'Abgelaufen' : `${remainingDays} Tage gültig`;
+
+    // Determine status (superseded takes priority)
+    let statusClass, statusIcon, statusText, badgeClass;
+
+    if (codeData.superseded) {
+        statusClass = 'bg-orange-50 border-orange-300';
+        statusIcon = '🔄';
+        statusText = 'Ersetzt';
+        badgeClass = 'bg-orange-200 text-orange-800';
+    } else if (codeData.used) {
+        statusClass = 'bg-gray-100 border-gray-300';
+        statusIcon = '✅';
+        statusText = 'Verwendet';
+        badgeClass = 'bg-gray-200 text-gray-700';
+    } else if (expired) {
+        statusClass = 'bg-red-50 border-red-300';
+        statusIcon = '⏰';
+        statusText = 'Abgelaufen';
+        badgeClass = 'bg-red-200 text-red-800';
+    } else {
+        statusClass = 'bg-green-50 border-green-300';
+        statusIcon = '🟢';
+        statusText = `${remainingDays} Tage gültig`;
+        badgeClass = 'bg-green-200 text-green-800';
+    }
 
     return `
         <div class="border-2 ${statusClass} rounded-lg p-4">
@@ -329,7 +357,7 @@ function renderCodeItem(codeData) {
                 <div class="flex-1">
                     <div class="flex items-center space-x-3 mb-2">
                         <span class="text-2xl font-bold text-gray-900 font-mono">${codeData.code}</span>
-                        <span class="text-sm px-2 py-1 rounded-full ${codeData.used ? 'bg-gray-200 text-gray-700' : expired ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'}">
+                        <span class="text-sm px-2 py-1 rounded-full ${badgeClass}">
                             ${statusIcon} ${statusText}
                         </span>
                     </div>
@@ -342,6 +370,11 @@ function renderCodeItem(codeData) {
                     ${codeData.used ? `
                         <p class="text-xs text-gray-500">
                             Verwendet: ${formatDate(codeData.usedAt)}
+                        </p>
+                    ` : ''}
+                    ${codeData.superseded ? `
+                        <p class="text-xs text-orange-600 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>Durch neueren Code ersetzt am ${formatDate(codeData.supersededAt)}
                         </p>
                     ` : ''}
                 </div>
