@@ -117,8 +117,10 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
 
 /**
  * Generate invitation code for a player
+ * @param {Object} playerData - Player data (firstName, lastName, subgroupIDs, etc.)
+ * @param {string} [playerId] - Optional: ID of existing offline player to link
  */
-async function generateCodeForPlayer(playerData) {
+async function generateCodeForPlayer(playerData, playerId = null) {
     let code = generateInvitationCode();
     let isUnique = false;
     let attempts = 0;
@@ -152,8 +154,14 @@ async function generateCodeForPlayer(playerData) {
         usedAt: null,
         firstName: playerData.firstName,
         lastName: playerData.lastName,
-        subgroupIds: playerData.subgroupIDs || []
+        subgroupIds: playerData.subgroupIDs || [],
+        role: playerData.role || 'player'
     };
+
+    // IMPORTANT: Store playerId if this is for an existing offline player
+    if (playerId) {
+        codeData.playerId = playerId;
+    }
 
     await addDoc(collection(db, 'invitationCodes'), codeData);
     return code;
@@ -243,7 +251,9 @@ async function handleSendInvitation(e) {
         }
 
         const playerData = playerDoc.data();
-        const code = await generateCodeForPlayer(playerData);
+
+        // IMPORTANT: Pass playerId to link code with existing offline player
+        const code = await generateCodeForPlayer(playerData, currentPlayerId);
 
         lastGeneratedCode = code;
         lastGeneratedFirstName = playerData.firstName;

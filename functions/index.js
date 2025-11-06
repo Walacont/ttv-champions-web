@@ -396,29 +396,94 @@ exports.claimInvitationCode = onCall(
         );
       }
 
-      // 5. Create user document with data from code
-      const userData = {
-        email: request.auth.token.email || "",
-        firstName: codeData.firstName || "",
-        lastName: codeData.lastName || "",
-        clubId: codeData.clubId,
-        role: codeData.role || "player", // Support both coach and player roles
-        subgroupIds: codeData.subgroupIds || [],
-        points: 0,
-        xp: 0,
-        eloRating: CONFIG.ELO.DEFAULT_RATING,
-        highestElo: CONFIG.ELO.DEFAULT_RATING,
-        wins: 0,
-        losses: 0,
-        grundlagenCompleted: 0,
-        onboardingComplete: false,
-        isOffline: true, // User is offline until they complete onboarding
-        createdAt: now,
-        photoURL: "",
-      };
+      // 5. Check if this code is for an existing offline player (migration scenario)
+      if (codeData.playerId) {
+        logger.info(`Code ${code} ist für existierenden Offline-Spieler ${codeData.playerId}. Starte Migration...`);
 
-      await userRef.set(userData);
-      logger.info(`User-Dokument für ${userId} erstellt via Code ${code}`);
+        const oldUserRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(codeData.playerId);
+        const oldUserDoc = await oldUserRef.get();
+
+        if (!oldUserDoc.exists) {
+          throw new HttpsError(
+            "not-found",
+            "Der verknüpfte Offline-Spieler wurde nicht gefunden."
+          );
+        }
+
+        const oldUserData = oldUserDoc.data();
+
+        // Create new user document with auth UID, keeping all existing data
+        const migratedUserData = {
+          ...oldUserData,
+          email: request.auth.token.email || oldUserData.email || "",
+          onboardingComplete: false, // User needs to complete onboarding
+          isOffline: true, // Will be set to false after onboarding
+          migratedFrom: codeData.playerId, // Track migration for debugging
+          migratedAt: now,
+        };
+
+        await userRef.set(migratedUserData);
+        logger.info(`Migriertes User-Dokument für ${userId} erstellt (von ${codeData.playerId})`);
+
+        // Migrate subcollections
+        const subcollections = ["pointsHistory", "xpHistory", "attendance"];
+        for (const subcollectionName of subcollections) {
+          const oldSubcollectionRef = oldUserRef.collection(subcollectionName);
+          const snapshot = await oldSubcollectionRef.get();
+
+          if (!snapshot.empty) {
+            let batch = db.batch();
+            let batchCount = 0;
+
+            for (const doc of snapshot.docs) {
+              const newDocRef = userRef.collection(subcollectionName).doc(doc.id);
+              batch.set(newDocRef, doc.data());
+              batchCount++;
+
+              // Firestore batch limit is 500 operations
+              if (batchCount >= 500) {
+                await batch.commit();
+                batch = db.batch(); // Create new batch
+                batchCount = 0;
+              }
+            }
+
+            if (batchCount > 0) {
+              await batch.commit();
+            }
+
+            logger.info(`Migriert: ${snapshot.size} Dokumente aus ${subcollectionName}`);
+          }
+        }
+
+        // Delete old offline user document
+        await oldUserRef.delete();
+        logger.info(`Altes Offline-User-Dokument ${codeData.playerId} gelöscht`);
+      } else {
+        // 5b. Create NEW user document (not a migration)
+        const userData = {
+          email: request.auth.token.email || "",
+          firstName: codeData.firstName || "",
+          lastName: codeData.lastName || "",
+          clubId: codeData.clubId,
+          role: codeData.role || "player",
+          subgroupIds: codeData.subgroupIds || [],
+          points: 0,
+          xp: 0,
+          eloRating: CONFIG.ELO.DEFAULT_RATING,
+          highestElo: CONFIG.ELO.DEFAULT_RATING,
+          wins: 0,
+          losses: 0,
+          grundlagenCompleted: 0,
+          onboardingComplete: false,
+          isOffline: true, // User is offline until they complete onboarding
+          createdAt: now,
+          photoURL: "",
+        };
+
+        await userRef.set(userData);
+        logger.info(`Neues User-Dokument für ${userId} erstellt via Code ${code}`);
+      }
 
       // 6. Mark code as used
       await codeRef.update({
