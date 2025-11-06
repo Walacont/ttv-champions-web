@@ -173,7 +173,7 @@ async function generateCodeForPlayer(playerData) {
         usedAt: null,
         firstName: playerData.firstName,
         lastName: playerData.lastName,
-        subgroupIds: playerData.subgroupIds || []
+        subgroupIds: playerData.subgroupIDs || []
     };
 
     await addDoc(collection(db, 'invitationCodes'), codeData);

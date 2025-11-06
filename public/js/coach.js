@@ -17,7 +17,8 @@ import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
 import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions } from './subgroups-management.js';
-import { initInvitationCodeManagement, loadSubgroupsForCodeForm } from './invitation-code-management.js';
+import { initInvitationCodeManagement } from './invitation-code-management.js';
+import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -126,6 +127,9 @@ async function initializeCoachPage(userData) {
     // Initialize Invitation Code Management
     initInvitationCodeManagement(db, userData.clubId, userData.id);
 
+    // Initialize Player Invitation Management
+    initPlayerInvitationManagement(db, userData.clubId, userData.id);
+
     // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
@@ -182,13 +186,12 @@ async function initializeCoachPage(userData) {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
         document.getElementById('add-offline-player-modal').classList.add('flex');
 
-        // Lade Subgroups für beide Forms
+        // Lade Subgroups
         const subgroupsQuery = query(collection(db, 'subgroups'), where('clubId', '==', userData.clubId));
         const subgroupsSnap = await getDocs(subgroupsQuery);
         const subgroups = subgroupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        loadSubgroupsForPlayerForm(userData.clubId, db, 'player-subgroups-checkboxes');
-        loadSubgroupsForCodeForm(subgroups);
+        loadSubgroupsForOfflinePlayerForm(subgroups);
     });
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => {
         document.getElementById('add-offline-player-modal').classList.add('hidden');

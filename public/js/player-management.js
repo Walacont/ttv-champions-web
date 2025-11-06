@@ -1,6 +1,7 @@
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
+import { handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 
 /**
  * Player Management Module
@@ -26,7 +27,7 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
     const subgroupCheckboxes = form.querySelectorAll('#player-subgroups-checkboxes input[type="checkbox"]:checked');
     const subgroupIDs = Array.from(subgroupCheckboxes).map(cb => cb.value);
-    
+
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
         return;
@@ -46,16 +47,26 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             highestElo: 0,
             xp: 0,
             grundlagenCompleted: 0,
-            subgroupIDs: subgroupIDs, // <-- Hinzugefügt
+            subgroupIDs: subgroupIDs,
             createdAt: serverTimestamp()
         };
         if (email) {
             playerData.email = email;
         }
-        await addDoc(collection(db, "users"), playerData);
-        alert('Offline Spieler erfolgreich erstellt!');
-        form.reset();
-        document.getElementById('add-offline-player-modal').classList.add('hidden');
+
+        const docRef = await addDoc(collection(db, "users"), playerData);
+
+        // NEU: Handle optional invitation after player creation
+        const result = await handlePostPlayerCreationInvitation(docRef.id, playerData);
+
+        if (result.type !== 'code') {
+            // For 'none' or 'email' types, close modal immediately
+            alert('Offline Spieler erfolgreich erstellt!');
+            form.reset();
+            document.getElementById('add-offline-player-modal').classList.add('hidden');
+        }
+        // For 'code' type, modal stays open showing the generated code
+
     } catch (error) {
         console.error("Fehler beim Erstellen des Spielers:", error);
         alert('Fehler: Der Spieler konnte nicht erstellt werden.');
@@ -77,7 +88,14 @@ export async function handlePlayerListActions(e, db, auth, functions) {
     const playerId = button.dataset.id;
     if (!playerId) return;
 
-    // Handle invite button
+    // Handle new invitation button (opens modal with email/code choice)
+    if (button.classList.contains('send-new-invitation-btn')) {
+        const playerName = button.dataset.name;
+        openSendInvitationModal(playerId, playerName);
+        return;
+    }
+
+    // Handle old invite button (kept for backward compatibility if needed)
     if (button.classList.contains('send-invite-btn')) {
         button.disabled = true;
         button.innerHTML = '<i class="fas fa-spinner fa-spin w-5 mr-2"></i> Sende...'; // Lade-Spinner
@@ -208,7 +226,7 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                         // Erstelle Aktions-Buttons HTML
                         let actionsHtml = '';
                         if (player.isOffline) {
-                            actionsHtml += `<button data-id="${player.id}" data-email="${player.email || ''}" class="send-invite-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung senden</button>`;
+                            actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="send-new-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung versenden</button>`;
                         }
                         if (player.role === 'player') {
                             actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-900"><i class="fas fa-user-shield w-5 mr-2"></i> Zum Coach ernennen</button>`;
