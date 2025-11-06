@@ -20,7 +20,8 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     const form = e.target;
     const firstName = form.querySelector('#firstName').value;
     const lastName = form.querySelector('#lastName').value;
-    const email = form.querySelector('#email').value;
+    const emailField = form.querySelector('#email');
+    const email = emailField ? emailField.value : '';
 
     // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
     const subgroupCheckboxes = form.querySelectorAll('#player-subgroups-checkboxes input[type="checkbox"]:checked');
