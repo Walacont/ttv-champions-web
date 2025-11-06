@@ -176,7 +176,7 @@ async function generateCodeForPlayer(playerData, playerId = null) {
  * @param {Object} playerData - Player data with firstName, lastName
  */
 async function invalidateOldCodesForPlayer(playerId, playerData) {
-    const {query, where, getDocs, updateDoc, collection: firestoreCollection} = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+    const {query, where, getDocs, updateDoc, serverTimestamp: firestoreTimestamp, collection: firestoreCollection} = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
 
     let q;
 
@@ -202,19 +202,40 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {
-            console.log(`Invalidiere ${snapshot.size} alte Code(s) für Spieler ${playerData.firstName} ${playerData.lastName}`);
+            console.log(`🔍 Gefunden: ${snapshot.size} Code(s) für ${playerData.firstName} ${playerData.lastName}`);
 
-            const updatePromises = snapshot.docs.map(docSnapshot =>
+            // Filter out already superseded codes
+            const codesToInvalidate = snapshot.docs.filter(doc => !doc.data().superseded);
+
+            if (codesToInvalidate.length === 0) {
+                console.log(`ℹ️ Alle gefundenen Codes sind bereits als superseded markiert`);
+                return;
+            }
+
+            console.log(`♻️ Invalidiere ${codesToInvalidate.length} alte Code(s)...`);
+
+            const updatePromises = codesToInvalidate.map(docSnapshot =>
                 updateDoc(docSnapshot.ref, {
                     superseded: true,
-                    supersededAt: serverTimestamp()
+                    supersededAt: firestoreTimestamp()
                 })
             );
 
             await Promise.all(updatePromises);
+            console.log(`✅ ${codesToInvalidate.length} alte Code(s) erfolgreich invalidiert`);
+        } else {
+            console.log(`ℹ️ Keine alten Codes gefunden für ${playerData.firstName} ${playerData.lastName}`);
         }
     } catch (error) {
-        console.error('Fehler beim Invalidieren alter Codes:', error);
+        console.error('❌ Fehler beim Invalidieren alter Codes:', error);
+        console.error('Query-Details:', { playerId, firstName: playerData.firstName, lastName: playerData.lastName });
+
+        // Check if it's a missing index error
+        if (error.message && error.message.includes('index')) {
+            console.error('⚠️ Firestore Index fehlt! Bitte erstelle den Index über die Firebase Console.');
+            console.error('Index-Link könnte in der Fehlermeldung sein:', error.message);
+        }
+
         // Don't throw - we still want to create the new code even if invalidation fails
     }
 }
