@@ -65,6 +65,8 @@ window.addEventListener("load", async () => {
   tokenId = urlParams.get("token");
   invitationCode = urlParams.get("code");
 
+  console.log("Register.js loaded - tokenId:", tokenId, "code:", invitationCode);
+
   // Prüfe ob Token ODER Code vorhanden
   if (!tokenId && !invitationCode) {
     return displayError("Kein Einladungstoken oder -code gefunden.");
@@ -73,13 +75,17 @@ window.addEventListener("load", async () => {
   try {
     // ===== CODE-FLOW =====
     if (invitationCode) {
+      console.log("Code-Flow starting with code:", invitationCode);
       registrationType = 'code';
       invitationCode = invitationCode.trim().toUpperCase();
 
       // Validiere Format
       if (!validateCodeFormat(invitationCode)) {
+        console.error("Invalid code format:", invitationCode);
         return displayError("Ungültiges Code-Format.");
       }
+
+      console.log("Code format valid, searching in Firestore...");
 
       // Suche Code in Firestore
       const q = query(
@@ -88,11 +94,14 @@ window.addEventListener("load", async () => {
       );
       const snapshot = await getDocs(q);
 
+      console.log("Firestore query complete, empty:", snapshot.empty);
+
       if (snapshot.empty) {
         return displayError("Dieser Code existiert nicht.");
       }
 
       invitationCodeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+      console.log("Code data loaded:", invitationCodeData);
 
       // Prüfe ob Code bereits verwendet wurde
       if (invitationCodeData.used) {
@@ -105,7 +114,8 @@ window.addEventListener("load", async () => {
       }
 
       // Code gültig - Zeige Formular mit vorausgefüllten Daten
-      formSubtitle.textContent = `Willkommen ${invitationCodeData.firstName}! Vervollständige deine Registrierung.`;
+      const welcomeName = invitationCodeData.firstName ? invitationCodeData.firstName : 'Coach';
+      formSubtitle.textContent = `Willkommen ${welcomeName}! Vervollständige deine Registrierung.`;
       loader.classList.add("hidden");
       registrationFormContainer.classList.remove("hidden");
 
@@ -128,7 +138,9 @@ window.addEventListener("load", async () => {
 
   } catch (error) {
     console.error("Token/Code validation error:", error);
-    displayError("Fehler beim Überprüfen der Einladung.");
+    console.error("Error code:", error.code);
+    console.error("Error message:", error.message);
+    displayError("Fehler beim Überprüfen der Einladung: " + error.message);
   }
 });
 
