@@ -1,6 +1,6 @@
 // NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, connectAuthEmulator, updateEmail, EmailAuthProvider, reauthenticateWithCredential, sendEmailVerification } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, connectAuthEmulator, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential, sendEmailVerification } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, updateDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { firebaseConfig } from './firebase-config.js';
@@ -59,6 +59,12 @@ onAuthStateChanged(auth, async (user) => {
             profileImagePreview.src = userData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
             firstNameInput.value = userData.firstName || '';
             lastNameInput.value = userData.lastName || '';
+
+            // Synchronisiere Email zwischen Firebase Auth und Firestore
+            if (user.email !== userData.email) {
+                console.log('Email-Adresse hat sich geändert, aktualisiere Firestore...');
+                await updateDoc(userDocRef, { email: user.email });
+            }
         }
 
         // Email-Adresse anzeigen und Verifizierungs-Status
@@ -205,28 +211,25 @@ updateEmailForm.addEventListener('submit', async (e) => {
         const credential = EmailAuthProvider.credential(currentUser.email, password);
         await reauthenticateWithCredential(currentUser, credential);
 
-        // Schritt 2: Email in Firebase Auth ändern
-        await updateEmail(currentUser, newEmail);
-
-        // Schritt 3: Email in Firestore aktualisieren
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userDocRef, {
-            email: newEmail
-        });
-
-        // Schritt 4: Verifizierungs-Email senden
-        await sendEmailVerification(currentUser);
+        // Schritt 2: Verifizierungs-Email an NEUE Email senden
+        // Firebase ändert die Email automatisch nachdem der User den Link klickt
+        await verifyBeforeUpdateEmail(currentUser, newEmail);
 
         // Erfolg!
         emailFeedback.innerHTML = `
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div class="flex items-start">
-                    <i class="fas fa-check-circle text-green-600 mt-1 mr-3"></i>
+                    <i class="fas fa-envelope text-blue-600 mt-1 mr-3"></i>
                     <div>
-                        <p class="font-semibold text-green-900">Email-Adresse erfolgreich geändert!</p>
-                        <p class="text-sm text-green-700 mt-1">
+                        <p class="font-semibold text-blue-900">Verifizierungs-Email gesendet!</p>
+                        <p class="text-sm text-blue-700 mt-1">
                             Wir haben eine Verifizierungs-Email an <strong>${newEmail}</strong> gesendet.
-                            Bitte bestätige deine neue Email-Adresse.
+                            Bitte klicke auf den Link in der Email, um deine neue Email-Adresse zu bestätigen.
+                        </p>
+                        <p class="text-xs text-blue-600 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Deine Email-Adresse wird automatisch geändert, sobald du den Link bestätigst.
+                            Danach musst du dich eventuell erneut anmelden.
                         </p>
                     </div>
                 </div>
@@ -236,10 +239,6 @@ updateEmailForm.addEventListener('submit', async (e) => {
         // Formular zurücksetzen
         newEmailInput.value = '';
         currentPasswordInput.value = '';
-
-        // UI aktualisieren
-        currentEmailDisplay.textContent = newEmail;
-        updateEmailVerificationStatus(false);
 
     } catch (error) {
         console.error("Fehler beim Ändern der Email:", error);
