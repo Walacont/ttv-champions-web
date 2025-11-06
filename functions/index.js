@@ -516,7 +516,112 @@ exports.claimInvitationCode = onCall(
 );
 
 // ========================================================================
-// ===== FUNKTION 6: Cleanup Expired Invitation Codes (Scheduled) =====
+// ===== FUNKTION 6: Claim Invitation Token (Email-basierte Registrierung) =====
+// ========================================================================
+exports.claimInvitationToken = onCall(
+  {region: CONFIG.REGION},
+  async (request) => {
+    // 1. Check if user is authenticated
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Du musst angemeldet sein, um einen Token einzulösen."
+      );
+    }
+
+    const userId = request.auth.uid;
+    const {tokenId} = request.data;
+
+    if (!tokenId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Token-ID ist erforderlich."
+      );
+    }
+
+    try {
+      // 2. Get token document
+      const tokenRef = db.collection(CONFIG.COLLECTIONS.INVITATION_TOKENS).doc(tokenId);
+      const tokenDoc = await tokenRef.get();
+
+      if (!tokenDoc.exists) {
+        throw new HttpsError("not-found", "Dieser Token existiert nicht.");
+      }
+
+      const tokenData = tokenDoc.data();
+
+      // 3. Validate token
+      if (tokenData.isUsed) {
+        throw new HttpsError("already-exists", "Dieser Token wurde bereits verwendet.");
+      }
+
+      // 4. Check if user document already exists
+      const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+      const userDoc = await userRef.get();
+
+      if (userDoc.exists) {
+        throw new HttpsError(
+          "already-exists",
+          "Ein Profil für diesen Benutzer existiert bereits."
+        );
+      }
+
+      const now = admin.firestore.Timestamp.now();
+
+      // 5. Create user document with data from token
+      const userData = {
+        email: request.auth.token.email || "",
+        firstName: tokenData.firstName || "",
+        lastName: tokenData.lastName || "",
+        clubId: tokenData.clubId,
+        role: tokenData.role || "player",
+        subgroupIds: tokenData.subgroupIds || [],
+        points: 0,
+        xp: 0,
+        eloRating: CONFIG.ELO.DEFAULT_RATING,
+        highestElo: CONFIG.ELO.DEFAULT_RATING,
+        wins: 0,
+        losses: 0,
+        grundlagenCompleted: 0,
+        onboardingComplete: false,
+        isOffline: false,
+        createdAt: now,
+        photoURL: "",
+      };
+
+      await userRef.set(userData);
+      logger.info(`User-Dokument für ${userId} erstellt via Token ${tokenId}`);
+
+      // 6. Mark token as used
+      await tokenRef.update({
+        isUsed: true,
+        usedBy: userId,
+        usedAt: now,
+      });
+
+      logger.info(`Token ${tokenId} als verwendet markiert von User ${userId}`);
+
+      return {
+        success: true,
+        message: "Token erfolgreich eingelöst!",
+      };
+    } catch (error) {
+      logger.error(`Fehler beim Einlösen des Tokens ${tokenId}:`, error);
+
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      throw new HttpsError(
+        "internal",
+        "Ein unerwarteter Fehler ist aufgetreten."
+      );
+    }
+  }
+);
+
+// ========================================================================
+// ===== FUNKTION 7: Cleanup Expired Invitation Codes (Scheduled) =====
 // ========================================================================
 exports.cleanupExpiredInvitationCodes = onSchedule(
   {

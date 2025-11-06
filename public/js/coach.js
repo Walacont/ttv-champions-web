@@ -128,7 +128,7 @@ async function initializeCoachPage(userData) {
     initInvitationCodeManagement(db, userData.clubId, userData.id);
 
     // Initialize Player Invitation Management
-    initPlayerInvitationManagement(db, userData.clubId, userData.id);
+    initPlayerInvitationManagement(db, auth, functions, userData.clubId, userData.id);
 
     // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');

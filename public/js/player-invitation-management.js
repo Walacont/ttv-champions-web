@@ -5,6 +5,8 @@
  */
 
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import {
     generateInvitationCode,
     getExpirationDate,
@@ -14,6 +16,8 @@ import {
 } from './invitation-code-utils.js';
 
 let db;
+let auth;
+let functions;
 let currentClubId;
 let currentCoachId;
 let currentSubgroups = [];
@@ -24,8 +28,10 @@ let currentPlayerId = null; // For send invitation modal
 /**
  * Initialisiert das Player Invitation Management
  */
-export function initPlayerInvitationManagement(firestore, clubId, coachId) {
+export function initPlayerInvitationManagement(firestore, authInstance, functionsInstance, clubId, coachId) {
     db = firestore;
+    auth = authInstance;
+    functions = functionsInstance;
     currentClubId = clubId;
     currentCoachId = coachId;
 
@@ -108,11 +114,29 @@ export async function handlePostPlayerCreationInvitation(playerId, playerData) {
 
     if (invitationType === 'email') {
         const email = document.getElementById('email').value;
-        // TODO: Send email invitation (use existing email invitation system)
-        // For now, just log it
-        console.log('Send email invitation to:', email, 'for player:', playerId);
-        closeOfflinePlayerModal();
-        return { success: true, type: 'email', email };
+
+        if (!email) {
+            alert('Bitte gib eine E-Mail-Adresse ein.');
+            return { success: false, error: 'No email provided' };
+        }
+
+        try {
+            // Update player document with email
+            await updateDoc(doc(db, 'users', playerId), { email: email });
+
+            // Create Auth User and send password reset email
+            const createAuthUser = httpsCallable(functions, 'createAuthUserForPlayer');
+            await createAuthUser({ playerId, playerEmail: email });
+            await sendPasswordResetEmail(auth, email);
+
+            alert(`Einrichtungs-E-Mail wurde erfolgreich an ${email} gesendet!`);
+            closeOfflinePlayerModal();
+            return { success: true, type: 'email', email };
+        } catch (error) {
+            console.error('Error sending email invitation:', error);
+            alert('Fehler beim Senden der Email-Einladung: ' + error.message);
+            return { success: false, error: error.message };
+        }
     }
 
     if (invitationType === 'code') {
@@ -258,10 +282,27 @@ async function handleSendInvitation(e) {
 
     if (invitationType === 'email') {
         const email = document.getElementById('send-invitation-email').value;
-        // TODO: Send email invitation
-        console.log('Send email to:', email, 'for player:', currentPlayerId);
-        alert('Email-Einladung wurde gesendet!');
-        closeSendInvitationModal();
+
+        if (!email) {
+            alert('Bitte gib eine E-Mail-Adresse ein.');
+            return;
+        }
+
+        try {
+            // Update player document with email
+            await updateDoc(doc(db, 'users', currentPlayerId), { email: email });
+
+            // Create Auth User and send password reset email
+            const createAuthUser = httpsCallable(functions, 'createAuthUserForPlayer');
+            await createAuthUser({ playerId: currentPlayerId, playerEmail: email });
+            await sendPasswordResetEmail(auth, email);
+
+            alert(`Einrichtungs-E-Mail wurde erfolgreich an ${email} gesendet!`);
+            closeSendInvitationModal();
+        } catch (error) {
+            console.error('Error sending email invitation:', error);
+            alert('Fehler beim Senden der Email-Einladung: ' + error.message);
+        }
     } else if (invitationType === 'code') {
         try {
             // Get player data
