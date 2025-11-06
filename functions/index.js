@@ -480,7 +480,7 @@ exports.claimInvitationCode = onCall(
         losses: 0,
         grundlagenCompleted: 0,
         onboardingComplete: false,
-        isOffline: false,
+        isOffline: true, // User is offline until they complete onboarding
         createdAt: now,
         photoURL: "",
       };
@@ -585,7 +585,7 @@ exports.claimInvitationToken = onCall(
         losses: 0,
         grundlagenCompleted: 0,
         onboardingComplete: false,
-        isOffline: false,
+        isOffline: true, // User is offline until they complete onboarding
         createdAt: now,
         photoURL: "",
       };

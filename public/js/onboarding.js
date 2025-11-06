@@ -100,6 +100,7 @@ onboardingForm.addEventListener('submit', async (e) => {
             gender: document.getElementById('gender').value,
             photoURL: photoURL,
             onboardingComplete: true, // Wichtig: Onboarding abschließen
+            isOffline: false, // User is now online after completing onboarding
         };
 
         const userDocRef = doc(db, 'users', currentUser.uid);
