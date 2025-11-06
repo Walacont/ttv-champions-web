@@ -470,7 +470,7 @@ exports.claimInvitationCode = onCall(
         firstName: codeData.firstName || "",
         lastName: codeData.lastName || "",
         clubId: codeData.clubId,
-        role: "player",
+        role: codeData.role || "player", // Support both coach and player roles
         subgroupIds: codeData.subgroupIds || [],
         points: 0,
         xp: 0,
@@ -478,6 +478,7 @@ exports.claimInvitationCode = onCall(
         highestElo: CONFIG.ELO.DEFAULT_RATING,
         wins: 0,
         losses: 0,
+        grundlagenCompleted: 0,
         onboardingComplete: false,
         isOffline: false,
         createdAt: now,

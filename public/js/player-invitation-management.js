@@ -238,10 +238,11 @@ function closeOfflinePlayerModal() {
 /**
  * Open send invitation modal for existing player
  */
-export function openSendInvitationModal(playerId, playerName) {
+export function openSendInvitationModal(playerId, playerName, playerEmail = '') {
     currentPlayerId = playerId;
     const modal = document.getElementById('send-invitation-modal');
     const nameElement = document.getElementById('invitation-player-name');
+    const emailInput = document.getElementById('send-invitation-email');
 
     nameElement.textContent = playerName;
     modal.classList.remove('hidden');
@@ -252,6 +253,11 @@ export function openSendInvitationModal(playerId, playerName) {
     document.getElementById('send-invitation-form').classList.remove('hidden');
     document.getElementById('send-invitation-code-display').classList.add('hidden');
     document.getElementById('send-invitation-email-container').classList.remove('hidden');
+
+    // Pre-fill email if available
+    if (playerEmail && emailInput) {
+        emailInput.value = playerEmail;
+    }
 }
 
 /**

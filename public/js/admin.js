@@ -1,10 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 // NEU: Zusätzliche Imports für die Emulatoren
 import { getAuth, onAuthStateChanged, signOut, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, query, deleteDoc, serverTimestamp, orderBy, updateDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, query, deleteDoc, serverTimestamp, orderBy, updateDoc, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getStorage, ref, deleteObject, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
+import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -155,21 +156,53 @@ async function handleInviteCoach(e) {
     e.preventDefault();
     const clubId = document.getElementById('clubId').value;
     if (!clubId) return alert("Bitte eine Vereins-ID angeben.");
-    
+
     try {
-        const tokenDoc = await addDoc(collection(db, "invitationTokens"), {
+        // Generate unique code
+        let code = generateInvitationCode();
+        let isUnique = false;
+        let attempts = 0;
+
+        while (!isUnique && attempts < 10) {
+            const q = query(collection(db, 'invitationCodes'), where('code', '==', code));
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) {
+                isUnique = true;
+            } else {
+                code = generateInvitationCode();
+                attempts++;
+            }
+        }
+
+        if (!isUnique) {
+            throw new Error('Konnte keinen eindeutigen Code generieren.');
+        }
+
+        // Create code document
+        const expiresAt = getExpirationDate();
+        await addDoc(collection(db, "invitationCodes"), {
+            code,
             clubId: clubId,
-            role: 'coach',
-            isUsed: false,
-            createdAt: new Date(),
-            targetUserId: null
+            createdBy: auth.currentUser.uid,
+            createdAt: serverTimestamp(),
+            expiresAt,
+            maxUses: 1,
+            used: false,
+            usedBy: null,
+            usedAt: null,
+            firstName: '',
+            lastName: '',
+            subgroupIds: [],
+            // WICHTIG: Für Coach-Registrierung speichern
+            role: 'coach'
         });
-        const link = `${window.location.origin}/register.html?token=${tokenDoc.id}`;
-        inviteLinkInput.value = link;
+
+        // Display code
+        inviteLinkInput.value = code;
         inviteLinkContainer.classList.remove('hidden');
     } catch (error) {
-        console.error("Fehler beim Erstellen des Tokens:", error);
-        alert("Fehler: Der Einladungslink konnte nicht erstellt werden.");
+        console.error("Fehler beim Erstellen des Codes:", error);
+        alert("Fehler: Der Einladungscode konnte nicht erstellt werden.");
     }
 }
 

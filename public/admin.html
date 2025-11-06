@@ -108,15 +108,16 @@
                                 <input type="text" id="clubId" required="" placeholder="z.B. ttv-musterstadt" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
                             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
-                                Einladungslink erstellen
+                                <i class="fas fa-key mr-2"></i>Einladungscode generieren
                             </button>
                         </form>
                         <div id="invite-link-container" class="mt-4 hidden">
-                            <label class="block text-sm font-medium text-gray-700">Generierter Link:</label>
-                            <input type="text" id="invite-link-input" readonly="" class="mt-1 w-full bg-gray-100 p-2 border rounded-md text-sm">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Generierter Code:</label>
+                            <input type="text" id="invite-link-input" readonly="" class="mt-1 w-full bg-gray-100 p-3 border rounded-md text-lg font-mono text-center tracking-wider">
                             <button id="copy-link-button" class="w-full mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                                Kopieren
+                                <i class="fas fa-copy mr-2"></i>Code kopieren
                             </button>
+                            <p class="mt-2 text-xs text-gray-500 text-center">Der Coach kann sich mit diesem Code auf der Login-Seite anmelden und seine Email-Adresse eingeben.</p>
                         </div>
                     </div>
                      <div class="bg-white p-6 rounded-xl shadow-md">

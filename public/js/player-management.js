@@ -91,7 +91,16 @@ export async function handlePlayerListActions(e, db, auth, functions) {
     // Handle new invitation button (opens modal with email/code choice)
     if (button.classList.contains('send-new-invitation-btn')) {
         const playerName = button.dataset.name;
-        openSendInvitationModal(playerId, playerName);
+        const playerEmail = button.dataset.email || '';
+        openSendInvitationModal(playerId, playerName, playerEmail);
+        return;
+    }
+
+    // Handle manage invitation button (email/code bearbeiten)
+    if (button.classList.contains('manage-invitation-btn')) {
+        const playerName = button.dataset.name;
+        const playerEmail = button.dataset.email || '';
+        openSendInvitationModal(playerId, playerName, playerEmail);
         return;
     }
 
@@ -226,8 +235,11 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
                         // Erstelle Aktions-Buttons HTML
                         let actionsHtml = '';
                         if (player.isOffline) {
-                            actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="send-new-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung versenden</button>`;
+                            actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="send-new-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung versenden</button>`;
                         }
+                        // Email/Code-Verwaltung für ALLE Spieler (auch online)
+                        actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="manage-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-blue-600 hover:bg-blue-100 hover:text-blue-900"><i class="fas fa-envelope-open-text w-5 mr-2"></i> Email/Code bearbeiten</button>`;
+
                         if (player.role === 'player') {
                             actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-900"><i class="fas fa-user-shield w-5 mr-2"></i> Zum Coach ernennen</button>`;
                         }
