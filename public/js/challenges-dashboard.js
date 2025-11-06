@@ -32,15 +32,37 @@ export async function loadChallenges(userData, db, unsubscribes) {
         const now = new Date();
         const playerSubgroups = userData.subgroupIDs || [];
 
+        // Load subgroup info to filter out default subgroups
+        const subgroupDocs = await Promise.all(
+            playerSubgroups.map(async (subgroupId) => {
+                try {
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+                    if (subgroupDoc.exists()) {
+                        return { id: subgroupId, ...subgroupDoc.data() };
+                    }
+                } catch (error) {
+                    console.error(`Error loading subgroup ${subgroupId}:`, error);
+                }
+                return null;
+            })
+        );
+
+        // Filter to only non-default subgroups (specialized subgroups like U10, U13, etc.)
+        const specializedSubgroups = subgroupDocs
+            .filter(sg => sg !== null && !sg.isDefault)
+            .map(sg => sg.id);
+
         let activeChallenges = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(challenge => {
                 const isCompleted = completedChallengeIds.includes(challenge.id);
                 const isExpired = calculateExpiry(challenge.createdAt, challenge.type) < now;
 
-                // Only show challenges for player's subgroups or "all"
+                // Only show challenges for:
+                // 1. subgroupId === 'all' (for entire club), OR
+                // 2. subgroupId matches one of player's specialized (non-default) subgroups
                 const subgroupId = challenge.subgroupId || 'all';
-                const isForPlayer = subgroupId === 'all' || playerSubgroups.includes(subgroupId);
+                const isForPlayer = subgroupId === 'all' || specializedSubgroups.includes(subgroupId);
 
                 return !isCompleted && !isExpired && isForPlayer;
             });

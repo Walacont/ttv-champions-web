@@ -7,7 +7,7 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://w
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
-import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge } from './challenges.js';
+import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, populateSubgroupDropdown } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
@@ -156,6 +156,10 @@ async function initializeCoachPage(userData) {
     loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadExpiredChallenges(userData.clubId, db);
     loadAllExercises(db);
+
+    // Populate subgroup dropdowns for challenge forms
+    populateSubgroupDropdown(userData.clubId, 'challenge-subgroup', db);
+    populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', db);
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
@@ -208,7 +212,7 @@ async function initializeCoachPage(userData) {
     // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
-    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData, currentSubgroupFilter));
+    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
     document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
@@ -407,7 +411,13 @@ window.showReactivateModal = function(challengeId, title) {
 window.handleReactivate = async function(duration) {
     if (!currentChallengeId) return;
 
-    const result = await reactivateChallenge(currentChallengeId, duration, db);
+    const subgroupId = document.getElementById('reactivate-challenge-subgroup').value;
+    if (!subgroupId) {
+        alert('Bitte wähle eine Untergruppe aus.');
+        return;
+    }
+
+    const result = await reactivateChallenge(currentChallengeId, duration, subgroupId, db);
     if (result.success) {
         alert('Challenge erfolgreich reaktiviert!');
         document.getElementById('reactivate-challenge-modal').classList.add('hidden');

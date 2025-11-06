@@ -10,30 +10,30 @@ import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp,
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} currentUserData - Current user's data
- * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  */
-export async function handleCreateChallenge(e, db, currentUserData, currentSubgroupFilter = 'all') {
+export async function handleCreateChallenge(e, db, currentUserData) {
     e.preventDefault();
     const feedbackEl = document.getElementById('challenge-feedback');
     const title = document.getElementById('challenge-title').value;
     const type = document.getElementById('challenge-type').value;
     const description = document.getElementById('challenge-description').value;
     const points = parseInt(document.getElementById('challenge-points').value);
+    const subgroupId = document.getElementById('challenge-subgroup').value;
+
     feedbackEl.textContent = '';
-    if (!title || !type || isNaN(points) || points <= 0) {
+    if (!title || !type || isNaN(points) || points <= 0 || !subgroupId) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
     try {
-        // Save subgroupId: "all" if Hauptgruppe/Alle view, otherwise specific subgroup
         const challengeData = {
             title,
             type,
             description,
             points,
             clubId: currentUserData.clubId,
-            subgroupId: currentSubgroupFilter,
+            subgroupId: subgroupId,
             isActive: true,
             createdAt: serverTimestamp()
         };
@@ -42,6 +42,8 @@ export async function handleCreateChallenge(e, db, currentUserData, currentSubgr
         feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+        // Reset dropdown to "all"
+        document.getElementById('challenge-subgroup').value = 'all';
     } catch (error) {
         console.error("Fehler beim Erstellen der Challenge:", error);
         feedbackEl.textContent = 'Fehler: Challenge konnte nicht erstellt werden.';
@@ -241,17 +243,19 @@ export function loadExpiredChallenges(clubId, db) {
 }
 
 /**
- * Reactivates a challenge with a new duration
+ * Reactivates a challenge with a new duration and subgroup
  * @param {string} challengeId - Challenge ID
  * @param {string} duration - New duration (daily, weekly, monthly)
+ * @param {string} subgroupId - Subgroup ID (or "all")
  * @param {Object} db - Firestore database instance
  */
-export async function reactivateChallenge(challengeId, duration, db) {
+export async function reactivateChallenge(challengeId, duration, subgroupId, db) {
     try {
         const challengeRef = doc(db, 'challenges', challengeId);
         await updateDoc(challengeRef, {
             createdAt: serverTimestamp(),
             type: duration,
+            subgroupId: subgroupId,
             isActive: true
         });
         return { success: true };
@@ -299,5 +303,47 @@ export function updateAllCountdowns() {
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
         el.textContent = `Verbleibend: ${days}T ${hours}h ${minutes}m ${seconds}s`;
+    });
+}
+
+/**
+ * Populates a subgroup dropdown with subgroups from the club
+ * @param {string} clubId - Club ID
+ * @param {string} selectId - ID of the select element
+ * @param {Object} db - Firestore database instance
+ */
+export function populateSubgroupDropdown(clubId, selectId, db) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    const q = query(
+        collection(db, 'subgroups'),
+        where('clubId', '==', clubId),
+        orderBy('createdAt', 'asc')
+    );
+
+    onSnapshot(q, (snapshot) => {
+        // Keep the "Alle" option
+        const currentValue = select.value;
+        select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
+
+        snapshot.forEach(doc => {
+            const subgroup = doc.data();
+            // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
+            if (subgroup.isDefault) {
+                return;
+            }
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = subgroup.name;
+            select.appendChild(option);
+        });
+
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+            select.value = currentValue;
+        }
+    }, (error) => {
+        console.error("Error loading subgroups for dropdown:", error);
     });
 }
