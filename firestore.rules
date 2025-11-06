@@ -62,7 +62,12 @@ service cloud.firestore {
         isSameClub(request.resource.data.clubId) &&
         request.resource.data.role == 'player';
 
-      // Only admins can delete users
+      // Coaches can delete players in their club
+      allow delete: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.role == 'player';
+
+      // Only admins can delete non-players
       allow delete: if isAdmin();
 
       // Subcollection: pointsHistory
