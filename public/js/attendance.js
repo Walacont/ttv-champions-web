@@ -197,17 +197,29 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         return;
     }
 
+    console.log(`[Attendance Modal] Total players in clubPlayers: ${clubPlayers.length}`);
+    console.log(`[Attendance Modal] Current subgroup filter: ${currentSubgroupFilter}`);
+
     // Filter players: Only show players who are members of the current subgroup
     const playersInCurrentSubgroup = clubPlayers.filter(player =>
         player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
     );
 
+    console.log(`[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`);
+
     // Deduplicate players by ID to prevent duplicates in the UI
     const playersMap = new Map();
+    let dedupCount = 0;
     playersInCurrentSubgroup.forEach(player => {
+        if (playersMap.has(player.id)) {
+            console.warn(`[Attendance Modal] Duplicate player ID found: ${player.firstName} ${player.lastName} (ID: ${player.id})`);
+            dedupCount++;
+        }
         playersMap.set(player.id, player);
     });
     const uniquePlayers = Array.from(playersMap.values());
+
+    console.log(`[Attendance Modal] Unique players after dedup: ${uniquePlayers.length} (removed ${dedupCount} duplicates)`);
 
     if (uniquePlayers.length === 0) {
         playerListContainer.innerHTML = `
@@ -239,6 +251,9 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         `;
         playerListContainer.appendChild(div);
     }
+
+    console.log(`[Attendance Modal] Rendered ${uniquePlayers.length} players in the attendance list`);
+    console.log(`[Attendance Modal] Total checkboxes in DOM: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
 
     // Event Listener für Zähler und Paarungs-Button hinzufügen
     playerListContainer.addEventListener('change', () => {
@@ -453,10 +468,13 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     const q = query(collection(db, 'users'), where('clubId', '==', clubId), where('role', '==', 'player'));
     onSnapshot(q, (snapshot) => {
+        console.log(`[Attendance] Loaded ${snapshot.docs.length} player documents from Firestore`);
+
         // Use Map to prevent duplicate players
         // Deduplicate by document ID first, then by email or name combination
         const playersMap = new Map();
         const seenIdentifiers = new Set();
+        let duplicateCount = 0;
 
         snapshot.docs.forEach(doc => {
             const playerData = { id: doc.id, ...doc.data() };
@@ -467,11 +485,13 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
 
             // Skip if we've already seen this player (by email or name)
             if (emailKey && seenIdentifiers.has(emailKey)) {
-                console.warn(`Duplicate player detected by email: ${playerData.email}`, playerData);
+                console.warn(`[Attendance] Duplicate player detected by email: ${playerData.email} (ID: ${playerData.id})`);
+                duplicateCount++;
                 return;
             }
             if (seenIdentifiers.has(nameKey)) {
-                console.warn(`Duplicate player detected by name: ${playerData.firstName} ${playerData.lastName}`, playerData);
+                console.warn(`[Attendance] Duplicate player detected by name: ${playerData.firstName} ${playerData.lastName} (ID: ${playerData.id})`);
+                duplicateCount++;
                 return;
             }
 
@@ -482,6 +502,8 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         });
 
         const players = Array.from(playersMap.values());
+        console.log(`[Attendance] After deduplication: ${players.length} unique players (removed ${duplicateCount} duplicates)`);
+
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
         onPlayersLoaded(players);
     }, (error) => {
