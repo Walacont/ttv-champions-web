@@ -24,6 +24,7 @@ let currentSubgroupFilter = 'club'; // Default: show club view
 let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
 let calendarListener = null; // Separate listener for calendar (needs to be updated on filter change)
 let subgroupFilterListener = null; // Listener for subgroup filter dropdown
+let streaksListener = null; // Listener for player streaks (real-time updates)
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -89,7 +90,7 @@ async function initializeDashboard(userData) {
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
     // Load profile data and setup calendar with real-time listener
-    loadProfileData(userData, (date) => {
+    streaksListener = loadProfileData(userData, (date) => {
         // Unsubscribe old calendar listener if exists
         if (calendarListener && typeof calendarListener === 'function') {
             try {
@@ -181,13 +182,14 @@ function updateDashboard(userData) {
     const playerPointsEl = document.getElementById('player-points');
     const playerXpEl = document.getElementById('player-xp');
     const playerEloEl = document.getElementById('player-elo');
-    const statsCurrentStreak = document.getElementById('stats-current-streak');
 
     // Diese Elemente werden direkt aus dem userData-Objekt aktualisiert
     if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
     if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
     if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
-    if (statsCurrentStreak) statsCurrentStreak.innerHTML = `${userData.streak || 0} 🔥`;
+
+    // Note: Streak is now loaded via real-time listener in loadProfileData()
+    // and displays all subgroup streaks instead of a single global streak
 
     updateRankDisplay(userData);  // Aktualisiert die Rang-Karte
     updateGrundlagenDisplay(userData);  // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
