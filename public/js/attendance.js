@@ -120,56 +120,103 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
  * Finds the original attendance points awarded to a player on a specific date
  * @param {string} playerId - Player ID
  * @param {string} date - Date string (YYYY-MM-DD)
- * @param {string} subgroupName - Subgroup name to match in history
+ * @param {string} subgroupName - Subgroup name to match in history (for logging only)
  * @param {Object} db - Firestore database instance
+ * @param {string} subgroupId - Subgroup ID for precise matching
  * @returns {Promise<number>} Points to deduct (defaults to 10 if not found)
  */
-async function findOriginalAttendancePoints(playerId, date, subgroupName, db) {
+async function findOriginalAttendancePoints(playerId, date, subgroupName, db, subgroupId) {
     try {
-        // Query pointsHistory for entries from this date for this subgroup
+        console.log(`[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`);
+
+        // Query pointsHistory filtering by date and subgroup - much more efficient!
         const historyQuery = query(
             collection(db, `users/${playerId}/pointsHistory`),
-            orderBy('timestamp', 'desc')
+            where('date', '==', date),
+            where('subgroupId', '==', subgroupId),
+            orderBy('timestamp', 'desc'),
+            limit(10) // Get last 10 entries for this date (should only be 1-2)
         );
 
         const historySnapshot = await getDocs(historyQuery);
 
-        // Find the matching attendance entry by comparing date strings
-        // This is more reliable than time ranges due to timezone issues
+        console.log(`[findOriginalAttendancePoints] Found ${historySnapshot.size} entries for this date and subgroup`);
+
+        // Find the FIRST positive entry (original award, not correction)
         for (const historyDoc of historySnapshot.docs) {
             const historyData = historyDoc.data();
 
-            // Check if this is an attendance entry for the target subgroup
+            console.log(`[findOriginalAttendancePoints] Entry: ${historyData.reason}, points: ${historyData.points}`);
+
+            // Look for positive attendance entry (not correction)
+            if (historyData.points > 0 &&
+                historyData.reason &&
+                historyData.reason.includes('Anwesenheit beim Training')) {
+
+                console.log(`[findOriginalAttendancePoints] ✓ Match found! Returning ${historyData.points} points`);
+                return historyData.points;
+            }
+        }
+
+        // If not found, return base points
+        console.warn(`[findOriginalAttendancePoints] ✗ No positive attendance entry found for ${date}/${subgroupName}, defaulting to 10`);
+        return 10;
+    } catch (error) {
+        console.error('[findOriginalAttendancePoints] Error:', error);
+        // If query fails (e.g., no index), fall back to searching all entries
+        console.warn('[findOriginalAttendancePoints] Falling back to unfiltered search...');
+        return await findOriginalAttendancePointsFallback(playerId, date, subgroupName, db);
+    }
+}
+
+/**
+ * Fallback method for finding attendance points (for backwards compatibility with old entries)
+ */
+async function findOriginalAttendancePointsFallback(playerId, date, subgroupName, db) {
+    try {
+        const historyQuery = query(
+            collection(db, `users/${playerId}/pointsHistory`),
+            orderBy('timestamp', 'desc'),
+            limit(100) // Only check recent entries
+        );
+
+        const historySnapshot = await getDocs(historyQuery);
+
+        for (const historyDoc of historySnapshot.docs) {
+            const historyData = historyDoc.data();
+
             if (historyData.reason &&
                 historyData.reason.includes('Anwesenheit beim Training') &&
                 historyData.reason.includes(subgroupName) &&
-                historyData.points > 0) { // Only positive entries (not corrections)
+                historyData.points > 0) {
 
-                // Extract date string from timestamp (YYYY-MM-DD format)
+                // Try using stored date field first
+                if (historyData.date === date) {
+                    console.log(`[Fallback] Match found using stored date! Returning ${historyData.points} points`);
+                    return historyData.points;
+                }
+
+                // Otherwise extract from timestamp
                 const entryDate = historyData.timestamp?.toDate();
                 if (entryDate) {
-                    // Format as YYYY-MM-DD in local timezone
                     const year = entryDate.getFullYear();
                     const month = String(entryDate.getMonth() + 1).padStart(2, '0');
                     const day = String(entryDate.getDate()).padStart(2, '0');
                     const entryDateString = `${year}-${month}-${day}`;
 
-                    console.log(`[findOriginalAttendancePoints] Comparing ${entryDateString} with ${date}, points: ${historyData.points}`);
-
                     if (entryDateString === date) {
-                        console.log(`[findOriginalAttendancePoints] Match found! Returning ${historyData.points} points`);
-                        return historyData.points; // Return the original points awarded
+                        console.log(`[Fallback] Match found using timestamp! Returning ${historyData.points} points`);
+                        return historyData.points;
                     }
                 }
             }
         }
 
-        // If not found, return base points
-        console.warn(`[findOriginalAttendancePoints] Could not find original attendance points for player ${playerId} on ${date} (${subgroupName}), defaulting to 10`);
+        console.warn(`[Fallback] No match found, defaulting to 10`);
         return 10;
     } catch (error) {
-        console.error('Error finding original attendance points:', error);
-        return 10; // Default to base points
+        console.error('[Fallback] Error:', error);
+        return 10;
     }
 }
 
@@ -446,6 +493,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         xp: pointsToAdd, // Track XP change (same as points for attendance)
                         eloChange: 0, // No Elo change for attendance
                         reason,
+                        date: date, // Store date for easier lookup when correcting
+                        subgroupId: currentSubgroupFilter, // Store subgroup ID for precise matching
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -455,6 +504,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     batch.set(xpHistoryRef, {
                         xp: pointsToAdd,
                         reason,
+                        date: date, // Store date for easier lookup
+                        subgroupId: currentSubgroupFilter,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -472,7 +523,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                 // If coach unchecked the player for this day, deduct the originally awarded points
                 if (wasPresentPreviouslyOnThisDay) {
                     // Find the original points awarded for this date by searching pointsHistory
-                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db);
+                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db, currentSubgroupFilter);
 
                     // Deduct both points and XP
                     batch.update(playerRef, {
@@ -487,6 +538,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         xp: -pointsToDeduct,
                         eloChange: 0,
                         reason: `Anwesenheit korrigiert (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
+                        date: date, // Store date for tracking
+                        subgroupId: currentSubgroupFilter,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -496,6 +549,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     batch.set(xpHistoryRef, {
                         xp: -pointsToDeduct,
                         reason: `Anwesenheit korrigiert (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
+                        date: date, // Store date for tracking
+                        subgroupId: currentSubgroupFilter,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
