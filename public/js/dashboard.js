@@ -22,6 +22,8 @@ let unsubscribes = [];
 let currentDisplayDate = new Date();
 let currentSubgroupFilter = 'club'; // Default: show club view
 let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
+let calendarListener = null; // Separate listener for calendar (needs to be updated on filter change)
+let subgroupFilterListener = null; // Listener for subgroup filter dropdown
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -85,7 +87,21 @@ async function initializeDashboard(userData) {
 
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
-    loadProfileData(userData, (date) => renderCalendar(date, userData, db, currentSubgroupFilter), currentDisplayDate, db);
+
+    // Load profile data and setup calendar with real-time listener
+    loadProfileData(userData, (date) => {
+        // Unsubscribe old calendar listener if exists
+        if (calendarListener && typeof calendarListener === 'function') {
+            try {
+                calendarListener();
+            } catch (e) {
+                console.error("Error unsubscribing calendar listener:", e);
+            }
+        }
+        // Setup new calendar listener
+        calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
+    }, currentDisplayDate, db);
+
     loadExercises(db, unsubscribes);
 
     // Set leaderboard filter to 'all' for initial load (club view)
@@ -129,9 +145,33 @@ async function initializeDashboard(userData) {
     });
     document.getElementById('close-challenge-modal').addEventListener('click', () => document.getElementById('challenge-modal').classList.add('hidden'));
 
-    // Calendar listeners
-    document.getElementById('prev-month').addEventListener('click', () => { currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1); renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter); });
-    document.getElementById('next-month').addEventListener('click', () => { currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1); renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter); });
+    // Calendar listeners with proper listener management
+    document.getElementById('prev-month').addEventListener('click', () => {
+        currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
+        // Unsubscribe old listener
+        if (calendarListener && typeof calendarListener === 'function') {
+            try {
+                calendarListener();
+            } catch (e) {
+                console.error("Error unsubscribing calendar listener:", e);
+            }
+        }
+        // Setup new listener
+        calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
+    });
+    document.getElementById('next-month').addEventListener('click', () => {
+        currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
+        // Unsubscribe old listener
+        if (calendarListener && typeof calendarListener === 'function') {
+            try {
+                calendarListener();
+            } catch (e) {
+                console.error("Error unsubscribing calendar listener:", e);
+            }
+        }
+        // Setup new listener
+        calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
+    });
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
@@ -152,12 +192,15 @@ function updateDashboard(userData) {
     updateRankDisplay(userData);  // Aktualisiert die Rang-Karte
     updateGrundlagenDisplay(userData);  // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
 
+    // Update subgroup filter dropdown when user's subgroups change
+    populatePlayerSubgroupFilter(userData, db);
+
     // *** KORREKTUR: ***
     // Die folgenden Zeilen wurden entfernt.
     // Sie sind nicht nötig, da 'initializeDashboard' bereits 'onSnapshot'-Listener
     // (Echtzeit-Updates) für Rivalen und Ranglisten eingerichtet hat.
     // Ein erneuter Aufruf hier würde unnötig neue Listener erstellen (Memory Leak).
-    
+
     // loadRivalData(userData, db); <-- ENTFERNT
     // loadLeaderboard(userData, db, unsubscribes); <-- ENTFERNT
     // loadGlobalLeaderboard(userData, db, unsubscribes); <-- ENTFERNT
@@ -180,68 +223,98 @@ function updateDashboard(userData) {
 // --- Player Global Subgroup Filter Functions ---
 
 /**
- * Populates the global player subgroup filter with user's subgroups
+ * Populates the global player subgroup filter with user's subgroups using real-time listener
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  */
-async function populatePlayerSubgroupFilter(userData, db) {
+function populatePlayerSubgroupFilter(userData, db) {
     const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
 
     const subgroupIDs = userData.subgroupIDs || [];
 
+    // Save current selection
+    const currentSelection = dropdown.value;
+
+    // Unsubscribe old listener if exists
+    if (subgroupFilterListener && typeof subgroupFilterListener === 'function') {
+        try {
+            subgroupFilterListener();
+        } catch (e) {
+            console.error("Error unsubscribing subgroup filter listener:", e);
+        }
+    }
+
     if (subgroupIDs.length === 0) {
         // User not in any subgroups, keep just club and global
+        const clubOption = dropdown.querySelector('option[value="club"]') || createOption('club', '🏠 Mein Verein');
+        const globalOption = dropdown.querySelector('option[value="global"]') || createOption('global', '🌍 Global');
+        dropdown.innerHTML = '';
+        dropdown.appendChild(clubOption);
+        dropdown.appendChild(globalOption);
+        dropdown.value = currentSelection || 'club';
         return;
     }
 
     try {
-        // Load subgroup names
-        const subgroupPromises = subgroupIDs.map(async (subgroupId) => {
-            try {
-                const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
-                if (subgroupDoc.exists()) {
-                    const data = subgroupDoc.data();
-                    return {
-                        id: subgroupId,
-                        name: data.name,
-                        isDefault: data.isDefault || false
-                    };
-                }
-                return null;
-            } catch (error) {
-                console.error(`Error loading subgroup ${subgroupId}:`, error);
-                return null;
+        // Setup real-time listener for all club subgroups
+        const q = query(
+            collection(db, 'subgroups'),
+            where('clubId', '==', userData.clubId),
+            orderBy('createdAt', 'asc')
+        );
+
+        subgroupFilterListener = onSnapshot(q, (snapshot) => {
+            const allSubgroups = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // Filter to only user's subgroups and exclude default
+            const userSubgroups = allSubgroups
+                .filter(sg => subgroupIDs.includes(sg.id) && !sg.isDefault);
+
+            // Update dropdown
+            const clubOption = createOption('club', '🏠 Mein Verein');
+            const globalOption = createOption('global', '🌍 Global');
+            dropdown.innerHTML = '';
+
+            // Add subgroup options first (if any)
+            if (userSubgroups.length > 0) {
+                userSubgroups.forEach(subgroup => {
+                    const option = createOption(`subgroup:${subgroup.id}`, `👥 ${subgroup.name}`);
+                    dropdown.appendChild(option);
+                });
             }
+
+            // Add club and global options
+            dropdown.appendChild(clubOption);
+            dropdown.appendChild(globalOption);
+
+            // Restore selection if still valid
+            const validValues = Array.from(dropdown.options).map(opt => opt.value);
+            if (validValues.includes(currentSelection)) {
+                dropdown.value = currentSelection;
+            } else {
+                dropdown.value = 'club';
+            }
+        }, (error) => {
+            console.error('Error in subgroup filter listener:', error);
         });
 
-        // Filter out null values and default "Hauptgruppe" to avoid confusion
-        // Only show specialized subgroups (U10, U13, etc.)
-        const subgroups = (await Promise.all(subgroupPromises))
-            .filter(sg => sg !== null && !sg.isDefault);
-
-        // Clear existing options except club and global
-        const clubOption = dropdown.querySelector('option[value="club"]');
-        const globalOption = dropdown.querySelector('option[value="global"]');
-        dropdown.innerHTML = '';
-
-        // Add subgroup options first (if any)
-        if (subgroups.length > 0) {
-            subgroups.forEach(subgroup => {
-                const option = document.createElement('option');
-                option.value = `subgroup:${subgroup.id}`;
-                option.textContent = `👥 ${subgroup.name}`;
-                dropdown.appendChild(option);
-            });
-        }
-
-        // Re-add club and global options
-        dropdown.appendChild(clubOption);
-        dropdown.appendChild(globalOption);
-
     } catch (error) {
-        console.error('Error populating subgroup filter:', error);
+        console.error('Error setting up subgroup filter listener:', error);
     }
+}
+
+/**
+ * Helper function to create option elements
+ */
+function createOption(value, text) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = text;
+    return option;
 }
 
 /**
@@ -293,6 +366,13 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
         }
     });
 
-    // Reload calendar with new filter
-    renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
+    // Reload calendar with new filter and proper listener management
+    if (calendarListener && typeof calendarListener === 'function') {
+        try {
+            calendarListener();
+        } catch (e) {
+            console.error("Error unsubscribing calendar listener:", e);
+        }
+    }
+    calendarListener = renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
 }
