@@ -359,15 +359,28 @@ export async function loadCoachMatchRequests(userData, db) {
 }
 
 /**
- * Renders match request cards for coach
+ * Renders match request cards for coach with "show more" functionality
  */
+let showAllCoachRequests = false; // State for showing all or limited
+
 function renderCoachRequestCards(requests, db) {
     const container = document.getElementById('coach-pending-requests-list');
     if (!container) return;
 
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+        showAllCoachRequests = false;
+        return;
+    }
+
     container.innerHTML = '';
 
-    requests.forEach(request => {
+    // Determine how many to show
+    const maxInitial = 3;
+    const requestsToShow = showAllCoachRequests ? requests : requests.slice(0, maxInitial);
+
+    // Render request cards
+    requestsToShow.forEach(request => {
         const card = document.createElement('div');
         card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
@@ -422,6 +435,26 @@ function renderCoachRequestCards(requests, db) {
 
         container.appendChild(card);
     });
+
+    // Add "Show more" / "Show less" button if needed
+    if (requests.length > maxInitial) {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'text-center mt-4';
+
+        const button = document.createElement('button');
+        button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
+        button.innerHTML = showAllCoachRequests
+            ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+            : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+        button.addEventListener('click', () => {
+            showAllCoachRequests = !showAllCoachRequests;
+            renderCoachRequestCards(requests, db);
+        });
+
+        buttonContainer.appendChild(button);
+        container.appendChild(buttonContainer);
+    }
 }
 
 /**
