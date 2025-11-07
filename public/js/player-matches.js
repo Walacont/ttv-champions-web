@@ -178,8 +178,9 @@ export function createSetScoreInput(container, existingSets = []) {
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   const myRequestsList = document.getElementById("my-match-requests-list");
   const incomingRequestsList = document.getElementById("incoming-match-requests-list");
+  const processedRequestsList = document.getElementById("processed-match-requests-list");
 
-  if (!myRequestsList || !incomingRequestsList) return;
+  if (!myRequestsList || !incomingRequestsList || !processedRequestsList) return;
 
   // Query for requests created by me (playerA)
   const myRequestsQuery = query(
@@ -188,11 +189,18 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     orderBy("createdAt", "desc")
   );
 
-  // Query for requests sent to me (playerB)
+  // Query for requests sent to me (playerB) - still pending
   const incomingRequestsQuery = query(
     collection(db, "matchRequests"),
     where("playerBId", "==", userData.id),
     where("status", "==", "pending_player"),
+    orderBy("createdAt", "desc")
+  );
+
+  // Query for requests I processed as playerB - no longer pending_player
+  const processedRequestsQuery = query(
+    collection(db, "matchRequests"),
+    where("playerBId", "==", userData.id),
     orderBy("createdAt", "desc")
   );
 
@@ -221,7 +229,21 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     updateMatchRequestBadge(requests.length);
   });
 
-  unsubscribes.push(myRequestsUnsubscribe, incomingRequestsUnsubscribe);
+  // Listen to processed requests
+  const processedRequestsUnsubscribe = onSnapshot(processedRequestsQuery, async (snapshot) => {
+    const requests = [];
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      // Only include requests that are NOT pending_player (i.e., already processed)
+      if (data.status !== "pending_player") {
+        requests.push({ id: docSnap.id, ...data });
+      }
+    }
+
+    await renderProcessedRequests(requests, userData, db);
+  });
+
+  unsubscribes.push(myRequestsUnsubscribe, incomingRequestsUnsubscribe, processedRequestsUnsubscribe);
 }
 
 /**
@@ -323,6 +345,55 @@ async function renderIncomingRequests(requests, userData, db) {
 }
 
 /**
+ * Renders processed match requests with "show more" functionality
+ */
+let showAllProcessedRequests = false; // State for showing all or limited
+
+async function renderProcessedRequests(requests, userData, db) {
+  const container = document.getElementById("processed-match-requests-list");
+  if (!container) return;
+
+  if (requests.length === 0) {
+    container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine bearbeiteten Anfragen</p>';
+    showAllProcessedRequests = false;
+    return;
+  }
+
+  container.innerHTML = "";
+
+  // Determine how many to show
+  const maxInitial = 3;
+  const requestsToShow = showAllProcessedRequests ? requests : requests.slice(0, maxInitial);
+
+  // Render request cards
+  for (const request of requestsToShow) {
+    const playerAData = await getUserData(request.playerAId, db);
+    const card = createProcessedRequestCard(request, playerAData, userData, db);
+    container.appendChild(card);
+  }
+
+  // Add "Show more" / "Show less" button if needed
+  if (requests.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllProcessedRequests
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllProcessedRequests = !showAllProcessedRequests;
+      renderProcessedRequests(requests, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
+  }
+}
+
+/**
  * Creates a card for my requests
  */
 function createMyRequestCard(request, playerB, userData, db) {
@@ -415,6 +486,89 @@ function createIncomingRequestCard(request, playerA, userData, db) {
   }
 
   return div;
+}
+
+/**
+ * Creates a card for processed requests (read-only)
+ */
+function createProcessedRequestCard(request, playerA, userData, db) {
+  const div = document.createElement("div");
+
+  // Different styling based on status
+  let borderColor = "border-gray-200";
+  if (request.status === "approved" || request.status === "pending_coach") {
+    borderColor = "border-green-200 bg-green-50";
+  } else if (request.status === "rejected") {
+    borderColor = "border-red-200 bg-red-50";
+  }
+
+  div.className = `bg-white border ${borderColor} rounded-lg p-4 shadow-sm`;
+
+  const setsDisplay = formatSetsDisplay(request.sets);
+  const winner = getWinner(request.sets, playerA, userData);
+  const statusBadge = getProcessedStatusBadge(request.status, request.approvals);
+
+  div.innerHTML = `
+    <div class="mb-3">
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex-1">
+          <p class="font-semibold text-gray-800">
+            ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
+          </p>
+          <p class="text-sm text-gray-600">${setsDisplay}</p>
+          <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
+          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+        </div>
+        ${statusBadge}
+      </div>
+      ${getStatusDescription(request.status, request.approvals)}
+    </div>
+  `;
+
+  return div;
+}
+
+/**
+ * Gets status badge for processed requests
+ */
+function getProcessedStatusBadge(status, approvals) {
+  if (status === "pending_coach") {
+    return '<span class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">⏳ Wartet auf Coach</span>';
+  }
+
+  if (status === "approved") {
+    return '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Genehmigt</span>';
+  }
+
+  if (status === "rejected") {
+    const rejectedBy = approvals?.playerB?.status === "rejected" ? "Von dir abgelehnt" : "Vom Coach abgelehnt";
+    return `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ ${rejectedBy}</span>`;
+  }
+
+  return "";
+}
+
+/**
+ * Gets status description text
+ */
+function getStatusDescription(status, approvals) {
+  if (status === "pending_coach") {
+    return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Du hast diese Anfrage akzeptiert. Wartet jetzt auf Coach-Genehmigung.</p>';
+  }
+
+  if (status === "approved") {
+    return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde vollständig genehmigt und das Match wurde erstellt.</p>';
+  }
+
+  if (status === "rejected") {
+    if (approvals?.playerB?.status === "rejected") {
+      return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Du hast diese Anfrage abgelehnt.</p>';
+    } else {
+      return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Anfrage wurde vom Coach abgelehnt.</p>';
+    }
+  }
+
+  return "";
 }
 
 /**
