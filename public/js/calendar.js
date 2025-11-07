@@ -33,19 +33,20 @@ export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90
 }
 
 /**
- * Renders the attendance calendar for a player
+ * Renders the attendance calendar for a player with real-time updates
  * @param {Date} date - Date to render
  * @param {Object} currentUserData - Current user data
  * @param {Object} db - Firestore database instance
  * @param {string} subgroupFilter - Subgroup filter ('club', 'global', or subgroupId)
+ * @returns {Function} Unsubscribe function for the listener
  */
-export async function renderCalendar(date, currentUserData, db, subgroupFilter = 'club') {
+export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club') {
     const calendarGrid = document.getElementById('calendar-grid');
     const calendarMonthYear = document.getElementById('calendar-month-year');
     const statsMonthName = document.getElementById('stats-month-name');
     const statsTrainingDays = document.getElementById('stats-training-days');
 
-    if (!calendarGrid || !calendarMonthYear) return;
+    if (!calendarGrid || !calendarMonthYear) return () => {};
 
     calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8">Lade Anwesenheitsdaten...</div>';
 
@@ -55,64 +56,104 @@ export async function renderCalendar(date, currentUserData, db, subgroupFilter =
     calendarMonthYear.textContent = `${monthName} ${year}`;
     if (statsMonthName) statsMonthName.textContent = monthName;
 
-    const allClubTrainings = await getClubAttendanceForPeriod(currentUserData.clubId, db);
+    // Setup real-time listener for attendance data
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 90);
+    const startString = cutoffDate.toISOString().split('T')[0];
 
-    // Filter trainings by subgroup if a specific subgroup is selected
-    let filteredTrainings = allClubTrainings;
-    if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-        // Filter to only show trainings for the selected subgroup
-        filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
-    }
+    const q = query(
+        collection(db, 'attendance'),
+        where('clubId', '==', currentUserData.clubId),
+        where('date', '>=', startString),
+        orderBy('date', 'desc')
+    );
 
-    const presentDatesSet = new Set();
-    filteredTrainings.forEach(training => {
-        if (training.presentPlayerIds.includes(currentUserData.id)) {
-            presentDatesSet.add(training.date);
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const allClubTrainings = querySnapshot.docs.map(doc => doc.data());
+
+        // Filter trainings by subgroup if a specific subgroup is selected
+        let filteredTrainings = allClubTrainings;
+        if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+            // Filter to only show trainings for the selected subgroup
+            filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
         }
+
+        // Get all trainings for the player's subgroups (for missed training detection)
+        const userSubgroups = currentUserData.subgroupIDs || [];
+        const relevantTrainings = allClubTrainings.filter(training => {
+            // If no subgroups assigned, all trainings are relevant
+            if (userSubgroups.length === 0) return true;
+            // Otherwise, only trainings for the player's subgroups are relevant
+            return training.subgroupId && userSubgroups.includes(training.subgroupId);
+        });
+
+        const presentDatesSet = new Set();
+        const missedDatesSet = new Set();
+
+        filteredTrainings.forEach(training => {
+            if (training.presentPlayerIds.includes(currentUserData.id)) {
+                presentDatesSet.add(training.date);
+            }
+        });
+
+        // Identify missed trainings (relevant trainings where player was not present)
+        relevantTrainings.forEach(training => {
+            if (!training.presentPlayerIds.includes(currentUserData.id)) {
+                missedDatesSet.add(training.date);
+            }
+        });
+
+        const trainingDaysThisMonth = Array.from(presentDatesSet).filter(d => {
+            const trainingDate = new Date(d + 'T12:00:00');
+            return trainingDate.getMonth() === month && trainingDate.getFullYear() === year;
+        }).length;
+        if (statsTrainingDays) statsTrainingDays.textContent = trainingDaysThisMonth;
+
+        const streakDates = new Set();
+        for (const training of filteredTrainings) {
+            if (presentDatesSet.has(training.date)) {
+                streakDates.add(training.date);
+            } else {
+                break; // Streak is broken
+            }
+        }
+
+        const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        calendarGrid.innerHTML = '';
+
+        for (let i = 0; i < firstDayOfWeek; i++) {
+            calendarGrid.appendChild(document.createElement('div'));
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = 'h-10 w-10 flex items-center justify-center rounded-full border-2 border-transparent';
+            dayDiv.textContent = day;
+
+            const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            if (streakDates.has(dateString)) {
+                dayDiv.classList.add('calendar-day-streak');
+            } else if (presentDatesSet.has(dateString)) {
+                dayDiv.classList.add('calendar-day-present');
+            } else if (missedDatesSet.has(dateString)) {
+                // Missed training - mark in red
+                dayDiv.classList.add('calendar-day-missed');
+            }
+
+            if (new Date(year, month, day).toDateString() === new Date().toDateString()) {
+                dayDiv.classList.add('ring-2', 'ring-indigo-500');
+            }
+            calendarGrid.appendChild(dayDiv);
+        }
+    }, (error) => {
+        console.error("Fehler beim Laden der Anwesenheitsdaten:", error);
+        calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8 text-red-500">Fehler beim Laden der Daten</div>';
     });
 
-    const trainingDaysThisMonth = Array.from(presentDatesSet).filter(d => {
-        const trainingDate = new Date(d + 'T12:00:00'); // Use a fixed time to avoid timezone issues
-        return trainingDate.getMonth() === month && trainingDate.getFullYear() === year;
-    }).length;
-    if (statsTrainingDays) statsTrainingDays.textContent = trainingDaysThisMonth;
-
-    const streakDates = new Set();
-    for (const training of filteredTrainings) { // Already sorted descending, use filtered trainings
-        if (presentDatesSet.has(training.date)) {
-            streakDates.add(training.date);
-        } else {
-            break; // Streak is broken
-        }
-    }
-
-    const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    calendarGrid.innerHTML = '';
-
-    for (let i = 0; i < firstDayOfWeek; i++) {
-        calendarGrid.appendChild(document.createElement('div'));
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dayDiv = document.createElement('div');
-        dayDiv.className = 'h-10 w-10 flex items-center justify-center rounded-full border-2 border-transparent';
-        dayDiv.textContent = day;
-
-        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-        if (streakDates.has(dateString)) {
-            dayDiv.classList.add('calendar-day-streak');
-        } else if (presentDatesSet.has(dateString)) {
-            dayDiv.classList.add('calendar-day-present');
-        }
-
-        if (new Date(year, month, day).toDateString() === new Date().toDateString()) {
-            dayDiv.classList.add('ring-2', 'ring-indigo-500');
-        }
-        calendarGrid.appendChild(dayDiv);
-    }
+    return unsubscribe;
 }
 
 /**

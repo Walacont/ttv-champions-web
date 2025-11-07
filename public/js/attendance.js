@@ -117,6 +117,340 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 }
 
 /**
+ * Finds the original attendance points awarded to a player on a specific date
+ * Simple approach: Load recent history and sum all POSITIVE attendance entries for this date
+ * @param {string} playerId - Player ID
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @param {string} subgroupName - Subgroup name to match in history (for logging only)
+ * @param {Object} db - Firestore database instance
+ * @param {string} subgroupId - Subgroup ID for precise matching
+ * @returns {Promise<number>} Points to deduct (defaults to 10 if not found)
+ */
+async function findOriginalAttendancePoints(playerId, date, subgroupName, db, subgroupId) {
+    try {
+        console.log(`[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`);
+
+        // Load recent history entries (no complex query to avoid index issues)
+        const historyQuery = query(
+            collection(db, `users/${playerId}/pointsHistory`),
+            orderBy('timestamp', 'desc'),
+            limit(100)
+        );
+
+        const historySnapshot = await getDocs(historyQuery);
+        console.log(`[findOriginalAttendancePoints] Loaded ${historySnapshot.size} recent history entries`);
+
+        let totalPositivePoints = 0;
+        let foundEntries = 0;
+
+        // Find all POSITIVE attendance entries for this date and subgroup
+        historySnapshot.forEach(historyDoc => {
+            const historyData = historyDoc.data();
+
+            // Check if this is a positive attendance entry (not a correction)
+            if (historyData.points > 0 &&
+                historyData.reason &&
+                historyData.reason.includes('Anwesenheit beim Training')) {
+
+                let matchesDate = false;
+                let matchesSubgroup = false;
+
+                // Check if date matches (try stored field first, then extract from timestamp)
+                if (historyData.date === date) {
+                    matchesDate = true;
+                } else if (historyData.timestamp) {
+                    const entryDate = historyData.timestamp.toDate();
+                    const year = entryDate.getFullYear();
+                    const month = String(entryDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(entryDate.getDate()).padStart(2, '0');
+                    const entryDateString = `${year}-${month}-${day}`;
+                    if (entryDateString === date) {
+                        matchesDate = true;
+                    }
+                }
+
+                // Check if subgroup matches (try stored field first, then name in reason)
+                if (historyData.subgroupId === subgroupId) {
+                    matchesSubgroup = true;
+                } else if (historyData.reason.includes(subgroupName)) {
+                    matchesSubgroup = true;
+                }
+
+                if (matchesDate && matchesSubgroup) {
+                    console.log(`[findOriginalAttendancePoints] Found entry: ${historyData.reason}, points: ${historyData.points}`);
+                    totalPositivePoints += historyData.points;
+                    foundEntries++;
+                }
+            }
+        });
+
+        if (foundEntries > 0) {
+            console.log(`[findOriginalAttendancePoints] ✓ Found ${foundEntries} positive entries, total: ${totalPositivePoints} points`);
+            return totalPositivePoints;
+        }
+
+        // If not found, return base points
+        console.warn(`[findOriginalAttendancePoints] ✗ No positive attendance entries found for ${date}/${subgroupName}, defaulting to 10`);
+        return 10;
+    } catch (error) {
+        console.error('[findOriginalAttendancePoints] Error:', error);
+        return 10;
+    }
+}
+
+/**
+ * Recalculates all subsequent training days after a removal
+ * This is necessary because removing a day affects the streak count of all future days
+ * @param {string} playerId - Player ID
+ * @param {string} removedDate - Date that was removed (YYYY-MM-DD)
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ * @param {Object} batch - Firestore batch
+ * @param {string} subgroupName - Subgroup name for history entries
+ */
+async function recalculateSubsequentDays(playerId, removedDate, subgroupId, clubId, db, batch, subgroupName) {
+    const ATTENDANCE_POINTS_BASE = 10;
+
+    try {
+        console.log(`[recalculateSubsequentDays] Starting recalculation for player ${playerId} after ${removedDate}`);
+
+        // Find all training days AFTER the removed date for this subgroup
+        const subsequentTrainingsQuery = query(
+            collection(db, 'attendance'),
+            where('clubId', '==', clubId),
+            where('subgroupId', '==', subgroupId),
+            where('date', '>', removedDate),
+            orderBy('date', 'asc')
+        );
+
+        const subsequentSnapshot = await getDocs(subsequentTrainingsQuery);
+        console.log(`[recalculateSubsequentDays] Found ${subsequentSnapshot.size} training days after ${removedDate}`);
+
+        // Filter to only days where this player was present
+        const playerPresentDays = [];
+        subsequentSnapshot.forEach(trainingDoc => {
+            const trainingData = trainingDoc.data();
+            if (trainingData.presentPlayerIds && trainingData.presentPlayerIds.includes(playerId)) {
+                playerPresentDays.push(trainingData.date);
+            }
+        });
+
+        console.log(`[recalculateSubsequentDays] Player was present on ${playerPresentDays.length} subsequent days: ${playerPresentDays.join(', ')}`);
+
+        if (playerPresentDays.length === 0) {
+            console.log(`[recalculateSubsequentDays] No subsequent days to recalculate`);
+            return;
+        }
+
+        // Get all trainings in chronological order (to calculate streaks correctly)
+        const allTrainingsQuery = query(
+            collection(db, 'attendance'),
+            where('clubId', '==', clubId),
+            where('subgroupId', '==', subgroupId),
+            orderBy('date', 'asc')
+        );
+
+        const allTrainingsSnapshot = await getDocs(allTrainingsQuery);
+        const allTrainingDates = allTrainingsSnapshot.docs
+            .map(doc => doc.data())
+            .filter(training => training.presentPlayerIds && training.presentPlayerIds.includes(playerId))
+            .map(training => training.date)
+            .sort();
+
+        console.log(`[recalculateSubsequentDays] All training dates (player present): ${allTrainingDates.join(', ')}`);
+
+        // Get ALL trainings for this subgroup (to check for gaps)
+        const allSubgroupTrainings = allTrainingsSnapshot.docs
+            .map(doc => ({ date: doc.data().date, presentPlayerIds: doc.data().presentPlayerIds }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        // For each subsequent day where player was present, recalculate
+        for (const currentDate of playerPresentDays) {
+            // Calculate what the streak SHOULD be for this date
+            // We need to count backwards from currentDate and check for consecutive attendance
+            let newStreak = 1;
+
+            // Find index of current date in ALL trainings (not just player's)
+            const currentIndex = allSubgroupTrainings.findIndex(t => t.date === currentDate);
+
+            // Count backwards - player must have been present at EVERY previous training
+            for (let i = currentIndex - 1; i >= 0; i--) {
+                const training = allSubgroupTrainings[i];
+
+                if (training.presentPlayerIds && training.presentPlayerIds.includes(playerId)) {
+                    // Player was present - streak continues
+                    newStreak++;
+                } else {
+                    // Player was NOT present - streak is broken
+                    break;
+                }
+            }
+
+            console.log(`[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`);
+
+            // Calculate NEW points based on new streak
+            let newPoints = ATTENDANCE_POINTS_BASE;
+            if (newStreak >= 5) {
+                newPoints = 20;
+            } else if (newStreak >= 3) {
+                newPoints = 15;
+            }
+
+            // Find OLD points that were awarded
+            const oldPoints = await findOriginalAttendancePoints(playerId, currentDate, subgroupName, db, subgroupId);
+
+            console.log(`[recalculateSubsequentDays] Date ${currentDate}: old points = ${oldPoints}, new points = ${newPoints}`);
+
+            // If points changed, create correction entry
+            if (oldPoints !== newPoints) {
+                const pointsDifference = newPoints - oldPoints;
+
+                console.log(`[recalculateSubsequentDays] Adjusting ${pointsDifference} points for ${currentDate}`);
+
+                // Update player's points and XP
+                const playerRef = doc(db, 'users', playerId);
+                batch.update(playerRef, {
+                    points: increment(pointsDifference),
+                    xp: increment(pointsDifference)
+                });
+
+                // Create history entry for the correction
+                const historyRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                batch.set(historyRef, {
+                    points: pointsDifference,
+                    xp: pointsDifference,
+                    eloChange: 0,
+                    reason: `Anwesenheit neu berechnet (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
+                    date: currentDate,
+                    subgroupId: subgroupId,
+                    timestamp: serverTimestamp(),
+                    awardedBy: "System (Neuberechnung)"
+                });
+
+                // XP history
+                const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
+                batch.set(xpHistoryRef, {
+                    xp: pointsDifference,
+                    reason: `Anwesenheit neu berechnet (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
+                    date: currentDate,
+                    subgroupId: subgroupId,
+                    timestamp: serverTimestamp(),
+                    awardedBy: "System (Neuberechnung)"
+                });
+            }
+
+            // Always update the streak count for the latest day (to keep it in sync)
+            if (currentDate === playerPresentDays[playerPresentDays.length - 1]) {
+                const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
+                batch.set(streakRef, {
+                    count: newStreak,
+                    subgroupId: subgroupId,
+                    lastUpdated: serverTimestamp()
+                });
+                console.log(`[recalculateSubsequentDays] Updated streak subcollection: ${newStreak}`);
+            }
+        }
+
+        console.log(`[recalculateSubsequentDays] Recalculation complete`);
+
+    } catch (error) {
+        console.error('[recalculateSubsequentDays] Error during recalculation:', error);
+        // Don't throw - let the main operation continue even if recalculation fails
+    }
+}
+
+/**
+ * Updates the streak subcollection after removing a day
+ * This ensures the streak reflects the actual consecutive attendance
+ * @param {string} playerId - Player ID
+ * @param {string} removedDate - Date that was removed (YYYY-MM-DD)
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ * @param {Object} batch - Firestore batch
+ */
+async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubId, db, batch) {
+    try {
+        console.log(`[updateStreakAfterRemoval] Calculating new streak for player ${playerId} after removing ${removedDate}`);
+
+        // Get all trainings for this subgroup (in order)
+        const allTrainingsQuery = query(
+            collection(db, 'attendance'),
+            where('clubId', '==', clubId),
+            where('subgroupId', '==', subgroupId),
+            orderBy('date', 'desc')
+        );
+
+        const allTrainingsSnapshot = await getDocs(allTrainingsQuery);
+
+        // Get all trainings WITH present status
+        const allTrainings = allTrainingsSnapshot.docs
+            .map(doc => ({
+                date: doc.data().date,
+                presentPlayerIds: doc.data().presentPlayerIds || []
+            }))
+            .sort((a, b) => b.date.localeCompare(a.date)); // Sort descending (newest first)
+
+        // Find the MOST RECENT training where player was present
+        let latestPresentDate = null;
+        for (const training of allTrainings) {
+            if (training.presentPlayerIds.includes(playerId)) {
+                latestPresentDate = training.date;
+                break;
+            }
+        }
+
+        if (!latestPresentDate) {
+            // Player has no remaining attendance records - set streak to 0
+            console.log(`[updateStreakAfterRemoval] No remaining attendance records, setting streak to 0`);
+            const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
+            batch.set(streakRef, {
+                count: 0,
+                subgroupId: subgroupId,
+                lastUpdated: serverTimestamp()
+            });
+            return;
+        }
+
+        console.log(`[updateStreakAfterRemoval] Latest present date: ${latestPresentDate}`);
+
+        // Calculate streak for the latest present date
+        // Sort all trainings in ascending order for streak calculation
+        const sortedTrainings = [...allTrainings].sort((a, b) => a.date.localeCompare(b.date));
+
+        // Find index of latest present date
+        const latestIndex = sortedTrainings.findIndex(t => t.date === latestPresentDate);
+        let streak = 1;
+
+        // Count backwards from latest date
+        for (let i = latestIndex - 1; i >= 0; i--) {
+            const training = sortedTrainings[i];
+            if (training.presentPlayerIds.includes(playerId)) {
+                streak++;
+            } else {
+                // Gap found - streak breaks
+                break;
+            }
+        }
+
+        console.log(`[updateStreakAfterRemoval] Calculated streak: ${streak} for date ${latestPresentDate}`);
+
+        // Update streak subcollection
+        const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
+        batch.set(streakRef, {
+            count: streak,
+            subgroupId: subgroupId,
+            lastUpdated: serverTimestamp()
+        });
+
+    } catch (error) {
+        console.error('[updateStreakAfterRemoval] Error:', error);
+        // Don't throw - let the main operation continue
+    }
+}
+
+/**
  * Checks if a player is present in other subgroups on a specific date
  * @param {string} playerId - Player ID
  * @param {string} date - Date string (YYYY-MM-DD)
@@ -311,15 +645,25 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             previousTrainingPresentIds = previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
         }
 
-        // Update/create attendance document for this day and subgroup
+        // Handle attendance document: delete if empty, create/update otherwise
         const attendanceRef = docId ? doc(db, 'attendance', docId) : doc(attendanceColl);
-        batch.set(attendanceRef, {
-            date,
-            clubId: currentUserData.clubId,
-            subgroupId: currentSubgroupFilter,
-            presentPlayerIds,
-            updatedAt: serverTimestamp()
-        }, { merge: true });
+
+        if (presentPlayerIds.length === 0) {
+            // If no players are present and an attendance entry exists, delete it
+            if (docId) {
+                batch.delete(attendanceRef);
+            }
+            // If no entry exists and no players present, we don't need to do anything
+        } else {
+            // Update/create attendance document for this day and subgroup
+            batch.set(attendanceRef, {
+                date,
+                clubId: currentUserData.clubId,
+                subgroupId: currentSubgroupFilter,
+                presentPlayerIds,
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        }
 
         // Process EVERY player in the club and update their subgroup-specific streak and points
         // Filter to only process players who are members of this subgroup
@@ -379,6 +723,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         xp: pointsToAdd, // Track XP change (same as points for attendance)
                         eloChange: 0, // No Elo change for attendance
                         reason,
+                        date: date, // Store date for easier lookup when correcting
+                        subgroupId: currentSubgroupFilter, // Store subgroup ID for precise matching
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -388,6 +734,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     batch.set(xpHistoryRef, {
                         xp: pointsToAdd,
                         reason,
+                        date: date, // Store date for easier lookup
+                        subgroupId: currentSubgroupFilter,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -395,26 +743,51 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             }
             // CASE 2: Player is NOT present today
             else {
-                // Reset the streak for this subgroup to 0 for absent players
-                batch.set(streakRef, {
-                    count: 0,
-                    subgroupId: currentSubgroupFilter,
-                    lastUpdated: serverTimestamp()
-                });
-
-                // If coach unchecked the player for this day, deduct base points
+                // If coach unchecked the player for this day, deduct the originally awarded points
                 if (wasPresentPreviouslyOnThisDay) {
-                    batch.update(playerRef, { points: increment(-ATTENDANCE_POINTS_BASE) });
-                    // Optional: Create negative entry in history
+                    // Find the original points awarded for this date by searching pointsHistory
+                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db, currentSubgroupFilter);
+
+                    // Deduct both points and XP
+                    batch.update(playerRef, {
+                        points: increment(-pointsToDeduct),
+                        xp: increment(-pointsToDeduct)
+                    });
+
+                    // Create negative entry in history
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
-                        points: -ATTENDANCE_POINTS_BASE,
-                        xp: -ATTENDANCE_POINTS_BASE, // Track XP change
-                        eloChange: 0, // No Elo change
-                        reason: "Anwesenheit korrigiert (abgemeldet)",
+                        points: -pointsToDeduct,
+                        xp: -pointsToDeduct,
+                        eloChange: 0,
+                        reason: `Anwesenheit korrigiert (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
+                        date: date, // Store date for tracking
+                        subgroupId: currentSubgroupFilter,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
+
+                    // Track XP deduction in xpHistory as well
+                    const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
+                    batch.set(xpHistoryRef, {
+                        xp: -pointsToDeduct,
+                        reason: `Anwesenheit korrigiert (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
+                        date: date, // Store date for tracking
+                        subgroupId: currentSubgroupFilter,
+                        timestamp: serverTimestamp(),
+                        awardedBy: "System (Anwesenheit)"
+                    });
+
+                    // IMPORTANT: Recalculate all subsequent training days
+                    // When we remove a day, all future days need to be recalculated
+                    // because their streaks might have changed
+                    console.log(`[Attendance] Recalculating subsequent days for player ${player.id} after removing ${date}`);
+                    await recalculateSubsequentDays(player.id, date, currentSubgroupFilter, currentUserData.clubId, db, batch, subgroupName);
+
+                    // IMPORTANT: Update the streak subcollection
+                    // If we removed the last day, recalculateSubsequentDays won't update the streak
+                    // So we need to calculate the correct streak based on remaining trainings
+                    await updateStreakAfterRemoval(player.id, date, currentSubgroupFilter, currentUserData.clubId, db, batch);
                 }
             }
         }
