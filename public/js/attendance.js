@@ -117,6 +117,58 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 }
 
 /**
+ * Finds the original attendance points awarded to a player on a specific date
+ * @param {string} playerId - Player ID
+ * @param {string} date - Date string (YYYY-MM-DD)
+ * @param {string} subgroupName - Subgroup name to match in history
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<number>} Points to deduct (defaults to 10 if not found)
+ */
+async function findOriginalAttendancePoints(playerId, date, subgroupName, db) {
+    try {
+        // Query pointsHistory for entries from this date for this subgroup
+        const historyQuery = query(
+            collection(db, `users/${playerId}/pointsHistory`),
+            orderBy('timestamp', 'desc')
+        );
+
+        const historySnapshot = await getDocs(historyQuery);
+
+        // Parse the date to compare (attendance entries are created on the same day)
+        const targetDate = new Date(date + 'T00:00:00');
+        const targetDateStart = new Date(targetDate);
+        targetDateStart.setHours(0, 0, 0, 0);
+        const targetDateEnd = new Date(targetDate);
+        targetDateEnd.setHours(23, 59, 59, 999);
+
+        // Find the matching attendance entry
+        for (const historyDoc of historySnapshot.docs) {
+            const historyData = historyDoc.data();
+
+            // Check if this is an attendance entry for the target subgroup
+            if (historyData.reason &&
+                historyData.reason.includes('Anwesenheit beim Training') &&
+                historyData.reason.includes(subgroupName) &&
+                historyData.points > 0) { // Only positive entries (not corrections)
+
+                // Check if timestamp matches the date
+                const entryDate = historyData.timestamp?.toDate();
+                if (entryDate && entryDate >= targetDateStart && entryDate <= targetDateEnd) {
+                    return historyData.points; // Return the original points awarded
+                }
+            }
+        }
+
+        // If not found, return base points
+        console.warn(`Could not find original attendance points for player ${playerId} on ${date}, defaulting to 10`);
+        return 10;
+    } catch (error) {
+        console.error('Error finding original attendance points:', error);
+        return 10; // Default to base points
+    }
+}
+
+/**
  * Checks if a player is present in other subgroups on a specific date
  * @param {string} playerId - Player ID
  * @param {string} date - Date string (YYYY-MM-DD)
@@ -402,16 +454,33 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     lastUpdated: serverTimestamp()
                 });
 
-                // If coach unchecked the player for this day, deduct base points
+                // If coach unchecked the player for this day, deduct the originally awarded points
                 if (wasPresentPreviouslyOnThisDay) {
-                    batch.update(playerRef, { points: increment(-ATTENDANCE_POINTS_BASE) });
-                    // Optional: Create negative entry in history
+                    // Find the original points awarded for this date by searching pointsHistory
+                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db);
+
+                    // Deduct both points and XP
+                    batch.update(playerRef, {
+                        points: increment(-pointsToDeduct),
+                        xp: increment(-pointsToDeduct)
+                    });
+
+                    // Create negative entry in history
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
                     batch.set(historyRef, {
-                        points: -ATTENDANCE_POINTS_BASE,
-                        xp: -ATTENDANCE_POINTS_BASE, // Track XP change
-                        eloChange: 0, // No Elo change
-                        reason: "Anwesenheit korrigiert (abgemeldet)",
+                        points: -pointsToDeduct,
+                        xp: -pointsToDeduct,
+                        eloChange: 0,
+                        reason: `Anwesenheit korrigiert (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
+                        timestamp: serverTimestamp(),
+                        awardedBy: "System (Anwesenheit)"
+                    });
+
+                    // Track XP deduction in xpHistory as well
+                    const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
+                    batch.set(xpHistoryRef, {
+                        xp: -pointsToDeduct,
+                        reason: `Anwesenheit korrigiert (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
