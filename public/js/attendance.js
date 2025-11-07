@@ -10,6 +10,7 @@ import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, ser
 // Module state
 let monthlyAttendance = new Map();
 let currentSubgroupFilter = 'all'; // Current active subgroup filter
+let isRenderingAttendance = false; // Guard to prevent multiple simultaneous renders
 
 /**
  * Sets the current subgroup filter for attendance operations
@@ -175,97 +176,112 @@ async function checkPlayerInOtherSubgroups(playerId, date, currentSubgroupId, cl
 export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, updatePairingsButtonState, db, clubId) {
     const dayCell = e.target.closest('.calendar-day');
     if (!dayCell || dayCell.classList.contains('disabled')) return;
-    const date = dayCell.dataset.date;
-    const attendanceData = monthlyAttendance.get(date);
-    const modal = document.getElementById('attendance-modal');
-    document.getElementById('attendance-modal-date').textContent = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    document.getElementById('attendance-date-input').value = date;
-    document.getElementById('attendance-doc-id-input').value = attendanceData ? attendanceData.id : '';
 
-    const playerListContainer = document.getElementById('attendance-player-list');
-    playerListContainer.innerHTML = '';
-
-    // Show warning if "Alle" view is active
-    if (currentSubgroupFilter === 'all') {
-        playerListContainer.innerHTML = `
-            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                <p class="text-sm text-yellow-800 font-semibold">⚠️ Bitte wähle eine spezifische Untergruppe aus</p>
-                <p class="text-xs text-yellow-700 mt-1">Du kannst nur Anwesenheit für eine bestimmte Gruppe erfassen.</p>
-            </div>
-        `;
-        modal.classList.remove('hidden');
+    // Prevent multiple simultaneous executions
+    if (isRenderingAttendance) {
+        console.log('[Attendance Modal] Already rendering, skipping duplicate call');
         return;
     }
+    isRenderingAttendance = true;
 
-    console.log(`[Attendance Modal] Total players in clubPlayers: ${clubPlayers.length}`);
-    console.log(`[Attendance Modal] Current subgroup filter: ${currentSubgroupFilter}`);
+    try {
+        const date = dayCell.dataset.date;
+        const attendanceData = monthlyAttendance.get(date);
+        const modal = document.getElementById('attendance-modal');
+        document.getElementById('attendance-modal-date').textContent = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('attendance-date-input').value = date;
+        document.getElementById('attendance-doc-id-input').value = attendanceData ? attendanceData.id : '';
 
-    // Filter players: Only show players who are members of the current subgroup
-    const playersInCurrentSubgroup = clubPlayers.filter(player =>
-        player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-    );
+        const playerListContainer = document.getElementById('attendance-player-list');
 
-    console.log(`[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`);
-
-    // Deduplicate players by ID to prevent duplicates in the UI
-    const playersMap = new Map();
-    let dedupCount = 0;
-    playersInCurrentSubgroup.forEach(player => {
-        if (playersMap.has(player.id)) {
-            console.warn(`[Attendance Modal] Duplicate player ID found: ${player.firstName} ${player.lastName} (ID: ${player.id})`);
-            dedupCount++;
+        // Force clear the container - remove all children
+        while (playerListContainer.firstChild) {
+            playerListContainer.removeChild(playerListContainer.firstChild);
         }
-        playersMap.set(player.id, player);
-    });
-    const uniquePlayers = Array.from(playersMap.values());
 
-    console.log(`[Attendance Modal] Unique players after dedup: ${uniquePlayers.length} (removed ${dedupCount} duplicates)`);
+        console.log(`[Attendance Modal] Container cleared, checkboxes count: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
 
-    if (uniquePlayers.length === 0) {
-        playerListContainer.innerHTML = `
-            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                <p class="text-sm text-gray-600">Keine Spieler in dieser Gruppe gefunden.</p>
-                <p class="text-xs text-gray-500 mt-1">Weise Spieler im "Spieler verwalten"-Modal zu.</p>
-            </div>
-        `;
+        // Show warning if "Alle" view is active
+        if (currentSubgroupFilter === 'all') {
+            playerListContainer.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-yellow-800 font-semibold">⚠️ Bitte wähle eine spezifische Untergruppe aus</p>
+                    <p class="text-xs text-yellow-700 mt-1">Du kannst nur Anwesenheit für eine bestimmte Gruppe erfassen.</p>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            return;
+        }
+
+        console.log(`[Attendance Modal] Total players in clubPlayers: ${clubPlayers.length}`);
+        console.log(`[Attendance Modal] Current subgroup filter: ${currentSubgroupFilter}`);
+
+        // Filter players: Only show players who are members of the current subgroup
+        const playersInCurrentSubgroup = clubPlayers.filter(player =>
+            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        );
+
+        console.log(`[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`);
+
+        // Deduplicate players by ID to prevent duplicates in the UI
+        const playersMap = new Map();
+        let dedupCount = 0;
+        playersInCurrentSubgroup.forEach(player => {
+            if (playersMap.has(player.id)) {
+                console.warn(`[Attendance Modal] Duplicate player ID found: ${player.firstName} ${player.lastName} (ID: ${player.id})`);
+                dedupCount++;
+            }
+            playersMap.set(player.id, player);
+        });
+        const uniquePlayers = Array.from(playersMap.values());
+
+        console.log(`[Attendance Modal] Unique players after dedup: ${uniquePlayers.length} (removed ${dedupCount} duplicates)`);
+
+        if (uniquePlayers.length === 0) {
+            playerListContainer.innerHTML = `
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                    <p class="text-sm text-gray-600">Keine Spieler in dieser Gruppe gefunden.</p>
+                    <p class="text-xs text-gray-500 mt-1">Weise Spieler im "Spieler verwalten"-Modal zu.</p>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+            return;
+        }
+
+        // Render players with async check for other subgroup attendance
+        for (const player of uniquePlayers) {
+            const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
+
+            // Check if player is present in other subgroups on this date
+            const otherSubgroups = await checkPlayerInOtherSubgroups(player.id, date, currentSubgroupFilter, clubId, db);
+            const isInOtherSubgroup = otherSubgroups.length > 0;
+
+            const div = document.createElement('div');
+            // Apply special background color if player is in other subgroups
+            div.className = `flex items-center p-2 rounded-md ${isInOtherSubgroup ? 'bg-amber-50 border border-amber-200' : ''}`;
+            div.innerHTML = `
+                <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} ${isInOtherSubgroup ? 'disabled' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 ${isInOtherSubgroup ? 'opacity-50 cursor-not-allowed' : ''}">
+                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium ${isInOtherSubgroup ? 'text-gray-400' : 'text-gray-700'}">${player.firstName} ${player.lastName}</label>
+                ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔒 Bereits in ${otherSubgroups.join(', ')}</span>` : ''}
+                ${!isInOtherSubgroup && !player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
+            `;
+            playerListContainer.appendChild(div);
+        }
+
+        console.log(`[Attendance Modal] Rendered ${uniquePlayers.length} players in the attendance list`);
+        console.log(`[Attendance Modal] Total checkboxes in DOM: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
+
         modal.classList.remove('hidden');
-        return;
-    }
 
-    // Render players with async check for other subgroup attendance
-    for (const player of uniquePlayers) {
-        const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
-
-        // Check if player is present in other subgroups on this date
-        const otherSubgroups = await checkPlayerInOtherSubgroups(player.id, date, currentSubgroupFilter, clubId, db);
-        const isInOtherSubgroup = otherSubgroups.length > 0;
-
-        const div = document.createElement('div');
-        // Apply special background color if player is in other subgroups
-        div.className = `flex items-center p-2 rounded-md ${isInOtherSubgroup ? 'bg-amber-50 border border-amber-200' : ''}`;
-        div.innerHTML = `
-            <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} ${isInOtherSubgroup ? 'disabled' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 ${isInOtherSubgroup ? 'opacity-50 cursor-not-allowed' : ''}">
-            <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium ${isInOtherSubgroup ? 'text-gray-400' : 'text-gray-700'}">${player.firstName} ${player.lastName}</label>
-            ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔒 Bereits in ${otherSubgroups.join(', ')}</span>` : ''}
-            ${!isInOtherSubgroup && !player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
-        `;
-        playerListContainer.appendChild(div);
-    }
-
-    console.log(`[Attendance Modal] Rendered ${uniquePlayers.length} players in the attendance list`);
-    console.log(`[Attendance Modal] Total checkboxes in DOM: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
-
-    // Event Listener für Zähler und Paarungs-Button hinzufügen
-    playerListContainer.addEventListener('change', () => {
+        // Initialen Zustand für Zähler und Button setzen
         updateAttendanceCount();
         updatePairingsButtonState();
-    });
-
-    modal.classList.remove('hidden');
-
-    // Initialen Zustand für Zähler und Button setzen
-    updateAttendanceCount();
-    updatePairingsButtonState();
+    } catch (error) {
+        console.error('[Attendance Modal] Error rendering attendance:', error);
+    } finally {
+        // Always release the guard
+        isRenderingAttendance = false;
+    }
 }
 
 /**
