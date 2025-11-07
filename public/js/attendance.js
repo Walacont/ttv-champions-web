@@ -536,7 +536,14 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
     );
 
-    if (playersInCurrentSubgroup.length === 0) {
+    // Deduplicate players by ID to prevent duplicates in the UI
+    const playersMap = new Map();
+    playersInCurrentSubgroup.forEach(player => {
+        playersMap.set(player.id, player);
+    });
+    const uniquePlayers = Array.from(playersMap.values());
+
+    if (uniquePlayers.length === 0) {
         playerListContainer.innerHTML = `
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
                 <p class="text-sm text-gray-600">Keine Spieler in dieser Gruppe gefunden.</p>
@@ -548,7 +555,7 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
     }
 
     // Render players with async check for other subgroup attendance
-    for (const player of playersInCurrentSubgroup) {
+    for (const player of uniquePlayers) {
         const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
 
         // Check if player is present in other subgroups on this date
@@ -819,7 +826,35 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     const q = query(collection(db, 'users'), where('clubId', '==', clubId), where('role', '==', 'player'));
     onSnapshot(q, (snapshot) => {
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Use Map to prevent duplicate players
+        // Deduplicate by document ID first, then by email or name combination
+        const playersMap = new Map();
+        const seenIdentifiers = new Set();
+
+        snapshot.docs.forEach(doc => {
+            const playerData = { id: doc.id, ...doc.data() };
+
+            // Create unique identifier based on email or name combination
+            const emailKey = playerData.email?.toLowerCase()?.trim();
+            const nameKey = `${playerData.firstName?.toLowerCase()?.trim()}_${playerData.lastName?.toLowerCase()?.trim()}`;
+
+            // Skip if we've already seen this player (by email or name)
+            if (emailKey && seenIdentifiers.has(emailKey)) {
+                console.warn(`Duplicate player detected by email: ${playerData.email}`, playerData);
+                return;
+            }
+            if (seenIdentifiers.has(nameKey)) {
+                console.warn(`Duplicate player detected by name: ${playerData.firstName} ${playerData.lastName}`, playerData);
+                return;
+            }
+
+            // Add to map and tracking sets
+            playersMap.set(doc.id, playerData);
+            if (emailKey) seenIdentifiers.add(emailKey);
+            seenIdentifiers.add(nameKey);
+        });
+
+        const players = Array.from(playersMap.values());
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
         onPlayersLoaded(players);
     }, (error) => {
