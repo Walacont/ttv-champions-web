@@ -225,44 +225,100 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
 }
 
 /**
- * Renders my match requests
+ * Renders my match requests with "show more" functionality
  */
+let showAllMyRequests = false; // State for showing all or limited
+
 async function renderMyRequests(requests, userData, db) {
   const container = document.getElementById("my-match-requests-list");
   if (!container) return;
 
   if (requests.length === 0) {
     container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+    showAllMyRequests = false;
     return;
   }
 
   container.innerHTML = "";
 
-  for (const request of requests) {
+  // Determine how many to show
+  const maxInitial = 3;
+  const requestsToShow = showAllMyRequests ? requests : requests.slice(0, maxInitial);
+
+  // Render request cards
+  for (const request of requestsToShow) {
     const playerBData = await getUserData(request.playerBId, db);
     const card = createMyRequestCard(request, playerBData, userData, db);
     container.appendChild(card);
   }
+
+  // Add "Show more" / "Show less" button if needed
+  if (requests.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllMyRequests
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllMyRequests = !showAllMyRequests;
+      renderMyRequests(requests, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
+  }
 }
 
 /**
- * Renders incoming match requests
+ * Renders incoming match requests with "show more" functionality
  */
+let showAllIncomingRequests = false; // State for showing all or limited
+
 async function renderIncomingRequests(requests, userData, db) {
   const container = document.getElementById("incoming-match-requests-list");
   if (!container) return;
 
   if (requests.length === 0) {
     container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine neuen Anfragen</p>';
+    showAllIncomingRequests = false;
     return;
   }
 
   container.innerHTML = "";
 
-  for (const request of requests) {
+  // Determine how many to show
+  const maxInitial = 3;
+  const requestsToShow = showAllIncomingRequests ? requests : requests.slice(0, maxInitial);
+
+  // Render request cards
+  for (const request of requestsToShow) {
     const playerAData = await getUserData(request.playerAId, db);
     const card = createIncomingRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
+  }
+
+  // Add "Show more" / "Show less" button if needed
+  if (requests.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllIncomingRequests
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllIncomingRequests = !showAllIncomingRequests;
+      renderIncomingRequests(requests, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
   }
 }
 
