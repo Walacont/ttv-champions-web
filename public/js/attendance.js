@@ -118,6 +118,7 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
 
 /**
  * Finds the original attendance points awarded to a player on a specific date
+ * Simple approach: Load recent history and sum all POSITIVE attendance entries for this date
  * @param {string} playerId - Player ID
  * @param {string} date - Date string (YYYY-MM-DD)
  * @param {string} subgroupName - Subgroup name to match in history (for logging only)
@@ -129,93 +130,70 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
     try {
         console.log(`[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`);
 
-        // Query pointsHistory filtering by date and subgroup - much more efficient!
+        // Load recent history entries (no complex query to avoid index issues)
         const historyQuery = query(
             collection(db, `users/${playerId}/pointsHistory`),
-            where('date', '==', date),
-            where('subgroupId', '==', subgroupId),
             orderBy('timestamp', 'desc'),
-            limit(10) // Get last 10 entries for this date (should only be 1-2)
+            limit(100)
         );
 
         const historySnapshot = await getDocs(historyQuery);
+        console.log(`[findOriginalAttendancePoints] Loaded ${historySnapshot.size} recent history entries`);
 
-        console.log(`[findOriginalAttendancePoints] Found ${historySnapshot.size} entries for this date and subgroup`);
+        let totalPositivePoints = 0;
+        let foundEntries = 0;
 
-        // Find the FIRST positive entry (original award, not correction)
-        for (const historyDoc of historySnapshot.docs) {
+        // Find all POSITIVE attendance entries for this date and subgroup
+        historySnapshot.forEach(historyDoc => {
             const historyData = historyDoc.data();
 
-            console.log(`[findOriginalAttendancePoints] Entry: ${historyData.reason}, points: ${historyData.points}`);
-
-            // Look for positive attendance entry (not correction)
+            // Check if this is a positive attendance entry (not a correction)
             if (historyData.points > 0 &&
                 historyData.reason &&
                 historyData.reason.includes('Anwesenheit beim Training')) {
 
-                console.log(`[findOriginalAttendancePoints] ✓ Match found! Returning ${historyData.points} points`);
-                return historyData.points;
-            }
-        }
+                let matchesDate = false;
+                let matchesSubgroup = false;
 
-        // If not found, return base points
-        console.warn(`[findOriginalAttendancePoints] ✗ No positive attendance entry found for ${date}/${subgroupName}, defaulting to 10`);
-        return 10;
-    } catch (error) {
-        console.error('[findOriginalAttendancePoints] Error:', error);
-        // If query fails (e.g., no index), fall back to searching all entries
-        console.warn('[findOriginalAttendancePoints] Falling back to unfiltered search...');
-        return await findOriginalAttendancePointsFallback(playerId, date, subgroupName, db);
-    }
-}
-
-/**
- * Fallback method for finding attendance points (for backwards compatibility with old entries)
- */
-async function findOriginalAttendancePointsFallback(playerId, date, subgroupName, db) {
-    try {
-        const historyQuery = query(
-            collection(db, `users/${playerId}/pointsHistory`),
-            orderBy('timestamp', 'desc'),
-            limit(100) // Only check recent entries
-        );
-
-        const historySnapshot = await getDocs(historyQuery);
-
-        for (const historyDoc of historySnapshot.docs) {
-            const historyData = historyDoc.data();
-
-            if (historyData.reason &&
-                historyData.reason.includes('Anwesenheit beim Training') &&
-                historyData.reason.includes(subgroupName) &&
-                historyData.points > 0) {
-
-                // Try using stored date field first
+                // Check if date matches (try stored field first, then extract from timestamp)
                 if (historyData.date === date) {
-                    console.log(`[Fallback] Match found using stored date! Returning ${historyData.points} points`);
-                    return historyData.points;
-                }
-
-                // Otherwise extract from timestamp
-                const entryDate = historyData.timestamp?.toDate();
-                if (entryDate) {
+                    matchesDate = true;
+                } else if (historyData.timestamp) {
+                    const entryDate = historyData.timestamp.toDate();
                     const year = entryDate.getFullYear();
                     const month = String(entryDate.getMonth() + 1).padStart(2, '0');
                     const day = String(entryDate.getDate()).padStart(2, '0');
                     const entryDateString = `${year}-${month}-${day}`;
-
                     if (entryDateString === date) {
-                        console.log(`[Fallback] Match found using timestamp! Returning ${historyData.points} points`);
-                        return historyData.points;
+                        matchesDate = true;
                     }
                 }
+
+                // Check if subgroup matches (try stored field first, then name in reason)
+                if (historyData.subgroupId === subgroupId) {
+                    matchesSubgroup = true;
+                } else if (historyData.reason.includes(subgroupName)) {
+                    matchesSubgroup = true;
+                }
+
+                if (matchesDate && matchesSubgroup) {
+                    console.log(`[findOriginalAttendancePoints] Found entry: ${historyData.reason}, points: ${historyData.points}`);
+                    totalPositivePoints += historyData.points;
+                    foundEntries++;
+                }
             }
+        });
+
+        if (foundEntries > 0) {
+            console.log(`[findOriginalAttendancePoints] ✓ Found ${foundEntries} positive entries, total: ${totalPositivePoints} points`);
+            return totalPositivePoints;
         }
 
-        console.warn(`[Fallback] No match found, defaulting to 10`);
+        // If not found, return base points
+        console.warn(`[findOriginalAttendancePoints] ✗ No positive attendance entries found for ${date}/${subgroupName}, defaulting to 10`);
         return 10;
     } catch (error) {
-        console.error('[Fallback] Error:', error);
+        console.error('[findOriginalAttendancePoints] Error:', error);
         return 10;
     }
 }
