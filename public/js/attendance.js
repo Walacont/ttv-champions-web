@@ -134,14 +134,8 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db) {
 
         const historySnapshot = await getDocs(historyQuery);
 
-        // Parse the date to compare (attendance entries are created on the same day)
-        const targetDate = new Date(date + 'T00:00:00');
-        const targetDateStart = new Date(targetDate);
-        targetDateStart.setHours(0, 0, 0, 0);
-        const targetDateEnd = new Date(targetDate);
-        targetDateEnd.setHours(23, 59, 59, 999);
-
-        // Find the matching attendance entry
+        // Find the matching attendance entry by comparing date strings
+        // This is more reliable than time ranges due to timezone issues
         for (const historyDoc of historySnapshot.docs) {
             const historyData = historyDoc.data();
 
@@ -151,16 +145,27 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db) {
                 historyData.reason.includes(subgroupName) &&
                 historyData.points > 0) { // Only positive entries (not corrections)
 
-                // Check if timestamp matches the date
+                // Extract date string from timestamp (YYYY-MM-DD format)
                 const entryDate = historyData.timestamp?.toDate();
-                if (entryDate && entryDate >= targetDateStart && entryDate <= targetDateEnd) {
-                    return historyData.points; // Return the original points awarded
+                if (entryDate) {
+                    // Format as YYYY-MM-DD in local timezone
+                    const year = entryDate.getFullYear();
+                    const month = String(entryDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(entryDate.getDate()).padStart(2, '0');
+                    const entryDateString = `${year}-${month}-${day}`;
+
+                    console.log(`[findOriginalAttendancePoints] Comparing ${entryDateString} with ${date}, points: ${historyData.points}`);
+
+                    if (entryDateString === date) {
+                        console.log(`[findOriginalAttendancePoints] Match found! Returning ${historyData.points} points`);
+                        return historyData.points; // Return the original points awarded
+                    }
                 }
             }
         }
 
         // If not found, return base points
-        console.warn(`Could not find original attendance points for player ${playerId} on ${date}, defaulting to 10`);
+        console.warn(`[findOriginalAttendancePoints] Could not find original attendance points for player ${playerId} on ${date} (${subgroupName}), defaulting to 10`);
         return 10;
     } catch (error) {
         console.error('Error finding original attendance points:', error);
