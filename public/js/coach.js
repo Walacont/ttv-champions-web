@@ -9,7 +9,7 @@ import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLe
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, populateSubgroupDropdown } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
-import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests } from './matches.js';
+import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
@@ -171,6 +171,7 @@ async function initializeCoachPage(userData) {
 
     // Load coach match requests
     loadCoachMatchRequests(userData, db);
+    loadCoachProcessedRequests(userData, db);
 
     renderCalendar(currentCalendarDate, db, userData);
 

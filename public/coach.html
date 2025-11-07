@@ -113,8 +113,11 @@
 
         <div class="mb-6 border-b border-gray-200">
             <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="statistics">
+                    Statistik
+                </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="dashboard">
-                    Dashboard
+                    Rangliste
                 </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="attendance">
                     Kalender & Anwesenheit
@@ -130,9 +133,6 @@
                 </button>
                  <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="exercises">
                     Übungen
-                </button>
-                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="statistics">
-                    Statistik
                 </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="subgroups">
                     👥 Gruppen
@@ -161,20 +161,6 @@
 
             <div id="tab-content-matches" class="tab-content hidden">
                 <div class="space-y-8">
-                    <!-- Pending Match Requests Section -->
-                    <div class="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-semibold text-orange-800">
-                                <i class="fas fa-clock mr-2"></i> Ausstehende Spieler-Anfragen
-                            </h2>
-                            <span id="coach-match-request-badge" class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
-                        </div>
-                        <p class="text-sm text-orange-700 mb-4">Diese Matches wurden von Spielern gemeldet und warten auf deine Genehmigung.</p>
-                        <div id="coach-pending-requests-list" class="space-y-4">
-                            <p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
-                        </div>
-                    </div>
-
                     <!-- Coach Match Reporting Form -->
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
                         <h2 class="text-xl font-semibold mb-4">Wettkampf-Match melden (Coach)</h2>
@@ -496,6 +482,31 @@
 
             <div id="tab-content-statistics" class="tab-content hidden">
                 <div class="space-y-8">
+                    <!-- Pending Match Requests Section -->
+                    <div class="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 p-6 rounded-xl shadow-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-semibold text-orange-800">
+                                <i class="fas fa-clock mr-2"></i> Ausstehende Spieler-Anfragen
+                            </h2>
+                            <span id="coach-match-request-badge" class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                        </div>
+                        <p class="text-sm text-orange-700 mb-4">Diese Matches wurden von Spielern gemeldet und warten auf deine Genehmigung.</p>
+                        <div id="coach-pending-requests-list" class="space-y-4">
+                            <p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
+                        </div>
+                    </div>
+
+                    <!-- Processed Match Requests Section -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                            <i class="fas fa-history mr-2"></i> Eingegangene Anfragen
+                        </h2>
+                        <p class="text-sm text-gray-600 mb-4">Anfragen, die du bereits genehmigt oder abgelehnt hast.</p>
+                        <div id="coach-processed-requests-list" class="space-y-4">
+                            <p class="text-gray-500 text-center py-4">Keine bearbeiteten Anfragen</p>
+                        </div>
+                    </div>
+
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-2xl font-bold mb-6 flex items-center">
                             <span class="mr-3">📈</span> Trainings-Analyse

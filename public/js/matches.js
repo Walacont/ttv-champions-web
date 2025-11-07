@@ -359,6 +359,147 @@ export async function loadCoachMatchRequests(userData, db) {
 }
 
 /**
+ * Loads and renders processed match requests for coach (approved/rejected)
+ */
+export async function loadCoachProcessedRequests(userData, db) {
+    const container = document.getElementById('coach-processed-requests-list');
+    if (!container) return;
+
+    // Query for all requests that are no longer pending_coach
+    const requestsQuery = query(
+        collection(db, 'matchRequests'),
+        where('clubId', '==', userData.clubId),
+        orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(requestsQuery, async (snapshot) => {
+        const requests = [];
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+
+            // Only include requests that coach has processed (approved or rejected)
+            if (data.status === 'approved' || data.status === 'rejected') {
+                // Fetch player names
+                const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+                const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
+
+                requests.push({
+                    id: docSnap.id,
+                    ...data,
+                    playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+                });
+            }
+        }
+
+        renderCoachProcessedCards(requests, db);
+    });
+
+    return unsubscribe;
+}
+
+/**
+ * Renders processed match request cards for coach with "show more" functionality
+ */
+let showAllCoachProcessed = false; // State for showing all or limited
+
+function renderCoachProcessedCards(requests, db) {
+    const container = document.getElementById('coach-processed-requests-list');
+    if (!container) return;
+
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine bearbeiteten Anfragen</p>';
+        showAllCoachProcessed = false;
+        return;
+    }
+
+    container.innerHTML = '';
+
+    // Determine how many to show
+    const maxInitial = 3;
+    const requestsToShow = showAllCoachProcessed ? requests : requests.slice(0, maxInitial);
+
+    // Render request cards
+    requestsToShow.forEach(request => {
+        const card = document.createElement('div');
+
+        // Different styling based on status
+        let borderColor = 'border-gray-200';
+        if (request.status === 'approved') {
+            borderColor = 'border-green-200 bg-green-50';
+        } else if (request.status === 'rejected') {
+            borderColor = 'border-red-200 bg-red-50';
+        }
+
+        card.className = `bg-white border ${borderColor} rounded-lg p-4 shadow-sm`;
+
+        const playerAName = request.playerAData?.firstName || 'Unbekannt';
+        const playerBName = request.playerBData?.firstName || 'Unbekannt';
+        const setsDisplay = formatSetsForCoach(request.sets);
+        const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
+
+        const createdDate = request.createdAt?.toDate ?
+            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
+            'Unbekannt';
+
+        const statusBadge = request.status === 'approved' ?
+            '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Von dir genehmigt</span>' :
+            '<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von dir abgelehnt</span>';
+
+        const statusDescription = request.status === 'approved' ?
+            '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Du hast diese Anfrage genehmigt. Das Match wurde erstellt und verarbeitet.</p>' :
+            '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Du hast diese Anfrage abgelehnt.</p>';
+
+        card.innerHTML = `
+            <div class="mb-3">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800">
+                            ${playerAName} <span class="text-gray-500">vs</span> ${playerBName}
+                        </p>
+                        <p class="text-sm text-gray-600 mt-1">${setsDisplay}</p>
+                        <p class="text-sm font-medium text-indigo-700 mt-1">
+                            <i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}
+                        </p>
+                        ${request.handicapUsed ?
+                            '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' :
+                            ''
+                        }
+                    </div>
+                    <div class="text-right">
+                        ${statusBadge}
+                        <p class="text-xs text-gray-500 mt-1">${createdDate}</p>
+                    </div>
+                </div>
+                ${statusDescription}
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+
+    // Add "Show more" / "Show less" button if needed
+    if (requests.length > maxInitial) {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'text-center mt-4';
+
+        const button = document.createElement('button');
+        button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
+        button.innerHTML = showAllCoachProcessed
+            ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+            : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+        button.addEventListener('click', () => {
+            showAllCoachProcessed = !showAllCoachProcessed;
+            renderCoachProcessedCards(requests, db);
+        });
+
+        buttonContainer.appendChild(button);
+        container.appendChild(buttonContainer);
+    }
+}
+
+/**
  * Renders match request cards for coach with "show more" functionality
  */
 let showAllCoachRequests = false; // State for showing all or limited
