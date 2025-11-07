@@ -36,6 +36,12 @@
             position: relative;
             z-index: 10;
         }
+        .calendar-day-missed {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            border-color: #b91c1c; /* red-700 */
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -183,8 +189,10 @@
                                     <p id="stats-training-days" class="text-2xl font-bold text-indigo-600">0</p>
                                 </div>
                                  <div class="bg-gray-50 p-4 rounded-lg">
-                                    <p class="text-sm text-gray-500">Aktueller Streak</p>
-                                    <p id="stats-current-streak" class="text-2xl font-bold text-pink-600">0 🔥</p>
+                                    <p class="text-sm text-gray-500 mb-2">Deine Streaks</p>
+                                    <div id="stats-current-streak" class="space-y-1">
+                                        <p class="text-sm text-gray-400">Lade Streaks...</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

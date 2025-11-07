@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot, query, where, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, getDocs, getDoc, onSnapshot, query, where, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
 /**
@@ -263,46 +263,81 @@ export function updateGrundlagenDisplay(userData) {
 }
 
 /**
- * Loads profile data (streak and renders calendar)
+ * Loads profile data (streaks with real-time updates and renders calendar)
  * @param {Object} userData - User data
  * @param {Function} renderCalendarCallback - Callback to render calendar
  * @param {Date} currentDisplayDate - Current display date for calendar
  * @param {Object} db - Firestore database instance
+ * @returns {Function} Unsubscribe function for the streaks listener
  */
-export async function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
+export function loadProfileData(userData, renderCalendarCallback, currentDisplayDate, db) {
     const streakEl = document.getElementById('stats-current-streak');
 
-    // Load streaks from subcollection (per subgroup)
+    // Setup real-time listener for all streaks from subcollection
     if (streakEl && userData.id && db) {
-        try {
-            const streaksSnapshot = await getDocs(collection(db, `users/${userData.id}/streaks`));
+        const streaksQuery = collection(db, `users/${userData.id}/streaks`);
 
-            if (streaksSnapshot.empty) {
-                streakEl.innerHTML = `0 🔥`;
+        const streaksListener = onSnapshot(streaksQuery, async (snapshot) => {
+            if (snapshot.empty) {
+                streakEl.innerHTML = `<p class="text-sm text-gray-400">Noch keine Streaks</p>`;
             } else {
-                // Get all streaks and find the highest one
-                let maxStreak = 0;
+                // Get all streaks with subgroup names
+                const streaksWithNames = [];
 
-                streaksSnapshot.forEach(doc => {
-                    const streakData = doc.data();
+                for (const streakDoc of snapshot.docs) {
+                    const streakData = streakDoc.data();
+                    const subgroupId = streakDoc.id;
                     const count = streakData.count || 0;
-                    if (count > maxStreak) {
-                        maxStreak = count;
-                    }
-                });
 
-                // Display the highest streak
-                streakEl.innerHTML = `${maxStreak} 🔥`;
+                    // Load subgroup name
+                    let subgroupName = 'Unbekannte Gruppe';
+                    try {
+                        const subgroupDocRef = doc(db, 'subgroups', subgroupId);
+                        const subgroupDocSnap = await getDoc(subgroupDocRef);
+                        if (subgroupDocSnap.exists()) {
+                            subgroupName = subgroupDocSnap.data().name;
+                        }
+                    } catch (error) {
+                        console.error(`Error loading subgroup name for ${subgroupId}:`, error);
+                    }
+
+                    streaksWithNames.push({
+                        subgroupId,
+                        subgroupName,
+                        count
+                    });
+                }
+
+                // Sort by count (highest first)
+                streaksWithNames.sort((a, b) => b.count - a.count);
+
+                // Display all streaks
+                streakEl.innerHTML = streaksWithNames
+                    .map(streak => {
+                        const iconSize = streak.count >= 10 ? 'text-xl' : streak.count >= 5 ? 'text-lg' : 'text-base';
+                        const textColor = streak.count >= 10 ? 'text-orange-600' : streak.count >= 5 ? 'text-pink-600' : 'text-gray-700';
+                        return `
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-gray-600 truncate" title="${streak.subgroupName}">${streak.subgroupName}</span>
+                                <span class="${iconSize} ${textColor} font-bold">${streak.count} 🔥</span>
+                            </div>
+                        `;
+                    })
+                    .join('');
             }
-        } catch (error) {
+        }, (error) => {
             console.error("Error loading streaks:", error);
-            // Fallback to old userData.streak field
-            streakEl.innerHTML = `${userData.streak || 0} 🔥`;
-        }
+            streakEl.innerHTML = `<p class="text-sm text-red-500">Fehler beim Laden</p>`;
+        });
+
+        renderCalendarCallback(currentDisplayDate);
+
+        return streaksListener;
     } else if (streakEl) {
         // Fallback if no db provided
-        streakEl.innerHTML = `${userData.streak || 0} 🔥`;
+        streakEl.innerHTML = `<p class="text-sm text-gray-400">Keine Daten verfügbar</p>`;
     }
 
     renderCalendarCallback(currentDisplayDate);
+    return () => {}; // Empty unsubscribe function
 }
