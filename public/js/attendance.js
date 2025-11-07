@@ -363,15 +363,25 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             previousTrainingPresentIds = previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
         }
 
-        // Update/create attendance document for this day and subgroup
+        // Handle attendance document: delete if empty, create/update otherwise
         const attendanceRef = docId ? doc(db, 'attendance', docId) : doc(attendanceColl);
-        batch.set(attendanceRef, {
-            date,
-            clubId: currentUserData.clubId,
-            subgroupId: currentSubgroupFilter,
-            presentPlayerIds,
-            updatedAt: serverTimestamp()
-        }, { merge: true });
+
+        if (presentPlayerIds.length === 0) {
+            // If no players are present and an attendance entry exists, delete it
+            if (docId) {
+                batch.delete(attendanceRef);
+            }
+            // If no entry exists and no players present, we don't need to do anything
+        } else {
+            // Update/create attendance document for this day and subgroup
+            batch.set(attendanceRef, {
+                date,
+                clubId: currentUserData.clubId,
+                subgroupId: currentSubgroupFilter,
+                presentPlayerIds,
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+        }
 
         // Process EVERY player in the club and update their subgroup-specific streak and points
         // Filter to only process players who are members of this subgroup
