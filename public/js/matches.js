@@ -305,3 +305,194 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         playerBSelect.appendChild(option);
     });
 }
+
+/**
+ * Loads pending match requests for coach approval
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+export async function loadCoachMatchRequests(userData, db) {
+    const container = document.getElementById('coach-pending-requests-list');
+    const badge = document.getElementById('coach-match-request-badge');
+    if (!container) return;
+
+    // Query for requests awaiting coach approval
+    const requestsQuery = query(
+        collection(db, 'matchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_coach'),
+        orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(requestsQuery, async (snapshot) => {
+        if (snapshot.empty) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+            if (badge) badge.classList.add('hidden');
+            return;
+        }
+
+        const requests = [];
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+
+            // Fetch player names
+            const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+            const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
+
+            requests.push({
+                id: docSnap.id,
+                ...data,
+                playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+            });
+        }
+
+        renderCoachRequestCards(requests, db);
+
+        if (badge) {
+            badge.textContent = requests.length;
+            badge.classList.remove('hidden');
+        }
+    });
+
+    return unsubscribe;
+}
+
+/**
+ * Renders match request cards for coach
+ */
+function renderCoachRequestCards(requests, db) {
+    const container = document.getElementById('coach-pending-requests-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    requests.forEach(request => {
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
+
+        const playerAName = request.playerAData?.firstName || 'Unbekannt';
+        const playerBName = request.playerBData?.firstName || 'Unbekannt';
+        const setsDisplay = formatSetsForCoach(request.sets);
+        const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
+
+        const createdDate = request.createdAt?.toDate ?
+            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
+            'Unbekannt';
+
+        card.innerHTML = `
+            <div class="mb-3">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800">
+                            ${playerAName} <span class="text-gray-500">vs</span> ${playerBName}
+                        </p>
+                        <p class="text-sm text-gray-600 mt-1">${setsDisplay}</p>
+                        <p class="text-sm font-medium text-indigo-700 mt-1">
+                            <i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}
+                        </p>
+                        ${request.handicapUsed ?
+                            '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' :
+                            ''
+                        }
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
+                            <i class="fas fa-clock"></i> Wartet
+                        </span>
+                        <p class="text-xs text-gray-500 mt-1">${createdDate}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+                <button class="coach-approve-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-check"></i> Genehmigen
+                </button>
+                <button class="coach-reject-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-times"></i> Ablehnen
+                </button>
+            </div>
+        `;
+
+        const approveBtn = card.querySelector('.coach-approve-btn');
+        const rejectBtn = card.querySelector('.coach-reject-btn');
+
+        approveBtn.addEventListener('click', () => approveCoachRequest(request.id, db));
+        rejectBtn.addEventListener('click', () => rejectCoachRequest(request.id, db));
+
+        container.appendChild(card);
+    });
+}
+
+/**
+ * Formats sets display for coach
+ */
+function formatSetsForCoach(sets) {
+    if (!sets || sets.length === 0) return 'Kein Ergebnis';
+
+    const setsStr = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+    const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
+    const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
+
+    return `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
+}
+
+/**
+ * Gets winner name
+ */
+function getWinnerName(sets, playerA, playerB) {
+    if (!sets || sets.length === 0) return 'Unbekannt';
+
+    const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
+    const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
+
+    if (winsA >= 3) return playerA?.firstName || 'Spieler A';
+    if (winsB >= 3) return playerB?.firstName || 'Spieler B';
+    return 'Unbekannt';
+}
+
+/**
+ * Approves match request as coach
+ */
+async function approveCoachRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.coach': {
+                status: 'approved',
+                timestamp: serverTimestamp()
+            },
+            status: 'approved',
+            updatedAt: serverTimestamp()
+        });
+
+        alert('Match wurde genehmigt! Es wird automatisch verarbeitet.');
+    } catch (error) {
+        console.error('Error approving request:', error);
+        alert('Fehler beim Genehmigen der Anfrage.');
+    }
+}
+
+/**
+ * Rejects match request as coach
+ */
+async function rejectCoachRequest(requestId, db) {
+    const reason = prompt('Grund für die Ablehnung (optional):');
+
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.coach': {
+                status: 'rejected',
+                timestamp: serverTimestamp()
+            },
+            status: 'rejected',
+            rejectedBy: 'coach',
+            rejectionReason: reason || 'Keine Angabe',
+            updatedAt: serverTimestamp()
+        });
+
+        alert('Match-Anfrage wurde abgelehnt.');
+    } catch (error) {
+        console.error('Error rejecting request:', error);
+        alert('Fehler beim Ablehnen der Anfrage.');
+    }
+}
