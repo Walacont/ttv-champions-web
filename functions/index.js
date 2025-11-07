@@ -20,6 +20,7 @@ const CONFIG = {
   COLLECTIONS: {
     USERS: "users",
     MATCHES: "matches",
+    MATCH_REQUESTS: "matchRequests",
     INVITATION_TOKENS: "invitationTokens",
     INVITATION_CODES: "invitationCodes",
     POINTS_HISTORY: "pointsHistory",
@@ -677,3 +678,96 @@ exports.cleanupExpiredInvitationCodes = onSchedule(
     }
   }
 );
+
+// ========================================================================
+// ===== FUNKTION 7: Process Approved Match Request =====
+// ========================================================================
+/**
+ * Processes approved match requests by creating a match document
+ * Triggered when a matchRequest document is updated to status='approved'
+ */
+exports.processApprovedMatchRequest = onDocumentWritten(
+  {
+    region: CONFIG.REGION,
+    document: `${CONFIG.COLLECTIONS.MATCH_REQUESTS}/{requestId}`,
+  },
+  async (event) => {
+    const {requestId} = event.params;
+    const beforeData = event.data.before?.data();
+    const afterData = event.data.after?.data();
+
+    // Only process if status changed to 'approved'
+    if (!afterData || afterData.status !== "approved") {
+      return null;
+    }
+
+    // Skip if already processed
+    if (beforeData && beforeData.status === "approved") {
+      logger.info(`ℹ️ Match request ${requestId} already processed.`);
+      return null;
+    }
+
+    // Skip if match already created
+    if (afterData.processedMatchId) {
+      logger.info(`ℹ️ Match request ${requestId} already has processedMatchId.`);
+      return null;
+    }
+
+    logger.info(`✅ Processing approved match request ${requestId}`);
+
+    try {
+      const {
+        playerAId,
+        playerBId,
+        winnerId,
+        loserId,
+        handicapUsed,
+        clubId,
+        sets,
+        requestedBy,
+      } = afterData;
+
+      // Create match document
+      const matchRef = await db.collection(CONFIG.COLLECTIONS.MATCHES).add({
+        playerAId,
+        playerBId,
+        winnerId,
+        loserId,
+        handicapUsed: handicapUsed || false,
+        sets: sets || [],
+        reportedBy: requestedBy,
+        clubId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        processed: false,
+        source: "player_request", // Mark as player-initiated
+      });
+
+      // Update match request with processedMatchId
+      await db
+        .collection(CONFIG.COLLECTIONS.MATCH_REQUESTS)
+        .doc(requestId)
+        .update({
+          processedMatchId: matchRef.id,
+          processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+      logger.info(
+        `✅ Match ${matchRef.id} created from request ${requestId}`
+      );
+
+      return {success: true, matchId: matchRef.id};
+    } catch (error) {
+      logger.error(`💥 Error processing match request ${requestId}:`, error);
+      return {success: false, error: error.message};
+    }
+  }
+);
+
+// ========================================================================
+// ===== TODO: Email Notifications =====
+// ========================================================================
+// Future enhancement: Send email notifications when:
+// 1. Match request created → notify playerB
+// 2. PlayerB approves → notify coach
+// 3. Coach approves/rejects → notify both players
+// 4. PlayerB rejects → notify playerA

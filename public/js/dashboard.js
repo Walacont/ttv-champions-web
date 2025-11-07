@@ -11,6 +11,7 @@ import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 import { handleSeasonReset } from './season.js';
+import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -18,6 +19,7 @@ const db = getFirestore(app);
 
 // --- State ---
 let currentUserData = null;
+let clubPlayers = []; // Store club players for match request form
 let unsubscribes = [];
 let currentDisplayDate = new Date();
 let currentSubgroupFilter = 'club'; // Default: show club view
@@ -99,6 +101,14 @@ async function initializeDashboard(userData) {
     // Load season statistics
     loadTopXPPlayers(userData.clubId, db);
     loadTopWinsPlayers(userData.clubId, db);
+
+    // Load club players for match requests
+    await loadClubPlayers(userData, db);
+
+    // Initialize match request functionality
+    initializeMatchRequestForm(userData, db, clubPlayers);
+    loadPlayerMatchRequests(userData, db, unsubscribes);
+    loadOverviewMatchRequests(userData, db, unsubscribes);
 
     // Start season countdown timer
     updateSeasonCountdown(true);
@@ -295,4 +305,186 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
 
     // Reload calendar with new filter
     renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
+}
+
+/**
+ * Loads club players for match request form
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+async function loadClubPlayers(userData, db) {
+    try {
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', userData.clubId),
+            where('role', '==', 'player')
+        );
+        const snapshot = await getDocs(playersQuery);
+        clubPlayers = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    } catch (error) {
+        console.error('Error loading club players:', error);
+    }
+}
+
+/**
+ * Loads match requests for overview card
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadOverviewMatchRequests(userData, db, unsubscribes) {
+    const container = document.getElementById('overview-match-requests');
+    if (!container) return;
+
+    // Query for requests sent to me (playerB) that need my approval
+    const incomingRequestsQuery = query(
+        collection(db, 'matchRequests'),
+        where('playerBId', '==', userData.id),
+        where('status', '==', 'pending_player'),
+        orderBy('createdAt', 'desc'),
+        limit(3) // Show only 3 most recent
+    );
+
+    const unsubscribe = onSnapshot(incomingRequestsQuery, async (snapshot) => {
+        if (snapshot.empty) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+            updateMatchRequestBadge(0);
+            return;
+        }
+
+        const requests = [];
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+            const playerAData = playerADoc.exists() ? playerADoc.data() : null;
+            requests.push({
+                id: docSnap.id,
+                ...data,
+                playerAData
+            });
+        }
+
+        renderOverviewRequestCards(requests, userData, db);
+        updateMatchRequestBadge(requests.length);
+    });
+
+    unsubscribes.push(unsubscribe);
+}
+
+/**
+ * Renders request cards in overview
+ */
+function renderOverviewRequestCards(requests, userData, db) {
+    const container = document.getElementById('overview-match-requests');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    requests.forEach(request => {
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
+
+        const setsDisplay = formatSetsDisplaySimple(request.sets);
+        const playerName = request.playerAData?.firstName || 'Unbekannt';
+
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-2">
+                <div class="flex-1">
+                    <p class="font-semibold text-gray-800">${playerName} vs ${userData.firstName}</p>
+                    <p class="text-sm text-gray-600">${setsDisplay}</p>
+                </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+                <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-check"></i> Akzeptieren
+                </button>
+                <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-times"></i> Ablehnen
+                </button>
+            </div>
+        `;
+
+        const approveBtn = card.querySelector('.approve-overview-btn');
+        const rejectBtn = card.querySelector('.reject-overview-btn');
+
+        approveBtn.addEventListener('click', async () => {
+            await approveOverviewRequest(request.id, db);
+        });
+
+        rejectBtn.addEventListener('click', async () => {
+            await rejectOverviewRequest(request.id, db);
+        });
+
+        container.appendChild(card);
+    });
+}
+
+/**
+ * Formats sets display (simple version)
+ */
+function formatSetsDisplaySimple(sets) {
+    if (!sets || sets.length === 0) return 'Kein Ergebnis';
+
+    const setsStr = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+    const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
+    const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
+
+    return `${winsA}:${winsB} (${setsStr})`;
+}
+
+/**
+ * Approves request from overview
+ */
+async function approveOverviewRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.playerB': {
+                status: 'approved',
+                timestamp: serverTimestamp()
+            },
+            status: 'pending_coach',
+            updatedAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error('Error approving request:', error);
+        alert('Fehler beim Akzeptieren der Anfrage.');
+    }
+}
+
+/**
+ * Rejects request from overview
+ */
+async function rejectOverviewRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.playerB': {
+                status: 'rejected',
+                timestamp: serverTimestamp()
+            },
+            status: 'rejected',
+            rejectedBy: 'playerB',
+            updatedAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error('Error rejecting request:', error);
+        alert('Fehler beim Ablehnen der Anfrage.');
+    }
+}
+
+/**
+ * Updates match request badge count (reused from player-matches.js)
+ */
+function updateMatchRequestBadge(count) {
+    const badge = document.getElementById('match-request-badge');
+    if (!badge) return;
+
+    if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
 }

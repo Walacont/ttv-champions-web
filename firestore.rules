@@ -126,6 +126,44 @@ service cloud.firestore {
       allow update, delete: if isCoachOfClub(resource.data.clubId);
     }
 
+    // Match Requests collection (Player-initiated matches)
+    match /matchRequests/{requestId} {
+      // Players can read requests they're involved in or requests in their club
+      allow read: if isAuthenticated() && (
+        resource.data.playerAId == request.auth.uid ||
+        resource.data.playerBId == request.auth.uid ||
+        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+      );
+
+      // Players can create requests for themselves (as playerA)
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerAId == request.auth.uid &&
+        isSameClub(request.resource.data.clubId) &&
+        request.resource.data.status == 'pending_player';
+
+      // PlayerB can update (approve/reject) if they are playerB and status is pending_player
+      allow update: if isAuthenticated() &&
+        resource.data.playerBId == request.auth.uid &&
+        resource.data.status == 'pending_player';
+
+      // PlayerA can update (edit/cancel) their own request if nobody has responded yet
+      allow update: if isAuthenticated() &&
+        resource.data.playerAId == request.auth.uid &&
+        resource.data.status == 'pending_player' &&
+        (!resource.data.approvals.playerB.status || resource.data.approvals.playerB.status == null);
+
+      // Coach can update (approve/reject) if pending_coach and same club
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending_coach';
+
+      // PlayerA can delete their own request if nobody has responded yet
+      allow delete: if isAuthenticated() &&
+        resource.data.playerAId == request.auth.uid &&
+        resource.data.status == 'pending_player' &&
+        (!resource.data.approvals.playerB.status || resource.data.approvals.playerB.status == null);
+    }
+
     // Challenges collection
     match /challenges/{challengeId} {
       allow read: if isAuthenticated();
