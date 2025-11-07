@@ -446,7 +446,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     const q = query(collection(db, 'users'), where('clubId', '==', clubId), where('role', '==', 'player'));
     onSnapshot(q, (snapshot) => {
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Use Map to prevent duplicate player IDs
+        const playersMap = new Map();
+        snapshot.docs.forEach(doc => {
+            playersMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+        const players = Array.from(playersMap.values());
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
         onPlayersLoaded(players);
     }, (error) => {
