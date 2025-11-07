@@ -57,6 +57,12 @@ service cloud.firestore {
         isSameClub(resource.data.clubId) &&
         resource.data.role == 'player';
 
+      // Coaches can promote players to coach in their club
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.role == 'player' &&
+        request.resource.data.role == 'coach';
+
       // Coaches can create new players in their club (offline players)
       allow create: if isCoachOrAdmin() &&
         isSameClub(request.resource.data.clubId) &&
