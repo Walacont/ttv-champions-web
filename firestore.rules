@@ -136,10 +136,12 @@ service cloud.firestore {
       );
 
       // Players can create requests for themselves (as playerA)
+      // Must include proper initial approvals structure
       allow create: if isAuthenticated() &&
         request.resource.data.playerAId == request.auth.uid &&
         isSameClub(request.resource.data.clubId) &&
-        request.resource.data.status == 'pending_player';
+        request.resource.data.status == 'pending_player' &&
+        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']);
 
       // PlayerB can update (approve/reject) if they are playerB and status is pending_player
       allow update: if isAuthenticated() &&
@@ -150,7 +152,10 @@ service cloud.firestore {
       allow update: if isAuthenticated() &&
         resource.data.playerAId == request.auth.uid &&
         resource.data.status == 'pending_player' &&
-        (!resource.data.approvals.playerB.status || resource.data.approvals.playerB.status == null);
+        (!('approvals' in resource.data) ||
+         !('playerB' in resource.data.approvals) ||
+         !('status' in resource.data.approvals.playerB) ||
+         resource.data.approvals.playerB.status == null);
 
       // Coach can update (approve/reject) if pending_coach and same club
       allow update: if isCoachOrAdmin() &&
@@ -161,7 +166,10 @@ service cloud.firestore {
       allow delete: if isAuthenticated() &&
         resource.data.playerAId == request.auth.uid &&
         resource.data.status == 'pending_player' &&
-        (!resource.data.approvals.playerB.status || resource.data.approvals.playerB.status == null);
+        (!('approvals' in resource.data) ||
+         !('playerB' in resource.data.approvals) ||
+         !('status' in resource.data.approvals.playerB) ||
+         resource.data.approvals.playerB.status == null);
     }
 
     // Challenges collection
