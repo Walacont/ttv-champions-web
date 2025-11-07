@@ -537,12 +537,17 @@ function getProcessedStatusBadge(status, approvals) {
   }
 
   if (status === "approved") {
-    return '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Genehmigt</span>';
+    const coachName = approvals?.coach?.coachName || "Coach";
+    return `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Genehmigt von ${coachName}</span>`;
   }
 
   if (status === "rejected") {
-    const rejectedBy = approvals?.playerB?.status === "rejected" ? "Von dir abgelehnt" : "Vom Coach abgelehnt";
-    return `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ ${rejectedBy}</span>`;
+    if (approvals?.playerB?.status === "rejected") {
+      return '<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von dir abgelehnt</span>';
+    } else {
+      const coachName = approvals?.coach?.coachName || "Coach";
+      return `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Abgelehnt von ${coachName}</span>`;
+    }
   }
 
   return "";
@@ -557,14 +562,16 @@ function getStatusDescription(status, approvals) {
   }
 
   if (status === "approved") {
-    return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde vollständig genehmigt und das Match wurde erstellt.</p>';
+    const coachName = approvals?.coach?.coachName || "Coach";
+    return `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde von ${coachName} genehmigt und das Match wurde erstellt.</p>`;
   }
 
   if (status === "rejected") {
     if (approvals?.playerB?.status === "rejected") {
       return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Du hast diese Anfrage abgelehnt.</p>';
     } else {
-      return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Anfrage wurde vom Coach abgelehnt.</p>';
+      const coachName = approvals?.coach?.coachName || "Coach";
+      return `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Anfrage wurde von ${coachName} abgelehnt.</p>`;
     }
   }
 

@@ -347,7 +347,7 @@ export async function loadCoachMatchRequests(userData, db) {
             });
         }
 
-        renderCoachRequestCards(requests, db);
+        renderCoachRequestCards(requests, db, userData);
 
         if (badge) {
             badge.textContent = requests.length;
@@ -504,7 +504,7 @@ function renderCoachProcessedCards(requests, db) {
  */
 let showAllCoachRequests = false; // State for showing all or limited
 
-function renderCoachRequestCards(requests, db) {
+function renderCoachRequestCards(requests, db, userData) {
     const container = document.getElementById('coach-pending-requests-list');
     if (!container) return;
 
@@ -571,8 +571,8 @@ function renderCoachRequestCards(requests, db) {
         const approveBtn = card.querySelector('.coach-approve-btn');
         const rejectBtn = card.querySelector('.coach-reject-btn');
 
-        approveBtn.addEventListener('click', () => approveCoachRequest(request.id, db));
-        rejectBtn.addEventListener('click', () => rejectCoachRequest(request.id, db));
+        approveBtn.addEventListener('click', () => approveCoachRequest(request.id, db, userData));
+        rejectBtn.addEventListener('click', () => rejectCoachRequest(request.id, db, userData));
 
         container.appendChild(card);
     });
@@ -590,7 +590,7 @@ function renderCoachRequestCards(requests, db) {
 
         button.addEventListener('click', () => {
             showAllCoachRequests = !showAllCoachRequests;
-            renderCoachRequestCards(requests, db);
+            renderCoachRequestCards(requests, db, userData);
         });
 
         buttonContainer.appendChild(button);
@@ -628,12 +628,14 @@ function getWinnerName(sets, playerA, playerB) {
 /**
  * Approves match request as coach
  */
-async function approveCoachRequest(requestId, db) {
+async function approveCoachRequest(requestId, db, userData) {
     try {
         await updateDoc(doc(db, 'matchRequests', requestId), {
             'approvals.coach': {
                 status: 'approved',
-                timestamp: serverTimestamp()
+                timestamp: serverTimestamp(),
+                coachId: userData.id,
+                coachName: userData.firstName
             },
             status: 'approved',
             updatedAt: serverTimestamp()
@@ -649,14 +651,16 @@ async function approveCoachRequest(requestId, db) {
 /**
  * Rejects match request as coach
  */
-async function rejectCoachRequest(requestId, db) {
+async function rejectCoachRequest(requestId, db, userData) {
     const reason = prompt('Grund für die Ablehnung (optional):');
 
     try {
         await updateDoc(doc(db, 'matchRequests', requestId), {
             'approvals.coach': {
                 status: 'rejected',
-                timestamp: serverTimestamp()
+                timestamp: serverTimestamp(),
+                coachId: userData.id,
+                coachName: userData.firstName
             },
             status: 'rejected',
             rejectedBy: 'coach',
