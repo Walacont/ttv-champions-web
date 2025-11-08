@@ -119,7 +119,7 @@ export function createSetScoreInput(container, existingSets = []) {
 
     sets[setIndex][`player${player}`] = value;
 
-    // Calculate wins
+    // Calculate wins for auto-add logic (use lenient check during input)
     let playerAWins = 0;
     let playerBWins = 0;
 
@@ -127,9 +127,10 @@ export function createSetScoreInput(container, existingSets = []) {
       const setA = parseInt(sets[i].playerA) || 0;
       const setB = parseInt(sets[i].playerB) || 0;
 
-      const winner = getSetWinner(setA, setB);
-      if (winner === 'A') playerAWins++;
-      if (winner === 'B') playerBWins++;
+      // Lenient check for auto-add: just need 11+ and be ahead
+      // This allows auto-add to work during input, even if final validation is stricter
+      if (setA > setB && setA >= 11) playerAWins++;
+      if (setB > setA && setB >= 11) playerBWins++;
     }
 
     // Auto-add 4th set if score is 2:1 or 1:2 and we only have 3 sets
