@@ -6,7 +6,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } 
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
-import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter, openAttendanceModalForSession } from './attendance.js';
+import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter, openAttendanceModalForSession, getCurrentSessionId } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput } from './matches.js';
@@ -255,7 +255,10 @@ async function initializeCoachPage(userData) {
 
     // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
-    document.getElementById('generate-pairings-button').addEventListener('click', () => handleGeneratePairings(clubPlayers, currentSubgroupFilter));
+    document.getElementById('generate-pairings-button').addEventListener('click', () => {
+        const sessionId = getCurrentSessionId();
+        handleGeneratePairings(clubPlayers, currentSubgroupFilter, sessionId);
+    });
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);

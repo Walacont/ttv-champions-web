@@ -23,6 +23,14 @@ export function setAttendanceSubgroupFilter(subgroupId) {
 }
 
 /**
+ * Gets the current session ID being edited
+ * @returns {string|null} Current session ID or null
+ */
+export function getCurrentSessionId() {
+    return currentSessionId;
+}
+
+/**
  * Renders the calendar for a given month and year
  * @param {Date} date - The date to render the calendar for
  * @param {Object} db - Firestore database instance

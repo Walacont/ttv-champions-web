@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Calendar Module
@@ -68,40 +68,81 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         orderBy('date', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const allClubTrainings = querySnapshot.docs.map(doc => doc.data());
+    // NEW: Also load training sessions to show multiple sessions per day
+    let allSessionsCache = [];
+    async function loadSessions() {
+        try {
+            const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+            const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
-        // Filter trainings by subgroup if a specific subgroup is selected
-        let filteredTrainings = allClubTrainings;
-        if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-            // Filter to only show trainings for the selected subgroup
-            filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
+            const sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', currentUserData.clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false)
+            );
+
+            const sessionsSnapshot = await getDocs(sessionsQuery);
+            allSessionsCache = sessionsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+        } catch (error) {
+            console.error("Error loading sessions:", error);
         }
+    }
 
-        // Get all trainings for the player's subgroups (for missed training detection)
-        const userSubgroups = currentUserData.subgroupIDs || [];
-        const relevantTrainings = allClubTrainings.filter(training => {
-            // If no subgroups assigned, all trainings are relevant
-            if (userSubgroups.length === 0) return true;
-            // Otherwise, only trainings for the player's subgroups are relevant
-            return training.subgroupId && userSubgroups.includes(training.subgroupId);
-        });
+    // Load sessions first, then set up attendance listener
+    loadSessions().then(() => {
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const allClubTrainings = querySnapshot.docs.map(doc => doc.data());
 
-        const presentDatesSet = new Set();
-        const missedDatesSet = new Set();
-
-        filteredTrainings.forEach(training => {
-            if (training.presentPlayerIds.includes(currentUserData.id)) {
-                presentDatesSet.add(training.date);
+            // Filter trainings by subgroup if a specific subgroup is selected
+            let filteredTrainings = allClubTrainings;
+            if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+                // Filter to only show trainings for the selected subgroup
+                filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
             }
-        });
 
-        // Identify missed trainings (relevant trainings where player was not present)
-        relevantTrainings.forEach(training => {
-            if (!training.presentPlayerIds.includes(currentUserData.id)) {
-                missedDatesSet.add(training.date);
-            }
-        });
+            // Get all trainings for the player's subgroups (for missed training detection)
+            const userSubgroups = currentUserData.subgroupIDs || [];
+            const relevantTrainings = allClubTrainings.filter(training => {
+                // If no subgroups assigned, all trainings are relevant
+                if (userSubgroups.length === 0) return true;
+                // Otherwise, only trainings for the player's subgroups are relevant
+                return training.subgroupId && userSubgroups.includes(training.subgroupId);
+            });
+
+            const presentDatesSet = new Set();
+            const missedDatesSet = new Set();
+            const sessionsPerDay = new Map(); // NEW: Track sessions per day
+
+            // NEW: Build sessions per day map
+            allSessionsCache.forEach(session => {
+                const dateKey = session.date;
+                if (!sessionsPerDay.has(dateKey)) {
+                    sessionsPerDay.set(dateKey, []);
+                }
+
+                // Only include sessions for player's subgroups
+                if (userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)) {
+                    sessionsPerDay.get(dateKey).push(session);
+                }
+            });
+
+            filteredTrainings.forEach(training => {
+                if (training.presentPlayerIds.includes(currentUserData.id)) {
+                    presentDatesSet.add(training.date);
+                }
+            });
+
+            // Identify missed trainings (relevant trainings where player was not present)
+            relevantTrainings.forEach(training => {
+                if (!training.presentPlayerIds.includes(currentUserData.id)) {
+                    missedDatesSet.add(training.date);
+                }
+            });
 
         const trainingDaysThisMonth = Array.from(presentDatesSet).filter(d => {
             const trainingDate = new Date(d + 'T12:00:00');
@@ -128,6 +169,9 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'relative flex flex-col items-center justify-center';
+
             const dayDiv = document.createElement('div');
             dayDiv.className = 'h-10 w-10 flex items-center justify-center rounded-full border-2 border-transparent';
             dayDiv.textContent = day;
@@ -146,7 +190,25 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             if (new Date(year, month, day).toDateString() === new Date().toDateString()) {
                 dayDiv.classList.add('ring-2', 'ring-indigo-500');
             }
-            calendarGrid.appendChild(dayDiv);
+
+            dayCell.appendChild(dayDiv);
+
+            // Add session indicators
+            const sessionsOnDay = sessionsPerDay.get(dateString) || [];
+            if (sessionsOnDay.length > 0) {
+                const dotsContainer = document.createElement('div');
+                dotsContainer.className = 'flex gap-1 justify-center mt-1';
+
+                const dotsToShow = Math.min(sessionsOnDay.length, 3);
+                for (let i = 0; i < dotsToShow; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'w-1.5 h-1.5 rounded-full bg-indigo-500';
+                    dotsContainer.appendChild(dot);
+                }
+                dayCell.appendChild(dotsContainer);
+            }
+
+            calendarGrid.appendChild(dayCell);
         }
     }, (error) => {
         console.error("Fehler beim Laden der Anwesenheitsdaten:", error);
@@ -157,7 +219,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 }
 
 /**
- * Loads today's matches for the player
+ * Loads today's matches and training sessions for the player
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
@@ -168,6 +230,67 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
     if (!container || !listEl) return;
 
     const today = new Date().toISOString().split('T')[0];
+
+    // Load today's training sessions
+    const sessionsQuery = query(
+        collection(db, 'trainingSessions'),
+        where('clubId', '==', userData.clubId),
+        where('date', '==', today),
+        where('cancelled', '==', false),
+        orderBy('startTime', 'asc')
+    );
+
+    const sessionsListener = onSnapshot(sessionsQuery, async (sessionsSnapshot) => {
+        const sessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter sessions for player's subgroups
+        const userSubgroups = userData.subgroupIDs || [];
+        const relevantSessions = sessions.filter(session =>
+            userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)
+        );
+
+        if (relevantSessions.length > 0) {
+            container.classList.remove('hidden');
+            listEl.innerHTML = '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Heutige Trainings</h3><div id="todays-sessions-list" class="space-y-2"></div></div>';
+
+            const sessionsListEl = document.getElementById('todays-sessions-list');
+
+            for (const session of relevantSessions) {
+                // Get subgroup name
+                let subgroupName = 'Training';
+                try {
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', session.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        subgroupName = subgroupDoc.data().name;
+                    }
+                } catch (error) {
+                    console.error('Error loading subgroup:', error);
+                }
+
+                const sessionEl = document.createElement('div');
+                sessionEl.className = 'p-3 rounded-lg border bg-indigo-50 border-indigo-300';
+                sessionEl.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-indigo-700">${session.startTime} - ${session.endTime}</span>
+                            <span class="text-gray-600 ml-2">${subgroupName}</span>
+                        </div>
+                    </div>
+                    <div id="pairings-${session.id}" class="mt-2"></div>
+                `;
+                sessionsListEl.appendChild(sessionEl);
+
+                // Load pairings for this session
+                loadPairingsForSession(session.id, userData, db);
+            }
+        } else {
+            container.classList.add('hidden');
+        }
+    });
+
+    unsubscribes.push(sessionsListener);
+
+    // Keep existing match loading (will be updated later for session-based matches)
     const matchDocRef = doc(db, "trainingMatches", `${userData.clubId}_${today}`);
 
     const matchListener = onSnapshot(matchDocRef, (docSnap) => {
@@ -231,4 +354,74 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
     });
 
     unsubscribes.push(matchListener);
+}
+
+/**
+ * Loads and displays match pairings for a specific session
+ * @param {string} sessionId - Session ID
+ * @param {Object} userData - User data
+ * @param {Object} db - Firestore database instance
+ */
+async function loadPairingsForSession(sessionId, userData, db) {
+    const container = document.getElementById(`pairings-${sessionId}`);
+    if (!container) return;
+
+    try {
+        const pairingsDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingsDoc.exists()) {
+            // No pairings yet
+            return;
+        }
+
+        const pairingsData = pairingsDoc.data();
+        const groups = pairingsData.groups || {};
+
+        let html = '<div class="text-sm space-y-2 mt-2 border-t pt-2">';
+        html += '<p class="text-xs text-gray-600 font-semibold mb-1">Heutige Paarungen:</p>';
+
+        for (const groupName in groups) {
+            const matches = groups[groupName];
+            if (matches.length === 0) continue;
+
+            html += `<div class="mb-2">`;
+            html += `<p class="text-xs font-bold text-gray-700">${groupName}</p>`;
+            html += '<ul class="space-y-1">';
+
+            matches.forEach(match => {
+                const isMyMatch = match.playerA.id === userData.id || match.playerB.id === userData.id;
+                const highlightClass = isMyMatch ? 'bg-yellow-50 border-yellow-400 font-bold' : '';
+
+                let handicapHTML = '';
+                if (match.handicap) {
+                    handicapHTML = `<span class="text-xs text-blue-600 ml-2">+${match.handicap.points}</span>`;
+                }
+
+                html += `
+                    <li class="text-xs p-2 rounded border ${highlightClass}">
+                        <span>${match.playerA.name.split(' ')[0]}</span>
+                        <span class="text-gray-400 mx-1">vs</span>
+                        <span>${match.playerB.name.split(' ')[0]}</span>
+                        ${handicapHTML}
+                        ${isMyMatch ? '<span class="ml-2 text-indigo-600">← Du!</span>' : ''}
+                    </li>
+                `;
+            });
+
+            html += '</ul></div>';
+        }
+
+        if (pairingsData.leftoverPlayer) {
+            const isLeftover = pairingsData.leftoverPlayer.id === userData.id;
+            const leftoverClass = isLeftover ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-500';
+            html += `<p class="text-xs ${leftoverClass} mt-1">${pairingsData.leftoverPlayer.name.split(' ')[0]} sitzt aus</p>`;
+        }
+
+        html += '</div>';
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading pairings for session:', error);
+    }
 }

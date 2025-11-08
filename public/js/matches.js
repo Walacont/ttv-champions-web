@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { createSetScoreInput } from './player-matches.js';
 
 /**
@@ -8,6 +8,9 @@ import { createSetScoreInput } from './player-matches.js';
 
 // Global variable to store set score input instance for coach match form
 let coachSetScoreInput = null;
+
+// Global variable to store current session for pairings
+let currentPairingsSession = null;
 
 /**
  * Initializes the set score input for coach match form
@@ -52,11 +55,23 @@ export function calculateHandicap(playerA, playerB) {
 }
 
 /**
+ * Sets the current session for pairings generation
+ * @param {string} sessionId - Session ID
+ */
+export function setCurrentPairingsSession(sessionId) {
+    currentPairingsSession = sessionId;
+}
+
+/**
  * Generates match pairings from present and match-ready players
  * @param {Array} clubPlayers - Array of all club players
  * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
+ * @param {string} sessionId - Optional session ID for session-based pairings
  */
-export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all') {
+export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all', sessionId = null) {
+    if (sessionId) {
+        currentPairingsSession = sessionId;
+    }
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
     // Only pair players who have completed Grundlagen (5 exercises)
@@ -159,7 +174,149 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
         leftoverEl.innerHTML = `<strong>${leftoverPlayer.firstName} ${leftoverPlayer.lastName}</strong> (sitzt diese Runde aus)`;
         container.appendChild(leftoverEl);
     }
+
+    // Add save button if session-based pairings are enabled
+    if (currentPairingsSession) {
+        const saveButtonContainer = document.createElement('div');
+        saveButtonContainer.className = 'mt-6 text-center';
+
+        const saveButton = document.createElement('button');
+        saveButton.id = 'save-pairings-button';
+        saveButton.className = 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition';
+        saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
+        saveButton.onclick = () => savePairings(pairings, leftoverPlayer);
+
+        saveButtonContainer.appendChild(saveButton);
+        container.appendChild(saveButtonContainer);
+    }
+
     modal.classList.remove('hidden');
+}
+
+/**
+ * Saves match pairings to Firestore for a specific session
+ * @param {Object} pairings - Pairings object
+ * @param {Object|null} leftoverPlayer - Player without a match
+ */
+async function savePairings(pairings, leftoverPlayer) {
+    if (!currentPairingsSession) {
+        alert('Fehler: Keine Session ausgewählt');
+        return;
+    }
+
+    const saveButton = document.getElementById('save-pairings-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
+    }
+
+    try {
+        // Get session data from Firestore
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const db = getFirestore();
+        const sessionDoc = await getDoc(doc(db, 'trainingSessions', currentPairingsSession));
+
+        if (!sessionDoc.exists()) {
+            throw new Error('Session nicht gefunden');
+        }
+
+        const sessionData = sessionDoc.data();
+
+        // Transform pairings to saveable format
+        const groups = {};
+        for (const groupName in pairings) {
+            groups[groupName] = pairings[groupName].map(pair => {
+                const [playerA, playerB] = pair;
+                const handicap = calculateHandicap(playerA, playerB);
+
+                return {
+                    playerA: {
+                        id: playerA.id,
+                        name: `${playerA.firstName} ${playerA.lastName}`,
+                        eloRating: playerA.eloRating || 0
+                    },
+                    playerB: {
+                        id: playerB.id,
+                        name: `${playerB.firstName} ${playerB.lastName}`,
+                        eloRating: playerB.eloRating || 0
+                    },
+                    handicap: handicap ? {
+                        player: {
+                            id: handicap.player.id,
+                            name: `${handicap.player.firstName} ${handicap.player.lastName}`
+                        },
+                        points: handicap.points
+                    } : null
+                };
+            });
+        }
+
+        const pairingsData = {
+            sessionId: currentPairingsSession,
+            clubId: sessionData.clubId,
+            date: sessionData.date,
+            subgroupId: sessionData.subgroupId,
+            startTime: sessionData.startTime,
+            endTime: sessionData.endTime,
+            groups: groups,
+            leftoverPlayer: leftoverPlayer ? {
+                id: leftoverPlayer.id,
+                name: `${leftoverPlayer.firstName} ${leftoverPlayer.lastName}`
+            } : null,
+            createdAt: serverTimestamp()
+        };
+
+        // Save to trainingMatches collection with sessionId as document ID
+        await setDoc(doc(db, 'trainingMatches', currentPairingsSession), pairingsData);
+
+        if (saveButton) {
+            saveButton.innerHTML = '<i class="fas fa-check mr-2"></i>Gespeichert!';
+            saveButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            saveButton.classList.add('bg-green-600');
+        }
+
+        setTimeout(() => {
+            document.getElementById('pairings-modal').classList.add('hidden');
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
+                saveButton.classList.remove('bg-green-600');
+                saveButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            }
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error saving pairings:', error);
+        alert('Fehler beim Speichern der Paarungen: ' + error.message);
+
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
+        }
+    }
+}
+
+/**
+ * Loads match pairings for a specific session
+ * @param {string} sessionId - Session ID
+ * @returns {Promise<Object|null>} Pairings data or null
+ */
+export async function loadSessionPairings(sessionId) {
+    try {
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const db = getFirestore();
+
+        const pairingsDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingsDoc.exists()) {
+            return null;
+        }
+
+        return pairingsDoc.data();
+    } catch (error) {
+        console.error('Error loading session pairings:', error);
+        return null;
+    }
 }
 
 /**
