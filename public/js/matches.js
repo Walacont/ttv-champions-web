@@ -1,9 +1,23 @@
 import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { createSetScoreInput } from './player-matches.js';
 
 /**
  * Matches Module
  * Handles match pairings, handicap calculation, and match result reporting
  */
+
+// Global variable to store set score input instance for coach match form
+let coachSetScoreInput = null;
+
+/**
+ * Initializes the set score input for coach match form
+ */
+export function initializeCoachSetScoreInput() {
+    const container = document.getElementById('coach-set-score-container');
+    if (container) {
+        coachSetScoreInput = createSetScoreInput(container);
+    }
+}
 
 /**
  * Calculates handicap points based on ELO rating difference
@@ -198,6 +212,22 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         return;
     }
 
+    // Validate set scores
+    if (!coachSetScoreInput) {
+        feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        return;
+    }
+
+    const setValidation = coachSetScoreInput.validate();
+    if (!setValidation.valid) {
+        feedbackEl.textContent = setValidation.error;
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        return;
+    }
+
+    const sets = coachSetScoreInput.getSets();
+
     const loserId = winnerId === playerAId ? playerBId : playerAId;
     feedbackEl.textContent = 'Speichere Match-Ergebnis...';
 
@@ -208,6 +238,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
             winnerId,
             loserId,
             handicapUsed: handicapUsed,
+            sets: sets,
             reportedBy: currentUserData.id,
             clubId: currentUserData.clubId,
             createdAt: serverTimestamp(),
@@ -216,6 +247,12 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         feedbackEl.textContent = 'Match gemeldet! Punkte werden in Kürze aktualisiert.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+
+        // Reset set score input
+        if (coachSetScoreInput) {
+            coachSetScoreInput.refresh();
+        }
+
         updateMatchUI(clubPlayers);
     } catch (error) {
         console.error("Fehler beim Melden des Matches:", error);
