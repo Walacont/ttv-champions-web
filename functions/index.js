@@ -143,33 +143,51 @@ exports.processMatchResult = onDocumentCreated(
       // wenn 'eloRating' null oder undefined ist.
       const winnerElo = winnerData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
       const loserElo = loserData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
-      
+
       const winnerHighestElo = winnerData.highestElo || winnerElo;
       const loserHighestElo = loserData.highestElo || loserElo;
 
-      const {newWinnerElo, newLoserElo, eloDelta} = calculateElo(
-        winnerElo,
-        loserElo,
-        CONFIG.ELO.K_FACTOR
-      );
-
-      // Apply Elo gate protection for loser
-      const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserHighestElo);
-
-      // Update highest Elo if new records are set
-      const newWinnerHighestElo = Math.max(newWinnerElo, winnerHighestElo);
-      const newLoserHighestElo = Math.max(protectedLoserElo, loserHighestElo);
+      let newWinnerElo = winnerElo;
+      let newLoserElo = loserElo;
+      let protectedLoserElo = loserElo;
+      let newWinnerHighestElo = winnerHighestElo;
+      let newLoserHighestElo = loserHighestElo;
+      let eloDelta = 0;
+      let winnerEloChange = 0;
+      let loserEloChange = 0;
 
       let seasonPointChange;
       let matchTypeReason = "Wettkampf";
 
       if (handicapUsed) {
+        // Handicap matches: No Elo changes, only season points and XP
         seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS;
         matchTypeReason = "Handicap-Wettkampf";
         logger.info(
-          `ℹ️ Handicap-Match ${matchId}: Feste Punktevergabe von ${seasonPointChange}.`
+          `ℹ️ Handicap-Match ${matchId}: Feste Punktevergabe von ${seasonPointChange}, keine Elo-Änderung.`
         );
       } else {
+        // Standard matches: Calculate Elo and season points
+        const eloResult = calculateElo(
+          winnerElo,
+          loserElo,
+          CONFIG.ELO.K_FACTOR
+        );
+        newWinnerElo = eloResult.newWinnerElo;
+        newLoserElo = eloResult.newLoserElo;
+        eloDelta = eloResult.eloDelta;
+
+        // Apply Elo gate protection for loser
+        protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserHighestElo);
+
+        // Update highest Elo if new records are set
+        newWinnerHighestElo = Math.max(newWinnerElo, winnerHighestElo);
+        newLoserHighestElo = Math.max(protectedLoserElo, loserHighestElo);
+
+        // Calculate Elo changes
+        winnerEloChange = newWinnerElo - winnerElo;
+        loserEloChange = protectedLoserElo - loserElo;
+
         const pointFactor = eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR;
         seasonPointChange = Math.round(pointFactor);
         logger.info(
@@ -201,10 +219,7 @@ exports.processMatchResult = onDocumentCreated(
         // Note: XP is NOT decremented - it only goes up!
       });
 
-      // Calculate Elo changes
-      const winnerEloChange = newWinnerElo - winnerElo;
-      const loserEloChange = protectedLoserElo - loserElo;
-
+      // Create history entries (eloChange already calculated above)
       const winnerHistoryRef = winnerRef
         .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
         .doc();
