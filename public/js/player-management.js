@@ -42,8 +42,8 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             isMatchReady: false,
             onboardingComplete: false,
             points: 0,
-            eloRating: 0,
-            highestElo: 0,
+            eloRating: 800, // New system: Start at 800 Elo
+            highestElo: 800, // New system: Start at 800 Elo
             xp: 0,
             grundlagenCompleted: 0,
             subgroupIDs: subgroupIDs,
