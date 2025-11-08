@@ -32,14 +32,17 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
             <div class="flex justify-center border-b border-gray-200 mb-4">
-                <button id="tab-effort" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    💪 Fleiß
+                <button id="tab-effort" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
+                    <div>💪 Fleiß</div>
+                    <div class="text-xs text-gray-500 font-normal">(XP)</div>
                 </button>
-                <button id="tab-skill" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    ⚡ Skill
+                <button id="tab-skill" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
+                    <div>⚡ Skill</div>
+                    <div class="text-xs text-gray-500 font-normal">(Elo)</div>
                 </button>
-                <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    🏆 Level
+                <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
+                    <div>🏆 Ränge</div>
+                    <div class="text-xs text-gray-500 font-normal">(Level)</div>
                 </button>
             </div>
 
