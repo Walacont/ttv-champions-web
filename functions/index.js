@@ -147,35 +147,49 @@ exports.processMatchResult = onDocumentCreated(
       const winnerHighestElo = winnerData.highestElo || winnerElo;
       const loserHighestElo = loserData.highestElo || loserElo;
 
-      let newWinnerElo = winnerElo;
-      let newLoserElo = loserElo;
-      let protectedLoserElo = loserElo;
-      let newWinnerHighestElo = winnerHighestElo;
-      let newLoserHighestElo = loserHighestElo;
-      let eloDelta = 0;
-      let winnerEloChange = 0;
-      let loserEloChange = 0;
-
+      let newWinnerElo;
+      let newLoserElo;
+      let protectedLoserElo;
+      let newWinnerHighestElo;
+      let newLoserHighestElo;
+      let winnerEloChange;
+      let loserEloChange;
       let seasonPointChange;
+      let winnerXPGain = 0; // XP only for standard matches
       let matchTypeReason = "Wettkampf";
 
       if (handicapUsed) {
-        // Handicap matches: No Elo changes, only season points and XP
-        seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS;
+        // Handicap matches: Fixed Elo changes (+8/-8), no XP
+        seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
         matchTypeReason = "Handicap-Wettkampf";
+
+        // Fixed Elo changes for handicap matches
+        newWinnerElo = winnerElo + CONFIG.ELO.HANDICAP_SEASON_POINTS; // +8
+        newLoserElo = loserElo - CONFIG.ELO.HANDICAP_SEASON_POINTS; // -8
+
+        // Apply Elo gate protection for loser
+        protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserHighestElo);
+
+        // Update highest Elo if new records are set
+        newWinnerHighestElo = Math.max(newWinnerElo, winnerHighestElo);
+        newLoserHighestElo = Math.max(protectedLoserElo, loserHighestElo);
+
+        // Calculate actual Elo changes
+        winnerEloChange = newWinnerElo - winnerElo;
+        loserEloChange = protectedLoserElo - loserElo;
+
         logger.info(
-          `ℹ️ Handicap-Match ${matchId}: Feste Punktevergabe von ${seasonPointChange}, keine Elo-Änderung.`
+          `ℹ️ Handicap-Match ${matchId}: Feste Punktevergabe ${seasonPointChange}, feste Elo-Änderung ±${CONFIG.ELO.HANDICAP_SEASON_POINTS}.`
         );
       } else {
-        // Standard matches: Calculate Elo and season points
-        const eloResult = calculateElo(
+        // Standard matches: Calculate Elo dynamically and award XP
+        const {newWinnerElo: calculatedWinnerElo, newLoserElo: calculatedLoserElo, eloDelta} = calculateElo(
           winnerElo,
           loserElo,
           CONFIG.ELO.K_FACTOR
         );
-        newWinnerElo = eloResult.newWinnerElo;
-        newLoserElo = eloResult.newLoserElo;
-        eloDelta = eloResult.eloDelta;
+        newWinnerElo = calculatedWinnerElo;
+        newLoserElo = calculatedLoserElo;
 
         // Apply Elo gate protection for loser
         protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserHighestElo);
@@ -188,10 +202,15 @@ exports.processMatchResult = onDocumentCreated(
         winnerEloChange = newWinnerElo - winnerElo;
         loserEloChange = protectedLoserElo - loserElo;
 
+        // Dynamic points based on Elo delta
         const pointFactor = eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR;
         seasonPointChange = Math.round(pointFactor);
+
+        // XP only for standard matches (equals points)
+        winnerXPGain = seasonPointChange;
+
         logger.info(
-          `ℹ️ Standard-Match ${matchId}: Dynamische Punktevergabe von ${seasonPointChange}.`
+          `ℹ️ Standard-Match ${matchId}: Dynamische Punktevergabe ${seasonPointChange}, XP ${winnerXPGain}.`
         );
       }
 
@@ -202,16 +221,22 @@ exports.processMatchResult = onDocumentCreated(
 
       const batch = db.batch();
 
-      // Update winner with XP tracking and highest Elo
-      batch.update(winnerRef, {
+      // Build winner update object
+      const winnerUpdate = {
         eloRating: newWinnerElo,
         highestElo: newWinnerHighestElo,
         points: admin.firestore.FieldValue.increment(seasonPointChange),
-        xp: admin.firestore.FieldValue.increment(seasonPointChange), // XP = points for matches
-        lastXPUpdate: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      };
 
-      // Update loser (Elo protected by gates, XP never decreases!)
+      // Only add XP for standard matches
+      if (winnerXPGain > 0) {
+        winnerUpdate.xp = admin.firestore.FieldValue.increment(winnerXPGain);
+        winnerUpdate.lastXPUpdate = admin.firestore.FieldValue.serverTimestamp();
+      }
+
+      batch.update(winnerRef, winnerUpdate);
+
+      // Update loser (Elo changes, points decrease, XP never decreases!)
       batch.update(loserRef, {
         eloRating: protectedLoserElo,
         highestElo: newLoserHighestElo,
@@ -219,13 +244,13 @@ exports.processMatchResult = onDocumentCreated(
         // Note: XP is NOT decremented - it only goes up!
       });
 
-      // Create history entries (eloChange already calculated above)
+      // Create history entries
       const winnerHistoryRef = winnerRef
         .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
         .doc();
       batch.set(winnerHistoryRef, {
         points: seasonPointChange,
-        xp: seasonPointChange, // Winner gains XP equal to points
+        xp: winnerXPGain, // XP only for standard matches, 0 for handicap
         eloChange: winnerEloChange,
         reason: `Sieg im ${matchTypeReason} gegen ${
           loserData.firstName || "Gegner"
@@ -239,7 +264,7 @@ exports.processMatchResult = onDocumentCreated(
         .doc();
       batch.set(loserHistoryRef, {
         points: loserActualPointsChange, // Use actual change (floored at 0)
-        xp: 0, // Loser doesn't lose XP
+        xp: 0, // Loser doesn't gain XP
         eloChange: loserEloChange,
         reason: `Niederlage im ${matchTypeReason} gegen ${
           winnerData.firstName || "Gegner"
@@ -248,16 +273,18 @@ exports.processMatchResult = onDocumentCreated(
         awardedBy: "System (Wettkampf)",
       });
 
-      // Track XP in separate history for winner only (losers don't lose XP)
-      const winnerXPHistoryRef = winnerRef.collection("xpHistory").doc();
-      batch.set(winnerXPHistoryRef, {
-        xp: seasonPointChange,
-        reason: `Sieg im ${matchTypeReason} gegen ${
-          loserData.firstName || "Gegner"
-        }`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Wettkampf)",
-      });
+      // Track XP in separate history for winner only (only for standard matches)
+      if (winnerXPGain > 0) {
+        const winnerXPHistoryRef = winnerRef.collection("xpHistory").doc();
+        batch.set(winnerXPHistoryRef, {
+          xp: winnerXPGain,
+          reason: `Sieg im ${matchTypeReason} gegen ${
+            loserData.firstName || "Gegner"
+          }`,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          awardedBy: "System (Wettkampf)",
+        });
+      }
 
       batch.update(snap.ref, {
         processed: true,
