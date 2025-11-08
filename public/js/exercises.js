@@ -86,6 +86,12 @@ export function renderTagFilters(tags, exercises) {
         filterContainer.appendChild(button);
     });
 
+    // Setup toggle button for player view
+    setupTagFilterToggle('player');
+
+    // Setup search functionality for player view
+    setupTagSearch('player');
+
     filterContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('tag-filter-btn')) {
             const selectedTag = e.target.dataset.tag;
@@ -159,6 +165,12 @@ function renderTagFiltersCoach(tags, exercises) {
         filterContainer.appendChild(button);
     });
 
+    // Setup toggle button
+    setupTagFilterToggle('coach');
+
+    // Setup search functionality
+    setupTagSearch('coach');
+
     // Add click handlers for filtering
     filterContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('tag-filter-btn')) {
@@ -175,6 +187,63 @@ function renderTagFiltersCoach(tags, exercises) {
             // Filter exercises
             renderCoachExercises(exercises, selectedTag);
         }
+    });
+}
+
+/**
+ * Sets up toggle functionality for tag filter section
+ * @param {string} context - 'coach' or 'player'
+ */
+function setupTagFilterToggle(context) {
+    const toggleButton = document.getElementById(`toggle-tags-filter-${context}`);
+    const filterSection = document.getElementById(`tags-filter-section-${context}`);
+    const filterIcon = document.getElementById(`filter-icon-${context}`);
+
+    if (!toggleButton || !filterSection || !filterIcon) return;
+
+    // Remove old listeners by cloning
+    const newToggleButton = toggleButton.cloneNode(true);
+    toggleButton.parentNode.replaceChild(newToggleButton, toggleButton);
+
+    newToggleButton.addEventListener('click', () => {
+        const isHidden = filterSection.classList.contains('hidden');
+
+        if (isHidden) {
+            filterSection.classList.remove('hidden');
+            filterIcon.style.transform = 'rotate(180deg)';
+        } else {
+            filterSection.classList.add('hidden');
+            filterIcon.style.transform = 'rotate(0deg)';
+        }
+    });
+}
+
+/**
+ * Sets up search functionality for tag filter
+ * @param {string} context - 'coach' or 'player'
+ */
+function setupTagSearch(context) {
+    const searchInput = document.getElementById(`tag-search-${context}`);
+    const filterContainer = document.getElementById(`tags-filter-container-${context}`);
+
+    if (!searchInput || !filterContainer) return;
+
+    // Remove old listeners
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+
+    newSearchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const buttons = filterContainer.querySelectorAll('.tag-filter-btn');
+
+        buttons.forEach(button => {
+            const tagText = button.textContent.toLowerCase();
+            if (tagText.includes(searchTerm)) {
+                button.classList.remove('hidden');
+            } else {
+                button.classList.add('hidden');
+            }
+        });
     });
 }
 
