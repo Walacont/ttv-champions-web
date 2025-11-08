@@ -211,7 +211,7 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
  * @param {string} subgroupName - Subgroup name for history entries
  */
 async function recalculateSubsequentDays(playerId, removedDate, subgroupId, clubId, db, batch, subgroupName) {
-    const ATTENDANCE_POINTS_BASE = 10;
+    const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
     try {
         console.log(`[recalculateSubsequentDays] Starting recalculation for player ${playerId} after ${removedDate}`);
@@ -290,12 +290,12 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
 
             console.log(`[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`);
 
-            // Calculate NEW points based on new streak
-            let newPoints = ATTENDANCE_POINTS_BASE;
+            // Calculate NEW points based on new streak (New System)
+            let newPoints = ATTENDANCE_POINTS_BASE; // 3 points default
             if (newStreak >= 5) {
-                newPoints = 20;
+                newPoints = 6; // 3 base + 3 bonus
             } else if (newStreak >= 3) {
-                newPoints = 15;
+                newPoints = 5; // 3 base + 2 bonus
             }
 
             // Find OLD points that were awarded
@@ -635,7 +635,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
     const date = document.getElementById('attendance-date-input').value;
     const docId = document.getElementById('attendance-doc-id-input').value;
-    const ATTENDANCE_POINTS_BASE = 10;
+    const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
     // When filter is "all", prevent saving (user must select a specific subgroup)
     if (currentSubgroupFilter === 'all') {
@@ -729,16 +729,16 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // Streak logic
                     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
-                    // Bonus points logic
-                    let pointsToAdd = ATTENDANCE_POINTS_BASE;
+                    // Bonus points logic (New System)
+                    let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
                     let reason = `Anwesenheit beim Training - ${subgroupName}`;
 
                     if (newStreak >= 5) {
-                        pointsToAdd = 20; // 10 base + 10 bonus
-                        reason = `Anwesenheit beim Training - ${subgroupName} (${newStreak}x Super-Streak)`;
+                        pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+                        reason = `Anwesenheit beim Training - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
                     } else if (newStreak >= 3) {
-                        pointsToAdd = 15; // 10 base + 5 bonus
-                        reason = `Anwesenheit beim Training - ${subgroupName} (${newStreak}x Streak-Bonus)`;
+                        pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+                        reason = `Anwesenheit beim Training - ${subgroupName} (⚡ ${newStreak}x Streak)`;
                     }
 
                     // Update streak in subcollection
