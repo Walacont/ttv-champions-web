@@ -411,6 +411,7 @@ export function handleReasonChange() {
 
     const challengeSelect = document.getElementById('challenge-select');
     const exerciseSelect = document.getElementById('exercise-select');
+    const penaltyReason = document.getElementById('penalty-reason');
 
     // Show/hide containers
     if (challengeContainer) challengeContainer.classList.toggle('hidden', value !== 'challenge');
@@ -432,6 +433,14 @@ export function handleReasonChange() {
             exerciseSelect.setAttribute('required', 'required');
         } else {
             exerciseSelect.removeAttribute('required');
+        }
+    }
+
+    if (penaltyReason) {
+        if (value === 'penalty') {
+            penaltyReason.setAttribute('required', 'required');
+        } else {
+            penaltyReason.removeAttribute('required');
         }
     }
 }
