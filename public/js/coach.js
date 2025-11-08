@@ -7,7 +7,7 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://w
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
-import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, populateSubgroupDropdown } from './challenges.js';
+import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
@@ -452,6 +452,17 @@ window.confirmEndChallenge = async function(challengeId, title) {
         const result = await endChallenge(challengeId, db);
         if (result.success) {
             alert('Challenge wurde beendet.');
+        } else {
+            alert(`Fehler: ${result.error}`);
+        }
+    }
+};
+
+window.confirmDeleteChallenge = async function(challengeId, title) {
+    if (confirm(`Möchten Sie die Challenge "${title}" wirklich PERMANENT löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`)) {
+        const result = await deleteChallenge(challengeId, db);
+        if (result.success) {
+            alert('Challenge wurde gelöscht.');
         } else {
             alert(`Fehler: ${result.error}`);
         }

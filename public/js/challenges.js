@@ -1,4 +1,4 @@
-import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Challenges Module
@@ -308,6 +308,10 @@ export function loadExpiredChallenges(clubId, db) {
                             class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-3 rounded">
                         🔄 Reaktivieren
                     </button>
+                    <button onclick="confirmDeleteChallenge('${challenge.id}', '${challenge.title}')"
+                            class="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-3 rounded">
+                        🗑️ Löschen
+                    </button>
                 </div>
             `;
             expiredChallengesList.appendChild(card);
@@ -356,6 +360,22 @@ export async function endChallenge(challengeId, db) {
         return { success: true };
     } catch (error) {
         console.error('Error ending challenge:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Deletes a challenge permanently
+ * @param {string} challengeId - Challenge ID
+ * @param {Object} db - Firestore database instance
+ */
+export async function deleteChallenge(challengeId, db) {
+    try {
+        const challengeRef = doc(db, 'challenges', challengeId);
+        await deleteDoc(challengeRef);
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting challenge:', error);
         return { success: false, error: error.message };
     }
 }
