@@ -32,6 +32,12 @@ service cloud.firestore {
       return isCoachOrAdmin() && isSameClub(clubId);
     }
 
+    function playerIsMatchReady(playerId) {
+      let playerData = get(/databases/$(database)/documents/users/$(playerId)).data;
+      let grundlagenCompleted = playerData.grundlagenCompleted;
+      return grundlagenCompleted != null && grundlagenCompleted >= 5;
+    }
+
     // Users collection
     match /users/{userId} {
       // Users can read their own data
@@ -143,11 +149,14 @@ service cloud.firestore {
 
       // Players can create requests for themselves (as playerA)
       // Must include proper initial approvals structure
+      // Must have completed 5 Grundlagen exercises (match-ready)
       allow create: if isAuthenticated() &&
         request.resource.data.playerAId == request.auth.uid &&
         isSameClub(request.resource.data.clubId) &&
         request.resource.data.status == 'pending_player' &&
-        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']);
+        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']) &&
+        playerIsMatchReady(request.resource.data.playerAId) &&
+        playerIsMatchReady(request.resource.data.playerBId);
 
       // PlayerB can update (approve/reject) if they are playerB and status is pending_player
       allow update: if isAuthenticated() &&

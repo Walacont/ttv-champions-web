@@ -59,7 +59,11 @@ export function calculateHandicap(playerA, playerB) {
 export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all') {
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
-    let matchReadyAndPresentPlayers = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady);
+    // Only pair players who have completed Grundlagen (5 exercises)
+    let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
+        const grundlagen = player.grundlagenCompleted || 0;
+        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+    });
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
@@ -167,7 +171,11 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
     const pairingsButton = document.getElementById('generate-pairings-button');
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
-    let eligiblePlayers = clubPlayers.filter(player => presentPlayerIds.includes(player.id) && player.isMatchReady);
+    // Only count players who have completed Grundlagen (5 exercises)
+    let eligiblePlayers = clubPlayers.filter(player => {
+        const grundlagen = player.grundlagenCompleted || 0;
+        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+    });
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
@@ -313,8 +321,17 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
     playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
 
-    // Filter by match-ready status
-    let matchReadyPlayers = clubPlayers.filter(p => p.isMatchReady === true);
+    // Filter by match-ready status (grundlagenCompleted >= 5)
+    let matchReadyPlayers = clubPlayers.filter(p => {
+        const grundlagen = p.grundlagenCompleted || 0;
+        return grundlagen >= 5;
+    });
+
+    // Count locked players for warning message
+    const lockedPlayers = clubPlayers.filter(p => {
+        const grundlagen = p.grundlagenCompleted || 0;
+        return grundlagen < 5;
+    });
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
@@ -323,18 +340,32 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         );
     }
 
-    if (matchReadyPlayers.length < 2) {
-         const handicapSuggestion = document.getElementById('handicap-suggestion');
-         if(handicapSuggestion) {
-            const message = currentSubgroupFilter !== 'all'
+    // Show warning if not enough match-ready players
+    const handicapSuggestion = document.getElementById('handicap-suggestion');
+    if (handicapSuggestion) {
+        if (matchReadyPlayers.length < 2) {
+            let message = currentSubgroupFilter !== 'all'
                 ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
                 : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
+
+            // Add info about locked players
+            if (lockedPlayers.length > 0) {
+                const lockedNames = lockedPlayers.map(p => {
+                    const grundlagen = p.grundlagenCompleted || 0;
+                    return `${p.firstName} (${grundlagen}/5 Grundlagen)`;
+                }).join(', ');
+                message += `<p class="text-xs text-gray-600 mt-2">🔒 Gesperrt: ${lockedNames}</p>`;
+            }
+
             handicapSuggestion.innerHTML = message;
             handicapSuggestion.classList.remove('hidden');
-         }
+        } else {
+            handicapSuggestion.classList.add('hidden');
+        }
     }
 
     matchReadyPlayers.forEach(player => {
+        const grundlagen = player.grundlagenCompleted || 0;
         const option = document.createElement('option');
         option.value = player.id;
         option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 0)})`;
