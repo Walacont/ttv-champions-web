@@ -109,7 +109,7 @@ export function renderTagFilters(tags, exercises) {
 }
 
 /**
- * Loads all exercises for coach view (without filtering)
+ * Loads all exercises for coach view (with tag filtering and points display)
  * @param {Object} db - Firestore database instance
  */
 export function loadAllExercises(db) {
@@ -117,25 +117,111 @@ export function loadAllExercises(db) {
     if (!exercisesListCoachEl) return;
 
     onSnapshot(query(collection(db, "exercises"), orderBy("createdAt", "desc")), (snapshot) => {
-        exercisesListCoachEl.innerHTML = snapshot.empty ? '<p class="text-gray-500 col-span-full">Keine Übungen gefunden.</p>' : '';
+        const exercises = [];
+        const allTags = new Set();
+
         snapshot.forEach(doc => {
             const exercise = { id: doc.id, ...doc.data() };
-            const card = document.createElement('div');
-            card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
-            card.dataset.id = exercise.id;
-            card.dataset.title = exercise.title;
-            card.dataset.description = exercise.description || '';
-            card.dataset.imageUrl = exercise.imageUrl;
-            card.dataset.points = exercise.points;
-            card.dataset.tags = JSON.stringify(exercise.tags || []);
-            const tagsHtml = (exercise.tags || []).map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
-            card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
-                              <div class="p-4 flex flex-col flex-grow pointer-events-none">
-                                  <h3 class="font-bold text-md mb-2 flex-grow">${exercise.title}</h3>
-                                  <div class="pt-2">${tagsHtml}</div>
-                              </div>`;
-            exercisesListCoachEl.appendChild(card);
+            exercises.push(exercise);
+            (exercise.tags || []).forEach(tag => allTags.add(tag));
         });
+
+        // Render tag filters for coach
+        renderTagFiltersCoach(allTags, exercises);
+
+        // Render all exercises initially
+        renderCoachExercises(exercises, 'all');
+    });
+}
+
+/**
+ * Renders tag filter buttons for the coach exercise list
+ * @param {Set} tags - Set of all available tags
+ * @param {Array} exercises - Array of exercise objects with their tags
+ */
+function renderTagFiltersCoach(tags, exercises) {
+    const filterContainer = document.getElementById('tags-filter-container-coach');
+    if (!filterContainer) return;
+
+    filterContainer.innerHTML = '';
+
+    const allButton = document.createElement('button');
+    allButton.className = 'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
+    allButton.textContent = 'Alle';
+    allButton.dataset.tag = 'all';
+    filterContainer.appendChild(allButton);
+
+    tags.forEach(tag => {
+        const button = document.createElement('button');
+        button.className = 'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
+        button.textContent = tag;
+        button.dataset.tag = tag;
+        filterContainer.appendChild(button);
+    });
+
+    // Add click handlers for filtering
+    filterContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tag-filter-btn')) {
+            const selectedTag = e.target.dataset.tag;
+
+            // Update active state
+            filterContainer.querySelectorAll('.tag-filter-btn').forEach(btn => {
+                btn.classList.remove('active-filter', 'bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            e.target.classList.add('active-filter', 'bg-indigo-600', 'text-white');
+            e.target.classList.remove('bg-gray-200', 'text-gray-700');
+
+            // Filter exercises
+            renderCoachExercises(exercises, selectedTag);
+        }
+    });
+}
+
+/**
+ * Renders coach exercise cards with optional tag filtering
+ * @param {Array} exercises - Array of exercise objects
+ * @param {string} filterTag - Tag to filter by ('all' for no filter)
+ */
+function renderCoachExercises(exercises, filterTag) {
+    const exercisesListCoachEl = document.getElementById('exercises-list-coach');
+    if (!exercisesListCoachEl) return;
+
+    exercisesListCoachEl.innerHTML = '';
+
+    const filteredExercises = filterTag === 'all'
+        ? exercises
+        : exercises.filter(ex => (ex.tags || []).includes(filterTag));
+
+    if (filteredExercises.length === 0) {
+        exercisesListCoachEl.innerHTML = '<p class="text-gray-500 col-span-full">Keine Übungen für diesen Filter gefunden.</p>';
+        return;
+    }
+
+    filteredExercises.forEach(exercise => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
+        card.dataset.id = exercise.id;
+        card.dataset.title = exercise.title;
+        card.dataset.description = exercise.description || '';
+        card.dataset.imageUrl = exercise.imageUrl;
+        card.dataset.points = exercise.points;
+        card.dataset.tags = JSON.stringify(exercise.tags || []);
+
+        const tagsHtml = (exercise.tags || []).map(tag =>
+            `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
+        ).join('');
+
+        card.innerHTML = `
+            <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
+            <div class="p-4 flex flex-col flex-grow pointer-events-none">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
+                    <span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${exercise.points} P.</span>
+                </div>
+                <div class="pt-2">${tagsHtml}</div>
+            </div>`;
+        exercisesListCoachEl.appendChild(card);
     });
 }
 
