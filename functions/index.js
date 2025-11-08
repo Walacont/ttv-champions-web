@@ -814,6 +814,244 @@ exports.processApprovedMatchRequest = onDocumentWritten(
 );
 
 // ========================================================================
+// ===== SCHEDULED FUNCTION: Auto-Generate Training Sessions =====
+// ========================================================================
+/**
+ * Scheduled function that runs daily at 00:00 UTC
+ * Generates training sessions for the next 14 days from recurring templates
+ */
+exports.autoGenerateTrainingSessions = onSchedule(
+  {
+    schedule: "0 0 * * *", // Every day at midnight UTC
+    timeZone: "Europe/Berlin",
+    region: CONFIG.REGION,
+  },
+  async (event) => {
+    logger.info("🔄 Starting auto-generation of training sessions...");
+
+    try {
+      // Get all active recurring training templates
+      const templatesSnapshot = await db
+        .collection("recurringTrainingTemplates")
+        .where("active", "==", true)
+        .get();
+
+      if (templatesSnapshot.empty) {
+        logger.info("No active recurring templates found");
+        return {success: true, sessionsCreated: 0};
+      }
+
+      logger.info(`Found ${templatesSnapshot.size} active templates`);
+
+      // Calculate date range: today to +14 days
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 14);
+
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      let totalCreated = 0;
+      const batch = db.batch();
+      let batchCount = 0;
+
+      // Iterate through all dates in range
+      const currentDate = new Date(today);
+      while (currentDate <= endDate) {
+        const dateStr = formatDate(currentDate);
+        const dayOfWeek = currentDate.getDay();
+
+        // Find templates for this day of week
+        for (const templateDoc of templatesSnapshot.docs) {
+          const template = templateDoc.data();
+
+          // Check if template applies to this day
+          if (template.dayOfWeek !== dayOfWeek) continue;
+
+          // Check date range
+          if (template.startDate && dateStr < template.startDate) continue;
+          if (template.endDate && dateStr > template.endDate) continue;
+
+          // Check if session already exists
+          const existingSession = await db
+            .collection("trainingSessions")
+            .where("clubId", "==", template.clubId)
+            .where("date", "==", dateStr)
+            .where("startTime", "==", template.startTime)
+            .where("subgroupId", "==", template.subgroupId)
+            .limit(1)
+            .get();
+
+          if (!existingSession.empty) {
+            logger.info(
+              `Session already exists: ${dateStr} ${template.startTime}`
+            );
+            continue;
+          }
+
+          // Create new session
+          const sessionRef = db.collection("trainingSessions").doc();
+          batch.set(sessionRef, {
+            date: dateStr,
+            startTime: template.startTime,
+            endTime: template.endTime,
+            subgroupId: template.subgroupId,
+            clubId: template.clubId,
+            recurringTemplateId: templateDoc.id,
+            cancelled: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdBy: "system",
+          });
+
+          totalCreated++;
+          batchCount++;
+
+          // Commit batch every 500 operations (Firestore limit)
+          if (batchCount >= 500) {
+            await batch.commit();
+            batchCount = 0;
+            logger.info(`Committed batch, ${totalCreated} sessions created so far`);
+          }
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Commit remaining operations
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+
+      logger.info(`✅ Auto-generation complete: ${totalCreated} sessions created`);
+      return {success: true, sessionsCreated: totalCreated};
+    } catch (error) {
+      logger.error("💥 Error auto-generating training sessions:", error);
+      return {success: false, error: error.message};
+    }
+  }
+);
+
+// ========================================================================
+// ===== CALLABLE FUNCTION: Migrate Attendance to Sessions =====
+// ========================================================================
+/**
+ * One-time migration function to convert existing attendance data
+ * to the new session-based system
+ * Creates a generic training session for each attendance record that lacks a sessionId
+ */
+exports.migrateAttendanceToSessions = onCall(
+  {
+    region: CONFIG.REGION,
+    enforceAppCheck: false, // Set to true in production
+  },
+  async (request) => {
+    logger.info("🔄 Starting attendance migration to sessions...");
+
+    try {
+      // Get all attendance records without sessionId
+      const attendanceSnapshot = await db
+        .collection("attendance")
+        .get();
+
+      if (attendanceSnapshot.empty) {
+        logger.info("No attendance records found");
+        return {success: true, migrated: 0, skipped: 0};
+      }
+
+      logger.info(`Found ${attendanceSnapshot.size} attendance records`);
+
+      let migrated = 0;
+      let skipped = 0;
+      const batch = db.batch();
+      let batchCount = 0;
+
+      for (const attendanceDoc of attendanceSnapshot.docs) {
+        const attendance = attendanceDoc.data();
+
+        // Skip if already has sessionId
+        if (attendance.sessionId) {
+          skipped++;
+          continue;
+        }
+
+        // Check if a session already exists for this date/subgroup/club
+        const existingSessionQuery = await db
+          .collection("trainingSessions")
+          .where("clubId", "==", attendance.clubId)
+          .where("subgroupId", "==", attendance.subgroupId)
+          .where("date", "==", attendance.date)
+          .limit(1)
+          .get();
+
+        let sessionId;
+
+        if (!existingSessionQuery.empty) {
+          // Use existing session
+          sessionId = existingSessionQuery.docs[0].id;
+          logger.info(`Using existing session ${sessionId} for attendance ${attendanceDoc.id}`);
+        } else {
+          // Create a generic session (18:00-20:00 default time)
+          const sessionRef = db.collection("trainingSessions").doc();
+          sessionId = sessionRef.id;
+
+          batch.set(sessionRef, {
+            date: attendance.date,
+            startTime: "18:00", // Default time for migrated sessions
+            endTime: "20:00",
+            subgroupId: attendance.subgroupId,
+            clubId: attendance.clubId,
+            recurringTemplateId: null,
+            cancelled: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdBy: "migration",
+          });
+
+          batchCount++;
+          logger.info(`Created session ${sessionId} for attendance ${attendanceDoc.id}`);
+        }
+
+        // Update attendance with sessionId
+        batch.update(attendanceDoc.ref, {
+          sessionId: sessionId,
+        });
+
+        batchCount++;
+        migrated++;
+
+        // Commit batch every 500 operations (Firestore limit)
+        if (batchCount >= 500) {
+          await batch.commit();
+          batchCount = 0;
+          logger.info(`Committed batch, ${migrated} records migrated so far`);
+        }
+      }
+
+      // Commit remaining operations
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+
+      logger.info(`✅ Migration complete: ${migrated} migrated, ${skipped} skipped`);
+      return {
+        success: true,
+        migrated,
+        skipped,
+        total: attendanceSnapshot.size,
+      };
+    } catch (error) {
+      logger.error("💥 Error migrating attendance:", error);
+      throw new HttpsError("internal", error.message);
+    }
+  }
+);
+
+// ========================================================================
 // ===== TODO: Email Notifications =====
 // ========================================================================
 // Future enhancement: Send email notifications when:
