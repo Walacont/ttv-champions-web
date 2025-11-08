@@ -12,6 +12,11 @@ export function setupTabs(defaultTab = 'overview') {
     const tabContents = document.querySelectorAll('.tab-content');
     const defaultButton = document.querySelector(`.tab-button[data-tab="${defaultTab}"]`);
 
+    // First, hide all tabs and remove all active states
+    tabButtons.forEach(btn => btn.classList.remove('tab-active'));
+    tabContents.forEach(content => content.classList.add('hidden'));
+
+    // Then show only the default tab
     if (defaultButton) {
         defaultButton.classList.add('tab-active');
         const defaultContent = document.getElementById(`tab-content-${defaultTab}`);
