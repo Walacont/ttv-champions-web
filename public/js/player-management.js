@@ -292,6 +292,44 @@ export function loadPlayersForDropdown(clubId, db) {
 }
 
 /**
+ * Updates the points player dropdown based on subgroup filter
+ * @param {Array} clubPlayers - Array of all club players
+ * @param {string} subgroupFilter - Current subgroup filter ('all' or subgroup ID)
+ */
+export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
+    const select = document.getElementById('player-select');
+    if (!select) return;
+
+    // Filter players based on subgroup
+    const filteredPlayers = subgroupFilter === 'all'
+        ? clubPlayers
+        : clubPlayers.filter(p => {
+            const subgroupIDs = p.subgroupIDs || [];
+            return subgroupIDs.includes(subgroupFilter);
+        });
+
+    // Populate dropdown with filtered players
+    const currentValue = select.value; // Preserve selection if possible
+    select.innerHTML = '<option value="">Spieler wählen...</option>';
+
+    filteredPlayers
+        .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
+        .forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = `${p.firstName} ${p.lastName}`;
+            option.dataset.grundlagen = p.grundlagenCompleted || 0;
+            option.dataset.rank = p.rank || 'Rekrut';
+            select.appendChild(option);
+        });
+
+    // Restore selection if player still in filtered list
+    if (currentValue && filteredPlayers.some(p => p.id === currentValue)) {
+        select.value = currentValue;
+    }
+}
+
+/**
  * Shows detailed player information in the player management modal
  * @param {Object} player - Player data object
  * @param {HTMLElement} detailContent - Target element for content

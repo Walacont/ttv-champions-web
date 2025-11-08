@@ -99,7 +99,7 @@ service cloud.firestore {
       // Subcollection: completedChallenges
       match /completedChallenges/{challengeId} {
         allow read, write: if isOwner(userId);
-        allow read: if isCoachOrAdmin();
+        allow read, write: if isCoachOrAdmin();
       }
     }
 

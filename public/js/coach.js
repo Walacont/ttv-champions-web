@@ -11,7 +11,7 @@ import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loa
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
-import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups } from './player-management.js';
+import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
@@ -164,6 +164,7 @@ async function initializeCoachPage(userData) {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateHistoryFilterDropdown(clubPlayers);
+        updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
 
     // Initialize set score input for coach match form
@@ -401,6 +402,9 @@ function handleSubgroupFilterChange(userData) {
 
     // Reload match dropdowns with new filter
     populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
+
+    // Update points player dropdown with new filter
+    updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
 
     // Update pairings button state with new filter
     updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
