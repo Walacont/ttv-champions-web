@@ -38,10 +38,11 @@ export function setupTabs(defaultTab = 'overview') {
 /**
  * Updates the season countdown timer
  * Season ends on the 15th of each month or at end of month
+ * @param {string} elementId - The ID of the countdown element (default: 'season-countdown')
  * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false for coach, true for player)
  */
-export function updateSeasonCountdown(reloadOnEnd = false) {
-    const seasonCountdownEl = document.getElementById('season-countdown');
+export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEnd = false) {
+    const seasonCountdownEl = document.getElementById(elementId);
     if (!seasonCountdownEl) return;
 
     const now = new Date();
