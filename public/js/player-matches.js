@@ -210,12 +210,22 @@ export function createSetScoreInput(container, existingSets = []) {
     return { valid: false, error: "Ungültiges Spielergebnis." };
   }
 
+  function reset() {
+    // Reset to minimum 3 sets with empty values
+    sets.length = 0;
+    for (let i = 0; i < minSets; i++) {
+      sets.push({ playerA: "", playerB: "" });
+    }
+    renderSets();
+  }
+
   renderSets();
 
   return {
     getSets,
     validate,
     refresh: renderSets,
+    reset,
   };
 }
 
@@ -925,7 +935,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
       showFeedback("Anfrage erfolgreich erstellt! Warte auf Bestätigung.", "success");
       form.reset();
-      setScoreInput.refresh();
+      setScoreInput.reset();
       handicapInfo.classList.add("hidden");
     } catch (error) {
       console.error("Error creating match request:", error);

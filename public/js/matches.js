@@ -248,9 +248,9 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
 
-        // Reset set score input
+        // Reset set score input to 3 sets
         if (coachSetScoreInput) {
-            coachSetScoreInput.refresh();
+            coachSetScoreInput.reset();
         }
 
         updateMatchUI(clubPlayers);
