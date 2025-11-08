@@ -498,12 +498,32 @@
                                 <textarea id="exercise-description-form" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                             </div>
                             <div>
-                                <label for="exercise-points-form" class="block text-sm font-medium text-gray-700">Punkte</label>
-                                <input type="number" id="exercise-points-form" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <label for="exercise-level-form" class="block text-sm font-medium text-gray-700">Level</label>
+                                <select id="exercise-level-form" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Level wählen...</option>
+                                    <option value="grundlagen">🎖️ Grundlagen (Rekruten)</option>
+                                    <option value="standard">🥉 Standard (ab Bronze)</option>
+                                    <option value="fortgeschritten">🥇 Fortgeschritten (ab Gold)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="exercise-difficulty-form" class="block text-sm font-medium text-gray-700">Schwierigkeit</label>
+                                <select id="exercise-difficulty-form" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Schwierigkeit wählen...</option>
+                                    <option value="easy">⭐ Einfach</option>
+                                    <option value="normal">⭐⭐ Normal</option>
+                                    <option value="hard">⭐⭐⭐ Schwer</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="exercise-points-form" class="block text-sm font-medium text-gray-700">Punkte (automatisch berechnet)</label>
+                                <input type="number" id="exercise-points-form" readonly required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-700 font-semibold cursor-not-allowed">
+                                <p class="text-xs text-gray-500 mt-1">Wird automatisch basierend auf Level + Schwierigkeit berechnet</p>
                             </div>
                             <div>
                                 <label for="exercise-tags-form" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
                                 <input type="text" id="exercise-tags-form" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <p class="text-xs text-gray-500 mt-1">💡 Tipp: Verwende "Grundlage" als Tag für Grundlagen-Übungen</p>
                             </div>
                             <div>
                                 <label for="exercise-image-form" class="block text-sm font-medium text-gray-700">Bild</label>

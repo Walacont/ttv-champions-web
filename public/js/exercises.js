@@ -225,6 +225,75 @@ export function closeExerciseModal() {
 }
 
 /**
+ * Calculates exercise points based on level and difficulty
+ * @param {string} level - Exercise level (grundlagen, standard, fortgeschritten)
+ * @param {string} difficulty - Exercise difficulty (easy, normal, hard)
+ * @returns {number} Calculated points
+ */
+export function calculateExercisePoints(level, difficulty) {
+    // Point matrix according to new system
+    const pointsMatrix = {
+        grundlagen: {
+            easy: 5,
+            normal: 6,
+            hard: 8
+        },
+        standard: {
+            easy: 8,
+            normal: 10,
+            hard: 12
+        },
+        fortgeschritten: {
+            normal: 14,
+            hard: 18
+        }
+    };
+
+    // Validate fortgeschritten doesn't have easy
+    if (level === 'fortgeschritten' && difficulty === 'easy') {
+        return pointsMatrix.fortgeschritten.normal; // Default to normal
+    }
+
+    return pointsMatrix[level]?.[difficulty] || 10; // Default fallback
+}
+
+/**
+ * Updates exercise points field when level or difficulty changes
+ */
+export function setupExercisePointsCalculation() {
+    const levelSelect = document.getElementById('exercise-level-form');
+    const difficultySelect = document.getElementById('exercise-difficulty-form');
+    const pointsInput = document.getElementById('exercise-points-form');
+
+    if (!levelSelect || !difficultySelect || !pointsInput) return;
+
+    const updatePoints = () => {
+        const level = levelSelect.value;
+        const difficulty = difficultySelect.value;
+
+        if (level && difficulty) {
+            const points = calculateExercisePoints(level, difficulty);
+            pointsInput.value = points;
+
+            // Disable "easy" for fortgeschritten level
+            const easyOption = difficultySelect.querySelector('option[value="easy"]');
+            if (level === 'fortgeschritten') {
+                easyOption.disabled = true;
+                if (difficulty === 'easy') {
+                    difficultySelect.value = 'normal';
+                    updatePoints(); // Recalculate
+                }
+            } else {
+                easyOption.disabled = false;
+            }
+        }
+    };
+
+    levelSelect.addEventListener('change', updatePoints);
+    difficultySelect.addEventListener('change', updatePoints);
+}
+
+/**
  * Handles exercise creation form submission (for coach)
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
@@ -236,6 +305,8 @@ export async function handleCreateExercise(e, db, storage) {
     const submitBtn = document.getElementById('create-exercise-submit');
     const title = document.getElementById('exercise-title-form').value;
     const description = document.getElementById('exercise-description-form').value;
+    const level = document.getElementById('exercise-level-form').value;
+    const difficulty = document.getElementById('exercise-difficulty-form').value;
     const points = parseInt(document.getElementById('exercise-points-form').value);
     const file = document.getElementById('exercise-image-form').files[0];
     const tagsInput = document.getElementById('exercise-tags-form').value;
@@ -245,7 +316,7 @@ export async function handleCreateExercise(e, db, storage) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !file || isNaN(points) || points <= 0) {
+    if (!title || !file || !level || !difficulty || isNaN(points) || points <= 0) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
@@ -258,11 +329,20 @@ export async function handleCreateExercise(e, db, storage) {
         const snapshot = await uploadBytes(storageRef, file);
         const imageUrl = await getDownloadURL(snapshot.ref);
         await addDoc(collection(db, "exercises"), {
-            title, description, points, imageUrl, createdAt: serverTimestamp(), tags
+            title,
+            description,
+            level,          // NEW: Store level
+            difficulty,     // NEW: Store difficulty
+            points,
+            imageUrl,
+            createdAt: serverTimestamp(),
+            tags
         });
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+        // Reset points field
+        document.getElementById('exercise-points-form').value = '';
     } catch (error) {
         console.error("Fehler beim Erstellen der Übung:", error);
         feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
