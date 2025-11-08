@@ -4,13 +4,14 @@
 
 ### 📦 Was wird deployed?
 
-#### 🎮 Neue Features (6)
+#### 🎮 Neue Features (7)
 1. **Set-by-Set Eingabe** - Coach & Spieler können Satzergebnisse eingeben
 2. **Offizielle Tischtennis-Regeln** - Automatische Validierung (11+ Punkte, 2-Punkte-Regel ab 10:10)
 3. **Auto-Add 4./5. Satz** - Intelligentes Hinzufügen von Satz-Feldern
 4. **Auto-Reset Formular** - Automatischer Reset auf 3 Sätze nach Submission
 5. **Coach-Name auf Anfragen** - Zeigt welcher Coach genehmigt/abgelehnt hat
 6. **Challenge-Untergruppen-Validierung** - Verhindert falsche Punktevergabe mit hilfreicher Fehlermeldung
+7. **Einmalig/Mehrfach Challenges** - Coaches können festlegen, ob Challenges mehrfach oder nur einmal einlösbar sind
 
 #### 🐛 Bug-Fixes (4)
 1. **Handicap-Elo Fix** - Handicap: Fixed ±8 Elo, kein XP | Standard: Dynamic Elo + XP
@@ -91,6 +92,13 @@ firebase deploy
 2. **Handicap-Match erstellen** (testet Cloud Function)
    - Als Coach: Erstelle Handicap-Match
    - Erwartung: Gewinner +8 Elo, Verlierer -8 Elo, kein XP
+
+6. **Einmalige Challenge testen** (testet Frontend + Backend)
+   - Als Coach: Erstelle Challenge mit "Einmalig" (Checkbox NICHT aktiviert)
+   - Vergebe Challenge an Spieler A → Funktioniert
+   - Versuche Challenge nochmal an Spieler A zu vergeben → Fehlermeldung
+   - Reaktiviere Challenge
+   - Vergebe Challenge wieder an Spieler A → Funktioniert wieder
 
 3. **Set-Validierung testen** (testet Frontend)
    - Versuche ungültiges Set zu speichern (z.B. 11:10)
