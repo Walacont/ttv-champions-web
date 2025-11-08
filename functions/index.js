@@ -90,6 +90,14 @@ function calculateElo(winnerElo, loserElo, kFactor = 32) {
   return {newWinnerElo, newLoserElo, eloDelta};
 }
 
+// Export functions for testing
+exports._testOnly = {
+  calculateElo,
+  getHighestEloGate,
+  applyEloGate,
+  CONFIG,
+};
+
 // ========================================================================
 // ===== FUNKTION 1: Verarbeitet ein gemeldetes Match =====
 // ========================================================================
