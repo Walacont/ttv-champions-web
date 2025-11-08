@@ -199,8 +199,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 break;
         }
 
-        // Validate challenge subgroup membership
-        if (challengeId && challengeSubgroupId && challengeSubgroupId !== 'all') {
+        // Validate challenge subgroup membership and repeatable status
+        if (challengeId) {
             const playerDocRef = doc(db, 'users', playerId);
             const playerSnap = await getDoc(playerDocRef);
 
@@ -209,24 +209,58 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
 
             const playerData = playerSnap.data();
-            const playerSubgroups = playerData.subgroupIDs || [];
 
-            // Check if player is in the challenge's subgroup
-            if (!playerSubgroups.includes(challengeSubgroupId)) {
-                // Load subgroup name for helpful error message
-                const subgroupDocRef = doc(db, 'subgroups', challengeSubgroupId);
-                const subgroupSnap = await getDoc(subgroupDocRef);
+            // Subgroup validation
+            if (challengeSubgroupId && challengeSubgroupId !== 'all') {
+                const playerSubgroups = playerData.subgroupIDs || [];
 
-                let subgroupName = 'dieser Untergruppe';
-                if (subgroupSnap.exists()) {
-                    subgroupName = subgroupSnap.data().name || 'dieser Untergruppe';
+                // Check if player is in the challenge's subgroup
+                if (!playerSubgroups.includes(challengeSubgroupId)) {
+                    // Load subgroup name for helpful error message
+                    const subgroupDocRef = doc(db, 'subgroups', challengeSubgroupId);
+                    const subgroupSnap = await getDoc(subgroupDocRef);
+
+                    let subgroupName = 'dieser Untergruppe';
+                    if (subgroupSnap.exists()) {
+                        subgroupName = subgroupSnap.data().name || 'dieser Untergruppe';
+                    }
+
+                    const playerName = `${playerData.firstName} ${playerData.lastName}`;
+                    throw new Error(
+                        `${playerName} gehört nicht der Untergruppe an, für die diese Challenge erstellt wurde. ` +
+                        `Bitte füge die Person in die Untergruppe "${subgroupName}" ein, um ihr diese Challenge zuzuweisen.`
+                    );
                 }
+            }
 
-                const playerName = `${playerData.firstName} ${playerData.lastName}`;
-                throw new Error(
-                    `${playerName} gehört nicht der Untergruppe an, für die diese Challenge erstellt wurde. ` +
-                    `Bitte füge die Person in die Untergruppe "${subgroupName}" ein, um ihr diese Challenge zuzuweisen.`
-                );
+            // Check if challenge is repeatable
+            const challengeDocRef = doc(db, 'challenges', challengeId);
+            const challengeSnap = await getDoc(challengeDocRef);
+
+            if (challengeSnap.exists()) {
+                const challengeData = challengeSnap.data();
+                const isRepeatable = challengeData.isRepeatable !== undefined ? challengeData.isRepeatable : true; // Default to true for backwards compatibility
+                const lastReactivatedAt = challengeData.lastReactivatedAt || challengeData.createdAt;
+
+                // If challenge is NOT repeatable, check if player already completed it
+                if (!isRepeatable) {
+                    const completedChallengeRef = doc(db, `users/${playerId}/completedChallenges`, challengeId);
+                    const completedChallengeSnap = await getDoc(completedChallengeRef);
+
+                    if (completedChallengeSnap.exists()) {
+                        const completedData = completedChallengeSnap.data();
+                        const completedAt = completedData.completedAt;
+
+                        // Check if completion was after last reactivation
+                        if (completedAt && lastReactivatedAt && completedAt.toMillis() > lastReactivatedAt.toMillis()) {
+                            const playerName = `${playerData.firstName} ${playerData.lastName}`;
+                            throw new Error(
+                                `${playerName} hat diese Challenge bereits abgeschlossen. ` +
+                                `Diese Challenge ist nur einmalig einlösbar und kann erst wieder zugewiesen werden, wenn sie abgelaufen und reaktiviert wurde.`
+                            );
+                        }
+                    }
+                }
             }
         }
 

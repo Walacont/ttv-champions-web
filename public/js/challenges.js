@@ -19,6 +19,7 @@ export async function handleCreateChallenge(e, db, currentUserData) {
     const description = document.getElementById('challenge-description').value;
     const points = parseInt(document.getElementById('challenge-points').value);
     const subgroupId = document.getElementById('challenge-subgroup').value;
+    const isRepeatable = document.getElementById('challenge-repeatable').checked;
 
     feedbackEl.textContent = '';
     if (!title || !type || isNaN(points) || points <= 0 || !subgroupId) {
@@ -35,7 +36,9 @@ export async function handleCreateChallenge(e, db, currentUserData) {
             clubId: currentUserData.clubId,
             subgroupId: subgroupId,
             isActive: true,
-            createdAt: serverTimestamp()
+            isRepeatable: isRepeatable,
+            createdAt: serverTimestamp(),
+            lastReactivatedAt: serverTimestamp() // Track when challenge was last activated
         };
 
         await addDoc(collection(db, "challenges"), challengeData);
@@ -109,13 +112,20 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
                 subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
             }
 
+            // Determine repeatable badge
+            const isRepeatable = challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
+            const repeatableBadge = isRepeatable
+                ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
+                : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
+
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
                         <h3 class="font-bold">${challenge.title}</h3>
-                        <div class="flex gap-2 mt-1">
+                        <div class="flex gap-2 mt-1 flex-wrap">
                             <span class="text-xs font-semibold bg-gray-200 text-gray-700 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
                             ${subgroupBadge}
+                            ${repeatableBadge}
                         </div>
                     </div>
                 </div>
@@ -269,13 +279,20 @@ export function loadExpiredChallenges(clubId, db) {
                 subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
             }
 
+            // Determine repeatable badge
+            const isRepeatable = challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
+            const repeatableBadge = isRepeatable
+                ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
+                : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
+
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
                         <h3 class="font-bold text-gray-700">${challenge.title}</h3>
-                        <div class="flex gap-2 mt-1">
+                        <div class="flex gap-2 mt-1 flex-wrap">
                             <span class="text-xs font-semibold bg-gray-300 text-gray-600 px-2 py-1 rounded-full uppercase">${challenge.type}</span>
                             ${subgroupBadge}
+                            ${repeatableBadge}
                         </div>
                     </div>
                 </div>
@@ -315,7 +332,8 @@ export async function reactivateChallenge(challengeId, duration, subgroupId, db)
             createdAt: serverTimestamp(),
             type: duration,
             subgroupId: subgroupId,
-            isActive: true
+            isActive: true,
+            lastReactivatedAt: serverTimestamp() // Update reactivation timestamp
         });
         return { success: true };
     } catch (error) {
