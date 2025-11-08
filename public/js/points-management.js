@@ -409,8 +409,29 @@ export function handleReasonChange() {
     const penaltyContainer = document.getElementById('penalty-container');
     const manualContainer = document.getElementById('manual-points-container');
 
+    const challengeSelect = document.getElementById('challenge-select');
+    const exerciseSelect = document.getElementById('exercise-select');
+
+    // Show/hide containers
     if (challengeContainer) challengeContainer.classList.toggle('hidden', value !== 'challenge');
     if (exerciseContainer) exerciseContainer.classList.toggle('hidden', value !== 'exercise');
     if (penaltyContainer) penaltyContainer.classList.toggle('hidden', value !== 'penalty');
     if (manualContainer) manualContainer.classList.toggle('hidden', value !== 'manual');
+
+    // Dynamically add/remove required attribute based on visibility
+    if (challengeSelect) {
+        if (value === 'challenge') {
+            challengeSelect.setAttribute('required', 'required');
+        } else {
+            challengeSelect.removeAttribute('required');
+        }
+    }
+
+    if (exerciseSelect) {
+        if (value === 'exercise') {
+            exerciseSelect.setAttribute('required', 'required');
+        } else {
+            exerciseSelect.removeAttribute('required');
+        }
+    }
 }
