@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, query, orderBy, runTransaction, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, doc, onSnapshot, query, orderBy, runTransaction, serverTimestamp, increment, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Points Management Module
@@ -171,6 +171,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     let reason = '';
     let challengeId = null;
     let exerciseId = null;
+    let challengeSubgroupId = null;
 
     try {
         switch (reasonType) {
@@ -181,6 +182,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 points = parseInt(cOption.dataset.points);
                 reason = `Challenge: ${cOption.dataset.title}`;
                 challengeId = cOption.value;
+                challengeSubgroupId = cOption.dataset.subgroupId || 'all';
                 break;
             case 'exercise':
                 const eSelect = document.getElementById('exercise-select');
@@ -195,6 +197,37 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 reason = document.getElementById('manual-reason').value;
                 if (!reason || isNaN(points)) throw new Error('Grund und gültige Punkte müssen angegeben werden.');
                 break;
+        }
+
+        // Validate challenge subgroup membership
+        if (challengeId && challengeSubgroupId && challengeSubgroupId !== 'all') {
+            const playerDocRef = doc(db, 'users', playerId);
+            const playerSnap = await getDoc(playerDocRef);
+
+            if (!playerSnap.exists()) {
+                throw new Error('Spieler nicht gefunden.');
+            }
+
+            const playerData = playerSnap.data();
+            const playerSubgroups = playerData.subgroupIDs || [];
+
+            // Check if player is in the challenge's subgroup
+            if (!playerSubgroups.includes(challengeSubgroupId)) {
+                // Load subgroup name for helpful error message
+                const subgroupDocRef = doc(db, 'subgroups', challengeSubgroupId);
+                const subgroupSnap = await getDoc(subgroupDocRef);
+
+                let subgroupName = 'dieser Untergruppe';
+                if (subgroupSnap.exists()) {
+                    subgroupName = subgroupSnap.data().name || 'dieser Untergruppe';
+                }
+
+                const playerName = `${playerData.firstName} ${playerData.lastName}`;
+                throw new Error(
+                    `${playerName} gehört nicht der Untergruppe an, für die diese Challenge erstellt wurde. ` +
+                    `Bitte füge die Person in die Untergruppe "${subgroupName}" ein, um ihr diese Challenge zuzuweisen.`
+                );
+            }
         }
 
         let grundlagenMessage = '';

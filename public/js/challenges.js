@@ -183,6 +183,7 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
             option.textContent = `${challenge.title} (+${challenge.points} P.)`;
             option.dataset.points = challenge.points;
             option.dataset.title = challenge.title;
+            option.dataset.subgroupId = challenge.subgroupId || 'all';
             select.appendChild(option);
         });
     });
