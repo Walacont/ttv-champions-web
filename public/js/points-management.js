@@ -288,6 +288,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         }
 
         let grundlagenMessage = '';
+        let actualPointsChange = 0; // Declare outside transaction
+        let actualXPChange = 0; // Declare outside transaction
 
         await runTransaction(db, async (transaction) => {
             const playerDocRef = doc(db, 'users', playerId);
@@ -318,9 +320,9 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             const currentPoints = playerData.points || 0;
             const currentXP = playerData.xp || 0;
 
-            // Calculate actual changes (can't go below 0)
-            const actualPointsChange = Math.max(-currentPoints, points);
-            const actualXPChange = Math.max(-currentXP, xpChange);
+            // Calculate actual changes (can't go below 0) - assign to outer scope variables
+            actualPointsChange = Math.max(-currentPoints, points);
+            actualXPChange = Math.max(-currentXP, xpChange);
 
             // Prepare update object
             const updateData = {
