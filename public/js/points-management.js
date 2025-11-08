@@ -168,6 +168,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
     }
 
     let points = 0;
+    let xpChange = 0; // Separate XP change (for penalties)
     let reason = '';
     let challengeId = null;
     let exerciseId = null;
@@ -175,11 +176,29 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
     try {
         switch (reasonType) {
+            case 'penalty':
+                const severity = document.getElementById('penalty-severity').value;
+                const penaltyReason = document.getElementById('penalty-reason').value;
+                if (!penaltyReason) throw new Error('Bitte einen Grund für die Strafe angeben.');
+
+                // Define penalty amounts according to new system
+                const penalties = {
+                    light: { points: -10, xp: -5 },
+                    medium: { points: -20, xp: -10 },
+                    severe: { points: -30, xp: -20 }
+                };
+
+                const penalty = penalties[severity];
+                points = penalty.points;
+                xpChange = penalty.xp;
+                reason = `🚫 Strafe: ${penaltyReason}`;
+                break;
             case 'challenge':
                 const cSelect = document.getElementById('challenge-select');
                 const cOption = cSelect.options[cSelect.selectedIndex];
                 if (!cOption || !cOption.value) throw new Error('Bitte eine Challenge auswählen.');
                 points = parseInt(cOption.dataset.points);
+                xpChange = points; // XP = points for challenges
                 reason = `Challenge: ${cOption.dataset.title}`;
                 challengeId = cOption.value;
                 challengeSubgroupId = cOption.dataset.subgroupId || 'all';
@@ -189,13 +208,17 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const eOption = eSelect.options[eSelect.selectedIndex];
                 if (!eOption || !eOption.value) throw new Error('Bitte eine Übung auswählen.');
                 points = parseInt(eOption.dataset.points);
+                xpChange = points; // XP = points for exercises
                 reason = `Übung: ${eOption.dataset.title}`;
                 exerciseId = eOption.value;
                 break;
             case 'manual':
                 points = parseInt(document.getElementById('manual-points').value);
+                const manualXpInput = document.getElementById('manual-xp').value;
+                xpChange = manualXpInput ? parseInt(manualXpInput) : points; // Use manual XP if provided, else same as points
                 reason = document.getElementById('manual-reason').value;
                 if (!reason || isNaN(points)) throw new Error('Grund und gültige Punkte müssen angegeben werden.');
+                if (manualXpInput && isNaN(xpChange)) throw new Error('XP muss eine gültige Zahl sein.');
                 break;
         }
 
@@ -291,10 +314,18 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 isGrundlagenExercise = lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
             }
 
+            // Get current values to ensure floors at 0
+            const currentPoints = playerData.points || 0;
+            const currentXP = playerData.xp || 0;
+
+            // Calculate actual changes (can't go below 0)
+            const actualPointsChange = Math.max(-currentPoints, points);
+            const actualXPChange = Math.max(-currentXP, xpChange);
+
             // Prepare update object
             const updateData = {
-                points: increment(points),
-                xp: increment(points),
+                points: increment(actualPointsChange),
+                xp: increment(actualXPChange),
                 lastXPUpdate: serverTimestamp()
             };
 
@@ -316,25 +347,27 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             // Update player document
             transaction.update(playerDocRef, updateData);
 
-            // Points history
+            // Points history (use actual changes)
             const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
             transaction.set(doc(historyColRef), {
-                points,
-                xp: points, // Track XP change (same as points for manual awards)
+                points: actualPointsChange,
+                xp: actualXPChange, // Track actual XP change
                 eloChange: 0, // No Elo change for manual points
                 reason,
                 timestamp: serverTimestamp(),
                 awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
             });
 
-            // XP history
-            const xpHistoryColRef = collection(db, `users/${playerId}/xpHistory`);
-            transaction.set(doc(xpHistoryColRef), {
-                xp: points,
-                reason,
-                timestamp: serverTimestamp(),
-                awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
-            });
+            // XP history (only if XP changed)
+            if (actualXPChange !== 0) {
+                const xpHistoryColRef = collection(db, `users/${playerId}/xpHistory`);
+                transaction.set(doc(xpHistoryColRef), {
+                    xp: actualXPChange,
+                    reason,
+                    timestamp: serverTimestamp(),
+                    awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
+                });
+            }
 
             if (challengeId) {
                 const completedChallengeRef = doc(db, `users/${playerId}/completedChallenges`, challengeId);
@@ -342,8 +375,20 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
         });
 
-        feedbackEl.textContent = `Erfolgreich ${points} Punkte vergeben!${grundlagenMessage}`;
-        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        // Build feedback message
+        const sign = actualPointsChange >= 0 ? '+' : '';
+        let feedbackText = `Erfolgreich ${sign}${actualPointsChange} Punkte vergeben!`;
+
+        // Add XP info if different from points
+        if (actualXPChange !== actualPointsChange) {
+            const xpSign = actualXPChange >= 0 ? '+' : '';
+            feedbackText += ` (${xpSign}${actualXPChange} XP)`;
+        }
+
+        feedbackText += grundlagenMessage;
+
+        feedbackEl.textContent = feedbackText;
+        feedbackEl.className = actualPointsChange >= 0 ? 'mt-3 text-sm font-medium text-center text-green-600' : 'mt-3 text-sm font-medium text-center text-orange-600';
         e.target.reset();
         handleReasonChangeCallback();
     } catch (error) {
@@ -361,9 +406,11 @@ export function handleReasonChange() {
     const value = document.getElementById('reason-select').value;
     const challengeContainer = document.getElementById('challenge-select-container');
     const exerciseContainer = document.getElementById('exercise-select-container');
+    const penaltyContainer = document.getElementById('penalty-container');
     const manualContainer = document.getElementById('manual-points-container');
 
     if (challengeContainer) challengeContainer.classList.toggle('hidden', value !== 'challenge');
     if (exerciseContainer) exerciseContainer.classList.toggle('hidden', value !== 'exercise');
+    if (penaltyContainer) penaltyContainer.classList.toggle('hidden', value !== 'penalty');
     if (manualContainer) manualContainer.classList.toggle('hidden', value !== 'manual');
 }

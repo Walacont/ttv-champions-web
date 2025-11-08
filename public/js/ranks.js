@@ -6,29 +6,30 @@
 /**
  * Rank definitions with requirements
  * Both Elo AND XP must be met to achieve a rank
- * *** NEUE, ANGEPASSTE SCHWELLENWERTE ***
+ * *** NEUES PUNKTESYSTEM 2024 ***
+ * Elo startet bei 800, XP-Schwellenwerte reduziert für schnelleren Fortschritt
  */
 export const RANKS = {
     REKRUT: {
         id: 0,
         name: 'Rekrut',
-        emoji: '🎖️',
+        emoji: '🔰',
         color: '#9CA3AF', // gray-400
-        minElo: 0,
+        minElo: 800,
         minXP: 0,
-        description: 'Willkommen! Absolviere die Grundlagen-Übungen.',
+        description: 'Willkommen! Absolviere 5 Grundlagen-Übungen.',
         isOnboarding: true,
-        requiresGrundlagen: false
+        requiresGrundlagen: false  // No requirement for Rekrut itself
     },
     BRONZE: {
         id: 1,
         name: 'Bronze',
         emoji: '🥉',
         color: '#CD7F32',
-        minElo: 0,        // GEÄNDERT: Elo-Anforderung entfernt
-        minXP: 100,
+        minElo: 850,
+        minXP: 50,  // REDUZIERT (war 100) - Schnellerer Aufstieg!
         description: 'Du hast die Grundlagen gemeistert!',
-        requiresGrundlagen: true,  // Special: Requires 5 "Grundlage" exercises
+        requiresGrundlagen: true,  // Must complete 5 Grundlage exercises to reach Bronze
         grundlagenRequired: 5
     },
     SILBER: {
@@ -36,8 +37,8 @@ export const RANKS = {
         name: 'Silber',
         emoji: '🥈',
         color: '#C0C0C0',
-        minElo: 50,       // GEÄNDERT (war 100)
-        minXP: 250,
+        minElo: 1000,  // Neues System
+        minXP: 200,    // REDUZIERT (war 250)
         description: 'Du bist auf dem besten Weg!',
         requiresGrundlagen: false
     },
@@ -46,7 +47,7 @@ export const RANKS = {
         name: 'Gold',
         emoji: '🥇',
         color: '#FFD700',
-        minElo: 100,      // GEÄNDERT (war 250)
+        minElo: 1200,  // Neues System
         minXP: 500,
         description: 'Ein echter Champion!',
         requiresGrundlagen: false
@@ -56,29 +57,19 @@ export const RANKS = {
         name: 'Platin',
         emoji: '💎',
         color: '#E5E4E2',
-        minElo: 250,      // GEÄNDERT (war 500)
-        minXP: 700,       // GEÄNDERT (war 1000)
+        minElo: 1400,   // Neues System
+        minXP: 1000,    // REDUZIERT (war 1500)
         description: 'Du gehörst zur Elite!',
         requiresGrundlagen: false
     },
-    MEISTER: {
+    CHAMPION: {
         id: 5,
-        name: 'Meister',
+        name: 'Champion',
         emoji: '👑',
         color: '#9333EA', // purple-600
-        minElo: 500,      // GEÄNDERT (war 1000)
-        minXP: 1000,      // GEÄNDERT (war 2000)
-        description: 'Ein wahrer Meister des Tischtennissports!',
-        requiresGrundlagen: false
-    },
-    GROSSMEISTER: {
-        id: 6,
-        name: 'Großmeister',
-        emoji: '🏆',
-        color: '#DC2626', // red-600
-        minElo: 1000,     // GEÄNDERT (war 2000)
-        minXP: 1500,      // GEÄNDERT (war 5000)
-        description: 'Legende! Du hast alles erreicht!',
+        minElo: 1600,   // Neues System
+        minXP: 1800,    // REDUZIERT (war 2500)
+        description: 'Der höchste Rang - du bist ein Vereinsmeister!',
         requiresGrundlagen: false
     }
 };
@@ -92,8 +83,7 @@ export const RANK_ORDER = [
     RANKS.SILBER,
     RANKS.GOLD,
     RANKS.PLATIN,
-    RANKS.MEISTER,
-    RANKS.GROSSMEISTER
+    RANKS.CHAMPION
 ];
 
 /**
@@ -105,7 +95,7 @@ export const RANK_ORDER = [
  * @returns {Object} Rank object
  */
 export function calculateRank(eloRating, xp, grundlagenCount = 0) {
-    const elo = eloRating || 0; // Default starting Elo is now 0
+    const elo = eloRating ?? 800; // Default starting Elo is now 800 (use ?? to handle 0 properly)
     const totalXP = xp || 0;
 
     // Start from highest rank and work down

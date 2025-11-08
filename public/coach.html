@@ -352,6 +352,7 @@
                                     <option value="">Grund wählen...</option>
                                     <option value="exercise">Übung abgeschlossen</option>
                                     <option value="challenge">Challenge gemeistert</option>
+                                    <option value="penalty">⚠️ Strafe vergeben</option>
                                     <option value="manual">Manuelle Vergabe</option>
                                 </select>
                             </div>
@@ -363,6 +364,32 @@
                                 <label for="challenge-select" class="block text-sm font-medium text-gray-700">Challenge auswählen</label>
                                 <select id="challenge-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
                             </div>
+                            <div id="penalty-container" class="hidden space-y-4">
+                                <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                                    <div class="flex">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm text-red-700">Strafen ziehen sowohl Saison-Punkte als auch XP ab!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="penalty-severity" class="block text-sm font-medium text-gray-700">Schweregrad</label>
+                                    <select id="penalty-severity" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md">
+                                        <option value="light">⚠️ Leicht (-10 Saison-Pkt, -5 XP)</option>
+                                        <option value="medium">⚠️⚠️ Mittel (-20 Saison-Pkt, -10 XP)</option>
+                                        <option value="severe">⚠️⚠️⚠️ Schwer (-30 Saison-Pkt, -20 XP)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="penalty-reason" class="block text-sm font-medium text-gray-700">Grund der Strafe</label>
+                                    <textarea id="penalty-reason" rows="3" required placeholder="z.B. Unsportliches Verhalten, Schläger geworfen" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"></textarea>
+                                </div>
+                            </div>
                             <div id="manual-points-container" class="hidden space-y-4">
                                 <div>
                                     <label for="manual-points" class="block text-sm font-medium text-gray-700">Anzahl Punkte</label>
@@ -371,6 +398,11 @@
                                 <div>
                                     <label for="manual-reason" class="block text-sm font-medium text-gray-700">Begründung</label>
                                     <input type="text" id="manual-reason" placeholder="z.B. Faires Spiel" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label for="manual-xp" class="block text-sm font-medium text-gray-700">XP-Änderung (optional)</label>
+                                    <input type="number" id="manual-xp" placeholder="Leer lassen = gleich wie Punkte" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <p class="mt-1 text-xs text-gray-500">Wenn leer, wird XP = Punkte gesetzt</p>
                                 </div>
                             </div>
                             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Punkte speichern</button>
