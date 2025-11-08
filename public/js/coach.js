@@ -6,7 +6,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } 
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
-import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
+import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter, openAttendanceModalForSession } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput } from './matches.js';
@@ -133,6 +133,19 @@ async function initializeCoachPage(userData) {
 
     // Initialize Training Schedule Management
     initializeTrainingSchedule(userData);
+
+    // Bridge function: Connect training-schedule-ui to attendance module
+    window.openAttendanceForSessionFromSchedule = async function(sessionId, dateStr) {
+        await openAttendanceModalForSession(
+            sessionId,
+            dateStr,
+            clubPlayers,
+            updateAttendanceCount,
+            updatePairingsButtonState,
+            db,
+            userData.clubId
+        );
+    };
 
     // Load statistics initially (since it's the default tab)
     loadStatistics(userData, db, currentSubgroupFilter);

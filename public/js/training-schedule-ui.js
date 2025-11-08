@@ -604,3 +604,105 @@ function formatDateGerman(dateStr) {
 function formatDate(dateStr) {
     return formatDateGerman(dateStr);
 }
+
+// ============================================================================
+// WINDOW FUNCTIONS (called from attendance.js)
+// ============================================================================
+
+/**
+ * Open session selection modal from calendar click
+ * Called by attendance.js when multiple sessions exist on a day
+ */
+window.openSessionSelectionModalFromCalendar = async function(dateStr, sessions) {
+    const modal = document.getElementById('session-selection-modal');
+    const dateDisplay = document.getElementById('session-selection-date');
+    const listContainer = document.getElementById('session-selection-list');
+
+    if (!modal || !listContainer) return;
+
+    dateDisplay.textContent = formatDateGerman(dateStr);
+
+    // Render session list
+    let html = '';
+    sessions.forEach(session => {
+        const subgroup = subgroups.find(s => s.id === session.subgroupId);
+        const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
+
+        html += `
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <h4 class="font-semibold text-gray-900">${subgroupName}</h4>
+                        <p class="text-sm text-gray-600">
+                            <i class="fas fa-clock mr-1"></i>
+                            ${formatTimeRange(session.startTime, session.endTime)}
+                        </p>
+                    </div>
+                    <button onclick="window.handleCancelSessionFromModal('${session.id}')" class="text-red-600 hover:text-red-800 text-sm">
+                        <i class="fas fa-times mr-1"></i> Absagen
+                    </button>
+                </div>
+                <button onclick="window.handleSelectSessionForAttendance('${session.id}', '${dateStr}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg mt-2">
+                    Anwesenheit erfassen
+                </button>
+            </div>
+        `;
+    });
+
+    listContainer.innerHTML = html;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+};
+
+/**
+ * Handle session selection for attendance
+ */
+window.handleSelectSessionForAttendance = async function(sessionId, dateStr) {
+    closeSessionSelectionModal();
+
+    // Call the attendance module to open the modal for this session
+    if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
+        await window.openAttendanceForSessionFromSchedule(sessionId, dateStr);
+    }
+};
+
+/**
+ * Cancel a session from the selection modal
+ */
+window.handleCancelSessionFromModal = async function(sessionId) {
+    if (!confirm('Möchten Sie dieses Training wirklich absagen?')) {
+        return;
+    }
+
+    try {
+        await cancelTrainingSession(sessionId);
+
+        // Reload the current modal
+        const dateStr = document.getElementById('session-selection-date').textContent;
+        const parsedDate = parseDateGerman(dateStr);
+        if (parsedDate) {
+            const sessions = await getSessionsForDate(currentUserData.clubId, parsedDate);
+            window.openSessionSelectionModalFromCalendar(parsedDate, sessions);
+        }
+    } catch (error) {
+        console.error('Error canceling session:', error);
+        alert('Fehler beim Absagen: ' + error.message);
+    }
+};
+
+/**
+ * Open spontaneous session modal from calendar
+ */
+window.openSpontaneousSessionModalFromCalendar = function(dateStr) {
+    openSpontaneousSessionModal(dateStr);
+};
+
+/**
+ * Helper: Parse German date format back to YYYY-MM-DD
+ */
+function parseDateGerman(dateStr) {
+    const match = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+    if (!match) return null;
+    const [, day, month, year] = match;
+    return `${year}-${month}-${day}`;
+}
