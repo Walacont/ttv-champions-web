@@ -56,6 +56,33 @@ export async function handleCreateChallenge(e, db, currentUserData) {
 }
 
 /**
+ * Sets up dynamic point range recommendations based on challenge type
+ */
+export function setupChallengePointRecommendations() {
+    const typeSelect = document.getElementById('challenge-type');
+    const pointsRangeEl = document.getElementById('challenge-points-range');
+    const durationTextEl = document.getElementById('challenge-duration-text');
+
+    if (!typeSelect || !pointsRangeEl || !durationTextEl) return;
+
+    const updateRecommendation = () => {
+        const type = typeSelect.value;
+        const recommendations = {
+            daily: { range: '8-20 Punkte', text: 'tägliche' },
+            weekly: { range: '20-50 Punkte', text: 'wöchentliche' },
+            monthly: { range: '40-100 Punkte', text: 'monatliche' }
+        };
+
+        const rec = recommendations[type] || recommendations.daily;
+        pointsRangeEl.textContent = rec.range;
+        durationTextEl.textContent = rec.text;
+    };
+
+    typeSelect.addEventListener('change', updateRecommendation);
+    updateRecommendation(); // Set initial value
+}
+
+/**
  * Loads and displays active challenges for the club
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
