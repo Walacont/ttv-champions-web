@@ -15,19 +15,19 @@
 
 ---
 
-## 📋 **NOCH ZU IMPLEMENTIEREN** (Phase 2b)
+## 📋 **PHASE 2b - STATUS**
 
-### Priorität 1: Essential Features
+### ✅ Abgeschlossen (Essential Features)
+| Feature | Status | Beschreibung |
+|---------|--------|--------------|
+| **Übungen mit Schwierigkeit** | ✅ Fertig | Level (Grundlagen/Standard/Fortgeschritten) + Difficulty (Easy/Normal/Hard) → Auto-Punktberechnung (5-18 Punkte) |
+| **UI-Verbesserungen** | ✅ Fertig | Klare Trennung ELO / XP / Saison-Punkte im Dashboard & Profil mit Tooltips und Info-Banner |
+| **Challenge-Punktbereiche** | ✅ Fertig | UI-Hinweise für empfohlene Punktzahlen (Daily 8-20, Weekly 20-50, Monthly 40-100) |
+
+### ⏳ Optional (Advanced Features)
 | Feature | Geschätzter Aufwand | Beschreibung |
 |---------|---------------------|--------------|
-| **Übungen mit Schwierigkeit** | ~2-3h | Level (Grundlagen/Standard/Fortgeschritten) + Difficulty (Easy/Normal/Hard) → Auto-Punktberechnung (5-18 Punkte) |
-| **UI-Verbesserungen** | ~2h | Klare Trennung ELO / XP / Saison-Punkte im Dashboard & Profil |
-
-### Priorität 2: Advanced Features
-| Feature | Geschätzter Aufwand | Beschreibung |
-|---------|---------------------|--------------|
-| **Saison-System** | ~6-8h | 6-Wochen-Zyklen, Liga-Auf-/Abstieg, Season Points Reset |
-| **Challenge-Punktbereiche** | ~1h | UI-Hinweise für empfohlene Punktzahlen (Daily 8-20, Weekly 20-50, Monthly 40-100) |
+| **Saison-System** | ~6-8h | 6-Wochen-Zyklen, Liga-Auf-/Abstieg, Season Points Reset (kann später implementiert werden) |
 
 ---
 
@@ -159,28 +159,28 @@ firebase deploy --only hosting
 ✅ **Neue Anwesenheitspunkte** (3/5/6 statt 10/15/20)
 ✅ **Migrations-Script** (alte Daten bleiben erhalten)
 
-### Was fehlt noch?
+### Was ist neu in Phase 2b?
 
-❌ Übungen mit Schwierigkeitsgraden (5-18 Punkte)
-❌ UI-Verbesserungen (ELO/XP/Season-Trennung)
-❌ Saison-System (6-Wochen-Zyklen, Ligen)
-❌ Challenge-Punktbereiche (Empfehlungen)
+✅ Übungen mit Schwierigkeitsgraden (5-18 Punkte, auto-berechnet)
+✅ UI-Verbesserungen (ELO/XP/Season-Trennung mit Tooltips)
+✅ Challenge-Punktbereiche (Empfehlungen: 8-20/20-50/40-100)
+⏳ Saison-System (optional, kann später implementiert werden)
 
-### Empfehlung
+### Deployment-Empfehlung
 
-**Option 1: Jetzt deployen**
-- Kern-Features sind fertig und produktionsreif
-- Phase 2b kann iterativ nachgeliefert werden
-
-**Option 2: Phase 2b erst fertig machen**
-- Übungen + UI (~4h Arbeit)
-- Saison-System (~6-8h Arbeit)
-- Dann zusammen deployen
+**✅ Bereit für Deployment!**
+- Phase 1 + 2a komplett implementiert und getestet
+- Phase 2b (Essential Features) ebenfalls fertig:
+  * Übungen mit Schwierigkeitsgraden
+  * UI-Verbesserungen für ELO/XP/Season-Trennung
+  * Challenge-Punktempfehlungen
+- Saison-System (optional) kann später nachgeliefert werden
 
 ---
 
 ## 📁 **Geänderte Dateien**
 
+### Phase 1 + 2a
 ```
 functions/index.js                 # ELO-Konfiguration
 public/js/ranks.js                # Rang-Definitionen
@@ -188,32 +188,44 @@ public/js/points-management.js    # Strafsystem
 public/js/attendance.js           # Anwesenheitspunkte
 public/js/player-matches.js       # Wettkampf-Sperre (Player)
 public/js/matches.js              # Wettkampf-Sperre (Coach)
-public/coach.html                 # Strafen-UI
+public/coach.html                 # Strafen-UI + Übungen-Form
 firestore.rules                   # Sicherheitsregeln
 scripts/migrate-elo-to-800.js    # Migration (NEU)
 scripts/README.md                 # Doku (NEU)
-IMPLEMENTATION_STATUS.md          # Diese Datei
+```
+
+### Phase 2b (NEU)
+```
+public/js/exercises.js            # Schwierigkeitsgrade + Auto-Punktberechnung
+public/js/challenges.js           # Punktbereichs-Empfehlungen
+public/js/coach.js                # Setup-Aufrufe für neue Features
+public/js/leaderboard.js          # Verbesserte Tab-Beschriftungen
+public/dashboard.html             # UI-Verbesserungen (Tooltips, Info-Banner)
+IMPLEMENTATION_STATUS.md          # Diese Datei (aktualisiert)
 ```
 
 ---
 
 ## 🎯 **NEXT STEPS**
 
-### Sofort möglich:
+### Deployment (BEREIT!)
 ```bash
-# Migration + Deployment
+# 1. Migration ausführen (einmalig)
 node scripts/migrate-elo-to-800.js
+
+# 2. Alles deployen
 firebase deploy
 ```
 
-### Phase 2b (optional):
-1. Übungen mit Schwierigkeit (~2-3h)
-2. UI-Verbesserungen (~2h)
-3. Saison-System (~6-8h)
-
-**Geschätzte Gesamt-Zeit Phase 2b:** ~10-13 Stunden
+### Optional: Saison-System
+Kann später implementiert werden (~6-8h Arbeit):
+1. Saison-Management (6-Wochen-Zyklen)
+2. Liga-Auf-/Abstieg-Logik
+3. Automatischer Season Points Reset
+4. Saison-Historie
 
 ---
 
-**Status:** ✅ **Phase 1 + 2a komplett, produktionsreif!**
-**Nächster Meilenstein:** Phase 2b (optional)
+**Status:** ✅ **Phase 1 + 2a + 2b (Essential) komplett, produktionsreif!**
+**Nächster Meilenstein:** Deployment → Produktion
+**Optional:** Saison-System (später)
