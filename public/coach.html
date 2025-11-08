@@ -122,6 +122,9 @@
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="attendance">
                     Kalender & Anwesenheit
                 </button>
+                <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="schedule">
+                    📅 Trainingsplan
+                </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="matches">
                     Wettkampf
                 </button>
@@ -156,6 +159,28 @@
                     </div>
                     <div id="calendar-grid" class="grid grid-cols-7 gap-2">
                         </div>
+                </div>
+            </div>
+
+            <div id="tab-content-schedule" class="tab-content hidden">
+                <div class="bg-white p-6 rounded-xl shadow-md max-w-4xl mx-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Wiederkehrende Trainings</h2>
+                        <button id="add-recurring-training-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center space-x-2">
+                            <i class="fas fa-plus"></i>
+                            <span>Neues Training</span>
+                        </button>
+                    </div>
+
+                    <div id="recurring-trainings-list" class="space-y-3">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+
+                    <div id="no-trainings-message" class="text-center py-12 text-gray-500 hidden">
+                        <i class="fas fa-calendar-alt text-6xl mb-4 text-gray-300"></i>
+                        <p class="text-lg">Noch keine wiederkehrenden Trainings eingerichtet</p>
+                        <p class="text-sm mt-2">Klicke auf "Neues Training", um ein wiederkehrendes Training hinzuzufügen</p>
+                    </div>
                 </div>
             </div>
 
@@ -860,6 +885,145 @@
         </div>
     </div>
 
+    <!-- Modal: Recurring Training Template -->
+    <div id="recurring-training-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="recurring-training-modal-title" class="text-xl leading-6 font-medium text-gray-900">Wiederkehrendes Training erstellen</h3>
+                <button id="close-recurring-training-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="recurring-training-form" class="space-y-4">
+                <input type="hidden" id="recurring-training-id-input">
+
+                <div>
+                    <label for="recurring-training-day-select" class="block text-sm font-medium text-gray-700">Wochentag</label>
+                    <select id="recurring-training-day-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">Bitte wählen...</option>
+                        <option value="1">Montag</option>
+                        <option value="2">Dienstag</option>
+                        <option value="3">Mittwoch</option>
+                        <option value="4">Donnerstag</option>
+                        <option value="5">Freitag</option>
+                        <option value="6">Samstag</option>
+                        <option value="0">Sonntag</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="recurring-training-start-time" class="block text-sm font-medium text-gray-700">Startzeit</label>
+                        <input type="time" id="recurring-training-start-time" required class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                    <div>
+                        <label for="recurring-training-end-time" class="block text-sm font-medium text-gray-700">Endzeit</label>
+                        <input type="time" id="recurring-training-end-time" required class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="recurring-training-subgroup-select" class="block text-sm font-medium text-gray-700">Untergruppe</label>
+                    <select id="recurring-training-subgroup-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">Bitte wählen...</option>
+                        <!-- Dynamisch gefüllt -->
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="recurring-training-start-date" class="block text-sm font-medium text-gray-700">Gültig ab</label>
+                        <input type="date" id="recurring-training-start-date" required class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                    <div>
+                        <label for="recurring-training-end-date" class="block text-sm font-medium text-gray-700">Gültig bis (optional)</label>
+                        <input type="date" id="recurring-training-end-date" class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                        Speichern
+                    </button>
+                    <button type="button" id="cancel-recurring-training-button" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">
+                        Abbrechen
+                    </button>
+                </div>
+                <p id="recurring-training-feedback" class="mt-3 text-sm font-medium text-center"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Session Selection -->
+    <div id="session-selection-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Trainings am <span id="session-selection-date"></span></h3>
+                <button id="close-session-selection-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div id="session-selection-list" class="space-y-3 mb-4">
+                <!-- Dynamisch gefüllt -->
+            </div>
+
+            <button id="add-spontaneous-session-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center space-x-2">
+                <i class="fas fa-plus"></i>
+                <span>Spontanes Training hinzufügen</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Spontaneous Training Session -->
+    <div id="spontaneous-session-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Spontanes Training erstellen</h3>
+                <button id="close-spontaneous-session-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="spontaneous-session-form" class="space-y-4">
+                <input type="hidden" id="spontaneous-session-date-input">
+
+                <div>
+                    <label for="spontaneous-session-date-display" class="block text-sm font-medium text-gray-700">Datum</label>
+                    <input type="date" id="spontaneous-session-date-display" required class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="spontaneous-session-start-time" class="block text-sm font-medium text-gray-700">Startzeit</label>
+                        <input type="time" id="spontaneous-session-start-time" required class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                    <div>
+                        <label for="spontaneous-session-end-time" class="block text-sm font-medium text-gray-700">Endzeit</label>
+                        <input type="time" id="spontaneous-session-end-time" required class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="spontaneous-session-subgroup-select" class="block text-sm font-medium text-gray-700">Untergruppe</label>
+                    <select id="spontaneous-session-subgroup-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                        <option value="">Bitte wählen...</option>
+                        <!-- Dynamisch gefüllt -->
+                    </select>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                        Training erstellen
+                    </button>
+                    <button type="button" id="cancel-spontaneous-session-button" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">
+                        Abbrechen
+                    </button>
+                </div>
+                <p id="spontaneous-session-feedback" class="mt-3 text-sm font-medium text-center"></p>
+            </form>
+        </div>
+    </div>
+
     <div id="player-list-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center p-4">
         
         <div class="relative mx-auto border w-full max-w-6xl shadow-lg rounded-2xl bg-white flex flex-col h-[90vh]">
@@ -1182,3 +1346,6 @@
             </div>
         </div>
     </div>
+    <script type="module" src="/js/coach.js"></script>
+</body>
+</html>

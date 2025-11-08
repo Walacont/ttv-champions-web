@@ -19,6 +19,7 @@ import { checkAndMigrate } from './migration.js';
 import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions } from './subgroups-management.js';
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
+import { initializeTrainingSchedule, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -129,6 +130,9 @@ async function initializeCoachPage(userData) {
 
     // Initialize Player Invitation Management
     initPlayerInvitationManagement(db, auth, functions, userData.clubId, userData.id);
+
+    // Initialize Training Schedule Management
+    initializeTrainingSchedule(userData);
 
     // Load statistics initially (since it's the default tab)
     loadStatistics(userData, db, currentSubgroupFilter);
