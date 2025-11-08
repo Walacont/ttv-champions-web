@@ -120,7 +120,7 @@ async function initializeCoachPage(userData) {
         showToggle: true 
     });
 
-    setupTabs('dashboard');
+    setupTabs('statistics');
     setupLeaderboardTabs();
     setupLeaderboardToggle();
 
@@ -129,6 +129,9 @@ async function initializeCoachPage(userData) {
 
     // Initialize Player Invitation Management
     initPlayerInvitationManagement(db, auth, functions, userData.clubId, userData.id);
+
+    // Load statistics initially (since it's the default tab)
+    loadStatistics(userData, db, currentSubgroupFilter);
 
     // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
