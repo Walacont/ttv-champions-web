@@ -79,6 +79,39 @@ export function createSetScoreInput(container, existingSets = []) {
     });
   }
 
+  // Helper function to validate a set according to official table tennis rules
+  function isValidSet(scoreA, scoreB) {
+    const a = parseInt(scoreA) || 0;
+    const b = parseInt(scoreB) || 0;
+
+    // At least one side must have 11+ points
+    if (a < 11 && b < 11) return false;
+
+    // No winner (tie)
+    if (a === b) return false;
+
+    // Determine if we're in deuce territory (both >= 10)
+    if (a >= 10 && b >= 10) {
+      // Require exactly 2-point difference
+      return Math.abs(a - b) === 2;
+    }
+
+    // Below 10:10, just need 11+ on winning side and lead
+    return (a >= 11 && a > b) || (b >= 11 && b > a);
+  }
+
+  // Helper function to determine set winner (returns 'A', 'B', or null)
+  function getSetWinner(scoreA, scoreB) {
+    if (!isValidSet(scoreA, scoreB)) return null;
+
+    const a = parseInt(scoreA) || 0;
+    const b = parseInt(scoreB) || 0;
+
+    if (a > b) return 'A';
+    if (b > a) return 'B';
+    return null;
+  }
+
   function handleSetInput(e) {
     const setIndex = parseInt(e.target.dataset.set);
     const player = e.target.dataset.player;
@@ -94,8 +127,9 @@ export function createSetScoreInput(container, existingSets = []) {
       const setA = parseInt(sets[i].playerA) || 0;
       const setB = parseInt(sets[i].playerB) || 0;
 
-      if (setA > setB && setA >= 11) playerAWins++;
-      if (setB > setA && setB >= 11) playerBWins++;
+      const winner = getSetWinner(setA, setB);
+      if (winner === 'A') playerAWins++;
+      if (winner === 'B') playerBWins++;
     }
 
     // Auto-add 4th set if score is 2:1 or 1:2 and we only have 3 sets
@@ -125,16 +159,35 @@ export function createSetScoreInput(container, existingSets = []) {
       return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
     }
 
+    // Validate each set according to official table tennis rules
+    for (let i = 0; i < filledSets.length; i++) {
+      const set = filledSets[i];
+      const scoreA = parseInt(set.playerA) || 0;
+      const scoreB = parseInt(set.playerB) || 0;
+
+      if (!isValidSet(scoreA, scoreB)) {
+        // Provide specific error message based on the issue
+        if (scoreA < 11 && scoreB < 11) {
+          return { valid: false, error: `Satz ${i + 1}: Mindestens eine Seite muss 11 Punkte haben.` };
+        }
+        if (scoreA === scoreB) {
+          return { valid: false, error: `Satz ${i + 1}: Unentschieden ist nicht erlaubt.` };
+        }
+        if (scoreA >= 10 && scoreB >= 10 && Math.abs(scoreA - scoreB) !== 2) {
+          return { valid: false, error: `Satz ${i + 1}: Ab 10:10 muss eine Seite 2 Punkte Vorsprung haben (z.B. 12:10, 14:12).` };
+        }
+        return { valid: false, error: `Satz ${i + 1}: Ungültiges Satzergebnis (${scoreA}:${scoreB}).` };
+      }
+    }
+
     // Calculate wins
     let playerAWins = 0;
     let playerBWins = 0;
 
     filledSets.forEach((set) => {
-      const scoreA = parseInt(set.playerA) || 0;
-      const scoreB = parseInt(set.playerB) || 0;
-
-      if (scoreA > scoreB && scoreA >= 11) playerAWins++;
-      if (scoreB > scoreA && scoreB >= 11) playerBWins++;
+      const winner = getSetWinner(set.playerA, set.playerB);
+      if (winner === 'A') playerAWins++;
+      if (winner === 'B') playerBWins++;
     });
 
     // Check if someone won (3 sets)
