@@ -45,6 +45,7 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
                     <div class="flex justify-between items-start">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
+                                <div class="w-4 h-4 rounded-full border-2 border-gray-300" style="background-color: ${subgroup.color || '#6366f1'};"></div>
                                 <button
                                     data-subgroup-id="${subgroup.id}"
                                     class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors"
@@ -63,6 +64,7 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
                             <button
                                 data-id="${subgroup.id}"
                                 data-name="${subgroup.name}"
+                                data-color="${subgroup.color || '#6366f1'}"
                                 data-is-default="${isDefault}"
                                 class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
                             >
@@ -172,33 +174,97 @@ export async function handleCreateSubgroup(e, db, clubId) {
 }
 
 /**
- * Handles subgroup editing
+ * Opens the edit subgroup modal
  * @param {string} subgroupId - Subgroup ID
  * @param {string} currentName - Current subgroup name
+ * @param {string} currentColor - Current subgroup color
+ */
+export function openEditSubgroupModal(subgroupId, currentName, currentColor) {
+    const modal = document.getElementById('edit-subgroup-modal');
+    const idInput = document.getElementById('edit-subgroup-id');
+    const nameInput = document.getElementById('edit-subgroup-name');
+    const feedbackEl = document.getElementById('edit-subgroup-feedback');
+
+    if (!modal || !idInput || !nameInput) return;
+
+    // Set values
+    idInput.value = subgroupId;
+    nameInput.value = currentName;
+
+    // Set color
+    const colorRadios = document.querySelectorAll('input[name="edit-subgroup-color"]');
+    colorRadios.forEach(radio => {
+        radio.checked = radio.value === currentColor;
+    });
+
+    // Clear feedback
+    if (feedbackEl) feedbackEl.textContent = '';
+
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Closes the edit subgroup modal
+ */
+export function closeEditSubgroupModal() {
+    const modal = document.getElementById('edit-subgroup-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Handles subgroup editing form submission
+ * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  */
-export async function handleEditSubgroup(subgroupId, currentName, db) {
-    const newName = prompt(`Neuer Name für die Untergruppe:`, currentName);
+export async function handleEditSubgroupSubmit(e, db) {
+    e.preventDefault();
 
-    if (!newName || newName.trim() === '') {
-        return;
-    }
+    const idInput = document.getElementById('edit-subgroup-id');
+    const nameInput = document.getElementById('edit-subgroup-name');
+    const colorInput = document.querySelector('input[name="edit-subgroup-color"]:checked');
+    const feedbackEl = document.getElementById('edit-subgroup-feedback');
 
-    if (newName.trim() === currentName) {
+    const subgroupId = idInput.value;
+    const newName = nameInput.value.trim();
+    const newColor = colorInput ? colorInput.value : '#6366f1';
+
+    if (!newName) {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Bitte gib einen Namen ein.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
         return;
     }
 
     try {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Speichere Änderungen...';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
+        }
+
         const subgroupRef = doc(db, 'subgroups', subgroupId);
         await updateDoc(subgroupRef, {
-            name: newName.trim(),
+            name: newName,
+            color: newColor,
             updatedAt: serverTimestamp()
         });
 
-        alert('Untergruppe erfolgreich umbenannt!');
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Änderungen erfolgreich gespeichert!';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        }
+
+        setTimeout(() => {
+            closeEditSubgroupModal();
+        }, 1000);
+
     } catch (error) {
         console.error("Error updating subgroup:", error);
-        alert(`Fehler beim Umbenennen: ${error.message}`);
+        if (feedbackEl) {
+            feedbackEl.textContent = `Fehler: ${error.message}`;
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
     }
 }
 
@@ -487,7 +553,9 @@ export async function handleSubgroupActions(e, db, clubId) {
     if (button.classList.contains('edit-subgroup-btn')) {
         const subgroupId = button.dataset.id;
         const currentName = button.dataset.name;
-        await handleEditSubgroup(subgroupId, currentName, db);
+        const currentColor = button.dataset.color || '#6366f1';
+        openEditSubgroupModal(subgroupId, currentName, currentColor);
+        return;
     }
 
     // Handle delete button

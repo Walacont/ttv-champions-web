@@ -1065,6 +1065,79 @@
         </div>
     </div>
 
+    <!-- Modal: Edit Subgroup -->
+    <div id="edit-subgroup-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Untergruppe bearbeiten</h3>
+                <button id="close-edit-subgroup-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="edit-subgroup-form" class="space-y-4">
+                <input type="hidden" id="edit-subgroup-id">
+
+                <div>
+                    <label for="edit-subgroup-name" class="block text-sm font-medium text-gray-700">Gruppenname</label>
+                    <input
+                        type="text"
+                        id="edit-subgroup-name"
+                        required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Farbe für Kalender</label>
+                    <div class="flex gap-2 flex-wrap">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#6366f1" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-indigo-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-indigo-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#ef4444" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-red-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-red-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#10b981" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-green-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-green-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#f59e0b" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-amber-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-amber-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#8b5cf6" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-violet-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-violet-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#ec4899" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-pink-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-pink-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#06b6d4" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-cyan-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-cyan-300"></div>
+                        </label>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="radio" name="edit-subgroup-color" value="#84cc16" class="sr-only peer">
+                            <div class="w-10 h-10 rounded-full bg-lime-500 border-2 border-transparent peer-checked:border-gray-900 peer-checked:ring-2 peer-checked:ring-lime-300"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                        Änderungen speichern
+                    </button>
+                    <button type="button" id="cancel-edit-subgroup-button" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">
+                        Abbrechen
+                    </button>
+                </div>
+                <p id="edit-subgroup-feedback" class="mt-3 text-sm font-medium text-center"></p>
+            </form>
+        </div>
+    </div>
+
     <div id="player-list-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 justify-center items-center p-4">
         
         <div class="relative mx-auto border w-full max-w-6xl shadow-lg rounded-2xl bg-white flex flex-col h-[90vh]">

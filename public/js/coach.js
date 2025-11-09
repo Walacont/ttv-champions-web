@@ -16,7 +16,7 @@ import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsF
 import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
-import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions } from './subgroups-management.js';
+import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleEditSubgroupSubmit, closeEditSubgroupModal } from './subgroups-management.js';
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
@@ -252,6 +252,9 @@ async function initializeCoachPage(userData) {
     setupChallengePointRecommendations();
 
     document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
+    document.getElementById('edit-subgroup-form').addEventListener('submit', (e) => handleEditSubgroupSubmit(e, db));
+    document.getElementById('close-edit-subgroup-modal-button').addEventListener('click', closeEditSubgroupModal);
+    document.getElementById('cancel-edit-subgroup-button').addEventListener('click', closeEditSubgroupModal);
 
     // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
