@@ -560,7 +560,7 @@ async function handleSpontaneousSessionSubmit(e) {
     try {
         showFeedback('spontaneous-session-feedback', 'Erstelle Training...', 'info');
 
-        await createTrainingSession({
+        const sessionId = await createTrainingSession({
             date,
             startTime,
             endTime,
@@ -569,11 +569,16 @@ async function handleSpontaneousSessionSubmit(e) {
             recurringTemplateId: null
         }, currentUserData.id);
 
-        showFeedback('spontaneous-session-feedback', 'Training erstellt!', 'success');
+        showFeedback('spontaneous-session-feedback', 'Training erstellt! Öffne Anwesenheit...', 'success');
 
         setTimeout(() => {
             closeSpontaneousSessionModal();
-        }, 1500);
+
+            // Automatically open attendance modal for the newly created session
+            if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
+                window.openAttendanceForSessionFromSchedule(sessionId, date);
+            }
+        }, 500);
     } catch (error) {
         console.error('Error creating spontaneous session:', error);
         showFeedback('spontaneous-session-feedback', error.message, 'error');
