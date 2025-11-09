@@ -278,7 +278,124 @@ export async function updateTrainingSession(sessionId, updates) {
  * @param {string} sessionId
  */
 export async function cancelTrainingSession(sessionId) {
+    console.log(`[Cancel Training] Cancelling session ${sessionId} and correcting player points...`);
+
+    // Find associated attendance records
+    const attendanceQuery = query(
+        collection(db, 'attendance'),
+        where('sessionId', '==', sessionId)
+    );
+    const attendanceSnapshot = await getDocs(attendanceQuery);
+
+    // For each attendance record, reverse the points awarded to players
+    for (const attendanceDoc of attendanceSnapshot.docs) {
+        const attendanceData = attendanceDoc.data();
+        const { presentPlayerIds, date, subgroupId } = attendanceData;
+
+        if (!presentPlayerIds || presentPlayerIds.length === 0) continue;
+
+        // Get subgroup name for history entries
+        let subgroupName = subgroupId;
+        try {
+            const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+            if (subgroupDoc.exists()) {
+                subgroupName = subgroupDoc.data().name;
+            }
+        } catch (error) {
+            console.error(`[Cancel Training] Error loading subgroup ${subgroupId}:`, error);
+        }
+
+        const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        console.log(`[Cancel Training] Correcting points for ${presentPlayerIds.length} players on ${date}`);
+
+        // Use a batch for atomic updates
+        const batch = writeBatch(db);
+
+        // For each player who attended, find and reverse their points
+        for (const playerId of presentPlayerIds) {
+            try {
+                // Find the original points awarded for this training
+                const pointsHistoryQuery = query(
+                    collection(db, `users/${playerId}/pointsHistory`),
+                    where('date', '==', date),
+                    where('subgroupId', '==', subgroupId),
+                    where('awardedBy', '==', 'System (Anwesenheit)')
+                );
+
+                const historySnapshot = await getDocs(pointsHistoryQuery);
+
+                // Find the specific history entry for this training
+                const historyEntry = historySnapshot.docs.find(doc => {
+                    const data = doc.data();
+                    // Match by date and subgroup, and it should be a positive entry (not a correction)
+                    return data.points > 0 && data.reason && !data.reason.includes('korrigiert') && !data.reason.includes('gelöscht');
+                });
+
+                if (historyEntry) {
+                    const historyData = historyEntry.data();
+                    const pointsToDeduct = historyData.points || 0;
+                    const xpToDeduct = historyData.xp || 0;
+
+                    console.log(`[Cancel Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`);
+
+                    // Deduct points and XP from player
+                    const playerRef = doc(db, 'users', playerId);
+                    batch.update(playerRef, {
+                        points: increment(-pointsToDeduct),
+                        xp: increment(-xpToDeduct)
+                    });
+
+                    // Create negative entry in points history
+                    const correctionHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                    batch.set(correctionHistoryRef, {
+                        points: -pointsToDeduct,
+                        xp: -xpToDeduct,
+                        eloChange: 0,
+                        reason: `Training abgesagt am ${formattedDate} (${pointsToDeduct} Punkte zurückgegeben) - ${subgroupName}`,
+                        date: date,
+                        subgroupId: subgroupId,
+                        timestamp: serverTimestamp(),
+                        awardedBy: 'System (Training abgesagt)'
+                    });
+
+                    // Create negative entry in XP history
+                    const correctionXpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
+                    batch.set(correctionXpHistoryRef, {
+                        xp: -xpToDeduct,
+                        reason: `Training abgesagt am ${formattedDate} (${xpToDeduct} XP zurückgegeben) - ${subgroupName}`,
+                        date: date,
+                        subgroupId: subgroupId,
+                        timestamp: serverTimestamp(),
+                        awardedBy: 'System (Training abgesagt)'
+                    });
+
+                    // Delete the original history entry
+                    batch.delete(historyEntry.ref);
+                } else {
+                    console.warn(`[Cancel Training] No points history found for player ${playerId} on ${date}`);
+                }
+            } catch (error) {
+                console.error(`[Cancel Training] Error processing player ${playerId}:`, error);
+            }
+        }
+
+        // Commit all player updates
+        await batch.commit();
+    }
+
+    // Delete all attendance records for this session
+    const deletePromises = attendanceSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+
+    // Mark the session as cancelled
     await updateTrainingSession(sessionId, { cancelled: true });
+
+    console.log(`[Cancel Training] Session ${sessionId} cancelled successfully`);
 }
 
 /**
