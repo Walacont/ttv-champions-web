@@ -14,6 +14,11 @@ let currentSubgroupFilter = 'all'; // Current active subgroup filter
 let isRenderingAttendance = false; // Guard to prevent multiple simultaneous renders
 let currentSessionId = null; // NEW: Track current session being edited
 
+// Store callbacks for current session
+let currentClubPlayers = [];
+let currentUpdateAttendanceCount = null;
+let currentUpdatePairingsButtonState = null;
+
 /**
  * Sets the current subgroup filter for attendance operations
  * @param {string} subgroupId - Subgroup ID or 'all' for all subgroups
@@ -630,6 +635,11 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
     try {
         currentSessionId = sessionId;
 
+        // Store callbacks for later use
+        currentClubPlayers = clubPlayers;
+        currentUpdateAttendanceCount = updateAttendanceCount;
+        currentUpdatePairingsButtonState = updatePairingsButtonState;
+
         // Get session data
         const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
         if (!sessionDoc.exists()) {
@@ -737,8 +747,8 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
         modal.classList.remove('hidden');
 
         // Initialen Zustand für Zähler und Button setzen
-        updateAttendanceCount();
-        updatePairingsButtonState();
+        if (currentUpdateAttendanceCount) currentUpdateAttendanceCount();
+        if (currentUpdatePairingsButtonState) currentUpdatePairingsButtonState(currentClubPlayers, subgroupId);
     } catch (error) {
         console.error('[Attendance Modal] Error rendering attendance:', error);
     } finally {
