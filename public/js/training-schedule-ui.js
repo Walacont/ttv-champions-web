@@ -175,7 +175,8 @@ function setupEventListeners() {
     if (addSpontaneousBtn) {
         addSpontaneousBtn.addEventListener('click', () => {
             closeSessionSelectionModal();
-            const dateStr = document.getElementById('session-selection-date').textContent;
+            const dateDisplay = document.getElementById('session-selection-date');
+            const dateStr = dateDisplay.getAttribute('data-date') || dateDisplay.textContent;
             openSpontaneousSessionModal(dateStr);
         });
     }
@@ -646,7 +647,9 @@ window.openSessionSelectionModalFromCalendar = async function(dateStr, sessions)
 
     if (!modal || !listContainer) return;
 
+    // Store both formatted date (for display) and original date (for programmatic access)
     dateDisplay.textContent = formatDateGerman(dateStr);
+    dateDisplay.setAttribute('data-date', dateStr);
 
     // Render session list
     let html = '';
@@ -712,11 +715,11 @@ window.handleCancelSessionFromModal = async function(sessionId) {
         await cancelTrainingSession(sessionId);
 
         // Reload the current modal
-        const dateStr = document.getElementById('session-selection-date').textContent;
-        const parsedDate = parseDateGerman(dateStr);
-        if (parsedDate) {
-            const sessions = await getSessionsForDate(currentUserData.clubId, parsedDate);
-            window.openSessionSelectionModalFromCalendar(parsedDate, sessions);
+        const dateDisplay = document.getElementById('session-selection-date');
+        const dateStr = dateDisplay.getAttribute('data-date') || parseDateGerman(dateDisplay.textContent);
+        if (dateStr) {
+            const sessions = await getSessionsForDate(currentUserData.clubId, dateStr);
+            window.openSessionSelectionModalFromCalendar(dateStr, sessions);
         }
     } catch (error) {
         console.error('Error canceling session:', error);

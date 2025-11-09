@@ -686,15 +686,9 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
                 alert('Keine Trainings an diesem Tag. Bitte erstelle ein Training.');
             }
             return;
-        } else if (sessionsOnDay.length === 1) {
-            // Exactly one session - open attendance modal directly (better UX!)
-            isRenderingAttendance = false;
-            if (window.openAttendanceForSessionFromSchedule) {
-                await window.openAttendanceForSessionFromSchedule(sessionsOnDay[0].id, date);
-            }
-            return;
         } else {
-            // Multiple sessions - show selection modal
+            // One or more sessions - always show selection modal
+            // Coach can choose: record attendance for a session OR add another training
             isRenderingAttendance = false;
             if (window.openSessionSelectionModalFromCalendar) {
                 window.openSessionSelectionModalFromCalendar(date, sessionsOnDay);
