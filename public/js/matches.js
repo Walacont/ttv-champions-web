@@ -1230,6 +1230,58 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
 }
 
 /**
+ * Removes a discarded pairing from the DOM immediately
+ * @param {string} sessionId - Session ID
+ * @param {number} matchIndex - Match index in group
+ * @param {string} groupName - Group name
+ */
+function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
+    const container = document.getElementById('saved-pairings-container');
+    if (!container) return;
+
+    // Find all pairing cards
+    const pairingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+
+    pairingCards.forEach(card => {
+        // Find all match divs within this card
+        const matchDivs = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+
+        matchDivs.forEach(matchDiv => {
+            const discardButton = matchDiv.querySelector('button.bg-red-600');
+            if (discardButton) {
+                const onclickAttr = discardButton.getAttribute('onclick');
+                // Check if this is the right pairing to remove
+                if (onclickAttr &&
+                    onclickAttr.includes(`'${sessionId}'`) &&
+                    onclickAttr.includes(`${matchIndex},`) &&
+                    onclickAttr.includes(`'${groupName}'`)) {
+
+                    // Remove this match div
+                    matchDiv.remove();
+
+                    // Check if this was the last pairing in the card
+                    const remainingMatches = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+                    if (remainingMatches.length === 0) {
+                        // Check if there's a leftover player
+                        const hasLeftover = card.querySelector('.bg-orange-50');
+                        if (!hasLeftover) {
+                            // Remove the entire card if no matches and no leftover
+                            card.remove();
+
+                            // Check if container is now empty
+                            const remainingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+                            if (remainingCards.length === 0) {
+                                container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+/**
  * Discards a pairing
  */
 window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
@@ -1237,6 +1289,10 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
         return;
     }
 
+    // STEP 1: Immediately remove from DOM (optimistic update - instant visual feedback)
+    removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName);
+
+    // STEP 2: Remove from Firestore in background
     try {
         const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
         const db = getFirestore();
@@ -1245,7 +1301,7 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
         const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
 
         if (!pairingDoc.exists()) {
-            alert('Paarung nicht gefunden.');
+            console.log('Pairing document not found in Firestore');
             return;
         }
 
@@ -1261,22 +1317,26 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
                 delete groups[groupName];
             }
 
-            // If no groups left and no leftover player, we'll still update with empty groups
-            // (we don't delete the document in case there are other properties)
+            // Update Firestore
             await updateDoc(doc(db, 'trainingMatches', sessionId), {
                 groups: groups
             });
 
-            // Reload pairings to update the display
-            const userData = JSON.parse(localStorage.getItem('userData'));
-            if (userData && userData.clubId) {
-                await loadSavedPairings(db, userData.clubId);
-            }
-
+            console.log('Pairing removed from Firestore');
             alert('Paarung wurde verworfen.');
         }
     } catch (error) {
-        console.error('Error discarding pairing:', error);
+        console.error('Error discarding pairing from Firestore:', error);
+        // Even if Firestore fails, the DOM update already happened
+        // Reload to show the correct state
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        if (userData && userData.clubId) {
+            const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+            const db = getFirestore();
+            setTimeout(async () => {
+                await loadSavedPairings(db, userData.clubId);
+            }, 500);
+        }
         alert('Fehler beim Verwerfen der Paarung: ' + error.message);
     }
 };
