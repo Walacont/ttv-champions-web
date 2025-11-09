@@ -24,8 +24,11 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     const email = emailField ? emailField.value : '';
 
     // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
-    const subgroupCheckboxes = form.querySelectorAll('#player-subgroups-checkboxes input[type="checkbox"]:checked');
-    const subgroupIDs = Array.from(subgroupCheckboxes).map(cb => cb.value);
+    // Include both checked and disabled checkboxes (disabled = Hauptgruppe, always included)
+    const subgroupCheckboxes = form.querySelectorAll('#player-subgroups-checkboxes input[type="checkbox"]');
+    const subgroupIDs = Array.from(subgroupCheckboxes)
+        .filter(cb => cb.checked || cb.disabled) // Include checked OR disabled (Hauptgruppe)
+        .map(cb => cb.value);
 
     // === NEU: Wettkampfsbereit-Checkbox auslesen ===
     const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
