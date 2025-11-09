@@ -542,9 +542,12 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
         const subgroupColor = subgroup ? subgroup.color : '#6366f1';
 
-        // Check if player attended this session
+        // Check if player attended THIS SPECIFIC SESSION
+        // IMPORTANT: Must check sessionId to distinguish multiple trainings on same day
         const attendance = attendanceForDate.find(a => {
-            return a.presentPlayerIds && a.presentPlayerIds.includes(playerId);
+            return a.sessionId === session.id &&
+                   a.presentPlayerIds &&
+                   a.presentPlayerIds.includes(playerId);
         });
 
         const attended = attendance !== undefined;
