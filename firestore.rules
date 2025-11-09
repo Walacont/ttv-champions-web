@@ -131,6 +131,27 @@ service cloud.firestore {
       allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
     }
 
+    // Training Sessions collection
+    match /trainingSessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
+    // Recurring Training Templates collection
+    match /recurringTrainingTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
+    // Training Matches (Pairings) collection
+    match /trainingMatches/{matchId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
     // Matches collection
     match /matches/{matchId} {
       allow read: if isAuthenticated();

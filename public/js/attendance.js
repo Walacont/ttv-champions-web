@@ -9,8 +9,16 @@ import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, ser
 
 // Module state
 let monthlyAttendance = new Map();
+let monthlySessions = new Map(); // NEW: Store sessions by date
+let subgroupsMap = new Map(); // Store subgroups with their colors
 let currentSubgroupFilter = 'all'; // Current active subgroup filter
 let isRenderingAttendance = false; // Guard to prevent multiple simultaneous renders
+let currentSessionId = null; // NEW: Track current session being edited
+
+// Store callbacks for current session
+let currentClubPlayers = [];
+let currentUpdateAttendanceCount = null;
+let currentUpdatePairingsButtonState = null;
 
 /**
  * Sets the current subgroup filter for attendance operations
@@ -18,6 +26,14 @@ let isRenderingAttendance = false; // Guard to prevent multiple simultaneous ren
  */
 export function setAttendanceSubgroupFilter(subgroupId) {
     currentSubgroupFilter = subgroupId || 'all';
+}
+
+/**
+ * Gets the current session ID being edited
+ * @returns {string|null} Current session ID or null
+ */
+export function getCurrentSessionId() {
+    return currentSessionId;
 }
 
 /**
@@ -54,20 +70,59 @@ export async function renderCalendar(date, db, currentUserData) {
         const dayCell = document.createElement('div');
         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-        dayCell.className = 'calendar-day p-2 border rounded-md text-center';
-        dayCell.textContent = day;
+        // Base styling
+        dayCell.className = 'calendar-day p-2 border rounded-md text-center relative cursor-pointer hover:bg-gray-50 transition-colors';
+
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'font-medium';
+        dayNumber.textContent = day;
+        dayCell.appendChild(dayNumber);
+
         dayCell.dataset.date = dateString;
 
-        if (monthlyAttendance.has(dateString)) {
-            dayCell.classList.add('calendar-day-present');
+        // NEW: Check for sessions on this day
+        const sessionsOnDay = monthlySessions.get(dateString) || [];
+
+        if (sessionsOnDay.length > 0) {
+            // Add subtle border to indicate sessions exist
+            dayCell.classList.add('border-indigo-300');
+
+            // Add indicator dots for sessions
+            const dotsContainer = document.createElement('div');
+            dotsContainer.className = 'flex gap-1 justify-center mt-1';
+
+            // Show up to 3 dots, or a "3+" indicator
+            const dotsToShow = Math.min(sessionsOnDay.length, 3);
+            for (let i = 0; i < dotsToShow; i++) {
+                const session = sessionsOnDay[i];
+                const subgroup = subgroupsMap.get(session.subgroupId);
+                const color = subgroup ? subgroup.color : '#6366f1'; // Default to indigo
+
+                const dot = document.createElement('div');
+                dot.className = 'w-2 h-2 rounded-full';
+                dot.style.backgroundColor = color;
+                dotsContainer.appendChild(dot);
+            }
+
+            if (sessionsOnDay.length > 3) {
+                const moreDot = document.createElement('div');
+                moreDot.className = 'text-xs text-indigo-600 font-bold';
+                moreDot.textContent = '+';
+                dotsContainer.appendChild(moreDot);
+            }
+
+            dayCell.appendChild(dotsContainer);
         }
+
+        // Remove the green background - we only show colored dots now
+        // monthlyAttendance is no longer used for background color
 
         calendarGrid.appendChild(dayCell);
     }
 }
 
 /**
- * Fetches attendance data for a specific month
+ * Fetches attendance data and training sessions for a specific month
  * @param {number} year - Year
  * @param {number} month - Month (0-11)
  * @param {Object} db - Firestore database instance
@@ -75,46 +130,127 @@ export async function renderCalendar(date, db, currentUserData) {
  */
 export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     monthlyAttendance.clear();
+    monthlySessions.clear(); // NEW: Clear sessions
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
-    // Build query based on subgroup filter
-    let q;
-    if (currentSubgroupFilter === 'all') {
-        // Show all attendance events for the club
-        q = query(collection(db, 'attendance'),
-            where('clubId', '==', currentUserData.clubId),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate)
-        );
-    } else {
-        // Show only attendance events for the selected subgroup
-        q = query(collection(db, 'attendance'),
-            where('clubId', '==', currentUserData.clubId),
-            where('subgroupId', '==', currentSubgroupFilter),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate)
-        );
+    try {
+        console.log('[fetchMonthlyAttendance] Loading subgroups...');
+        // Load subgroups for color mapping
+        const subgroupsSnapshot = await getDocs(query(
+            collection(db, 'subgroups'),
+            where('clubId', '==', currentUserData.clubId)
+        ));
+        subgroupsMap.clear();
+        subgroupsSnapshot.forEach(doc => {
+            const data = doc.data();
+            subgroupsMap.set(doc.id, {
+                name: data.name,
+                color: data.color || '#6366f1' // Default to indigo if no color set
+            });
+        });
+        console.log(`[fetchMonthlyAttendance] Loaded ${subgroupsMap.size} subgroups`);
+    } catch (error) {
+        console.error('[fetchMonthlyAttendance] Error loading subgroups:', error);
+        throw error;
     }
 
-    const querySnapshot = await getDocs(q);
-
-    // When filter is "all", we might have multiple events per day (different subgroups)
-    // We'll mark a day as present if ANY subgroup had a training that day
-    querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const dateKey = data.date;
-
+    // NEW: Fetch training sessions for the month
+    try {
+        console.log('[fetchMonthlyAttendance] Loading training sessions...');
+        let sessionsQuery;
         if (currentSubgroupFilter === 'all') {
-            // For "all" view, just mark the day - don't store specific event data
-            if (!monthlyAttendance.has(dateKey)) {
+            sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', currentUserData.clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false)
+            );
+        } else {
+            sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', currentUserData.clubId),
+                where('subgroupId', '==', currentSubgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false)
+            );
+        }
+
+        const sessionsSnapshot = await getDocs(sessionsQuery);
+        sessionsSnapshot.forEach(doc => {
+            const sessionData = doc.data();
+            const dateKey = sessionData.date;
+
+            if (!monthlySessions.has(dateKey)) {
+                monthlySessions.set(dateKey, []);
+            }
+            monthlySessions.get(dateKey).push({ id: doc.id, ...sessionData });
+        });
+        console.log(`[fetchMonthlyAttendance] Loaded ${sessionsSnapshot.size} training sessions`);
+    } catch (error) {
+        console.error('[fetchMonthlyAttendance] Error loading training sessions:', error);
+        console.error('[fetchMonthlyAttendance] Query details:', {
+            clubId: currentUserData.clubId,
+            startDate,
+            endDate,
+            subgroupFilter: currentSubgroupFilter
+        });
+        throw error;
+    }
+
+    // Build query based on subgroup filter
+    try {
+        console.log('[fetchMonthlyAttendance] Loading attendance records...');
+        let q;
+        if (currentSubgroupFilter === 'all') {
+            // Show all attendance events for the club
+            q = query(collection(db, 'attendance'),
+                where('clubId', '==', currentUserData.clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+        } else {
+            // Show only attendance events for the selected subgroup
+            q = query(collection(db, 'attendance'),
+                where('clubId', '==', currentUserData.clubId),
+                where('subgroupId', '==', currentSubgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+        }
+
+        const querySnapshot = await getDocs(q);
+
+        // When filter is "all", we might have multiple events per day (different subgroups)
+        // We'll mark a day as present if ANY subgroup had a training that day
+        querySnapshot.forEach(doc => {
+            const data = doc.data();
+            const dateKey = data.date;
+
+            if (currentSubgroupFilter === 'all') {
+                // For "all" view, just mark the day - don't store specific event data
+                if (!monthlyAttendance.has(dateKey)) {
+                    monthlyAttendance.set(dateKey, { id: doc.id, ...data });
+                }
+            } else {
+                // For specific subgroup, store the event data
                 monthlyAttendance.set(dateKey, { id: doc.id, ...data });
             }
-        } else {
-            // For specific subgroup, store the event data
-            monthlyAttendance.set(dateKey, { id: doc.id, ...data });
-        }
-    });
+        });
+        console.log(`[fetchMonthlyAttendance] Loaded ${querySnapshot.size} attendance records`);
+        console.log('[fetchMonthlyAttendance] ✓ All data loaded successfully');
+    } catch (error) {
+        console.error('[fetchMonthlyAttendance] Error loading attendance records:', error);
+        console.error('[fetchMonthlyAttendance] Query details:', {
+            clubId: currentUserData.clubId,
+            startDate,
+            endDate,
+            subgroupFilter: currentSubgroupFilter
+        });
+        throw error;
+    }
 }
 
 /**
@@ -298,6 +434,23 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 newPoints = 5; // 3 base + 2 bonus
             }
 
+            // NEW: Check if player attended another training on the same day
+            // If yes, apply half points for second training
+            const otherTrainingsQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', clubId),
+                where('date', '==', currentDate),
+                where('presentPlayerIds', 'array-contains', playerId)
+            );
+            const otherTrainingsSnapshot = await getDocs(otherTrainingsQuery);
+            // If there are 2+ trainings on this day, this is a second/third training
+            const isSecondTrainingOrMore = otherTrainingsSnapshot.size > 1;
+
+            if (isSecondTrainingOrMore) {
+                newPoints = Math.ceil(newPoints / 2); // Half points for 2nd+ training
+                console.log(`[recalculateSubsequentDays] Date ${currentDate}: is 2nd+ training, reducing to ${newPoints} points`);
+            }
+
             // Find OLD points that were awarded
             const oldPoints = await findOriginalAttendancePoints(playerId, currentDate, subgroupName, db, subgroupId);
 
@@ -308,6 +461,13 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 const pointsDifference = newPoints - oldPoints;
 
                 console.log(`[recalculateSubsequentDays] Adjusting ${pointsDifference} points for ${currentDate}`);
+
+                // Format date for display in history
+                const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
 
                 // Update player's points and XP
                 const playerRef = doc(db, 'users', playerId);
@@ -322,7 +482,7 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                     points: pointsDifference,
                     xp: pointsDifference,
                     eloChange: 0,
-                    reason: `Anwesenheit neu berechnet (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
+                    reason: `Anwesenheit neu berechnet am ${formattedDate} (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
                     date: currentDate,
                     subgroupId: subgroupId,
                     timestamp: serverTimestamp(),
@@ -333,7 +493,7 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
                 batch.set(xpHistoryRef, {
                     xp: pointsDifference,
-                    reason: `Anwesenheit neu berechnet (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
+                    reason: `Anwesenheit neu berechnet am ${formattedDate} (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
                     date: currentDate,
                     subgroupId: subgroupId,
                     timestamp: serverTimestamp(),
@@ -452,53 +612,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
 }
 
 /**
- * Checks if a player is present in other subgroups on a specific date
- * @param {string} playerId - Player ID
- * @param {string} date - Date string (YYYY-MM-DD)
- * @param {string} currentSubgroupId - Current subgroup ID to exclude
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Array>} Array of subgroup names where player was present
- */
-async function checkPlayerInOtherSubgroups(playerId, date, currentSubgroupId, clubId, db) {
-    try {
-        // Query attendance for this date and club, but exclude current subgroup
-        const q = query(
-            collection(db, 'attendance'),
-            where('clubId', '==', clubId),
-            where('date', '==', date)
-        );
-
-        const snapshot = await getDocs(q);
-        const otherSubgroups = [];
-
-        for (const attendanceDoc of snapshot.docs) {
-            const data = attendanceDoc.data();
-            // Check if this attendance is for a different subgroup
-            if (data.subgroupId !== currentSubgroupId && data.presentPlayerIds && data.presentPlayerIds.includes(playerId)) {
-                // Get subgroup name
-                try {
-                    const subgroupDoc = await getDoc(doc(db, 'subgroups', data.subgroupId));
-                    if (subgroupDoc.exists()) {
-                        otherSubgroups.push(subgroupDoc.data().name);
-                    } else {
-                        otherSubgroups.push(data.subgroupId);
-                    }
-                } catch (err) {
-                    console.error(`Error loading subgroup name for ${data.subgroupId}:`, err);
-                    otherSubgroups.push(data.subgroupId);
-                }
-            }
-        }
-
-        return otherSubgroups;
-    } catch (error) {
-        console.error("Error checking player in other subgroups:", error);
-        return [];
-    }
-}
-
-/**
  * Handles calendar day click to open attendance modal
  * @param {Event} e - Click event
  * @param {Array} clubPlayers - List of club players
@@ -520,11 +633,90 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
 
     try {
         const date = dayCell.dataset.date;
-        const attendanceData = monthlyAttendance.get(date);
+
+        // Check for sessions on this day
+        const sessionsOnDay = monthlySessions.get(date) || [];
+
+        if (sessionsOnDay.length === 0) {
+            // No sessions - directly show modal to create one
+            isRenderingAttendance = false;
+            if (window.openSpontaneousSessionModalFromCalendar) {
+                window.openSpontaneousSessionModalFromCalendar(date);
+            } else {
+                alert('Keine Trainings an diesem Tag. Bitte erstelle ein Training.');
+            }
+            return;
+        } else {
+            // One or more sessions - always show selection modal
+            // Coach can choose: record attendance for a session OR add another training
+            isRenderingAttendance = false;
+            if (window.openSessionSelectionModalFromCalendar) {
+                window.openSessionSelectionModalFromCalendar(date, sessionsOnDay);
+            }
+            return;
+        }
+    } catch (error) {
+        console.error('[handleCalendarDayClick] Error:', error);
+        isRenderingAttendance = false;
+    }
+}
+
+/**
+ * NEW: Open attendance modal for a specific session
+ * @param {string} sessionId - Session ID
+ * @param {string} date - Date string
+ * @param {Array} clubPlayers - Array of players
+ * @param {Function} updateAttendanceCount - Callback
+ * @param {Function} updatePairingsButtonState - Callback
+ * @param {Object} db - Firestore instance
+ * @param {string} clubId - Club ID
+ */
+export async function openAttendanceModalForSession(sessionId, date, clubPlayers, updateAttendanceCount, updatePairingsButtonState, db, clubId) {
+    try {
+        currentSessionId = sessionId;
+
+        // Store callbacks for later use
+        currentClubPlayers = clubPlayers;
+        currentUpdateAttendanceCount = updateAttendanceCount;
+        currentUpdatePairingsButtonState = updatePairingsButtonState;
+
+        // Get session data
+        const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
+        if (!sessionDoc.exists()) {
+            alert('Session nicht gefunden!');
+            isRenderingAttendance = false;
+            return;
+        }
+
+        const sessionData = sessionDoc.data();
+        const subgroupId = sessionData.subgroupId;
+
+        // Check if attendance already exists for this session
+        const attendanceQuery = query(
+            collection(db, 'attendance'),
+            where('sessionId', '==', sessionId)
+        );
+        const attendanceSnapshot = await getDocs(attendanceQuery);
+        const attendanceData = attendanceSnapshot.empty ? null : {
+            id: attendanceSnapshot.docs[0].id,
+            ...attendanceSnapshot.docs[0].data()
+        };
+
         const modal = document.getElementById('attendance-modal');
-        document.getElementById('attendance-modal-date').textContent = new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('attendance-modal-date').textContent =
+            `${new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - ${sessionData.startTime}-${sessionData.endTime}`;
         document.getElementById('attendance-date-input').value = date;
         document.getElementById('attendance-doc-id-input').value = attendanceData ? attendanceData.id : '';
+
+        // Store sessionId in a hidden field
+        let sessionIdInput = document.getElementById('attendance-session-id-input');
+        if (!sessionIdInput) {
+            sessionIdInput = document.createElement('input');
+            sessionIdInput.type = 'hidden';
+            sessionIdInput.id = 'attendance-session-id-input';
+            document.getElementById('attendance-form').appendChild(sessionIdInput);
+        }
+        sessionIdInput.value = sessionId;
 
         const playerListContainer = document.getElementById('attendance-player-list');
 
@@ -534,25 +726,12 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         }
 
         console.log(`[Attendance Modal] Container cleared, checkboxes count: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
-
-        // Show warning if "Alle" view is active
-        if (currentSubgroupFilter === 'all') {
-            playerListContainer.innerHTML = `
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                    <p class="text-sm text-yellow-800 font-semibold">⚠️ Bitte wähle eine spezifische Untergruppe aus</p>
-                    <p class="text-xs text-yellow-700 mt-1">Du kannst nur Anwesenheit für eine bestimmte Gruppe erfassen.</p>
-                </div>
-            `;
-            modal.classList.remove('hidden');
-            return;
-        }
-
         console.log(`[Attendance Modal] Total players in clubPlayers: ${clubPlayers.length}`);
-        console.log(`[Attendance Modal] Current subgroup filter: ${currentSubgroupFilter}`);
+        console.log(`[Attendance Modal] Session subgroup: ${subgroupId}`);
 
-        // Filter players: Only show players who are members of the current subgroup
+        // Filter players: Only show players who are members of the session's subgroup
         const playersInCurrentSubgroup = clubPlayers.filter(player =>
-            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            player.subgroupIDs && player.subgroupIDs.includes(subgroupId)
         );
 
         console.log(`[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`);
@@ -582,22 +761,16 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
             return;
         }
 
-        // Render players with async check for other subgroup attendance
+        // Render players
         for (const player of uniquePlayers) {
             const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
 
-            // Check if player is present in other subgroups on this date
-            const otherSubgroups = await checkPlayerInOtherSubgroups(player.id, date, currentSubgroupFilter, clubId, db);
-            const isInOtherSubgroup = otherSubgroups.length > 0;
-
             const div = document.createElement('div');
-            // Apply special background color if player is in other subgroups
-            div.className = `flex items-center p-2 rounded-md ${isInOtherSubgroup ? 'bg-amber-50 border border-amber-200' : ''}`;
+            div.className = 'flex items-center p-2 rounded-md';
             div.innerHTML = `
-                <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} ${isInOtherSubgroup ? 'disabled' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 ${isInOtherSubgroup ? 'opacity-50 cursor-not-allowed' : ''}">
-                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium ${isInOtherSubgroup ? 'text-gray-400' : 'text-gray-700'}">${player.firstName} ${player.lastName}</label>
-                ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔒 Bereits in ${otherSubgroups.join(', ')}</span>` : ''}
-                ${!isInOtherSubgroup && !player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
+                <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700">${player.firstName} ${player.lastName}</label>
+                ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
             `;
             playerListContainer.appendChild(div);
         }
@@ -608,8 +781,8 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
         modal.classList.remove('hidden');
 
         // Initialen Zustand für Zähler und Button setzen
-        updateAttendanceCount();
-        updatePairingsButtonState();
+        if (currentUpdateAttendanceCount) currentUpdateAttendanceCount();
+        if (currentUpdatePairingsButtonState) currentUpdatePairingsButtonState(currentClubPlayers, subgroupId);
     } catch (error) {
         console.error('[Attendance Modal] Error rendering attendance:', error);
     } finally {
@@ -635,24 +808,40 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
     const date = document.getElementById('attendance-date-input').value;
     const docId = document.getElementById('attendance-doc-id-input').value;
+    const sessionIdInput = document.getElementById('attendance-session-id-input');
+    const sessionId = sessionIdInput ? sessionIdInput.value : null; // NEW: Get session ID
     const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
-    // When filter is "all", prevent saving (user must select a specific subgroup)
-    if (currentSubgroupFilter === 'all') {
-        feedbackEl.textContent = 'Bitte wähle eine spezifische Untergruppe aus, um Anwesenheit zu erfassen.';
+    // NEW: If no sessionId, we can't save (must have a training session)
+    if (!sessionId) {
+        feedbackEl.textContent = 'Keine Training-Session gefunden. Bitte erstelle zuerst ein Training.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
 
-    // Load subgroup name for history
-    let subgroupName = currentSubgroupFilter;
+    // NEW: Load session to get subgroup
+    let subgroupId, subgroupName;
     try {
-        const subgroupDoc = await getDoc(doc(db, 'subgroups', currentSubgroupFilter));
+        const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
+        if (!sessionDoc.exists()) {
+            feedbackEl.textContent = 'Training-Session nicht gefunden!';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+        subgroupId = sessionDoc.data().subgroupId;
+
+        // Load subgroup name for history
+        const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
         if (subgroupDoc.exists()) {
             subgroupName = subgroupDoc.data().name;
+        } else {
+            subgroupName = subgroupId;
         }
     } catch (error) {
-        console.error("Error loading subgroup name:", error);
+        console.error("Error loading session/subgroup:", error);
+        feedbackEl.textContent = 'Fehler beim Laden der Session-Daten';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        return;
     }
 
     const allPlayerCheckboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
@@ -660,8 +849,24 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
-    const previousAttendanceData = monthlyAttendance.get(date);
-    const previouslyPresentIdsOnThisDay = previousAttendanceData ? previousAttendanceData.presentPlayerIds : [];
+    // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
+    // We need to distinguish between different training sessions on the same day
+    let previouslyPresentIdsOnThisDay = [];
+    if (docId) {
+        // If docId exists, load the previous attendance data for this session
+        try {
+            const attendanceDoc = await getDoc(doc(db, 'attendance', docId));
+            if (attendanceDoc.exists()) {
+                previouslyPresentIdsOnThisDay = attendanceDoc.data().presentPlayerIds || [];
+            }
+        } catch (error) {
+            console.error('[Attendance Save] Error loading previous attendance:', error);
+        }
+    }
+
+    console.log(`[Attendance Save] Session ${sessionId}, Date: ${date}`);
+    console.log(`  - Previously present in THIS session: ${previouslyPresentIdsOnThisDay.length} players`);
+    console.log(`  - Now present in THIS session: ${presentPlayerIds.length} players`);
 
     try {
         const batch = writeBatch(db);
@@ -671,7 +876,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
         const q = query(
             attendanceColl,
             where('clubId', '==', currentUserData.clubId),
-            where('subgroupId', '==', currentSubgroupFilter),
+            where('subgroupId', '==', subgroupId), // CHANGED: Use subgroupId from session
             where('date', '<', date),
             orderBy('date', 'desc'),
             limit(1)
@@ -693,11 +898,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             }
             // If no entry exists and no players present, we don't need to do anything
         } else {
-            // Update/create attendance document for this day and subgroup
+            // Update/create attendance document for this session
             batch.set(attendanceRef, {
                 date,
                 clubId: currentUserData.clubId,
-                subgroupId: currentSubgroupFilter,
+                subgroupId, // CHANGED: Use subgroupId from session
+                sessionId, // NEW: Add sessionId
                 presentPlayerIds,
                 updatedAt: serverTimestamp()
             }, { merge: true });
@@ -706,12 +912,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
         // Process EVERY player in the club and update their subgroup-specific streak and points
         // Filter to only process players who are members of this subgroup
         const playersInSubgroup = clubPlayers.filter(p =>
-            p.subgroupIDs && p.subgroupIDs.includes(currentSubgroupFilter)
+            p.subgroupIDs && p.subgroupIDs.includes(subgroupId) // CHANGED: Use subgroupId from session
         );
 
         for (const player of playersInSubgroup) {
             const playerRef = doc(db, 'users', player.id);
-            const streakRef = doc(db, `users/${player.id}/streaks`, currentSubgroupFilter);
+            const streakRef = doc(db, `users/${player.id}/streaks`, subgroupId); // CHANGED: Use subgroupId from session
 
             const isPresentToday = presentPlayerIds.includes(player.id);
             const wasPresentPreviouslyOnThisDay = previouslyPresentIdsOnThisDay.includes(player.id);
@@ -729,22 +935,64 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // Streak logic
                     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
+                    // NEW: Check if player already attended another training on the same day
+                    const otherTrainingsToday = query(
+                        collection(db, 'attendance'),
+                        where('clubId', '==', currentUserData.clubId),
+                        where('date', '==', date),
+                        where('presentPlayerIds', 'array-contains', player.id)
+                    );
+                    const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
+
+                    // IMPORTANT: Exclude the CURRENT session from the count!
+                    // Otherwise it finds itself and thinks it's the 2nd training
+                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(
+                        doc => doc.id !== docId  // Exclude current attendance document
+                    ).length;
+                    const alreadyAttendedToday = otherTrainingsCount > 0;
+
+                    console.log(`[Attendance Save] Player ${player.firstName} ${player.lastName}:`);
+                    console.log(`  - Date: ${date}`);
+                    console.log(`  - Total trainings today (including current): ${otherTrainingsTodaySnapshot.size}`);
+                    console.log(`  - Other trainings today (excluding current): ${otherTrainingsCount}`);
+                    console.log(`  - Already attended OTHER training today: ${alreadyAttendedToday}`);
+                    console.log(`  - New streak: ${newStreak}`);
+
+                    // Format date for display in history
+                    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+
                     // Bonus points logic (New System)
                     let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
-                    let reason = `Anwesenheit beim Training - ${subgroupName}`;
+                    let reason = `Training am ${formattedDate} - ${subgroupName}`;
 
                     if (newStreak >= 5) {
                         pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
-                        reason = `Anwesenheit beim Training - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
+                        reason = `Training am ${formattedDate} - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
                     } else if (newStreak >= 3) {
                         pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
-                        reason = `Anwesenheit beim Training - ${subgroupName} (⚡ ${newStreak}x Streak)`;
+                        reason = `Training am ${formattedDate} - ${subgroupName} (⚡ ${newStreak}x Streak)`;
                     }
+
+                    console.log(`  - Points BEFORE half-points check: ${pointsToAdd}`);
+
+                    // NEW: If player already attended another training today, give half points
+                    if (alreadyAttendedToday) {
+                        const originalPoints = pointsToAdd;
+                        pointsToAdd = Math.ceil(pointsToAdd / 2); // Half points, rounded up
+                        reason += ` (2. Training heute)`;
+                        console.log(`  - APPLYING HALF POINTS: ${originalPoints} → ${pointsToAdd}`);
+                    }
+
+                    console.log(`  - FINAL points to add: ${pointsToAdd}`);
 
                     // Update streak in subcollection
                     batch.set(streakRef, {
                         count: newStreak,
-                        subgroupId: currentSubgroupFilter,
+                        subgroupId: subgroupId,
                         lastUpdated: serverTimestamp()
                     });
 
@@ -762,7 +1010,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         eloChange: 0, // No Elo change for attendance
                         reason,
                         date: date, // Store date for easier lookup when correcting
-                        subgroupId: currentSubgroupFilter, // Store subgroup ID for precise matching
+                        subgroupId: subgroupId, // Store subgroup ID for precise matching
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -773,7 +1021,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         xp: pointsToAdd,
                         reason,
                         date: date, // Store date for easier lookup
-                        subgroupId: currentSubgroupFilter,
+                        subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -784,7 +1032,14 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                 // If coach unchecked the player for this day, deduct the originally awarded points
                 if (wasPresentPreviouslyOnThisDay) {
                     // Find the original points awarded for this date by searching pointsHistory
-                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db, currentSubgroupFilter);
+                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db, subgroupId);
+
+                    // Format date for display in history
+                    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
 
                     // Deduct both points and XP
                     batch.update(playerRef, {
@@ -798,9 +1053,9 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         points: -pointsToDeduct,
                         xp: -pointsToDeduct,
                         eloChange: 0,
-                        reason: `Anwesenheit korrigiert (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
+                        reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
                         date: date, // Store date for tracking
-                        subgroupId: currentSubgroupFilter,
+                        subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -809,9 +1064,9 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
                     batch.set(xpHistoryRef, {
                         xp: -pointsToDeduct,
-                        reason: `Anwesenheit korrigiert (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
+                        reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
                         date: date, // Store date for tracking
-                        subgroupId: currentSubgroupFilter,
+                        subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
                         awardedBy: "System (Anwesenheit)"
                     });
@@ -820,12 +1075,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // When we remove a day, all future days need to be recalculated
                     // because their streaks might have changed
                     console.log(`[Attendance] Recalculating subsequent days for player ${player.id} after removing ${date}`);
-                    await recalculateSubsequentDays(player.id, date, currentSubgroupFilter, currentUserData.clubId, db, batch, subgroupName);
+                    await recalculateSubsequentDays(player.id, date, subgroupId, currentUserData.clubId, db, batch, subgroupName);
 
                     // IMPORTANT: Update the streak subcollection
                     // If we removed the last day, recalculateSubsequentDays won't update the streak
                     // So we need to calculate the correct streak based on remaining trainings
-                    await updateStreakAfterRemoval(player.id, date, currentSubgroupFilter, currentUserData.clubId, db, batch);
+                    await updateStreakAfterRemoval(player.id, date, subgroupId, currentUserData.clubId, db, batch);
                 }
             }
         }

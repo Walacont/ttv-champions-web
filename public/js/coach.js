@@ -5,14 +5,13 @@ import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, que
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
-import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
-import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
-import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
-import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
-import { setupDescriptionEditor } from './tableEditor.js';
-import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput } from './matches.js';
+import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
+import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount } from './attendance.js';
+import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge } from './challenges.js';
+import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal } from './exercises.js';
+import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
-import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
+import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
@@ -28,11 +27,20 @@ const storage = getStorage(app);
 const functions = getFunctions(app, 'europe-west3');
 
 // NEU: Der Emulator-Block
+// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
 if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
     console.log("Coach.js: Verbinde mit lokalen Firebase Emulatoren...");
+    
+    // Auth Emulator
     connectAuthEmulator(auth, "http://localhost:9099");
+    
+    // Firestore Emulator
     connectFirestoreEmulator(db, "localhost", 8080);
+    
+    // Functions Emulator
     connectFunctionsEmulator(functions, "localhost", 5001);
+
+    // Storage Emulator
     connectStorageEmulator(storage, "localhost", 9199);
 }
 
@@ -41,12 +49,10 @@ if (window.location.hostname === "localhost" || window.location.hostname === "12
 let currentUserData = null;
 let unsubscribePlayerList = null;
 let unsubscribeLeaderboard = null;
+// NEU HINZUGEFÜGT
 let unsubscribePointsHistory = null;
-let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
-let currentSubgroupFilter = 'all';
-let descriptionEditorCoach = null; 
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -89,37 +95,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function initializeCoachPage(userData) {
+function initializeCoachPage(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
-    const loaderText = document.getElementById('loader-text');
-
-    // Run migration if needed
-    if (loaderText) loaderText.textContent = 'Prüfe Datenbank-Migration...';
-    try {
-        const migrationResult = await checkAndMigrate(userData.clubId, db);
-        if (migrationResult.success && !migrationResult.skipped) {
-            console.log('[Coach] Migration completed successfully:', migrationResult.stats);
-            if (loaderText) loaderText.textContent = 'Migration abgeschlossen! Lade Dashboard...';
-        } else if (migrationResult.success && migrationResult.skipped) {
-            console.log('[Coach] Migration not needed');
-        } else {
-            console.error('[Coach] Migration failed:', migrationResult.error);
-            alert(`Warnung: Datenbank-Migration fehlgeschlagen. Bitte kontaktiere den Support.\nFehler: ${migrationResult.error}`);
-        }
-    } catch (error) {
-        console.error('[Coach] Error during migration check:', error);
-        alert(`Warnung: Fehler beim Prüfen der Datenbank-Migration.\nFehler: ${error.message}`);
-    }
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
 
     document.getElementById('welcome-message').textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
 
-    // Render leaderboard HTML
+    // Render leaderboard HTML for coach (new 3-tab system)
     renderLeaderboardHTML('tab-content-dashboard', {
-        showToggle: true 
+        showToggle: true  // Club/Global Toggle
     });
 
     setupTabs('statistics');
@@ -139,37 +126,20 @@ async function initializeCoachPage(userData) {
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
-            loadStatistics(userData, db, currentSubgroupFilter);
+            loadStatistics(userData, db);
         });
     }
 
-    // Setup Subgroups Tab
-    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
-    if (subgroupsTabButton) {
-        subgroupsTabButton.addEventListener('click', () => {
-            loadSubgroupsList(userData.clubId, db, (unsub) => {
-                if (unsubscribeSubgroups) unsubscribeSubgroups();
-                unsubscribeSubgroups = unsub;
-            });
-        });
-    }
-
-    // Load initial data
     loadPlayersForDropdown(userData.clubId, db);
-    loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
+    loadChallengesForDropdown(userData.clubId, db);
     loadExercisesForDropdown(db);
-    loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
+    loadActiveChallenges(userData.clubId, db);
     loadExpiredChallenges(userData.clubId, db);
     loadAllExercises(db);
-
-    // Populate subgroup dropdowns for challenge forms
-    populateSubgroupDropdown(userData.clubId, 'challenge-subgroup', db);
-    populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', db);
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateHistoryFilterDropdown(clubPlayers);
-        updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
 
     // Initialize set score input for coach match form
@@ -187,8 +157,6 @@ async function initializeCoachPage(userData) {
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
     document.getElementById('error-logout-button').addEventListener('click', () => signOut(auth));
-    
-    // Player Modal Listeners
     document.getElementById('open-player-modal-button').addEventListener('click', () => {
         document.getElementById('player-list-modal').classList.remove('hidden');
         loadPlayerList(userData.clubId, db, (unsub) => {
@@ -221,26 +189,16 @@ async function initializeCoachPage(userData) {
     
     // Attendance Modal Listeners
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => document.getElementById('attendance-modal').classList.add('hidden'));
-
-    // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
+    document.getElementById('reason-select').addEventListener('change', handleReasonChange);
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
-    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
+    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData, currentSubgroupFilter));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
-    document.getElementById('create-exercise-form').addEventListener('submit', (e) => {
-        handleCreateExercise(e, db, storage, descriptionEditorCoach);
-    });
+    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
 
     // Setup exercise points auto-calculation (based on level + difficulty)
     setupExercisePointsCalculation();
-
-    // Setup description editor for exercises
-    descriptionEditorCoach = setupDescriptionEditor({
-        textAreaId: 'exercise-description-form',
-        toggleContainerId: 'description-toggle-container-coach',
-        tableEditorContainerId: 'description-table-editor-coach'
-    });
 
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
@@ -253,26 +211,7 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
-
-    // Toggle abbreviations in exercise modal
-    const toggleAbbreviationsCoach = document.getElementById('toggle-abbreviations-coach');
-    const abbreviationsContentCoach = document.getElementById('abbreviations-content-coach');
-    const abbreviationsIconCoach = document.getElementById('abbreviations-icon-coach');
-    if (toggleAbbreviationsCoach && abbreviationsContentCoach && abbreviationsIconCoach) {
-        toggleAbbreviationsCoach.addEventListener('click', () => {
-            const isHidden = abbreviationsContentCoach.classList.contains('hidden');
-            if (isHidden) {
-                abbreviationsContentCoach.classList.remove('hidden');
-                abbreviationsIconCoach.style.transform = 'rotate(180deg)';
-                toggleAbbreviationsCoach.innerHTML = '<svg id="abbreviations-icon-coach" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
-            } else {
-                abbreviationsContentCoach.classList.add('hidden');
-                abbreviationsIconCoach.style.transform = 'rotate(0deg)';
-                toggleAbbreviationsCoach.innerHTML = '<svg id="abbreviations-icon-coach" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
-            }
-        });
-    }
-
+    document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions));
     document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter), db, userData.clubId));
@@ -287,71 +226,8 @@ async function initializeCoachPage(userData) {
 
     document.getElementById('player-a-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('player-b-select').addEventListener('change', () => updateMatchUI(clubPlayers));
-    document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
 
-    // === KORREKTUR 2: VERALTETEN LISTENER ERSETZEN ===
-    // Diese Zeile hat auf Klicks in der *Liste* gelauscht, um Aktionen auszuführen.
-    // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions)); // <--- ALT & FALSCH
-    
-    // Event-Handler für Aktions-Buttons (Desktop)
-    const handleActionClick = async (e) => {
-        const button = e.target.closest('button');
-        if (!button) return;
-
-        // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern)
-        await handlePlayerListActions(e, db, auth, functions);
-
-        // Logik für "Gruppen bearbeiten"-Button
-        if (button.classList.contains('edit-subgroups-btn')) {
-            const playerId = button.dataset.id;
-            const player = clubPlayers.find(p => p.id === playerId);
-
-            if (player) {
-                openEditPlayerModal(player, db, userData.clubId);
-            } else {
-                console.error("Spieler nicht im lokalen Cache gefunden.");
-                alert("Fehler: Spielerdaten konnten nicht geladen werden.");
-            }
-        }
-    };
-
-    // Listener für Desktop Aktions-Panel
-    const actionsDesktop = document.getElementById('player-detail-actions-desktop');
-    if (actionsDesktop) {
-        actionsDesktop.addEventListener('click', handleActionClick);
-    }
-
-    // Listener für Mobile Aktions-Panel
-    const actionsMobile = document.getElementById('player-detail-actions-mobile');
-    if (actionsMobile) {
-        actionsMobile.addEventListener('click', handleActionClick);
-    }
-
-    // Mobile Modal Close Button
-    const closeMobileBtn = document.getElementById('close-player-detail-mobile');
-    if (closeMobileBtn) {
-        closeMobileBtn.addEventListener('click', () => {
-            document.getElementById('player-detail-mobile-modal').classList.add('hidden');
-        });
-    }
-
-    // NEU: Listener für die Suchleiste im Spieler-Modal
-    document.getElementById('player-search-input').addEventListener('keyup', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const items = document.querySelectorAll('#modal-player-list .player-list-item');
-        items.forEach(item => {
-            const name = item.dataset.playerName; // Benutzt das data-Attribut
-            if (name.includes(searchTerm)) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
-        });
-    });
-    // === KORREKTUR ENDE ===
-
-
-    // Filter Listeners
+    // NEU: Event listener für den Punkte-Historie-Filter HINZUGEFÜGT
     document.getElementById('history-player-filter').addEventListener('change', (e) => {
         loadPointsHistoryForCoach(e.target.value, db, (unsub) => {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
@@ -359,21 +235,13 @@ async function initializeCoachPage(userData) {
         });
     });
 
+    // Event listener für Spieler-Auswahl (zeigt Grundlagen-Status)
     document.getElementById('player-select').addEventListener('change', (e) => {
-        // === KORREKTUR 3: 'db' Instanz übergeben ===
         updateCoachGrundlagenDisplay(e.target.value, db);
     });
 
-    // Subgroup Filter
-    populateSubgroupFilter(userData.clubId, db);
-    document.getElementById('subgroup-filter').addEventListener('change', (e) => {
-        currentSubgroupFilter = e.target.value;
-        handleSubgroupFilterChange(userData);
-    });
-
     // Intervals
-    updateSeasonCountdown('season-countdown-coach', false);
-    setInterval(() => updateSeasonCountdown('season-countdown-coach', false), 1000);
+    setInterval(() => updateSeasonCountdown(false), 1000);
     setInterval(updateAllCountdowns, 1000);
 }
 
@@ -473,13 +341,7 @@ window.showReactivateModal = function(challengeId, title) {
 window.handleReactivate = async function(duration) {
     if (!currentChallengeId) return;
 
-    const subgroupId = document.getElementById('reactivate-challenge-subgroup').value;
-    if (!subgroupId) {
-        alert('Bitte wähle eine Untergruppe aus.');
-        return;
-    }
-
-    const result = await reactivateChallenge(currentChallengeId, duration, subgroupId, db);
+    const result = await reactivateChallenge(currentChallengeId, duration, db);
     if (result.success) {
         alert('Challenge erfolgreich reaktiviert!');
         document.getElementById('reactivate-challenge-modal').classList.add('hidden');
@@ -494,17 +356,6 @@ window.confirmEndChallenge = async function(challengeId, title) {
         const result = await endChallenge(challengeId, db);
         if (result.success) {
             alert('Challenge wurde beendet.');
-        } else {
-            alert(`Fehler: ${result.error}`);
-        }
-    }
-};
-
-window.confirmDeleteChallenge = async function(challengeId, title) {
-    if (confirm(`Möchten Sie die Challenge "${title}" wirklich PERMANENT löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`)) {
-        const result = await deleteChallenge(challengeId, db);
-        if (result.success) {
-            alert('Challenge wurde gelöscht.');
         } else {
             alert(`Fehler: ${result.error}`);
         }

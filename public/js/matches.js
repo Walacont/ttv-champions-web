@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { createSetScoreInput } from './player-matches.js';
 
 /**
@@ -8,6 +8,14 @@ import { createSetScoreInput } from './player-matches.js';
 
 // Global variable to store set score input instance for coach match form
 let coachSetScoreInput = null;
+
+// Global variable to store current session for pairings
+let currentPairingsSession = null;
+
+// Global variables to track pairing being entered from saved pairings
+let currentPairingSessionId = null;
+let currentPairingPlayerAId = null;
+let currentPairingPlayerBId = null;
 
 /**
  * Initializes the set score input for coach match form
@@ -52,11 +60,23 @@ export function calculateHandicap(playerA, playerB) {
 }
 
 /**
+ * Sets the current session for pairings generation
+ * @param {string} sessionId - Session ID
+ */
+export function setCurrentPairingsSession(sessionId) {
+    currentPairingsSession = sessionId;
+}
+
+/**
  * Generates match pairings from present and match-ready players
  * @param {Array} clubPlayers - Array of all club players
  * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
+ * @param {string} sessionId - Optional session ID for session-based pairings
  */
-export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all') {
+export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all', sessionId = null) {
+    if (sessionId) {
+        currentPairingsSession = sessionId;
+    }
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
     // Only pair players who have completed Grundlagen (5 exercises)
@@ -159,7 +179,149 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
         leftoverEl.innerHTML = `<strong>${leftoverPlayer.firstName} ${leftoverPlayer.lastName}</strong> (sitzt diese Runde aus)`;
         container.appendChild(leftoverEl);
     }
+
+    // Add save button if session-based pairings are enabled
+    if (currentPairingsSession) {
+        const saveButtonContainer = document.createElement('div');
+        saveButtonContainer.className = 'mt-6 text-center';
+
+        const saveButton = document.createElement('button');
+        saveButton.id = 'save-pairings-button';
+        saveButton.className = 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition';
+        saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
+        saveButton.onclick = () => savePairings(pairings, leftoverPlayer);
+
+        saveButtonContainer.appendChild(saveButton);
+        container.appendChild(saveButtonContainer);
+    }
+
     modal.classList.remove('hidden');
+}
+
+/**
+ * Saves match pairings to Firestore for a specific session
+ * @param {Object} pairings - Pairings object
+ * @param {Object|null} leftoverPlayer - Player without a match
+ */
+async function savePairings(pairings, leftoverPlayer) {
+    if (!currentPairingsSession) {
+        alert('Fehler: Keine Session ausgewählt');
+        return;
+    }
+
+    const saveButton = document.getElementById('save-pairings-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
+    }
+
+    try {
+        // Get session data from Firestore
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const db = getFirestore();
+        const sessionDoc = await getDoc(doc(db, 'trainingSessions', currentPairingsSession));
+
+        if (!sessionDoc.exists()) {
+            throw new Error('Session nicht gefunden');
+        }
+
+        const sessionData = sessionDoc.data();
+
+        // Transform pairings to saveable format
+        const groups = {};
+        for (const groupName in pairings) {
+            groups[groupName] = pairings[groupName].map(pair => {
+                const [playerA, playerB] = pair;
+                const handicap = calculateHandicap(playerA, playerB);
+
+                return {
+                    playerA: {
+                        id: playerA.id,
+                        name: `${playerA.firstName} ${playerA.lastName}`,
+                        eloRating: playerA.eloRating || 0
+                    },
+                    playerB: {
+                        id: playerB.id,
+                        name: `${playerB.firstName} ${playerB.lastName}`,
+                        eloRating: playerB.eloRating || 0
+                    },
+                    handicap: handicap ? {
+                        player: {
+                            id: handicap.player.id,
+                            name: `${handicap.player.firstName} ${handicap.player.lastName}`
+                        },
+                        points: handicap.points
+                    } : null
+                };
+            });
+        }
+
+        const pairingsData = {
+            sessionId: currentPairingsSession,
+            clubId: sessionData.clubId,
+            date: sessionData.date,
+            subgroupId: sessionData.subgroupId,
+            startTime: sessionData.startTime,
+            endTime: sessionData.endTime,
+            groups: groups,
+            leftoverPlayer: leftoverPlayer ? {
+                id: leftoverPlayer.id,
+                name: `${leftoverPlayer.firstName} ${leftoverPlayer.lastName}`
+            } : null,
+            createdAt: serverTimestamp()
+        };
+
+        // Save to trainingMatches collection with sessionId as document ID
+        await setDoc(doc(db, 'trainingMatches', currentPairingsSession), pairingsData);
+
+        if (saveButton) {
+            saveButton.innerHTML = '<i class="fas fa-check mr-2"></i>Gespeichert!';
+            saveButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            saveButton.classList.add('bg-green-600');
+        }
+
+        setTimeout(() => {
+            document.getElementById('pairings-modal').classList.add('hidden');
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
+                saveButton.classList.remove('bg-green-600');
+                saveButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            }
+        }, 1500);
+
+    } catch (error) {
+        console.error('Error saving pairings:', error);
+        alert('Fehler beim Speichern der Paarungen: ' + error.message);
+
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
+        }
+    }
+}
+
+/**
+ * Loads match pairings for a specific session
+ * @param {string} sessionId - Session ID
+ * @returns {Promise<Object|null>} Pairings data or null
+ */
+export async function loadSessionPairings(sessionId) {
+    try {
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const db = getFirestore();
+
+        const pairingsDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingsDoc.exists()) {
+            return null;
+        }
+
+        return pairingsDoc.data();
+    } catch (error) {
+        console.error('Error loading session pairings:', error);
+        return null;
+    }
 }
 
 /**
@@ -262,6 +424,35 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         }
 
         updateMatchUI(clubPlayers);
+
+        // If this match was entered from a saved pairing, remove that pairing
+        if (currentPairingSessionId && currentPairingPlayerAId && currentPairingPlayerBId) {
+            // STEP 1: Immediately remove the pairing from DOM (optimistic update - instant visual feedback)
+            removePairingFromDOM(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId);
+
+            const userData = JSON.parse(localStorage.getItem('userData'));
+
+            // STEP 2: Remove from Firestore in the background
+            try {
+                await removePairingFromSession(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId, db);
+                console.log('Pairing removed from Firestore');
+
+                // Reset tracking variables
+                currentPairingSessionId = null;
+                currentPairingPlayerAId = null;
+                currentPairingPlayerBId = null;
+
+            } catch (error) {
+                console.error('Error removing pairing from Firestore:', error);
+                // Even if Firestore fails, the DOM update already happened
+                // Reload to show the correct state
+                if (userData && userData.clubId) {
+                    setTimeout(async () => {
+                        await loadSavedPairings(db, userData.clubId);
+                    }, 500);
+                }
+            }
+        }
     } catch (error) {
         console.error("Fehler beim Melden des Matches:", error);
         feedbackEl.textContent = 'Fehler: Das Match konnte nicht gemeldet werden.';
@@ -742,3 +933,410 @@ async function rejectCoachRequest(requestId, db, userData) {
         alert('Fehler beim Ablehnen der Anfrage.');
     }
 }
+
+/**
+ * Loads and displays all saved pairings from trainingSessions
+ * @param {Object} db - Firestore database instance
+ * @param {string} clubId - Club ID
+ */
+export async function loadSavedPairings(db, clubId) {
+    const container = document.getElementById('saved-pairings-container');
+    if (!container) return;
+
+    try {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">Lade gespeicherte Paarungen...</p>';
+
+        // Get all trainingMatches for this club
+        const { getDocs } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+
+        const pairingsQuery = query(
+            collection(db, 'trainingMatches'),
+            where('clubId', '==', clubId),
+            orderBy('date', 'desc')
+        );
+
+        const pairingsSnapshot = await getDocs(pairingsQuery);
+
+        if (pairingsSnapshot.empty) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+            return;
+        }
+
+        let html = '';
+
+        for (const pairingDoc of pairingsSnapshot.docs) {
+            const pairingData = pairingDoc.data();
+            const sessionId = pairingDoc.id;
+            const groups = pairingData.groups || {};
+            const date = pairingData.date || 'Unbekannt';
+
+            // Check if there are any pairings in this session
+            let hasPairings = false;
+            for (const groupName in groups) {
+                if (groups[groupName] && groups[groupName].length > 0) {
+                    hasPairings = true;
+                    break;
+                }
+            }
+
+            // Skip this session if it has no pairings and no leftover player
+            if (!hasPairings && !pairingData.leftoverPlayer) {
+                continue;
+            }
+
+            // Get session details
+            let sessionInfo = '';
+            try {
+                const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
+                if (sessionDoc.exists()) {
+                    const sessionData = sessionDoc.data();
+                    sessionInfo = `${sessionData.startTime} - ${sessionData.endTime}`;
+
+                    // Get subgroup name
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', sessionData.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        sessionInfo += ` (${subgroupDoc.data().name})`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading session info:', error);
+            }
+
+            html += `
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="mb-3">
+                        <h3 class="font-semibold text-gray-900">${formatDateGerman(date)} ${sessionInfo}</h3>
+                    </div>
+                    <div class="space-y-2">
+            `;
+
+            // Render all pairings
+            for (const groupName in groups) {
+                const matches = groups[groupName];
+
+                // Skip empty groups
+                if (!matches || matches.length === 0) {
+                    continue;
+                }
+
+                matches.forEach((match, index) => {
+                    const handicapInfo = match.handicap
+                        ? `<span class="text-xs text-blue-600 ml-2">Handicap: ${match.handicap.player.name.split(' ')[0]} +${match.handicap.points}</span>`
+                        : '';
+
+                    html += `
+                        <div class="bg-gray-50 border border-gray-200 rounded p-3 flex justify-between items-center">
+                            <div>
+                                <span class="font-semibold">${match.playerA.name}</span>
+                                <span class="text-gray-400 mx-2">vs</span>
+                                <span class="font-semibold">${match.playerB.name}</span>
+                                ${handicapInfo}
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    onclick="window.handleEnterResultForPairing('${sessionId}', '${match.playerA.id}', '${match.playerB.id}', '${match.playerA.name}', '${match.playerB.name}', ${match.handicap ? `'${match.handicap.player.id}'` : 'null'}, ${match.handicap ? match.handicap.points : 0})"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1 px-3 rounded"
+                                >
+                                    Ergebnis eingeben
+                                </button>
+                                <button
+                                    onclick="window.handleDiscardPairing('${sessionId}', ${index}, '${groupName}')"
+                                    class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1 px-3 rounded"
+                                >
+                                    Verwerfen
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Leftover player
+            if (pairingData.leftoverPlayer) {
+                html += `
+                    <div class="bg-orange-50 border border-orange-200 rounded p-3">
+                        <span class="text-sm text-orange-700">${pairingData.leftoverPlayer.name} sitzt aus</span>
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // If no pairings were added after filtering, show "no pairings" message
+        if (html === '') {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+        } else {
+            container.innerHTML = html;
+        }
+
+    } catch (error) {
+        console.error('Error loading saved pairings:', error);
+        container.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Paarungen.</p>';
+    }
+}
+
+/**
+ * Formats date from YYYY-MM-DD to DD.MM.YYYY
+ */
+function formatDateGerman(dateStr) {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}.${month}.${year}`;
+}
+
+/**
+ * Opens match form with pre-selected players
+ */
+window.handleEnterResultForPairing = function(sessionId, playerAId, playerBId, playerAName, playerBName, handicapPlayerId, handicapPoints) {
+    // Store pairing information to delete after successful match save
+    currentPairingSessionId = sessionId;
+    currentPairingPlayerAId = playerAId;
+    currentPairingPlayerBId = playerBId;
+
+    // Pre-select players in the form
+    const playerASelect = document.getElementById('player-a-select');
+    const playerBSelect = document.getElementById('player-b-select');
+
+    if (playerASelect) playerASelect.value = playerAId;
+    if (playerBSelect) playerBSelect.value = playerBId;
+
+    // Trigger change events to update handicap
+    if (playerASelect) playerASelect.dispatchEvent(new Event('change'));
+    if (playerBSelect) playerBSelect.dispatchEvent(new Event('change'));
+
+    // If handicap was used, check the toggle
+    if (handicapPlayerId && handicapPoints > 0) {
+        const handicapToggle = document.getElementById('handicap-toggle');
+        if (handicapToggle) {
+            handicapToggle.checked = true;
+        }
+    }
+
+    // Scroll to match form
+    const matchForm = document.getElementById('match-form');
+    if (matchForm) {
+        matchForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    alert('Spieler wurden im Formular vorausgewählt. Bitte gib jetzt das Ergebnis ein.');
+};
+
+/**
+ * Removes a specific pairing from the DOM immediately (optimistic update)
+ * @param {string} sessionId - Session ID
+ * @param {string} playerAId - Player A ID
+ * @param {string} playerBId - Player B ID
+ */
+function removePairingFromDOM(sessionId, playerAId, playerBId) {
+    const container = document.getElementById('saved-pairings-container');
+    if (!container) return;
+
+    // Find all pairing cards
+    const pairingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+
+    pairingCards.forEach(card => {
+        // Find all match divs within this card
+        const matchDivs = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+
+        matchDivs.forEach(matchDiv => {
+            const buttons = matchDiv.querySelectorAll('button');
+            buttons.forEach(button => {
+                const onclickAttr = button.getAttribute('onclick');
+                if (onclickAttr && onclickAttr.includes(sessionId) &&
+                    onclickAttr.includes(playerAId) && onclickAttr.includes(playerBId)) {
+                    // Remove this match div
+                    matchDiv.remove();
+
+                    // Check if this was the last pairing in the card
+                    const remainingMatches = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+                    if (remainingMatches.length === 0) {
+                        // Check if there's a leftover player
+                        const hasLeftover = card.querySelector('.bg-orange-50');
+                        if (!hasLeftover) {
+                            // Remove the entire card if no matches and no leftover
+                            card.remove();
+
+                            // Check if container is now empty
+                            const remainingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+                            if (remainingCards.length === 0) {
+                                container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    });
+}
+
+/**
+ * Removes a specific pairing from a training session
+ * @param {string} sessionId - Session ID
+ * @param {string} playerAId - Player A ID
+ * @param {string} playerBId - Player B ID
+ * @param {Object} db - Firestore database instance
+ */
+async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
+    try {
+        const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingDoc.exists()) {
+            return;
+        }
+
+        const pairingData = pairingDoc.data();
+        const groups = pairingData.groups || {};
+        let pairingRemoved = false;
+
+        // Find and remove the matching pairing
+        for (const groupName in groups) {
+            const matches = groups[groupName];
+            const matchIndex = matches.findIndex(match =>
+                (match.playerA.id === playerAId && match.playerB.id === playerBId) ||
+                (match.playerA.id === playerBId && match.playerB.id === playerAId)
+            );
+
+            if (matchIndex !== -1) {
+                matches.splice(matchIndex, 1);
+                pairingRemoved = true;
+
+                // If group is now empty, remove it
+                if (matches.length === 0) {
+                    delete groups[groupName];
+                }
+                break;
+            }
+        }
+
+        if (pairingRemoved) {
+            // If no groups left, delete the entire document
+            if (Object.keys(groups).length === 0 && !pairingData.leftoverPlayer) {
+                await updateDoc(doc(db, 'trainingMatches', sessionId), {
+                    groups: {}
+                });
+            } else {
+                await updateDoc(doc(db, 'trainingMatches', sessionId), {
+                    groups: groups
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error removing pairing from session:', error);
+        throw error;
+    }
+}
+
+/**
+ * Removes a discarded pairing from the DOM immediately
+ * @param {string} sessionId - Session ID
+ * @param {number} matchIndex - Match index in group
+ * @param {string} groupName - Group name
+ */
+function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
+    const container = document.getElementById('saved-pairings-container');
+    if (!container) return;
+
+    // Find all pairing cards
+    const pairingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+
+    pairingCards.forEach(card => {
+        // Find all match divs within this card
+        const matchDivs = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+
+        matchDivs.forEach(matchDiv => {
+            const discardButton = matchDiv.querySelector('button.bg-red-600');
+            if (discardButton) {
+                const onclickAttr = discardButton.getAttribute('onclick');
+                // Check if this is the right pairing to remove
+                if (onclickAttr &&
+                    onclickAttr.includes(`'${sessionId}'`) &&
+                    onclickAttr.includes(`${matchIndex},`) &&
+                    onclickAttr.includes(`'${groupName}'`)) {
+
+                    // Remove this match div
+                    matchDiv.remove();
+
+                    // Check if this was the last pairing in the card
+                    const remainingMatches = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+                    if (remainingMatches.length === 0) {
+                        // Check if there's a leftover player
+                        const hasLeftover = card.querySelector('.bg-orange-50');
+                        if (!hasLeftover) {
+                            // Remove the entire card if no matches and no leftover
+                            card.remove();
+
+                            // Check if container is now empty
+                            const remainingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+                            if (remainingCards.length === 0) {
+                                container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Discards a pairing
+ */
+window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
+    if (!confirm('Möchtest du diese Paarung wirklich verwerfen?')) {
+        return;
+    }
+
+    // STEP 1: Immediately remove from DOM (optimistic update - instant visual feedback)
+    removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName);
+
+    // STEP 2: Remove from Firestore in background
+    try {
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const db = getFirestore();
+
+        // Get current pairings
+        const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingDoc.exists()) {
+            console.log('Pairing document not found in Firestore');
+            return;
+        }
+
+        const pairingData = pairingDoc.data();
+        const groups = pairingData.groups || {};
+
+        // Remove the match from the group
+        if (groups[groupName] && groups[groupName][matchIndex]) {
+            groups[groupName].splice(matchIndex, 1);
+
+            // If group is now empty, remove it
+            if (groups[groupName].length === 0) {
+                delete groups[groupName];
+            }
+
+            // Update Firestore
+            await updateDoc(doc(db, 'trainingMatches', sessionId), {
+                groups: groups
+            });
+
+            console.log('Pairing removed from Firestore');
+            alert('Paarung wurde verworfen.');
+        }
+    } catch (error) {
+        console.error('Error discarding pairing from Firestore:', error);
+        // Even if Firestore fails, the DOM update already happened
+        // Reload to show the correct state
+        const userData = JSON.parse(localStorage.getItem('userData'));
+        if (userData && userData.clubId) {
+            const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+            const db = getFirestore();
+            setTimeout(async () => {
+                await loadSavedPairings(db, userData.clubId);
+            }, 500);
+        }
+        alert('Fehler beim Verwerfen der Paarung: ' + error.message);
+    }
+};
