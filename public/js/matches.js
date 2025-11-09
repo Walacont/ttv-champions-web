@@ -370,11 +370,10 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     const feedbackEl = document.getElementById('match-feedback');
     const playerAId = document.getElementById('player-a-select').value;
     const playerBId = document.getElementById('player-b-select').value;
-    const winnerId = document.getElementById('winner-select').value;
     const handicapUsed = document.getElementById('handicap-toggle').checked;
 
-    if (!playerAId || !playerBId || !winnerId || playerAId === playerBId) {
-        feedbackEl.textContent = 'Bitte zwei unterschiedliche Spieler und einen Gewinner auswählen.';
+    if (!playerAId || !playerBId || playerAId === playerBId) {
+        feedbackEl.textContent = 'Bitte zwei unterschiedliche Spieler auswählen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
@@ -395,6 +394,8 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 
     const sets = coachSetScoreInput.getSets();
 
+    // Determine winner automatically from set scores
+    const winnerId = setValidation.winnerId === 'A' ? playerAId : playerBId;
     const loserId = winnerId === playerAId ? playerBId : playerAId;
     feedbackEl.textContent = 'Speichere Match-Ergebnis...';
 
@@ -465,16 +466,11 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 export function updateMatchUI(clubPlayers) {
     const playerAId = document.getElementById('player-a-select').value;
     const playerBId = document.getElementById('player-b-select').value;
-    const winnerSelect = document.getElementById('winner-select');
     const handicapContainer = document.getElementById('handicap-suggestion');
     const handicapToggleContainer = document.getElementById('handicap-toggle-container');
 
-    winnerSelect.innerHTML = '<option value="">Bitte Gewinner wählen...</option>';
     const playerA = clubPlayers.find(p => p.id === playerAId);
     const playerB = clubPlayers.find(p => p.id === playerBId);
-
-    if (playerA) winnerSelect.innerHTML += `<option value="${playerA.id}">${playerA.firstName} ${playerA.lastName}</option>`;
-    if (playerB) winnerSelect.innerHTML += `<option value="${playerB.id}">${playerB.firstName} ${playerB.lastName}</option>`;
 
     if (playerA && playerB && playerAId !== playerBId) {
         const handicap = calculateHandicap(playerA, playerB);
