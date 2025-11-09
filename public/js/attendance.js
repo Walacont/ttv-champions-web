@@ -801,22 +801,16 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
             return;
         }
 
-        // Render players with async check for other subgroup attendance
+        // Render players
         for (const player of uniquePlayers) {
             const isChecked = attendanceData && attendanceData.presentPlayerIds.includes(player.id);
 
-            // Check if player is present in other subgroups on this date
-            const otherSubgroups = await checkPlayerInOtherSubgroups(player.id, date, subgroupId, clubId, db);
-            const isInOtherSubgroup = otherSubgroups.length > 0;
-
             const div = document.createElement('div');
-            // Apply special background color if player is in other subgroups
-            div.className = `flex items-center p-2 rounded-md ${isInOtherSubgroup ? 'bg-amber-50 border border-amber-200' : ''}`;
+            div.className = 'flex items-center p-2 rounded-md';
             div.innerHTML = `
-                <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} ${isInOtherSubgroup ? 'disabled' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 ${isInOtherSubgroup ? 'opacity-50 cursor-not-allowed' : ''}">
-                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium ${isInOtherSubgroup ? 'text-gray-400' : 'text-gray-700'}">${player.firstName} ${player.lastName}</label>
-                ${isInOtherSubgroup ? `<span class="text-xs bg-amber-200 text-amber-900 px-2 py-1 rounded-full ml-auto">🔒 Bereits in ${otherSubgroups.join(', ')}</span>` : ''}
-                ${!isInOtherSubgroup && !player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
+                <input id="player-check-${player.id}" name="present" value="${player.id}" type="checkbox" ${isChecked ? 'checked' : ''} class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <label for="player-check-${player.id}" class="ml-3 block text-sm font-medium text-gray-700">${player.firstName} ${player.lastName}</label>
+                ${!player.isMatchReady ? '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full ml-auto">Nicht bereit</span>' : ''}
             `;
             playerListContainer.appendChild(div);
         }
