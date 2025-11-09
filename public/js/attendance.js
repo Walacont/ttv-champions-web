@@ -948,19 +948,32 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     );
                     const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
 
-                    // IMPORTANT: Exclude the CURRENT session from the count!
-                    // We filter by sessionId (not docId) because sessionId is always known,
-                    // even when creating a new attendance document
-                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(doc => {
-                        const docData = doc.data();
-                        // Only count documents that have a sessionId AND it's different from current
+                    // IMPORTANT: Exclude the CURRENT session/document from the count!
+                    // We need to filter out both:
+                    // 1. The current sessionId (to exclude this session)
+                    // 2. The current docId (if editing an existing document, to exclude this specific record)
+                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(docSnapshot => {
+                        const docData = docSnapshot.data();
+
+                        // Only count documents that have a sessionId
                         // This prevents old documents without sessionId from being counted
                         if (!docData.sessionId) {
-                            console.warn(`[Attendance Save] Found attendance document without sessionId: ${doc.id}`);
+                            console.warn(`[Attendance Save] Found attendance document without sessionId: ${docSnapshot.id}`);
                             return false; // Skip documents without sessionId
                         }
+
                         // Exclude if it's the same session
-                        return docData.sessionId !== sessionId;
+                        if (docData.sessionId === sessionId) {
+                            return false;
+                        }
+
+                        // ALSO exclude if it's the current document being edited
+                        // This handles the case where we're updating an existing attendance record
+                        if (docId && docSnapshot.id === docId) {
+                            return false;
+                        }
+
+                        return true;
                     }).length;
                     const alreadyAttendedToday = otherTrainingsCount > 0;
 
