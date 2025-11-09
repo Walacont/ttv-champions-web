@@ -201,7 +201,7 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 /**
  * Saves match pairings to Firestore for a specific session
  * @param {Object} pairings - Pairings object
- * @param {Object|null} leftoverPlayer - Player without a match
+ * @param {Object|null} leftoverPlayer - Player without a match (no longer saved, parameter kept for compatibility)
  */
 async function savePairings(pairings, leftoverPlayer) {
     if (!currentPairingsSession) {
@@ -264,10 +264,7 @@ async function savePairings(pairings, leftoverPlayer) {
             startTime: sessionData.startTime,
             endTime: sessionData.endTime,
             groups: groups,
-            leftoverPlayer: leftoverPlayer ? {
-                id: leftoverPlayer.id,
-                name: `${leftoverPlayer.firstName} ${leftoverPlayer.lastName}`
-            } : null,
+            // leftoverPlayer should NOT be saved - only actual pairings
             createdAt: serverTimestamp()
         };
 
@@ -979,8 +976,8 @@ export async function loadSavedPairings(db, clubId) {
                 }
             }
 
-            // Skip this session if it has no pairings and no leftover player
-            if (!hasPairings && !pairingData.leftoverPlayer) {
+            // Skip this session if it has no pairings
+            if (!hasPairings) {
                 continue;
             }
 
@@ -1051,14 +1048,7 @@ export async function loadSavedPairings(db, clubId) {
                 });
             }
 
-            // Leftover player
-            if (pairingData.leftoverPlayer) {
-                html += `
-                    <div class="bg-orange-50 border border-orange-200 rounded p-3">
-                        <span class="text-sm text-orange-700">${pairingData.leftoverPlayer.name} sitzt aus</span>
-                    </div>
-                `;
-            }
+            // Leftover player is no longer displayed (only actual pairings are saved)
 
             html += `
                     </div>
