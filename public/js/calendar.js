@@ -94,8 +94,9 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
     }
 
     // Load sessions first, then set up attendance listener
+    let unsubscribe = () => {};
     loadSessions().then(() => {
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        unsubscribe = onSnapshot(q, (querySnapshot) => {
             const allClubTrainings = querySnapshot.docs.map(doc => doc.data());
 
             // Filter trainings by subgroup if a specific subgroup is selected
@@ -210,9 +211,10 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
             calendarGrid.appendChild(dayCell);
         }
-    }, (error) => {
-        console.error("Fehler beim Laden der Anwesenheitsdaten:", error);
-        calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8 text-red-500">Fehler beim Laden der Daten</div>';
+        }, (error) => {
+            console.error("Fehler beim Laden der Anwesenheitsdaten:", error);
+            calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8 text-red-500">Fehler beim Laden der Daten</div>';
+        });
     });
 
     return unsubscribe;
