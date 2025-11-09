@@ -222,11 +222,6 @@ exports.processMatchResult = onDocumentCreated(
         );
       }
 
-      // Calculate actual points changes (considering floor at 0)
-      const winnerCurrentPoints = winnerData.points || 0;
-      const loserCurrentPoints = loserData.points || 0;
-      const loserActualPointsChange = Math.max(-loserCurrentPoints, -seasonPointChange); // Can't go below 0
-
       const batch = db.batch();
 
       // Build winner update object
@@ -244,11 +239,12 @@ exports.processMatchResult = onDocumentCreated(
 
       batch.update(winnerRef, winnerUpdate);
 
-      // Update loser (Elo changes, points decrease, XP never decreases!)
+      // Update loser (ONLY Elo changes, NO points decrease, NO XP change)
+      // Points are NEVER deducted from losers - only Elo is reduced
       batch.update(loserRef, {
         eloRating: protectedLoserElo,
         highestElo: newLoserHighestElo,
-        points: admin.firestore.FieldValue.increment(-seasonPointChange),
+        // Note: points are NOT decremented - losers don't lose points!
         // Note: XP is NOT decremented - it only goes up!
       });
 
@@ -271,7 +267,7 @@ exports.processMatchResult = onDocumentCreated(
         .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
         .doc();
       batch.set(loserHistoryRef, {
-        points: loserActualPointsChange, // Use actual change (floored at 0)
+        points: 0, // Losers don't lose points - only Elo
         xp: 0, // Loser doesn't gain XP
         eloChange: loserEloChange,
         reason: `Niederlage im ${matchTypeReason} gegen ${
