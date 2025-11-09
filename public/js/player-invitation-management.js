@@ -387,10 +387,19 @@ export function loadSubgroupsForOfflinePlayerForm(subgroups) {
         return;
     }
 
-    container.innerHTML = subgroups.map(subgroup => `
-        <label class="flex items-center space-x-2 text-sm cursor-pointer">
-            <input type="checkbox" value="${subgroup.id}" class="subgroup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-            <span>${subgroup.name}</span>
-        </label>
-    `).join('');
+    container.innerHTML = subgroups.map(subgroup => {
+        const isDefault = subgroup.isDefault === true;
+        const checkedAttr = isDefault ? 'checked' : '';
+        const disabledAttr = isDefault ? 'disabled' : '';
+        const cursorClass = isDefault ? 'cursor-not-allowed' : 'cursor-pointer';
+        const opacityClass = isDefault ? 'opacity-75' : '';
+        const badgeHtml = isDefault ? '<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded ml-2">Standard</span>' : '';
+
+        return `
+            <label class="flex items-center space-x-2 text-sm ${cursorClass} ${opacityClass}">
+                <input type="checkbox" value="${subgroup.id}" class="subgroup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" ${checkedAttr} ${disabledAttr}>
+                <span>${subgroup.name}${badgeHtml}</span>
+            </label>
+        `;
+    }).join('');
 }
