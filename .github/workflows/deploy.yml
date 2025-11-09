@@ -1,0 +1,93 @@
+name: Deploy to Firebase
+
+# Trigger: Nur bei Push auf main NACH erfolgreichem Test
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  # ========================================================================
+  # Job 1: Tests ausführen (müssen bestehen!)
+  # ========================================================================
+  run-tests:
+    name: Run All Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Backend Tests
+      - name: Install Backend Dependencies
+        working-directory: ./functions
+        run: npm ci
+
+      - name: Run Backend Tests
+        working-directory: ./functions
+        run: npm test
+
+      # Frontend Tests
+      - name: Install Frontend Dependencies
+        run: npm ci
+
+      - name: Run Frontend Tests
+        run: npm test
+
+      - name: Tests passed ✅
+        run: echo "All tests passed! Ready for deployment."
+
+  # ========================================================================
+  # Job 2: Firebase Deployment (nur wenn Tests bestehen)
+  # ========================================================================
+  deploy:
+    name: Deploy to Firebase
+    runs-on: ubuntu-latest
+    needs: run-tests  # Wartet auf erfolgreiche Tests!
+    if: success()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          firebase deploy --token "$FIREBASE_TOKEN"
+
+      - name: Deployment Success 🚀
+        run: |
+          echo "🚀 Deployment erfolgreich abgeschlossen!"
+          echo "✅ Alle Tests bestanden"
+          echo "✅ Firebase Hosting deployed"
+          echo "✅ Cloud Functions deployed"
+
+  # ========================================================================
+  # Job 3: Deployment fehlgeschlagen (bei Test-Fehler)
+  # ========================================================================
+  deployment-failed:
+    name: Deployment Blocked
+    runs-on: ubuntu-latest
+    needs: run-tests
+    if: failure()
+
+    steps:
+      - name: Tests failed - Deployment blocked
+        run: |
+          echo "❌ DEPLOYMENT BLOCKIERT!"
+          echo "Tests sind fehlgeschlagen. Bitte behebe die Fehler vor dem Deployment."
+          exit 1

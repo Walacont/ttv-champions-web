@@ -1,0 +1,307 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    function isCoachOrAdmin() {
+      return isAuthenticated() && getUserData().role in ['coach', 'admin'];
+    }
+
+    function isSameClub(clubId) {
+      return isAuthenticated() && getUserData().clubId == clubId;
+    }
+
+    function isCoachOfClub(clubId) {
+      return isCoachOrAdmin() && isSameClub(clubId);
+    }
+
+    function playerIsMatchReady(playerId) {
+      let playerData = get(/databases/$(database)/documents/users/$(playerId)).data;
+      let grundlagenCompleted = playerData.grundlagenCompleted;
+      return grundlagenCompleted != null && grundlagenCompleted >= 5;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own data
+      allow read: if isOwner(userId);
+
+      // Players can read other players in their club (for leaderboard, rivals, etc.)
+      allow read: if isAuthenticated() &&
+        resource.data.role == 'player' &&
+        isSameClub(resource.data.clubId);
+
+      // Coaches and admins can read all users in their club
+      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+
+      // ADMIN can read ALL users (for statistics and club management)
+      allow read: if isAdmin();
+
+      // Users can update their own profile (limited fields)
+      allow update: if isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
+
+      // Coaches can update players in their club (including points, xp, eloRating, etc.)
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.role == 'player';
+
+      // Coaches can promote players to coach in their club
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.role == 'player' &&
+        request.resource.data.role == 'coach';
+
+      // Coaches can create new players in their club (offline players)
+      allow create: if isCoachOrAdmin() &&
+        isSameClub(request.resource.data.clubId) &&
+        request.resource.data.role == 'player';
+
+      // Coaches can delete players in their club
+      allow delete: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.role == 'player';
+
+      // Only admins can delete non-players
+      allow delete: if isAdmin();
+
+      // Subcollection: pointsHistory
+      match /pointsHistory/{historyId} {
+        allow read: if isOwner(userId);
+        allow read: if isCoachOrAdmin();
+        allow write: if isCoachOrAdmin();
+      }
+
+      // Subcollection: xpHistory
+      match /xpHistory/{historyId} {
+        allow read: if isOwner(userId);
+        allow read: if isCoachOrAdmin();
+        allow write: if isCoachOrAdmin();
+      }
+
+      // Subcollection: streaks
+      match /streaks/{subgroupId} {
+        allow read: if isOwner(userId);
+        allow read, write: if isCoachOrAdmin();
+      }
+
+      // Subcollection: completedChallenges
+      match /completedChallenges/{challengeId} {
+        allow read, write: if isOwner(userId);
+        allow read, write: if isCoachOrAdmin();
+      }
+    }
+
+    // Clubs collection
+    match /clubs/{clubId} {
+      allow read: if isAuthenticated() && isSameClub(clubId);
+      allow read: if isAdmin();
+      allow write: if isCoachOfClub(clubId);
+      allow write: if isAdmin();
+    }
+
+    // Subgroups collection
+    match /subgroups/{subgroupId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
+    }
+
+    // Attendance collection
+    match /attendance/{attendanceId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
+    // Training Sessions collection
+    match /trainingSessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
+    // Recurring Training Templates collection
+    match /recurringTrainingTemplates/{templateId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
+    // Training Matches (Pairings) collection
+    match /trainingMatches/{matchId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+    }
+
+    // Matches collection
+    match /matches/{matchId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
+    }
+
+    // Match Requests collection (Player-initiated matches)
+    match /matchRequests/{requestId} {
+      // Players can read requests they're involved in or requests in their club
+      allow read: if isAuthenticated() && (
+        resource.data.playerAId == request.auth.uid ||
+        resource.data.playerBId == request.auth.uid ||
+        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+      );
+
+      // Players can create requests for themselves (as playerA)
+      // Must include proper initial approvals structure
+      // Must have completed 5 Grundlagen exercises (match-ready)
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerAId == request.auth.uid &&
+        isSameClub(request.resource.data.clubId) &&
+        request.resource.data.status == 'pending_player' &&
+        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']) &&
+        playerIsMatchReady(request.resource.data.playerAId) &&
+        playerIsMatchReady(request.resource.data.playerBId);
+
+      // PlayerB can update (approve/reject) if they are playerB and status is pending_player
+      allow update: if isAuthenticated() &&
+        resource.data.playerBId == request.auth.uid &&
+        resource.data.status == 'pending_player';
+
+      // PlayerA can update (edit/cancel) their own request if nobody has responded yet
+      allow update: if isAuthenticated() &&
+        resource.data.playerAId == request.auth.uid &&
+        resource.data.status == 'pending_player' &&
+        (!('approvals' in resource.data) ||
+         !('playerB' in resource.data.approvals) ||
+         !('status' in resource.data.approvals.playerB) ||
+         resource.data.approvals.playerB.status == null);
+
+      // Coach can update (approve/reject) if pending_coach and same club
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending_coach';
+
+      // PlayerA can delete their own request if nobody has responded yet
+      allow delete: if isAuthenticated() &&
+        resource.data.playerAId == request.auth.uid &&
+        resource.data.status == 'pending_player' &&
+        (!('approvals' in resource.data) ||
+         !('playerB' in resource.data.approvals) ||
+         !('status' in resource.data.approvals.playerB) ||
+         resource.data.approvals.playerB.status == null);
+    }
+
+    // Match Proposals collection (Future match planning - NO coach approval needed)
+    match /matchProposals/{proposalId} {
+      // Players can read proposals they're involved in
+      // Coaches can read all proposals in their club
+      allow read: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid ||
+        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+      );
+
+      // Players can create proposals for themselves (as requester)
+      // Must be in same club and both players must be match-ready
+      allow create: if isAuthenticated() &&
+        request.resource.data.requesterId == request.auth.uid &&
+        isSameClub(request.resource.data.clubId) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.keys().hasAll(['requesterId', 'recipientId', 'clubId', 'status']) &&
+        playerIsMatchReady(request.resource.data.requesterId) &&
+        playerIsMatchReady(request.resource.data.recipientId);
+
+      // Requester can update (cancel) their own proposal if still pending
+      allow update: if isAuthenticated() &&
+        resource.data.requesterId == request.auth.uid &&
+        resource.data.status in ['pending', 'counter_proposed'];
+
+      // Recipient can update (accept/decline/counter-propose) - directly without coach
+      allow update: if isAuthenticated() &&
+        resource.data.recipientId == request.auth.uid &&
+        resource.data.status in ['pending', 'counter_proposed'];
+
+      // Requester can delete their own proposal if still pending
+      allow delete: if isAuthenticated() &&
+        resource.data.requesterId == request.auth.uid &&
+        resource.data.status == 'pending';
+
+      // Coaches can delete any proposal in their club
+      allow delete: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId);
+    }
+
+    // Challenges collection
+    match /challenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
+    }
+
+    // Exercises collection (global)
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated();
+      allow write: if isCoachOrAdmin();
+    }
+
+    // Invitations collection
+    match /invitations/{invitationId} {
+      allow read: if isAuthenticated() && resource.data.email == request.auth.token.email;
+      allow create: if isCoachOfClub(request.resource.data.clubId);
+      allow delete: if isAuthenticated() && resource.data.email == request.auth.token.email;
+    }
+
+    // Invitation Codes collection - WICHTIG: Öffentlich lesbar!
+    match /invitationCodes/{codeId} {
+      // Jeder kann Codes lesen (für Login-Validierung)
+      allow read: if true;
+
+      // ADMIN kann Codes für JEDEN Club erstellen
+      allow create: if isAdmin();
+
+      // Coaches können nur Codes für ihren eigenen Club erstellen
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+
+      // ADMIN kann alle Codes updaten (z.B. zum Invalidieren)
+      allow update: if isAdmin();
+
+      // Coaches können nur Codes ihres Clubs updaten (z.B. zum Invalidieren alter Codes)
+      allow update: if isCoachOfClub(resource.data.clubId);
+
+      // ADMIN kann alle Codes löschen
+      allow delete: if isAdmin();
+
+      // Coaches können nur Codes ihres Clubs löschen
+      allow delete: if isCoachOfClub(resource.data.clubId);
+    }
+
+    // Invitation Tokens collection - WICHTIG: Öffentlich lesbar!
+    match /invitationTokens/{tokenId} {
+      allow read: if true;
+      allow create: if isCoachOrAdmin();
+      allow delete: if true;
+    }
+
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
