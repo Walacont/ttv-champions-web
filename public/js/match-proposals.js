@@ -131,8 +131,17 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
     // Sort by priority score (highest first)
     suggestions.sort((a, b) => b.suggestionScore - a.suggestionScore);
 
-    // Return top 10 suggestions
-    return suggestions.slice(0, 10);
+    // Check if there are players we've never played against
+    const neverPlayedPlayers = suggestions.filter(s => s.history.matchCount === 0);
+
+    if (neverPlayedPlayers.length > 0) {
+      // Only show never-played players (3-4 of them)
+      return neverPlayedPlayers.slice(0, 4);
+    } else {
+      // All players have been played against - show random 3-4 suggestions
+      const randomSuggestions = [...suggestions].sort(() => Math.random() - 0.5);
+      return randomSuggestions.slice(0, 4);
+    }
   } catch (error) {
     console.error("Error calculating match suggestions:", error);
     return [];
@@ -837,7 +846,7 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
 
       container.innerHTML = "";
 
-      // Render all suggestions (up to 10)
+      // Render all suggestions (3-4 players)
       suggestions.forEach((player) => {
         const card = createSuggestionCard(player, userData, db);
         container.appendChild(card);
