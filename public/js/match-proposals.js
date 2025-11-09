@@ -72,11 +72,11 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
 
     // Calculate priority score for each eligible player
     const now = new Date();
-    const myElo = userData.eloRating || 1000;
 
     const suggestions = eligiblePlayers.map((player) => {
       const history = opponentHistory[player.id] || { matchCount: 0, lastMatchDate: null };
       const playerElo = player.eloRating || 1000;
+      const myElo = userData.eloRating || 1000;
       const eloDiff = Math.abs(myElo - playerElo);
 
       let score = 100; // Base score
@@ -95,12 +95,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
         score += Math.min(daysSinceLastMatch / 7, 30); // Up to +30 for 30+ weeks
       }
 
-      // Factor 4: Similar ELO = bonus (within 200 points)
-      if (eloDiff <= 200) {
-        score += 20 - (eloDiff / 10); // +20 for exact match, decreasing
-      } else {
-        score -= (eloDiff - 200) / 20; // Penalty for large differences
-      }
+      // NO ELO filtering - everyone should play against everyone
 
       return {
         ...player,
@@ -223,7 +218,7 @@ async function renderReceivedProposals(proposals, userData, db) {
  */
 function createSentProposalCard(proposal, recipient, userData, db) {
   const div = document.createElement("div");
-  div.className = "bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-3";
+  div.className = "bg-white border border-gray-200 rounded-lg p-3 shadow-sm mb-2";
 
   const statusBadge = getProposalStatusBadge(proposal.status);
   const dateTimeStr = formatDateTime(proposal.proposedDateTime);
@@ -272,10 +267,10 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
   const div = document.createElement("div");
 
   let borderColor = "border-indigo-200";
-  if (proposal.status === "accepted") borderColor = "border-green-200 bg-green-50";
+  if (proposal.status === "pending_coach" || proposal.status === "approved") borderColor = "border-green-200 bg-green-50";
   if (proposal.status === "declined") borderColor = "border-red-200 bg-red-50";
 
-  div.className = `bg-white border ${borderColor} rounded-lg p-4 shadow-md mb-3`;
+  div.className = `bg-white border ${borderColor} rounded-lg p-3 shadow-sm mb-2`;
 
   const statusBadge = getProposalStatusBadge(proposal.status);
   const latestProposal = getLatestProposal(proposal);
@@ -382,11 +377,12 @@ function renderCounterProposalsHistory(counterProposals, requester, recipient) {
  */
 function getProposalStatusBadge(status) {
   const badges = {
-    pending: '<span class="text-xs bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium">⏳ Ausstehend</span>',
-    counter_proposed: '<span class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">🔄 Gegenvorschlag</span>',
-    accepted: '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Angenommen</span>',
-    declined: '<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Abgelehnt</span>',
-    cancelled: '<span class="text-xs bg-gray-100 text-gray-800 px-3 py-1 rounded-full font-medium">↺ Zurückgezogen</span>',
+    pending: '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">⏳ Ausstehend</span>',
+    counter_proposed: '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">🔄 Gegenvorschlag</span>',
+    pending_coach: '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">⏳ Wartet auf Coach</span>',
+    approved: '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">✓ Genehmigt</span>',
+    declined: '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full font-medium">✗ Abgelehnt</span>',
+    cancelled: '<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full font-medium">↺ Zurückgezogen</span>',
   };
 
   return badges[status] || "";
@@ -418,17 +414,18 @@ function formatDateTime(timestamp) {
 }
 
 /**
- * Accepts a proposal
+ * Accepts a proposal (moves to pending_coach for approval)
  */
 async function acceptProposal(proposalId, db) {
   try {
     const proposalRef = doc(db, "matchProposals", proposalId);
     await updateDoc(proposalRef, {
-      status: "accepted",
+      status: "pending_coach",
+      acceptedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
-    showProposalFeedback("Match-Anfrage angenommen! Viel Erfolg beim Spiel!", "success");
+    showProposalFeedback("Match-Anfrage angenommen! Wartet jetzt auf Coach-Freigabe.", "success");
   } catch (error) {
     console.error("Error accepting proposal:", error);
     showProposalFeedback("Fehler beim Annehmen der Anfrage.", "error");
@@ -824,38 +821,31 @@ export async function loadMatchSuggestions(userData, db) {
  */
 function createSuggestionCard(player, userData, db) {
   const div = document.createElement("div");
-  div.className = "bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4 shadow-sm mb-3 hover:shadow-md transition";
+  div.className = "bg-white border border-indigo-200 rounded-md p-2 shadow-sm hover:shadow-md transition";
 
   const eloDiff = Math.abs((userData.eloRating || 1000) - (player.eloRating || 1000));
   const neverPlayed = player.history.matchCount === 0;
   const lastPlayedStr = player.history.lastMatchDate
-    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(player.history.lastMatchDate)
+    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short" }).format(player.history.lastMatchDate)
     : null;
 
   div.innerHTML = `
-    <div class="flex justify-between items-start mb-3">
+    <div class="flex justify-between items-center mb-1">
       <div class="flex-1">
-        <p class="font-bold text-gray-800 text-lg">${player.firstName} ${player.lastName}</p>
-        <p class="text-sm text-gray-600">ELO: ${Math.round(player.eloRating || 1000)} (${eloDiff > 0 ? '±' : ''}${eloDiff} Unterschied)</p>
+        <p class="font-semibold text-gray-800 text-sm">${player.firstName} ${player.lastName}</p>
+        <p class="text-xs text-gray-600">ELO: ${Math.round(player.eloRating || 1000)}</p>
       </div>
-      <div class="text-right">
-        <span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full font-medium">
-          ${Math.round(player.suggestionScore)} Punkte
-        </span>
-      </div>
+      <button class="propose-match-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-1 px-3 rounded transition" data-player-id="${player.id}" data-player-name="${player.firstName} ${player.lastName}">
+        <i class="fas fa-paper-plane mr-1"></i>Anfragen
+      </button>
     </div>
 
-    <div class="text-sm space-y-1 mb-3">
+    <div class="text-xs text-gray-600">
       ${neverPlayed
-        ? '<p class="text-purple-700 font-medium"><i class="fas fa-star mr-1"></i>Noch nie gespielt!</p>'
-        : `<p class="text-gray-600"><i class="fas fa-history mr-1"></i>${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'} gespielt</p>`
+        ? '<span class="text-purple-700 font-medium"><i class="fas fa-star mr-1"></i>Noch nie gespielt</span>'
+        : `${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'}${lastPlayedStr ? `, zuletzt ${lastPlayedStr}` : ''}`
       }
-      ${lastPlayedStr ? `<p class="text-gray-600"><i class="fas fa-calendar mr-1"></i>Letztes Match: ${lastPlayedStr}</p>` : ""}
     </div>
-
-    <button class="propose-match-btn w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-4 rounded-md transition" data-player-id="${player.id}" data-player-name="${player.firstName} ${player.lastName}">
-      <i class="fas fa-paper-plane mr-2"></i>Match anfragen
-    </button>
   `;
 
   const proposeBtn = div.querySelector(".propose-match-btn");

@@ -299,34 +299,34 @@
             </div>
 
             <div id="tab-content-matches" class="tab-content hidden">
-                <div class="space-y-8">
+                <div class="space-y-4">
                     <!-- Match Suggestions -->
-                    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-xl shadow-md max-w-3xl mx-auto border-2 border-indigo-200">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">⭐ Match-Vorschläge für dich</h2>
-                        <p class="text-sm text-gray-600 mb-4">Spieler, gegen die du noch nie oder lange nicht gespielt hast</p>
-                        <div id="match-suggestions-list" class="space-y-3">
-                            <p class="text-gray-500 text-center py-4">Lade Vorschläge...</p>
+                    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg shadow-sm max-w-3xl mx-auto border border-indigo-200">
+                        <h2 class="text-lg font-bold text-gray-800 mb-1">⭐ Match-Vorschläge</h2>
+                        <p class="text-xs text-gray-600 mb-3">Gegen wen hast du noch nie oder lange nicht gespielt?</p>
+                        <div id="match-suggestions-list" class="space-y-2">
+                            <p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>
                         </div>
                     </div>
 
                     <!-- Match Proposal Form -->
-                    <div id="match-proposal-section" class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">📅 Match anfragen</h2>
-                        <p class="text-sm text-gray-600 mb-6">Vereinbare ein Match mit einem Spieler aus deinem Verein</p>
-                        <form id="match-proposal-form" class="space-y-6">
+                    <div id="match-proposal-section" class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
+                        <h2 class="text-lg font-bold text-gray-800 mb-1">📅 Match anfragen</h2>
+                        <p class="text-xs text-gray-600 mb-4">Vereinbare ein zukünftiges Match</p>
+                        <form id="match-proposal-form" class="space-y-3">
                             <!-- Player Search -->
                             <div>
-                                <label for="proposal-player-search" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="proposal-player-search" class="block text-xs font-medium text-gray-700 mb-1">
                                     Spieler suchen
                                 </label>
                                 <input
                                     type="text"
                                     id="proposal-player-search"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     placeholder="Name eingeben..."
                                     autocomplete="off"
                                 />
-                                <div id="proposal-player-list" class="hidden mt-2 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                <div id="proposal-player-list" class="hidden mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto text-sm">
                                     <!-- Search results will appear here -->
                                 </div>
                             </div>
@@ -336,62 +336,62 @@
 
                             <!-- Date & Time -->
                             <div>
-                                <label for="proposal-datetime" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="proposal-datetime" class="block text-xs font-medium text-gray-700 mb-1">
                                     <i class="fas fa-calendar mr-1 text-indigo-500"></i> Wunsch-Zeit (optional)
                                 </label>
                                 <input
                                     type="datetime-local"
                                     id="proposal-datetime"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
 
                             <!-- Location -->
                             <div>
-                                <label for="proposal-location" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="proposal-location" class="block text-xs font-medium text-gray-700 mb-1">
                                     <i class="fas fa-map-marker-alt mr-1 text-indigo-500"></i> Ort (optional)
                                 </label>
                                 <input
                                     type="text"
                                     id="proposal-location"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="z.B. Vereinshalle, Halle 2"
+                                    class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="z.B. Vereinshalle"
                                 />
                             </div>
 
                             <!-- Phone Number -->
                             <div>
-                                <label for="proposal-phone" class="block text-sm font-medium text-gray-700 mb-2">
-                                    <i class="fas fa-phone mr-1 text-indigo-500"></i> Telefonnummer (optional)
+                                <label for="proposal-phone" class="block text-xs font-medium text-gray-700 mb-1">
+                                    <i class="fas fa-phone mr-1 text-indigo-500"></i> Telefon (optional)
                                 </label>
                                 <input
                                     type="tel"
                                     id="proposal-phone"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="z.B. 0123 456789"
+                                    class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="0123 456789"
                                 />
                             </div>
 
                             <!-- Message -->
                             <div>
-                                <label for="proposal-message" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="proposal-message" class="block text-xs font-medium text-gray-700 mb-1">
                                     <i class="fas fa-comment mr-1 text-indigo-500"></i> Nachricht (optional)
                                 </label>
                                 <textarea
                                     id="proposal-message"
-                                    rows="3"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="z.B. Hast du Zeit für ein Match am Wochenende?"
+                                    rows="2"
+                                    class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="z.B. Hast du Zeit am Wochenende?"
                                 ></textarea>
                             </div>
 
                             <!-- Submit Button -->
-                            <div class="flex gap-3">
+                            <div>
                                 <button
                                     type="submit"
-                                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition shadow-md"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 text-sm rounded-md transition"
                                 >
-                                    <i class="fas fa-paper-plane mr-2"></i> Anfrage senden
+                                    <i class="fas fa-paper-plane mr-1"></i> Anfrage senden
                                 </button>
                             </div>
 
@@ -401,31 +401,31 @@
                     </div>
 
                     <!-- Sent Proposals -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📤 Gesendete Match-Anfragen</h2>
-                        <div id="sent-proposals-list" class="space-y-4">
-                            <p class="text-gray-500 text-center py-4">Keine gesendeten Anfragen</p>
+                    <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
+                        <h2 class="text-base font-semibold text-gray-800 mb-2">📤 Gesendete Anfragen</h2>
+                        <div id="sent-proposals-list" class="space-y-2">
+                            <p class="text-gray-500 text-center py-2 text-sm">Keine gesendeten Anfragen</p>
                         </div>
                     </div>
 
                     <!-- Received Proposals -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-semibold text-gray-800">📥 Empfangene Match-Anfragen</h2>
+                    <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-base font-semibold text-gray-800">📥 Empfangene Anfragen</h2>
                             <span id="match-proposal-badge" class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
                         </div>
-                        <div id="received-proposals-list" class="space-y-4">
-                            <p class="text-gray-500 text-center py-4">Keine empfangenen Anfragen</p>
+                        <div id="received-proposals-list" class="space-y-2">
+                            <p class="text-gray-500 text-center py-2 text-sm">Keine empfangenen Anfragen</p>
                         </div>
                     </div>
 
                     <!-- Divider -->
-                    <div class="border-t-4 border-gray-300 my-8 max-w-3xl mx-auto"></div>
+                    <div class="border-t-2 border-gray-300 my-6 max-w-3xl mx-auto"></div>
 
                     <!-- Match Request Form -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">🏓 Wettkampf melden</h2>
-                        <p class="text-sm text-gray-600 mb-6">Für bereits gespielte Matches</p>
+                    <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
+                        <h2 class="text-lg font-bold text-gray-800 mb-1">🏓 Wettkampf melden</h2>
+                        <p class="text-xs text-gray-600 mb-4">Für bereits gespielte Matches</p>
                         <form id="match-request-form" class="space-y-6">
                             <!-- Opponent Selection -->
                             <div>

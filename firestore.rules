@@ -228,17 +228,20 @@ service cloud.firestore {
         playerIsMatchReady(request.resource.data.requesterId) &&
         playerIsMatchReady(request.resource.data.recipientId);
 
-      // Requester can update (cancel) their own proposal
+      // Requester can update (cancel) their own proposal if still pending
       allow update: if isAuthenticated() &&
-        resource.data.requesterId == request.auth.uid;
+        resource.data.requesterId == request.auth.uid &&
+        resource.data.status in ['pending', 'counter_proposed'];
 
       // Recipient can update (accept/decline/counter-propose)
       allow update: if isAuthenticated() &&
-        resource.data.recipientId == request.auth.uid;
+        resource.data.recipientId == request.auth.uid &&
+        resource.data.status in ['pending', 'counter_proposed'];
 
-      // Coaches can update any proposal in their club
+      // Coaches can approve/reject proposals in pending_coach status
       allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId);
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending_coach';
 
       // Requester can delete their own proposal if still pending
       allow delete: if isAuthenticated() &&
