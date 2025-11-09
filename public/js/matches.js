@@ -899,3 +899,215 @@ async function rejectCoachRequest(requestId, db, userData) {
         alert('Fehler beim Ablehnen der Anfrage.');
     }
 }
+
+/**
+ * Loads and displays all saved pairings from trainingSessions
+ * @param {Object} db - Firestore database instance
+ * @param {string} clubId - Club ID
+ */
+export async function loadSavedPairings(db, clubId) {
+    const container = document.getElementById('saved-pairings-container');
+    if (!container) return;
+
+    try {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">Lade gespeicherte Paarungen...</p>';
+
+        // Get all trainingMatches for this club
+        const { getDocs } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+
+        const pairingsQuery = query(
+            collection(db, 'trainingMatches'),
+            where('clubId', '==', clubId),
+            orderBy('date', 'desc')
+        );
+
+        const pairingsSnapshot = await getDocs(pairingsQuery);
+
+        if (pairingsSnapshot.empty) {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+            return;
+        }
+
+        let html = '';
+
+        for (const pairingDoc of pairingsSnapshot.docs) {
+            const pairingData = pairingDoc.data();
+            const sessionId = pairingDoc.id;
+            const groups = pairingData.groups || {};
+            const date = pairingData.date || 'Unbekannt';
+
+            // Get session details
+            let sessionInfo = '';
+            try {
+                const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
+                if (sessionDoc.exists()) {
+                    const sessionData = sessionDoc.data();
+                    sessionInfo = `${sessionData.startTime} - ${sessionData.endTime}`;
+
+                    // Get subgroup name
+                    const subgroupDoc = await getDoc(doc(db, 'subgroups', sessionData.subgroupId));
+                    if (subgroupDoc.exists()) {
+                        sessionInfo += ` (${subgroupDoc.data().name})`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading session info:', error);
+            }
+
+            html += `
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="mb-3">
+                        <h3 class="font-semibold text-gray-900">${formatDateGerman(date)} ${sessionInfo}</h3>
+                    </div>
+                    <div class="space-y-2">
+            `;
+
+            // Render all pairings
+            for (const groupName in groups) {
+                const matches = groups[groupName];
+
+                matches.forEach((match, index) => {
+                    const handicapInfo = match.handicap
+                        ? `<span class="text-xs text-blue-600 ml-2">Handicap: ${match.handicap.player.name.split(' ')[0]} +${match.handicap.points}</span>`
+                        : '';
+
+                    html += `
+                        <div class="bg-gray-50 border border-gray-200 rounded p-3 flex justify-between items-center">
+                            <div>
+                                <span class="font-semibold">${match.playerA.name}</span>
+                                <span class="text-gray-400 mx-2">vs</span>
+                                <span class="font-semibold">${match.playerB.name}</span>
+                                ${handicapInfo}
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    onclick="window.handleEnterResultForPairing('${sessionId}', '${match.playerA.id}', '${match.playerB.id}', '${match.playerA.name}', '${match.playerB.name}', ${match.handicap ? `'${match.handicap.player.id}'` : 'null'}, ${match.handicap ? match.handicap.points : 0})"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1 px-3 rounded"
+                                >
+                                    Ergebnis eingeben
+                                </button>
+                                <button
+                                    onclick="window.handleDiscardPairing('${sessionId}', ${index}, '${groupName}')"
+                                    class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-1 px-3 rounded"
+                                >
+                                    Verwerfen
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Leftover player
+            if (pairingData.leftoverPlayer) {
+                html += `
+                    <div class="bg-orange-50 border border-orange-200 rounded p-3">
+                        <span class="text-sm text-orange-700">${pairingData.leftoverPlayer.name} sitzt aus</span>
+                    </div>
+                `;
+            }
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading saved pairings:', error);
+        container.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Paarungen.</p>';
+    }
+}
+
+/**
+ * Formats date from YYYY-MM-DD to DD.MM.YYYY
+ */
+function formatDateGerman(dateStr) {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}.${month}.${year}`;
+}
+
+/**
+ * Opens match form with pre-selected players
+ */
+window.handleEnterResultForPairing = function(sessionId, playerAId, playerBId, playerAName, playerBName, handicapPlayerId, handicapPoints) {
+    // Pre-select players in the form
+    const playerASelect = document.getElementById('player-a-select');
+    const playerBSelect = document.getElementById('player-b-select');
+
+    if (playerASelect) playerASelect.value = playerAId;
+    if (playerBSelect) playerBSelect.value = playerBId;
+
+    // Trigger change events to update handicap
+    if (playerASelect) playerASelect.dispatchEvent(new Event('change'));
+    if (playerBSelect) playerBSelect.dispatchEvent(new Event('change'));
+
+    // If handicap was used, check the toggle
+    if (handicapPlayerId && handicapPoints > 0) {
+        const handicapToggle = document.getElementById('handicap-toggle');
+        if (handicapToggle) {
+            handicapToggle.checked = true;
+        }
+    }
+
+    // Scroll to match form
+    const matchForm = document.getElementById('match-form');
+    if (matchForm) {
+        matchForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    alert('Spieler wurden im Formular vorausgewählt. Bitte gib jetzt das Ergebnis ein.');
+};
+
+/**
+ * Discards a pairing
+ */
+window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
+    if (!confirm('Möchtest du diese Paarung wirklich verwerfen?')) {
+        return;
+    }
+
+    try {
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const db = getFirestore();
+
+        // Get current pairings
+        const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingDoc.exists()) {
+            alert('Paarung nicht gefunden.');
+            return;
+        }
+
+        const pairingData = pairingDoc.data();
+        const groups = pairingData.groups || {};
+
+        // Remove the match from the group
+        if (groups[groupName] && groups[groupName][matchIndex]) {
+            groups[groupName].splice(matchIndex, 1);
+
+            // If group is now empty, remove it
+            if (groups[groupName].length === 0) {
+                delete groups[groupName];
+            }
+
+            // Update document
+            await updateDoc(doc(db, 'trainingMatches', sessionId), {
+                groups: groups
+            });
+
+            // Reload pairings
+            const userData = JSON.parse(localStorage.getItem('userData'));
+            if (userData && userData.clubId) {
+                await loadSavedPairings(db, userData.clubId);
+            }
+
+            alert('Paarung wurde verworfen.');
+        }
+    } catch (error) {
+        console.error('Error discarding pairing:', error);
+        alert('Fehler beim Verwerfen der Paarung: ' + error.message);
+    }
+};
