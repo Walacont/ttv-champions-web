@@ -70,14 +70,23 @@ export async function renderCalendar(date, db, currentUserData) {
         const dayCell = document.createElement('div');
         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-        dayCell.className = 'calendar-day p-2 border rounded-md text-center relative';
-        dayCell.textContent = day;
+        // Base styling
+        dayCell.className = 'calendar-day p-2 border rounded-md text-center relative cursor-pointer hover:bg-gray-50 transition-colors';
+
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'font-medium';
+        dayNumber.textContent = day;
+        dayCell.appendChild(dayNumber);
+
         dayCell.dataset.date = dateString;
 
         // NEW: Check for sessions on this day
         const sessionsOnDay = monthlySessions.get(dateString) || [];
 
         if (sessionsOnDay.length > 0) {
+            // Add subtle border to indicate sessions exist
+            dayCell.classList.add('border-indigo-300');
+
             // Add indicator dots for sessions
             const dotsContainer = document.createElement('div');
             dotsContainer.className = 'flex gap-1 justify-center mt-1';
@@ -105,9 +114,8 @@ export async function renderCalendar(date, db, currentUserData) {
             dayCell.appendChild(dotsContainer);
         }
 
-        if (monthlyAttendance.has(dateString)) {
-            dayCell.classList.add('calendar-day-present');
-        }
+        // Remove the green background - we only show colored dots now
+        // monthlyAttendance is no longer used for background color
 
         calendarGrid.appendChild(dayCell);
     }

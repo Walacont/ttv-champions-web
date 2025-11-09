@@ -185,47 +185,87 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
-            const dayCell = document.createElement('div');
-            dayCell.className = 'relative flex flex-col items-center justify-center';
-
-            const dayDiv = document.createElement('div');
-            dayDiv.className = 'h-10 w-10 flex items-center justify-center rounded-full border-2 border-transparent';
-            dayDiv.textContent = day;
-
             const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-            if (streakDates.has(dateString)) {
-                dayDiv.classList.add('calendar-day-streak');
-            } else if (presentDatesSet.has(dateString)) {
-                dayDiv.classList.add('calendar-day-present');
-            } else if (missedDatesSet.has(dateString)) {
-                // Missed training - mark in red
-                dayDiv.classList.add('calendar-day-missed');
-            }
-
-            if (new Date(year, month, day).toDateString() === new Date().toDateString()) {
-                dayDiv.classList.add('ring-2', 'ring-indigo-500');
-            }
-
-            dayCell.appendChild(dayDiv);
-
-            // Add session indicators
             const sessionsOnDay = sessionsPerDay.get(dateString) || [];
+
+            const dayCell = document.createElement('div');
+            dayCell.className = 'border rounded-md p-2 min-h-[80px] hover:shadow-md transition-shadow';
+
+            // Make clickable if there are sessions
+            if (sessionsOnDay.length > 0) {
+                dayCell.classList.add('cursor-pointer', 'hover:bg-gray-50');
+                dayCell.addEventListener('click', () => {
+                    openTrainingDayModal(dateString, sessionsOnDay, filteredTrainings, currentUserData.id);
+                });
+            }
+
+            // Day number with status indicator
+            const dayNumber = document.createElement('div');
+            dayNumber.className = 'flex items-center justify-between mb-2';
+
+            const dayText = document.createElement('span');
+            dayText.className = 'text-sm font-medium';
+            dayText.textContent = day;
+            dayNumber.appendChild(dayText);
+
+            // Status indicator
+            if (sessionsOnDay.length > 0) {
+                const statusIcon = document.createElement('span');
+                statusIcon.className = 'text-xs';
+
+                // Check if player attended any session on this day
+                const attended = presentDatesSet.has(dateString);
+                const missed = missedDatesSet.has(dateString);
+
+                if (attended && !missed) {
+                    // Attended all sessions
+                    statusIcon.textContent = '✓';
+                    statusIcon.classList.add('text-green-600', 'font-bold');
+                } else if (missed && !attended) {
+                    // Missed all sessions
+                    statusIcon.textContent = '✗';
+                    statusIcon.classList.add('text-red-600', 'font-bold');
+                } else if (attended && missed) {
+                    // Attended some, missed some
+                    statusIcon.textContent = '◐';
+                    statusIcon.classList.add('text-orange-600', 'font-bold');
+                }
+
+                dayNumber.appendChild(statusIcon);
+            }
+
+            // Today indicator
+            if (new Date(year, month, day).toDateString() === new Date().toDateString()) {
+                dayCell.classList.add('ring-2', 'ring-indigo-500');
+            }
+
+            dayCell.appendChild(dayNumber);
+
+            // Add colored dots for sessions
             if (sessionsOnDay.length > 0) {
                 const dotsContainer = document.createElement('div');
-                dotsContainer.className = 'flex gap-1 justify-center mt-1';
+                dotsContainer.className = 'flex gap-1 flex-wrap';
 
-                const dotsToShow = Math.min(sessionsOnDay.length, 3);
+                const dotsToShow = Math.min(sessionsOnDay.length, 4);
                 for (let i = 0; i < dotsToShow; i++) {
                     const session = sessionsOnDay[i];
                     const subgroup = subgroupsMap.get(session.subgroupId);
-                    const color = subgroup ? subgroup.color : '#6366f1'; // Default to indigo
+                    const color = subgroup ? subgroup.color : '#6366f1';
 
                     const dot = document.createElement('div');
-                    dot.className = 'w-1.5 h-1.5 rounded-full';
+                    dot.className = 'w-2 h-2 rounded-full';
                     dot.style.backgroundColor = color;
+                    dot.title = subgroup ? subgroup.name : 'Training';
                     dotsContainer.appendChild(dot);
                 }
+
+                if (sessionsOnDay.length > 4) {
+                    const moreDot = document.createElement('span');
+                    moreDot.className = 'text-xs text-gray-500';
+                    moreDot.textContent = `+${sessionsOnDay.length - 4}`;
+                    dotsContainer.appendChild(moreDot);
+                }
+
                 dayCell.appendChild(dotsContainer);
             }
 
@@ -446,4 +486,107 @@ async function loadPairingsForSession(sessionId, userData, db) {
     } catch (error) {
         console.error('Error loading pairings for session:', error);
     }
+}
+
+/**
+ * Opens the training day modal with session details
+ * @param {string} dateString - Date in YYYY-MM-DD format
+ * @param {Array} sessions - Array of training sessions
+ * @param {Array} allTrainings - All attendance records
+ * @param {string} playerId - Player ID
+ */
+function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
+    const modal = document.getElementById('training-day-modal');
+    const modalTitle = document.getElementById('training-day-modal-title');
+    const modalContent = document.getElementById('training-day-modal-content');
+
+    if (!modal || !modalTitle || !modalContent) return;
+
+    // Format date nicely
+    const [year, month, day] = dateString.split('-');
+    const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
+    const formattedDate = dateObj.toLocaleDateString('de-DE', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
+    modalTitle.textContent = `Training am ${formattedDate}`;
+
+    // Build content
+    let html = '<div class="space-y-3">';
+
+    // Get attendance data for this date
+    const attendanceForDate = allTrainings.filter(t => t.date === dateString);
+
+    sessions.forEach(session => {
+        const subgroup = subgroupsMap.get(session.subgroupId);
+        const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
+        const subgroupColor = subgroup ? subgroup.color : '#6366f1';
+
+        // Check if player attended this session
+        const attendance = attendanceForDate.find(a => {
+            return a.presentPlayerIds && a.presentPlayerIds.includes(playerId);
+        });
+
+        const attended = attendance !== undefined;
+
+        html += `
+            <div class="border rounded-lg p-3 ${attended ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-lg">${attended ? '✓' : '✗'}</span>
+                            <span class="font-semibold text-gray-900">${session.startTime} - ${session.endTime}</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-700">
+                            <div class="w-3 h-3 rounded-full" style="background-color: ${subgroupColor};"></div>
+                            <span>${subgroupName}</span>
+                        </div>
+                    </div>
+                    <div class="text-sm font-medium ${attended ? 'text-green-700' : 'text-red-700'}">
+                        ${attended ? 'Teilgenommen' : 'Verpasst'}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+
+    modalContent.innerHTML = html;
+
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Closes the training day modal
+ */
+function closeTrainingDayModal() {
+    const modal = document.getElementById('training-day-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+// Setup modal close handlers
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        const closeBtn = document.getElementById('close-training-day-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeTrainingDayModal);
+        }
+
+        // Close modal when clicking outside
+        const modal = document.getElementById('training-day-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeTrainingDayModal();
+                }
+            });
+        }
+    });
 }
