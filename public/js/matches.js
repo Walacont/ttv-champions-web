@@ -402,6 +402,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         await addDoc(collection(db, 'matches'), {
             playerAId,
             playerBId,
+            playerIds: [playerAId, playerBId], // For match history queries
             winnerId,
             loserId,
             handicapUsed: handicapUsed,

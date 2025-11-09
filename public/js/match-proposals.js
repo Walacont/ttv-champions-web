@@ -43,15 +43,38 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
     });
 
     // Get all matches involving the current user
-    const matchesQuery = query(
+    // Query both new format (with playerIds array) and old format (playerAId/playerBId)
+    const matchesWithPlayerIds = query(
       collection(db, "matches"),
       where("playerIds", "array-contains", userData.id)
     );
-    const matchesSnapshot = await getDocs(matchesQuery);
+    const matchesAsPlayerA = query(
+      collection(db, "matches"),
+      where("playerAId", "==", userData.id)
+    );
+    const matchesAsPlayerB = query(
+      collection(db, "matches"),
+      where("playerBId", "==", userData.id)
+    );
+
+    // Execute all queries
+    const [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3] = await Promise.all([
+      getDocs(matchesWithPlayerIds),
+      getDocs(matchesAsPlayerA),
+      getDocs(matchesAsPlayerB)
+    ]);
+
+    // Combine results and deduplicate by document ID
+    const allMatchDocs = new Map();
+    [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3].forEach(snapshot => {
+      snapshot.forEach(doc => {
+        allMatchDocs.set(doc.id, doc);
+      });
+    });
 
     // Build opponent history
     const opponentHistory = {};
-    matchesSnapshot.forEach((doc) => {
+    allMatchDocs.forEach((doc) => {
       const match = doc.data();
       const opponentId = match.playerAId === userData.id ? match.playerBId : match.playerAId;
 
@@ -825,18 +848,32 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
     await renderSuggestions();
 
     // Listen for changes to matches collection to update suggestions in real-time
-    const matchesQuery = query(
+    // Set up listeners for both new format (playerIds) and old format (playerAId/playerBId)
+    const matchesQueryNew = query(
       collection(db, "matches"),
       where("playerIds", "array-contains", userData.id)
     );
+    const matchesQueryA = query(
+      collection(db, "matches"),
+      where("playerAId", "==", userData.id)
+    );
+    const matchesQueryB = query(
+      collection(db, "matches"),
+      where("playerBId", "==", userData.id)
+    );
 
-    const unsubscribe = onSnapshot(matchesQuery, async () => {
-      // Re-render suggestions when matches change
+    const unsubscribe1 = onSnapshot(matchesQueryNew, async () => {
+      await renderSuggestions();
+    });
+    const unsubscribe2 = onSnapshot(matchesQueryA, async () => {
+      await renderSuggestions();
+    });
+    const unsubscribe3 = onSnapshot(matchesQueryB, async () => {
       await renderSuggestions();
     });
 
     if (unsubscribes) {
-      unsubscribes.push(unsubscribe);
+      unsubscribes.push(unsubscribe1, unsubscribe2, unsubscribe3);
     }
 
   } catch (error) {
