@@ -427,22 +427,30 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 
         // If this match was entered from a saved pairing, remove that pairing
         if (currentPairingSessionId && currentPairingPlayerAId && currentPairingPlayerBId) {
+            // STEP 1: Immediately remove the pairing from DOM (optimistic update - instant visual feedback)
+            removePairingFromDOM(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId);
+
+            const userData = JSON.parse(localStorage.getItem('userData'));
+
+            // STEP 2: Remove from Firestore in the background
             try {
                 await removePairingFromSession(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId, db);
+                console.log('Pairing removed from Firestore');
 
                 // Reset tracking variables
                 currentPairingSessionId = null;
                 currentPairingPlayerAId = null;
                 currentPairingPlayerBId = null;
 
-                // Reload saved pairings to update the display
-                const userData = JSON.parse(localStorage.getItem('userData'));
-                if (userData && userData.clubId) {
-                    await loadSavedPairings(db, userData.clubId);
-                }
             } catch (error) {
-                console.error('Error removing pairing:', error);
-                // Don't show error to user, match was saved successfully
+                console.error('Error removing pairing from Firestore:', error);
+                // Even if Firestore fails, the DOM update already happened
+                // Reload to show the correct state
+                if (userData && userData.clubId) {
+                    setTimeout(async () => {
+                        await loadSavedPairings(db, userData.clubId);
+                    }, 500);
+                }
             }
         }
     } catch (error) {
@@ -1115,6 +1123,54 @@ window.handleEnterResultForPairing = function(sessionId, playerAId, playerBId, p
 
     alert('Spieler wurden im Formular vorausgewählt. Bitte gib jetzt das Ergebnis ein.');
 };
+
+/**
+ * Removes a specific pairing from the DOM immediately (optimistic update)
+ * @param {string} sessionId - Session ID
+ * @param {string} playerAId - Player A ID
+ * @param {string} playerBId - Player B ID
+ */
+function removePairingFromDOM(sessionId, playerAId, playerBId) {
+    const container = document.getElementById('saved-pairings-container');
+    if (!container) return;
+
+    // Find all pairing cards
+    const pairingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+
+    pairingCards.forEach(card => {
+        // Find all match divs within this card
+        const matchDivs = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+
+        matchDivs.forEach(matchDiv => {
+            const buttons = matchDiv.querySelectorAll('button');
+            buttons.forEach(button => {
+                const onclickAttr = button.getAttribute('onclick');
+                if (onclickAttr && onclickAttr.includes(sessionId) &&
+                    onclickAttr.includes(playerAId) && onclickAttr.includes(playerBId)) {
+                    // Remove this match div
+                    matchDiv.remove();
+
+                    // Check if this was the last pairing in the card
+                    const remainingMatches = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+                    if (remainingMatches.length === 0) {
+                        // Check if there's a leftover player
+                        const hasLeftover = card.querySelector('.bg-orange-50');
+                        if (!hasLeftover) {
+                            // Remove the entire card if no matches and no leftover
+                            card.remove();
+
+                            // Check if container is now empty
+                            const remainingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+                            if (remainingCards.length === 0) {
+                                container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    });
+}
 
 /**
  * Removes a specific pairing from a training session
