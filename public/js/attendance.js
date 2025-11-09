@@ -922,6 +922,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
                     const alreadyAttendedToday = otherTrainingsTodaySnapshot.size > 0;
 
+                    console.log(`[Attendance Save] Player ${player.firstName} ${player.lastName}:`);
+                    console.log(`  - Date: ${date}`);
+                    console.log(`  - Other trainings today count: ${otherTrainingsTodaySnapshot.size}`);
+                    console.log(`  - Already attended today: ${alreadyAttendedToday}`);
+                    console.log(`  - New streak: ${newStreak}`);
+
                     // Bonus points logic (New System)
                     let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
                     let reason = `Anwesenheit beim Training - ${subgroupName}`;
@@ -934,11 +940,17 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         reason = `Anwesenheit beim Training - ${subgroupName} (⚡ ${newStreak}x Streak)`;
                     }
 
+                    console.log(`  - Points BEFORE half-points check: ${pointsToAdd}`);
+
                     // NEW: If player already attended another training today, give half points
                     if (alreadyAttendedToday) {
+                        const originalPoints = pointsToAdd;
                         pointsToAdd = Math.ceil(pointsToAdd / 2); // Half points, rounded up
                         reason += ` (2. Training heute)`;
+                        console.log(`  - APPLYING HALF POINTS: ${originalPoints} → ${pointsToAdd}`);
                     }
+
+                    console.log(`  - FINAL points to add: ${pointsToAdd}`);
 
                     // Update streak in subcollection
                     batch.set(streakRef, {
