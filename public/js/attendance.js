@@ -949,6 +949,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // even when creating a new attendance document
                     const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(doc => {
                         const docData = doc.data();
+                        // Only count documents that have a sessionId AND it's different from current
+                        // This prevents old documents without sessionId from being counted
+                        if (!docData.sessionId) {
+                            console.warn(`[Attendance Save] Found attendance document without sessionId: ${doc.id}`);
+                            return false; // Skip documents without sessionId
+                        }
                         // Exclude if it's the same session
                         return docData.sessionId !== sessionId;
                     }).length;

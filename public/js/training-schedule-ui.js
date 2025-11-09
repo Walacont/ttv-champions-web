@@ -495,6 +495,9 @@ window.handleCancelSession = async function(sessionId) {
         // Reload the modal
         const dateStr = document.getElementById('session-selection-date').textContent;
         await openSessionSelectionModal(dateStr);
+
+        // Trigger calendar reload event for real-time updates
+        window.dispatchEvent(new CustomEvent('trainingCancelled', { detail: { sessionId } }));
     } catch (error) {
         console.error('Error canceling session:', error);
         alert('Fehler beim Absagen: ' + error.message);
@@ -721,6 +724,9 @@ window.handleCancelSessionFromModal = async function(sessionId) {
             const sessions = await getSessionsForDate(currentUserData.clubId, dateStr);
             window.openSessionSelectionModalFromCalendar(dateStr, sessions);
         }
+
+        // Trigger calendar reload event for real-time updates
+        window.dispatchEvent(new CustomEvent('trainingCancelled', { detail: { sessionId } }));
     } catch (error) {
         console.error('Error canceling session:', error);
         alert('Fehler beim Absagen: ' + error.message);
