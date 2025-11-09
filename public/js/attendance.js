@@ -842,8 +842,13 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
-    const previousAttendanceData = monthlyAttendance.get(date);
-    const previouslyPresentIdsOnThisDay = previousAttendanceData ? previousAttendanceData.presentPlayerIds : [];
+    // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
+    // We need to distinguish between different training sessions on the same day
+    const previouslyPresentIdsOnThisDay = attendanceData ? attendanceData.presentPlayerIds : [];
+
+    console.log(`[Attendance Save] Session ${sessionId}, Date: ${date}`);
+    console.log(`  - Previously present in THIS session: ${previouslyPresentIdsOnThisDay.length} players`);
+    console.log(`  - Now present in THIS session: ${presentPlayerIds.length} players`);
 
     try {
         const batch = writeBatch(db);
