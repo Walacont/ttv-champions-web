@@ -837,8 +837,8 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
 
       container.innerHTML = "";
 
-      // Render top 5 suggestions
-      suggestions.slice(0, 5).forEach((player) => {
+      // Render all suggestions (up to 10)
+      suggestions.forEach((player) => {
         const card = createSuggestionCard(player, userData, db);
         container.appendChild(card);
       });
