@@ -27,6 +27,10 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     const subgroupCheckboxes = form.querySelectorAll('#player-subgroups-checkboxes input[type="checkbox"]:checked');
     const subgroupIDs = Array.from(subgroupCheckboxes).map(cb => cb.value);
 
+    // === NEU: Wettkampfsbereit-Checkbox auslesen ===
+    const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
+    const isMatchReady = isMatchReadyCheckbox ? isMatchReadyCheckbox.checked : false;
+
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
         return;
@@ -39,13 +43,14 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             clubId: currentUserData.clubId,
             role: 'player',
             isOffline: true,
-            isMatchReady: false,
+            isMatchReady: isMatchReady,
             onboardingComplete: false,
             points: 0,
             eloRating: 800, // New system: Start at 800 Elo
             highestElo: 800, // New system: Start at 800 Elo
             xp: 0,
-            grundlagenCompleted: 0,
+            // Wenn bereits wettkampfsbereit, setze grundlagenCompleted auf 5 (erfüllt Anforderung)
+            grundlagenCompleted: isMatchReady ? 5 : 0,
             subgroupIDs: subgroupIDs,
             createdAt: serverTimestamp()
         };
