@@ -132,7 +132,7 @@ async function initializeCoachPage(userData) {
     initPlayerInvitationManagement(db, auth, functions, userData.clubId, userData.id);
 
     // Initialize Training Schedule Management
-    initializeTrainingSchedule(userData);
+    initializeTrainingSchedule(userData, db);
 
     // Bridge function: Connect training-schedule-ui to attendance module
     window.openAttendanceForSessionFromSchedule = async function(sessionId, dateStr) {

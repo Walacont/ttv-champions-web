@@ -4,7 +4,6 @@
  */
 
 import {
-    getFirestore,
     collection,
     doc,
     addDoc,
@@ -17,9 +16,18 @@ import {
     orderBy,
     Timestamp,
     serverTimestamp
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
-const db = getFirestore();
+// DB instance will be passed to functions instead of module-level initialization
+let db = null;
+
+/**
+ * Initialize the module with Firestore instance
+ * @param {Object} firestoreInstance - Firestore database instance
+ */
+export function initializeTrainingSchedule(firestoreInstance) {
+    db = firestoreInstance;
+}
 
 // ============================================================================
 // RECURRING TRAINING TEMPLATES

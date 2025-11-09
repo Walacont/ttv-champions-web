@@ -4,14 +4,13 @@
  */
 
 import {
-    getFirestore,
     collection,
     doc,
     getDocs,
     query,
     where,
     orderBy
-} from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import {
     createRecurringTemplate,
@@ -24,11 +23,11 @@ import {
     deleteTrainingSession,
     generateSessionsFromTemplates,
     getDayOfWeekName,
-    formatTimeRange
+    formatTimeRange,
+    initializeTrainingSchedule as initTrainingScheduleModule
 } from './training-schedule.js';
 
-const db = getFirestore();
-
+let db = null;
 let currentUserData = null;
 let subgroups = [];
 let recurringTemplates = [];
@@ -36,8 +35,11 @@ let recurringTemplates = [];
 /**
  * Initialize the training schedule UI
  * @param {Object} userData - Current user data
+ * @param {Object} firestoreInstance - Firestore database instance
  */
-export function initializeTrainingSchedule(userData) {
+export function initializeTrainingSchedule(userData, firestoreInstance) {
+    db = firestoreInstance;
+    initTrainingScheduleModule(firestoreInstance);
     currentUserData = userData;
 
     // Load subgroups
