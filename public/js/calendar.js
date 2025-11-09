@@ -188,7 +188,13 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const sessionsOnDay = sessionsPerDay.get(dateString) || [];
+            let sessionsOnDay = sessionsPerDay.get(dateString) || [];
+
+            // IMPORTANT: Apply the same filter to sessions as to trainings for consistency
+            // If subgroup filter is active, only show sessions for that subgroup
+            if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+                sessionsOnDay = sessionsOnDay.filter(session => session.subgroupId === subgroupFilter);
+            }
 
             const dayCell = document.createElement('div');
             dayCell.className = 'border rounded-md p-2 min-h-[80px] hover:shadow-md transition-shadow';

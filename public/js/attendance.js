@@ -605,53 +605,6 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
 }
 
 /**
- * Checks if a player is present in other subgroups on a specific date
- * @param {string} playerId - Player ID
- * @param {string} date - Date string (YYYY-MM-DD)
- * @param {string} currentSubgroupId - Current subgroup ID to exclude
- * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
- * @returns {Promise<Array>} Array of subgroup names where player was present
- */
-async function checkPlayerInOtherSubgroups(playerId, date, currentSubgroupId, clubId, db) {
-    try {
-        // Query attendance for this date and club, but exclude current subgroup
-        const q = query(
-            collection(db, 'attendance'),
-            where('clubId', '==', clubId),
-            where('date', '==', date)
-        );
-
-        const snapshot = await getDocs(q);
-        const otherSubgroups = [];
-
-        for (const attendanceDoc of snapshot.docs) {
-            const data = attendanceDoc.data();
-            // Check if this attendance is for a different subgroup
-            if (data.subgroupId !== currentSubgroupId && data.presentPlayerIds && data.presentPlayerIds.includes(playerId)) {
-                // Get subgroup name
-                try {
-                    const subgroupDoc = await getDoc(doc(db, 'subgroups', data.subgroupId));
-                    if (subgroupDoc.exists()) {
-                        otherSubgroups.push(subgroupDoc.data().name);
-                    } else {
-                        otherSubgroups.push(data.subgroupId);
-                    }
-                } catch (err) {
-                    console.error(`Error loading subgroup name for ${data.subgroupId}:`, err);
-                    otherSubgroups.push(data.subgroupId);
-                }
-            }
-        }
-
-        return otherSubgroups;
-    } catch (error) {
-        console.error("Error checking player in other subgroups:", error);
-        return [];
-    }
-}
-
-/**
  * Handles calendar day click to open attendance modal
  * @param {Event} e - Click event
  * @param {Array} clubPlayers - List of club players
