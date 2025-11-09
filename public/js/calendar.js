@@ -5,6 +5,9 @@ import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy } f
  * Handles calendar rendering and attendance tracking for dashboard
  */
 
+// Module state
+let subgroupsMap = new Map(); // Store subgroups with their colors
+
 /**
  * Gets club attendance data for a specific period
  * @param {string} clubId - Club ID
@@ -70,7 +73,6 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
     // NEW: Also load training sessions to show multiple sessions per day
     let allSessionsCache = [];
-    let subgroupsMap = new Map();
     async function loadSessions() {
         try {
             const startDate = new Date(year, month, 1).toISOString().split('T')[0];

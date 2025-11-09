@@ -504,12 +504,14 @@ window.handleCancelSession = async function(sessionId) {
  * Open attendance modal for specific session
  * This will be handled by attendance.js
  */
-window.handleOpenAttendanceForSession = function(sessionId, dateStr) {
-    closeSessionSelectionModal();
-    // Call the attendance function with session context
-    if (typeof window.openAttendanceModalForSession === 'function') {
-        window.openAttendanceModalForSession(sessionId, dateStr);
+window.handleOpenAttendanceForSession = async function(sessionId, dateStr) {
+    // Call the attendance function FIRST (it loads data)
+    if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
+        await window.openAttendanceForSessionFromSchedule(sessionId, dateStr);
     }
+
+    // THEN close the session selection modal (no delay!)
+    closeSessionSelectionModal();
 };
 
 /**
