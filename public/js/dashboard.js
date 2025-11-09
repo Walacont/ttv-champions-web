@@ -131,7 +131,7 @@ async function initializeDashboard(userData) {
     // Initialize match proposals functionality
     initializeMatchProposalForm(userData, db);
     loadMatchProposals(userData, db, unsubscribes);
-    loadMatchSuggestions(userData, db);
+    loadMatchSuggestions(userData, db, unsubscribes);
 
     // Start season countdown timer
     updateSeasonCountdown('season-countdown', true);

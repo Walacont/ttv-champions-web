@@ -781,9 +781,12 @@ function renderSelectedPlayer(player, container) {
 }
 
 /**
- * Loads and renders match suggestions
+ * Loads and renders match suggestions with real-time updates
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-export async function loadMatchSuggestions(userData, db) {
+export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
   const container = document.getElementById("match-suggestions-list");
   if (!container) return;
 
@@ -800,21 +803,42 @@ export async function loadMatchSuggestions(userData, db) {
     const snapshot = await getDocs(playersQuery);
     const allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
-    // Calculate suggestions
-    const suggestions = await calculateMatchSuggestions(userData, allPlayers, db);
+    // Function to calculate and render suggestions
+    const renderSuggestions = async () => {
+      const suggestions = await calculateMatchSuggestions(userData, allPlayers, db);
 
-    if (suggestions.length === 0) {
-      container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine Vorschläge verfügbar</p>';
-      return;
+      if (suggestions.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine Vorschläge verfügbar</p>';
+        return;
+      }
+
+      container.innerHTML = "";
+
+      // Render top 5 suggestions
+      suggestions.slice(0, 5).forEach((player) => {
+        const card = createSuggestionCard(player, userData, db);
+        container.appendChild(card);
+      });
+    };
+
+    // Initial render
+    await renderSuggestions();
+
+    // Listen for changes to matches collection to update suggestions in real-time
+    const matchesQuery = query(
+      collection(db, "matches"),
+      where("playerIds", "array-contains", userData.id)
+    );
+
+    const unsubscribe = onSnapshot(matchesQuery, async () => {
+      // Re-render suggestions when matches change
+      await renderSuggestions();
+    });
+
+    if (unsubscribes) {
+      unsubscribes.push(unsubscribe);
     }
 
-    container.innerHTML = "";
-
-    // Render top 5 suggestions
-    suggestions.slice(0, 5).forEach((player) => {
-      const card = createSuggestionCard(player, userData, db);
-      container.appendChild(card);
-    });
   } catch (error) {
     console.error("Error loading match suggestions:", error);
     container.innerHTML = '<p class="text-red-500 text-center py-4">Fehler beim Laden der Vorschläge</p>';
