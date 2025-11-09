@@ -134,89 +134,123 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
-    // Load subgroups for color mapping
-    const subgroupsSnapshot = await getDocs(query(
-        collection(db, 'subgroups'),
-        where('clubId', '==', currentUserData.clubId)
-    ));
-    subgroupsMap.clear();
-    subgroupsSnapshot.forEach(doc => {
-        const data = doc.data();
-        subgroupsMap.set(doc.id, {
-            name: data.name,
-            color: data.color || '#6366f1' // Default to indigo if no color set
+    try {
+        console.log('[fetchMonthlyAttendance] Loading subgroups...');
+        // Load subgroups for color mapping
+        const subgroupsSnapshot = await getDocs(query(
+            collection(db, 'subgroups'),
+            where('clubId', '==', currentUserData.clubId)
+        ));
+        subgroupsMap.clear();
+        subgroupsSnapshot.forEach(doc => {
+            const data = doc.data();
+            subgroupsMap.set(doc.id, {
+                name: data.name,
+                color: data.color || '#6366f1' // Default to indigo if no color set
+            });
         });
-    });
+        console.log(`[fetchMonthlyAttendance] Loaded ${subgroupsMap.size} subgroups`);
+    } catch (error) {
+        console.error('[fetchMonthlyAttendance] Error loading subgroups:', error);
+        throw error;
+    }
 
     // NEW: Fetch training sessions for the month
-    let sessionsQuery;
-    if (currentSubgroupFilter === 'all') {
-        sessionsQuery = query(
-            collection(db, 'trainingSessions'),
-            where('clubId', '==', currentUserData.clubId),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate),
-            where('cancelled', '==', false)
-        );
-    } else {
-        sessionsQuery = query(
-            collection(db, 'trainingSessions'),
-            where('clubId', '==', currentUserData.clubId),
-            where('subgroupId', '==', currentSubgroupFilter),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate),
-            where('cancelled', '==', false)
-        );
-    }
-
-    const sessionsSnapshot = await getDocs(sessionsQuery);
-    sessionsSnapshot.forEach(doc => {
-        const sessionData = doc.data();
-        const dateKey = sessionData.date;
-
-        if (!monthlySessions.has(dateKey)) {
-            monthlySessions.set(dateKey, []);
+    try {
+        console.log('[fetchMonthlyAttendance] Loading training sessions...');
+        let sessionsQuery;
+        if (currentSubgroupFilter === 'all') {
+            sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', currentUserData.clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false)
+            );
+        } else {
+            sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', currentUserData.clubId),
+                where('subgroupId', '==', currentSubgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false)
+            );
         }
-        monthlySessions.get(dateKey).push({ id: doc.id, ...sessionData });
-    });
+
+        const sessionsSnapshot = await getDocs(sessionsQuery);
+        sessionsSnapshot.forEach(doc => {
+            const sessionData = doc.data();
+            const dateKey = sessionData.date;
+
+            if (!monthlySessions.has(dateKey)) {
+                monthlySessions.set(dateKey, []);
+            }
+            monthlySessions.get(dateKey).push({ id: doc.id, ...sessionData });
+        });
+        console.log(`[fetchMonthlyAttendance] Loaded ${sessionsSnapshot.size} training sessions`);
+    } catch (error) {
+        console.error('[fetchMonthlyAttendance] Error loading training sessions:', error);
+        console.error('[fetchMonthlyAttendance] Query details:', {
+            clubId: currentUserData.clubId,
+            startDate,
+            endDate,
+            subgroupFilter: currentSubgroupFilter
+        });
+        throw error;
+    }
 
     // Build query based on subgroup filter
-    let q;
-    if (currentSubgroupFilter === 'all') {
-        // Show all attendance events for the club
-        q = query(collection(db, 'attendance'),
-            where('clubId', '==', currentUserData.clubId),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate)
-        );
-    } else {
-        // Show only attendance events for the selected subgroup
-        q = query(collection(db, 'attendance'),
-            where('clubId', '==', currentUserData.clubId),
-            where('subgroupId', '==', currentSubgroupFilter),
-            where('date', '>=', startDate),
-            where('date', '<=', endDate)
-        );
-    }
-
-    const querySnapshot = await getDocs(q);
-
-    // When filter is "all", we might have multiple events per day (different subgroups)
-    // We'll mark a day as present if ANY subgroup had a training that day
-    querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const dateKey = data.date;
-
+    try {
+        console.log('[fetchMonthlyAttendance] Loading attendance records...');
+        let q;
         if (currentSubgroupFilter === 'all') {
-            // For "all" view, just mark the day - don't store specific event data
-            if (!monthlyAttendance.has(dateKey)) {
+            // Show all attendance events for the club
+            q = query(collection(db, 'attendance'),
+                where('clubId', '==', currentUserData.clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+        } else {
+            // Show only attendance events for the selected subgroup
+            q = query(collection(db, 'attendance'),
+                where('clubId', '==', currentUserData.clubId),
+                where('subgroupId', '==', currentSubgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+        }
+
+        const querySnapshot = await getDocs(q);
+
+        // When filter is "all", we might have multiple events per day (different subgroups)
+        // We'll mark a day as present if ANY subgroup had a training that day
+        querySnapshot.forEach(doc => {
+            const data = doc.data();
+            const dateKey = data.date;
+
+            if (currentSubgroupFilter === 'all') {
+                // For "all" view, just mark the day - don't store specific event data
+                if (!monthlyAttendance.has(dateKey)) {
+                    monthlyAttendance.set(dateKey, { id: doc.id, ...data });
+                }
+            } else {
+                // For specific subgroup, store the event data
                 monthlyAttendance.set(dateKey, { id: doc.id, ...data });
             }
-        } else {
-            // For specific subgroup, store the event data
-            monthlyAttendance.set(dateKey, { id: doc.id, ...data });
-        }
-    });
+        });
+        console.log(`[fetchMonthlyAttendance] Loaded ${querySnapshot.size} attendance records`);
+        console.log('[fetchMonthlyAttendance] ✓ All data loaded successfully');
+    } catch (error) {
+        console.error('[fetchMonthlyAttendance] Error loading attendance records:', error);
+        console.error('[fetchMonthlyAttendance] Query details:', {
+            clubId: currentUserData.clubId,
+            startDate,
+            endDate,
+            subgroupFilter: currentSubgroupFilter
+        });
+        throw error;
+    }
 }
 
 /**
