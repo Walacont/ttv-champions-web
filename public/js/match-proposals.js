@@ -267,7 +267,7 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
   const div = document.createElement("div");
 
   let borderColor = "border-indigo-200";
-  if (proposal.status === "pending_coach" || proposal.status === "approved") borderColor = "border-green-200 bg-green-50";
+  if (proposal.status === "accepted") borderColor = "border-green-200 bg-green-50";
   if (proposal.status === "declined") borderColor = "border-red-200 bg-red-50";
 
   div.className = `bg-white border ${borderColor} rounded-lg p-3 shadow-sm mb-2`;
@@ -379,8 +379,7 @@ function getProposalStatusBadge(status) {
   const badges = {
     pending: '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">⏳ Ausstehend</span>',
     counter_proposed: '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">🔄 Gegenvorschlag</span>',
-    pending_coach: '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">⏳ Wartet auf Coach</span>',
-    approved: '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">✓ Genehmigt</span>',
+    accepted: '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">✓ Angenommen</span>',
     declined: '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full font-medium">✗ Abgelehnt</span>',
     cancelled: '<span class="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full font-medium">↺ Zurückgezogen</span>',
   };
@@ -414,18 +413,18 @@ function formatDateTime(timestamp) {
 }
 
 /**
- * Accepts a proposal (moves to pending_coach for approval)
+ * Accepts a proposal (players can arrange directly without coach approval)
  */
 async function acceptProposal(proposalId, db) {
   try {
     const proposalRef = doc(db, "matchProposals", proposalId);
     await updateDoc(proposalRef, {
-      status: "pending_coach",
+      status: "accepted",
       acceptedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
-    showProposalFeedback("Match-Anfrage angenommen! Wartet jetzt auf Coach-Freigabe.", "success");
+    showProposalFeedback("Match-Anfrage angenommen! Viel Erfolg beim Spiel!", "success");
   } catch (error) {
     console.error("Error accepting proposal:", error);
     showProposalFeedback("Fehler beim Annehmen der Anfrage.", "error");

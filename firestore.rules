@@ -208,7 +208,7 @@ service cloud.firestore {
          resource.data.approvals.playerB.status == null);
     }
 
-    // Match Proposals collection (Future match planning)
+    // Match Proposals collection (Future match planning - NO coach approval needed)
     match /matchProposals/{proposalId} {
       // Players can read proposals they're involved in
       // Coaches can read all proposals in their club
@@ -233,15 +233,10 @@ service cloud.firestore {
         resource.data.requesterId == request.auth.uid &&
         resource.data.status in ['pending', 'counter_proposed'];
 
-      // Recipient can update (accept/decline/counter-propose)
+      // Recipient can update (accept/decline/counter-propose) - directly without coach
       allow update: if isAuthenticated() &&
         resource.data.recipientId == request.auth.uid &&
         resource.data.status in ['pending', 'counter_proposed'];
-
-      // Coaches can approve/reject proposals in pending_coach status
-      allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId) &&
-        resource.data.status == 'pending_coach';
 
       // Requester can delete their own proposal if still pending
       allow delete: if isAuthenticated() &&
