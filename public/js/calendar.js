@@ -215,20 +215,29 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                 const statusIcon = document.createElement('span');
                 statusIcon.className = 'text-xs';
 
-                // Check if player attended any session on this day
-                const attended = presentDatesSet.has(dateString);
-                const missed = missedDatesSet.has(dateString);
+                // Count how many sessions on this day the player attended
+                const attendedCount = sessionsOnDay.filter(session => {
+                    const attendance = filteredTrainings.find(t =>
+                        t.date === dateString &&
+                        t.sessionId === session.id &&
+                        t.presentPlayerIds &&
+                        t.presentPlayerIds.includes(currentUserData.id)
+                    );
+                    return attendance !== undefined;
+                }).length;
 
-                if (attended && !missed) {
-                    // Attended all sessions
+                const totalRelevantSessions = sessionsOnDay.length;
+
+                if (attendedCount === totalRelevantSessions && totalRelevantSessions > 0) {
+                    // Attended ALL sessions
                     statusIcon.textContent = '✓';
                     statusIcon.classList.add('text-green-600', 'font-bold');
-                } else if (missed && !attended) {
-                    // Missed all sessions
+                } else if (attendedCount === 0 && totalRelevantSessions > 0) {
+                    // Missed ALL sessions
                     statusIcon.textContent = '✗';
                     statusIcon.classList.add('text-red-600', 'font-bold');
-                } else if (attended && missed) {
-                    // Attended some, missed some
+                } else if (attendedCount > 0 && attendedCount < totalRelevantSessions) {
+                    // Attended SOME sessions (partial attendance)
                     statusIcon.textContent = '◐';
                     statusIcon.classList.add('text-orange-600', 'font-bold');
                 }
