@@ -405,6 +405,51 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">Punkte vergeben</h2>
+
+                        <!-- Anwesenheits-Punktesystem Regeln -->
+                        <div class="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 text-blue-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <h3 class="text-sm font-semibold text-blue-900 mb-2">📅 Anwesenheits-Punktesystem</h3>
+                                    <div class="text-xs text-blue-800 space-y-2">
+                                        <div>
+                                            <p class="font-semibold mb-1">Punkte pro Training (Saison & XP):</p>
+                                            <ul class="list-disc list-inside ml-2 space-y-0.5">
+                                                <li><strong>+3 Punkte:</strong> Normale Anwesenheit (1-2x Streak)</li>
+                                                <li><strong>+5 Punkte:</strong> Streak-Bonus (3-4x Streak) ⚡</li>
+                                                <li><strong>+6 Punkte:</strong> Super-Streak (5x+ Streak) 🔥</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold mb-1">Mehrfach-Training am selben Tag:</p>
+                                            <ul class="list-disc list-inside ml-2 space-y-0.5">
+                                                <li><strong>1. Training:</strong> Volle Punkte (3/5/6)</li>
+                                                <li><strong>2.+ Training:</strong> Halbe Punkte, aufgerundet (2/3/3)</li>
+                                            </ul>
+                                            <p class="mt-1 text-blue-700">
+                                                <em>Beispiel: Spieler besucht Basis-Training (16-17 Uhr) mit 5x Streak = 6 Punkte.
+                                                Dann Leistungs-Training (17-18 Uhr) am selben Tag = 3 Punkte (halbe Punkte).</em>
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold mb-1">System-Details:</p>
+                                            <ul class="list-disc list-inside ml-2 space-y-0.5">
+                                                <li>Datum wird in Historie angezeigt: "Training am DD.MM.YYYY - Untergruppe"</li>
+                                                <li>2. Training wird markiert: "(2. Training heute)"</li>
+                                                <li>Streak-Bonus wird angezeigt: "(⚡ 3x Streak)" oder "(🔥 5x Streak!)"</li>
+                                                <li>Bei abgesagtem Training werden Punkte automatisch korrigiert</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <form id="points-form" class="space-y-4">
                             <div>
                                 <label for="player-select" class="block text-sm font-medium text-gray-700">Spieler auswählen</label>
