@@ -590,25 +590,20 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
     try {
         const date = dayCell.dataset.date;
 
-        // NEW: Check for sessions on this day
+        // Check for sessions on this day
         const sessionsOnDay = monthlySessions.get(date) || [];
 
         if (sessionsOnDay.length === 0) {
-            // No sessions - show info and option to create one
+            // No sessions - directly show modal to create one
             isRenderingAttendance = false;
             if (window.openSpontaneousSessionModalFromCalendar) {
                 window.openSpontaneousSessionModalFromCalendar(date);
             } else {
-                alert('Keine Trainings an diesem Tag. Bitte erstelle zuerst ein Training im Trainingsplan-Tab.');
+                alert('Keine Trainings an diesem Tag. Bitte erstelle ein Training.');
             }
             return;
-        } else if (sessionsOnDay.length === 1) {
-            // Exactly one session - open attendance directly
-            const session = sessionsOnDay[0];
-            await openAttendanceModalForSession(session.id, date, clubPlayers, updateAttendanceCount, updatePairingsButtonState, db, clubId);
-            return;
         } else {
-            // Multiple sessions - open selection modal
+            // One or more sessions - show selection modal with option to add more
             isRenderingAttendance = false;
             if (window.openSessionSelectionModalFromCalendar) {
                 window.openSessionSelectionModalFromCalendar(date, sessionsOnDay);

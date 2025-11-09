@@ -33,7 +33,24 @@ let subgroups = [];
 let recurringTemplates = [];
 
 /**
- * Initialize the training schedule UI
+ * Initialize minimal functionality for spontaneous sessions only
+ * @param {Object} userData - Current user data
+ * @param {Object} firestoreInstance - Firestore database instance
+ */
+export function initializeSpontaneousSessions(userData, firestoreInstance) {
+    db = firestoreInstance;
+    initTrainingScheduleModule(firestoreInstance);
+    currentUserData = userData;
+
+    // Load subgroups for dropdown
+    loadSubgroups();
+
+    // Setup event listeners
+    setupEventListeners();
+}
+
+/**
+ * Initialize the training schedule UI (full version with recurring trainings)
  * @param {Object} userData - Current user data
  * @param {Object} firestoreInstance - Firestore database instance
  */
@@ -651,6 +668,15 @@ window.openSessionSelectionModalFromCalendar = async function(dateStr, sessions)
         `;
     });
 
+    // Add button to create another training on this day
+    html += `
+        <div class="mt-4 pt-4 border-t border-gray-300">
+            <button onclick="window.handleAddAnotherTrainingFromModal('${dateStr}')" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg">
+                <i class="fas fa-plus mr-2"></i>Weiteres Training hinzufügen
+            </button>
+        </div>
+    `;
+
     listContainer.innerHTML = html;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -666,6 +692,14 @@ window.handleSelectSessionForAttendance = async function(sessionId, dateStr) {
     if (typeof window.openAttendanceForSessionFromSchedule === 'function') {
         await window.openAttendanceForSessionFromSchedule(sessionId, dateStr);
     }
+};
+
+/**
+ * Handle adding another training from the session selection modal
+ */
+window.handleAddAnotherTrainingFromModal = function(dateStr) {
+    closeSessionSelectionModal();
+    window.openSpontaneousSessionModalFromCalendar(dateStr);
 };
 
 /**
