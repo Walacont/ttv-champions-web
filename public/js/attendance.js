@@ -119,6 +119,10 @@ export async function renderCalendar(date, db, currentUserData) {
 
         calendarGrid.appendChild(dayCell);
     }
+
+    // Return a no-op unsubscribe function for compatibility with coach.js
+    // (attendance.js doesn't use real-time listeners, so no cleanup needed)
+    return () => {};
 }
 
 /**

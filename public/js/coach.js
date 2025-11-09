@@ -288,12 +288,16 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
     document.getElementById('prev-month-btn').addEventListener('click', () => {
         currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
-        if (calendarUnsubscribe) calendarUnsubscribe();
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
     document.getElementById('next-month-btn').addEventListener('click', () => {
         currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
-        if (calendarUnsubscribe) calendarUnsubscribe();
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
     document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter), db, userData.clubId));
@@ -453,7 +457,9 @@ function handleSubgroupFilterChange(userData) {
     setLeaderboardSubgroupFilter(currentSubgroupFilter);
 
     // Reload calendar/attendance view
-    if (calendarUnsubscribe) calendarUnsubscribe();
+    if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+        calendarUnsubscribe();
+    }
     calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 
     // Reload leaderboards
