@@ -209,12 +209,14 @@ async function initializeCoachPage(userData) {
     loadCoachMatchRequests(userData, db);
     loadCoachProcessedRequests(userData, db);
 
-    let calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 
     // Listen for training cancellation events to reload calendar
     window.addEventListener('trainingCancelled', () => {
         console.log('[Coach] Training cancelled, reloading calendar...');
-        if (calendarUnsubscribe) calendarUnsubscribe();
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
 
