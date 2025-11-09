@@ -15,7 +15,9 @@ import {
     where,
     orderBy,
     Timestamp,
-    serverTimestamp
+    serverTimestamp,
+    writeBatch,
+    increment
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 // DB instance will be passed to functions instead of module-level initialization
@@ -284,12 +286,116 @@ export async function cancelTrainingSession(sessionId) {
  * @param {string} sessionId
  */
 export async function deleteTrainingSession(sessionId) {
-    // Also delete associated attendance if any
+    console.log(`[Delete Training] Deleting session ${sessionId} and correcting player points...`);
+
+    // Find associated attendance records
     const attendanceQuery = query(
         collection(db, 'attendance'),
         where('sessionId', '==', sessionId)
     );
     const attendanceSnapshot = await getDocs(attendanceQuery);
+
+    // For each attendance record, reverse the points awarded to players
+    for (const attendanceDoc of attendanceSnapshot.docs) {
+        const attendanceData = attendanceDoc.data();
+        const { presentPlayerIds, date, subgroupId } = attendanceData;
+
+        if (!presentPlayerIds || presentPlayerIds.length === 0) continue;
+
+        // Get subgroup name for history entries
+        let subgroupName = subgroupId;
+        try {
+            const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+            if (subgroupDoc.exists()) {
+                subgroupName = subgroupDoc.data().name;
+            }
+        } catch (error) {
+            console.error(`[Delete Training] Error loading subgroup ${subgroupId}:`, error);
+        }
+
+        const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+
+        console.log(`[Delete Training] Correcting points for ${presentPlayerIds.length} players on ${date}`);
+
+        // Use a batch for atomic updates
+        const batch = writeBatch(db);
+
+        // For each player who attended, find and reverse their points
+        for (const playerId of presentPlayerIds) {
+            try {
+                // Find the original points awarded for this training
+                const pointsHistoryQuery = query(
+                    collection(db, `users/${playerId}/pointsHistory`),
+                    where('date', '==', date),
+                    where('subgroupId', '==', subgroupId),
+                    where('awardedBy', '==', 'System (Anwesenheit)')
+                );
+
+                const historySnapshot = await getDocs(pointsHistoryQuery);
+
+                // Find the specific history entry for this training
+                // There might be multiple entries if player attended multiple trainings
+                const historyEntry = historySnapshot.docs.find(doc => {
+                    const data = doc.data();
+                    // Match by date and subgroup, and it should be a positive entry (not a correction)
+                    return data.points > 0 && data.reason && !data.reason.includes('korrigiert');
+                });
+
+                if (historyEntry) {
+                    const historyData = historyEntry.data();
+                    const pointsToDeduct = historyData.points || 0;
+                    const xpToDeduct = historyData.xp || 0;
+
+                    console.log(`[Delete Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`);
+
+                    // Deduct points and XP from player
+                    const playerRef = doc(db, 'users', playerId);
+                    batch.update(playerRef, {
+                        points: increment(-pointsToDeduct),
+                        xp: increment(-xpToDeduct)
+                    });
+
+                    // Create negative entry in points history
+                    const correctionHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                    batch.set(correctionHistoryRef, {
+                        points: -pointsToDeduct,
+                        xp: -xpToDeduct,
+                        eloChange: 0,
+                        reason: `Training gelöscht am ${formattedDate} (${pointsToDeduct} Punkte zurückgegeben) - ${subgroupName}`,
+                        date: date,
+                        subgroupId: subgroupId,
+                        timestamp: serverTimestamp(),
+                        awardedBy: 'System (Training gelöscht)'
+                    });
+
+                    // Create negative entry in XP history
+                    const correctionXpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
+                    batch.set(correctionXpHistoryRef, {
+                        xp: -xpToDeduct,
+                        reason: `Training gelöscht am ${formattedDate} (${xpToDeduct} XP zurückgegeben) - ${subgroupName}`,
+                        date: date,
+                        subgroupId: subgroupId,
+                        timestamp: serverTimestamp(),
+                        awardedBy: 'System (Training gelöscht)'
+                    });
+
+                    // Delete the original history entry
+                    batch.delete(historyEntry.ref);
+                } else {
+                    console.warn(`[Delete Training] No points history found for player ${playerId} on ${date}`);
+                }
+            } catch (error) {
+                console.error(`[Delete Training] Error processing player ${playerId}:`, error);
+            }
+        }
+
+        // Commit all player updates
+        await batch.commit();
+    }
 
     // Delete all attendance records
     const deletePromises = attendanceSnapshot.docs.map(doc => deleteDoc(doc.ref));
@@ -298,6 +404,8 @@ export async function deleteTrainingSession(sessionId) {
     // Delete the session
     const docRef = doc(db, 'trainingSessions', sessionId);
     await deleteDoc(docRef);
+
+    console.log(`[Delete Training] Session ${sessionId} deleted successfully`);
 }
 
 /**
