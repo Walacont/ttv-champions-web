@@ -844,7 +844,18 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
     // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
     // We need to distinguish between different training sessions on the same day
-    const previouslyPresentIdsOnThisDay = attendanceData ? attendanceData.presentPlayerIds : [];
+    let previouslyPresentIdsOnThisDay = [];
+    if (docId) {
+        // If docId exists, load the previous attendance data for this session
+        try {
+            const attendanceDoc = await getDoc(doc(db, 'attendance', docId));
+            if (attendanceDoc.exists()) {
+                previouslyPresentIdsOnThisDay = attendanceDoc.data().presentPlayerIds || [];
+            }
+        } catch (error) {
+            console.error('[Attendance Save] Error loading previous attendance:', error);
+        }
+    }
 
     console.log(`[Attendance Save] Session ${sessionId}, Date: ${date}`);
     console.log(`  - Previously present in THIS session: ${previouslyPresentIdsOnThisDay.length} players`);
