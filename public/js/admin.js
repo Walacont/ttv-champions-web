@@ -6,6 +6,7 @@ import { getStorage, ref, deleteObject, uploadBytes, getDownloadURL, connectStor
 import { getFunctions, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
+import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -71,6 +72,8 @@ const closeEditExerciseModalButton = document.getElementById('close-edit-exercis
 
 let genderChartInstance = null;
 let attendanceChartInstance = null;
+let descriptionEditor = null;
+let editDescriptionEditor = null;
 
 function showAuthError(message) {
     pageLoader.style.display = 'none';
@@ -114,6 +117,19 @@ function initializeAdminPage(userData, user) {
         inviteCoachForm.addEventListener('submit', handleInviteCoach);
         copyLinkButton.addEventListener('click', copyInviteLink);
         createExerciseForm.addEventListener('submit', handleCreateExercise);
+
+        // Initialize description editors
+        descriptionEditor = setupDescriptionEditor({
+            textAreaId: 'exercise-description',
+            toggleContainerId: 'description-toggle-container',
+            tableEditorContainerId: 'description-table-editor'
+        });
+
+        editDescriptionEditor = setupDescriptionEditor({
+            textAreaId: 'edit-exercise-description',
+            toggleContainerId: 'edit-description-toggle-container',
+            tableEditorContainerId: 'edit-description-table-editor'
+        });
 
         // Modal Listeners
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
@@ -213,11 +229,28 @@ function copyInviteLink() {
 }
 
 function openExerciseModal(dataset) {
-    const { id, title, description, imageUrl, points, tags } = dataset;
+    const { id, title, descriptionContent, imageUrl, points, tags } = dataset;
     modalExerciseTitle.textContent = title;
     modalExerciseImage.src = imageUrl;
-    modalExerciseDescription.textContent = description;
-    modalExerciseDescription.style.whiteSpace = 'pre-wrap'; // Stellt Zeilenumbrüche sicher dar
+
+    // Render description content
+    let descriptionData;
+    try {
+        descriptionData = JSON.parse(descriptionContent);
+    } catch (e) {
+        // Fallback for old format
+        descriptionData = { type: 'text', text: descriptionContent || '' };
+    }
+
+    if (descriptionData.type === 'table') {
+        const tableHtml = renderTableForDisplay(descriptionData.tableData);
+        const additionalText = descriptionData.additionalText || '';
+        modalExerciseDescription.innerHTML = tableHtml + (additionalText ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>` : '');
+    } else {
+        modalExerciseDescription.textContent = descriptionData.text || '';
+        modalExerciseDescription.style.whiteSpace = 'pre-wrap';
+    }
+
     modalExercisePoints.textContent = `+${points} P.`;
 
     // Set data for both buttons
@@ -225,7 +258,7 @@ function openExerciseModal(dataset) {
     modalDeleteExerciseButton.dataset.imageUrl = imageUrl;
     modalEditExerciseButton.dataset.id = id;
     modalEditExerciseButton.dataset.title = title;
-    modalEditExerciseButton.dataset.description = description;
+    modalEditExerciseButton.dataset.descriptionContent = descriptionContent;
     modalEditExerciseButton.dataset.points = points;
     modalEditExerciseButton.dataset.tags = tags;
 
@@ -236,20 +269,35 @@ function openExerciseModal(dataset) {
     } else {
         tagsContainer.innerHTML = '';
     }
-    
+
     exerciseModal.classList.remove('hidden');
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function openEditExerciseModal(dataset) {
-    const { id, title, description, points, tags } = dataset;
-    
+    const { id, title, descriptionContent, points, tags } = dataset;
+
     // Populate form fields
     document.getElementById('edit-exercise-id').value = id;
     document.getElementById('edit-exercise-title').value = title;
-    document.getElementById('edit-exercise-description').value = description;
     document.getElementById('edit-exercise-points').value = points;
     const tagsArray = JSON.parse(tags || '[]');
     document.getElementById('edit-exercise-tags').value = tagsArray.join(', ');
+
+    // Load description content into editor
+    let descriptionData;
+    try {
+        descriptionData = JSON.parse(descriptionContent);
+    } catch (e) {
+        // Fallback for old format
+        descriptionData = { type: 'text', text: descriptionContent || '' };
+    }
+    editDescriptionEditor.setContent(descriptionData);
 
     // Show the edit modal and hide the view modal
     exerciseModal.classList.add('hidden');
@@ -260,10 +308,12 @@ async function handleUpdateExercise(e) {
     e.preventDefault();
     const feedbackEl = document.getElementById('edit-exercise-feedback');
     const exerciseId = document.getElementById('edit-exercise-id').value;
-    
+
+    const descriptionContent = editDescriptionEditor.getContent();
+
     const updatedData = {
         title: document.getElementById('edit-exercise-title').value,
-        description: document.getElementById('edit-exercise-description').value,
+        descriptionContent: JSON.stringify(descriptionContent),
         points: parseInt(document.getElementById('edit-exercise-points').value),
         tags: document.getElementById('edit-exercise-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
     };
@@ -277,7 +327,7 @@ async function handleUpdateExercise(e) {
     try {
         const exerciseRef = doc(db, 'exercises', exerciseId);
         await updateDoc(exerciseRef, updatedData);
-        
+
         feedbackEl.textContent = 'Erfolgreich gespeichert!';
         feedbackEl.className = 'mt-2 text-sm text-center text-green-600';
 
@@ -430,11 +480,11 @@ async function handleCreateExercise(e) {
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
     const title = document.getElementById('exercise-title').value;
-    const description = document.getElementById('exercise-description').value;
+    const descriptionContent = descriptionEditor.getContent();
     const points = parseInt(document.getElementById('exercise-points').value);
     const file = document.getElementById('exercise-image').files[0];
     const tagsInput = document.getElementById('exercise-tags').value;
-    const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag); 
+    const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
 
     feedbackEl.textContent = '';
     submitBtn.disabled = true;
@@ -454,12 +504,18 @@ async function handleCreateExercise(e) {
         const imageUrl = await getDownloadURL(snapshot.ref);
 
         await addDoc(collection(db, "exercises"), {
-            title, description, points, imageUrl, createdAt: serverTimestamp(), tags
+            title,
+            descriptionContent: JSON.stringify(descriptionContent),
+            points,
+            imageUrl,
+            createdAt: serverTimestamp(),
+            tags
         });
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         createExerciseForm.reset();
+        descriptionEditor.clear();
 
     } catch (error) {
         console.error("Fehler beim Erstellen der Übung:", error);
@@ -485,7 +541,16 @@ function loadAllExercises() {
             card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
             card.dataset.id = exercise.id;
             card.dataset.title = exercise.title;
-            card.dataset.description = exercise.description || '';
+            // Support both old and new format
+            if (exercise.descriptionContent) {
+                card.dataset.descriptionContent = exercise.descriptionContent;
+            } else {
+                // Backwards compatibility: convert old description to new format
+                card.dataset.descriptionContent = JSON.stringify({
+                    type: 'text',
+                    text: exercise.description || ''
+                });
+            }
             card.dataset.imageUrl = exercise.imageUrl;
             card.dataset.points = exercise.points;
             card.dataset.tags = JSON.stringify(exercise.tags || []);

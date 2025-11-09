@@ -1,5 +1,6 @@
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+import { renderTableForDisplay } from './tableEditor.js';
 
 /**
  * Exercises Module
@@ -32,7 +33,16 @@ export function loadExercises(db, unsubscribes) {
             const card = document.createElement('div');
             card.className = 'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300';
             card.dataset.title = exercise.title;
-            card.dataset.description = exercise.description || '';
+            // Support both old and new format
+            if (exercise.descriptionContent) {
+                card.dataset.descriptionContent = exercise.descriptionContent;
+            } else {
+                // Backwards compatibility: convert old description to new format
+                card.dataset.descriptionContent = JSON.stringify({
+                    type: 'text',
+                    text: exercise.description || ''
+                });
+            }
             card.dataset.imageUrl = exercise.imageUrl;
             card.dataset.points = exercise.points;
             card.dataset.tags = JSON.stringify(exercise.tags || []);
@@ -272,7 +282,16 @@ function renderCoachExercises(exercises, filterTag) {
         card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
         card.dataset.id = exercise.id;
         card.dataset.title = exercise.title;
-        card.dataset.description = exercise.description || '';
+        // Support both old and new format
+        if (exercise.descriptionContent) {
+            card.dataset.descriptionContent = exercise.descriptionContent;
+        } else {
+            // Backwards compatibility: convert old description to new format
+            card.dataset.descriptionContent = JSON.stringify({
+                type: 'text',
+                text: exercise.description || ''
+            });
+        }
         card.dataset.imageUrl = exercise.imageUrl;
         card.dataset.points = exercise.points;
         card.dataset.tags = JSON.stringify(exercise.tags || []);
@@ -328,27 +347,46 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { title, description, imageUrl, points, tags } = card.dataset;
-        openExerciseModal(title, description, imageUrl, points, tags);
+        const { title, descriptionContent, imageUrl, points, tags } = card.dataset;
+        openExerciseModal(title, descriptionContent, imageUrl, points, tags);
     }
 }
 
 /**
  * Opens the exercise modal with exercise details
  * @param {string} title - Exercise title
- * @param {string} description - Exercise description
+ * @param {string} descriptionContent - Exercise description content (JSON string)
  * @param {string} imageUrl - Exercise image URL
  * @param {string} points - Exercise points
  * @param {string} tags - Exercise tags (JSON string)
  */
-export function openExerciseModal(title, description, imageUrl, points, tags) {
+export function openExerciseModal(title, descriptionContent, imageUrl, points, tags) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
 
     document.getElementById('modal-exercise-title').textContent = title;
     document.getElementById('modal-exercise-image').src = imageUrl;
     document.getElementById('modal-exercise-image').alt = title;
-    document.getElementById('modal-exercise-description').textContent = description;
+
+    // Render description content
+    const modalDescription = document.getElementById('modal-exercise-description');
+    let descriptionData;
+    try {
+        descriptionData = JSON.parse(descriptionContent);
+    } catch (e) {
+        // Fallback for old format
+        descriptionData = { type: 'text', text: descriptionContent || '' };
+    }
+
+    if (descriptionData.type === 'table') {
+        const tableHtml = renderTableForDisplay(descriptionData.tableData);
+        const additionalText = descriptionData.additionalText || '';
+        modalDescription.innerHTML = tableHtml + (additionalText ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>` : '');
+    } else {
+        modalDescription.textContent = descriptionData.text || '';
+        modalDescription.style.whiteSpace = 'pre-wrap';
+    }
+
     document.getElementById('modal-exercise-points').textContent = `+${points} P.`;
 
     const tagsContainer = document.getElementById('modal-exercise-tags');
@@ -362,13 +400,19 @@ export function openExerciseModal(title, description, imageUrl, points, tags) {
     modal.classList.remove('hidden');
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 /**
  * Opens the exercise modal from dataset (for coach)
  * @param {Object} dataset - Dataset object containing exercise details
  */
 export function openExerciseModalFromDataset(dataset) {
-    const { title, description, imageUrl, points, tags } = dataset;
-    openExerciseModal(title, description, imageUrl, points, tags);
+    const { title, descriptionContent, imageUrl, points, tags } = dataset;
+    openExerciseModal(title, descriptionContent, imageUrl, points, tags);
 }
 
 /**
@@ -453,19 +497,28 @@ export function setupExercisePointsCalculation() {
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} storage - Firebase storage instance
+ * @param {Object} descriptionEditor - Description editor instance (optional)
  */
-export async function handleCreateExercise(e, db, storage) {
+export async function handleCreateExercise(e, db, storage, descriptionEditor = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
     const title = document.getElementById('exercise-title-form').value;
-    const description = document.getElementById('exercise-description-form').value;
     const level = document.getElementById('exercise-level-form').value;
     const difficulty = document.getElementById('exercise-difficulty-form').value;
     const points = parseInt(document.getElementById('exercise-points-form').value);
     const file = document.getElementById('exercise-image-form').files[0];
     const tagsInput = document.getElementById('exercise-tags-form').value;
     const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+    // Get description content from editor or fallback to textarea
+    let descriptionContent;
+    if (descriptionEditor) {
+        descriptionContent = descriptionEditor.getContent();
+    } else {
+        const description = document.getElementById('exercise-description-form').value;
+        descriptionContent = { type: 'text', text: description };
+    }
 
     feedbackEl.textContent = '';
     submitBtn.disabled = true;
@@ -485,7 +538,7 @@ export async function handleCreateExercise(e, db, storage) {
         const imageUrl = await getDownloadURL(snapshot.ref);
         await addDoc(collection(db, "exercises"), {
             title,
-            description,
+            descriptionContent: JSON.stringify(descriptionContent),
             level,          // NEW: Store level
             difficulty,     // NEW: Store difficulty
             points,
@@ -498,6 +551,10 @@ export async function handleCreateExercise(e, db, storage) {
         e.target.reset();
         // Reset points field
         document.getElementById('exercise-points-form').value = '';
+        // Clear description editor
+        if (descriptionEditor) {
+            descriptionEditor.clear();
+        }
     } catch (error) {
         console.error("Fehler beim Erstellen der Übung:", error);
         feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';

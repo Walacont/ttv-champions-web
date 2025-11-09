@@ -9,6 +9,7 @@ import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLe
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
+import { setupDescriptionEditor } from './tableEditor.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
@@ -44,7 +45,8 @@ let unsubscribePointsHistory = null;
 let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
-let currentSubgroupFilter = 'all'; 
+let currentSubgroupFilter = 'all';
+let descriptionEditorCoach = null; 
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -225,11 +227,20 @@ async function initializeCoachPage(userData) {
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
     document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
-    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
+    document.getElementById('create-exercise-form').addEventListener('submit', (e) => {
+        handleCreateExercise(e, db, storage, descriptionEditorCoach);
+    });
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
 
     // Setup exercise points auto-calculation (based on level + difficulty)
     setupExercisePointsCalculation();
+
+    // Setup description editor for exercises
+    descriptionEditorCoach = setupDescriptionEditor({
+        textAreaId: 'exercise-description-form',
+        toggleContainerId: 'description-toggle-container-coach',
+        tableEditorContainerId: 'description-table-editor-coach'
+    });
 
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
