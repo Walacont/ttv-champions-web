@@ -322,17 +322,39 @@
                             <div class="space-y-4">
                                 <details class="group">
                                     <summary class="flex justify-between items-center cursor-pointer">
-                                        <span class="font-medium">Was ist ein "Streak" und wie funktioniert Anwesenheit?</span>
+                                        <span class="font-medium">📅 Wie funktioniert das Anwesenheits-Punktesystem?</span>
                                         <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                     </summary>
-                                    <div class="mt-2 text-gray-700">
-                                        <p>Ein "Streak" ist eine Serie. Wenn du mehrmals hintereinander am Training teilnimmst, baust du eine Anwesenheits-Serie auf und erhältst Bonuspunkte:</p>
-                                        <ul class="list-disc list-inside mt-2 space-y-1">
-                                            <li><strong>Normale Anwesenheit (1-2x in Folge):</strong> <strong>+3 Punkte</strong> (Saison & XP)</li>
-                                            <li><strong>Guter Streak (3-4x in Folge):</strong> <strong>+5 Punkte</strong> (Saison & XP)</li>
-                                            <li><strong>Starker Streak (5x oder mehr in Folge):</strong> <strong>+6 Punkte</strong> (Saison & XP)</li>
-                                        </ul>
-                                        <p class="mt-2">Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt. Regelmäßiges Training lohnt sich also!</p>
+                                    <div class="mt-2 text-gray-700 space-y-3">
+                                        <div>
+                                            <p class="font-semibold mb-1">Punkte pro Training (Saison & XP):</p>
+                                            <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
+                                                <li><strong>+3 Punkte:</strong> Normale Anwesenheit (1-2x Streak)</li>
+                                                <li><strong>+5 Punkte:</strong> Streak-Bonus (3-4x Streak) ⚡</li>
+                                                <li><strong>+6 Punkte:</strong> Super-Streak (5x+ Streak) 🔥</li>
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold mb-1">Mehrfach-Training am selben Tag:</p>
+                                            <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
+                                                <li><strong>1. Training:</strong> Volle Punkte (3/5/6)</li>
+                                                <li><strong>2.+ Training:</strong> Halbe Punkte, aufgerundet (2/3/3)</li>
+                                            </ul>
+                                            <p class="mt-2 text-sm italic text-gray-600">
+                                                Beispiel: Spieler besucht Basis-Training (16-17 Uhr) mit 5x Streak = 6 Punkte.
+                                                Dann Leistungs-Training (17-18 Uhr) am selben Tag = 3 Punkte (halbe Punkte).
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold mb-1">System-Details:</p>
+                                            <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
+                                                <li>Datum wird in Historie angezeigt: "Training am DD.MM.YYYY - Untergruppe"</li>
+                                                <li>2. Training wird markiert: "(2. Training heute)"</li>
+                                                <li>Streak-Bonus wird angezeigt: "(⚡ 3x Streak)" oder "(🔥 5x Streak!)"</li>
+                                                <li>Bei abgesagtem Training werden Punkte automatisch korrigiert</li>
+                                            </ul>
+                                        </div>
+                                        <p class="mt-2"><strong>⚠️ Wichtig:</strong> Wenn ein Training verpasst wird, wird der Streak auf Null zurückgesetzt. Regelmäßiges Training lohnt sich!</p>
                                     </div>
                                 </details>
 
@@ -1310,6 +1332,22 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Untergruppen zuweisen</label>
                     <div id="player-subgroups-checkboxes" class="space-y-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
                         <p class="text-xs text-gray-500">Lade Gruppen...</p>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-200 pt-4 mt-4">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="is-match-ready-checkbox" type="checkbox" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="is-match-ready-checkbox" class="font-medium text-gray-700">
+                                Bereits wettkampfsbereit
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Spieler hat bereits Erfahrung und kann sofort Matches spielen (überspringt Grundlagen-Übungen)
+                            </p>
+                        </div>
                     </div>
                 </div>
 

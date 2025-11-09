@@ -119,6 +119,10 @@ export async function renderCalendar(date, db, currentUserData) {
 
         calendarGrid.appendChild(dayCell);
     }
+
+    // Return a no-op unsubscribe function for compatibility with coach.js
+    // (attendance.js doesn't use real-time listeners, so no cleanup needed)
+    return () => {};
 }
 
 /**
@@ -944,15 +948,38 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     );
                     const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
 
-                    // IMPORTANT: Exclude the CURRENT session from the count!
-                    // Otherwise it finds itself and thinks it's the 2nd training
-                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(
-                        doc => doc.id !== docId  // Exclude current attendance document
-                    ).length;
+                    // IMPORTANT: Exclude the CURRENT session/document from the count!
+                    // We need to filter out both:
+                    // 1. The current sessionId (to exclude this session)
+                    // 2. The current docId (if editing an existing document, to exclude this specific record)
+                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(docSnapshot => {
+                        const docData = docSnapshot.data();
+
+                        // Only count documents that have a sessionId
+                        // This prevents old documents without sessionId from being counted
+                        if (!docData.sessionId) {
+                            console.warn(`[Attendance Save] Found attendance document without sessionId: ${docSnapshot.id}`);
+                            return false; // Skip documents without sessionId
+                        }
+
+                        // Exclude if it's the same session
+                        if (docData.sessionId === sessionId) {
+                            return false;
+                        }
+
+                        // ALSO exclude if it's the current document being edited
+                        // This handles the case where we're updating an existing attendance record
+                        if (docId && docSnapshot.id === docId) {
+                            return false;
+                        }
+
+                        return true;
+                    }).length;
                     const alreadyAttendedToday = otherTrainingsCount > 0;
 
                     console.log(`[Attendance Save] Player ${player.firstName} ${player.lastName}:`);
-                    console.log(`  - Date: ${date}`);
+                    console.log(`  - Date: ${date}, SessionId: ${sessionId}`);
+                    console.log(`  - DocId: ${docId || '(new document)'}`);
                     console.log(`  - Total trainings today (including current): ${otherTrainingsTodaySnapshot.size}`);
                     console.log(`  - Other trainings today (excluding current): ${otherTrainingsCount}`);
                     console.log(`  - Already attended OTHER training today: ${alreadyAttendedToday}`);

@@ -92,17 +92,41 @@
                 <div class="space-y-4">
                     <details class="group">
                         <summary class="flex justify-between items-center cursor-pointer">
-                            <span class="font-medium">Was ist ein "Streak" und wie funktioniert Anwesenheit?</span>
+                            <span class="font-medium">Wie funktioniert das Anwesenheits-Punktesystem?</span>
                             <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                         </summary>
                         <div class="mt-2 text-gray-700">
-                            <p>Ein "Streak" ist eine Serie. Wenn du mehrmals hintereinander am Training teilnimmst, baust du eine Anwesenheits-Serie auf und erhältst Bonuspunkte:</p>
-                            <ul class="list-disc list-inside mt-2 space-y-1">
-                                <li><strong>Normale Anwesenheit (1-2x in Folge):</strong> <strong>+3 Punkte</strong> (Saison & XP)</li>
-                                <li><strong>Guter Streak (3-4x in Folge):</strong> <strong>+5 Punkte</strong> (Saison & XP)</li>
-                                <li><strong>Starker Streak (5x oder mehr in Folge):</strong> <strong>+6 Punkte</strong> (Saison & XP)</li>
+                            <p class="mb-3"><strong>📅 Punkte für Training-Teilnahme:</strong></p>
+                            <p>Für jedes Training erhältst du Punkte (Saison & XP). Die Höhe hängt von deinem "Streak" ab – einer Serie von aufeinanderfolgenden Trainings:</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1 mb-3">
+                                <li><strong>Normale Anwesenheit (1-2x in Folge):</strong> <strong>+3 Punkte</strong></li>
+                                <li><strong>Streak-Bonus (3-4x in Folge):</strong> <strong>+5 Punkte</strong> ⚡</li>
+                                <li><strong>Super-Streak (5x oder mehr):</strong> <strong>+6 Punkte</strong> 🔥</li>
                             </ul>
-                            <p class="mt-2">Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt. Regelmäßiges Training lohnt sich also!</p>
+
+                            <p class="mt-3 mb-3"><strong>🎯 Mehrfach-Training am selben Tag:</strong></p>
+                            <p>Wenn du an <strong>mehreren Trainings am selben Tag</strong> teilnimmst (z.B. Basis-Training 16-17 Uhr und Leistungs-Training 17-18 Uhr), gilt:</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1 mb-3">
+                                <li><strong>1. Training des Tages:</strong> Volle Punkte (3/5/6 je nach Streak)</li>
+                                <li><strong>2. Training des Tages:</strong> Halbe Punkte (aufgerundet)
+                                    <ul class="list-circle list-inside ml-6 mt-1 space-y-1 text-sm">
+                                        <li>3 Punkte → 2 Punkte (1.5 aufgerundet)</li>
+                                        <li>5 Punkte → 3 Punkte (2.5 aufgerundet)</li>
+                                        <li>6 Punkte → 3 Punkte</li>
+                                    </ul>
+                                </li>
+                            </ul>
+
+                            <p class="mt-3 mb-2"><strong>📊 Punkte-Historie:</strong></p>
+                            <p class="text-sm">In deiner Historie siehst du genau, wann du welche Punkte erhalten hast:</p>
+                            <ul class="list-none mt-2 space-y-1 text-sm bg-gray-50 p-2 rounded">
+                                <li>✓ "Training am 09.11.2025 - Basistraining"</li>
+                                <li>✓ "Training am 10.11.2025 - Leistungstraining (⚡ 3x Streak)"</li>
+                                <li>✓ "Training am 11.11.2025 - Techniktraining (🔥 5x Streak!)"</li>
+                                <li>✓ "Training am 11.11.2025 - Basistraining (2. Training heute)"</li>
+                            </ul>
+
+                            <p class="mt-3"><strong>⚠️ Wichtig:</strong> Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt. Regelmäßiges Training lohnt sich!</p>
                         </div>
                     </details>
 

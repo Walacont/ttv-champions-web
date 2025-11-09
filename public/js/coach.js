@@ -45,7 +45,8 @@ let unsubscribePointsHistory = null;
 let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
-let currentSubgroupFilter = 'all'; 
+let currentSubgroupFilter = 'all';
+let calendarUnsubscribe = null; 
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -208,7 +209,16 @@ async function initializeCoachPage(userData) {
     loadCoachMatchRequests(userData, db);
     loadCoachProcessedRequests(userData, db);
 
-    renderCalendar(currentCalendarDate, db, userData);
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+
+    // Listen for training cancellation events to reload calendar
+    window.addEventListener('trainingCancelled', () => {
+        console.log('[Coach] Training cancelled, reloading calendar...');
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    });
 
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
@@ -239,6 +249,8 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-add-player-modal-button').addEventListener('click', () => {
         document.getElementById('add-offline-player-modal').classList.add('hidden');
         document.getElementById('add-offline-player-modal').classList.remove('flex');
+        // Reset form to clear all inputs including checkboxes
+        document.getElementById('add-offline-player-form').reset();
     });
     
     // Edit Player Modal Listeners
@@ -276,8 +288,20 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
-    document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
-    document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
+    document.getElementById('prev-month-btn').addEventListener('click', () => {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    });
+    document.getElementById('next-month-btn').addEventListener('click', () => {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    });
     document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter), db, userData.clubId));
 
     // Event delegation for attendance checkboxes - listen on the container
@@ -435,7 +459,10 @@ function handleSubgroupFilterChange(userData) {
     setLeaderboardSubgroupFilter(currentSubgroupFilter);
 
     // Reload calendar/attendance view
-    renderCalendar(currentCalendarDate, db, userData);
+    if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+        calendarUnsubscribe();
+    }
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 
     // Reload leaderboards
     loadLeaderboard(userData, db, []);
