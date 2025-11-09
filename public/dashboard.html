@@ -300,9 +300,132 @@
 
             <div id="tab-content-matches" class="tab-content hidden">
                 <div class="space-y-8">
+                    <!-- Match Suggestions -->
+                    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 p-6 rounded-xl shadow-md max-w-3xl mx-auto border-2 border-indigo-200">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">⭐ Match-Vorschläge für dich</h2>
+                        <p class="text-sm text-gray-600 mb-4">Spieler, gegen die du noch nie oder lange nicht gespielt hast</p>
+                        <div id="match-suggestions-list" class="space-y-3">
+                            <p class="text-gray-500 text-center py-4">Lade Vorschläge...</p>
+                        </div>
+                    </div>
+
+                    <!-- Match Proposal Form -->
+                    <div id="match-proposal-section" class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">📅 Match anfragen</h2>
+                        <p class="text-sm text-gray-600 mb-6">Vereinbare ein Match mit einem Spieler aus deinem Verein</p>
+                        <form id="match-proposal-form" class="space-y-6">
+                            <!-- Player Search -->
+                            <div>
+                                <label for="proposal-player-search" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Spieler suchen
+                                </label>
+                                <input
+                                    type="text"
+                                    id="proposal-player-search"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Name eingeben..."
+                                    autocomplete="off"
+                                />
+                                <div id="proposal-player-list" class="hidden mt-2 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                    <!-- Search results will appear here -->
+                                </div>
+                            </div>
+
+                            <!-- Selected Player Display -->
+                            <div id="selected-proposal-player"></div>
+
+                            <!-- Date & Time -->
+                            <div>
+                                <label for="proposal-datetime" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-calendar mr-1 text-indigo-500"></i> Wunsch-Zeit (optional)
+                                </label>
+                                <input
+                                    type="datetime-local"
+                                    id="proposal-datetime"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                />
+                            </div>
+
+                            <!-- Location -->
+                            <div>
+                                <label for="proposal-location" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-map-marker-alt mr-1 text-indigo-500"></i> Ort (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    id="proposal-location"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="z.B. Vereinshalle, Halle 2"
+                                />
+                            </div>
+
+                            <!-- Phone Number -->
+                            <div>
+                                <label for="proposal-phone" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-phone mr-1 text-indigo-500"></i> Telefonnummer (optional)
+                                </label>
+                                <input
+                                    type="tel"
+                                    id="proposal-phone"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="z.B. 0123 456789"
+                                />
+                            </div>
+
+                            <!-- Message -->
+                            <div>
+                                <label for="proposal-message" class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-comment mr-1 text-indigo-500"></i> Nachricht (optional)
+                                </label>
+                                <textarea
+                                    id="proposal-message"
+                                    rows="3"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="z.B. Hast du Zeit für ein Match am Wochenende?"
+                                ></textarea>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="flex gap-3">
+                                <button
+                                    type="submit"
+                                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition shadow-md"
+                                >
+                                    <i class="fas fa-paper-plane mr-2"></i> Anfrage senden
+                                </button>
+                            </div>
+
+                            <!-- Feedback -->
+                            <div id="match-proposal-feedback" class="hidden"></div>
+                        </form>
+                    </div>
+
+                    <!-- Sent Proposals -->
+                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📤 Gesendete Match-Anfragen</h2>
+                        <div id="sent-proposals-list" class="space-y-4">
+                            <p class="text-gray-500 text-center py-4">Keine gesendeten Anfragen</p>
+                        </div>
+                    </div>
+
+                    <!-- Received Proposals -->
+                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-semibold text-gray-800">📥 Empfangene Match-Anfragen</h2>
+                            <span id="match-proposal-badge" class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                        </div>
+                        <div id="received-proposals-list" class="space-y-4">
+                            <p class="text-gray-500 text-center py-4">Keine empfangenen Anfragen</p>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="border-t-4 border-gray-300 my-8 max-w-3xl mx-auto"></div>
+
                     <!-- Match Request Form -->
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-6">🏓 Wettkampf melden</h2>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">🏓 Wettkampf melden</h2>
+                        <p class="text-sm text-gray-600 mb-6">Für bereits gespielte Matches</p>
                         <form id="match-request-form" class="space-y-6">
                             <!-- Opponent Selection -->
                             <div>
@@ -470,6 +593,61 @@
             <div id="training-day-modal-content" class="space-y-3">
                 <!-- Content will be dynamically populated -->
             </div>
+        </div>
+    </div>
+
+    <!-- Counter Proposal Modal -->
+    <div id="counter-proposal-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Gegenvorschlag machen</h3>
+                <button id="close-counter-proposal-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mb-4">
+                Gegenvorschlag für Match mit <strong id="counter-proposal-opponent-name"></strong>
+            </p>
+            <form id="counter-proposal-form" class="space-y-4">
+                <div>
+                    <label for="counter-proposal-datetime" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-calendar mr-1 text-indigo-500"></i> Alternative Zeit
+                    </label>
+                    <input
+                        type="datetime-local"
+                        id="counter-proposal-datetime"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                    />
+                </div>
+
+                <div>
+                    <label for="counter-proposal-location" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-map-marker-alt mr-1 text-indigo-500"></i> Alternativer Ort
+                    </label>
+                    <input
+                        type="text"
+                        id="counter-proposal-location"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                        placeholder="z.B. Vereinshalle, Halle 2"
+                    />
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button
+                        type="submit"
+                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition"
+                    >
+                        <i class="fas fa-reply mr-2"></i> Senden
+                    </button>
+                    <button
+                        type="button"
+                        id="cancel-counter-proposal"
+                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition"
+                    >
+                        Abbrechen
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

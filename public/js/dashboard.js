@@ -12,6 +12,7 @@ import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 import { handleSeasonReset } from './season.js';
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
+import { initializeMatchProposalForm, loadMatchProposals, loadMatchSuggestions } from './match-proposals.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -127,6 +128,11 @@ async function initializeDashboard(userData) {
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);
 
+    // Initialize match proposals functionality
+    initializeMatchProposalForm(userData, db);
+    loadMatchProposals(userData, db, unsubscribes);
+    loadMatchSuggestions(userData, db);
+
     // Start season countdown timer
     updateSeasonCountdown('season-countdown', true);
     setInterval(() => updateSeasonCountdown('season-countdown', true), 1000);
@@ -174,6 +180,14 @@ async function initializeDashboard(userData) {
         }
     });
     document.getElementById('close-challenge-modal').addEventListener('click', () => document.getElementById('challenge-modal').classList.add('hidden'));
+
+    // Counter-proposal modal close handlers
+    const closeCounterProposal = () => document.getElementById('counter-proposal-modal').classList.add('hidden');
+    document.getElementById('close-counter-proposal-modal').addEventListener('click', closeCounterProposal);
+    document.getElementById('cancel-counter-proposal').addEventListener('click', closeCounterProposal);
+    document.getElementById('counter-proposal-modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('counter-proposal-modal')) closeCounterProposal();
+    });
 
     // Calendar listeners with proper listener management
     document.getElementById('prev-month').addEventListener('click', () => {

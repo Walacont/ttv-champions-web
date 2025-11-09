@@ -208,6 +208,48 @@ service cloud.firestore {
          resource.data.approvals.playerB.status == null);
     }
 
+    // Match Proposals collection (Future match planning)
+    match /matchProposals/{proposalId} {
+      // Players can read proposals they're involved in
+      // Coaches can read all proposals in their club
+      allow read: if isAuthenticated() && (
+        resource.data.requesterId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid ||
+        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+      );
+
+      // Players can create proposals for themselves (as requester)
+      // Must be in same club and both players must be match-ready
+      allow create: if isAuthenticated() &&
+        request.resource.data.requesterId == request.auth.uid &&
+        isSameClub(request.resource.data.clubId) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.keys().hasAll(['requesterId', 'recipientId', 'clubId', 'status']) &&
+        playerIsMatchReady(request.resource.data.requesterId) &&
+        playerIsMatchReady(request.resource.data.recipientId);
+
+      // Requester can update (cancel) their own proposal
+      allow update: if isAuthenticated() &&
+        resource.data.requesterId == request.auth.uid;
+
+      // Recipient can update (accept/decline/counter-propose)
+      allow update: if isAuthenticated() &&
+        resource.data.recipientId == request.auth.uid;
+
+      // Coaches can update any proposal in their club
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId);
+
+      // Requester can delete their own proposal if still pending
+      allow delete: if isAuthenticated() &&
+        resource.data.requesterId == request.auth.uid &&
+        resource.data.status == 'pending';
+
+      // Coaches can delete any proposal in their club
+      allow delete: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId);
+    }
+
     // Challenges collection
     match /challenges/{challengeId} {
       allow read: if isAuthenticated();
