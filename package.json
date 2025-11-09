@@ -8,6 +8,7 @@
   },
   "devDependencies": {
     "firebase-admin": "^13.6.0",
+    "firebase-tools": "^14.24.1",
     "happy-dom": "^20.0.10",
     "vitest": "^4.0.8"
   }
