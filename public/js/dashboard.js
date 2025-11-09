@@ -147,6 +147,25 @@ async function initializeDashboard(userData) {
     document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
     document.getElementById('close-exercise-modal').addEventListener('click', closeExerciseModal);
     document.getElementById('exercise-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('exercise-modal')) closeExerciseModal(); });
+
+    // Toggle abbreviations in exercise modal
+    const toggleAbbreviations = document.getElementById('toggle-abbreviations');
+    const abbreviationsContent = document.getElementById('abbreviations-content');
+    const abbreviationsIcon = document.getElementById('abbreviations-icon');
+    if (toggleAbbreviations && abbreviationsContent && abbreviationsIcon) {
+        toggleAbbreviations.addEventListener('click', () => {
+            const isHidden = abbreviationsContent.classList.contains('hidden');
+            if (isHidden) {
+                abbreviationsContent.classList.remove('hidden');
+                abbreviationsIcon.style.transform = 'rotate(180deg)';
+                toggleAbbreviations.innerHTML = '<svg id="abbreviations-icon" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
+            } else {
+                abbreviationsContent.classList.add('hidden');
+                abbreviationsIcon.style.transform = 'rotate(0deg)';
+                toggleAbbreviations.innerHTML = '<svg id="abbreviations-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
+            }
+        });
+    }
     
     document.getElementById('challenges-list').addEventListener('click', (e) => {
         const card = e.target.closest('.challenge-card');

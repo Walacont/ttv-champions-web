@@ -253,6 +253,26 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
+
+    // Toggle abbreviations in exercise modal
+    const toggleAbbreviationsCoach = document.getElementById('toggle-abbreviations-coach');
+    const abbreviationsContentCoach = document.getElementById('abbreviations-content-coach');
+    const abbreviationsIconCoach = document.getElementById('abbreviations-icon-coach');
+    if (toggleAbbreviationsCoach && abbreviationsContentCoach && abbreviationsIconCoach) {
+        toggleAbbreviationsCoach.addEventListener('click', () => {
+            const isHidden = abbreviationsContentCoach.classList.contains('hidden');
+            if (isHidden) {
+                abbreviationsContentCoach.classList.remove('hidden');
+                abbreviationsIconCoach.style.transform = 'rotate(180deg)';
+                toggleAbbreviationsCoach.innerHTML = '<svg id="abbreviations-icon-coach" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
+            } else {
+                abbreviationsContentCoach.classList.add('hidden');
+                abbreviationsIconCoach.style.transform = 'rotate(0deg)';
+                toggleAbbreviationsCoach.innerHTML = '<svg id="abbreviations-icon-coach" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
+            }
+        });
+    }
+
     document.getElementById('prev-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('next-month-btn').addEventListener('click', () => { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(currentCalendarDate, db, userData); });
     document.getElementById('calendar-grid').addEventListener('click', (e) => handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter), db, userData.clubId));

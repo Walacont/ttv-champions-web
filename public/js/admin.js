@@ -135,6 +135,25 @@ function initializeAdminPage(userData, user) {
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
         closeExerciseModalButton.addEventListener('click', () => exerciseModal.classList.add('hidden'));
         closeEditExerciseModalButton.addEventListener('click', () => editExerciseModal.classList.add('hidden'));
+
+        // Toggle abbreviations in exercise modal
+        const toggleAbbreviationsAdmin = document.getElementById('toggle-abbreviations-admin');
+        const abbreviationsContentAdmin = document.getElementById('abbreviations-content-admin');
+        const abbreviationsIconAdmin = document.getElementById('abbreviations-icon-admin');
+        if (toggleAbbreviationsAdmin && abbreviationsContentAdmin && abbreviationsIconAdmin) {
+            toggleAbbreviationsAdmin.addEventListener('click', () => {
+                const isHidden = abbreviationsContentAdmin.classList.contains('hidden');
+                if (isHidden) {
+                    abbreviationsContentAdmin.classList.remove('hidden');
+                    abbreviationsIconAdmin.style.transform = 'rotate(180deg)';
+                    toggleAbbreviationsAdmin.innerHTML = '<svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
+                } else {
+                    abbreviationsContentAdmin.classList.add('hidden');
+                    abbreviationsIconAdmin.style.transform = 'rotate(0deg)';
+                    toggleAbbreviationsAdmin.innerHTML = '<svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
+                }
+            });
+        }
         
         modalPlayerListEl.addEventListener('click', (e) => {
             if (e.target.classList.contains('delete-player-btn')) {
