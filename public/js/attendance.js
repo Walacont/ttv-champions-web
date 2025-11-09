@@ -400,6 +400,23 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 newPoints = 5; // 3 base + 2 bonus
             }
 
+            // NEW: Check if player attended another training on the same day
+            // If yes, apply half points for second training
+            const otherTrainingsQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', clubId),
+                where('date', '==', currentDate),
+                where('presentPlayerIds', 'array-contains', playerId)
+            );
+            const otherTrainingsSnapshot = await getDocs(otherTrainingsQuery);
+            // If there are 2+ trainings on this day, this is a second/third training
+            const isSecondTrainingOrMore = otherTrainingsSnapshot.size > 1;
+
+            if (isSecondTrainingOrMore) {
+                newPoints = Math.ceil(newPoints / 2); // Half points for 2nd+ training
+                console.log(`[recalculateSubsequentDays] Date ${currentDate}: is 2nd+ training, reducing to ${newPoints} points`);
+            }
+
             // Find OLD points that were awarded
             const oldPoints = await findOriginalAttendancePoints(playerId, currentDate, subgroupName, db, subgroupId);
 
@@ -913,6 +930,16 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // Streak logic
                     const newStreak = wasPresentLastTraining ? currentStreak + 1 : 1;
 
+                    // NEW: Check if player already attended another training on the same day
+                    const otherTrainingsToday = query(
+                        collection(db, 'attendance'),
+                        where('clubId', '==', currentUserData.clubId),
+                        where('date', '==', date),
+                        where('presentPlayerIds', 'array-contains', player.id)
+                    );
+                    const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
+                    const alreadyAttendedToday = otherTrainingsTodaySnapshot.size > 0;
+
                     // Bonus points logic (New System)
                     let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
                     let reason = `Anwesenheit beim Training - ${subgroupName}`;
@@ -923,6 +950,12 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     } else if (newStreak >= 3) {
                         pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
                         reason = `Anwesenheit beim Training - ${subgroupName} (⚡ ${newStreak}x Streak)`;
+                    }
+
+                    // NEW: If player already attended another training today, give half points
+                    if (alreadyAttendedToday) {
+                        pointsToAdd = Math.ceil(pointsToAdd / 2); // Half points, rounded up
+                        reason += ` (2. Training heute)`;
                     }
 
                     // Update streak in subcollection
