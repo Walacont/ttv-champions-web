@@ -36,9 +36,10 @@ export function initializeTrainingSchedule(firestoreInstance) {
 /**
  * Create a recurring training template
  * @param {Object} templateData - Template configuration
+ * @param {string} userId - ID of user creating the template
  * @returns {Promise<string>} Template ID
  */
-export async function createRecurringTemplate(templateData) {
+export async function createRecurringTemplate(templateData, userId = 'system') {
     const { dayOfWeek, startTime, endTime, subgroupId, clubId, startDate, endDate = null } = templateData;
 
     // Validation
@@ -70,7 +71,7 @@ export async function createRecurringTemplate(templateData) {
         startDate,
         endDate,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser.uid
+        createdBy: userId
     };
 
     const docRef = await addDoc(collection(db, 'recurringTrainingTemplates'), template);
@@ -153,9 +154,10 @@ async function checkTemplateOverlap(dayOfWeek, startTime, endTime, subgroupId, c
 /**
  * Create a training session
  * @param {Object} sessionData - Session configuration
+ * @param {string} userId - ID of user creating the session
  * @returns {Promise<string>} Session ID
  */
-export async function createTrainingSession(sessionData) {
+export async function createTrainingSession(sessionData, userId = 'system') {
     const { date, startTime, endTime, subgroupId, clubId, recurringTemplateId = null } = sessionData;
 
     // Validation
@@ -186,7 +188,7 @@ export async function createTrainingSession(sessionData) {
         recurringTemplateId,
         cancelled: false,
         createdAt: serverTimestamp(),
-        createdBy: auth.currentUser.uid
+        createdBy: userId
     };
 
     const docRef = await addDoc(collection(db, 'trainingSessions'), session);

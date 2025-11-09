@@ -338,7 +338,7 @@ async function handleRecurringTrainingSubmit(e) {
                 clubId: currentUserData.clubId,
                 startDate,
                 endDate
-            });
+            }, currentUserData.id);
             showFeedback('recurring-training-feedback', 'Training erstellt!', 'success');
         }
 
@@ -550,7 +550,7 @@ async function handleSpontaneousSessionSubmit(e) {
             subgroupId,
             clubId: currentUserData.clubId,
             recurringTemplateId: null
-        });
+        }, currentUserData.id);
 
         showFeedback('spontaneous-session-feedback', 'Training erstellt!', 'success');
 
