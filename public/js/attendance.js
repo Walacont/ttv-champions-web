@@ -945,14 +945,18 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
 
                     // IMPORTANT: Exclude the CURRENT session from the count!
-                    // Otherwise it finds itself and thinks it's the 2nd training
-                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(
-                        doc => doc.id !== docId  // Exclude current attendance document
-                    ).length;
+                    // We filter by sessionId (not docId) because sessionId is always known,
+                    // even when creating a new attendance document
+                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(doc => {
+                        const docData = doc.data();
+                        // Exclude if it's the same session
+                        return docData.sessionId !== sessionId;
+                    }).length;
                     const alreadyAttendedToday = otherTrainingsCount > 0;
 
                     console.log(`[Attendance Save] Player ${player.firstName} ${player.lastName}:`);
-                    console.log(`  - Date: ${date}`);
+                    console.log(`  - Date: ${date}, SessionId: ${sessionId}`);
+                    console.log(`  - DocId: ${docId || '(new document)'}`);
                     console.log(`  - Total trainings today (including current): ${otherTrainingsTodaySnapshot.size}`);
                     console.log(`  - Other trainings today (excluding current): ${otherTrainingsCount}`);
                     console.log(`  - Already attended OTHER training today: ${alreadyAttendedToday}`);
