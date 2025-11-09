@@ -12,6 +12,11 @@ let coachSetScoreInput = null;
 // Global variable to store current session for pairings
 let currentPairingsSession = null;
 
+// Global variables to track pairing being entered from saved pairings
+let currentPairingSessionId = null;
+let currentPairingPlayerAId = null;
+let currentPairingPlayerBId = null;
+
 /**
  * Initializes the set score input for coach match form
  */
@@ -419,6 +424,27 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         }
 
         updateMatchUI(clubPlayers);
+
+        // If this match was entered from a saved pairing, remove that pairing
+        if (currentPairingSessionId && currentPairingPlayerAId && currentPairingPlayerBId) {
+            try {
+                await removePairingFromSession(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId, db);
+
+                // Reset tracking variables
+                currentPairingSessionId = null;
+                currentPairingPlayerAId = null;
+                currentPairingPlayerBId = null;
+
+                // Reload saved pairings to update the display
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                if (userData && userData.clubId) {
+                    await loadSavedPairings(db, userData.clubId);
+                }
+            } catch (error) {
+                console.error('Error removing pairing:', error);
+                // Don't show error to user, match was saved successfully
+            }
+        }
     } catch (error) {
         console.error("Fehler beim Melden des Matches:", error);
         feedbackEl.textContent = 'Fehler: Das Match konnte nicht gemeldet werden.';
@@ -936,6 +962,20 @@ export async function loadSavedPairings(db, clubId) {
             const groups = pairingData.groups || {};
             const date = pairingData.date || 'Unbekannt';
 
+            // Check if there are any pairings in this session
+            let hasPairings = false;
+            for (const groupName in groups) {
+                if (groups[groupName] && groups[groupName].length > 0) {
+                    hasPairings = true;
+                    break;
+                }
+            }
+
+            // Skip this session if it has no pairings and no leftover player
+            if (!hasPairings && !pairingData.leftoverPlayer) {
+                continue;
+            }
+
             // Get session details
             let sessionInfo = '';
             try {
@@ -965,6 +1005,11 @@ export async function loadSavedPairings(db, clubId) {
             // Render all pairings
             for (const groupName in groups) {
                 const matches = groups[groupName];
+
+                // Skip empty groups
+                if (!matches || matches.length === 0) {
+                    continue;
+                }
 
                 matches.forEach((match, index) => {
                     const handicapInfo = match.handicap
@@ -1013,7 +1058,12 @@ export async function loadSavedPairings(db, clubId) {
             `;
         }
 
-        container.innerHTML = html;
+        // If no pairings were added after filtering, show "no pairings" message
+        if (html === '') {
+            container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+        } else {
+            container.innerHTML = html;
+        }
 
     } catch (error) {
         console.error('Error loading saved pairings:', error);
@@ -1033,6 +1083,11 @@ function formatDateGerman(dateStr) {
  * Opens match form with pre-selected players
  */
 window.handleEnterResultForPairing = function(sessionId, playerAId, playerBId, playerAName, playerBName, handicapPlayerId, handicapPoints) {
+    // Store pairing information to delete after successful match save
+    currentPairingSessionId = sessionId;
+    currentPairingPlayerAId = playerAId;
+    currentPairingPlayerBId = playerBId;
+
     // Pre-select players in the form
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
@@ -1060,6 +1115,63 @@ window.handleEnterResultForPairing = function(sessionId, playerAId, playerBId, p
 
     alert('Spieler wurden im Formular vorausgewählt. Bitte gib jetzt das Ergebnis ein.');
 };
+
+/**
+ * Removes a specific pairing from a training session
+ * @param {string} sessionId - Session ID
+ * @param {string} playerAId - Player A ID
+ * @param {string} playerBId - Player B ID
+ * @param {Object} db - Firestore database instance
+ */
+async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
+    try {
+        const pairingDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
+
+        if (!pairingDoc.exists()) {
+            return;
+        }
+
+        const pairingData = pairingDoc.data();
+        const groups = pairingData.groups || {};
+        let pairingRemoved = false;
+
+        // Find and remove the matching pairing
+        for (const groupName in groups) {
+            const matches = groups[groupName];
+            const matchIndex = matches.findIndex(match =>
+                (match.playerA.id === playerAId && match.playerB.id === playerBId) ||
+                (match.playerA.id === playerBId && match.playerB.id === playerAId)
+            );
+
+            if (matchIndex !== -1) {
+                matches.splice(matchIndex, 1);
+                pairingRemoved = true;
+
+                // If group is now empty, remove it
+                if (matches.length === 0) {
+                    delete groups[groupName];
+                }
+                break;
+            }
+        }
+
+        if (pairingRemoved) {
+            // If no groups left, delete the entire document
+            if (Object.keys(groups).length === 0 && !pairingData.leftoverPlayer) {
+                await updateDoc(doc(db, 'trainingMatches', sessionId), {
+                    groups: {}
+                });
+            } else {
+                await updateDoc(doc(db, 'trainingMatches', sessionId), {
+                    groups: groups
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error removing pairing from session:', error);
+        throw error;
+    }
+}
 
 /**
  * Discards a pairing
@@ -1093,12 +1205,13 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
                 delete groups[groupName];
             }
 
-            // Update document
+            // If no groups left and no leftover player, we'll still update with empty groups
+            // (we don't delete the document in case there are other properties)
             await updateDoc(doc(db, 'trainingMatches', sessionId), {
                 groups: groups
             });
 
-            // Reload pairings
+            // Reload pairings to update the display
             const userData = JSON.parse(localStorage.getItem('userData'));
             if (userData && userData.clubId) {
                 await loadSavedPairings(db, userData.clubId);

@@ -673,15 +673,6 @@ window.openSessionSelectionModalFromCalendar = async function(dateStr, sessions)
         `;
     });
 
-    // Add button to create another training on this day
-    html += `
-        <div class="mt-4 pt-4 border-t border-gray-300">
-            <button onclick="window.handleAddAnotherTrainingFromModal('${dateStr}')" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg">
-                <i class="fas fa-plus mr-2"></i>Weiteres Training hinzufügen
-            </button>
-        </div>
-    `;
-
     listContainer.innerHTML = html;
     modal.classList.remove('hidden');
     modal.classList.add('flex');
