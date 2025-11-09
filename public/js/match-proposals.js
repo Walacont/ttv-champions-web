@@ -357,9 +357,12 @@ function renderCounterProposalsHistory(counterProposals, requester, recipient) {
     const proposerName = cp.proposedBy === requester.id ? requester.firstName : recipient.firstName;
     return `
       <div class="text-xs text-gray-600 p-2 bg-blue-50 border-l-2 border-blue-300 rounded">
-        <i class="fas fa-reply mr-1"></i><strong>${proposerName}</strong> schlug vor:
-        ${cp.dateTime ? formatDateTime(cp.dateTime) : "Keine Zeit"}
-        ${cp.location ? `@ ${cp.location}` : ""}
+        <div class="mb-1">
+          <i class="fas fa-reply mr-1"></i><strong>${proposerName}</strong> schlug vor:
+          ${cp.dateTime ? formatDateTime(cp.dateTime) : "Keine Zeit"}
+          ${cp.location ? `@ ${cp.location}` : ""}
+        </div>
+        ${cp.message ? `<div class="text-xs text-gray-700 italic mt-1">"${cp.message}"</div>` : ""}
       </div>
     `;
   }).join("");
@@ -523,12 +526,15 @@ function openCounterProposalModal(proposal, requester, db) {
       const currentData = proposalDoc.data();
       const counterProposals = currentData.counterProposals || [];
 
-      // Add new counter-proposal
+      const messageInput = document.getElementById("counter-proposal-message").value;
+
+      // Add new counter-proposal (use plain Date instead of serverTimestamp in arrays)
       counterProposals.push({
         proposedBy: currentData.recipientId, // Current recipient makes counter-proposal
         dateTime: dateTimeInput ? new Date(dateTimeInput) : null,
         location: locationInput || null,
-        createdAt: serverTimestamp(),
+        message: messageInput || null,
+        createdAt: new Date(), // Use plain Date object, not serverTimestamp
       });
 
       await updateDoc(proposalRef, {
