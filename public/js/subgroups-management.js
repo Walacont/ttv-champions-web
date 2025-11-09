@@ -123,9 +123,11 @@ export async function handleCreateSubgroup(e, db, clubId) {
     e.preventDefault();
     const form = e.target;
     const nameInput = form.querySelector('#subgroup-name');
+    const colorInput = form.querySelector('input[name="subgroup-color"]:checked');
     const feedbackEl = document.getElementById('subgroup-form-feedback');
 
     const name = nameInput.value.trim();
+    const color = colorInput ? colorInput.value : '#6366f1'; // Default to indigo
 
     if (!name) {
         if (feedbackEl) {
@@ -144,6 +146,7 @@ export async function handleCreateSubgroup(e, db, clubId) {
         await addDoc(collection(db, 'subgroups'), {
             clubId: clubId,
             name: name,
+            color: color,
             createdAt: serverTimestamp(),
             isDefault: false
         });

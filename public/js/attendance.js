@@ -10,6 +10,7 @@ import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, ser
 // Module state
 let monthlyAttendance = new Map();
 let monthlySessions = new Map(); // NEW: Store sessions by date
+let subgroupsMap = new Map(); // Store subgroups with their colors
 let currentSubgroupFilter = 'all'; // Current active subgroup filter
 let isRenderingAttendance = false; // Guard to prevent multiple simultaneous renders
 let currentSessionId = null; // NEW: Track current session being edited
@@ -84,8 +85,13 @@ export async function renderCalendar(date, db, currentUserData) {
             // Show up to 3 dots, or a "3+" indicator
             const dotsToShow = Math.min(sessionsOnDay.length, 3);
             for (let i = 0; i < dotsToShow; i++) {
+                const session = sessionsOnDay[i];
+                const subgroup = subgroupsMap.get(session.subgroupId);
+                const color = subgroup ? subgroup.color : '#6366f1'; // Default to indigo
+
                 const dot = document.createElement('div');
-                dot.className = 'w-2 h-2 rounded-full bg-indigo-500';
+                dot.className = 'w-2 h-2 rounded-full';
+                dot.style.backgroundColor = color;
                 dotsContainer.appendChild(dot);
             }
 
@@ -119,6 +125,20 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     monthlySessions.clear(); // NEW: Clear sessions
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+    // Load subgroups for color mapping
+    const subgroupsSnapshot = await getDocs(query(
+        collection(db, 'subgroups'),
+        where('clubId', '==', currentUserData.clubId)
+    ));
+    subgroupsMap.clear();
+    subgroupsSnapshot.forEach(doc => {
+        const data = doc.data();
+        subgroupsMap.set(doc.id, {
+            name: data.name,
+            color: data.color || '#6366f1' // Default to indigo if no color set
+        });
+    });
 
     // NEW: Fetch training sessions for the month
     let sessionsQuery;

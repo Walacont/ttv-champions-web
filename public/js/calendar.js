@@ -70,6 +70,7 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
     // NEW: Also load training sessions to show multiple sessions per day
     let allSessionsCache = [];
+    let subgroupsMap = new Map();
     async function loadSessions() {
         try {
             const startDate = new Date(year, month, 1).toISOString().split('T')[0];
@@ -88,6 +89,20 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                 id: doc.id,
                 ...doc.data()
             }));
+
+            // Load subgroups for color mapping
+            const subgroupsSnapshot = await getDocs(query(
+                collection(db, 'subgroups'),
+                where('clubId', '==', currentUserData.clubId)
+            ));
+            subgroupsMap.clear();
+            subgroupsSnapshot.forEach(doc => {
+                const data = doc.data();
+                subgroupsMap.set(doc.id, {
+                    name: data.name,
+                    color: data.color || '#6366f1'
+                });
+            });
         } catch (error) {
             console.error("Error loading sessions:", error);
         }
@@ -202,8 +217,13 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
                 const dotsToShow = Math.min(sessionsOnDay.length, 3);
                 for (let i = 0; i < dotsToShow; i++) {
+                    const session = sessionsOnDay[i];
+                    const subgroup = subgroupsMap.get(session.subgroupId);
+                    const color = subgroup ? subgroup.color : '#6366f1'; // Default to indigo
+
                     const dot = document.createElement('div');
-                    dot.className = 'w-1.5 h-1.5 rounded-full bg-indigo-500';
+                    dot.className = 'w-1.5 h-1.5 rounded-full';
+                    dot.style.backgroundColor = color;
                     dotsContainer.appendChild(dot);
                 }
                 dayCell.appendChild(dotsContainer);
