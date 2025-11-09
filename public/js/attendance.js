@@ -462,6 +462,13 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
 
                 console.log(`[recalculateSubsequentDays] Adjusting ${pointsDifference} points for ${currentDate}`);
 
+                // Format date for display in history
+                const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+
                 // Update player's points and XP
                 const playerRef = doc(db, 'users', playerId);
                 batch.update(playerRef, {
@@ -475,7 +482,7 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                     points: pointsDifference,
                     xp: pointsDifference,
                     eloChange: 0,
-                    reason: `Anwesenheit neu berechnet (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
+                    reason: `Anwesenheit neu berechnet am ${formattedDate} (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
                     date: currentDate,
                     subgroupId: subgroupId,
                     timestamp: serverTimestamp(),
@@ -486,7 +493,7 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
                 batch.set(xpHistoryRef, {
                     xp: pointsDifference,
-                    reason: `Anwesenheit neu berechnet (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
+                    reason: `Anwesenheit neu berechnet am ${formattedDate} (Streak-Korrektur: ${oldPoints}→${newPoints}) - ${subgroupName}`,
                     date: currentDate,
                     subgroupId: subgroupId,
                     timestamp: serverTimestamp(),
@@ -936,24 +943,38 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         where('presentPlayerIds', 'array-contains', player.id)
                     );
                     const otherTrainingsTodaySnapshot = await getDocs(otherTrainingsToday);
-                    const alreadyAttendedToday = otherTrainingsTodaySnapshot.size > 0;
+
+                    // IMPORTANT: Exclude the CURRENT session from the count!
+                    // Otherwise it finds itself and thinks it's the 2nd training
+                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(
+                        doc => doc.id !== docId  // Exclude current attendance document
+                    ).length;
+                    const alreadyAttendedToday = otherTrainingsCount > 0;
 
                     console.log(`[Attendance Save] Player ${player.firstName} ${player.lastName}:`);
                     console.log(`  - Date: ${date}`);
-                    console.log(`  - Other trainings today count: ${otherTrainingsTodaySnapshot.size}`);
-                    console.log(`  - Already attended today: ${alreadyAttendedToday}`);
+                    console.log(`  - Total trainings today (including current): ${otherTrainingsTodaySnapshot.size}`);
+                    console.log(`  - Other trainings today (excluding current): ${otherTrainingsCount}`);
+                    console.log(`  - Already attended OTHER training today: ${alreadyAttendedToday}`);
                     console.log(`  - New streak: ${newStreak}`);
+
+                    // Format date for display in history
+                    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
 
                     // Bonus points logic (New System)
                     let pointsToAdd = ATTENDANCE_POINTS_BASE; // 3 points default
-                    let reason = `Anwesenheit beim Training - ${subgroupName}`;
+                    let reason = `Training am ${formattedDate} - ${subgroupName}`;
 
                     if (newStreak >= 5) {
                         pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
-                        reason = `Anwesenheit beim Training - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
+                        reason = `Training am ${formattedDate} - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
                     } else if (newStreak >= 3) {
                         pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
-                        reason = `Anwesenheit beim Training - ${subgroupName} (⚡ ${newStreak}x Streak)`;
+                        reason = `Training am ${formattedDate} - ${subgroupName} (⚡ ${newStreak}x Streak)`;
                     }
 
                     console.log(`  - Points BEFORE half-points check: ${pointsToAdd}`);
@@ -1013,6 +1034,13 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // Find the original points awarded for this date by searching pointsHistory
                     const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db, subgroupId);
 
+                    // Format date for display in history
+                    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                    });
+
                     // Deduct both points and XP
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
@@ -1025,7 +1053,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         points: -pointsToDeduct,
                         xp: -pointsToDeduct,
                         eloChange: 0,
-                        reason: `Anwesenheit korrigiert (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
+                        reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} Punkte abgezogen) - ${subgroupName}`,
                         date: date, // Store date for tracking
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
@@ -1036,7 +1064,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     const xpHistoryRef = doc(collection(db, `users/${player.id}/xpHistory`));
                     batch.set(xpHistoryRef, {
                         xp: -pointsToDeduct,
-                        reason: `Anwesenheit korrigiert (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
+                        reason: `Anwesenheit korrigiert am ${formattedDate} (${pointsToDeduct} XP abgezogen) - ${subgroupName}`,
                         date: date, // Store date for tracking
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
