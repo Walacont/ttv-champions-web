@@ -251,6 +251,20 @@ async function initializeCoachPage(userData) {
         document.getElementById('add-offline-player-modal').classList.remove('flex');
         // Reset form to clear all inputs including checkboxes
         document.getElementById('add-offline-player-form').reset();
+        // Hide QTTR input when modal closes
+        document.getElementById('qttr-input-container').classList.add('hidden');
+    });
+
+    // Toggle QTTR input based on match-ready checkbox
+    document.getElementById('is-match-ready-checkbox').addEventListener('change', (e) => {
+        const qttrContainer = document.getElementById('qttr-input-container');
+        if (e.target.checked) {
+            qttrContainer.classList.remove('hidden');
+        } else {
+            qttrContainer.classList.add('hidden');
+            // Clear QTTR input when unchecked
+            document.getElementById('qttr-points').value = '';
+        }
     });
     
     // Edit Player Modal Listeners
