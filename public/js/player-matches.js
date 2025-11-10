@@ -219,6 +219,34 @@ export function createSetScoreInput(container, existingSets = []) {
     renderSets();
   }
 
+  // Function to set handicap for a player
+  function setHandicap(player, points) {
+    sets.forEach((set, index) => {
+      if (player === 'A') {
+        // Set minimum for player A
+        const currentValue = parseInt(set.playerA) || 0;
+        sets[index].playerA = Math.max(currentValue, points);
+      } else if (player === 'B') {
+        // Set minimum for player B
+        const currentValue = parseInt(set.playerB) || 0;
+        sets[index].playerB = Math.max(currentValue, points);
+      }
+    });
+    renderSets();
+  }
+
+  // Function to clear handicap for a player
+  function clearHandicap(player) {
+    sets.forEach((set, index) => {
+      if (player === 'A') {
+        sets[index].playerA = "";
+      } else if (player === 'B') {
+        sets[index].playerB = "";
+      }
+    });
+    renderSets();
+  }
+
   renderSets();
 
   return {
@@ -226,6 +254,8 @@ export function createSetScoreInput(container, existingSets = []) {
     validate,
     refresh: renderSets,
     reset,
+    setHandicap,
+    clearHandicap,
   };
 }
 
@@ -909,11 +939,15 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   // Initialize set score input
   const setScoreInput = createSetScoreInput(setScoreContainer);
 
+  // Store current handicap data
+  let currentHandicapData = null;
+
   // Handicap calculation
   opponentSelect.addEventListener("change", () => {
     const selectedOption = opponentSelect.selectedOptions[0];
     if (!selectedOption || !selectedOption.value) {
       handicapInfo.classList.add("hidden");
+      currentHandicapData = null;
       return;
     }
 
@@ -924,12 +958,38 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     if (eloDiff >= 25) {
       const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
       const weakerPlayer = myElo < opponentElo ? "Du" : selectedOption.textContent.split(" (")[0];
+      const weakerPlayerSide = myElo < opponentElo ? "A" : "B"; // A = me, B = opponent
+
+      // Store handicap data
+      currentHandicapData = {
+        player: weakerPlayerSide,
+        points: handicapPoints
+      };
 
       document.getElementById("match-handicap-text").textContent =
         `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
       handicapInfo.classList.remove("hidden");
+
+      // Apply handicap if toggle is checked
+      if (handicapToggle && handicapToggle.checked) {
+        setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+      }
     } else {
       handicapInfo.classList.add("hidden");
+      currentHandicapData = null;
+    }
+  });
+
+  // Handicap toggle event listener
+  handicapToggle.addEventListener("change", () => {
+    if (!currentHandicapData) return;
+
+    if (handicapToggle.checked) {
+      // Apply handicap
+      setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+    } else {
+      // Clear handicap
+      setScoreInput.clearHandicap(currentHandicapData.player);
     }
   });
 

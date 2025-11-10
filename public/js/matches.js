@@ -459,6 +459,29 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     }
 }
 
+// Store current handicap data globally for the toggle handler
+let currentHandicapData = null;
+
+/**
+ * Initializes handicap toggle event listener
+ */
+export function initializeHandicapToggle() {
+    const handicapToggle = document.getElementById('handicap-toggle');
+    if (!handicapToggle) return;
+
+    handicapToggle.addEventListener('change', () => {
+        if (!coachSetScoreInput || !currentHandicapData) return;
+
+        if (handicapToggle.checked) {
+            // Apply handicap
+            coachSetScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+        } else {
+            // Clear handicap
+            coachSetScoreInput.clearHandicap(currentHandicapData.player);
+        }
+    });
+}
+
 /**
  * Updates the match form UI based on selected players
  * @param {Array} clubPlayers - Array of all club players
@@ -468,6 +491,7 @@ export function updateMatchUI(clubPlayers) {
     const playerBId = document.getElementById('player-b-select').value;
     const handicapContainer = document.getElementById('handicap-suggestion');
     const handicapToggleContainer = document.getElementById('handicap-toggle-container');
+    const handicapToggle = document.getElementById('handicap-toggle');
 
     const playerA = clubPlayers.find(p => p.id === playerAId);
     const playerB = clubPlayers.find(p => p.id === playerBId);
@@ -476,16 +500,29 @@ export function updateMatchUI(clubPlayers) {
         const handicap = calculateHandicap(playerA, playerB);
 
         if (handicap && handicap.points > 0) {
+            // Store handicap data for toggle handler
+            currentHandicapData = {
+                player: handicap.player.id === playerAId ? 'A' : 'B',
+                points: handicap.points
+            };
+
             document.getElementById('handicap-text').textContent = `${handicap.player.firstName} startet mit ${handicap.points} Punkten Vorsprung pro Satz.`;
             handicapContainer.classList.remove('hidden');
             handicapToggleContainer.classList.remove('hidden');
             handicapToggleContainer.classList.add('flex');
+
+            // Apply handicap if toggle is checked
+            if (handicapToggle && handicapToggle.checked && coachSetScoreInput) {
+                coachSetScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+            }
         } else {
+            currentHandicapData = null;
             handicapContainer.classList.add('hidden');
             handicapToggleContainer.classList.add('hidden');
             handicapToggleContainer.classList.remove('flex');
         }
     } else {
+        currentHandicapData = null;
         if(handicapContainer) handicapContainer.classList.add('hidden');
         if(handicapToggleContainer) {
             handicapToggleContainer.classList.add('hidden');
