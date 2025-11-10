@@ -274,6 +274,35 @@ async function renderReceivedProposals(proposals, userData, db) {
 }
 
 /**
+ * Determines whose turn it is to respond to the proposal
+ * @param {Object} proposal - The proposal object
+ * @returns {string} 'requester' or 'recipient'
+ */
+function whoseTurn(proposal) {
+  // If pending, it's the recipient's turn
+  if (proposal.status === 'pending') {
+    return 'recipient';
+  }
+
+  // If counter-proposed, check who made the last counter-proposal
+  if (proposal.status === 'counter_proposed' && proposal.counterProposals && proposal.counterProposals.length > 0) {
+    const lastCounterProposal = proposal.counterProposals[proposal.counterProposals.length - 1];
+
+    // If recipient made the last counter-proposal, it's requester's turn
+    if (lastCounterProposal.proposedBy === proposal.recipientId) {
+      return 'requester';
+    }
+    // If requester made the last counter-proposal, it's recipient's turn
+    else {
+      return 'recipient';
+    }
+  }
+
+  // Default: nobody's turn (accepted/declined/cancelled)
+  return null;
+}
+
+/**
  * Creates a card for sent proposals
  */
 function createSentProposalCard(proposal, recipient, userData, db) {
@@ -283,6 +312,7 @@ function createSentProposalCard(proposal, recipient, userData, db) {
   const statusBadge = getProposalStatusBadge(proposal.status);
   const dateTimeStr = formatDateTime(proposal.proposedDateTime);
   const latestProposal = getLatestProposal(proposal);
+  const myTurn = whoseTurn(proposal) === 'requester';
 
   div.innerHTML = `
     <div class="flex justify-between items-start mb-3">
@@ -305,15 +335,43 @@ function createSentProposalCard(proposal, recipient, userData, db) {
     </div>
 
     <div class="flex gap-2 mt-3">
-      ${proposal.status === "pending" || proposal.status === "counter_proposed" ? `
+      ${myTurn ? `
+        <!-- It's my turn to respond to their counter-proposal -->
+        <button class="accept-proposal-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-proposal-id="${proposal.id}">
+          <i class="fas fa-check"></i> Annehmen
+        </button>
+        <button class="decline-proposal-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-proposal-id="${proposal.id}">
+          <i class="fas fa-times"></i> Ablehnen
+        </button>
+        <button class="counter-proposal-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition" data-proposal-id="${proposal.id}">
+          <i class="fas fa-reply"></i> Gegenvorschlag
+        </button>
+      ` : (proposal.status === "pending" || proposal.status === "counter_proposed" ? `
+        <!-- Waiting for their response -->
         <button class="cancel-proposal-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-proposal-id="${proposal.id}">
           <i class="fas fa-times"></i> Zurückziehen
         </button>
-      ` : ""}
+      ` : "")}
     </div>
   `;
 
+  const acceptBtn = div.querySelector(".accept-proposal-btn");
+  const declineBtn = div.querySelector(".decline-proposal-btn");
+  const counterBtn = div.querySelector(".counter-proposal-btn");
   const cancelBtn = div.querySelector(".cancel-proposal-btn");
+
+  if (acceptBtn) {
+    acceptBtn.addEventListener("click", () => acceptProposal(proposal.id, db));
+  }
+
+  if (declineBtn) {
+    declineBtn.addEventListener("click", () => declineProposal(proposal.id, db));
+  }
+
+  if (counterBtn) {
+    counterBtn.addEventListener("click", () => openCounterProposalModal(proposal, recipient, db));
+  }
+
   if (cancelBtn) {
     cancelBtn.addEventListener("click", () => cancelProposal(proposal.id, db));
   }
@@ -335,7 +393,7 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
 
   const statusBadge = getProposalStatusBadge(proposal.status);
   const latestProposal = getLatestProposal(proposal);
-  const isPending = proposal.status === "pending" || proposal.status === "counter_proposed";
+  const myTurn = whoseTurn(proposal) === 'recipient';
 
   div.innerHTML = `
     <div class="flex justify-between items-start mb-3">
@@ -357,7 +415,8 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
       ${proposal.counterProposals && proposal.counterProposals.length > 0 ? renderCounterProposalsHistory(proposal.counterProposals, requester, userData) : ""}
     </div>
 
-    ${isPending ? `
+    ${myTurn ? `
+      <!-- It's my turn to respond -->
       <div class="flex gap-2 mt-3">
         <button class="accept-proposal-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-proposal-id="${proposal.id}">
           <i class="fas fa-check"></i> Annehmen
@@ -597,9 +656,23 @@ function openCounterProposalModal(proposal, requester, db) {
 
       const messageInput = document.getElementById("counter-proposal-message").value;
 
+      // Determine who is making the counter-proposal
+      // Check who made the last counter-proposal to determine whose turn it is
+      let proposedBy;
+      if (counterProposals.length === 0) {
+        // First counter-proposal - always made by recipient
+        proposedBy = currentData.recipientId;
+      } else {
+        // Subsequent counter-proposal - made by the person who didn't make the last one
+        const lastProposal = counterProposals[counterProposals.length - 1];
+        proposedBy = lastProposal.proposedBy === currentData.recipientId
+          ? currentData.requesterId
+          : currentData.recipientId;
+      }
+
       // Add new counter-proposal (use plain Date instead of serverTimestamp in arrays)
       counterProposals.push({
-        proposedBy: currentData.recipientId, // Current recipient makes counter-proposal
+        proposedBy: proposedBy,
         dateTime: dateTimeInput ? new Date(dateTimeInput) : null,
         location: locationInput || null,
         handicap: handicapInput,
