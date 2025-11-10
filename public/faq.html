@@ -45,7 +45,34 @@
                             </ul>
                         </div>
                     </details>
-                    
+
+                    <details class="group">
+                        <summary class="flex justify-between items-center cursor-pointer">
+                            <span class="font-medium">Wie werden QTTR-Punkte in Elo umgerechnet?</span>
+                            <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        <div class="mt-2 text-gray-700">
+                            <p>Wenn ein Coach einen erfahrenen Offline-Spieler erstellt und als "wettkampfsbereit" markiert, kann er optional die <strong>QTTR-Punkte</strong> (offizielles Tischtennisranking) des Spielers eingeben.</p>
+                            <p class="mt-2 font-semibold text-lg">📊 Umrechnungsformel:</p>
+                            <p class="mt-1 bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+                                <strong>Elo = QTTR × 0,9</strong> (mindestens 800)
+                            </p>
+                            <p class="mt-3"><strong>Beispiele:</strong></p>
+                            <ul class="list-none mt-2 space-y-1 bg-gray-50 p-3 rounded">
+                                <li><span class="font-mono">QTTR 1000</span> → <span class="font-semibold text-indigo-600">Elo 900</span></li>
+                                <li><span class="font-mono">QTTR 1200</span> → <span class="font-semibold text-indigo-600">Elo 1080</span></li>
+                                <li><span class="font-mono">QTTR 1500</span> → <span class="font-semibold text-indigo-600">Elo 1350</span></li>
+                                <li><span class="font-mono">QTTR 2000</span> → <span class="font-semibold text-indigo-600">Elo 1800</span></li>
+                            </ul>
+                            <p class="mt-3 text-sm text-gray-600">
+                                <strong>💡 Warum 90%?</strong> Diese konservative Umrechnung stellt sicher, dass sich neue Spieler erst im System beweisen müssen, bevor sie ihr volles Niveau erreichen. So bleibt das interne Ranking fair und spiegelt die tatsächliche Leistung in eurem Verein wider.
+                            </p>
+                            <p class="mt-2 text-sm">
+                                <strong>Hinweis:</strong> Ohne QTTR-Eingabe starten wettkampfsbereite Spieler mit dem Standard-Wert von 800 Elo.
+                            </p>
+                        </div>
+                    </details>
+
                     <details class="group">
                         <summary class="flex justify-between items-center cursor-pointer">
                             <span class="font-medium">Wie funktionieren die Punkte bei Matches?</span>
