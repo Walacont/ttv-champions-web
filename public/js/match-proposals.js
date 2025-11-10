@@ -1094,6 +1094,8 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
 
   container.innerHTML = '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
 
+  console.log('[Match Suggestions] Loading with filter:', subgroupFilter);
+
   try {
     // Get all players based on filter
     let playersQuery;
@@ -1115,9 +1117,14 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
     const snapshot = await getDocs(playersQuery);
     let allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
+    console.log('[Match Suggestions] Players before filter:', allPlayers.length);
+    console.log('[Match Suggestions] Sample player subgroups:', allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroup: p.subgroup })));
+
     // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
     if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+      console.log('[Match Suggestions] Applying subgroup filter:', subgroupFilter);
       allPlayers = allPlayers.filter(player => player.subgroup === subgroupFilter);
+      console.log('[Match Suggestions] Players after filter:', allPlayers.length);
     }
 
     // Function to calculate and render suggestions
