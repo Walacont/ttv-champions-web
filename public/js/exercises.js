@@ -332,9 +332,16 @@ export function loadExercisesForDropdown(db) {
             const e = doc.data();
             const option = document.createElement('option');
             option.value = doc.id;
-            option.textContent = `${e.title} (+${e.points} P.)`;
+            const displayText = e.hasMilestones
+                ? `${e.title} (bis zu ${e.points} P. - Meilensteine)`
+                : `${e.title} (+${e.points} P.)`;
+            option.textContent = displayText;
             option.dataset.points = e.points;
             option.dataset.title = e.title;
+            option.dataset.hasMilestones = e.hasMilestones || false;
+            if (e.hasMilestones && e.milestones) {
+                option.dataset.milestones = JSON.stringify(e.milestones);
+            }
             select.appendChild(option);
         });
     });
@@ -493,6 +500,118 @@ export function setupExercisePointsCalculation() {
 }
 
 /**
+ * Sets up milestone system for exercises
+ */
+export function setupExerciseMilestones() {
+    const milestonesEnabled = document.getElementById('exercise-milestones-enabled');
+    const standardContainer = document.getElementById('exercise-standard-points-container');
+    const milestonesContainer = document.getElementById('exercise-milestones-container');
+    const pointsInput = document.getElementById('exercise-points-form');
+
+    if (!milestonesEnabled || !standardContainer || !milestonesContainer) return;
+
+    // Toggle between standard points and milestones
+    milestonesEnabled.addEventListener('change', () => {
+        if (milestonesEnabled.checked) {
+            standardContainer.classList.add('hidden');
+            milestonesContainer.classList.remove('hidden');
+            pointsInput.removeAttribute('required');
+            // Add first milestone by default
+            if (getExerciseMilestones().length === 0) {
+                addExerciseMilestone();
+            }
+        } else {
+            standardContainer.classList.remove('hidden');
+            milestonesContainer.classList.add('hidden');
+            pointsInput.setAttribute('required', 'required');
+        }
+    });
+
+    // Add milestone button
+    const addBtn = document.getElementById('add-exercise-milestone-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', addExerciseMilestone);
+    }
+}
+
+/**
+ * Adds a new milestone input row for exercises
+ */
+function addExerciseMilestone() {
+    const list = document.getElementById('exercise-milestones-list');
+    if (!list) return;
+
+    const index = list.children.length;
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-center bg-gray-50 p-2 rounded';
+    row.innerHTML = `
+        <input type="number"
+               class="exercise-milestone-count flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="Anzahl (z.B. 1, 3, 5)"
+               min="1"
+               required>
+        <span class="text-gray-600 text-sm">× erreicht →</span>
+        <input type="number"
+               class="exercise-milestone-points flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="Punkte"
+               min="1"
+               required>
+        <span class="text-gray-600 text-sm">P.</span>
+        <button type="button" class="remove-exercise-milestone text-red-600 hover:text-red-800 px-2">
+            🗑️
+        </button>
+    `;
+
+    // Add remove handler
+    row.querySelector('.remove-exercise-milestone').addEventListener('click', () => {
+        row.remove();
+        updateExerciseTotalPoints();
+    });
+
+    // Add update handlers
+    row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateExerciseTotalPoints);
+    });
+
+    list.appendChild(row);
+    updateExerciseTotalPoints();
+}
+
+/**
+ * Gets all milestones from the form
+ * @returns {Array} Array of {count, points} objects
+ */
+function getExerciseMilestones() {
+    const list = document.getElementById('exercise-milestones-list');
+    if (!list) return [];
+
+    const milestones = [];
+    list.querySelectorAll('.flex').forEach(row => {
+        const count = parseInt(row.querySelector('.exercise-milestone-count')?.value || 0);
+        const points = parseInt(row.querySelector('.exercise-milestone-points')?.value || 0);
+        if (count > 0 && points > 0) {
+            milestones.push({ count, points });
+        }
+    });
+
+    // Sort by count ascending
+    milestones.sort((a, b) => a.count - b.count);
+    return milestones;
+}
+
+/**
+ * Updates the total milestone points display
+ */
+function updateExerciseTotalPoints() {
+    const milestones = getExerciseMilestones();
+    const total = milestones.reduce((sum, m) => sum + m.points, 0);
+    const totalEl = document.getElementById('exercise-total-milestone-points');
+    if (totalEl) {
+        totalEl.textContent = total;
+    }
+}
+
+/**
  * Handles exercise creation form submission (for coach)
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
@@ -506,10 +625,32 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     const title = document.getElementById('exercise-title-form').value;
     const level = document.getElementById('exercise-level-form').value;
     const difficulty = document.getElementById('exercise-difficulty-form').value;
-    const points = parseInt(document.getElementById('exercise-points-form').value);
     const file = document.getElementById('exercise-image-form').files[0];
     const tagsInput = document.getElementById('exercise-tags-form').value;
     const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+    // Check if milestones are enabled
+    const milestonesEnabled = document.getElementById('exercise-milestones-enabled')?.checked || false;
+    let points = 0;
+    let milestones = null;
+
+    if (milestonesEnabled) {
+        milestones = getExerciseMilestones();
+        if (milestones.length === 0) {
+            feedbackEl.textContent = 'Bitte mindestens einen Meilenstein hinzufügen.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+        // Total points is sum of all milestones
+        points = milestones.reduce((sum, m) => sum + m.points, 0);
+    } else {
+        points = parseInt(document.getElementById('exercise-points-form').value);
+        if (isNaN(points) || points <= 0) {
+            feedbackEl.textContent = 'Bitte gültige Punkte angeben.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+    }
 
     // Get description content from editor or fallback to textarea
     let descriptionContent;
@@ -524,7 +665,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !file || !level || !difficulty || isNaN(points) || points <= 0) {
+    if (!title || !file || !level || !difficulty) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
@@ -536,21 +677,39 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const imageUrl = await getDownloadURL(snapshot.ref);
-        await addDoc(collection(db, "exercises"), {
+
+        const exerciseData = {
             title,
             descriptionContent: JSON.stringify(descriptionContent),
-            level,          // NEW: Store level
-            difficulty,     // NEW: Store difficulty
+            level,
+            difficulty,
             points,
             imageUrl,
             createdAt: serverTimestamp(),
-            tags
-        });
+            tags,
+            hasMilestones: milestonesEnabled
+        };
+
+        // Add milestones if enabled
+        if (milestonesEnabled && milestones) {
+            exerciseData.milestones = milestones;
+        }
+
+        await addDoc(collection(db, "exercises"), exerciseData);
+
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+
         // Reset points field
         document.getElementById('exercise-points-form').value = '';
+
+        // Reset milestones
+        document.getElementById('exercise-milestones-list').innerHTML = '';
+        document.getElementById('exercise-milestones-enabled').checked = false;
+        document.getElementById('exercise-standard-points-container').classList.remove('hidden');
+        document.getElementById('exercise-milestones-container').classList.add('hidden');
+
         // Clear description editor
         if (descriptionEditor) {
             descriptionEditor.clear();

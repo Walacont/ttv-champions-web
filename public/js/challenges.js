@@ -17,16 +17,39 @@ export async function handleCreateChallenge(e, db, currentUserData) {
     const title = document.getElementById('challenge-title').value;
     const type = document.getElementById('challenge-type').value;
     const description = document.getElementById('challenge-description').value;
-    const points = parseInt(document.getElementById('challenge-points').value);
     const subgroupId = document.getElementById('challenge-subgroup').value;
     const isRepeatable = document.getElementById('challenge-repeatable').checked;
 
+    // Check if milestones are enabled
+    const milestonesEnabled = document.getElementById('challenge-milestones-enabled')?.checked || false;
+    let points = 0;
+    let milestones = null;
+
+    if (milestonesEnabled) {
+        milestones = getChallengeMilestones();
+        if (milestones.length === 0) {
+            feedbackEl.textContent = 'Bitte mindestens einen Meilenstein hinzufügen.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+        // Total points is sum of all milestones
+        points = milestones.reduce((sum, m) => sum + m.points, 0);
+    } else {
+        points = parseInt(document.getElementById('challenge-points').value);
+        if (isNaN(points) || points <= 0) {
+            feedbackEl.textContent = 'Bitte gültige Punkte angeben.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+    }
+
     feedbackEl.textContent = '';
-    if (!title || !type || isNaN(points) || points <= 0 || !subgroupId) {
+    if (!title || !type || !subgroupId) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
+
     try {
         const challengeData = {
             title,
@@ -38,15 +61,28 @@ export async function handleCreateChallenge(e, db, currentUserData) {
             isActive: true,
             isRepeatable: isRepeatable,
             createdAt: serverTimestamp(),
-            lastReactivatedAt: serverTimestamp() // Track when challenge was last activated
+            lastReactivatedAt: serverTimestamp(),
+            hasMilestones: milestonesEnabled
         };
+
+        // Add milestones if enabled
+        if (milestonesEnabled && milestones) {
+            challengeData.milestones = milestones;
+        }
 
         await addDoc(collection(db, "challenges"), challengeData);
         feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+
         // Reset dropdown to "all"
         document.getElementById('challenge-subgroup').value = 'all';
+
+        // Reset milestones
+        document.getElementById('challenge-milestones-list').innerHTML = '';
+        document.getElementById('challenge-milestones-enabled').checked = false;
+        document.getElementById('challenge-standard-points-container').classList.remove('hidden');
+        document.getElementById('challenge-milestones-container').classList.add('hidden');
     } catch (error) {
         console.error("Fehler beim Erstellen der Challenge:", error);
         feedbackEl.textContent = 'Fehler: Challenge konnte nicht erstellt werden.';
@@ -80,6 +116,117 @@ export function setupChallengePointRecommendations() {
 
     typeSelect.addEventListener('change', updateRecommendation);
     updateRecommendation(); // Set initial value
+}
+
+/**
+ * Sets up milestone system for challenges
+ */
+export function setupChallengeMilestones() {
+    const milestonesEnabled = document.getElementById('challenge-milestones-enabled');
+    const standardContainer = document.getElementById('challenge-standard-points-container');
+    const milestonesContainer = document.getElementById('challenge-milestones-container');
+    const pointsInput = document.getElementById('challenge-points');
+
+    if (!milestonesEnabled || !standardContainer || !milestonesContainer) return;
+
+    // Toggle between standard points and milestones
+    milestonesEnabled.addEventListener('change', () => {
+        if (milestonesEnabled.checked) {
+            standardContainer.classList.add('hidden');
+            milestonesContainer.classList.remove('hidden');
+            pointsInput.removeAttribute('required');
+            // Add first milestone by default
+            if (getChallengeMilestones().length === 0) {
+                addChallengeMilestone();
+            }
+        } else {
+            standardContainer.classList.remove('hidden');
+            milestonesContainer.classList.add('hidden');
+            pointsInput.setAttribute('required', 'required');
+        }
+    });
+
+    // Add milestone button
+    const addBtn = document.getElementById('add-challenge-milestone-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', addChallengeMilestone);
+    }
+}
+
+/**
+ * Adds a new milestone input row for challenges
+ */
+function addChallengeMilestone() {
+    const list = document.getElementById('challenge-milestones-list');
+    if (!list) return;
+
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-center bg-gray-50 p-2 rounded';
+    row.innerHTML = `
+        <input type="number"
+               class="challenge-milestone-count flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="Anzahl (z.B. 1, 3, 5)"
+               min="1"
+               required>
+        <span class="text-gray-600 text-sm">× erreicht →</span>
+        <input type="number"
+               class="challenge-milestone-points flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="Punkte"
+               min="1"
+               required>
+        <span class="text-gray-600 text-sm">P.</span>
+        <button type="button" class="remove-challenge-milestone text-red-600 hover:text-red-800 px-2">
+            🗑️
+        </button>
+    `;
+
+    // Add remove handler
+    row.querySelector('.remove-challenge-milestone').addEventListener('click', () => {
+        row.remove();
+        updateChallengeTotalPoints();
+    });
+
+    // Add update handlers
+    row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateChallengeTotalPoints);
+    });
+
+    list.appendChild(row);
+    updateChallengeTotalPoints();
+}
+
+/**
+ * Gets all milestones from the challenge form
+ * @returns {Array} Array of {count, points} objects
+ */
+function getChallengeMilestones() {
+    const list = document.getElementById('challenge-milestones-list');
+    if (!list) return [];
+
+    const milestones = [];
+    list.querySelectorAll('.flex').forEach(row => {
+        const count = parseInt(row.querySelector('.challenge-milestone-count')?.value || 0);
+        const points = parseInt(row.querySelector('.challenge-milestone-points')?.value || 0);
+        if (count > 0 && points > 0) {
+            milestones.push({ count, points });
+        }
+    });
+
+    // Sort by count ascending
+    milestones.sort((a, b) => a.count - b.count);
+    return milestones;
+}
+
+/**
+ * Updates the total milestone points display for challenges
+ */
+function updateChallengeTotalPoints() {
+    const milestones = getChallengeMilestones();
+    const total = milestones.reduce((sum, m) => sum + m.points, 0);
+    const totalEl = document.getElementById('challenge-total-milestone-points');
+    if (totalEl) {
+        totalEl.textContent = total;
+    }
 }
 
 /**
@@ -217,10 +364,17 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
         activeChallenges.forEach(challenge => {
             const option = document.createElement('option');
             option.value = challenge.id;
-            option.textContent = `${challenge.title} (+${challenge.points} P.)`;
+            const displayText = challenge.hasMilestones
+                ? `${challenge.title} (bis zu ${challenge.points} P. - Meilensteine)`
+                : `${challenge.title} (+${challenge.points} P.)`;
+            option.textContent = displayText;
             option.dataset.points = challenge.points;
             option.dataset.title = challenge.title;
             option.dataset.subgroupId = challenge.subgroupId || 'all';
+            option.dataset.hasMilestones = challenge.hasMilestones || false;
+            if (challenge.hasMilestones && challenge.milestones) {
+                option.dataset.milestones = JSON.stringify(challenge.milestones);
+            }
             select.appendChild(option);
         });
     });
