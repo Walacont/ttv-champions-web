@@ -307,12 +307,19 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   const debouncedRenderAll = () => {
     if (renderTimeout) clearTimeout(renderTimeout);
     renderTimeout = setTimeout(async () => {
-      // Pending: Only incoming requests that need response
-      const pendingRequests = incomingRequests;
+      // Pending:
+      // - Incoming requests that need my response
+      // - My sent requests that are still pending (waiting for opponent or coach)
+      const pendingMyRequests = myRequests.filter(r =>
+        r.status === "pending_player" || r.status === "pending_coach"
+      );
+      const pendingRequests = [...incomingRequests, ...pendingMyRequests].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime; // Most recent first
+      });
 
       // History: Only completed requests (approved/rejected)
-      // - completedMyRequests: My sent requests that are approved/rejected
-      // - completedProcessedRequests: Received requests that are approved/rejected (not pending_coach!)
       const completedMyRequests = myRequests.filter(r =>
         r.status === "approved" || r.status === "rejected"
       );
@@ -328,8 +335,8 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       await renderPendingRequests(pendingRequests, userData, db);
       await renderHistoryRequests(historyRequests, userData, db);
 
-      // Update badge count
-      updateMatchRequestBadge(pendingRequests.length);
+      // Update badge count (only incoming requests need action)
+      updateMatchRequestBadge(incomingRequests.length);
     }, 100);
   };
 
@@ -1095,8 +1102,16 @@ async function renderPendingRequests(requests, userData, db) {
   const requestsToShow = showAllPendingRequests ? requests : requests.slice(0, maxInitial);
 
   for (const request of requestsToShow) {
-    const playerAData = await getUserData(request.playerAId, db);
-    const card = createIncomingRequestCard(request, playerAData, userData, db);
+    let card;
+    if (request.playerBId === userData.id) {
+      // Incoming request - I need to respond
+      const playerAData = await getUserData(request.playerAId, db);
+      card = createIncomingRequestCard(request, playerAData, userData, db);
+    } else {
+      // My sent request - waiting for response
+      const playerBData = await getUserData(request.playerBId, db);
+      card = createMyRequestCard(request, playerBData, userData, db);
+    }
     container.appendChild(card);
   }
 
