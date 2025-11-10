@@ -517,34 +517,52 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         orderBy('createdAt', 'desc')
     );
 
-    // Query for match proposals (received, need my response)
-    const receivedProposalsQuery = query(
+    // Query for match proposals (received) - split into separate queries to avoid index requirement
+    const receivedProposalsPendingQuery = query(
         collection(db, 'matchProposals'),
         where('recipientId', '==', userData.id),
-        where('status', 'in', ['pending', 'counter_proposed']),
+        where('status', '==', 'pending'),
         orderBy('createdAt', 'desc')
     );
 
-    // Query for match proposals (sent, waiting for response)
-    const sentProposalsQuery = query(
+    const receivedProposalsCounterQuery = query(
+        collection(db, 'matchProposals'),
+        where('recipientId', '==', userData.id),
+        where('status', '==', 'counter_proposed'),
+        orderBy('createdAt', 'desc')
+    );
+
+    // Query for match proposals (sent) - split into separate queries to avoid index requirement
+    const sentProposalsPendingQuery = query(
         collection(db, 'matchProposals'),
         where('requesterId', '==', userData.id),
-        where('status', 'in', ['pending', 'counter_proposed']),
+        where('status', '==', 'pending'),
         orderBy('createdAt', 'desc')
     );
 
-    // Listen to all three queries
-    const unsubRequests = onSnapshot(incomingRequestsQuery, () => refreshOverview());
-    const unsubReceivedProposals = onSnapshot(receivedProposalsQuery, () => refreshOverview());
-    const unsubSentProposals = onSnapshot(sentProposalsQuery, () => refreshOverview());
+    const sentProposalsCounterQuery = query(
+        collection(db, 'matchProposals'),
+        where('requesterId', '==', userData.id),
+        where('status', '==', 'counter_proposed'),
+        orderBy('createdAt', 'desc')
+    );
 
-    unsubscribes.push(unsubRequests, unsubReceivedProposals, unsubSentProposals);
+    // Listen to all queries
+    const unsubRequests = onSnapshot(incomingRequestsQuery, () => refreshOverview());
+    const unsubReceivedPending = onSnapshot(receivedProposalsPendingQuery, () => refreshOverview());
+    const unsubReceivedCounter = onSnapshot(receivedProposalsCounterQuery, () => refreshOverview());
+    const unsubSentPending = onSnapshot(sentProposalsPendingQuery, () => refreshOverview());
+    const unsubSentCounter = onSnapshot(sentProposalsCounterQuery, () => refreshOverview());
+
+    unsubscribes.push(unsubRequests, unsubReceivedPending, unsubReceivedCounter, unsubSentPending, unsubSentCounter);
 
     async function refreshOverview() {
-        const [requestsSnap, receivedProposalsSnap, sentProposalsSnap] = await Promise.all([
+        const [requestsSnap, receivedPendingSnap, receivedCounterSnap, sentPendingSnap, sentCounterSnap] = await Promise.all([
             getDocs(incomingRequestsQuery),
-            getDocs(receivedProposalsQuery),
-            getDocs(sentProposalsQuery)
+            getDocs(receivedProposalsPendingQuery),
+            getDocs(receivedProposalsCounterQuery),
+            getDocs(sentProposalsPendingQuery),
+            getDocs(sentProposalsCounterQuery)
         ]);
 
         allItems = [];
@@ -563,8 +581,9 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
             });
         }
 
-        // Add received match proposals (green border, my turn)
-        for (const docSnap of receivedProposalsSnap.docs) {
+        // Add received match proposals (green border, my turn) - combine both status queries
+        const receivedProposalsDocs = [...receivedPendingSnap.docs, ...receivedCounterSnap.docs];
+        for (const docSnap of receivedProposalsDocs) {
             const data = docSnap.data();
             // Check if it's my turn
             const myTurn = whoseTurnProposal(data) === 'recipient';
@@ -581,8 +600,9 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
             }
         }
 
-        // Add sent match proposals (green border, waiting for response)
-        for (const docSnap of sentProposalsSnap.docs) {
+        // Add sent match proposals (green border, waiting for response) - combine both status queries
+        const sentProposalsDocs = [...sentPendingSnap.docs, ...sentCounterSnap.docs];
+        for (const docSnap of sentProposalsDocs) {
             const data = docSnap.data();
             // Check if it's their turn (not my turn)
             const myTurn = whoseTurnProposal(data) === 'requester';
