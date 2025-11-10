@@ -532,17 +532,23 @@ function createMyRequestCard(request, playerB, userData, db) {
 
   const setsDisplay = formatSetsDisplay(request.sets);
   const statusBadge = getStatusBadge(request.status, request.approvals);
+  const timeAgo = formatTimestamp(request.createdAt);
 
   div.innerHTML = `
-    <div class="flex justify-between items-start mb-2">
-      <div class="flex-1">
+    <div class="mb-2">
+      <div class="flex justify-between items-center mb-2">
         <p class="font-semibold text-gray-800">
           ${userData.firstName} vs ${playerB?.firstName || "Unbekannt"}
         </p>
-        <p class="text-sm text-gray-600">${setsDisplay}</p>
-        ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+        ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
       </div>
-      ${statusBadge}
+      <div class="flex justify-between items-start">
+        <div class="flex-1">
+          <p class="text-sm text-gray-600">${setsDisplay}</p>
+          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+        </div>
+        ${statusBadge}
+      </div>
     </div>
     <div class="flex gap-2 mt-3">
       ${request.status === "pending_player" && !request.approvals?.playerB?.status
@@ -583,12 +589,16 @@ function createIncomingRequestCard(request, playerA, userData, db) {
 
   const setsDisplay = formatSetsDisplay(request.sets);
   const winner = getWinner(request.sets, playerA, userData);
+  const timeAgo = formatTimestamp(request.createdAt);
 
   div.innerHTML = `
     <div class="mb-3">
-      <p class="font-semibold text-gray-800">
-        ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
-      </p>
+      <div class="flex justify-between items-start mb-2">
+        <p class="font-semibold text-gray-800">
+          ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
+        </p>
+        ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
+      </div>
       <p class="text-sm text-gray-600">${setsDisplay}</p>
       <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
       ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
@@ -637,14 +647,18 @@ function createProcessedRequestCard(request, playerA, userData, db) {
   const setsDisplay = formatSetsDisplay(request.sets);
   const winner = getWinner(request.sets, playerA, userData);
   const statusBadge = getProcessedStatusBadge(request.status, request.approvals);
+  const timeAgo = formatTimestamp(request.createdAt);
 
   div.innerHTML = `
     <div class="mb-3">
+      <div class="flex justify-between items-center mb-2">
+        <p class="font-semibold text-gray-800">
+          ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
+        </p>
+        ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
+      </div>
       <div class="flex justify-between items-start mb-2">
         <div class="flex-1">
-          <p class="font-semibold text-gray-800">
-            ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
-          </p>
           <p class="text-sm text-gray-600">${setsDisplay}</p>
           <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
           ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
@@ -848,6 +862,45 @@ async function deleteMatchRequest(requestId, db) {
 function openEditRequestModal(request, userData, db) {
   // TODO: Implement edit modal if needed
   showFeedback("Bearbeiten-Funktion wird bald verfügbar sein.", "info");
+}
+
+/**
+ * Formats timestamp for display
+ */
+function formatTimestamp(timestamp) {
+  if (!timestamp) return "";
+
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  // Less than 1 hour ago
+  if (diffMins < 60) {
+    if (diffMins < 1) return "gerade eben";
+    return `vor ${diffMins} Min.`;
+  }
+
+  // Less than 24 hours ago
+  if (diffHours < 24) {
+    return `vor ${diffHours} Std.`;
+  }
+
+  // Less than 7 days ago
+  if (diffDays < 7) {
+    return `vor ${diffDays} ${diffDays === 1 ? 'Tag' : 'Tagen'}`;
+  }
+
+  // Format as date and time
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(date);
 }
 
 /**
