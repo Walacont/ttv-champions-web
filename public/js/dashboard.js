@@ -487,49 +487,40 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'pending_player')
     );
 
-    // Listen to query with debouncing to prevent race conditions
+    // Real-time listener with debouncing to prevent race conditions
     let refreshTimeout = null;
-    const debouncedRefresh = () => {
+    const unsubRequests = onSnapshot(incomingRequestsQuery, async (snapshot) => {
         if (refreshTimeout) clearTimeout(refreshTimeout);
-        refreshTimeout = setTimeout(() => refreshOverview(), 100);
-    };
+        refreshTimeout = setTimeout(async () => {
+            allItems = [];
 
-    const unsubRequests = onSnapshot(incomingRequestsQuery, debouncedRefresh);
+            // Add match result requests (use real-time snapshot data)
+            for (const docSnap of snapshot.docs) {
+                const data = docSnap.data();
+                const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+                const playerAData = playerADoc.exists() ? playerADoc.data() : null;
+                allItems.push({
+                    type: 'match-request',
+                    id: docSnap.id,
+                    data,
+                    playerAData,
+                    createdAt: data.createdAt
+                });
+            }
+
+            // Sort by creation date (newest first)
+            allItems.sort((a, b) => {
+                const timeA = a.createdAt?.toMillis?.() || 0;
+                const timeB = b.createdAt?.toMillis?.() || 0;
+                return timeB - timeA;
+            });
+
+            renderCombinedOverview(allItems, userData, db, showAll);
+            updateMatchRequestBadge(allItems.length);
+        }, 100);
+    });
 
     unsubscribes.push(unsubRequests);
-
-    async function refreshOverview() {
-        const requestsSnap = await getDocs(incomingRequestsQuery);
-
-        allItems = [];
-
-        // Add match result requests
-        for (const docSnap of requestsSnap.docs) {
-            const data = docSnap.data();
-            const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
-            const playerAData = playerADoc.exists() ? playerADoc.data() : null;
-            allItems.push({
-                type: 'match-request',
-                id: docSnap.id,
-                data,
-                playerAData,
-                createdAt: data.createdAt
-            });
-        }
-
-        // Sort by creation date (newest first)
-        allItems.sort((a, b) => {
-            const timeA = a.createdAt?.toMillis?.() || 0;
-            const timeB = b.createdAt?.toMillis?.() || 0;
-            return timeB - timeA;
-        });
-
-        renderCombinedOverview(allItems, userData, db, showAll);
-        updateMatchRequestBadge(allItems.length);
-    }
-
-    // Initial load
-    refreshOverview();
 }
 
 /**
