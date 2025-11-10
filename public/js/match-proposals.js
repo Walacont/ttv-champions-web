@@ -359,6 +359,19 @@ function createSentProposalCard(proposal, recipient, userData, db) {
   const latestProposal = getLatestProposal(proposal);
   const myTurn = whoseTurn(proposal) === 'requester';
 
+  // Build timestamp text based on status
+  let timestampText = `<span class="text-xs text-gray-500">Erstellt ${formatRelativeTime(proposal.createdAt)}</span>`;
+
+  if (proposal.status === "accepted" && proposal.acceptedAt) {
+    timestampText += ` <span class="text-xs text-green-600">• Angenommen ${formatRelativeTime(proposal.acceptedAt)}</span>`;
+  } else if (proposal.status === "declined" && proposal.declinedAt) {
+    timestampText += ` <span class="text-xs text-red-600">• Abgelehnt ${formatRelativeTime(proposal.declinedAt)}</span>`;
+  } else if (proposal.status === "cancelled" && proposal.cancelledAt) {
+    timestampText += ` <span class="text-xs text-gray-600">• Zurückgezogen ${formatRelativeTime(proposal.cancelledAt)}</span>`;
+  } else if (proposal.status === "counter_proposed" && proposal.counterProposedAt) {
+    timestampText += ` <span class="text-xs text-blue-600">• Gegenvorschlag ${formatRelativeTime(proposal.counterProposedAt)}</span>`;
+  }
+
   div.innerHTML = `
     <div class="flex justify-between items-start mb-3">
       <div class="flex-1">
@@ -366,6 +379,7 @@ function createSentProposalCard(proposal, recipient, userData, db) {
           ${userData.firstName} <i class="fas fa-arrow-right text-gray-400 mx-1"></i> ${recipient?.firstName || "Unbekannt"}
         </p>
         ${statusBadge}
+        <p class="mt-1">${timestampText}</p>
       </div>
     </div>
 
@@ -440,6 +454,19 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
   const latestProposal = getLatestProposal(proposal);
   const myTurn = whoseTurn(proposal) === 'recipient';
 
+  // Build timestamp text based on status
+  let timestampText = `<span class="text-xs text-gray-500">Erstellt ${formatRelativeTime(proposal.createdAt)}</span>`;
+
+  if (proposal.status === "accepted" && proposal.acceptedAt) {
+    timestampText += ` <span class="text-xs text-green-600">• Angenommen ${formatRelativeTime(proposal.acceptedAt)}</span>`;
+  } else if (proposal.status === "declined" && proposal.declinedAt) {
+    timestampText += ` <span class="text-xs text-red-600">• Abgelehnt ${formatRelativeTime(proposal.declinedAt)}</span>`;
+  } else if (proposal.status === "cancelled" && proposal.cancelledAt) {
+    timestampText += ` <span class="text-xs text-gray-600">• Zurückgezogen ${formatRelativeTime(proposal.cancelledAt)}</span>`;
+  } else if (proposal.status === "counter_proposed" && proposal.counterProposedAt) {
+    timestampText += ` <span class="text-xs text-blue-600">• Gegenvorschlag ${formatRelativeTime(proposal.counterProposedAt)}</span>`;
+  }
+
   div.innerHTML = `
     <div class="flex justify-between items-start mb-3">
       <div class="flex-1">
@@ -447,6 +474,7 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
           ${requester?.firstName || "Unbekannt"} <i class="fas fa-arrow-right text-gray-400 mx-1"></i> ${userData.firstName}
         </p>
         ${statusBadge}
+        <p class="mt-1">${timestampText}</p>
       </div>
     </div>
 
@@ -535,10 +563,12 @@ function renderCounterProposalsHistory(counterProposals, requester, recipient) {
 
   const history = counterProposals.map((cp, index) => {
     const proposerName = cp.proposedBy === requester.id ? requester.firstName : recipient.firstName;
+    const timeStamp = cp.createdAt ? formatRelativeTime(cp.createdAt) : "";
+
     return `
       <div class="text-xs text-gray-600 p-2 bg-blue-50 border-l-2 border-blue-300 rounded">
         <div class="mb-1">
-          <i class="fas fa-reply mr-1"></i><strong>${proposerName}</strong> schlug vor:
+          <i class="fas fa-reply mr-1"></i><strong>${proposerName}</strong> schlug vor${timeStamp ? ` (${timeStamp})` : ""}:
           ${cp.dateTime ? formatDateTime(cp.dateTime) : "Keine Zeit"}
           ${cp.location ? `@ ${cp.location}` : ""}
         </div>
@@ -609,6 +639,51 @@ function formatDateTime(timestamp) {
 }
 
 /**
+ * Formats timestamp as relative time (e.g., "vor 2 Stunden", "vor 3 Tagen")
+ */
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return "";
+
+  try {
+    let date;
+    if (timestamp.toDate) {
+      date = timestamp.toDate();
+    } else if (typeof timestamp === "number") {
+      date = new Date(timestamp);
+    } else if (timestamp instanceof Date) {
+      date = timestamp;
+    } else {
+      return "";
+    }
+
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMinutes < 1) {
+      return "gerade eben";
+    } else if (diffMinutes < 60) {
+      return `vor ${diffMinutes} Min.`;
+    } else if (diffHours < 24) {
+      return `vor ${diffHours} Std.`;
+    } else if (diffDays < 7) {
+      return `vor ${diffDays} Tag${diffDays === 1 ? '' : 'en'}`;
+    } else {
+      // For older dates, show the actual date
+      return new Intl.DateTimeFormat("de-DE", { dateStyle: "short" }).format(date);
+    }
+  } catch (error) {
+    return "";
+  }
+}
+
+/**
  * Accepts a proposal (players can arrange directly without coach approval)
  */
 export async function acceptProposal(proposalId, db) {
@@ -635,6 +710,7 @@ export async function declineProposal(proposalId, db) {
     const proposalRef = doc(db, "matchProposals", proposalId);
     await updateDoc(proposalRef, {
       status: "declined",
+      declinedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
@@ -655,6 +731,7 @@ export async function cancelProposal(proposalId, db) {
     const proposalRef = doc(db, "matchProposals", proposalId);
     await updateDoc(proposalRef, {
       status: "cancelled",
+      cancelledAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
 
@@ -774,6 +851,7 @@ export function openCounterProposalModal(proposal, requester, db) {
       await updateDoc(proposalRef, {
         counterProposals: counterProposals,
         status: "counter_proposed",
+        counterProposedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
