@@ -395,9 +395,9 @@
                         </form>
                     </div>
 
-                    <!-- Incoming Requests (Two Column Layout) -->
+                    <!-- Pending Requests - Need Response (Two Column Layout) -->
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📥 Eingehende Anfragen</h2>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📥 Zu beantworten</h2>
                         <p class="text-xs text-gray-500 mb-4">Anfragen, die auf deine Antwort warten</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <!-- Left Column: Result Requests -->
@@ -405,7 +405,7 @@
                                 <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
                                     <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
                                 </h3>
-                                <div id="incoming-result-requests-list" class="space-y-3 min-h-[100px]">
+                                <div id="pending-result-requests-list" class="space-y-3 min-h-[100px]">
                                     <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
                                 </div>
                             </div>
@@ -414,24 +414,24 @@
                                 <h3 class="text-sm font-semibold text-green-700 mb-2 flex items-center">
                                     <span class="bg-green-100 px-2 py-1 rounded">📅 Match-Anfragen</span>
                                 </h3>
-                                <div id="incoming-match-proposals-list" class="space-y-3 min-h-[100px]">
+                                <div id="pending-match-proposals-list" class="space-y-3 min-h-[100px]">
                                     <p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- My Requests (Two Column Layout) -->
+                    <!-- History - Completed Requests (Two Column Layout) -->
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📤 Meine Anfragen</h2>
-                        <p class="text-xs text-gray-500 mb-4">Alle von mir gesendeten Anfragen (aktiv und abgeschlossen)</p>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📋 Historie</h2>
+                        <p class="text-xs text-gray-500 mb-4">Alle abgeschlossenen Anfragen (gesendet & empfangen)</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <!-- Left Column: Result Requests -->
                             <div>
                                 <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
                                     <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
                                 </h3>
-                                <div id="my-result-requests-list" class="space-y-3 min-h-[100px]">
+                                <div id="history-result-requests-list" class="space-y-3 min-h-[100px]">
                                     <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
                                 </div>
                             </div>
@@ -440,33 +440,7 @@
                                 <h3 class="text-sm font-semibold text-green-700 mb-2 flex items-center">
                                     <span class="bg-green-100 px-2 py-1 rounded">📅 Match-Anfragen</span>
                                 </h3>
-                                <div id="my-match-proposals-list" class="space-y-3 min-h-[100px]">
-                                    <p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Processed Requests (Two Column Layout) - History -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">📋 Eingegangene Anfragen</h2>
-                        <p class="text-xs text-gray-500 mb-4">Von anderen empfangene Anfragen (bereits bearbeitet)</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Left Column: Result Requests -->
-                            <div>
-                                <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
-                                    <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
-                                </h3>
-                                <div id="processed-result-requests-list" class="space-y-3 min-h-[100px]">
-                                    <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
-                                </div>
-                            </div>
-                            <!-- Right Column: Match Proposals -->
-                            <div>
-                                <h3 class="text-sm font-semibold text-green-700 mb-2 flex items-center">
-                                    <span class="bg-green-100 px-2 py-1 rounded">📅 Match-Anfragen</span>
-                                </h3>
-                                <div id="processed-match-proposals-list" class="space-y-3 min-h-[100px]">
+                                <div id="history-match-proposals-list" class="space-y-3 min-h-[100px]">
                                     <p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>
                                 </div>
                             </div>

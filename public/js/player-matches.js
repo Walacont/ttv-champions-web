@@ -270,12 +270,11 @@ export function createSetScoreInput(container, existingSets = []) {
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
-  // Updated to use new two-column layout container IDs
-  const myRequestsList = document.getElementById("my-result-requests-list");
-  const incomingRequestsList = document.getElementById("incoming-result-requests-list");
-  const processedRequestsList = document.getElementById("processed-result-requests-list");
+  // Updated to use new two-section layout: pending (to respond) and history (completed)
+  const pendingRequestsList = document.getElementById("pending-result-requests-list");
+  const historyRequestsList = document.getElementById("history-result-requests-list");
 
-  if (!myRequestsList || !incomingRequestsList || !processedRequestsList) return;
+  if (!pendingRequestsList || !historyRequestsList) return;
 
   // Query for requests created by me (playerA)
   const myRequestsQuery = query(
@@ -299,43 +298,64 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     orderBy("createdAt", "desc")
   );
 
+  // Store all requests for combined rendering
+  let myRequests = [];
+  let incomingRequests = [];
+  let processedRequests = [];
+  let renderTimeout = null;
+
+  const debouncedRenderAll = () => {
+    if (renderTimeout) clearTimeout(renderTimeout);
+    renderTimeout = setTimeout(async () => {
+      // Pending: Only incoming requests that need response
+      const pendingRequests = incomingRequests;
+
+      // History: All my requests + all processed requests (sorted by most recent)
+      const historyRequests = [...myRequests, ...processedRequests].sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime; // Most recent first
+      });
+
+      await renderPendingRequests(pendingRequests, userData, db);
+      await renderHistoryRequests(historyRequests, userData, db);
+
+      // Update badge count
+      updateMatchRequestBadge(pendingRequests.length);
+    }, 100);
+  };
+
   // Listen to my requests
   const myRequestsUnsubscribe = onSnapshot(myRequestsQuery, async (snapshot) => {
-    const requests = [];
+    myRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
-      requests.push({ id: docSnap.id, ...data });
+      myRequests.push({ id: docSnap.id, ...data });
     }
-
-    await renderMyRequests(requests, userData, db);
+    debouncedRenderAll();
   });
 
-  // Listen to incoming requests
+  // Listen to incoming requests (pending_player)
   const incomingRequestsUnsubscribe = onSnapshot(incomingRequestsQuery, async (snapshot) => {
-    const requests = [];
+    incomingRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
-      requests.push({ id: docSnap.id, ...data });
+      incomingRequests.push({ id: docSnap.id, ...data });
     }
-
-    await renderIncomingRequests(requests, userData, db);
-
-    // Update badge count
-    updateMatchRequestBadge(requests.length);
+    debouncedRenderAll();
   });
 
-  // Listen to processed requests
+  // Listen to processed requests (playerB, not pending_player)
   const processedRequestsUnsubscribe = onSnapshot(processedRequestsQuery, async (snapshot) => {
-    const requests = [];
+    processedRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
       // Only include requests that are NOT pending_player (i.e., already processed)
       if (data.status !== "pending_player") {
-        requests.push({ id: docSnap.id, ...data });
+        processedRequests.push({ id: docSnap.id, ...data });
       }
     }
-
-    await renderProcessedRequests(requests, userData, db);
+    debouncedRenderAll();
   });
 
   unsubscribes.push(myRequestsUnsubscribe, incomingRequestsUnsubscribe, processedRequestsUnsubscribe);
@@ -1044,4 +1064,102 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
       showFeedback("Fehler beim Erstellen der Anfrage.", "error");
     }
   });
+}
+
+/**
+ * Renders pending result requests (incoming, need response) with "show more" functionality
+ */
+let showAllPendingRequests = false;
+
+async function renderPendingRequests(requests, userData, db) {
+  const container = document.getElementById("pending-result-requests-list");
+  if (!container) return;
+
+  if (requests.length === 0) {
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    showAllPendingRequests = false;
+    return;
+  }
+
+  container.innerHTML = "";
+
+  const maxInitial = 3;
+  const requestsToShow = showAllPendingRequests ? requests : requests.slice(0, maxInitial);
+
+  for (const request of requestsToShow) {
+    const playerAData = await getUserData(request.playerAId, db);
+    const card = createIncomingRequestCard(request, playerAData, userData, db);
+    container.appendChild(card);
+  }
+
+  if (requests.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllPendingRequests
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllPendingRequests = !showAllPendingRequests;
+      renderPendingRequests(requests, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
+  }
+}
+
+/**
+ * Renders history result requests (all completed) with "show more" functionality
+ */
+let showAllHistoryRequests = false;
+
+async function renderHistoryRequests(requests, userData, db) {
+  const container = document.getElementById("history-result-requests-list");
+  if (!container) return;
+
+  if (requests.length === 0) {
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    showAllHistoryRequests = false;
+    return;
+  }
+
+  container.innerHTML = "";
+
+  const maxInitial = 3;
+  const requestsToShow = showAllHistoryRequests ? requests : requests.slice(0, maxInitial);
+
+  for (const request of requestsToShow) {
+    let card;
+    if (request.playerAId === userData.id) {
+      const playerBData = await getUserData(request.playerBId, db);
+      card = createMyRequestCard(request, playerBData, userData, db);
+    } else {
+      const playerAData = await getUserData(request.playerAId, db);
+      card = createIncomingRequestCard(request, playerAData, userData, db);
+    }
+    container.appendChild(card);
+  }
+
+  if (requests.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllHistoryRequests
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllHistoryRequests = !showAllHistoryRequests;
+      renderHistoryRequests(requests, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
+  }
 }
