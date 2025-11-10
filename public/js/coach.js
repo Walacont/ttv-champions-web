@@ -22,6 +22,7 @@ import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, hand
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
 import { populateMatchHistoryPlayerDropdown } from './coach-match-history.js';
 import { initializeExerciseMilestones, initializeChallengeMilestones, getExerciseMilestones, getChallengeMilestones, isExerciseTieredPointsEnabled, isChallengeTieredPointsEnabled } from './milestone-management.js';
+import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -48,7 +49,8 @@ let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
 let currentSubgroupFilter = 'all';
-let calendarUnsubscribe = null; 
+let calendarUnsubscribe = null;
+let descriptionEditor = null; 
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -277,12 +279,19 @@ async function initializeCoachPage(userData) {
     // Attendance Modal Listeners
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => document.getElementById('attendance-modal').classList.add('hidden'));
 
+    // Initialize description editor for exercise creation
+    descriptionEditor = setupDescriptionEditor({
+        textAreaId: 'exercise-description-form',
+        toggleContainerId: 'description-toggle-container-coach',
+        tableEditorContainerId: 'description-table-editor-coach'
+    });
+
     // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
     document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData, getChallengeMilestones, isChallengeTieredPointsEnabled));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
-    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage, null, getExerciseMilestones, isExerciseTieredPointsEnabled));
+    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage, descriptionEditor, getExerciseMilestones, isExerciseTieredPointsEnabled));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
 
     // Setup exercise points auto-calculation (based on level + difficulty)
