@@ -11,19 +11,55 @@ import {
 
 /**
  * Coach Match History Module
- * Displays competition history for all club members
+ * Displays competition history for selected player
  */
 
 // ========================================================================
-// ===== LOAD AND DISPLAY CLUB MATCH HISTORY =====
+// ===== POPULATE PLAYER DROPDOWN =====
 // ========================================================================
 
 /**
- * Load and display match history for the entire club
+ * Populate the player filter dropdown for match history
+ * @param {Array} clubPlayers - Array of club players
  * @param {Object} db - Firestore database instance
- * @param {Object} userData - Current user (coach) data
  */
-export async function loadCoachMatchHistory(db, userData) {
+export function populateMatchHistoryPlayerDropdown(clubPlayers, db) {
+  const select = document.getElementById('match-history-player-filter');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Bitte Spieler wählen...</option>';
+
+  clubPlayers.forEach(player => {
+    const option = document.createElement('option');
+    option.value = player.id;
+    option.textContent = `${player.firstName} ${player.lastName}`;
+    select.appendChild(option);
+  });
+
+  // Add event listener for when player is selected
+  select.addEventListener('change', (e) => {
+    const playerId = e.target.value;
+    if (playerId) {
+      loadCoachMatchHistory(playerId, db);
+    } else {
+      const container = document.getElementById("coach-match-history-list");
+      if (container) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Wähle einen Spieler aus...</p>';
+      }
+    }
+  });
+}
+
+// ========================================================================
+// ===== LOAD AND DISPLAY PLAYER MATCH HISTORY =====
+// ========================================================================
+
+/**
+ * Load and display match history for a specific player
+ * @param {string} playerId - Player ID to load history for
+ * @param {Object} db - Firestore database instance
+ */
+export async function loadCoachMatchHistory(playerId, db) {
   const container = document.getElementById("coach-match-history-list");
   if (!container) {
     console.error("Coach match history container not found");
@@ -33,32 +69,54 @@ export async function loadCoachMatchHistory(db, userData) {
   container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
   try {
-    // Query all processed matches for the club
+    // Get player data first
+    const playerDoc = await getDoc(doc(db, "users", playerId));
+    if (!playerDoc.exists()) {
+      container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Spieler nicht gefunden</p>';
+      return;
+    }
+
+    const playerData = playerDoc.data();
+    const playerName = `${playerData.firstName || ''} ${playerData.lastName || ''}`.trim();
+
+    // Query all processed matches for this player
     const matchesRef = collection(db, "matches");
     const baseQuery = query(
       matchesRef,
-      where("clubId", "==", userData.clubId),
+      where("clubId", "==", playerData.clubId),
       where("processed", "==", true),
       orderBy("timestamp", "desc"),
-      limit(100) // Get last 100 matches from club
+      limit(100)
     );
 
     const snapshot = await getDocs(baseQuery);
 
-    const matches = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Filter matches where this player is involved (client-side filtering)
+    const matches = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(match => {
+        return (
+          match.playerAId === playerId ||
+          match.playerBId === playerId ||
+          match.winnerId === playerId ||
+          match.loserId === playerId ||
+          (match.playerIds && match.playerIds.includes(playerId))
+        );
+      })
+      .slice(0, 50); // Limit to 50 matches
 
     if (matches.length === 0) {
-      container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+      container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe für ${playerName} gefunden</p>`;
       return;
     }
 
-    // Get player names for all matches
+    // Get opponent names and points for all matches
     const matchesWithDetails = await Promise.all(
-      matches.map(match => enrichCoachMatchData(db, match))
+      matches.map(match => enrichCoachMatchData(db, match, playerId, playerData))
     );
 
     // Render matches
-    renderCoachMatchHistory(container, matchesWithDetails);
+    renderCoachMatchHistory(container, matchesWithDetails, playerName);
 
   } catch (error) {
     console.error("Error loading coach match history:", error);
@@ -67,43 +125,102 @@ export async function loadCoachMatchHistory(db, userData) {
 }
 
 /**
- * Enrich match data with player names
+ * Enrich match data with opponent name and ELO changes
  * @param {Object} db - Firestore database instance
  * @param {Object} match - Match data
+ * @param {string} playerId - The player we're viewing history for
+ * @param {Object} playerData - Player data
  * @returns {Object} Enriched match data
  */
-async function enrichCoachMatchData(db, match) {
+async function enrichCoachMatchData(db, match, playerId, playerData) {
   const enriched = { ...match };
 
   try {
-    // Get both player names
-    const [winnerDoc, loserDoc] = await Promise.all([
-      getDoc(doc(db, "users", match.winnerId)),
-      getDoc(doc(db, "users", match.loserId))
-    ]);
+    // Determine opponent ID
+    const opponentId = match.winnerId === playerId ? match.loserId : match.winnerId;
 
-    if (winnerDoc.exists()) {
-      const winnerData = winnerDoc.data();
-      enriched.winnerName = `${winnerData.firstName || ''} ${winnerData.lastName || ''}`.trim() || 'Unbekannt';
+    // Get opponent data
+    const opponentDoc = await getDoc(doc(db, "users", opponentId));
+    if (opponentDoc.exists()) {
+      const opponentData = opponentDoc.data();
+      enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
     } else {
-      enriched.winnerName = 'Unbekannt';
+      enriched.opponentName = 'Unbekannt';
     }
 
-    if (loserDoc.exists()) {
-      const loserData = loserDoc.data();
-      enriched.loserName = `${loserData.firstName || ''} ${loserData.lastName || ''}`.trim() || 'Unbekannt';
-    } else {
-      enriched.loserName = 'Unbekannt';
+    // Determine if this player won
+    enriched.isWinner = match.winnerId === playerId;
+
+    // Determine if this player is playerA
+    enriched.isPlayerA = match.playerAId === playerId;
+
+    // Get ELO change from pointsHistory
+    let eloChange = null;
+    let pointsGained = null;
+
+    try {
+      const pointsHistoryRef = collection(db, "users", playerId, "pointsHistory");
+      const historyQuery = query(
+        pointsHistoryRef,
+        orderBy("timestamp", "desc"),
+        limit(200)
+      );
+
+      const historySnapshot = await getDocs(historyQuery);
+      const matchTime = match.timestamp?.toMillis() || match.playedAt?.toMillis() || 0;
+      const opponentName = enriched.opponentName;
+
+      for (const historyDoc of historySnapshot.docs) {
+        const historyData = historyDoc.data();
+        const historyTime = historyData.timestamp?.toMillis() || 0;
+
+        const isMatchHistory = historyData.awardedBy === "System (Wettkampf)" ||
+                              (historyData.reason && (
+                                historyData.reason.includes("Sieg im") ||
+                                historyData.reason.includes("Niederlage im")
+                              ));
+
+        if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
+          if (historyData.reason && historyData.reason.includes(opponentName.split(' ')[0])) {
+            eloChange = historyData.eloChange || 0;
+            pointsGained = historyData.points || 0;
+            break;
+          } else if (Math.abs(historyTime - matchTime) < 10000) {
+            eloChange = historyData.eloChange || 0;
+            pointsGained = historyData.points || 0;
+            break;
+          }
+        }
+      }
+    } catch (historyError) {
+      console.warn("Could not fetch points history:", historyError);
     }
 
-    // Get the points exchanged from match data
-    enriched.pointsExchanged = match.pointsExchanged || 0;
+    // If we couldn't find it in history, estimate from match data
+    if (eloChange === null) {
+      if (match.pointsExchanged !== undefined) {
+        if (enriched.isWinner) {
+          eloChange = match.handicapUsed ? 8 : Math.round(match.pointsExchanged / 0.2);
+          pointsGained = match.pointsExchanged;
+        } else {
+          eloChange = match.handicapUsed ? -8 : -Math.round(match.pointsExchanged / 0.2);
+          pointsGained = 0;
+        }
+      } else {
+        eloChange = match.handicapUsed ?
+          (enriched.isWinner ? 8 : -8) :
+          null;
+      }
+    }
+
+    enriched.eloChange = eloChange;
+    enriched.pointsGained = pointsGained;
 
   } catch (error) {
     console.error("Error enriching coach match data:", error);
-    enriched.winnerName = 'Fehler';
-    enriched.loserName = 'Fehler';
-    enriched.pointsExchanged = 0;
+    enriched.opponentName = 'Fehler';
+    enriched.eloChange = null;
+    enriched.pointsGained = 0;
   }
 
   return enriched;
@@ -113,8 +230,9 @@ async function enrichCoachMatchData(db, match) {
  * Render match history in the container (coach view)
  * @param {HTMLElement} container - Container element
  * @param {Array} matches - Array of match data
+ * @param {string} playerName - Name of the player whose history is being viewed
  */
-function renderCoachMatchHistory(container, matches) {
+function renderCoachMatchHistory(container, matches, playerName) {
   container.innerHTML = "";
 
   matches.forEach(match => {
@@ -125,11 +243,19 @@ function renderCoachMatchHistory(container, matches) {
     const formattedTime = formatMatchTime(matchTime);
     const formattedDate = formatMatchDate(matchTime);
 
-    // Format sets - show from winner's perspective
-    const setsDisplay = formatCoachSets(match.sets, match.playerAId === match.winnerId);
+    // Format sets from player's perspective
+    const setsDisplay = formatCoachSets(match.sets, match.isPlayerA);
 
-    // Calculate ELO estimate (since we don't have individual history here)
-    const eloEstimate = match.handicapUsed ? 8 : Math.round((match.pointsExchanged || 0) / 0.2);
+    // ELO change display
+    const eloChangeDisplay = match.eloChange !== null
+      ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO`
+      : 'N/A';
+
+    const eloChangeClass = match.eloChange > 0
+      ? 'text-green-600 font-semibold'
+      : match.eloChange < 0
+        ? 'text-red-600 font-semibold'
+        : 'text-gray-600';
 
     matchDiv.innerHTML = `
       <div class="flex items-start justify-between gap-4">
@@ -141,12 +267,17 @@ function renderCoachMatchHistory(container, matches) {
             ${match.handicapUsed ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Handicap</span>' : ''}
           </div>
 
-          <div class="mb-2">
-            <p class="text-sm">
-              <span class="font-semibold text-green-700">🏆 ${match.winnerName}</span>
-              <span class="text-gray-500"> vs. </span>
-              <span class="font-medium text-red-600">${match.loserName}</span>
-            </p>
+          <div class="flex items-center gap-3 mb-2">
+            ${match.isWinner
+              ? `<span class="text-2xl">🏆</span>
+                 <div>
+                   <p class="text-sm font-semibold text-green-700">Sieg gegen ${match.opponentName}</p>
+                 </div>`
+              : `<span class="text-2xl">😔</span>
+                 <div>
+                   <p class="text-sm font-semibold text-red-700">Niederlage gegen ${match.opponentName}</p>
+                 </div>`
+            }
           </div>
 
           <div class="flex items-center gap-4 text-sm">
@@ -158,13 +289,10 @@ function renderCoachMatchHistory(container, matches) {
         </div>
 
         <div class="text-right">
-          <div class="text-green-600 font-semibold text-lg">
-            +${eloEstimate} ELO
+          <div class="${eloChangeClass} text-lg">
+            ${eloChangeDisplay}
           </div>
-          <div class="text-red-600 text-sm">
-            -${eloEstimate} ELO
-          </div>
-          ${match.pointsExchanged > 0 ? `<div class="text-xs text-gray-600 mt-1">+${match.pointsExchanged} Punkte</div>` : ''}
+          ${match.pointsGained > 0 ? `<div class="text-xs text-gray-600 mt-1">+${match.pointsGained} Punkte</div>` : ''}
         </div>
       </div>
     `;
@@ -174,18 +302,18 @@ function renderCoachMatchHistory(container, matches) {
 }
 
 /**
- * Format sets for display (coach view)
+ * Format sets for display (coach view - from player's perspective)
  * @param {Array} sets - Array of set objects with playerA and playerB scores
- * @param {boolean} winnerIsPlayerA - Whether winner is playerA
+ * @param {boolean} isPlayerA - Whether the viewed player is playerA
  * @returns {string} Formatted sets string
  */
-function formatCoachSets(sets, winnerIsPlayerA) {
+function formatCoachSets(sets, isPlayerA) {
   if (!sets || sets.length === 0) return 'N/A';
 
   return sets.map(set => {
-    const winnerScore = winnerIsPlayerA ? set.playerA : set.playerB;
-    const loserScore = winnerIsPlayerA ? set.playerB : set.playerA;
-    return `${winnerScore}:${loserScore}`;
+    const myScore = isPlayerA ? set.playerA : set.playerB;
+    const oppScore = isPlayerA ? set.playerB : set.playerA;
+    return `${myScore}:${oppScore}`;
   }).join(', ');
 }
 

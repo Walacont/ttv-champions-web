@@ -30,6 +30,7 @@ export async function loadMatchHistory(db, userData) {
     return;
   }
 
+  console.log("[Match History] Loading for user:", userData.id, "club:", userData.clubId);
   container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
   try {
@@ -47,6 +48,7 @@ export async function loadMatchHistory(db, userData) {
     );
 
     const snapshot = await getDocs(baseQuery);
+    console.log("[Match History] Total club matches found:", snapshot.docs.length);
 
     // Filter matches where user is involved (client-side filtering)
     const matches = snapshot.docs
@@ -63,6 +65,8 @@ export async function loadMatchHistory(db, userData) {
       })
       .slice(0, 50); // Limit to 50 matches for performance
 
+    console.log("[Match History] User matches found:", matches.length);
+
     // Sort by timestamp descending
     matches.sort((a, b) => {
       const timeA = a.timestamp?.toMillis() || a.playedAt?.toMillis() || 0;
@@ -72,6 +76,7 @@ export async function loadMatchHistory(db, userData) {
 
     if (matches.length === 0) {
       container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+      console.log("[Match History] No matches to display");
       return;
     }
 
@@ -84,8 +89,9 @@ export async function loadMatchHistory(db, userData) {
     renderMatchHistory(container, matchesWithDetails, userData);
 
   } catch (error) {
-    console.error("Error loading match history:", error);
-    container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie</p>';
+    console.error("[Match History] Error loading match history:", error);
+    console.error("[Match History] Error details:", error.message, error.code);
+    container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie: ${error.message}</p>`;
   }
 }
 
