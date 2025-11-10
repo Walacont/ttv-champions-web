@@ -207,30 +207,44 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     where("recipientId", "==", userData.id)
   );
 
+  // Debouncing to prevent race conditions
+  let sentRefreshTimeout = null;
+  let receivedRefreshTimeout = null;
+
+  const debouncedRenderMy = async (snapshot) => {
+    if (sentRefreshTimeout) clearTimeout(sentRefreshTimeout);
+    sentRefreshTimeout = setTimeout(async () => {
+      const proposals = [];
+      for (const docSnap of snapshot.docs) {
+        proposals.push({ id: docSnap.id, ...docSnap.data() });
+      }
+      await renderMyProposals(proposals, userData, db);
+    }, 100);
+  };
+
+  const debouncedRenderIncoming = async (snapshot) => {
+    if (receivedRefreshTimeout) clearTimeout(receivedRefreshTimeout);
+    receivedRefreshTimeout = setTimeout(async () => {
+      const proposals = [];
+      for (const docSnap of snapshot.docs) {
+        proposals.push({ id: docSnap.id, ...docSnap.data() });
+      }
+      await renderIncomingAndProcessedProposals(proposals, userData, db);
+
+      // Update badge count (only pending proposals where it's my turn)
+      const pendingCount = proposals.filter((p) =>
+        (p.status === "pending" || p.status === "counter_proposed") &&
+        whoseTurn(p) === "recipient"
+      ).length;
+      updateProposalBadge(pendingCount);
+    }, 100);
+  };
+
   // Listen to sent proposals
-  const sentUnsubscribe = onSnapshot(sentProposalsQuery, async (snapshot) => {
-    const proposals = [];
-    for (const docSnap of snapshot.docs) {
-      proposals.push({ id: docSnap.id, ...docSnap.data() });
-    }
-    await renderMyProposals(proposals, userData, db);
-  });
+  const sentUnsubscribe = onSnapshot(sentProposalsQuery, debouncedRenderMy);
 
   // Listen to received proposals
-  const receivedUnsubscribe = onSnapshot(receivedProposalsQuery, async (snapshot) => {
-    const proposals = [];
-    for (const docSnap of snapshot.docs) {
-      proposals.push({ id: docSnap.id, ...docSnap.data() });
-    }
-    await renderIncomingAndProcessedProposals(proposals, userData, db);
-
-    // Update badge count (only pending proposals where it's my turn)
-    const pendingCount = proposals.filter((p) =>
-      (p.status === "pending" || p.status === "counter_proposed") &&
-      whoseTurn(p) === "recipient"
-    ).length;
-    updateProposalBadge(pendingCount);
-  });
+  const receivedUnsubscribe = onSnapshot(receivedProposalsQuery, debouncedRenderIncoming);
 
   unsubscribes.push(sentUnsubscribe, receivedUnsubscribe);
 }
