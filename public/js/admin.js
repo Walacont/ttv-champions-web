@@ -7,6 +7,7 @@ import { getFunctions, connectFunctionsEmulator } from "https://www.gstatic.com/
 import { firebaseConfig } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
+import { initializeExerciseMilestones, getExerciseMilestones, isExerciseTieredPointsEnabled } from './milestone-management.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -130,6 +131,9 @@ function initializeAdminPage(userData, user) {
             toggleContainerId: 'edit-description-toggle-container',
             tableEditorContainerId: 'edit-description-table-editor'
         });
+
+        // Initialize milestone management
+        initializeExerciseMilestones();
 
         // Modal Listeners
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
@@ -505,6 +509,10 @@ async function handleCreateExercise(e) {
     const tagsInput = document.getElementById('exercise-tags').value;
     const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
 
+    // Get milestone data
+    const tieredPoints = isExerciseTieredPointsEnabled();
+    const milestones = tieredPoints ? getExerciseMilestones() : [];
+
     feedbackEl.textContent = '';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
@@ -522,14 +530,22 @@ async function handleCreateExercise(e) {
         const snapshot = await uploadBytes(storageRef, file);
         const imageUrl = await getDownloadURL(snapshot.ref);
 
-        await addDoc(collection(db, "exercises"), {
+        const exerciseData = {
             title,
             descriptionContent: JSON.stringify(descriptionContent),
             points,
             imageUrl,
             createdAt: serverTimestamp(),
             tags
-        });
+        };
+
+        // Add milestone data if tiered points are enabled
+        if (tieredPoints) {
+            exerciseData.tieredPoints = true;
+            exerciseData.milestones = milestones;
+        }
+
+        await addDoc(collection(db, "exercises"), exerciseData);
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
