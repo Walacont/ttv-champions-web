@@ -709,12 +709,18 @@ export function openCounterProposalModal(proposal, requester, db) {
     const locationInput = document.getElementById("counter-proposal-location").value;
     const handicapInput = document.getElementById("counter-proposal-handicap").checked;
 
+    console.log('[Counter Proposal] Inputs:', { dateTimeInput, locationInput, handicapInput, proposalId: proposal?.id });
+
     if ((!dateTimeInput || !dateTimeInput.trim()) && (!locationInput || !locationInput.trim())) {
       showProposalFeedback("Bitte gib mindestens einen Zeitpunkt oder einen Ort an.", "error");
       return;
     }
 
     try {
+      if (!proposal || !proposal.id) {
+        throw new Error("Invalid proposal object");
+      }
+
       const proposalRef = doc(db, "matchProposals", proposal.id);
       const proposalDoc = await getDoc(proposalRef);
 
@@ -741,6 +747,8 @@ export function openCounterProposalModal(proposal, requester, db) {
           : currentData.recipientId;
       }
 
+      console.log('[Counter Proposal] Calculated values:', { proposedBy, requesterId: currentData.requesterId, recipientId: currentData.recipientId });
+
       // Add new counter-proposal (use plain Date instead of serverTimestamp in arrays)
       // Convert Date to timestamp to avoid Firebase serialization issues
       let dateTimeTimestamp = null;
@@ -751,14 +759,18 @@ export function openCounterProposalModal(proposal, requester, db) {
         }
       }
 
-      counterProposals.push({
+      const newCounterProposal = {
         proposedBy: proposedBy,
         dateTime: dateTimeTimestamp,
         location: locationInput && locationInput.trim() ? locationInput.trim() : null,
         handicap: handicapInput,
         message: messageInput && messageInput.trim() ? messageInput.trim() : null,
         createdAt: Date.now(), // Use timestamp instead of Date object
-      });
+      };
+
+      console.log('[Counter Proposal] New counter proposal:', newCounterProposal);
+
+      counterProposals.push(newCounterProposal);
 
       await updateDoc(proposalRef, {
         counterProposals: counterProposals,
