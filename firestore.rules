@@ -16,12 +16,22 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function hasRole(role) {
+      let userData = getUserData();
+      // Support both old single role and new roles array
+      return (userData.roles != null && role in userData.roles) || userData.role == role;
+    }
+
     function isAdmin() {
-      return isAuthenticated() && getUserData().role == 'admin';
+      return isAuthenticated() && hasRole('admin');
     }
 
     function isCoachOrAdmin() {
-      return isAuthenticated() && getUserData().role in ['coach', 'admin'];
+      return isAuthenticated() && (hasRole('coach') || hasRole('admin'));
+    }
+
+    function isPlayer() {
+      return isAuthenticated() && hasRole('player');
     }
 
     function isSameClub(clubId) {
@@ -38,6 +48,16 @@ service cloud.firestore {
       return grundlagenCompleted != null && grundlagenCompleted >= 5;
     }
 
+    function playerHasRole(playerId, role) {
+      let playerData = get(/databases/$(database)/documents/users/$(playerId)).data;
+      return (playerData.roles != null && role in playerData.roles) || playerData.role == role;
+    }
+
+    function isCoach(userId) {
+      let userData = get(/databases/$(database)/documents/users/$(userId)).data;
+      return (userData.roles != null && 'coach' in userData.roles) || userData.role == 'coach';
+    }
+
     // Users collection
     match /users/{userId} {
       // Users can read their own data
@@ -45,7 +65,7 @@ service cloud.firestore {
 
       // Players can read other players in their club (for leaderboard, rivals, etc.)
       allow read: if isAuthenticated() &&
-        resource.data.role == 'player' &&
+        ((resource.data.roles != null && 'player' in resource.data.roles) || resource.data.role == 'player') &&
         isSameClub(resource.data.clubId);
 
       // Coaches and admins can read all users in their club
@@ -59,15 +79,17 @@ service cloud.firestore {
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
 
       // Coaches can update players in their club (including points, xp, eloRating, etc.)
+      // BUT coaches cannot update their OWN player stats if they have both roles
       allow update: if isCoachOrAdmin() &&
         isSameClub(resource.data.clubId) &&
-        resource.data.role == 'player';
+        ((resource.data.roles != null && 'player' in resource.data.roles) || resource.data.role == 'player') &&
+        request.auth.uid != userId;
 
-      // Coaches can promote players to coach in their club
+      // Coaches can manage roles in their club (promote players to coach, add player role to coaches)
+      // This allows role changes only, not other fields
       allow update: if isCoachOrAdmin() &&
         isSameClub(resource.data.clubId) &&
-        resource.data.role == 'player' &&
-        request.resource.data.role == 'coach';
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'roles', 'updatedAt']);
 
       // Coaches can create new players in their club (offline players)
       allow create: if isCoachOrAdmin() &&
@@ -168,16 +190,19 @@ service cloud.firestore {
         (isCoachOrAdmin() && isSameClub(resource.data.clubId))
       );
 
-      // Players can create requests for themselves (as playerA)
+      // Players (including coaches with player role) can create requests for themselves (as playerA)
       // Must include proper initial approvals structure
       // Must have completed 5 Grundlagen exercises (match-ready)
+      // Coaches can also create match requests where they are a participant
       allow create: if isAuthenticated() &&
         request.resource.data.playerAId == request.auth.uid &&
         isSameClub(request.resource.data.clubId) &&
         request.resource.data.status == 'pending_player' &&
         request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']) &&
         playerIsMatchReady(request.resource.data.playerAId) &&
-        playerIsMatchReady(request.resource.data.playerBId);
+        playerIsMatchReady(request.resource.data.playerBId) &&
+        playerHasRole(request.resource.data.playerAId, 'player') &&
+        playerHasRole(request.resource.data.playerBId, 'player');
 
       // PlayerB can update (approve/reject) if they are playerB and status is pending_player
       allow update: if isAuthenticated() &&
@@ -194,9 +219,19 @@ service cloud.firestore {
          resource.data.approvals.playerB.status == null);
 
       // Coach can update (approve/reject) if pending_coach and same club
+      // Normal flow: Player vs Player (no coach involved as participant)
       allow update: if isCoachOrAdmin() &&
         isSameClub(resource.data.clubId) &&
         resource.data.status == 'pending_coach';
+
+      // Another coach can update (approve/reject) if pending_other_coach
+      // Special flow: When a coach plays, another coach must approve
+      // The approving coach must NOT be one of the participants
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending_other_coach' &&
+        request.auth.uid != resource.data.playerAId &&
+        request.auth.uid != resource.data.playerBId;
 
       // PlayerA can delete their own request if nobody has responded yet
       allow delete: if isAuthenticated() &&

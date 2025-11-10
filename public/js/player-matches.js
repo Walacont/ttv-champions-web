@@ -4,6 +4,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  getDoc,
   serverTimestamp,
   query,
   where,
@@ -764,6 +765,10 @@ function getStatusBadge(status, approvals) {
     return '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Wartet auf Coach</span>';
   }
 
+  if (status === "pending_other_coach") {
+    return '<span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">Wartet auf anderen Coach</span>';
+  }
+
   if (status === "approved") {
     return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Genehmigt</span>';
   }
@@ -781,6 +786,15 @@ function getStatusBadge(status, approvals) {
 async function approveMatchRequest(requestId, db, role) {
   try {
     const requestRef = doc(db, "matchRequests", requestId);
+    const requestSnap = await getDoc(requestRef);
+
+    if (!requestSnap.exists()) {
+      showFeedback("Anfrage nicht gefunden.", "error");
+      return;
+    }
+
+    const requestData = requestSnap.data();
+    const matchType = requestData.matchType || 'player_vs_player';
     const updateData = {};
 
     if (role === "playerB") {
@@ -788,9 +802,26 @@ async function approveMatchRequest(requestId, db, role) {
         status: "approved",
         timestamp: serverTimestamp(),
       };
-      updateData.status = "pending_coach"; // Move to coach approval
+
+      // Determine next status based on matchType
+      if (matchType === 'player_vs_coach') {
+        // Player vs Coach: Coach (playerB) confirms → directly approved (no additional coach needed)
+        updateData.status = "approved";
+      } else if (matchType === 'coach_vs_player' || matchType === 'coach_vs_coach') {
+        // Coach vs Player OR Coach vs Coach: Need approval from another coach
+        updateData.status = "pending_other_coach";
+      } else {
+        // Player vs Player: Normal flow → needs coach approval
+        updateData.status = "pending_coach";
+      }
     } else if (role === "coach") {
       updateData["approvals.coach"] = {
+        status: "approved",
+        timestamp: serverTimestamp(),
+      };
+      updateData.status = "approved"; // Final approval
+    } else if (role === "otherCoach") {
+      updateData["approvals.otherCoach"] = {
         status: "approved",
         timestamp: serverTimestamp(),
       };
@@ -1010,18 +1041,24 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   }
 
   // Populate opponent dropdown (only match-ready players)
+  // Now includes coaches who also have player role
   opponentSelect.innerHTML = '<option value="">Gegner wählen...</option>';
   clubPlayers
     .filter((p) => {
-      // Filter: not self, is player role, and has completed Grundlagen
+      // Filter: not self, has player role (including coaches with player role), and has completed Grundlagen
       const playerGrundlagen = p.grundlagenCompleted || 0;
-      return p.id !== userData.id && p.role === "player" && playerGrundlagen >= 5;
+      const hasPlayerRole = (p.roles && p.roles.includes('player')) || p.role === "player";
+      return p.id !== userData.id && hasPlayerRole && playerGrundlagen >= 5;
     })
     .forEach((player) => {
       const option = document.createElement("option");
       option.value = player.id;
-      option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 0)})`;
+      // Add coach badge if user is also a coach
+      const isCoach = (player.roles && player.roles.includes('coach')) || player.role === 'coach';
+      const coachBadge = isCoach ? ' 👨‍🏫' : '';
+      option.textContent = `${player.firstName} ${player.lastName}${coachBadge} (Elo: ${Math.round(player.eloRating || 0)})`;
       option.dataset.elo = player.eloRating || 0;
+      option.dataset.isCoach = isCoach;
       opponentSelect.appendChild(option);
     });
 
@@ -1104,6 +1141,43 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const winnerId = validation.winnerId === "A" ? userData.id : opponentId;
     const loserId = validation.winnerId === "A" ? opponentId : userData.id;
 
+    // Determine approval flow based on participant roles
+    const opponent = clubPlayers.find(p => p.id === opponentId);
+    const opponentIsCoach = (opponent.roles && opponent.roles.includes('coach')) || opponent.role === 'coach';
+    const playerAIsCoach = (userData.roles && userData.roles.includes('coach')) || userData.role === 'coach';
+
+    let approvalStructure;
+    let matchType = 'player_vs_player'; // default
+
+    if (playerAIsCoach && opponentIsCoach) {
+      // Coach vs Coach → PlayerB confirms, then other coach approves
+      matchType = 'coach_vs_coach';
+      approvalStructure = {
+        playerB: { status: null, timestamp: null },
+        otherCoach: { status: null, timestamp: null }
+      };
+    } else if (playerAIsCoach && !opponentIsCoach) {
+      // Coach vs Player → Player confirms, then other coach approves
+      matchType = 'coach_vs_player';
+      approvalStructure = {
+        playerB: { status: null, timestamp: null },
+        otherCoach: { status: null, timestamp: null }
+      };
+    } else if (!playerAIsCoach && opponentIsCoach) {
+      // Player vs Coach → Only coach (playerB) needs to confirm
+      matchType = 'player_vs_coach';
+      approvalStructure = {
+        playerB: { status: null, timestamp: null }
+      };
+    } else {
+      // Player vs Player → Normal flow (playerB confirms, then coach approves)
+      matchType = 'player_vs_player';
+      approvalStructure = {
+        playerB: { status: null, timestamp: null },
+        coach: { status: null, timestamp: null }
+      };
+    }
+
     try {
       await addDoc(collection(db, "matchRequests"), {
         status: "pending_player",
@@ -1114,10 +1188,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         handicapUsed,
         clubId: userData.clubId,
         sets,
-        approvals: {
-          playerB: { status: null, timestamp: null },
-          coach: { status: null, timestamp: null },
-        },
+        matchType, // Track which approval flow is needed
+        approvals: approvalStructure,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         requestedBy: userData.id,

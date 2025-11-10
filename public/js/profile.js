@@ -178,31 +178,33 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     // 1. Determine query based on filter
     let q;
     if (currentSubgroupFilter === 'club') {
-        // Show all players in club
+        // Show all players in club (including coaches with player role)
         q = query(
             collection(db, "users"),
-            where("clubId", "==", userData.clubId),
-            where("role", "==", "player")
+            where("clubId", "==", userData.clubId)
         );
     } else if (currentSubgroupFilter === 'global') {
-        // Show all players globally
+        // Show all players globally (including coaches with player role)
         q = query(
-            collection(db, "users"),
-            where("role", "==", "player")
+            collection(db, "users")
         );
     } else {
-        // Show players in specific subgroup
+        // Show players in specific subgroup (including coaches with player role)
         q = query(
             collection(db, "users"),
             where("clubId", "==", userData.clubId),
-            where("role", "==", "player"),
             where("subgroupIDs", "array-contains", currentSubgroupFilter)
         );
     }
 
     // *** onSnapshot für Echtzeit-Updates ***
     const rivalListener = onSnapshot(q, (querySnapshot) => {
-        const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const players = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Include users with player role (including coaches with player role)
+                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+            });
 
         // 2. Erstelle zwei separate Ranglisten
 

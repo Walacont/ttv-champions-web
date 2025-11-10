@@ -26,12 +26,12 @@ import {
  */
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
   try {
-    // Filter eligible players
+    // Filter eligible players (including coaches with player role)
     const eligiblePlayers = allPlayers.filter((p) => {
       const isNotSelf = p.id !== userData.id;
       const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
-      const isPlayer = p.role === "player";
-      return isNotSelf && isMatchReady && isPlayer;
+      const hasPlayerRole = (p.roles && p.roles.includes('player')) || p.role === "player";
+      return isNotSelf && isMatchReady && hasPlayerRole;
     });
 
     // Get all matches involving the current user
@@ -210,16 +210,20 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
       return;
     }
 
-    // Get all players based on filter (club only)
+    // Get all players based on filter (club only, including coaches with player role)
     let playersQuery;
     playersQuery = query(
       collection(db, "users"),
-      where("clubId", "==", userData.clubId),
-      where("role", "==", "player")
+      where("clubId", "==", userData.clubId)
     );
 
     const snapshot = await getDocs(playersQuery);
-    let allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    let allPlayers = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter(p => {
+        // Include users with player role (including coaches with player role)
+        return (p.roles && p.roles.includes('player')) || p.role === 'player';
+      });
 
     console.log('[Match Suggestions] Players before filter:', allPlayers.length);
     console.log('[Match Suggestions] Sample player subgroups:', allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs })));

@@ -220,7 +220,6 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
     const q = query(
         collection(db, "users"),
         where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
         orderBy("eloRating", "desc")
     );
 
@@ -230,7 +229,12 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Include users with player role (including coaches with player role)
+                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+            });
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -266,7 +270,6 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
     const q = query(
         collection(db, "users"),
         where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
         orderBy("xp", "desc")
     );
 
@@ -276,7 +279,12 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Include users with player role (including coaches with player role)
+                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+            });
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -311,8 +319,7 @@ function loadRanksView(userData, db, unsubscribes) {
 
     const q = query(
         collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player")
+        where("clubId", "==", userData.clubId)
     );
 
     const listener = onSnapshot(q, (snapshot) => {
@@ -321,7 +328,12 @@ function loadRanksView(userData, db, unsubscribes) {
             return;
         }
 
-        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Include users with player role (including coaches with player role)
+                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+            });
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -406,7 +418,6 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
 
     const q = query(
         collection(db, "users"),
-        where("role", "==", "player"),
         orderBy("eloRating", "desc")
     );
 
@@ -416,7 +427,12 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const players = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Include users with player role (including coaches with player role)
+                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+            });
         listEl.innerHTML = '';
         players.forEach((player, index) => {
             renderSkillRow(player, index, userData.id, listEl, true);
@@ -435,7 +451,6 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
 
     const q = query(
         collection(db, "users"),
-        where("role", "==", "player"),
         orderBy("xp", "desc")
     );
 
@@ -445,7 +460,12 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const players = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Include users with player role (including coaches with player role)
+                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+            });
         listEl.innerHTML = '';
         players.forEach((player, index) => {
             renderEffortRow(player, index, userData.id, listEl, true);
@@ -470,19 +490,21 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
+    const isCoach = (player.roles && player.roles.includes('coach')) || player.role === 'coach';
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
     const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
+    const coachBadge = isCoach ? '<span class="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded" title="Coach">👨‍🏫</span>' : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
         <div class="flex-grow">
-            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
+            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}${coachBadge}</p>
             ${clubInfo}
         </div>
         <div class="text-right">
@@ -500,19 +522,21 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
+    const isCoach = (player.roles && player.roles.includes('coach')) || player.role === 'coach';
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
     const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
+    const coachBadge = isCoach ? '<span class="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded" title="Coach">👨‍🏫</span>' : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
         <div class="flex-grow">
-            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
+            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}${coachBadge}</p>
             ${clubInfo}
         </div>
         <div class="text-right">
