@@ -1059,8 +1059,9 @@ function renderSelectedPlayer(player, container) {
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
+ * @param {String} subgroupFilter - Filter by subgroup ('club', 'global', or subgroup name)
  */
-export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
+export async function loadMatchSuggestions(userData, db, unsubscribes = [], subgroupFilter = 'club') {
   const container = document.getElementById("match-suggestions-list");
   if (!container) return;
 
@@ -1094,12 +1095,30 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
   container.innerHTML = '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
 
   try {
-    // Get all players in club
-    const playersQuery = query(
-      collection(db, "users"),
-      where("clubId", "==", userData.clubId),
-      where("role", "==", "player")
-    );
+    // Get all players based on filter
+    let playersQuery;
+    if (subgroupFilter === 'club') {
+      // Only players from same club
+      playersQuery = query(
+        collection(db, "users"),
+        where("clubId", "==", userData.clubId),
+        where("role", "==", "player")
+      );
+    } else if (subgroupFilter === 'global') {
+      // All players (global view)
+      playersQuery = query(
+        collection(db, "users"),
+        where("role", "==", "player")
+      );
+    } else {
+      // Specific subgroup
+      playersQuery = query(
+        collection(db, "users"),
+        where("clubId", "==", userData.clubId),
+        where("role", "==", "player"),
+        where("subgroup", "==", subgroupFilter)
+      );
+    }
 
     const snapshot = await getDocs(playersQuery);
     const allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
