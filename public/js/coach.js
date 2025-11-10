@@ -417,6 +417,128 @@ async function initializeCoachPage(userData) {
     updateSeasonCountdown('season-countdown-coach', false);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false), 1000);
     setInterval(updateAllCountdowns, 1000);
+
+    // Setup Coach as Player UI
+    setupCoachAsPlayerUI(userData, db);
+}
+
+/**
+ * Checks if coach has player role
+ * @param {Object} userData - User data
+ * @returns {boolean} True if coach has player role
+ */
+function checkIfCoachHasPlayerRole(userData) {
+    // Check if user has player role (either in roles array or old role field)
+    const hasPlayerRole = (userData.roles && userData.roles.includes('player')) || userData.role === 'player';
+    const hasPlayerFields = userData.eloRating !== undefined && userData.xp !== undefined;
+    return hasPlayerRole && hasPlayerFields;
+}
+
+/**
+ * Registers coach as player by adding player role and initializing player fields
+ * @param {Object} userData - User data
+ * @param {Object} db - Firestore database instance
+ */
+async function registerCoachAsPlayer(userData, db) {
+    const button = document.getElementById('register-as-player-button');
+    const originalText = button.innerHTML;
+
+    try {
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Registriere...';
+
+        const userRef = doc(db, 'users', userData.id);
+
+        // Prepare update data
+        const updateData = {
+            roles: ['coach', 'player'], // Add both roles
+            eloRating: 800,
+            highestElo: 800,
+            xp: 0,
+            points: 0,
+            grundlagenCompleted: 5, // Match-ready by default
+            updatedAt: serverTimestamp()
+        };
+
+        await updateDoc(userRef, updateData);
+
+        // Update local userData
+        currentUserData = { ...userData, ...updateData };
+
+        // Hide info box
+        document.getElementById('coach-as-player-info').classList.add('hidden');
+
+        // Show success message
+        alert('✅ Erfolgreich! Du bist jetzt als Spieler registriert und erscheinst in den Ranglisten mit einem 👨‍🏫 Coach-Badge.');
+
+        // Reload page to update UI
+        window.location.reload();
+
+    } catch (error) {
+        console.error('Error registering coach as player:', error);
+        alert(`❌ Fehler: ${error.message}\n\nBitte versuche es erneut oder kontaktiere den Support.`);
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+/**
+ * Sets up UI for coach as player feature
+ * @param {Object} userData - User data
+ * @param {Object} db - Firestore database instance
+ */
+function setupCoachAsPlayerUI(userData, db) {
+    const infoBox = document.getElementById('coach-as-player-info');
+    const registerButton = document.getElementById('register-as-player-button');
+    const dismissButton = document.getElementById('dismiss-coach-player-info');
+
+    if (!infoBox || !registerButton) {
+        console.warn('Coach as player UI elements not found');
+        return;
+    }
+
+    // Check if coach already has player role
+    const hasPlayerRole = checkIfCoachHasPlayerRole(userData);
+
+    if (!hasPlayerRole) {
+        // Show info box if coach doesn't have player role
+        infoBox.classList.remove('hidden');
+
+        // Register button click
+        registerButton.addEventListener('click', async () => {
+            const confirmed = confirm(
+                '🎯 Als Spieler registrieren?\n\n' +
+                'Du wirst dann:\n' +
+                '✅ In den Ranglisten angezeigt (mit 👨‍🏫 Badge)\n' +
+                '✅ Matches spielen können\n' +
+                '✅ Elo-Rating und XP sammeln\n\n' +
+                'Startswerte:\n' +
+                '• Elo: 800\n' +
+                '• XP: 0\n' +
+                '• Match-Ready: Ja\n\n' +
+                'Fortfahren?'
+            );
+
+            if (confirmed) {
+                await registerCoachAsPlayer(userData, db);
+            }
+        });
+
+        // Dismiss button click
+        dismissButton.addEventListener('click', () => {
+            infoBox.classList.add('hidden');
+            // Store dismissal in localStorage to not show again this session
+            localStorage.setItem('coach-player-info-dismissed', 'true');
+        });
+
+        // Check if dismissed in this session
+        if (localStorage.getItem('coach-player-info-dismissed') === 'true') {
+            infoBox.classList.add('hidden');
+        }
+    } else {
+        // Coach already has player role, hide info box
+        infoBox.classList.add('hidden');
+    }
 }
 
 /**
