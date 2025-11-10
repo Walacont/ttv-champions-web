@@ -553,7 +553,7 @@ function formatDateTime(timestamp) {
 /**
  * Accepts a proposal (players can arrange directly without coach approval)
  */
-async function acceptProposal(proposalId, db) {
+export async function acceptProposal(proposalId, db) {
   try {
     const proposalRef = doc(db, "matchProposals", proposalId);
     await updateDoc(proposalRef, {
@@ -572,7 +572,7 @@ async function acceptProposal(proposalId, db) {
 /**
  * Declines a proposal
  */
-async function declineProposal(proposalId, db) {
+export async function declineProposal(proposalId, db) {
   try {
     const proposalRef = doc(db, "matchProposals", proposalId);
     await updateDoc(proposalRef, {
@@ -590,7 +590,7 @@ async function declineProposal(proposalId, db) {
 /**
  * Cancels a proposal
  */
-async function cancelProposal(proposalId, db) {
+export async function cancelProposal(proposalId, db) {
   if (!confirm("Möchtest du diese Anfrage wirklich zurückziehen?")) return;
 
   try {
@@ -610,7 +610,7 @@ async function cancelProposal(proposalId, db) {
 /**
  * Opens counter-proposal modal
  */
-function openCounterProposalModal(proposal, requester, db) {
+export function openCounterProposalModal(proposal, requester, db) {
   const modal = document.getElementById("counter-proposal-modal");
   const form = document.getElementById("counter-proposal-form");
   const closeBtn = document.getElementById("close-counter-proposal-modal");

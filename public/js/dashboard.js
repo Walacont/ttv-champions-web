@@ -133,6 +133,28 @@ async function initializeDashboard(userData) {
     loadMatchProposals(userData, db, unsubscribes);
     loadMatchSuggestions(userData, db, unsubscribes);
 
+    // Setup match proposal modal handlers
+    const createProposalBtn = document.getElementById('create-match-proposal-btn');
+    const proposalModal = document.getElementById('match-proposal-modal');
+    const closeProposalModal = document.getElementById('close-match-proposal-modal');
+
+    if (createProposalBtn && proposalModal && closeProposalModal) {
+        createProposalBtn.addEventListener('click', () => {
+            proposalModal.classList.remove('hidden');
+        });
+
+        closeProposalModal.addEventListener('click', () => {
+            proposalModal.classList.add('hidden');
+        });
+
+        // Close on outside click
+        proposalModal.addEventListener('click', (e) => {
+            if (e.target === proposalModal) {
+                proposalModal.classList.add('hidden');
+            }
+        });
+    }
+
     // Start season countdown timer
     updateSeasonCountdown('season-countdown', true);
     setInterval(() => updateSeasonCountdown('season-countdown', true), 1000);
@@ -475,7 +497,7 @@ async function loadClubPlayers(userData, db) {
 }
 
 /**
- * Loads match requests for overview card
+ * Loads both match requests and proposals for overview card
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
@@ -484,87 +506,316 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
 
-    // Query for requests sent to me (playerB) that need my approval
+    let allItems = [];
+    let showAll = false;
+
+    // Query for match result requests (incoming, need my approval)
     const incomingRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
         where('status', '==', 'pending_player'),
-        orderBy('createdAt', 'desc'),
-        limit(3) // Show only 3 most recent
+        orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(incomingRequestsQuery, async (snapshot) => {
-        if (snapshot.empty) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
-            updateMatchRequestBadge(0);
-            return;
-        }
+    // Query for match proposals (received, need my response)
+    const receivedProposalsQuery = query(
+        collection(db, 'matchProposals'),
+        where('recipientId', '==', userData.id),
+        where('status', 'in', ['pending', 'counter_proposed']),
+        orderBy('createdAt', 'desc')
+    );
 
-        const requests = [];
-        for (const docSnap of snapshot.docs) {
+    // Query for match proposals (sent, waiting for response)
+    const sentProposalsQuery = query(
+        collection(db, 'matchProposals'),
+        where('requesterId', '==', userData.id),
+        where('status', 'in', ['pending', 'counter_proposed']),
+        orderBy('createdAt', 'desc')
+    );
+
+    // Listen to all three queries
+    const unsubRequests = onSnapshot(incomingRequestsQuery, () => refreshOverview());
+    const unsubReceivedProposals = onSnapshot(receivedProposalsQuery, () => refreshOverview());
+    const unsubSentProposals = onSnapshot(sentProposalsQuery, () => refreshOverview());
+
+    unsubscribes.push(unsubRequests, unsubReceivedProposals, unsubSentProposals);
+
+    async function refreshOverview() {
+        const [requestsSnap, receivedProposalsSnap, sentProposalsSnap] = await Promise.all([
+            getDocs(incomingRequestsQuery),
+            getDocs(receivedProposalsQuery),
+            getDocs(sentProposalsQuery)
+        ]);
+
+        allItems = [];
+
+        // Add match result requests (blue border)
+        for (const docSnap of requestsSnap.docs) {
             const data = docSnap.data();
             const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
             const playerAData = playerADoc.exists() ? playerADoc.data() : null;
-            requests.push({
+            allItems.push({
+                type: 'match-request',
                 id: docSnap.id,
-                ...data,
-                playerAData
+                data,
+                playerAData,
+                createdAt: data.createdAt
             });
         }
 
-        renderOverviewRequestCards(requests, userData, db);
-        updateMatchRequestBadge(requests.length);
-    });
+        // Add received match proposals (green border, my turn)
+        for (const docSnap of receivedProposalsSnap.docs) {
+            const data = docSnap.data();
+            // Check if it's my turn
+            const myTurn = whoseTurnProposal(data) === 'recipient';
+            if (myTurn) {
+                const requesterDoc = await getDoc(doc(db, 'users', data.requesterId));
+                const requesterData = requesterDoc.exists() ? requesterDoc.data() : null;
+                allItems.push({
+                    type: 'received-proposal',
+                    id: docSnap.id,
+                    data,
+                    requesterData,
+                    createdAt: data.createdAt
+                });
+            }
+        }
 
-    unsubscribes.push(unsubscribe);
+        // Add sent match proposals (green border, waiting for response)
+        for (const docSnap of sentProposalsSnap.docs) {
+            const data = docSnap.data();
+            // Check if it's their turn (not my turn)
+            const myTurn = whoseTurnProposal(data) === 'requester';
+            if (!myTurn) {
+                const recipientDoc = await getDoc(doc(db, 'users', data.recipientId));
+                const recipientData = recipientDoc.exists() ? recipientData.data() : null;
+                allItems.push({
+                    type: 'sent-proposal',
+                    id: docSnap.id,
+                    data,
+                    recipientData,
+                    createdAt: data.createdAt
+                });
+            }
+        }
+
+        // Sort by creation date (newest first)
+        allItems.sort((a, b) => {
+            const timeA = a.createdAt?.toMillis?.() || 0;
+            const timeB = b.createdAt?.toMillis?.() || 0;
+            return timeB - timeA;
+        });
+
+        renderCombinedOverview(allItems, userData, db, showAll);
+        updateMatchRequestBadge(allItems.length);
+    }
+
+    // Initial load
+    refreshOverview();
 }
 
 /**
- * Renders request cards in overview
+ * Helper function to determine whose turn it is (copied from match-proposals.js logic)
  */
-function renderOverviewRequestCards(requests, userData, db) {
+function whoseTurnProposal(proposal) {
+    if (proposal.status === 'pending') {
+        return 'recipient';
+    }
+
+    if (proposal.status === 'counter_proposed' && proposal.counterProposals && proposal.counterProposals.length > 0) {
+        const lastCounterProposal = proposal.counterProposals[proposal.counterProposals.length - 1];
+        if (lastCounterProposal.proposedBy === proposal.recipientId) {
+            return 'requester';
+        } else {
+            return 'recipient';
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Renders combined view of match requests and proposals with color coding
+ */
+function renderCombinedOverview(items, userData, db, showAll) {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
 
     container.innerHTML = '';
 
-    requests.forEach(request => {
+    if (items.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+        return;
+    }
+
+    // Show only first 3 unless showAll is true
+    const itemsToShow = showAll ? items : items.slice(0, 3);
+
+    itemsToShow.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
-        const setsDisplay = formatSetsDisplaySimple(request.sets);
-        const playerName = request.playerAData?.firstName || 'Unbekannt';
+        // Color coding: blue for match-request (result), green for proposals (future match)
+        const borderColor = item.type === 'match-request' ? 'border-blue-300' : 'border-green-300';
+        const bgColor = item.type === 'match-request' ? 'bg-blue-50' : 'bg-green-50';
 
-        card.innerHTML = `
-            <div class="flex justify-between items-start mb-2">
-                <div class="flex-1">
-                    <p class="font-semibold text-gray-800">${playerName} vs ${userData.firstName}</p>
-                    <p class="text-sm text-gray-600">${setsDisplay}</p>
+        card.className = `bg-white border-2 ${borderColor} ${bgColor} rounded-lg p-3 shadow-sm`;
+
+        if (item.type === 'match-request') {
+            // Match result request (blue)
+            const setsDisplay = formatSetsDisplaySimple(item.data.sets);
+            const playerName = item.playerAData?.firstName || 'Unbekannt';
+
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-semibold text-blue-700 bg-blue-200 px-2 py-1 rounded">📊 Ergebnis</span>
                 </div>
-            </div>
-            <div class="flex gap-2 mt-3">
-                <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-                    <i class="fas fa-check"></i> Akzeptieren
-                </button>
-                <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-                    <i class="fas fa-times"></i> Ablehnen
-                </button>
-            </div>
-        `;
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800 text-sm">${playerName} vs ${userData.firstName}</p>
+                        <p class="text-xs text-gray-600">${setsDisplay}</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}">
+                        <i class="fas fa-check"></i> Akzeptieren
+                    </button>
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}">
+                        <i class="fas fa-times"></i> Ablehnen
+                    </button>
+                </div>
+            `;
 
-        const approveBtn = card.querySelector('.approve-overview-btn');
-        const rejectBtn = card.querySelector('.reject-overview-btn');
+            const approveBtn = card.querySelector('.approve-overview-btn');
+            const rejectBtn = card.querySelector('.reject-overview-btn');
 
-        approveBtn.addEventListener('click', async () => {
-            await approveOverviewRequest(request.id, db);
-        });
+            approveBtn.addEventListener('click', async () => {
+                await approveOverviewRequest(item.id, db);
+            });
 
-        rejectBtn.addEventListener('click', async () => {
-            await rejectOverviewRequest(request.id, db);
-        });
+            rejectBtn.addEventListener('click', async () => {
+                await rejectOverviewRequest(item.id, db);
+            });
+
+        } else if (item.type === 'received-proposal') {
+            // Received proposal (green, my turn to respond)
+            const opponent = item.requesterData?.firstName || 'Unbekannt';
+            const latestProposal = getLatestProposalData(item.data);
+
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded">📅 Match-Anfrage</span>
+                </div>
+                <div class="mb-2">
+                    <p class="font-semibold text-gray-800 text-sm">${opponent} <i class="fas fa-arrow-right text-gray-400 mx-1"></i> ${userData.firstName}</p>
+                    ${latestProposal.dateTime ? `<p class="text-xs text-gray-600"><i class="fas fa-calendar mr-1"></i>${latestProposal.dateTime}</p>` : ''}
+                    ${latestProposal.location ? `<p class="text-xs text-gray-600"><i class="fas fa-map-marker-alt mr-1"></i>${latestProposal.location}</p>` : ''}
+                </div>
+                <div class="flex gap-1 mt-2">
+                    <button class="accept-proposal-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-proposal-id="${item.id}">
+                        <i class="fas fa-check"></i> OK
+                    </button>
+                    <button class="decline-proposal-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-proposal-id="${item.id}">
+                        <i class="fas fa-times"></i> Nein
+                    </button>
+                    <button class="counter-proposal-overview-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-proposal-id="${item.id}">
+                        <i class="fas fa-reply"></i> Gegen
+                    </button>
+                </div>
+            `;
+
+            // Import from match-proposals.js
+            import('./match-proposals.js').then(module => {
+                const acceptBtn = card.querySelector('.accept-proposal-overview-btn');
+                const declineBtn = card.querySelector('.decline-proposal-overview-btn');
+                const counterBtn = card.querySelector('.counter-proposal-overview-btn');
+
+                if (acceptBtn) acceptBtn.addEventListener('click', () => module.acceptProposal(item.id, db));
+                if (declineBtn) declineBtn.addEventListener('click', () => module.declineProposal(item.id, db));
+                if (counterBtn) counterBtn.addEventListener('click', () => module.openCounterProposalModal(item.data, item.requesterData, db));
+            });
+
+        } else if (item.type === 'sent-proposal') {
+            // Sent proposal (green, waiting for response)
+            const opponent = item.recipientData?.firstName || 'Unbekannt';
+            const latestProposal = getLatestProposalData(item.data);
+
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded">📅 Match-Anfrage</span>
+                    <span class="text-xs text-gray-500">(wartet...)</span>
+                </div>
+                <div class="mb-2">
+                    <p class="font-semibold text-gray-800 text-sm">${userData.firstName} <i class="fas fa-arrow-right text-gray-400 mx-1"></i> ${opponent}</p>
+                    ${latestProposal.dateTime ? `<p class="text-xs text-gray-600"><i class="fas fa-calendar mr-1"></i>${latestProposal.dateTime}</p>` : ''}
+                    ${latestProposal.location ? `<p class="text-xs text-gray-600"><i class="fas fa-map-marker-alt mr-1"></i>${latestProposal.location}</p>` : ''}
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button class="cancel-proposal-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-proposal-id="${item.id}">
+                        <i class="fas fa-times"></i> Zurückziehen
+                    </button>
+                </div>
+            `;
+
+            import('./match-proposals.js').then(module => {
+                const cancelBtn = card.querySelector('.cancel-proposal-overview-btn');
+                if (cancelBtn) cancelBtn.addEventListener('click', () => module.cancelProposal(item.id, db));
+            });
+        }
 
         container.appendChild(card);
     });
+
+    // Add "Show more" button if there are more than 3 items
+    if (items.length > 3 && !showAll) {
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.className = 'w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-4 rounded-md transition mt-2';
+        showMoreBtn.innerHTML = `<i class="fas fa-chevron-down mr-1"></i> ${items.length - 3} weitere anzeigen`;
+        showMoreBtn.addEventListener('click', () => {
+            renderCombinedOverview(items, userData, db, true);
+        });
+        container.appendChild(showMoreBtn);
+    } else if (showAll && items.length > 3) {
+        const showLessBtn = document.createElement('button');
+        showLessBtn.className = 'w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-4 rounded-md transition mt-2';
+        showLessBtn.innerHTML = `<i class="fas fa-chevron-up mr-1"></i> Weniger anzeigen`;
+        showLessBtn.addEventListener('click', () => {
+            renderCombinedOverview(items, userData, db, false);
+        });
+        container.appendChild(showLessBtn);
+    }
+}
+
+/**
+ * Helper to get latest proposal data
+ */
+function getLatestProposalData(proposal) {
+    if (proposal.counterProposals && proposal.counterProposals.length > 0) {
+        const latest = proposal.counterProposals[proposal.counterProposals.length - 1];
+        return {
+            dateTime: latest.dateTime ? formatDateTime(latest.dateTime) : null,
+            location: latest.location,
+            handicap: latest.handicap !== undefined ? latest.handicap : proposal.handicap,
+        };
+    }
+
+    return {
+        dateTime: proposal.proposedDateTime ? formatDateTime(proposal.proposedDateTime) : null,
+        location: proposal.proposedLocation,
+        handicap: proposal.handicap,
+    };
+}
+
+/**
+ * Formats date/time for display
+ */
+function formatDateTime(dateValue) {
+    if (!dateValue) return null;
+
+    const date = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+    return new Intl.DateTimeFormat('de-DE', {
+        dateStyle: 'short',
+        timeStyle: 'short'
+    }).format(date);
 }
 
 /**
