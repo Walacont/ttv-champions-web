@@ -229,14 +229,22 @@ export function loadMatchProposals(userData, db, unsubscribes) {
       for (const docSnap of snapshot.docs) {
         proposals.push({ id: docSnap.id, ...docSnap.data() });
       }
-      await renderIncomingAndProcessedProposals(proposals, userData, db);
 
-      // Update badge count (only pending proposals where it's my turn)
-      const pendingCount = proposals.filter((p) =>
+      // Separate into incoming (active, my turn) and processed (completed)
+      const incomingProposals = proposals.filter(p =>
         (p.status === "pending" || p.status === "counter_proposed") &&
         whoseTurn(p) === "recipient"
-      ).length;
-      updateProposalBadge(pendingCount);
+      );
+
+      const processedProposals = proposals.filter(p =>
+        p.status === "accepted" || p.status === "declined" || p.status === "cancelled"
+      );
+
+      await renderIncomingProposals(incomingProposals, userData, db);
+      await renderProcessedProposals(processedProposals, userData, db);
+
+      // Update badge count (only pending proposals where it's my turn)
+      updateProposalBadge(incomingProposals.length);
     }, 100);
   };
 
@@ -250,14 +258,17 @@ export function loadMatchProposals(userData, db, unsubscribes) {
 }
 
 /**
- * Renders ALL my sent proposals (active and completed)
+ * Renders my sent proposals with "show more" functionality
  */
+let showAllMyProposals = false; // State for showing all or limited
+
 async function renderMyProposals(proposals, userData, db) {
   const container = document.getElementById("my-match-proposals-list");
   if (!container) return;
 
   if (proposals.length === 0) {
     container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
+    showAllMyProposals = false;
     return;
   }
 
@@ -269,54 +280,133 @@ async function renderMyProposals(proposals, userData, db) {
     return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
   });
 
-  for (const proposal of sortedProposals) {
+  // Determine how many to show
+  const maxInitial = 3;
+  const proposalsToShow = showAllMyProposals ? sortedProposals : sortedProposals.slice(0, maxInitial);
+
+  // Render proposal cards
+  for (const proposal of proposalsToShow) {
     const recipientData = await getUserData(proposal.recipientId, db);
     const card = createSentProposalCard(proposal, recipientData, userData, db);
     container.appendChild(card);
   }
+
+  // Add "Show more" / "Show less" button if needed
+  if (sortedProposals.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllMyProposals
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${sortedProposals.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllMyProposals = !showAllMyProposals;
+      renderMyProposals(proposals, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
+  }
 }
 
 /**
- * Renders incoming (active) and processed (completed) received proposals into separate containers
+ * Renders incoming proposals with "show more" functionality
  */
-async function renderIncomingAndProcessedProposals(proposals, userData, db) {
-  const incomingContainer = document.getElementById("incoming-match-proposals-list");
-  const processedContainer = document.getElementById("processed-match-proposals-list");
+let showAllIncomingProposals = false; // State for showing all or limited
 
-  if (!incomingContainer || !processedContainer) return;
+async function renderIncomingProposals(proposals, userData, db) {
+  const container = document.getElementById("incoming-match-proposals-list");
+  if (!container) return;
 
-  // Separate into incoming (active, my turn) and processed (completed)
-  const incomingProposals = proposals.filter(p =>
-    (p.status === "pending" || p.status === "counter_proposed") &&
-    whoseTurn(p) === "recipient"
-  );
-
-  const processedProposals = proposals.filter(p =>
-    p.status === "accepted" || p.status === "declined" || p.status === "cancelled"
-  );
-
-  // Render incoming proposals
-  if (incomingProposals.length === 0) {
-    incomingContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
-  } else {
-    incomingContainer.innerHTML = "";
-    for (const proposal of incomingProposals) {
-      const requesterData = await getUserData(proposal.requesterId, db);
-      const card = createReceivedProposalCard(proposal, requesterData, userData, db);
-      incomingContainer.appendChild(card);
-    }
+  if (proposals.length === 0) {
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
+    showAllIncomingProposals = false;
+    return;
   }
 
-  // Render processed proposals
-  if (processedProposals.length === 0) {
-    processedContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
-  } else {
-    processedContainer.innerHTML = "";
-    for (const proposal of processedProposals) {
-      const requesterData = await getUserData(proposal.requesterId, db);
-      const card = createReceivedProposalCard(proposal, requesterData, userData, db);
-      processedContainer.appendChild(card);
-    }
+  container.innerHTML = "";
+
+  // Determine how many to show
+  const maxInitial = 3;
+  const proposalsToShow = showAllIncomingProposals ? proposals : proposals.slice(0, maxInitial);
+
+  // Render proposal cards
+  for (const proposal of proposalsToShow) {
+    const requesterData = await getUserData(proposal.requesterId, db);
+    const card = createReceivedProposalCard(proposal, requesterData, userData, db);
+    container.appendChild(card);
+  }
+
+  // Add "Show more" / "Show less" button if needed
+  if (proposals.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllIncomingProposals
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${proposals.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllIncomingProposals = !showAllIncomingProposals;
+      renderIncomingProposals(proposals, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
+  }
+}
+
+/**
+ * Renders processed proposals with "show more" functionality
+ */
+let showAllProcessedProposals = false; // State for showing all or limited
+
+async function renderProcessedProposals(proposals, userData, db) {
+  const container = document.getElementById("processed-match-proposals-list");
+  if (!container) return;
+
+  if (proposals.length === 0) {
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
+    showAllProcessedProposals = false;
+    return;
+  }
+
+  container.innerHTML = "";
+
+  // Determine how many to show
+  const maxInitial = 3;
+  const proposalsToShow = showAllProcessedProposals ? proposals : proposals.slice(0, maxInitial);
+
+  // Render proposal cards
+  for (const proposal of proposalsToShow) {
+    const requesterData = await getUserData(proposal.requesterId, db);
+    const card = createReceivedProposalCard(proposal, requesterData, userData, db);
+    container.appendChild(card);
+  }
+
+  // Add "Show more" / "Show less" button if needed
+  if (proposals.length > maxInitial) {
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "text-center mt-4";
+
+    const button = document.createElement("button");
+    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    button.innerHTML = showAllProcessedProposals
+      ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
+      : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${proposals.length - maxInitial} weitere)`;
+
+    button.addEventListener("click", () => {
+      showAllProcessedProposals = !showAllProcessedProposals;
+      renderProcessedProposals(proposals, userData, db);
+    });
+
+    buttonContainer.appendChild(button);
+    container.appendChild(buttonContainer);
   }
 }
 
