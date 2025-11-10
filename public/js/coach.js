@@ -470,6 +470,17 @@ async function registerCoachAsPlayer(userData, db) {
             updatedAt: serverTimestamp()
         };
 
+        console.log('[Coach Registration] Current user data:', {
+            id: userData.id,
+            role: userData.role,
+            roles: userData.roles,
+            hasElo: userData.eloRating !== undefined,
+            hasXp: userData.xp !== undefined,
+            allKeys: Object.keys(userData)
+        });
+
+        console.log('[Coach Registration] Attempting update with:', updateData);
+
         await updateDoc(userRef, updateData);
 
         // Update local userData

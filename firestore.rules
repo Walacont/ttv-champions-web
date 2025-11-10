@@ -80,11 +80,12 @@ service cloud.firestore {
 
       // Coaches can register themselves as players (one-time initialization)
       // Allows setting player role + initial player fields (eloRating, xp, points, grundlagenCompleted)
+      // Must not change clubId or role (only roles array)
       allow update: if isOwner(userId) &&
-        hasRole('coach') &&
+        (resource.data.role == 'coach' || (resource.data.roles != null && 'coach' in resource.data.roles)) &&
         !(resource.data.roles != null && 'player' in resource.data.roles) &&
         (request.resource.data.roles != null && 'player' in request.resource.data.roles) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roles', 'eloRating', 'highestElo', 'xp', 'points', 'grundlagenCompleted', 'updatedAt']);
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId']);
 
       // Coaches can update players in their club (including points, xp, eloRating, etc.)
       // BUT coaches cannot update their OWN player stats if they have both roles
