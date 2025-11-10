@@ -137,6 +137,31 @@
                                 <label for="exercise-points" class="block text-sm font-medium text-gray-700">Punkte</label>
                                 <input type="number" id="exercise-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
+
+                            <!-- Tiered Points System -->
+                            <div class="border-t pt-4">
+                                <div class="flex items-center mb-3">
+                                    <input type="checkbox" id="exercise-tiered-points-toggle" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                    <label for="exercise-tiered-points-toggle" class="ml-2 text-sm font-medium text-gray-700">
+                                        🎯 Abgestufte Punktevergabe aktivieren (für wiederholbare Übungen)
+                                    </label>
+                                </div>
+                                <div id="exercise-milestones-container" class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg">
+                                    <p class="text-xs text-indigo-700 mb-2">
+                                        <strong>Meilensteine:</strong> Spieler können pro Saison Punkte sammeln, indem sie diese Übung mehrmals schaffen. Punkte sind kumulativ!
+                                    </p>
+                                    <div id="exercise-milestones-list" class="space-y-2">
+                                        <!-- Milestones will be added here dynamically -->
+                                    </div>
+                                    <button type="button" id="add-exercise-milestone-btn" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md">
+                                        + Meilenstein hinzufügen
+                                    </button>
+                                    <div class="text-xs text-indigo-600 font-semibold mt-2">
+                                        Max. erreichbare Punkte: <span id="exercise-max-points-display">0</span> P.
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <label for="exercise-tags" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
                                 <input type="text" id="exercise-tags" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
