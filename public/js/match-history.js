@@ -161,8 +161,17 @@ export async function loadMatchHistory(db, userData) {
       matches.map(match => enrichMatchData(db, match, userData))
     );
 
-    // Render matches
-    renderMatchHistory(container, matchesWithDetails, userData);
+    // Render matches (limit to first 4 for player view to keep page short)
+    const limitedMatches = matchesWithDetails.slice(0, 4);
+    renderMatchHistory(container, limitedMatches, userData);
+
+    // Add hint if there are more matches
+    if (matchesWithDetails.length > 4) {
+      const showMoreHint = document.createElement('p');
+      showMoreHint.className = 'text-center text-sm text-gray-500 mt-4 italic';
+      showMoreHint.textContent = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe (${matchesWithDetails.length} insgesamt)`;
+      container.appendChild(showMoreHint);
+    }
 
   } catch (error) {
     console.error("[Match History] Error loading match history:", error);
