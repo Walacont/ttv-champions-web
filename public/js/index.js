@@ -40,6 +40,12 @@ if (codeFromUrl) {
     // Switch to code tab and prefill
     switchToCodeTab();
     invitationCodeInput.value = codeFromUrl;
+
+    // NEU: Auch das Modal direkt öffnen, wenn ein Code in der URL ist
+    const loginModal = document.getElementById('login-modal');
+    if (loginModal) {
+        loginModal.classList.remove('hidden');
+    }
 }
 
 // Tab Switching
@@ -213,3 +219,32 @@ codeForm.addEventListener('submit', async (e) => {
         feedbackMessage.classList.add('text-red-600');
     }
 });
+
+// ===== CODE FÜR MODAL-STEUERUNG (HINZUFÜGEN) =====
+
+// Alle Elemente für das Modal holen
+const loginModal = document.getElementById('login-modal');
+const openLoginBtn = document.getElementById('open-login-modal');
+const closeLoginBtn = document.getElementById('close-login-modal');
+
+if (loginModal && openLoginBtn && closeLoginBtn) {
+    
+    // Modal öffnen (Klick auf "Login" im Header)
+    openLoginBtn.addEventListener('click', () => {
+        loginModal.classList.remove('hidden');
+    });
+
+    // Modal schließen (Klick auf 'X' im Modal)
+    closeLoginBtn.addEventListener('click', () => {
+        loginModal.classList.add('hidden');
+    });
+
+    // Modal schließen (Klick auf den dunklen Hintergrund)
+    loginModal.addEventListener('click', (e) => {
+        // Prüfen, ob der Klick direkt auf den Hintergrund (loginModal) 
+        // und nicht auf ein Kind-Element (das weiße Panel) erfolgte.
+        if (e.target === loginModal) {
+            loginModal.classList.add('hidden');
+        }
+    });
+}
