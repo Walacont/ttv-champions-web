@@ -24,6 +24,7 @@ let clubPlayers = []; // Store club players for match request form
 let unsubscribes = [];
 let currentDisplayDate = new Date();
 let currentSubgroupFilter = 'club'; // Default: show club view
+let matchSuggestionsUnsubscribes = []; // Array to store match suggestions listeners
 let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
 let calendarListener = null; // Separate listener for calendar (needs to be updated on filter change)
 let subgroupFilterListener = null; // Listener for subgroup filter dropdown
@@ -36,6 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
             await user.getIdToken(true);
             unsubscribes.forEach(unsub => unsub());
             unsubscribes = [];
+            matchSuggestionsUnsubscribes.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            matchSuggestionsUnsubscribes = [];
             try {
                 const userDocRef = doc(db, "users", user.uid);
                 const initialDocSnap = await getDoc(userDocRef);
@@ -131,7 +134,7 @@ async function initializeDashboard(userData) {
     // Initialize match proposals functionality
     initializeMatchProposalForm(userData, db);
     loadMatchProposals(userData, db, unsubscribes);
-    loadMatchSuggestions(userData, db, unsubscribes);
+    loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
 
     // Setup match proposal modal handlers
     const createProposalBtn = document.getElementById('create-match-proposal-btn');
@@ -457,6 +460,20 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
         }
     }
     calendarListener = renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
+
+    // Reload match suggestions with new filter
+    // Unsubscribe old listeners
+    matchSuggestionsUnsubscribes.forEach(unsub => {
+        try {
+            if (typeof unsub === 'function') unsub();
+        } catch (e) {
+            console.error("Error unsubscribing match suggestions listener:", e);
+        }
+    });
+    matchSuggestionsUnsubscribes = [];
+
+    // Reload with new filter
+    loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
 }
 
 /**
