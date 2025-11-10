@@ -83,23 +83,28 @@ function addExerciseMilestone(completions = 1, points = 0) {
   if (!list) return;
 
   const milestoneDiv = document.createElement('div');
-  milestoneDiv.className = 'flex items-center gap-2 bg-white p-2 rounded border border-indigo-200';
+  milestoneDiv.className = 'flex items-center gap-3 bg-white p-3 rounded border border-indigo-200';
   milestoneDiv.innerHTML = `
-    <span class="text-sm text-gray-600 whitespace-nowrap">Bei</span>
-    <input type="number"
-           class="milestone-completions w-20 px-2 py-1 text-sm border border-gray-300 rounded"
-           value="${completions}"
-           min="1"
-           required>
-    <span class="text-sm text-gray-600">× geschafft →</span>
-    <input type="number"
-           class="milestone-points w-20 px-2 py-1 text-sm border border-gray-300 rounded"
-           value="${points}"
-           min="0"
-           required>
-    <span class="text-sm text-gray-600">Punkte</span>
+    <div class="flex items-center gap-2 flex-1">
+      <span class="text-sm text-gray-700 font-medium whitespace-nowrap">Bei</span>
+      <input type="number"
+             class="milestone-completions w-16 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+             value="${completions}"
+             min="1"
+             required>
+      <span class="text-sm text-gray-700">×</span>
+    </div>
+    <div class="flex items-center gap-2 flex-1">
+      <span class="text-sm text-gray-700 font-medium">→</span>
+      <input type="number"
+             class="milestone-points w-16 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+             value="${points}"
+             min="0"
+             required>
+      <span class="text-sm text-gray-700">P.</span>
+    </div>
     <button type="button"
-            class="remove-milestone ml-auto text-red-600 hover:text-red-800 text-sm font-semibold">
+            class="remove-milestone text-red-600 hover:text-red-800 hover:bg-red-50 w-8 h-8 rounded flex items-center justify-center transition-colors">
       ✕
     </button>
   `;
@@ -131,23 +136,28 @@ function addChallengeMilestone(completions = 1, points = 0) {
   if (!list) return;
 
   const milestoneDiv = document.createElement('div');
-  milestoneDiv.className = 'flex items-center gap-2 bg-white p-2 rounded border border-indigo-200';
+  milestoneDiv.className = 'flex items-center gap-3 bg-white p-3 rounded border border-indigo-200';
   milestoneDiv.innerHTML = `
-    <span class="text-sm text-gray-600 whitespace-nowrap">Bei</span>
-    <input type="number"
-           class="milestone-completions w-20 px-2 py-1 text-sm border border-gray-300 rounded"
-           value="${completions}"
-           min="1"
-           required>
-    <span class="text-sm text-gray-600">× geschafft →</span>
-    <input type="number"
-           class="milestone-points w-20 px-2 py-1 text-sm border border-gray-300 rounded"
-           value="${points}"
-           min="0"
-           required>
-    <span class="text-sm text-gray-600">Punkte</span>
+    <div class="flex items-center gap-2 flex-1">
+      <span class="text-sm text-gray-700 font-medium whitespace-nowrap">Bei</span>
+      <input type="number"
+             class="milestone-completions w-16 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+             value="${completions}"
+             min="1"
+             required>
+      <span class="text-sm text-gray-700">×</span>
+    </div>
+    <div class="flex items-center gap-2 flex-1">
+      <span class="text-sm text-gray-700 font-medium">→</span>
+      <input type="number"
+             class="milestone-points w-16 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+             value="${points}"
+             min="0"
+             required>
+      <span class="text-sm text-gray-700">P.</span>
+    </div>
     <button type="button"
-            class="remove-milestone ml-auto text-red-600 hover:text-red-800 text-sm font-semibold">
+            class="remove-milestone text-red-600 hover:text-red-800 hover:bg-red-50 w-8 h-8 rounded flex items-center justify-center transition-colors">
       ✕
     </button>
   `;
