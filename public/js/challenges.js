@@ -168,6 +168,15 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
                 ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
                 : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
 
+            // Calculate points display for tiered challenges
+            let pointsDisplay = '';
+            if (challenge.tieredPoints && challenge.tieredPoints.enabled && challenge.tieredPoints.milestones && challenge.tieredPoints.milestones.length > 0) {
+                const totalPoints = challenge.tieredPoints.milestones.reduce((sum, m) => sum + m.points, 0);
+                pointsDisplay = `<span class="font-bold text-indigo-600">⭐ Bis zu ${totalPoints} Punkte!</span>`;
+            } else {
+                pointsDisplay = `<span class="font-bold text-indigo-600">+${challenge.points} Punkte</span>`;
+            }
+
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
@@ -181,7 +190,7 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
                 </div>
                 <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p>
                 <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
-                    <span class="font-bold text-indigo-600">+${challenge.points} Punkte</span>
+                    ${pointsDisplay}
                     <span class="challenge-countdown font-mono text-red-600" data-expires-at="${expiresAt.toISOString()}">Berechne...</span>
                 </div>
                 <div class="flex gap-2 mt-3">
@@ -240,10 +249,21 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
         activeChallenges.forEach(challenge => {
             const option = document.createElement('option');
             option.value = challenge.id;
-            option.textContent = `${challenge.title} (+${challenge.points} P.)`;
+
+            // Show tiered points in dropdown if enabled
+            let pointsText = '';
+            if (challenge.tieredPoints && challenge.tieredPoints.enabled && challenge.tieredPoints.milestones && challenge.tieredPoints.milestones.length > 0) {
+                const totalPoints = challenge.tieredPoints.milestones.reduce((sum, m) => sum + m.points, 0);
+                pointsText = ` (⭐ bis zu ${totalPoints} P.)`;
+            } else {
+                pointsText = ` (+${challenge.points} P.)`;
+            }
+
+            option.textContent = `${challenge.title}${pointsText}`;
             option.dataset.points = challenge.points;
             option.dataset.title = challenge.title;
             option.dataset.subgroupId = challenge.subgroupId || 'all';
+            option.dataset.tieredPoints = JSON.stringify(challenge.tieredPoints || {});
             select.appendChild(option);
         });
     });
@@ -335,6 +355,15 @@ export function loadExpiredChallenges(clubId, db) {
                 ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
                 : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
 
+            // Calculate points display for tiered challenges (expired view)
+            let expiredPointsDisplay = '';
+            if (challenge.tieredPoints && challenge.tieredPoints.enabled && challenge.tieredPoints.milestones && challenge.tieredPoints.milestones.length > 0) {
+                const totalPoints = challenge.tieredPoints.milestones.reduce((sum, m) => sum + m.points, 0);
+                expiredPointsDisplay = `<span class="font-bold text-gray-600">⭐ ${totalPoints} Punkte (abgestuft)</span>`;
+            } else {
+                expiredPointsDisplay = `<span class="font-bold text-gray-600">+${challenge.points} Punkte</span>`;
+            }
+
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
@@ -348,7 +377,7 @@ export function loadExpiredChallenges(clubId, db) {
                 </div>
                 <p class="text-sm text-gray-600 my-2">${challenge.description || ''}</p>
                 <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
-                    <span class="font-bold text-gray-600">+${challenge.points} Punkte</span>
+                    ${expiredPointsDisplay}
                     <span class="text-xs text-gray-500">
                         ${wasManuallyEnded ? 'Vorzeitig beendet' : 'Abgelaufen am ' + expiresAt.toLocaleDateString('de-DE')}
                     </span>
