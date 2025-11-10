@@ -74,18 +74,20 @@ service cloud.firestore {
       // ADMIN can read ALL users (for statistics and club management)
       allow read: if isAdmin();
 
-      // Users can update their own profile (limited fields)
-      allow update: if isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
-
+      // IMPORTANT: Coach self-registration MUST come BEFORE general user update rule
       // Coaches can register themselves as players (one-time initialization)
-      // Allows setting player role + initial player fields (eloRating, xp, points, grundlagenCompleted)
-      // Must not change clubId or role (only roles array)
+      // Allows adding player role and setting initial player fields
       allow update: if isOwner(userId) &&
-        (resource.data.role == 'coach' || (resource.data.roles != null && 'coach' in resource.data.roles)) &&
-        !(resource.data.roles != null && 'player' in resource.data.roles) &&
-        (request.resource.data.roles != null && 'player' in request.resource.data.roles) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId']);
+        resource.data.role == 'coach' &&
+        resource.data.roles == null &&
+        request.resource.data.roles != null &&
+        'player' in request.resource.data.roles &&
+        'coach' in request.resource.data.roles;
+
+      // Users can update their own profile (limited fields)
+      // This rule is checked AFTER coach registration rule
+      allow update: if isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'roles', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
 
       // Coaches can update players in their club (including points, xp, eloRating, etc.)
       // BUT coaches cannot update their OWN player stats if they have both roles
