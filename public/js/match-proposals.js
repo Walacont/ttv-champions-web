@@ -371,7 +371,7 @@ function createSentProposalCard(proposal, recipient, userData, db) {
     </div>
 
     <div class="space-y-2 text-sm">
-      ${latestProposal.dateTime ? `<p class="text-gray-700"><i class="fas fa-calendar mr-2 text-indigo-500"></i><strong>Zeit:</strong> ${latestProposal.dateTime}</p>` : ""}
+      ${latestProposal.dateTime ? `<p class="text-gray-700"><i class="fas fa-calendar mr-2 text-indigo-500"></i><strong>Zeit:</strong> ${formatDateTime(latestProposal.dateTime)}</p>` : ""}
       ${latestProposal.location ? `<p class="text-gray-700"><i class="fas fa-map-marker-alt mr-2 text-indigo-500"></i><strong>Ort:</strong> ${latestProposal.location}</p>` : ""}
       ${proposal.phoneNumber ? `<p class="text-gray-700"><i class="fas fa-phone mr-2 text-indigo-500"></i><strong>Telefon:</strong> ${proposal.phoneNumber}</p>` : ""}
       <p class="text-gray-700"><i class="fas fa-balance-scale mr-2 text-indigo-500"></i><strong>Handicap:</strong> ${latestProposal.handicap ? "Ja" : "Nein"}</p>
@@ -452,7 +452,7 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
     </div>
 
     <div class="space-y-2 text-sm">
-      ${latestProposal.dateTime ? `<p class="text-gray-700"><i class="fas fa-calendar mr-2 text-indigo-500"></i><strong>Zeit:</strong> ${latestProposal.dateTime}</p>` : ""}
+      ${latestProposal.dateTime ? `<p class="text-gray-700"><i class="fas fa-calendar mr-2 text-indigo-500"></i><strong>Zeit:</strong> ${formatDateTime(latestProposal.dateTime)}</p>` : ""}
       ${latestProposal.location ? `<p class="text-gray-700"><i class="fas fa-map-marker-alt mr-2 text-indigo-500"></i><strong>Ort:</strong> ${latestProposal.location}</p>` : ""}
       ${proposal.phoneNumber ? `<p class="text-gray-700"><i class="fas fa-phone mr-2 text-indigo-500"></i><strong>Telefon:</strong> ${proposal.phoneNumber}</p>` : ""}
       <p class="text-gray-700"><i class="fas fa-balance-scale mr-2 text-indigo-500"></i><strong>Handicap:</strong> ${latestProposal.handicap ? "Ja" : "Nein"}</p>
@@ -580,11 +580,24 @@ function formatDateTime(timestamp) {
   try {
     let date;
     if (timestamp.toDate) {
+      // Firestore Timestamp object
       date = timestamp.toDate();
-    } else if (typeof timestamp === "string") {
+    } else if (typeof timestamp === "number") {
+      // Unix timestamp in milliseconds
       date = new Date(timestamp);
-    } else {
+    } else if (typeof timestamp === "string") {
+      // ISO string or other string format
+      date = new Date(timestamp);
+    } else if (timestamp instanceof Date) {
+      // Already a Date object
       date = timestamp;
+    } else {
+      return "";
+    }
+
+    // Validate the date is valid
+    if (isNaN(date.getTime())) {
+      return "";
     }
 
     return new Intl.DateTimeFormat("de-DE", {
@@ -729,13 +742,22 @@ export function openCounterProposalModal(proposal, requester, db) {
       }
 
       // Add new counter-proposal (use plain Date instead of serverTimestamp in arrays)
+      // Convert Date to timestamp to avoid Firebase serialization issues
+      let dateTimeTimestamp = null;
+      if (dateTimeInput && dateTimeInput.trim()) {
+        const date = new Date(dateTimeInput);
+        if (!isNaN(date.getTime())) {
+          dateTimeTimestamp = date.getTime(); // Store as milliseconds timestamp
+        }
+      }
+
       counterProposals.push({
         proposedBy: proposedBy,
-        dateTime: dateTimeInput && dateTimeInput.trim() ? new Date(dateTimeInput) : null,
+        dateTime: dateTimeTimestamp,
         location: locationInput && locationInput.trim() ? locationInput.trim() : null,
         handicap: handicapInput,
         message: messageInput && messageInput.trim() ? messageInput.trim() : null,
-        createdAt: new Date(), // Use plain Date object, not serverTimestamp
+        createdAt: Date.now(), // Use timestamp instead of Date object
       });
 
       await updateDoc(proposalRef, {
@@ -939,16 +961,25 @@ export function initializeMatchProposalForm(userData, db) {
     const message = document.getElementById("proposal-message").value;
     const handicap = document.getElementById("proposal-handicap").checked;
 
+    // Convert date to timestamp to avoid Firebase serialization issues
+    let proposedDateTimeTimestamp = null;
+    if (dateTimeInput && dateTimeInput.trim()) {
+      const date = new Date(dateTimeInput);
+      if (!isNaN(date.getTime())) {
+        proposedDateTimeTimestamp = date.getTime();
+      }
+    }
+
     try {
       await addDoc(collection(db, "matchProposals"), {
         requesterId: userData.id,
         recipientId: selectedPlayer.id,
         clubId: userData.clubId,
         status: "pending",
-        phoneNumber: phoneNumber || null,
-        proposedDateTime: dateTimeInput ? new Date(dateTimeInput) : null,
-        proposedLocation: location || null,
-        message: message || null,
+        phoneNumber: phoneNumber && phoneNumber.trim() ? phoneNumber.trim() : null,
+        proposedDateTime: proposedDateTimeTimestamp,
+        proposedLocation: location && location.trim() ? location.trim() : null,
+        message: message && message.trim() ? message.trim() : null,
         handicap: handicap,
         counterProposals: [],
         createdAt: serverTimestamp(),
