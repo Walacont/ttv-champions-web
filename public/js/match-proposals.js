@@ -690,13 +690,29 @@ export function initializeMatchProposalForm(userData, db) {
   const form = document.getElementById("match-proposal-form");
   if (!form) return;
 
-  // Check if player has completed Grundlagen requirement
-  const grundlagenCompleted = userData.grundlagenCompleted || 0;
-  const isMatchReady = grundlagenCompleted >= 5;
-
   const searchInput = document.getElementById("proposal-player-search");
   const playerList = document.getElementById("proposal-player-list");
   const selectedPlayerDiv = document.getElementById("selected-proposal-player");
+
+  let selectedPlayer = null;
+  let allPlayers = [];
+
+  // Register event listeners for player selection (always, even if not match-ready)
+  // This allows the form to work if player becomes match-ready later
+  document.addEventListener("playerSelected", (e) => {
+    selectedPlayer = e.detail;
+    if (selectedPlayerDiv) {
+      renderSelectedPlayer(e.detail, selectedPlayerDiv);
+    }
+  });
+
+  document.addEventListener("playerDeselected", () => {
+    selectedPlayer = null;
+  });
+
+  // Check if player has completed Grundlagen requirement
+  const grundlagenCompleted = userData.grundlagenCompleted || 0;
+  const isMatchReady = grundlagenCompleted >= 5;
 
   // If player hasn't completed Grundlagen, show warning and disable form
   if (!isMatchReady) {
@@ -730,9 +746,6 @@ export function initializeMatchProposalForm(userData, db) {
 
     return; // Exit early, don't initialize form
   }
-
-  let selectedPlayer = null;
-  let allPlayers = [];
 
   // Load all eligible players
   const loadPlayers = async () => {
@@ -819,16 +832,6 @@ export function initializeMatchProposalForm(userData, db) {
       console.error("Error creating proposal:", error);
       showProposalFeedback("Fehler beim Erstellen der Anfrage.", "error");
     }
-  });
-
-  // Listen for custom playerSelected event from suggestion cards
-  document.addEventListener("playerSelected", (e) => {
-    selectedPlayer = e.detail;
-  });
-
-  // Listen for custom playerDeselected event
-  document.addEventListener("playerDeselected", () => {
-    selectedPlayer = null;
   });
 
   // Load players on init
