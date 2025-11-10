@@ -1055,7 +1055,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
       option.value = player.id;
       // Add coach badge if user is also a coach
       const isCoach = (player.roles && player.roles.includes('coach')) || player.role === 'coach';
-      const coachBadge = isCoach ? ' 👨‍🏫' : '';
+      const coachBadge = isCoach ? ' [Coach]' : '';
       option.textContent = `${player.firstName} ${player.lastName}${coachBadge} (Elo: ${Math.round(player.eloRating || 0)})`;
       option.dataset.elo = player.eloRating || 0;
       option.dataset.isCoach = isCoach;

@@ -479,7 +479,7 @@ async function registerCoachAsPlayer(userData, db) {
         document.getElementById('coach-as-player-info').classList.add('hidden');
 
         // Show success message
-        alert('✅ Erfolgreich! Du bist jetzt als Spieler registriert und erscheinst in den Ranglisten mit einem 👨‍🏫 Coach-Badge.');
+        alert('✅ Erfolgreich! Du bist jetzt als Spieler registriert und erscheinst in den Ranglisten mit einem (Coach) Badge.');
 
         // Reload page to update UI
         window.location.reload();
@@ -519,7 +519,7 @@ function setupCoachAsPlayerUI(userData, db) {
             const confirmed = confirm(
                 '🎯 Als Spieler registrieren?\n\n' +
                 'Du wirst dann:\n' +
-                '✅ In den Ranglisten angezeigt (mit 👨‍🏫 Badge)\n' +
+                '✅ In den Ranglisten angezeigt (mit Coach Badge)\n' +
                 '✅ Matches spielen können\n' +
                 '✅ Elo-Rating und XP sammeln\n\n' +
                 'Startswerte:\n' +

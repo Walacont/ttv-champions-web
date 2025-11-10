@@ -515,7 +515,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
     const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
-    const coachBadge = isCoach ? '<span class="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded" title="Coach">👨‍🏫</span>' : '';
+    const coachBadge = isCoach ? '<span class="ml-1 text-xs text-blue-600 font-medium">(Coach)</span>' : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
@@ -547,7 +547,7 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
     const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
-    const coachBadge = isCoach ? '<span class="ml-1 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded" title="Coach">👨‍🏫</span>' : '';
+    const coachBadge = isCoach ? '<span class="ml-1 text-xs text-blue-600 font-medium">(Coach)</span>' : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
