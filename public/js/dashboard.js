@@ -182,14 +182,6 @@ async function initializeDashboard(userData) {
     });
     document.getElementById('close-challenge-modal').addEventListener('click', () => document.getElementById('challenge-modal').classList.add('hidden'));
 
-    // Counter-proposal modal close handlers
-    const closeCounterProposal = () => document.getElementById('counter-proposal-modal').classList.add('hidden');
-    document.getElementById('close-counter-proposal-modal').addEventListener('click', closeCounterProposal);
-    document.getElementById('cancel-counter-proposal').addEventListener('click', closeCounterProposal);
-    document.getElementById('counter-proposal-modal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('counter-proposal-modal')) closeCounterProposal();
-    });
-
     // Toggle match suggestions
     document.getElementById('toggle-match-suggestions').addEventListener('click', () => {
         const content = document.getElementById('match-suggestions-content');
