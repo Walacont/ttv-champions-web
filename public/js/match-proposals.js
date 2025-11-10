@@ -164,6 +164,34 @@ export function loadMatchProposals(userData, db, unsubscribes) {
 
   if (!sentProposalsList || !receivedProposalsList) return;
 
+  // Check if player has completed Grundlagen requirement
+  const grundlagenCompleted = userData.grundlagenCompleted || 0;
+  const isMatchReady = grundlagenCompleted >= 5;
+
+  if (!isMatchReady) {
+    const warningHTML = `
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-xs text-yellow-700">
+              <strong>🔒 Gesperrt!</strong><br>
+              Schließe erst <strong>5 Grundlagen-Übungen</strong> ab.<br>
+              Fortschritt: <strong>${grundlagenCompleted}/5</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+    sentProposalsList.innerHTML = warningHTML;
+    receivedProposalsList.innerHTML = warningHTML;
+    return; // Exit early
+  }
+
   // Query for proposals sent by me
   const sentProposalsQuery = query(
     collection(db, "matchProposals"),
@@ -662,9 +690,46 @@ export function initializeMatchProposalForm(userData, db) {
   const form = document.getElementById("match-proposal-form");
   if (!form) return;
 
+  // Check if player has completed Grundlagen requirement
+  const grundlagenCompleted = userData.grundlagenCompleted || 0;
+  const isMatchReady = grundlagenCompleted >= 5;
+
   const searchInput = document.getElementById("proposal-player-search");
   const playerList = document.getElementById("proposal-player-list");
   const selectedPlayerDiv = document.getElementById("selected-proposal-player");
+
+  // If player hasn't completed Grundlagen, show warning and disable form
+  if (!isMatchReady) {
+    const warningDiv = document.createElement("div");
+    warningDiv.className = "bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4";
+    warningDiv.innerHTML = `
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-yellow-700">
+            <strong>🔒 Match-Anfragen gesperrt!</strong><br>
+            Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren, um Match-Anfragen senden zu können.<br>
+            Fortschritt: <strong>${grundlagenCompleted}/5</strong> Grundlagen-Übungen abgeschlossen.
+            ${grundlagenCompleted > 0 ? `<br>Noch <strong>${5 - grundlagenCompleted}</strong> Übung${5 - grundlagenCompleted === 1 ? '' : 'en'} bis zur Freischaltung!` : ''}
+          </p>
+        </div>
+      </div>
+    `;
+
+    form.insertBefore(warningDiv, form.firstChild);
+
+    // Disable all form inputs
+    form.querySelectorAll('input, select, button[type="submit"], textarea').forEach(el => {
+      el.disabled = true;
+      el.classList.add('opacity-50', 'cursor-not-allowed');
+    });
+
+    return; // Exit early, don't initialize form
+  }
 
   let selectedPlayer = null;
   let allPlayers = [];
@@ -833,6 +898,33 @@ function renderSelectedPlayer(player, container) {
 export async function loadMatchSuggestions(userData, db, unsubscribes = []) {
   const container = document.getElementById("match-suggestions-list");
   if (!container) return;
+
+  // Check if player has completed Grundlagen requirement
+  const grundlagenCompleted = userData.grundlagenCompleted || 0;
+  const isMatchReady = grundlagenCompleted >= 5;
+
+  if (!isMatchReady) {
+    container.innerHTML = `
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+              <strong>🔒 Match-Vorschläge gesperrt!</strong><br>
+              Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren.<br>
+              Fortschritt: <strong>${grundlagenCompleted}/5</strong> abgeschlossen.
+              ${grundlagenCompleted > 0 ? `<br>Noch <strong>${5 - grundlagenCompleted}</strong> Übung${5 - grundlagenCompleted === 1 ? '' : 'en'} bis zur Freischaltung!` : ''}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+    return; // Exit early
+  }
 
   container.innerHTML = '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
 
