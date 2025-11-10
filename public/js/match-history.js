@@ -165,12 +165,23 @@ export async function loadMatchHistory(db, userData) {
     const limitedMatches = matchesWithDetails.slice(0, 4);
     renderMatchHistory(container, limitedMatches, userData);
 
-    // Add hint if there are more matches
+    // Add "show more" button if there are more matches
     if (matchesWithDetails.length > 4) {
-      const showMoreHint = document.createElement('p');
-      showMoreHint.className = 'text-center text-sm text-gray-500 mt-4 italic';
-      showMoreHint.textContent = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe (${matchesWithDetails.length} insgesamt)`;
-      container.appendChild(showMoreHint);
+      const showMoreContainer = document.createElement('div');
+      showMoreContainer.className = 'text-center mt-4';
+
+      const showMoreBtn = document.createElement('button');
+      showMoreBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
+      showMoreBtn.innerHTML = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe anzeigen`;
+
+      showMoreBtn.addEventListener('click', () => {
+        // Clear container and render all matches
+        renderMatchHistory(container, matchesWithDetails, userData);
+        showMoreContainer.remove(); // Remove the button
+      });
+
+      showMoreContainer.appendChild(showMoreBtn);
+      container.appendChild(showMoreContainer);
     }
 
   } catch (error) {
