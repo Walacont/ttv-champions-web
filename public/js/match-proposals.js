@@ -1118,12 +1118,13 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
     let allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
     console.log('[Match Suggestions] Players before filter:', allPlayers.length);
-    console.log('[Match Suggestions] Sample player subgroups:', allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroup: p.subgroup })));
+    console.log('[Match Suggestions] Sample player subgroups:', allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs })));
 
     // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
+    // Note: Players can be in multiple subgroups, so we check if the array includes the filter
     if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
       console.log('[Match Suggestions] Applying subgroup filter:', subgroupFilter);
-      allPlayers = allPlayers.filter(player => player.subgroup === subgroupFilter);
+      allPlayers = allPlayers.filter(player => (player.subgroupIDs || []).includes(subgroupFilter));
       console.log('[Match Suggestions] Players after filter:', allPlayers.length);
     }
 
