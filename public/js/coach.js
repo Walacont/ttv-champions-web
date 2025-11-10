@@ -20,7 +20,7 @@ import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleE
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
-import { loadCoachMatchHistory } from './coach-match-history.js';
+import { populateMatchHistoryPlayerDropdown } from './coach-match-history.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -134,8 +134,6 @@ async function initializeCoachPage(userData) {
             if (tabName === 'matches') {
                 // Load saved pairings when Wettkampf tab is opened
                 loadSavedPairings(db, userData.clubId);
-                // Load match history
-                loadCoachMatchHistory(db, userData);
             }
         });
     });
@@ -199,6 +197,7 @@ async function initializeCoachPage(userData) {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateHistoryFilterDropdown(clubPlayers);
+        populateMatchHistoryPlayerDropdown(clubPlayers, db);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
 
