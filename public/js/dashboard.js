@@ -510,41 +510,37 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     let showAll = false;
 
     // Query for match result requests (incoming, need my approval)
+    // Remove orderBy to avoid composite index requirement - will sort in JavaScript
     const incomingRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
-        where('status', '==', 'pending_player'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'pending_player')
     );
 
-    // Query for match proposals (received) - split into separate queries to avoid index requirement
+    // Query for match proposals (received) - without orderBy to avoid index requirement
     const receivedProposalsPendingQuery = query(
         collection(db, 'matchProposals'),
         where('recipientId', '==', userData.id),
-        where('status', '==', 'pending'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'pending')
     );
 
     const receivedProposalsCounterQuery = query(
         collection(db, 'matchProposals'),
         where('recipientId', '==', userData.id),
-        where('status', '==', 'counter_proposed'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'counter_proposed')
     );
 
-    // Query for match proposals (sent) - split into separate queries to avoid index requirement
+    // Query for match proposals (sent) - without orderBy to avoid index requirement
     const sentProposalsPendingQuery = query(
         collection(db, 'matchProposals'),
         where('requesterId', '==', userData.id),
-        where('status', '==', 'pending'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'pending')
     );
 
     const sentProposalsCounterQuery = query(
         collection(db, 'matchProposals'),
         where('requesterId', '==', userData.id),
-        where('status', '==', 'counter_proposed'),
-        orderBy('createdAt', 'desc')
+        where('status', '==', 'counter_proposed')
     );
 
     // Listen to all queries
