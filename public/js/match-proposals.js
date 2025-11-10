@@ -159,10 +159,12 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadMatchProposals(userData, db, unsubscribes) {
-  const sentProposalsList = document.getElementById("sent-proposals-list");
-  const receivedProposalsList = document.getElementById("received-proposals-list");
+  // Updated to use new two-column layout container IDs
+  const myProposalsList = document.getElementById("my-match-proposals-list");
+  const incomingProposalsList = document.getElementById("incoming-match-proposals-list");
+  const processedProposalsList = document.getElementById("processed-match-proposals-list");
 
-  if (!sentProposalsList || !receivedProposalsList) return;
+  if (!myProposalsList || !incomingProposalsList || !processedProposalsList) return;
 
   // Check if player has completed Grundlagen requirement
   const grundlagenCompleted = userData.grundlagenCompleted || 0;
@@ -187,23 +189,22 @@ export function loadMatchProposals(userData, db, unsubscribes) {
         </div>
       </div>
     `;
-    sentProposalsList.innerHTML = warningHTML;
-    receivedProposalsList.innerHTML = warningHTML;
+    myProposalsList.innerHTML = warningHTML;
+    incomingProposalsList.innerHTML = warningHTML;
+    processedProposalsList.innerHTML = warningHTML;
     return; // Exit early
   }
 
   // Query for proposals sent by me
   const sentProposalsQuery = query(
     collection(db, "matchProposals"),
-    where("requesterId", "==", userData.id),
-    orderBy("createdAt", "desc")
+    where("requesterId", "==", userData.id)
   );
 
   // Query for proposals received by me
   const receivedProposalsQuery = query(
     collection(db, "matchProposals"),
-    where("recipientId", "==", userData.id),
-    orderBy("createdAt", "desc")
+    where("recipientId", "==", userData.id)
   );
 
   // Listen to sent proposals
@@ -212,7 +213,7 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     for (const docSnap of snapshot.docs) {
       proposals.push({ id: docSnap.id, ...docSnap.data() });
     }
-    await renderSentProposals(proposals, userData, db);
+    await renderMyProposals(proposals, userData, db);
   });
 
   // Listen to received proposals
@@ -221,10 +222,13 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     for (const docSnap of snapshot.docs) {
       proposals.push({ id: docSnap.id, ...docSnap.data() });
     }
-    await renderReceivedProposals(proposals, userData, db);
+    await renderIncomingAndProcessedProposals(proposals, userData, db);
 
-    // Update badge count (only pending proposals)
-    const pendingCount = proposals.filter((p) => p.status === "pending").length;
+    // Update badge count (only pending proposals where it's my turn)
+    const pendingCount = proposals.filter((p) =>
+      (p.status === "pending" || p.status === "counter_proposed") &&
+      whoseTurn(p) === "recipient"
+    ).length;
     updateProposalBadge(pendingCount);
   });
 
@@ -232,20 +236,25 @@ export function loadMatchProposals(userData, db, unsubscribes) {
 }
 
 /**
- * Renders sent proposals
+ * Renders my sent proposals (only active ones: pending/counter_proposed)
  */
-async function renderSentProposals(proposals, userData, db) {
-  const container = document.getElementById("sent-proposals-list");
+async function renderMyProposals(proposals, userData, db) {
+  const container = document.getElementById("my-match-proposals-list");
   if (!container) return;
 
-  if (proposals.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine gesendeten Anfragen</p>';
+  // Filter to only active proposals
+  const activeProposals = proposals.filter(p =>
+    p.status === "pending" || p.status === "counter_proposed"
+  );
+
+  if (activeProposals.length === 0) {
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
     return;
   }
 
   container.innerHTML = "";
 
-  for (const proposal of proposals) {
+  for (const proposal of activeProposals) {
     const recipientData = await getUserData(proposal.recipientId, db);
     const card = createSentProposalCard(proposal, recipientData, userData, db);
     container.appendChild(card);
@@ -253,23 +262,46 @@ async function renderSentProposals(proposals, userData, db) {
 }
 
 /**
- * Renders received proposals
+ * Renders incoming (active) and processed (completed) received proposals into separate containers
  */
-async function renderReceivedProposals(proposals, userData, db) {
-  const container = document.getElementById("received-proposals-list");
-  if (!container) return;
+async function renderIncomingAndProcessedProposals(proposals, userData, db) {
+  const incomingContainer = document.getElementById("incoming-match-proposals-list");
+  const processedContainer = document.getElementById("processed-match-proposals-list");
 
-  if (proposals.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine empfangenen Anfragen</p>';
-    return;
+  if (!incomingContainer || !processedContainer) return;
+
+  // Separate into incoming (active, my turn) and processed (completed)
+  const incomingProposals = proposals.filter(p =>
+    (p.status === "pending" || p.status === "counter_proposed") &&
+    whoseTurn(p) === "recipient"
+  );
+
+  const processedProposals = proposals.filter(p =>
+    p.status === "accepted" || p.status === "declined" || p.status === "cancelled"
+  );
+
+  // Render incoming proposals
+  if (incomingProposals.length === 0) {
+    incomingContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
+  } else {
+    incomingContainer.innerHTML = "";
+    for (const proposal of incomingProposals) {
+      const requesterData = await getUserData(proposal.requesterId, db);
+      const card = createReceivedProposalCard(proposal, requesterData, userData, db);
+      incomingContainer.appendChild(card);
+    }
   }
 
-  container.innerHTML = "";
-
-  for (const proposal of proposals) {
-    const requesterData = await getUserData(proposal.requesterId, db);
-    const card = createReceivedProposalCard(proposal, requesterData, userData, db);
-    container.appendChild(card);
+  // Render processed proposals
+  if (processedProposals.length === 0) {
+    processedContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
+  } else {
+    processedContainer.innerHTML = "";
+    for (const proposal of processedProposals) {
+      const requesterData = await getUserData(proposal.requesterId, db);
+      const card = createReceivedProposalCard(proposal, requesterData, userData, db);
+      processedContainer.appendChild(card);
+    }
   }
 }
 
@@ -1117,26 +1149,24 @@ function createSuggestionCard(player, userData, db) {
 
   const proposeBtn = div.querySelector(".propose-match-btn");
   proposeBtn.addEventListener("click", () => {
-    // Scroll to and pre-fill the proposal form
-    const proposalSection = document.getElementById("match-proposal-section");
-    const proposalContent = document.getElementById("match-proposal-content");
-    const proposalChevron = document.getElementById("proposal-chevron");
+    // Open the match proposal modal and pre-select the player
+    const modal = document.getElementById("match-proposal-modal");
     const searchInput = document.getElementById("proposal-player-search");
     const selectedPlayerDiv = document.getElementById("selected-proposal-player");
 
-    // Expand the match proposal section if it's collapsed
-    if (proposalContent && proposalContent.classList.contains("hidden")) {
-      proposalContent.classList.remove("hidden");
-      if (proposalChevron) {
-        proposalChevron.style.transform = "rotate(180deg)";
-      }
-    }
-
-    if (proposalSection) {
-      proposalSection.scrollIntoView({ behavior: "smooth" });
+    if (modal) {
+      // Show the modal
+      modal.classList.remove("hidden");
 
       // Pre-select the player
-      renderSelectedPlayer(player, selectedPlayerDiv);
+      if (selectedPlayerDiv) {
+        renderSelectedPlayer(player, selectedPlayerDiv);
+      }
+
+      // Hide search input since player is already selected
+      if (searchInput) {
+        searchInput.value = `${player.firstName} ${player.lastName}`;
+      }
 
       // Trigger a custom event to set selectedPlayer in the form handler
       const event = new CustomEvent("playerSelected", { detail: player });
