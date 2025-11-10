@@ -10,8 +10,10 @@ import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp,
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} currentUserData - Current user's data
+ * @param {Function} getMilestonesCallback - Optional callback to get milestones from UI
+ * @param {Function} isTieredCallback - Optional callback to check if tiered points enabled
  */
-export async function handleCreateChallenge(e, db, currentUserData) {
+export async function handleCreateChallenge(e, db, currentUserData, getMilestonesCallback = null, isTieredCallback = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('challenge-feedback');
     const title = document.getElementById('challenge-title').value;
@@ -20,6 +22,10 @@ export async function handleCreateChallenge(e, db, currentUserData) {
     const points = parseInt(document.getElementById('challenge-points').value);
     const subgroupId = document.getElementById('challenge-subgroup').value;
     const isRepeatable = document.getElementById('challenge-repeatable').checked;
+
+    // Check if tiered points are enabled and get milestones
+    const tieredPointsEnabled = isTieredCallback ? isTieredCallback() : false;
+    const milestones = (tieredPointsEnabled && getMilestonesCallback) ? getMilestonesCallback() : [];
 
     feedbackEl.textContent = '';
     if (!title || !type || isNaN(points) || points <= 0 || !subgroupId) {
@@ -41,12 +47,29 @@ export async function handleCreateChallenge(e, db, currentUserData) {
             lastReactivatedAt: serverTimestamp() // Track when challenge was last activated
         };
 
+        // Add tiered points data if enabled
+        if (tieredPointsEnabled && milestones.length > 0) {
+            challengeData.tieredPoints = {
+                enabled: true,
+                milestones: milestones
+            };
+        }
+
         await addDoc(collection(db, "challenges"), challengeData);
         feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
         // Reset dropdown to "all"
         document.getElementById('challenge-subgroup').value = 'all';
+        // Reset tiered points
+        const tieredToggle = document.getElementById('challenge-tiered-points-toggle');
+        if (tieredToggle) {
+            tieredToggle.checked = false;
+            const container = document.getElementById('challenge-milestones-container');
+            if (container) container.classList.add('hidden');
+            const list = document.getElementById('challenge-milestones-list');
+            if (list) list.innerHTML = '';
+        }
     } catch (error) {
         console.error("Fehler beim Erstellen der Challenge:", error);
         feedbackEl.textContent = 'Fehler: Challenge konnte nicht erstellt werden.';

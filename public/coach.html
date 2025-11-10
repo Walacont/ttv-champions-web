@@ -568,6 +568,31 @@
                                     💡 <strong>Empfehlung:</strong> <span id="challenge-points-range">8-20 Punkte</span> für <span id="challenge-duration-text">tägliche</span> Challenges
                                 </p>
                             </div>
+
+                            <!-- Tiered Points System for Challenges -->
+                            <div class="border-t pt-4">
+                                <div class="flex items-center mb-3">
+                                    <input type="checkbox" id="challenge-tiered-points-toggle" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                    <label for="challenge-tiered-points-toggle" class="ml-2 text-sm font-medium text-gray-700">
+                                        🎯 Abgestufte Punktevergabe aktivieren (für wiederholbare Challenges)
+                                    </label>
+                                </div>
+                                <div id="challenge-milestones-container" class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg">
+                                    <p class="text-xs text-indigo-700 mb-2">
+                                        <strong>Meilensteine:</strong> Spieler können während der Challenge-Laufzeit Punkte sammeln, indem sie die Challenge mehrmals schaffen. Punkte sind kumulativ!
+                                    </p>
+                                    <div id="challenge-milestones-list" class="space-y-2">
+                                        <!-- Milestones will be added here dynamically -->
+                                    </div>
+                                    <button type="button" id="add-challenge-milestone-btn" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md">
+                                        + Meilenstein hinzufügen
+                                    </button>
+                                    <div class="text-xs text-indigo-600 font-semibold mt-2">
+                                        Max. erreichbare Punkte: <span id="challenge-max-points-display">0</span> P.
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <label for="challenge-subgroup" class="block text-sm font-medium text-gray-700">Untergruppe</label>
                                 <select id="challenge-subgroup" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
@@ -641,6 +666,31 @@
                                 <input type="number" id="exercise-points-form" readonly min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-700 font-semibold cursor-not-allowed">
                                 <p class="text-xs text-gray-500 mt-1">Wird automatisch basierend auf Level + Schwierigkeit berechnet</p>
                             </div>
+
+                            <!-- Tiered Points System -->
+                            <div class="border-t pt-4">
+                                <div class="flex items-center mb-3">
+                                    <input type="checkbox" id="exercise-tiered-points-toggle" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                    <label for="exercise-tiered-points-toggle" class="ml-2 text-sm font-medium text-gray-700">
+                                        🎯 Abgestufte Punktevergabe aktivieren (für wiederholbare Übungen)
+                                    </label>
+                                </div>
+                                <div id="exercise-milestones-container" class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg">
+                                    <p class="text-xs text-indigo-700 mb-2">
+                                        <strong>Meilensteine:</strong> Spieler können pro Saison Punkte sammeln, indem sie diese Übung mehrmals schaffen. Punkte sind kumulativ!
+                                    </p>
+                                    <div id="exercise-milestones-list" class="space-y-2">
+                                        <!-- Milestones will be added here dynamically -->
+                                    </div>
+                                    <button type="button" id="add-exercise-milestone-btn" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md">
+                                        + Meilenstein hinzufügen
+                                    </button>
+                                    <div class="text-xs text-indigo-600 font-semibold mt-2">
+                                        Max. erreichbare Punkte: <span id="exercise-max-points-display">0</span> P.
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <label for="exercise-tags-form" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
                                 <input type="text" id="exercise-tags-form" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">

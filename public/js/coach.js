@@ -21,6 +21,7 @@ import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
 import { populateMatchHistoryPlayerDropdown } from './coach-match-history.js';
+import { initializeExerciseMilestones, initializeChallengeMilestones, getExerciseMilestones, getChallengeMilestones, isExerciseTieredPointsEnabled, isChallengeTieredPointsEnabled } from './milestone-management.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -279,9 +280,9 @@ async function initializeCoachPage(userData) {
     // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
-    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
+    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData, getChallengeMilestones, isChallengeTieredPointsEnabled));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
-    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
+    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage, null, getExerciseMilestones, isExerciseTieredPointsEnabled));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
 
     // Setup exercise points auto-calculation (based on level + difficulty)
@@ -289,6 +290,10 @@ async function initializeCoachPage(userData) {
 
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
+
+    // Initialize milestone management for tiered points
+    initializeExerciseMilestones();
+    initializeChallengeMilestones();
 
     document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
     document.getElementById('edit-subgroup-form').addEventListener('submit', (e) => handleEditSubgroupSubmit(e, db));

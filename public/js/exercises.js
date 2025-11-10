@@ -498,8 +498,10 @@ export function setupExercisePointsCalculation() {
  * @param {Object} db - Firestore database instance
  * @param {Object} storage - Firebase storage instance
  * @param {Object} descriptionEditor - Description editor instance (optional)
+ * @param {Function} getMilestonesCallback - Optional callback to get milestones from UI
+ * @param {Function} isTieredCallback - Optional callback to check if tiered points enabled
  */
-export async function handleCreateExercise(e, db, storage, descriptionEditor = null) {
+export async function handleCreateExercise(e, db, storage, descriptionEditor = null, getMilestonesCallback = null, isTieredCallback = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
@@ -510,6 +512,10 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     const file = document.getElementById('exercise-image-form').files[0];
     const tagsInput = document.getElementById('exercise-tags-form').value;
     const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+
+    // Check if tiered points are enabled and get milestones
+    const tieredPointsEnabled = isTieredCallback ? isTieredCallback() : false;
+    const milestones = (tieredPointsEnabled && getMilestonesCallback) ? getMilestonesCallback() : [];
 
     // Get description content from editor or fallback to textarea
     let descriptionContent;
@@ -536,16 +542,26 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const imageUrl = await getDownloadURL(snapshot.ref);
-        await addDoc(collection(db, "exercises"), {
+        const exerciseData = {
             title,
             descriptionContent: JSON.stringify(descriptionContent),
-            level,          // NEW: Store level
-            difficulty,     // NEW: Store difficulty
+            level,          // Store level
+            difficulty,     // Store difficulty
             points,
             imageUrl,
             createdAt: serverTimestamp(),
             tags
-        });
+        };
+
+        // Add tiered points data if enabled
+        if (tieredPointsEnabled && milestones.length > 0) {
+            exerciseData.tieredPoints = {
+                enabled: true,
+                milestones: milestones
+            };
+        }
+
+        await addDoc(collection(db, "exercises"), exerciseData);
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
@@ -554,6 +570,15 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         // Clear description editor
         if (descriptionEditor) {
             descriptionEditor.clear();
+        }
+        // Reset tiered points
+        const tieredToggle = document.getElementById('exercise-tiered-points-toggle');
+        if (tieredToggle) {
+            tieredToggle.checked = false;
+            const container = document.getElementById('exercise-milestones-container');
+            if (container) container.classList.add('hidden');
+            const list = document.getElementById('exercise-milestones-list');
+            if (list) list.innerHTML = '';
         }
     } catch (error) {
         console.error("Fehler beim Erstellen der Übung:", error);
