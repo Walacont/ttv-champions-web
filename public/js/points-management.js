@@ -197,9 +197,27 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const cSelect = document.getElementById('challenge-select');
                 const cOption = cSelect.options[cSelect.selectedIndex];
                 if (!cOption || !cOption.value) throw new Error('Bitte eine Challenge auswählen.');
-                points = parseInt(cOption.dataset.points);
-                xpChange = points; // XP = points for challenges
-                reason = `Challenge: ${cOption.dataset.title}`;
+
+                // Check if challenge has milestones
+                const challengeHasMilestones = cOption.dataset.hasMilestones === 'true';
+                if (challengeHasMilestones) {
+                    const milestoneSelect = document.getElementById('milestone-select');
+                    const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
+                    if (!selectedMilestone || !selectedMilestone.value) {
+                        throw new Error('Bitte einen Meilenstein auswählen.');
+                    }
+
+                    // Get cumulative points
+                    points = parseInt(selectedMilestone.dataset.cumulativePoints);
+                    xpChange = points;
+                    const milestoneCount = selectedMilestone.dataset.count;
+                    reason = `Challenge: ${cOption.dataset.title} (${milestoneCount}× Meilenstein)`;
+                } else {
+                    points = parseInt(cOption.dataset.points);
+                    xpChange = points; // XP = points for challenges
+                    reason = `Challenge: ${cOption.dataset.title}`;
+                }
+
                 challengeId = cOption.value;
                 challengeSubgroupId = cOption.dataset.subgroupId || 'all';
                 break;
@@ -207,9 +225,27 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const eSelect = document.getElementById('exercise-select');
                 const eOption = eSelect.options[eSelect.selectedIndex];
                 if (!eOption || !eOption.value) throw new Error('Bitte eine Übung auswählen.');
-                points = parseInt(eOption.dataset.points);
-                xpChange = points; // XP = points for exercises
-                reason = `Übung: ${eOption.dataset.title}`;
+
+                // Check if exercise has milestones
+                const exerciseHasMilestones = eOption.dataset.hasMilestones === 'true';
+                if (exerciseHasMilestones) {
+                    const milestoneSelect = document.getElementById('milestone-select');
+                    const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
+                    if (!selectedMilestone || !selectedMilestone.value) {
+                        throw new Error('Bitte einen Meilenstein auswählen.');
+                    }
+
+                    // Get cumulative points
+                    points = parseInt(selectedMilestone.dataset.cumulativePoints);
+                    xpChange = points;
+                    const milestoneCount = selectedMilestone.dataset.count;
+                    reason = `Übung: ${eOption.dataset.title} (${milestoneCount}× Meilenstein)`;
+                } else {
+                    points = parseInt(eOption.dataset.points);
+                    xpChange = points; // XP = points for exercises
+                    reason = `Übung: ${eOption.dataset.title}`;
+                }
+
                 exerciseId = eOption.value;
                 break;
             case 'manual':
@@ -375,6 +411,44 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const completedChallengeRef = doc(db, `users/${playerId}/completedChallenges`, challengeId);
                 transaction.set(completedChallengeRef, { completedAt: serverTimestamp() });
             }
+
+            // Update milestone progress for exercises
+            if (exerciseId && reasonType === 'exercise') {
+                const eOption = document.getElementById('exercise-select').options[document.getElementById('exercise-select').selectedIndex];
+                if (eOption?.dataset.hasMilestones === 'true') {
+                    const milestoneSelect = document.getElementById('milestone-select');
+                    const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
+                    if (selectedMilestone && selectedMilestone.value) {
+                        const milestoneCount = parseInt(selectedMilestone.dataset.count);
+                        const progressRef = doc(db, `users/${playerId}/exerciseMilestones`, exerciseId);
+
+                        transaction.set(progressRef, {
+                            currentCount: milestoneCount,
+                            lastUpdated: serverTimestamp(),
+                            lastSeasonUpdated: new Date().getMonth() + 1 + '-' + new Date().getFullYear() // Track season
+                        }, { merge: true });
+                    }
+                }
+            }
+
+            // Update milestone progress for challenges
+            if (challengeId && reasonType === 'challenge') {
+                const cOption = document.getElementById('challenge-select').options[document.getElementById('challenge-select').selectedIndex];
+                if (cOption?.dataset.hasMilestones === 'true') {
+                    const milestoneSelect = document.getElementById('milestone-select');
+                    const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
+                    if (selectedMilestone && selectedMilestone.value) {
+                        const milestoneCount = parseInt(selectedMilestone.dataset.count);
+                        const progressRef = doc(db, `users/${playerId}/challengeMilestones`, challengeId);
+
+                        transaction.set(progressRef, {
+                            currentCount: milestoneCount,
+                            lastUpdated: serverTimestamp(),
+                            lastSeasonUpdated: new Date().getMonth() + 1 + '-' + new Date().getFullYear() // Track season
+                        }, { merge: true });
+                    }
+                }
+            }
         });
 
         // Build feedback message
@@ -410,6 +484,7 @@ export function handleReasonChange() {
     const exerciseContainer = document.getElementById('exercise-select-container');
     const penaltyContainer = document.getElementById('penalty-container');
     const manualContainer = document.getElementById('manual-points-container');
+    const milestoneContainer = document.getElementById('milestone-select-container');
 
     const challengeSelect = document.getElementById('challenge-select');
     const exerciseSelect = document.getElementById('exercise-select');
@@ -420,6 +495,9 @@ export function handleReasonChange() {
     if (exerciseContainer) exerciseContainer.classList.toggle('hidden', value !== 'exercise');
     if (penaltyContainer) penaltyContainer.classList.toggle('hidden', value !== 'penalty');
     if (manualContainer) manualContainer.classList.toggle('hidden', value !== 'manual');
+
+    // Hide milestone container when switching reasons
+    if (milestoneContainer) milestoneContainer.classList.add('hidden');
 
     // Dynamically add/remove required attribute based on visibility
     if (challengeSelect) {
@@ -444,5 +522,161 @@ export function handleReasonChange() {
         } else {
             penaltyReason.removeAttribute('required');
         }
+    }
+}
+
+/**
+ * Sets up milestone selector logic for points awarding
+ * @param {Object} db - Firestore database instance
+ */
+export function setupMilestoneSelectors(db) {
+    const exerciseSelect = document.getElementById('exercise-select');
+    const challengeSelect = document.getElementById('challenge-select');
+    const playerSelect = document.getElementById('player-select');
+
+    if (exerciseSelect) {
+        exerciseSelect.addEventListener('change', () => handleExerciseChallengeChange(db, 'exercise'));
+    }
+
+    if (challengeSelect) {
+        challengeSelect.addEventListener('change', () => handleExerciseChallengeChange(db, 'challenge'));
+    }
+
+    if (playerSelect) {
+        // Reload milestone progress when player changes
+        playerSelect.addEventListener('change', () => {
+            const reasonType = document.getElementById('reason-select').value;
+            if (reasonType === 'exercise' || reasonType === 'challenge') {
+                handleExerciseChallengeChange(db, reasonType);
+            }
+        });
+    }
+}
+
+/**
+ * Handles exercise/challenge selection change to show milestones if applicable
+ * @param {Object} db - Firestore database instance
+ * @param {string} type - 'exercise' or 'challenge'
+ */
+async function handleExerciseChallengeChange(db, type) {
+    const select = document.getElementById(`${type}-select`);
+    const milestoneContainer = document.getElementById('milestone-select-container');
+    const milestoneSelect = document.getElementById('milestone-select');
+    const playerSelect = document.getElementById('player-select');
+
+    if (!select || !milestoneContainer || !milestoneSelect) return;
+
+    const selectedOption = select.options[select.selectedIndex];
+    const hasMilestones = selectedOption?.dataset.hasMilestones === 'true';
+
+    if (!hasMilestones || !selectedOption.value) {
+        milestoneContainer.classList.add('hidden');
+        return;
+    }
+
+    const playerId = playerSelect.value;
+    if (!playerId) {
+        milestoneContainer.classList.add('hidden');
+        return;
+    }
+
+    // Show milestone container
+    milestoneContainer.classList.remove('hidden');
+
+    // Parse milestones
+    const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
+    const itemId = selectedOption.value;
+
+    // Get player's current progress
+    const collectionName = type === 'exercise' ? 'exerciseMilestones' : 'challengeMilestones';
+    const playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId);
+
+    // Populate milestone dropdown
+    milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
+
+    milestones.forEach((milestone, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        const isCompleted = playerProgress.currentCount >= milestone.count;
+        const status = isCompleted ? '✅' : '';
+        option.textContent = `${milestone.count}× erreicht → ${milestone.points} P. ${status}`;
+        option.dataset.count = milestone.count;
+        option.dataset.points = milestone.points;
+        option.dataset.isCompleted = isCompleted;
+
+        // Calculate cumulative points up to this milestone
+        let cumulativePoints = 0;
+        for (let i = 0; i <= index; i++) {
+            cumulativePoints += milestones[i].points;
+        }
+        option.dataset.cumulativePoints = cumulativePoints;
+
+        milestoneSelect.appendChild(option);
+    });
+
+    // Update progress display
+    updateMilestoneProgressDisplay(playerProgress, milestones);
+}
+
+/**
+ * Gets a player's milestone progress
+ * @param {Object} db - Firestore database instance
+ * @param {string} playerId - Player ID
+ * @param {string} collectionName - Collection name (exerciseMilestones or challengeMilestones)
+ * @param {string} itemId - Exercise or Challenge ID
+ * @returns {Object} Progress object with currentCount and completedMilestones
+ */
+async function getMilestoneProgress(db, playerId, collectionName, itemId) {
+    try {
+        const progressDocRef = doc(db, `users/${playerId}/${collectionName}`, itemId);
+        const progressSnap = await getDoc(progressDocRef);
+
+        if (progressSnap.exists()) {
+            const data = progressSnap.data();
+            return {
+                currentCount: data.currentCount || 0,
+                completedMilestones: data.completedMilestones || []
+            };
+        }
+    } catch (error) {
+        console.error('Error loading milestone progress:', error);
+    }
+
+    return { currentCount: 0, completedMilestones: [] };
+}
+
+/**
+ * Updates the milestone progress display
+ * @param {Object} progress - Player's progress
+ * @param {Array} milestones - All milestones
+ */
+function updateMilestoneProgressDisplay(progress, milestones) {
+    const progressText = document.getElementById('milestone-progress-text');
+
+    if (progressText) {
+        const currentCount = progress.currentCount || 0;
+        const nextMilestone = milestones.find(m => m.count > currentCount);
+
+        if (nextMilestone) {
+            progressText.textContent = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)`;
+        } else if (currentCount >= milestones[milestones.length - 1]?.count) {
+            progressText.textContent = `${currentCount}× - Alle Meilensteine erreicht! 🎉`;
+        } else {
+            progressText.textContent = `${currentCount}× erreicht`;
+        }
+    }
+
+    // Update milestone select change event to show points
+    const milestoneSelect = document.getElementById('milestone-select');
+    if (milestoneSelect) {
+        milestoneSelect.addEventListener('change', () => {
+            const selected = milestoneSelect.options[milestoneSelect.selectedIndex];
+            const pointsText = document.getElementById('milestone-points-text');
+
+            if (pointsText && selected && selected.value) {
+                const cumulativePoints = selected.dataset.cumulativePoints;
+                pointsText.textContent = `${cumulativePoints} P. (kumulativ)`;
+            }
+        });
     }
 }

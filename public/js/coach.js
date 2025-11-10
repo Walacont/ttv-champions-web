@@ -7,12 +7,12 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://w
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter, openAttendanceModalForSession, getCurrentSessionId } from './attendance.js';
-import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
-import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
+import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations, setupChallengeMilestones } from './challenges.js';
+import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation, setupExerciseMilestones } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings, initializeHandicapToggle } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
-import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
+import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
@@ -285,8 +285,14 @@ async function initializeCoachPage(userData) {
     // Setup exercise points auto-calculation (based on level + difficulty)
     setupExercisePointsCalculation();
 
+    // Setup exercise milestones system
+    setupExerciseMilestones();
+
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
+
+    // Setup challenge milestones system
+    setupChallengeMilestones();
 
     document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
     document.getElementById('edit-subgroup-form').addEventListener('submit', (e) => handleEditSubgroupSubmit(e, db));
@@ -295,6 +301,9 @@ async function initializeCoachPage(userData) {
 
     // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
+
+    // Setup milestone selectors for exercise/challenge points awarding
+    setupMilestoneSelectors(db);
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
         const sessionId = getCurrentSessionId();
         handleGeneratePairings(clubPlayers, currentSubgroupFilter, sessionId);
