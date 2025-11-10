@@ -428,12 +428,20 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
           <i class="fas fa-reply"></i> Gegenvorschlag
         </button>
       </div>
-    ` : ""}
+    ` : (proposal.status === "pending" || proposal.status === "counter_proposed" ? `
+      <!-- Waiting for their response - can only withdraw -->
+      <div class="flex gap-2 mt-3">
+        <button class="cancel-proposal-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-proposal-id="${proposal.id}">
+          <i class="fas fa-times"></i> Zurückziehen
+        </button>
+      </div>
+    ` : "")}
   `;
 
   const acceptBtn = div.querySelector(".accept-proposal-btn");
   const declineBtn = div.querySelector(".decline-proposal-btn");
   const counterBtn = div.querySelector(".counter-proposal-btn");
+  const cancelBtn = div.querySelector(".cancel-proposal-btn");
 
   if (acceptBtn) {
     acceptBtn.addEventListener("click", () => acceptProposal(proposal.id, db));
@@ -445,6 +453,10 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
 
   if (counterBtn) {
     counterBtn.addEventListener("click", () => openCounterProposalModal(proposal, requester, db));
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => cancelProposal(proposal.id, db));
   }
 
   return div;
