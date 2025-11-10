@@ -37,32 +37,76 @@ export async function loadMatchHistory(db, userData) {
     // Query matches where user is a participant
     const matchesRef = collection(db, "matches");
 
-    console.log("[Match History] Querying with clubId:", userData.clubId);
+    console.log("[Match History] Starting diagnostic queries...");
 
-    // Try simple query first - just get all matches for the club
+    // DIAGNOSTIC 1: Check if ANY matches exist at all
+    try {
+      const testQuery = query(matchesRef, limit(5));
+      const testSnapshot = await getDocs(testQuery);
+      console.log("[Match History] DIAGNOSTIC 1 - Total matches in entire collection:", testSnapshot.docs.length);
+      if (testSnapshot.docs.length > 0) {
+        const sampleData = testSnapshot.docs[0].data();
+        console.log("[Match History] DIAGNOSTIC 1 - Sample match:", {
+          id: testSnapshot.docs[0].id,
+          clubId: sampleData.clubId,
+          processed: sampleData.processed,
+          hasPlayerAId: !!sampleData.playerAId,
+          hasPlayerBId: !!sampleData.playerBId,
+          hasWinnerId: !!sampleData.winnerId,
+          timestamp: !!sampleData.timestamp
+        });
+      }
+    } catch (e) {
+      console.error("[Match History] DIAGNOSTIC 1 failed:", e);
+    }
+
+    // DIAGNOSTIC 2: Try clubId only (no processed filter)
+    let clubMatches = 0;
+    try {
+      const clubQuery = query(matchesRef, where("clubId", "==", userData.clubId), limit(100));
+      const clubSnapshot = await getDocs(clubQuery);
+      clubMatches = clubSnapshot.docs.length;
+      console.log("[Match History] DIAGNOSTIC 2 - Matches with clubId=" + userData.clubId + ":", clubMatches);
+      if (clubMatches > 0) {
+        const sample = clubSnapshot.docs[0].data();
+        console.log("[Match History] DIAGNOSTIC 2 - Sample:", {
+          processed: sample.processed,
+          playerAId: sample.playerAId,
+          playerBId: sample.playerBId
+        });
+      }
+    } catch (e) {
+      console.error("[Match History] DIAGNOSTIC 2 failed:", e);
+    }
+
+    // DIAGNOSTIC 3: Try with processed=true filter
     let snapshot;
     try {
-      const baseQuery = query(
+      const processedQuery = query(
         matchesRef,
         where("clubId", "==", userData.clubId),
         where("processed", "==", true),
-        orderBy("timestamp", "desc"),
         limit(100)
       );
-      snapshot = await getDocs(baseQuery);
-      console.log("[Match History] Composite query successful, found documents:", snapshot.docs.length);
+      snapshot = await getDocs(processedQuery);
+      console.log("[Match History] DIAGNOSTIC 3 - Matches with clubId AND processed=true:", snapshot.docs.length);
     } catch (indexError) {
-      console.warn("[Match History] Composite index query failed, trying simpler query:", indexError);
-      // Fallback: try without orderBy
-      const fallbackQuery = query(
-        matchesRef,
-        where("clubId", "==", userData.clubId),
-        where("processed", "==", true),
-        limit(100)
-      );
-      snapshot = await getDocs(fallbackQuery);
-      console.log("[Match History] Fallback query successful, found documents:", snapshot.docs.length);
+      console.warn("[Match History] DIAGNOSTIC 3 - Processed query failed:", indexError);
+      // Use clubId-only results if we have them
+      if (clubMatches > 0) {
+        const clubQuery = query(matchesRef, where("clubId", "==", userData.clubId), limit(100));
+        snapshot = await getDocs(clubQuery);
+        console.log("[Match History] Using clubId-only query as fallback");
+      }
     }
+
+    if (!snapshot || snapshot.docs.length === 0) {
+      console.error("[Match History] ❌ No matches found with any query!");
+      container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Wettkämpfe gefunden. Bitte Konsole überprüfen.</p>';
+      return;
+    }
+
+    console.log("[Match History] ✓ Using snapshot with", snapshot.docs.length, "matches");
 
     // Log some sample data for debugging
     if (snapshot.docs.length > 0) {
