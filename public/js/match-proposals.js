@@ -270,6 +270,7 @@ function createSentProposalCard(proposal, recipient, userData, db) {
       ${latestProposal.dateTime ? `<p class="text-gray-700"><i class="fas fa-calendar mr-2 text-indigo-500"></i><strong>Zeit:</strong> ${latestProposal.dateTime}</p>` : ""}
       ${latestProposal.location ? `<p class="text-gray-700"><i class="fas fa-map-marker-alt mr-2 text-indigo-500"></i><strong>Ort:</strong> ${latestProposal.location}</p>` : ""}
       ${proposal.phoneNumber ? `<p class="text-gray-700"><i class="fas fa-phone mr-2 text-indigo-500"></i><strong>Telefon:</strong> ${proposal.phoneNumber}</p>` : ""}
+      <p class="text-gray-700"><i class="fas fa-balance-scale mr-2 text-indigo-500"></i><strong>Handicap:</strong> ${latestProposal.handicap ? "Ja" : "Nein"}</p>
       ${proposal.message ? `<p class="text-gray-700 mt-2 p-2 bg-gray-50 rounded"><i class="fas fa-comment mr-2 text-indigo-500"></i>${proposal.message}</p>` : ""}
 
       ${proposal.counterProposals && proposal.counterProposals.length > 0 ? renderCounterProposalsHistory(proposal.counterProposals, userData, recipient) : ""}
@@ -322,6 +323,7 @@ function createReceivedProposalCard(proposal, requester, userData, db) {
       ${latestProposal.dateTime ? `<p class="text-gray-700"><i class="fas fa-calendar mr-2 text-indigo-500"></i><strong>Zeit:</strong> ${latestProposal.dateTime}</p>` : ""}
       ${latestProposal.location ? `<p class="text-gray-700"><i class="fas fa-map-marker-alt mr-2 text-indigo-500"></i><strong>Ort:</strong> ${latestProposal.location}</p>` : ""}
       ${proposal.phoneNumber ? `<p class="text-gray-700"><i class="fas fa-phone mr-2 text-indigo-500"></i><strong>Telefon:</strong> ${proposal.phoneNumber}</p>` : ""}
+      <p class="text-gray-700"><i class="fas fa-balance-scale mr-2 text-indigo-500"></i><strong>Handicap:</strong> ${latestProposal.handicap ? "Ja" : "Nein"}</p>
       ${proposal.message ? `<p class="text-gray-700 mt-2 p-2 bg-gray-50 rounded"><i class="fas fa-comment mr-2 text-indigo-500"></i>${proposal.message}</p>` : ""}
 
       ${proposal.counterProposals && proposal.counterProposals.length > 0 ? renderCounterProposalsHistory(proposal.counterProposals, requester, userData) : ""}
@@ -370,12 +372,14 @@ function getLatestProposal(proposal) {
     return {
       dateTime: formatDateTime(latest.dateTime),
       location: latest.location,
+      handicap: latest.handicap !== undefined ? latest.handicap : proposal.handicap,
     };
   }
 
   return {
     dateTime: formatDateTime(proposal.proposedDateTime),
     location: proposal.proposedLocation,
+    handicap: proposal.handicap,
   };
 }
 
@@ -523,6 +527,10 @@ function openCounterProposalModal(proposal, requester, db) {
   // Reset form
   form.reset();
 
+  // Set current handicap value from latest proposal
+  const latestProposal = getLatestProposal(proposal);
+  document.getElementById("counter-proposal-handicap").checked = latestProposal.handicap || false;
+
   // Show modal
   modal.classList.remove("hidden");
 
@@ -541,6 +549,7 @@ function openCounterProposalModal(proposal, requester, db) {
 
     const dateTimeInput = document.getElementById("counter-proposal-datetime").value;
     const locationInput = document.getElementById("counter-proposal-location").value;
+    const handicapInput = document.getElementById("counter-proposal-handicap").checked;
 
     if (!dateTimeInput && !locationInput) {
       showProposalFeedback("Bitte gib mindestens einen Zeitpunkt oder einen Ort an.", "error");
@@ -565,6 +574,7 @@ function openCounterProposalModal(proposal, requester, db) {
         proposedBy: currentData.recipientId, // Current recipient makes counter-proposal
         dateTime: dateTimeInput ? new Date(dateTimeInput) : null,
         location: locationInput || null,
+        handicap: handicapInput,
         message: messageInput || null,
         createdAt: new Date(), // Use plain Date object, not serverTimestamp
       });
@@ -718,6 +728,7 @@ export function initializeMatchProposalForm(userData, db) {
     const dateTimeInput = document.getElementById("proposal-datetime").value;
     const location = document.getElementById("proposal-location").value;
     const message = document.getElementById("proposal-message").value;
+    const handicap = document.getElementById("proposal-handicap").checked;
 
     try {
       await addDoc(collection(db, "matchProposals"), {
@@ -729,6 +740,7 @@ export function initializeMatchProposalForm(userData, db) {
         proposedDateTime: dateTimeInput ? new Date(dateTimeInput) : null,
         proposedLocation: location || null,
         message: message || null,
+        handicap: handicap,
         counterProposals: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -927,8 +939,18 @@ function createSuggestionCard(player, userData, db) {
   proposeBtn.addEventListener("click", () => {
     // Scroll to and pre-fill the proposal form
     const proposalSection = document.getElementById("match-proposal-section");
+    const proposalContent = document.getElementById("match-proposal-content");
+    const proposalChevron = document.getElementById("proposal-chevron");
     const searchInput = document.getElementById("proposal-player-search");
     const selectedPlayerDiv = document.getElementById("selected-proposal-player");
+
+    // Expand the match proposal section if it's collapsed
+    if (proposalContent && proposalContent.classList.contains("hidden")) {
+      proposalContent.classList.remove("hidden");
+      if (proposalChevron) {
+        proposalChevron.style.transform = "rotate(180deg)";
+      }
+    }
 
     if (proposalSection) {
       proposalSection.scrollIntoView({ behavior: "smooth" });
