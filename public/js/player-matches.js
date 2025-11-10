@@ -270,9 +270,10 @@ export function createSetScoreInput(container, existingSets = []) {
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
-  const myRequestsList = document.getElementById("my-match-requests-list");
-  const incomingRequestsList = document.getElementById("incoming-match-requests-list");
-  const processedRequestsList = document.getElementById("processed-match-requests-list");
+  // Updated to use new two-column layout container IDs
+  const myRequestsList = document.getElementById("my-result-requests-list");
+  const incomingRequestsList = document.getElementById("incoming-result-requests-list");
+  const processedRequestsList = document.getElementById("processed-result-requests-list");
 
   if (!myRequestsList || !incomingRequestsList || !processedRequestsList) return;
 
@@ -346,11 +347,11 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
 let showAllMyRequests = false; // State for showing all or limited
 
 async function renderMyRequests(requests, userData, db) {
-  const container = document.getElementById("my-match-requests-list");
+  const container = document.getElementById("my-result-requests-list");
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllMyRequests = false;
     return;
   }
@@ -395,11 +396,11 @@ async function renderMyRequests(requests, userData, db) {
 let showAllIncomingRequests = false; // State for showing all or limited
 
 async function renderIncomingRequests(requests, userData, db) {
-  const container = document.getElementById("incoming-match-requests-list");
+  const container = document.getElementById("incoming-result-requests-list");
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine neuen Anfragen</p>';
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllIncomingRequests = false;
     return;
   }
@@ -444,11 +445,11 @@ async function renderIncomingRequests(requests, userData, db) {
 let showAllProcessedRequests = false; // State for showing all or limited
 
 async function renderProcessedRequests(requests, userData, db) {
-  const container = document.getElementById("processed-match-requests-list");
+  const container = document.getElementById("processed-result-requests-list");
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine bearbeiteten Anfragen</p>';
+    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllProcessedRequests = false;
     return;
   }
