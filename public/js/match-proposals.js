@@ -205,10 +205,6 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     where("recipientId", "==", userData.id)
   );
 
-  // Debouncing to prevent race conditions
-  let sentRefreshTimeout = null;
-  let receivedRefreshTimeout = null;
-
   // Store all proposals for combined rendering
   let sentProposals = [];
   let receivedProposals = [];
@@ -247,33 +243,23 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     }, 100);
   };
 
-  const debouncedRenderMy = async (snapshot) => {
-    if (sentRefreshTimeout) clearTimeout(sentRefreshTimeout);
-    sentRefreshTimeout = setTimeout(async () => {
-      sentProposals = [];
-      for (const docSnap of snapshot.docs) {
-        sentProposals.push({ id: docSnap.id, ...docSnap.data() });
-      }
-      debouncedRenderAll();
-    }, 100);
-  };
+  // Listen to sent proposals - update array and trigger debounced render
+  const sentUnsubscribe = onSnapshot(sentProposalsQuery, async (snapshot) => {
+    sentProposals = [];
+    for (const docSnap of snapshot.docs) {
+      sentProposals.push({ id: docSnap.id, ...docSnap.data() });
+    }
+    debouncedRenderAll();
+  });
 
-  const debouncedRenderIncoming = async (snapshot) => {
-    if (receivedRefreshTimeout) clearTimeout(receivedRefreshTimeout);
-    receivedRefreshTimeout = setTimeout(async () => {
-      receivedProposals = [];
-      for (const docSnap of snapshot.docs) {
-        receivedProposals.push({ id: docSnap.id, ...docSnap.data() });
-      }
-      debouncedRenderAll();
-    }, 100);
-  };
-
-  // Listen to sent proposals
-  const sentUnsubscribe = onSnapshot(sentProposalsQuery, debouncedRenderMy);
-
-  // Listen to received proposals
-  const receivedUnsubscribe = onSnapshot(receivedProposalsQuery, debouncedRenderIncoming);
+  // Listen to received proposals - update array and trigger debounced render
+  const receivedUnsubscribe = onSnapshot(receivedProposalsQuery, async (snapshot) => {
+    receivedProposals = [];
+    for (const docSnap of snapshot.docs) {
+      receivedProposals.push({ id: docSnap.id, ...docSnap.data() });
+    }
+    debouncedRenderAll();
+  });
 
   unsubscribes.push(sentUnsubscribe, receivedUnsubscribe);
 }
