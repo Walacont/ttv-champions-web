@@ -682,7 +682,7 @@ export function openCounterProposalModal(proposal, requester, db) {
     const locationInput = document.getElementById("counter-proposal-location").value;
     const handicapInput = document.getElementById("counter-proposal-handicap").checked;
 
-    if (!dateTimeInput && !locationInput) {
+    if ((!dateTimeInput || !dateTimeInput.trim()) && (!locationInput || !locationInput.trim())) {
       showProposalFeedback("Bitte gib mindestens einen Zeitpunkt oder einen Ort an.", "error");
       return;
     }
@@ -717,10 +717,10 @@ export function openCounterProposalModal(proposal, requester, db) {
       // Add new counter-proposal (use plain Date instead of serverTimestamp in arrays)
       counterProposals.push({
         proposedBy: proposedBy,
-        dateTime: dateTimeInput ? new Date(dateTimeInput) : null,
-        location: locationInput || null,
+        dateTime: dateTimeInput && dateTimeInput.trim() ? new Date(dateTimeInput) : null,
+        location: locationInput && locationInput.trim() ? locationInput.trim() : null,
         handicap: handicapInput,
-        message: messageInput || null,
+        message: messageInput && messageInput.trim() ? messageInput.trim() : null,
         createdAt: new Date(), // Use plain Date object, not serverTimestamp
       });
 

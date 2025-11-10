@@ -595,7 +595,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
             const myTurn = whoseTurnProposal(data) === 'requester';
             if (!myTurn) {
                 const recipientDoc = await getDoc(doc(db, 'users', data.recipientId));
-                const recipientData = recipientDoc.exists() ? recipientData.data() : null;
+                const recipientData = recipientDoc.exists() ? recipientDoc.data() : null;
                 allItems.push({
                     type: 'sent-proposal',
                     id: docSnap.id,
