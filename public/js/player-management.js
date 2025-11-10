@@ -34,9 +34,28 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
     const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
     const isMatchReady = isMatchReadyCheckbox ? isMatchReadyCheckbox.checked : false;
 
+    // === NEU: QTTR-Punkte auslesen ===
+    const qttrPointsField = form.querySelector('#qttr-points');
+    const qttrPoints = qttrPointsField && qttrPointsField.value ? parseInt(qttrPointsField.value) : null;
+
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
         return;
+    }
+
+    // QTTR zu ELO Umrechnung
+    let initialElo = 800; // Standard Start-ELO
+    let initialHighestElo = 800;
+
+    if (isMatchReady && qttrPoints) {
+        // Validierung: QTTR sollte zwischen 800 und 2500 liegen
+        if (qttrPoints < 800 || qttrPoints > 2500) {
+            alert('QTTR-Punkte müssen zwischen 800 und 2500 liegen.');
+            return;
+        }
+        // Konservative Umrechnung: ELO = QTTR * 0.9, mindestens 800
+        initialElo = Math.max(800, Math.round(qttrPoints * 0.9));
+        initialHighestElo = initialElo;
     }
 
     try {
@@ -49,14 +68,19 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             isMatchReady: isMatchReady,
             onboardingComplete: false,
             points: 0,
-            eloRating: 800, // New system: Start at 800 Elo
-            highestElo: 800, // New system: Start at 800 Elo
+            eloRating: initialElo,
+            highestElo: initialHighestElo,
             xp: 0,
             // Wenn bereits wettkampfsbereit, setze grundlagenCompleted auf 5 (erfüllt Anforderung)
             grundlagenCompleted: isMatchReady ? 5 : 0,
             subgroupIDs: subgroupIDs,
             createdAt: serverTimestamp()
         };
+
+        // Optional: QTTR-Punkte speichern für Referenz
+        if (qttrPoints) {
+            playerData.qttrPoints = qttrPoints;
+        }
         if (email) {
             playerData.email = email;
         }
