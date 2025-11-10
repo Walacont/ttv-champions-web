@@ -159,11 +159,12 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadMatchProposals(userData, db, unsubscribes) {
-  // Updated to use new two-column layout container IDs
+  // Updated to use new three-column layout container IDs
   const myProposalsList = document.getElementById("my-match-proposals-list");
   const incomingProposalsList = document.getElementById("incoming-match-proposals-list");
+  const processedProposalsList = document.getElementById("processed-match-proposals-list");
 
-  if (!myProposalsList || !incomingProposalsList) return;
+  if (!myProposalsList || !incomingProposalsList || !processedProposalsList) return;
 
   // Check if player has completed Grundlagen requirement
   const grundlagenCompleted = userData.grundlagenCompleted || 0;
@@ -190,6 +191,7 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     `;
     myProposalsList.innerHTML = warningHTML;
     incomingProposalsList.innerHTML = warningHTML;
+    processedProposalsList.innerHTML = warningHTML;
     return; // Exit early
   }
 
