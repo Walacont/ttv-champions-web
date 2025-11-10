@@ -310,8 +310,11 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       // Pending: Only incoming requests that need response
       const pendingRequests = incomingRequests;
 
-      // History: All my requests + all processed requests (sorted by most recent)
-      const historyRequests = [...myRequests, ...processedRequests].sort((a, b) => {
+      // History: Only completed my requests (approved/rejected) + all processed requests (sorted by most recent)
+      const completedMyRequests = myRequests.filter(r =>
+        r.status === "approved" || r.status === "rejected"
+      );
+      const historyRequests = [...completedMyRequests, ...processedRequests].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
         return bTime - aTime; // Most recent first
