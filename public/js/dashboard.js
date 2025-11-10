@@ -528,12 +528,18 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'counter_proposed')
     );
 
-    // Listen to all queries
-    const unsubRequests = onSnapshot(incomingRequestsQuery, () => refreshOverview());
-    const unsubReceivedPending = onSnapshot(receivedProposalsPendingQuery, () => refreshOverview());
-    const unsubReceivedCounter = onSnapshot(receivedProposalsCounterQuery, () => refreshOverview());
-    const unsubSentPending = onSnapshot(sentProposalsPendingQuery, () => refreshOverview());
-    const unsubSentCounter = onSnapshot(sentProposalsCounterQuery, () => refreshOverview());
+    // Listen to all queries with debouncing to prevent race conditions
+    let refreshTimeout = null;
+    const debouncedRefresh = () => {
+        if (refreshTimeout) clearTimeout(refreshTimeout);
+        refreshTimeout = setTimeout(() => refreshOverview(), 100);
+    };
+
+    const unsubRequests = onSnapshot(incomingRequestsQuery, debouncedRefresh);
+    const unsubReceivedPending = onSnapshot(receivedProposalsPendingQuery, debouncedRefresh);
+    const unsubReceivedCounter = onSnapshot(receivedProposalsCounterQuery, debouncedRefresh);
+    const unsubSentPending = onSnapshot(sentProposalsPendingQuery, debouncedRefresh);
+    const unsubSentCounter = onSnapshot(sentProposalsCounterQuery, debouncedRefresh);
 
     unsubscribes.push(unsubRequests, unsubReceivedPending, unsubReceivedCounter, unsubSentPending, unsubSentCounter);
 
