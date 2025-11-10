@@ -209,9 +209,6 @@
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-semibold text-indigo-800">🏓 Wettkampf-Anfragen</h2>
                             <div class="flex items-center gap-2">
-                                <button id="create-match-proposal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-2 px-3 rounded-md transition">
-                                    <i class="fas fa-plus mr-1"></i> Neue Anfrage
-                                </button>
                                 <span id="match-request-badge" class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
                             </div>
                         </div>
@@ -395,54 +392,30 @@
                         </form>
                     </div>
 
-                    <!-- Pending Requests - Need Response (Two Column Layout) -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto">
+                    <!-- Pending Requests - Need Response -->
+                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                         <h2 class="text-xl font-semibold text-gray-800 mb-4">📥 Zu beantworten</h2>
                         <p class="text-xs text-gray-500 mb-4">Anfragen, die auf deine Antwort warten</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Left Column: Result Requests -->
-                            <div>
-                                <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
-                                    <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
-                                </h3>
-                                <div id="pending-result-requests-list" class="space-y-3 min-h-[100px]">
-                                    <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
-                                </div>
-                            </div>
-                            <!-- Right Column: Match Proposals -->
-                            <div>
-                                <h3 class="text-sm font-semibold text-green-700 mb-2 flex items-center">
-                                    <span class="bg-green-100 px-2 py-1 rounded">📅 Match-Anfragen</span>
-                                </h3>
-                                <div id="pending-match-proposals-list" class="space-y-3 min-h-[100px]">
-                                    <p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>
-                                </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
+                                <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
+                            </h3>
+                            <div id="pending-result-requests-list" class="space-y-3 min-h-[100px]">
+                                <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- History - Completed Requests (Two Column Layout) -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-6xl mx-auto">
+                    <!-- History - Completed Requests -->
+                    <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                         <h2 class="text-xl font-semibold text-gray-800 mb-4">📋 Historie</h2>
                         <p class="text-xs text-gray-500 mb-4">Alle abgeschlossenen Anfragen (gesendet & empfangen)</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Left Column: Result Requests -->
-                            <div>
-                                <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
-                                    <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
-                                </h3>
-                                <div id="history-result-requests-list" class="space-y-3 min-h-[100px]">
-                                    <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
-                                </div>
-                            </div>
-                            <!-- Right Column: Match Proposals -->
-                            <div>
-                                <h3 class="text-sm font-semibold text-green-700 mb-2 flex items-center">
-                                    <span class="bg-green-100 px-2 py-1 rounded">📅 Match-Anfragen</span>
-                                </h3>
-                                <div id="history-match-proposals-list" class="space-y-3 min-h-[100px]">
-                                    <p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>
-                                </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-blue-700 mb-2 flex items-center">
+                                <span class="bg-blue-100 px-2 py-1 rounded">📊 Ergebnis-Anfragen</span>
+                            </h3>
+                            <div id="history-result-requests-list" class="space-y-3 min-h-[100px]">
+                                <p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>
                             </div>
                         </div>
                     </div>
@@ -532,196 +505,6 @@
         </div>
     </div>
 
-    <!-- Counter Proposal Modal -->
-    <div id="counter-proposal-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
-        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl leading-6 font-medium text-gray-900">Gegenvorschlag machen</h3>
-                <button id="close-counter-proposal-modal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-            <p class="text-sm text-gray-600 mb-4">
-                Gegenvorschlag für Match mit <strong id="counter-proposal-opponent-name"></strong>
-            </p>
-            <form id="counter-proposal-form" class="space-y-4">
-                <div>
-                    <label for="counter-proposal-datetime" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-calendar mr-1 text-indigo-500"></i> Alternative Zeit
-                    </label>
-                    <input
-                        type="datetime-local"
-                        id="counter-proposal-datetime"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                    />
-                </div>
-
-                <div>
-                    <label for="counter-proposal-location" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-map-marker-alt mr-1 text-indigo-500"></i> Alternativer Ort
-                    </label>
-                    <input
-                        type="text"
-                        id="counter-proposal-location"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                        placeholder="z.B. Vereinshalle, Halle 2"
-                    />
-                </div>
-
-                <div>
-                    <label class="flex items-center space-x-2">
-                        <input
-                            type="checkbox"
-                            id="counter-proposal-handicap"
-                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                        />
-                        <span class="text-sm font-medium text-gray-700">
-                            <i class="fas fa-balance-scale mr-1 text-indigo-500"></i> Mit Handicap spielen
-                        </span>
-                    </label>
-                </div>
-
-                <div>
-                    <label for="counter-proposal-message" class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-comment mr-1 text-indigo-500"></i> Nachricht (optional)
-                    </label>
-                    <textarea
-                        id="counter-proposal-message"
-                        rows="2"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                        placeholder="z.B. Ich kann leider nicht um 18 Uhr, wie wäre es um 19 Uhr?"
-                    ></textarea>
-                </div>
-
-                <div class="flex gap-2 pt-2">
-                    <button
-                        type="submit"
-                        class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition"
-                    >
-                        <i class="fas fa-reply mr-2"></i> Senden
-                    </button>
-                    <button
-                        type="button"
-                        id="cancel-counter-proposal"
-                        class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition"
-                    >
-                        Abbrechen
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Match Proposal Modal -->
-    <div id="match-proposal-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
-        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl leading-6 font-medium text-gray-900">Match anfragen</h3>
-                <button id="close-match-proposal-modal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-            <form id="match-proposal-form" class="space-y-3">
-                <!-- Player Search -->
-                <div>
-                    <label for="proposal-player-search" class="block text-xs font-medium text-gray-700 mb-1">
-                        Spieler suchen
-                    </label>
-                    <input
-                        type="text"
-                        id="proposal-player-search"
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="Name eingeben..."
-                        autocomplete="off"
-                    />
-                    <div id="proposal-player-list" class="hidden mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto text-sm">
-                        <!-- Search results will appear here -->
-                    </div>
-                </div>
-
-                <!-- Selected Player Display -->
-                <div id="selected-proposal-player"></div>
-
-                <!-- Date & Time -->
-                <div>
-                    <label for="proposal-datetime" class="block text-xs font-medium text-gray-700 mb-1">
-                        <i class="fas fa-calendar mr-1 text-indigo-500"></i> Wunsch-Zeit (optional)
-                    </label>
-                    <input
-                        type="datetime-local"
-                        id="proposal-datetime"
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                    />
-                </div>
-
-                <!-- Location -->
-                <div>
-                    <label for="proposal-location" class="block text-xs font-medium text-gray-700 mb-1">
-                        <i class="fas fa-map-marker-alt mr-1 text-indigo-500"></i> Ort (optional)
-                    </label>
-                    <input
-                        type="text"
-                        id="proposal-location"
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                        placeholder="z.B. Vereinshalle"
-                    />
-                </div>
-
-                <!-- Phone Number -->
-                <div>
-                    <label for="proposal-phone" class="block text-xs font-medium text-gray-700 mb-1">
-                        <i class="fas fa-phone mr-1 text-indigo-500"></i> Telefon (optional)
-                    </label>
-                    <input
-                        type="tel"
-                        id="proposal-phone"
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                        placeholder="0123 456789"
-                    />
-                </div>
-
-                <!-- Handicap Option -->
-                <div>
-                    <label class="flex items-center space-x-2">
-                        <input
-                            type="checkbox"
-                            id="proposal-handicap"
-                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                        />
-                        <span class="text-xs font-medium text-gray-700">
-                            <i class="fas fa-balance-scale mr-1 text-indigo-500"></i> Mit Handicap spielen
-                        </span>
-                    </label>
-                </div>
-
-                <!-- Message -->
-                <div>
-                    <label for="proposal-message" class="block text-xs font-medium text-gray-700 mb-1">
-                        <i class="fas fa-comment mr-1 text-indigo-500"></i> Nachricht (optional)
-                    </label>
-                    <textarea
-                        id="proposal-message"
-                        rows="2"
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                        placeholder="z.B. Hast du Zeit am Wochenende?"
-                    ></textarea>
-                </div>
-
-                <!-- Submit Button -->
-                <div>
-                    <button
-                        type="submit"
-                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 text-sm rounded-md transition"
-                    >
-                        <i class="fas fa-paper-plane mr-1"></i> Anfrage senden
-                    </button>
-                </div>
-
-                <!-- Feedback -->
-                <div id="match-proposal-feedback" class="hidden"></div>
-            </form>
-        </div>
-    </div>
 
     <script type="module" src="/js/dashboard.js"></script>
 </body>
