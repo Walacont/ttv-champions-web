@@ -170,6 +170,16 @@ async function initializeCoachPage(userData) {
         });
     }
 
+    // Setup Dashboard/Rangliste Tab
+    const dashboardTabButton = document.querySelector('.tab-button[data-tab="dashboard"]');
+    if (dashboardTabButton) {
+        dashboardTabButton.addEventListener('click', () => {
+            // Load leaderboards when dashboard tab is opened
+            loadLeaderboard(userData, db, []);
+            loadGlobalLeaderboard(userData, db, []);
+        });
+    }
+
     // Setup Subgroups Tab
     const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
     if (subgroupsTabButton) {

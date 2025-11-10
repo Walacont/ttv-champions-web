@@ -215,7 +215,10 @@ export function loadLeaderboard(userData, db, unsubscribes) {
  */
 function loadSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-club');
-    if (!listEl) return;
+    if (!listEl) {
+        console.warn('[Leaderboard] skill-list-club element not found');
+        return;
+    }
 
     const q = query(
         collection(db, "users"),
@@ -224,6 +227,8 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
     );
 
     const listener = onSnapshot(q, (snapshot) => {
+        console.log('[Leaderboard] Skill snapshot received:', snapshot.docs.length, 'users');
+
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
             return;
@@ -233,8 +238,14 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(p => {
                 // Include users with player role (including coaches with player role)
-                return (p.roles && p.roles.includes('player')) || p.role === 'player';
+                const hasPlayerRole = (p.roles && p.roles.includes('player')) || p.role === 'player';
+                if (!hasPlayerRole) {
+                    console.log('[Leaderboard] Filtered out user (no player role):', p.firstName, p.role, p.roles);
+                }
+                return hasPlayerRole;
             });
+
+        console.log('[Leaderboard] After filtering:', players.length, 'players');
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -265,7 +276,10 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
  */
 function loadEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-club');
-    if (!listEl) return;
+    if (!listEl) {
+        console.warn('[Leaderboard] effort-list-club element not found');
+        return;
+    }
 
     const q = query(
         collection(db, "users"),
@@ -274,6 +288,8 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
     );
 
     const listener = onSnapshot(q, (snapshot) => {
+        console.log('[Leaderboard] Effort snapshot received:', snapshot.docs.length, 'users');
+
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
             return;
@@ -285,6 +301,8 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
                 // Include users with player role (including coaches with player role)
                 return (p.roles && p.roles.includes('player')) || p.role === 'player';
             });
+
+        console.log('[Leaderboard] Effort - After filtering:', players.length, 'players');
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
