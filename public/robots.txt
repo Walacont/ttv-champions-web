@@ -1,0 +1,21 @@
+# TTV Champions - Robots.txt
+User-agent: *
+
+# Erlaube öffentliche Seiten
+Allow: /
+Allow: /faq.html
+Allow: /register.html
+
+# Blockiere geschützte Bereiche
+Disallow: /dashboard.html
+Disallow: /coach.html
+Disallow: /admin.html
+Disallow: /settings.html
+Disallow: /onboarding.html
+
+# Blockiere JavaScript und CSS nicht (für SEO)
+Allow: /js/
+Allow: /css/
+
+# Sitemap
+Sitemap: https://ttv-champions.de/sitemap.xml
