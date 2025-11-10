@@ -37,35 +37,67 @@ export async function loadMatchHistory(db, userData) {
     // Query matches where user is a participant
     const matchesRef = collection(db, "matches");
 
-    // Use a simpler query strategy: get processed matches and filter client-side
-    // This avoids complex index requirements
-    const baseQuery = query(
-      matchesRef,
-      where("clubId", "==", userData.clubId),
-      where("processed", "==", true),
-      orderBy("timestamp", "desc"),
-      limit(100) // Get last 100 matches from club
-    );
+    console.log("[Match History] Querying with clubId:", userData.clubId);
 
-    const snapshot = await getDocs(baseQuery);
-    console.log("[Match History] Total club matches found:", snapshot.docs.length);
+    // Try simple query first - just get all matches for the club
+    let snapshot;
+    try {
+      const baseQuery = query(
+        matchesRef,
+        where("clubId", "==", userData.clubId),
+        where("processed", "==", true),
+        orderBy("timestamp", "desc"),
+        limit(100)
+      );
+      snapshot = await getDocs(baseQuery);
+      console.log("[Match History] Composite query successful, found documents:", snapshot.docs.length);
+    } catch (indexError) {
+      console.warn("[Match History] Composite index query failed, trying simpler query:", indexError);
+      // Fallback: try without orderBy
+      const fallbackQuery = query(
+        matchesRef,
+        where("clubId", "==", userData.clubId),
+        where("processed", "==", true),
+        limit(100)
+      );
+      snapshot = await getDocs(fallbackQuery);
+      console.log("[Match History] Fallback query successful, found documents:", snapshot.docs.length);
+    }
+
+    // Log some sample data for debugging
+    if (snapshot.docs.length > 0) {
+      const sampleMatch = snapshot.docs[0].data();
+      console.log("[Match History] Sample match data:", {
+        playerAId: sampleMatch.playerAId,
+        playerBId: sampleMatch.playerBId,
+        winnerId: sampleMatch.winnerId,
+        loserId: sampleMatch.loserId,
+        processed: sampleMatch.processed,
+        clubId: sampleMatch.clubId
+      });
+    }
 
     // Filter matches where user is involved (client-side filtering)
     const matches = snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
       .filter(match => {
         // Check if user is involved in this match
-        return (
+        const isInvolved = (
           match.playerAId === userData.id ||
           match.playerBId === userData.id ||
           match.winnerId === userData.id ||
           match.loserId === userData.id ||
           (match.playerIds && match.playerIds.includes(userData.id))
         );
+        if (!isInvolved && snapshot.docs.length < 10) {
+          // Only log for small sets to avoid spam
+          console.log("[Match History] Match filtered out:", match.id, "playerA:", match.playerAId, "playerB:", match.playerBId);
+        }
+        return isInvolved;
       })
       .slice(0, 50); // Limit to 50 matches for performance
 
-    console.log("[Match History] User matches found:", matches.length);
+    console.log("[Match History] User matches found after filtering:", matches.length, "out of", snapshot.docs.length);
 
     // Sort by timestamp descending
     matches.sort((a, b) => {
