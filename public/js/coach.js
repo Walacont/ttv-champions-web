@@ -9,7 +9,7 @@ import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLe
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter, openAttendanceModalForSession, getCurrentSessionId } from './attendance.js';
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
-import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings } from './matches.js';
+import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings, initializeHandicapToggle } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
@@ -314,6 +314,7 @@ async function initializeCoachPage(userData) {
 
     document.getElementById('player-a-select').addEventListener('change', () => updateMatchUI(clubPlayers));
     document.getElementById('player-b-select').addEventListener('change', () => updateMatchUI(clubPlayers));
+    initializeHandicapToggle(); // Initialize handicap toggle for automatic score setting
     document.getElementById('subgroups-list').addEventListener('click', (e) => handleSubgroupActions(e, db, userData.clubId));
 
     // === KORREKTUR 2: VERALTETEN LISTENER ERSETZEN ===
