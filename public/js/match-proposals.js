@@ -1097,31 +1097,28 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
   try {
     // Get all players based on filter
     let playersQuery;
-    if (subgroupFilter === 'club') {
-      // Only players from same club
-      playersQuery = query(
-        collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player")
-      );
-    } else if (subgroupFilter === 'global') {
+    if (subgroupFilter === 'global') {
       // All players (global view)
       playersQuery = query(
         collection(db, "users"),
         where("role", "==", "player")
       );
     } else {
-      // Specific subgroup
+      // Club view (with or without subgroup filter applied later)
       playersQuery = query(
         collection(db, "users"),
         where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
-        where("subgroup", "==", subgroupFilter)
+        where("role", "==", "player")
       );
     }
 
     const snapshot = await getDocs(playersQuery);
-    const allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    let allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
+    if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+      allPlayers = allPlayers.filter(player => player.subgroup === subgroupFilter);
+    }
 
     // Function to calculate and render suggestions
     const renderSuggestions = async () => {
