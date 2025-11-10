@@ -84,28 +84,68 @@ export async function loadCoachMatchHistory(playerId, db) {
     // Query all processed matches for this player
     const matchesRef = collection(db, "matches");
 
+    console.log("[Coach Match History] Starting diagnostic queries...");
+
+    // DIAGNOSTIC 1: Check if ANY matches exist
+    try {
+      const testQuery = query(matchesRef, limit(5));
+      const testSnapshot = await getDocs(testQuery);
+      console.log("[Coach Match History] DIAGNOSTIC 1 - Total matches in collection:", testSnapshot.docs.length);
+      if (testSnapshot.docs.length > 0) {
+        const sampleData = testSnapshot.docs[0].data();
+        console.log("[Coach Match History] DIAGNOSTIC 1 - Sample:", {
+          clubId: sampleData.clubId,
+          processed: sampleData.processed,
+          playerAId: sampleData.playerAId,
+          playerBId: sampleData.playerBId
+        });
+      }
+    } catch (e) {
+      console.error("[Coach Match History] DIAGNOSTIC 1 failed:", e);
+    }
+
+    // DIAGNOSTIC 2: Try clubId only
+    let clubMatches = 0;
+    try {
+      const clubQuery = query(matchesRef, where("clubId", "==", playerData.clubId), limit(100));
+      const clubSnapshot = await getDocs(clubQuery);
+      clubMatches = clubSnapshot.docs.length;
+      console.log("[Coach Match History] DIAGNOSTIC 2 - Matches with clubId only:", clubMatches);
+      if (clubMatches > 0) {
+        const sample = clubSnapshot.docs[0].data();
+        console.log("[Coach Match History] DIAGNOSTIC 2 - Sample processed value:", sample.processed, "type:", typeof sample.processed);
+      }
+    } catch (e) {
+      console.error("[Coach Match History] DIAGNOSTIC 2 failed:", e);
+    }
+
+    // DIAGNOSTIC 3: Try with processed filter
     let snapshot;
     try {
-      const baseQuery = query(
+      const processedQuery = query(
         matchesRef,
         where("clubId", "==", playerData.clubId),
         where("processed", "==", true),
-        orderBy("timestamp", "desc"),
         limit(100)
       );
-      snapshot = await getDocs(baseQuery);
-      console.log("[Coach Match History] Composite query successful, found documents:", snapshot.docs.length);
+      snapshot = await getDocs(processedQuery);
+      console.log("[Coach Match History] DIAGNOSTIC 3 - Matches with processed=true:", snapshot.docs.length);
     } catch (indexError) {
-      console.warn("[Coach Match History] Composite index query failed, trying simpler query:", indexError);
-      const fallbackQuery = query(
-        matchesRef,
-        where("clubId", "==", playerData.clubId),
-        where("processed", "==", true),
-        limit(100)
-      );
-      snapshot = await getDocs(fallbackQuery);
-      console.log("[Coach Match History] Fallback query successful, found documents:", snapshot.docs.length);
+      console.warn("[Coach Match History] DIAGNOSTIC 3 failed:", indexError);
+      if (clubMatches > 0) {
+        const clubQuery = query(matchesRef, where("clubId", "==", playerData.clubId), limit(100));
+        snapshot = await getDocs(clubQuery);
+        console.log("[Coach Match History] Using clubId-only as fallback");
+      }
     }
+
+    if (!snapshot || snapshot.docs.length === 0) {
+      console.error("[Coach Match History] ❌ No matches found!");
+      container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">Keine Wettkämpfe für ${playerName} gefunden</p>`;
+      return;
+    }
+
+    console.log("[Coach Match History] ✓ Using snapshot with", snapshot.docs.length, "matches");
 
     // Log some sample data for debugging
     if (snapshot.docs.length > 0) {
