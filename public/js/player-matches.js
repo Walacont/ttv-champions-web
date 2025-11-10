@@ -1143,11 +1143,13 @@ async function renderHistoryRequests(requests, userData, db) {
   for (const request of requestsToShow) {
     let card;
     if (request.playerAId === userData.id) {
+      // My sent request
       const playerBData = await getUserData(request.playerBId, db);
       card = createMyRequestCard(request, playerBData, userData, db);
     } else {
+      // Incoming request - use processed card for history (always completed)
       const playerAData = await getUserData(request.playerAId, db);
-      card = createIncomingRequestCard(request, playerAData, userData, db);
+      card = createProcessedRequestCard(request, playerAData, userData, db);
     }
     container.appendChild(card);
   }
