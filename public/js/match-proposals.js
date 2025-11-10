@@ -162,9 +162,8 @@ export function loadMatchProposals(userData, db, unsubscribes) {
   // Updated to use new two-column layout container IDs
   const myProposalsList = document.getElementById("my-match-proposals-list");
   const incomingProposalsList = document.getElementById("incoming-match-proposals-list");
-  const processedProposalsList = document.getElementById("processed-match-proposals-list");
 
-  if (!myProposalsList || !incomingProposalsList || !processedProposalsList) return;
+  if (!myProposalsList || !incomingProposalsList) return;
 
   // Check if player has completed Grundlagen requirement
   const grundlagenCompleted = userData.grundlagenCompleted || 0;
@@ -191,7 +190,6 @@ export function loadMatchProposals(userData, db, unsubscribes) {
     `;
     myProposalsList.innerHTML = warningHTML;
     incomingProposalsList.innerHTML = warningHTML;
-    processedProposalsList.innerHTML = warningHTML;
     return; // Exit early
   }
 
@@ -250,25 +248,26 @@ export function loadMatchProposals(userData, db, unsubscribes) {
 }
 
 /**
- * Renders my sent proposals (only active ones: pending/counter_proposed)
+ * Renders ALL my sent proposals (active and completed)
  */
 async function renderMyProposals(proposals, userData, db) {
   const container = document.getElementById("my-match-proposals-list");
   if (!container) return;
 
-  // Filter to only active proposals
-  const activeProposals = proposals.filter(p =>
-    p.status === "pending" || p.status === "counter_proposed"
-  );
-
-  if (activeProposals.length === 0) {
+  if (proposals.length === 0) {
     container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Match-Anfragen</p>';
     return;
   }
 
   container.innerHTML = "";
 
-  for (const proposal of activeProposals) {
+  // Sort by status (active first, then completed)
+  const sortedProposals = proposals.sort((a, b) => {
+    const statusOrder = { pending: 0, counter_proposed: 1, accepted: 2, declined: 3, cancelled: 4 };
+    return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
+  });
+
+  for (const proposal of sortedProposals) {
     const recipientData = await getUserData(proposal.recipientId, db);
     const card = createSentProposalCard(proposal, recipientData, userData, db);
     container.appendChild(card);
