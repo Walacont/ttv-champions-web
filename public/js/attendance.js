@@ -1137,11 +1137,22 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
  * @param {Function} onPlayersLoaded - Callback when players are loaded
  */
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
-    const q = query(collection(db, 'users'), where('clubId', '==', clubId), where('role', '==', 'player'));
+    // PAGINATION: Limit to 300 players for performance (covers 99% of clubs)
+    const PLAYER_LIMIT = 300;
+    const q = query(
+        collection(db, 'users'),
+        where('clubId', '==', clubId),
+        where('role', '==', 'player'),
+        orderBy('lastName', 'asc'), // Consistent ordering for pagination
+        limit(PLAYER_LIMIT) // Limit for scalability
+    );
 
     // Helper function to process players (deduplication logic)
     const processPlayers = (snapshot) => {
-        console.log(`[Attendance] Loaded ${snapshot.docs.length} player documents from Firestore`);
+        const totalLoaded = snapshot.docs.length;
+        const hitLimit = totalLoaded === PLAYER_LIMIT;
+
+        console.log(`[Attendance] Loaded ${totalLoaded} player documents from Firestore${hitLimit ? ' (limit reached)' : ''}`);
 
         // Use Map to prevent duplicate players
         // Deduplicate by document ID first, then by email or name combination
@@ -1176,6 +1187,12 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
 
         const players = Array.from(playersMap.values());
         console.log(`[Attendance] After deduplication: ${players.length} unique players (removed ${duplicateCount} duplicates)`);
+
+        // Warn if we hit the limit (club might have more players)
+        if (hitLimit) {
+            console.warn(`[Attendance] ⚠️ Player limit (${PLAYER_LIMIT}) reached! Club may have more players.`);
+            console.warn('[Attendance] Consider implementing "Load More" functionality for larger clubs.');
+        }
 
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
         return players;
