@@ -35,13 +35,13 @@ export function setExerciseContext(db, userId, userRole) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-export function loadExercises(db, unsubscribes) {
+export async function loadExercises(db, unsubscribes) {
     const exercisesListEl = document.getElementById('exercises-list');
     if (!exercisesListEl) return;
 
     const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
 
-    const exerciseListener = onSnapshot(q, (snapshot) => {
+    const exerciseListener = onSnapshot(q, async (snapshot) => {
         if (snapshot.empty) {
             exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
             return;
@@ -51,59 +51,171 @@ export function loadExercises(db, unsubscribes) {
         const allTags = new Set();
         const exercises = [];
 
-        snapshot.forEach(doc => {
-            const exercise = doc.data();
-            const card = document.createElement('div');
-            card.className = 'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300';
-            card.dataset.id = doc.id; // Add exercise ID for progress tracking
-            card.dataset.title = exercise.title;
-            // Support both old and new format
-            if (exercise.descriptionContent) {
-                card.dataset.descriptionContent = exercise.descriptionContent;
-            } else {
-                // Backwards compatibility: convert old description to new format
-                card.dataset.descriptionContent = JSON.stringify({
-                    type: 'text',
-                    text: exercise.description || ''
-                });
-            }
-            card.dataset.imageUrl = exercise.imageUrl;
-            card.dataset.points = exercise.points;
-            card.dataset.tags = JSON.stringify(exercise.tags || []);
+        // Process each exercise
+        for (const docSnap of snapshot.docs) {
+            const exercise = docSnap.data();
+            const exerciseId = docSnap.id;
 
-            // Add tieredPoints data
-            if (exercise.tieredPoints) {
-                card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+            // Load player progress if available
+            let progressPercent = 0;
+            if (exerciseContext.userId && exerciseContext.userRole === 'player') {
+                progressPercent = await calculateExerciseProgress(db, exerciseContext.userId, exerciseId, exercise);
             }
 
+            const card = createExerciseCard(docSnap, exercise, progressPercent);
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
-            const tagsHtml = exerciseTags.map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
-
-            // Check if exercise has tiered points
-            const hasTieredPoints = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
-            const pointsBadge = hasTieredPoints
-                ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
-                : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
-
-            card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
-                              <div class="p-4 flex flex-col flex-grow">
-                                  <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
-                                  <div class="mb-2">${tagsHtml}</div>
-                                  <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
-                                  <div class="mt-4 text-right">
-                                      ${pointsBadge}
-                                  </div>
-                              </div>`;
             exercises.push({ card, tags: exerciseTags });
             exercisesListEl.appendChild(card);
-        });
+        }
 
         renderTagFilters(allTags, exercises);
     });
 
     if (unsubscribes) unsubscribes.push(exerciseListener);
+}
+
+/**
+ * Calculates the completion progress for an exercise
+ * @param {Object} db - Firestore instance
+ * @param {string} userId - User ID
+ * @param {string} exerciseId - Exercise ID
+ * @param {Object} exercise - Exercise data
+ * @returns {number} Progress percentage (0-100)
+ */
+async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
+    try {
+        const hasMilestones = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+
+        if (hasMilestones) {
+            // Check milestone progress
+            const progressDoc = await getDoc(doc(db, `users/${userId}/exerciseMilestones`, exerciseId));
+            if (!progressDoc.exists()) return 0;
+
+            const progressData = progressDoc.data();
+            const currentCount = progressData.currentCount || 0;
+            const milestones = exercise.tieredPoints.milestones;
+            const maxCount = Math.max(...milestones.map(m => m.count));
+
+            // Find highest achieved milestone
+            const achievedMilestones = milestones.filter(m => currentCount >= m.count).length;
+            const totalMilestones = milestones.length;
+
+            return (achievedMilestones / totalMilestones) * 100;
+        } else {
+            // Check if exercise is completed
+            const completedDoc = await getDoc(doc(db, `users/${userId}/completedExercises`, exerciseId));
+            return completedDoc.exists() ? 100 : 0;
+        }
+    } catch (error) {
+        console.error('Error calculating progress:', error);
+        return 0;
+    }
+}
+
+/**
+ * Creates the HTML for an exercise card with progress indicator
+ * @param {Object} docSnap - Firestore document snapshot
+ * @param {Object} exercise - Exercise data
+ * @param {number} progressPercent - Progress percentage (0-100)
+ * @returns {HTMLElement} Card element
+ */
+function createExerciseCard(docSnap, exercise, progressPercent) {
+    const card = document.createElement('div');
+    card.className = 'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300 relative';
+    card.dataset.id = docSnap.id;
+    card.dataset.title = exercise.title;
+
+    // Support both old and new format
+    if (exercise.descriptionContent) {
+        card.dataset.descriptionContent = exercise.descriptionContent;
+    } else {
+        card.dataset.descriptionContent = JSON.stringify({
+            type: 'text',
+            text: exercise.description || ''
+        });
+    }
+    card.dataset.imageUrl = exercise.imageUrl;
+    card.dataset.points = exercise.points;
+    card.dataset.tags = JSON.stringify(exercise.tags || []);
+
+    // Add tieredPoints data
+    if (exercise.tieredPoints) {
+        card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+    }
+
+    const exerciseTags = exercise.tags || [];
+    const tagsHtml = exerciseTags.map(tag =>
+        `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
+    ).join('');
+
+    // Check if exercise has tiered points
+    const hasTieredPoints = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+    const pointsBadge = hasTieredPoints
+        ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
+        : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
+
+    // Generate progress circle SVG
+    const progressCircle = generateProgressCircle(progressPercent);
+
+    card.innerHTML = `
+        ${progressCircle}
+        <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
+        <div class="p-4 flex flex-col flex-grow">
+            <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
+            <div class="mb-2">${tagsHtml}</div>
+            <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
+            <div class="mt-4 text-right">
+                ${pointsBadge}
+            </div>
+        </div>`;
+
+    return card;
+}
+
+/**
+ * Generates an SVG progress circle
+ * @param {number} percent - Progress percentage (0-100)
+ * @returns {string} SVG HTML string
+ */
+function generateProgressCircle(percent) {
+    if (percent === 0) {
+        // Empty circle (gray outline)
+        return `
+            <div class="absolute top-2 right-2 z-10">
+                <svg width="40" height="40" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="16" fill="white" stroke="#E5E7EB" stroke-width="3"/>
+                </svg>
+            </div>`;
+    } else if (percent === 100) {
+        // Full green circle with checkmark
+        return `
+            <div class="absolute top-2 right-2 z-10">
+                <svg width="40" height="40" viewBox="0 0 40 40">
+                    <circle cx="20" cy="20" r="18" fill="#10B981"/>
+                    <path d="M12 20 L17 25 L28 14" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>`;
+    } else {
+        // Partial circle (progress indicator)
+        const radius = 16;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (percent / 100) * circumference;
+
+        return `
+            <div class="absolute top-2 right-2 z-10">
+                <svg width="40" height="40" viewBox="0 0 40 40" class="transform -rotate-90">
+                    <circle cx="20" cy="20" r="${radius}" fill="white" stroke="#E5E7EB" stroke-width="3"/>
+                    <circle cx="20" cy="20" r="${radius}" fill="none" stroke="#10B981" stroke-width="3"
+                            stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+                            stroke-linecap="round"/>
+                </svg>
+                <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-green-600">
+                    ${Math.round(percent)}%
+                </div>
+            </div>`;
+    }
 }
 
 /**
@@ -590,8 +702,28 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     } else {
         pointsContainer.textContent = `+${points} P.`;
         if (milestonesContainer) {
-            milestonesContainer.innerHTML = '';
-            milestonesContainer.classList.add('hidden');
+            // Show reset info for exercises without milestones (for players)
+            if (exerciseContext.userRole === 'player') {
+                milestonesContainer.innerHTML = `
+                    <div class="mt-4 mb-3 border-t-2 border-blue-200 pt-4">
+                        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">🔄</span>
+                                <span class="font-bold text-gray-800">Saisonzyklus</span>
+                            </div>
+                            <p class="text-sm text-gray-600">
+                                Diese Übung kann einmal pro Saison abgeschlossen werden.
+                            </p>
+                            <p class="text-xs text-gray-500 mt-2">
+                                🔓 Zurückgesetzt am ${seasonEndDate}
+                            </p>
+                        </div>
+                    </div>`;
+                milestonesContainer.classList.remove('hidden');
+            } else {
+                milestonesContainer.innerHTML = '';
+                milestonesContainer.classList.add('hidden');
+            }
         }
     }
 
