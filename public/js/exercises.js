@@ -579,18 +579,18 @@ function addExerciseMilestone() {
     row.className = 'flex gap-2 items-center bg-gray-50 p-2 rounded';
     row.innerHTML = `
         <input type="number"
-               class="exercise-milestone-count flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
-               placeholder="Anzahl (z.B. 1, 3, 5)"
+               class="exercise-milestone-count w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="z.B. 1"
                min="1"
                required>
-        <span class="text-gray-600 text-sm">× erreicht →</span>
+        <span class="text-gray-600 text-xs whitespace-nowrap">× →</span>
         <input type="number"
-               class="exercise-milestone-points flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+               class="exercise-milestone-points w-16 px-2 py-1 border border-gray-300 rounded text-sm"
                placeholder="Punkte"
                min="1"
                required>
-        <span class="text-gray-600 text-sm">P.</span>
-        <button type="button" class="remove-exercise-milestone text-red-600 hover:text-red-800 px-2">
+        <span class="text-gray-600 text-xs">P.</span>
+        <button type="button" class="remove-exercise-milestone text-red-600 hover:text-red-800 px-1 text-sm flex-shrink-0">
             🗑️
         </button>
     `;
