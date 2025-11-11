@@ -47,10 +47,21 @@ export function loadExercises(db, unsubscribes) {
             card.dataset.points = exercise.points;
             card.dataset.tags = JSON.stringify(exercise.tags || []);
 
+            // Add tieredPoints data
+            if (exercise.tieredPoints) {
+                card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+            }
+
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
             const tagsHtml = exerciseTags.map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
+
+            // Check if exercise has tiered points
+            const hasTieredPoints = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+            const pointsBadge = hasTieredPoints
+                ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
+                : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
 
             card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
                               <div class="p-4 flex flex-col flex-grow">
@@ -58,7 +69,7 @@ export function loadExercises(db, unsubscribes) {
                                   <div class="mb-2">${tagsHtml}</div>
                                   <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
                                   <div class="mt-4 text-right">
-                                      <span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>
+                                      ${pointsBadge}
                                   </div>
                               </div>`;
             exercises.push({ card, tags: exerciseTags });
@@ -296,16 +307,27 @@ function renderCoachExercises(exercises, filterTag) {
         card.dataset.points = exercise.points;
         card.dataset.tags = JSON.stringify(exercise.tags || []);
 
+        // Add tieredPoints data
+        if (exercise.tieredPoints) {
+            card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+        }
+
         const tagsHtml = (exercise.tags || []).map(tag =>
             `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
         ).join('');
+
+        // Check if exercise has tiered points
+        const hasTieredPoints = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+        const pointsBadge = hasTieredPoints
+            ? `🎯 Bis zu ${exercise.points} P.`
+            : `${exercise.points} P.`;
 
         card.innerHTML = `
             <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
             <div class="p-4 flex flex-col flex-grow pointer-events-none">
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
-                    <span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${exercise.points} P.</span>
+                    <span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${pointsBadge}</span>
                 </div>
                 <div class="pt-2">${tagsHtml}</div>
             </div>`;
@@ -360,8 +382,8 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { title, descriptionContent, imageUrl, points, tags } = card.dataset;
-        openExerciseModal(title, descriptionContent, imageUrl, points, tags);
+        const { title, descriptionContent, imageUrl, points, tags, tieredPoints } = card.dataset;
+        openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints);
     }
 }
 
@@ -372,8 +394,9 @@ export function handleExerciseClick(event) {
  * @param {string} imageUrl - Exercise image URL
  * @param {string} points - Exercise points
  * @param {string} tags - Exercise tags (JSON string)
+ * @param {string} tieredPoints - Tiered points data (JSON string, optional)
  */
-export function openExerciseModal(title, descriptionContent, imageUrl, points, tags) {
+export function openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
 
@@ -400,7 +423,52 @@ export function openExerciseModal(title, descriptionContent, imageUrl, points, t
         modalDescription.style.whiteSpace = 'pre-wrap';
     }
 
-    document.getElementById('modal-exercise-points').textContent = `+${points} P.`;
+    // Handle points display with milestones
+    let tieredPointsData = null;
+    try {
+        if (tieredPoints) {
+            tieredPointsData = JSON.parse(tieredPoints);
+        }
+    } catch (e) {
+        // Invalid JSON, ignore
+    }
+
+    const pointsContainer = document.getElementById('modal-exercise-points');
+    const milestonesContainer = document.getElementById('modal-exercise-milestones');
+
+    const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
+
+    if (hasTieredPoints) {
+        pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
+
+        // Display milestones if container exists
+        if (milestonesContainer) {
+            const milestonesHtml = tieredPointsData.milestones
+                .sort((a, b) => a.count - b.count)
+                .map((milestone, index) => {
+                    const isFirst = index === 0;
+                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    return `<div class="flex justify-between items-center py-1">
+                        <span class="text-sm text-gray-700">${milestone.count}× abgeschlossen:</span>
+                        <span class="font-semibold text-indigo-600">${displayPoints} P. (gesamt: ${milestone.points} P.)</span>
+                    </div>`;
+                })
+                .join('');
+
+            milestonesContainer.innerHTML = `
+                <div class="mt-3 mb-3 border-t border-gray-200 pt-3">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">📊 Meilensteine:</h4>
+                    ${milestonesHtml}
+                </div>`;
+            milestonesContainer.classList.remove('hidden');
+        }
+    } else {
+        pointsContainer.textContent = `+${points} P.`;
+        if (milestonesContainer) {
+            milestonesContainer.innerHTML = '';
+            milestonesContainer.classList.add('hidden');
+        }
+    }
 
     const tagsContainer = document.getElementById('modal-exercise-tags');
     const tagsArray = JSON.parse(tags || '[]');
@@ -424,8 +492,8 @@ function escapeHtml(text) {
  * @param {Object} dataset - Dataset object containing exercise details
  */
 export function openExerciseModalFromDataset(dataset) {
-    const { title, descriptionContent, imageUrl, points, tags } = dataset;
-    openExerciseModal(title, descriptionContent, imageUrl, points, tags);
+    const { title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
+    openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints);
 }
 
 /**

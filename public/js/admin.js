@@ -252,7 +252,7 @@ function copyInviteLink() {
 }
 
 function openExerciseModal(dataset) {
-    const { id, title, descriptionContent, imageUrl, points, tags } = dataset;
+    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
     modalExerciseTitle.textContent = title;
     modalExerciseImage.src = imageUrl;
 
@@ -274,7 +274,50 @@ function openExerciseModal(dataset) {
         modalExerciseDescription.style.whiteSpace = 'pre-wrap';
     }
 
-    modalExercisePoints.textContent = `+${points} P.`;
+    // Handle points display with milestones
+    let tieredPointsData = null;
+    try {
+        if (tieredPoints) {
+            tieredPointsData = JSON.parse(tieredPoints);
+        }
+    } catch (e) {
+        // Invalid JSON, ignore
+    }
+
+    const milestonesContainer = document.getElementById('modal-exercise-milestones-admin');
+    const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
+
+    if (hasTieredPoints) {
+        modalExercisePoints.textContent = `🎯 Bis zu ${points} P.`;
+
+        // Display milestones if container exists
+        if (milestonesContainer) {
+            const milestonesHtml = tieredPointsData.milestones
+                .sort((a, b) => a.count - b.count)
+                .map((milestone, index) => {
+                    const isFirst = index === 0;
+                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    return `<div class="flex justify-between items-center py-1">
+                        <span class="text-sm text-gray-700">${milestone.count}× abgeschlossen:</span>
+                        <span class="font-semibold text-indigo-600">${displayPoints} P. (gesamt: ${milestone.points} P.)</span>
+                    </div>`;
+                })
+                .join('');
+
+            milestonesContainer.innerHTML = `
+                <div class="mt-3 mb-3 border-t border-gray-200 pt-3">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">📊 Meilensteine:</h4>
+                    ${milestonesHtml}
+                </div>`;
+            milestonesContainer.classList.remove('hidden');
+        }
+    } else {
+        modalExercisePoints.textContent = `+${points} P.`;
+        if (milestonesContainer) {
+            milestonesContainer.innerHTML = '';
+            milestonesContainer.classList.add('hidden');
+        }
+    }
 
     // Set data for both buttons
     modalDeleteExerciseButton.dataset.id = id;
@@ -589,6 +632,12 @@ function loadAllExercises() {
             card.dataset.imageUrl = exercise.imageUrl;
             card.dataset.points = exercise.points;
             card.dataset.tags = JSON.stringify(exercise.tags || []);
+
+            // Add tieredPoints data
+            if (exercise.tieredPoints) {
+                card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+            }
+
             const tagsHtml = (exercise.tags || []).map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
             card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
                               <div class="p-4 flex flex-col flex-grow pointer-events-none">

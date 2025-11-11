@@ -99,9 +99,20 @@ export async function loadChallenges(userData, db, unsubscribes) {
             card.dataset.points = challenge.points;
             card.dataset.type = challenge.type;
 
+            // Add tieredPoints data
+            if (challenge.tieredPoints) {
+                card.dataset.tieredPoints = JSON.stringify(challenge.tieredPoints);
+            }
+
             const subgroupBadge = challenge.subgroupId && challenge.subgroupId !== 'all'
                 ? `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full ml-2">👥 ${subgroupNamesMap[challenge.subgroupId] || challenge.subgroupId}</span>`
                 : '';
+
+            // Check if challenge has tiered points
+            const hasTieredPoints = challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
+            const pointsBadge = hasTieredPoints
+                ? `🎯 Bis zu ${challenge.points} Punkte`
+                : `+${challenge.points} Punkte`;
 
             card.innerHTML = `
                 <div class="flex justify-between items-start pointer-events-none">
@@ -113,7 +124,7 @@ export async function loadChallenges(userData, db, unsubscribes) {
                 </div>
                 <p class="text-sm text-gray-600 my-2 pointer-events-none">${challenge.description || ''}</p>
                 <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t pointer-events-none">
-                    <span class="font-bold text-indigo-600">+${challenge.points} Punkte</span>
+                    <span class="font-bold text-indigo-600">${pointsBadge}</span>
                 </div>
             `;
             challengesListEl.appendChild(card);
@@ -127,7 +138,7 @@ export async function loadChallenges(userData, db, unsubscribes) {
  * @param {Object} dataset - Challenge data from card dataset
  */
 export function openChallengeModal(dataset) {
-    const { title, description, points } = dataset;
+    const { title, description, points, tieredPoints } = dataset;
     const titleEl = document.getElementById('modal-challenge-title');
     const descEl = document.getElementById('modal-challenge-description');
     const pointsEl = document.getElementById('modal-challenge-points');
@@ -135,6 +146,51 @@ export function openChallengeModal(dataset) {
 
     if (titleEl) titleEl.textContent = title;
     if (descEl) descEl.textContent = description;
-    if (pointsEl) pointsEl.textContent = `+${points} Punkte`;
+
+    // Handle points display with milestones
+    let tieredPointsData = null;
+    try {
+        if (tieredPoints) {
+            tieredPointsData = JSON.parse(tieredPoints);
+        }
+    } catch (e) {
+        // Invalid JSON, ignore
+    }
+
+    const milestonesContainer = document.getElementById('modal-challenge-milestones');
+    const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
+
+    if (hasTieredPoints) {
+        if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} Punkte`;
+
+        // Display milestones if container exists
+        if (milestonesContainer) {
+            const milestonesHtml = tieredPointsData.milestones
+                .sort((a, b) => a.count - b.count)
+                .map((milestone, index) => {
+                    const isFirst = index === 0;
+                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    return `<div class="flex justify-between items-center py-1">
+                        <span class="text-sm text-gray-700">${milestone.count}× abgeschlossen:</span>
+                        <span class="font-semibold text-indigo-600">${displayPoints} P. (gesamt: ${milestone.points} P.)</span>
+                    </div>`;
+                })
+                .join('');
+
+            milestonesContainer.innerHTML = `
+                <div class="mt-3 mb-3 border-t border-gray-200 pt-3">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">📊 Meilensteine:</h4>
+                    ${milestonesHtml}
+                </div>`;
+            milestonesContainer.classList.remove('hidden');
+        }
+    } else {
+        if (pointsEl) pointsEl.textContent = `+${points} Punkte`;
+        if (milestonesContainer) {
+            milestonesContainer.innerHTML = '';
+            milestonesContainer.classList.add('hidden');
+        }
+    }
+
     if (modal) modal.classList.remove('hidden');
 }
