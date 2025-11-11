@@ -564,9 +564,22 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
+            // Mark exercise as completed
+            if (exerciseId) {
+                const completedExerciseRef = doc(db, `users/${playerId}/completedExercises`, exerciseId);
+                transaction.set(completedExerciseRef, {
+                    completedAt: serverTimestamp(),
+                    seasonKey: currentSeasonKey
+                });
+            }
+
+            // Mark challenge as completed
             if (challengeId) {
                 const completedChallengeRef = doc(db, `users/${playerId}/completedChallenges`, challengeId);
-                transaction.set(completedChallengeRef, { completedAt: serverTimestamp() });
+                transaction.set(completedChallengeRef, {
+                    completedAt: serverTimestamp(),
+                    seasonKey: currentSeasonKey
+                });
             }
 
             // Update milestone progress for exercises
@@ -855,9 +868,19 @@ async function handleExerciseChallengeChange(db, type) {
     if (!hasMilestones || !selectedOption.value) {
         console.log('❌ No milestones or no value, hiding milestone container');
         milestoneContainer.classList.add('hidden');
+
+        // Show completion status for exercises/challenges without milestones
+        if (selectedOption.value) {
+            await showCompletionStatus(db, type, selectedOption.value, playerSelect?.value);
+        } else {
+            hideCompletionStatus();
+        }
     } else {
 
         console.log('✅ Has milestones, showing container');
+        // Hide completion status when milestones are shown
+        hideCompletionStatus();
+
         // Show milestone container
         milestoneContainer.classList.remove('hidden');
 
@@ -1165,5 +1188,92 @@ export function setupManualPartnerSystem(db) {
                 populateManualPartnerDropdown(db, playerSelect.value);
             }
         });
+    }
+}
+
+/**
+ * Shows completion status for exercises/challenges without milestones
+ * @param {Object} db - Firestore database instance
+ * @param {string} type - 'exercise' or 'challenge'
+ * @param {string} itemId - ID of the exercise or challenge
+ * @param {string} playerId - ID of the player
+ */
+async function showCompletionStatus(db, type, itemId, playerId) {
+    const container = document.getElementById('completion-status-container');
+    const statusText = document.getElementById('completion-status-text');
+
+    if (!container || !statusText) return;
+
+    // If no player selected, hide container
+    if (!playerId) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    try {
+        // Get completion status
+        const collectionName = type === 'exercise' ? 'completedExercises' : 'completedChallenges';
+        const completionRef = doc(db, `users/${playerId}/${collectionName}`, itemId);
+        const completionDoc = await getDoc(completionRef);
+
+        const currentSeasonKey = getCurrentSeasonKey();
+        const seasonEndDate = formatSeasonEndDate();
+
+        if (completionDoc.exists()) {
+            const data = completionDoc.data();
+            const completedSeasonKey = data.seasonKey || '';
+            const isCurrentSeason = completedSeasonKey === currentSeasonKey;
+
+            if (isCurrentSeason) {
+                // Completed in current season
+                const completedDate = data.completedAt?.toDate().toLocaleDateString('de-DE') || '(unbekannt)';
+                statusText.innerHTML = `
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl">✅</span>
+                        <div class="flex-1">
+                            <div class="font-semibold text-blue-900">Abgeschlossen am ${completedDate}</div>
+                            <div class="text-xs text-blue-700 mt-1">🔓 Wieder freigeschaltet am ${seasonEndDate} (Neue Saison)</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Completed in old season - now available again
+                statusText.innerHTML = `
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl">🆕</span>
+                        <div class="flex-1">
+                            <div class="font-semibold text-blue-900">Neue Saison - Wieder verfügbar!</div>
+                            <div class="text-xs text-blue-700 mt-1">📅 Aktuell bis ${seasonEndDate}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            // Not completed yet
+            statusText.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <span class="text-xl">⭕</span>
+                    <div class="flex-1">
+                        <div class="font-semibold text-blue-900">Noch nicht abgeschlossen</div>
+                        <div class="text-xs text-blue-700 mt-1">📅 Saison endet am ${seasonEndDate}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading completion status:', error);
+        container.classList.add('hidden');
+    }
+}
+
+/**
+ * Hides the completion status container
+ */
+function hideCompletionStatus() {
+    const container = document.getElementById('completion-status-container');
+    if (container) {
+        container.classList.add('hidden');
     }
 }
