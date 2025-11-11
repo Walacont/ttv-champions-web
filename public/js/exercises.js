@@ -332,16 +332,22 @@ export function loadExercisesForDropdown(db) {
             const e = doc.data();
             const option = document.createElement('option');
             option.value = doc.id;
-            const displayText = e.hasMilestones
+
+            // Check for tieredPoints format
+            const hasTieredPoints = e.tieredPoints?.enabled && e.tieredPoints?.milestones?.length > 0;
+            const displayText = hasTieredPoints
                 ? `${e.title} (bis zu ${e.points} P. - Meilensteine)`
                 : `${e.title} (+${e.points} P.)`;
+
             option.textContent = displayText;
             option.dataset.points = e.points;
             option.dataset.title = e.title;
-            option.dataset.hasMilestones = e.hasMilestones || false;
-            if (e.hasMilestones && e.milestones) {
-                option.dataset.milestones = JSON.stringify(e.milestones);
+            option.dataset.hasMilestones = hasTieredPoints;
+
+            if (hasTieredPoints) {
+                option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
             }
+
             select.appendChild(option);
         });
     });
@@ -686,13 +692,20 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             points,
             imageUrl,
             createdAt: serverTimestamp(),
-            tags,
-            hasMilestones: milestonesEnabled
+            tags
         };
 
-        // Add milestones if enabled
+        // Add tieredPoints if enabled
         if (milestonesEnabled && milestones) {
-            exerciseData.milestones = milestones;
+            exerciseData.tieredPoints = {
+                enabled: true,
+                milestones: milestones
+            };
+        } else {
+            exerciseData.tieredPoints = {
+                enabled: false,
+                milestones: []
+            };
         }
 
         await addDoc(collection(db, "exercises"), exerciseData);
