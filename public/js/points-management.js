@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, query, orderBy, runTransaction, serverTimestamp, increment, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, doc, onSnapshot, query, orderBy, runTransaction, serverTimestamp, increment, getDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Points Management Module
@@ -258,6 +258,31 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 break;
         }
 
+        // Check for partner system
+        let partnerId = null;
+        let partnerPercentage = 0;
+        let hasPartnerSystem = false;
+
+        if (reasonType === 'exercise' || reasonType === 'challenge') {
+            const selectElement = document.getElementById(`${reasonType}-select`);
+            const selectedOption = selectElement?.options[selectElement.selectedIndex];
+            hasPartnerSystem = selectedOption?.dataset.hasPartnerSystem === 'true';
+
+            if (hasPartnerSystem) {
+                partnerPercentage = parseInt(selectedOption.dataset.partnerPercentage) || 50;
+                partnerId = document.getElementById('partner-select')?.value;
+
+                // Validate partner selection
+                if (!partnerId) {
+                    throw new Error('Bitte wähle einen Trainingspartner aus.');
+                }
+
+                if (partnerId === playerId) {
+                    throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
+                }
+            }
+        }
+
         // Validate challenge subgroup membership and repeatable status
         if (challengeId) {
             const playerDocRef = doc(db, 'users', playerId);
@@ -326,6 +351,9 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         let grundlagenMessage = '';
         let actualPointsChange = 0; // Declare outside transaction
         let actualXPChange = 0; // Declare outside transaction
+        let actualPartnerPointsChange = 0; // For partner feedback
+        let actualPartnerXPChange = 0; // For partner feedback
+        let partnerName = ''; // For feedback
 
         await runTransaction(db, async (transaction) => {
             const playerDocRef = doc(db, 'users', playerId);
@@ -386,25 +414,28 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             transaction.update(playerDocRef, updateData);
 
             // Points history (use actual changes)
-            const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
-            transaction.set(doc(historyColRef), {
-                points: actualPointsChange,
-                xp: actualXPChange, // Track actual XP change
-                eloChange: 0, // No Elo change for manual points
-                reason,
-                timestamp: serverTimestamp(),
-                awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
-            });
-
-            // XP history (only if XP changed)
-            if (actualXPChange !== 0) {
-                const xpHistoryColRef = collection(db, `users/${playerId}/xpHistory`);
-                transaction.set(doc(xpHistoryColRef), {
-                    xp: actualXPChange,
+            // Note: If partner system is enabled, this will be overwritten with partner info below
+            if (!hasPartnerSystem || !partnerId) {
+                const historyColRef = collection(db, `users/${playerId}/pointsHistory`);
+                transaction.set(doc(historyColRef), {
+                    points: actualPointsChange,
+                    xp: actualXPChange, // Track actual XP change
+                    eloChange: 0, // No Elo change for manual points
                     reason,
                     timestamp: serverTimestamp(),
                     awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
                 });
+
+                // XP history (only if XP changed)
+                if (actualXPChange !== 0) {
+                    const xpHistoryColRef = collection(db, `users/${playerId}/xpHistory`);
+                    transaction.set(doc(xpHistoryColRef), {
+                        xp: actualXPChange,
+                        reason,
+                        timestamp: serverTimestamp(),
+                        awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`
+                    });
+                }
             }
 
             if (challengeId) {
@@ -449,6 +480,82 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     }
                 }
             }
+
+            // Award points to partner if partner system is enabled
+            if (hasPartnerSystem && partnerId) {
+                const partnerDocRef = doc(db, 'users', partnerId);
+                const partnerDoc = await transaction.get(partnerDocRef);
+
+                if (partnerDoc.exists()) {
+                    const partnerData = partnerDoc.data();
+
+                    // Calculate partner points and XP (percentage of active player's points)
+                    const partnerPoints = Math.round(actualPointsChange * (partnerPercentage / 100));
+                    const partnerXP = Math.round(actualXPChange * (partnerPercentage / 100));
+
+                    // Get current values to ensure floors at 0
+                    const currentPartnerPoints = partnerData.points || 0;
+                    const currentPartnerXP = partnerData.xp || 0;
+
+                    // Calculate actual changes (can't go below 0) - assign to outer scope
+                    actualPartnerPointsChange = Math.max(-currentPartnerPoints, partnerPoints);
+                    actualPartnerXPChange = Math.max(-currentPartnerXP, partnerXP);
+                    partnerName = `${partnerData.firstName} ${partnerData.lastName}`;
+
+                    // Update partner document
+                    transaction.update(partnerDocRef, {
+                        points: increment(actualPartnerPointsChange),
+                        xp: increment(actualPartnerXPChange),
+                        lastXPUpdate: serverTimestamp()
+                    });
+
+                    // Get active player name for partner's history
+                    const activePlayerName = `${playerData.firstName} ${playerData.lastName}`;
+                    const partnerReason = `🤝 Partner: ${reason} (mit ${activePlayerName})`;
+
+                    // Partner points history
+                    const partnerHistoryColRef = collection(db, `users/${partnerId}/pointsHistory`);
+                    transaction.set(doc(partnerHistoryColRef), {
+                        points: actualPartnerPointsChange,
+                        xp: actualPartnerXPChange,
+                        eloChange: 0,
+                        reason: partnerReason,
+                        timestamp: serverTimestamp(),
+                        awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                        isPartner: true,
+                        partnerId: playerId
+                    });
+
+                    // Partner XP history (only if XP changed)
+                    if (actualPartnerXPChange !== 0) {
+                        const partnerXpHistoryColRef = collection(db, `users/${partnerId}/xpHistory`);
+                        transaction.set(doc(partnerXpHistoryColRef), {
+                            xp: actualPartnerXPChange,
+                            reason: partnerReason,
+                            timestamp: serverTimestamp(),
+                            awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                            isPartner: true,
+                            partnerId: playerId
+                        });
+                    }
+
+                    // Also update active player's history to include partner info
+                    const playerHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                    const activeReason = `💪 ${reason} (Partner: ${partnerName})`;
+
+                    // Update the player's history entry with partner info
+                    transaction.set(playerHistoryRef, {
+                        points: actualPointsChange,
+                        xp: actualXPChange,
+                        eloChange: 0,
+                        reason: activeReason,
+                        timestamp: serverTimestamp(),
+                        awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                        isActivePlayer: true,
+                        partnerId: partnerId
+                    });
+                }
+            }
         });
 
         // Build feedback message
@@ -459,6 +566,16 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         if (actualXPChange !== actualPointsChange) {
             const xpSign = actualXPChange >= 0 ? '+' : '';
             feedbackText += ` (${xpSign}${actualXPChange} XP)`;
+        }
+
+        // Add partner info if partner system was used
+        if (hasPartnerSystem && partnerId && partnerName) {
+            const partnerSign = actualPartnerPointsChange >= 0 ? '+' : '';
+            feedbackText += ` | Partner ${partnerName}: ${partnerSign}${actualPartnerPointsChange} Punkte`;
+            if (actualPartnerXPChange !== actualPartnerPointsChange) {
+                const partnerXpSign = actualPartnerXPChange >= 0 ? '+' : '';
+                feedbackText += ` (${partnerXpSign}${actualPartnerXPChange} XP)`;
+            }
         }
 
         feedbackText += grundlagenMessage;
@@ -534,8 +651,9 @@ export function setupMilestoneSelectors(db) {
     const exerciseSelect = document.getElementById('exercise-select');
     const challengeSelect = document.getElementById('challenge-select');
     const playerSelect = document.getElementById('player-select');
+    const partnerSelect = document.getElementById('partner-select');
 
-    console.log('Selectors found:', { exerciseSelect: !!exerciseSelect, challengeSelect: !!challengeSelect, playerSelect: !!playerSelect });
+    console.log('Selectors found:', { exerciseSelect: !!exerciseSelect, challengeSelect: !!challengeSelect, playerSelect: !!playerSelect, partnerSelect: !!partnerSelect });
 
     if (exerciseSelect) {
         exerciseSelect.addEventListener('change', () => {
@@ -552,12 +670,33 @@ export function setupMilestoneSelectors(db) {
     }
 
     if (playerSelect) {
-        // Reload milestone progress when player changes
+        // Reload milestone progress and partner list when player changes
         playerSelect.addEventListener('change', () => {
             const reasonType = document.getElementById('reason-select').value;
             console.log('Player changed, reason type:', reasonType);
+
+            // Update active player name in partner info
+            const activePlayerName = document.getElementById('active-player-name');
+            if (activePlayerName) {
+                activePlayerName.textContent = playerSelect.value ?
+                    playerSelect.options[playerSelect.selectedIndex].text :
+                    '-';
+            }
+
             if (reasonType === 'exercise' || reasonType === 'challenge') {
                 handleExerciseChallengeChange(db, reasonType);
+            }
+        });
+    }
+
+    if (partnerSelect) {
+        // Update passive player name when partner changes
+        partnerSelect.addEventListener('change', () => {
+            const passivePlayerName = document.getElementById('passive-player-name');
+            if (passivePlayerName) {
+                passivePlayerName.textContent = partnerSelect.value ?
+                    partnerSelect.options[partnerSelect.selectedIndex].text :
+                    '-';
             }
         });
     }
@@ -597,61 +736,98 @@ async function handleExerciseChallengeChange(db, type) {
         milestonesData: selectedOption?.dataset.milestones
     });
 
+    // Handle milestones
     if (!hasMilestones || !selectedOption.value) {
-        console.log('❌ No milestones or no value, hiding container');
+        console.log('❌ No milestones or no value, hiding milestone container');
         milestoneContainer.classList.add('hidden');
+    } else {
+
+        console.log('✅ Has milestones, showing container');
+        // Show milestone container
+        milestoneContainer.classList.remove('hidden');
+
+        // Parse milestones
+        const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
+        const itemId = selectedOption.value;
+
+        console.log('Milestones:', milestones);
+
+        // Get player ID (may be null)
+        const playerId = playerSelect?.value;
+        console.log('Player ID:', playerId);
+
+        // Get player's current progress (only if player is selected)
+        let playerProgress = { currentCount: 0 };
+        if (playerId) {
+            const collectionName = type === 'exercise' ? 'exerciseMilestones' : 'challengeMilestones';
+            playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId);
+            console.log('Player progress:', playerProgress);
+        } else {
+            console.log('⚠️ No player selected yet, showing milestones without progress');
+        }
+
+        // Populate milestone dropdown
+        milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
+
+        milestones.forEach((milestone, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            const isCompleted = playerId && playerProgress.currentCount >= milestone.count;
+            const status = isCompleted ? '✅' : '';
+            option.textContent = `${milestone.count}× erreicht → ${milestone.points} P. ${status}`;
+            option.dataset.count = milestone.count;
+            option.dataset.points = milestone.points;
+            option.dataset.isCompleted = isCompleted;
+
+            // Calculate cumulative points up to this milestone
+            let cumulativePoints = 0;
+            for (let i = 0; i <= index; i++) {
+                cumulativePoints += milestones[i].points;
+            }
+            option.dataset.cumulativePoints = cumulativePoints;
+
+            milestoneSelect.appendChild(option);
+        });
+
+        // Update progress display
+        updateMilestoneProgressDisplay(playerProgress, milestones);
+    }
+
+    // Handle partner system
+    const partnerContainer = document.getElementById('partner-select-container');
+    if (!partnerContainer) return;
+
+    const hasPartnerSystem = selectedOption?.dataset.hasPartnerSystem === 'true';
+    const partnerPercentage = parseInt(selectedOption?.dataset.partnerPercentage) || 50;
+
+    if (!hasPartnerSystem || !selectedOption.value) {
+        console.log('❌ No partner system, hiding partner container');
+        partnerContainer.classList.add('hidden');
         return;
     }
 
-    console.log('✅ Has milestones, showing container');
-    // Show milestone container
-    milestoneContainer.classList.remove('hidden');
+    console.log('✅ Has partner system, showing container');
+    // Show partner container
+    partnerContainer.classList.remove('hidden');
 
-    // Parse milestones
-    const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
-    const itemId = selectedOption.value;
-
-    console.log('Milestones:', milestones);
-
-    // Get player ID (may be null)
-    const playerId = playerSelect?.value;
-    console.log('Player ID:', playerId);
-
-    // Get player's current progress (only if player is selected)
-    let playerProgress = { currentCount: 0 };
-    if (playerId) {
-        const collectionName = type === 'exercise' ? 'exerciseMilestones' : 'challengeMilestones';
-        playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId);
-        console.log('Player progress:', playerProgress);
-    } else {
-        console.log('⚠️ No player selected yet, showing milestones without progress');
+    // Update percentage display
+    const percentageDisplay = document.getElementById('partner-percentage');
+    if (percentageDisplay) {
+        percentageDisplay.textContent = partnerPercentage;
     }
 
-    // Populate milestone dropdown
-    milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
+    // Update active player name
+    const playerId = playerSelect?.value;
+    const activePlayerName = document.getElementById('active-player-name');
+    if (activePlayerName) {
+        const activePlayerText = playerId ?
+            playerSelect.options[playerSelect.selectedIndex].text :
+            '-';
+        activePlayerName.textContent = activePlayerText;
+    }
 
-    milestones.forEach((milestone, index) => {
-        const option = document.createElement('option');
-        option.value = index;
-        const isCompleted = playerId && playerProgress.currentCount >= milestone.count;
-        const status = isCompleted ? '✅' : '';
-        option.textContent = `${milestone.count}× erreicht → ${milestone.points} P. ${status}`;
-        option.dataset.count = milestone.count;
-        option.dataset.points = milestone.points;
-        option.dataset.isCompleted = isCompleted;
-
-        // Calculate cumulative points up to this milestone
-        let cumulativePoints = 0;
-        for (let i = 0; i <= index; i++) {
-            cumulativePoints += milestones[i].points;
-        }
-        option.dataset.cumulativePoints = cumulativePoints;
-
-        milestoneSelect.appendChild(option);
-    });
-
-    // Update progress display
-    updateMilestoneProgressDisplay(playerProgress, milestones);
+    // Populate partner dropdown with all players except the active player
+    await populatePartnerDropdown(db, playerId);
 }
 
 /**
@@ -714,5 +890,58 @@ function updateMilestoneProgressDisplay(progress, milestones) {
                 pointsText.textContent = `${cumulativePoints} P. (kumulativ)`;
             }
         });
+    }
+}
+
+/**
+ * Populates the partner dropdown with all players except the active player
+ * @param {Object} db - Firestore database instance
+ * @param {string} activePlayerId - ID of the active player to exclude
+ */
+async function populatePartnerDropdown(db, activePlayerId) {
+    const partnerSelect = document.getElementById('partner-select');
+    if (!partnerSelect) return;
+
+    // Clear existing options except the first one
+    partnerSelect.innerHTML = '<option value="">Partner wählen...</option>';
+
+    if (!activePlayerId) {
+        console.log('⚠️ No active player selected, partner dropdown empty');
+        return;
+    }
+
+    try {
+        // Get active player's club
+        const activePlayerDoc = await getDoc(doc(db, 'users', activePlayerId));
+        if (!activePlayerDoc.exists()) {
+            console.error('Active player document not found');
+            return;
+        }
+
+        const clubId = activePlayerDoc.data().clubId;
+
+        // Query all players from the same club
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'player')
+        );
+
+        const playersSnapshot = await getDocs(playersQuery);
+
+        playersSnapshot.forEach(doc => {
+            // Exclude the active player
+            if (doc.id === activePlayerId) return;
+
+            const player = doc.data();
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = `${player.firstName} ${player.lastName}`;
+            partnerSelect.appendChild(option);
+        });
+
+        console.log(`✅ Partner dropdown populated with ${playersSnapshot.size - 1} players`);
+    } catch (error) {
+        console.error('Error populating partner dropdown:', error);
     }
 }
