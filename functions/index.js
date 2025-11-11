@@ -1692,10 +1692,150 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
 );
 
 // ========================================================================
-// ===== TODO: Email Notifications =====
+// ===== EMAIL NOTIFICATIONS =====
+// ========================================================================
+
+const nodemailer = require("nodemailer");
+
+/**
+ * Sends email notification to coaches when a doubles match request is pending
+ * Triggered when doublesMatchRequests document status changes to 'pending_coach'
+ */
+exports.notifyCoachesDoublesRequest = onDocumentWritten(
+  {
+    region: CONFIG.REGION,
+    document: "doublesMatchRequests/{requestId}",
+  },
+  async (event) => {
+    try {
+      const afterData = event.data?.after?.data();
+      const beforeData = event.data?.before?.data();
+
+      // Only proceed if status changed to 'pending_coach'
+      if (
+        !afterData ||
+        afterData.status !== "pending_coach" ||
+        (beforeData && beforeData.status === "pending_coach")
+      ) {
+        return null;
+      }
+
+      logger.info(`📧 Sending coach notification for doubles request ${event.params.requestId}`);
+
+      const clubId = afterData.clubId;
+
+      // Get all coaches in the club
+      const coachesSnapshot = await db
+        .collection("users")
+        .where("clubId", "==", clubId)
+        .where("role", "in", ["coach", "admin"])
+        .get();
+
+      if (coachesSnapshot.empty) {
+        logger.warn(`⚠️ No coaches found for club ${clubId}`);
+        return null;
+      }
+
+      // Fetch player names
+      const [teamAPlayer1Doc, teamAPlayer2Doc, teamBPlayer1Doc, teamBPlayer2Doc] =
+        await Promise.all([
+          db.collection("users").doc(afterData.teamA.player1Id).get(),
+          db.collection("users").doc(afterData.teamA.player2Id).get(),
+          db.collection("users").doc(afterData.teamB.player1Id).get(),
+          db.collection("users").doc(afterData.teamB.player2Id).get(),
+        ]);
+
+      const teamAPlayer1 = teamAPlayer1Doc.data();
+      const teamAPlayer2 = teamAPlayer2Doc.data();
+      const teamBPlayer1 = teamBPlayer1Doc.data();
+      const teamBPlayer2 = teamBPlayer2Doc.data();
+
+      // Format team names
+      const teamANames = `${teamAPlayer1?.firstName || "?"} ${teamAPlayer1?.lastName || "?"} & ${teamAPlayer2?.firstName || "?"} ${teamAPlayer2?.lastName || "?"}`;
+      const teamBNames = `${teamBPlayer1?.firstName || "?"} ${teamBPlayer1?.lastName || "?"} & ${teamBPlayer2?.firstName || "?"} ${teamBPlayer2?.lastName || "?"}`;
+
+      // Format sets
+      const setsStr = afterData.sets
+        .map((s) => `${s.teamA}:${s.teamB}`)
+        .join(", ");
+
+      // Note: Email sending requires SMTP configuration
+      // This is a template - you need to configure your email service
+      // For production, set up Firebase environment config:
+      // firebase functions:config:set gmail.email="your-email@gmail.com" gmail.password="your-app-password"
+
+      const transporter = nodemailer.createTransporter({
+        service: "gmail",
+        auth: {
+          user: process.env.GMAIL_EMAIL || functions.config().gmail?.email,
+          pass: process.env.GMAIL_PASSWORD || functions.config().gmail?.password,
+        },
+      });
+
+      // Send email to each coach
+      const emailPromises = coachesSnapshot.docs.map(async (coachDoc) => {
+        const coach = coachDoc.data();
+        if (!coach.email) {
+          logger.warn(`⚠️ Coach ${coachDoc.id} has no email address`);
+          return null;
+        }
+
+        const mailOptions = {
+          from: process.env.GMAIL_EMAIL || functions.config().gmail?.email,
+          to: coach.email,
+          subject: "🎾 Neue Doppel-Match Anfrage wartet auf Genehmigung",
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #4f46e5;">Neue Doppel-Match Anfrage</h2>
+              <p>Hallo ${coach.firstName || "Coach"},</p>
+              <p>Es wartet eine neue Doppel-Match Anfrage auf deine Genehmigung:</p>
+
+              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Team A:</strong> ${teamANames}</p>
+                <p style="margin: 5px 0;"><strong>Team B:</strong> ${teamBNames}</p>
+                <p style="margin: 5px 0;"><strong>Ergebnis:</strong> ${setsStr}</p>
+                <p style="margin: 5px 0;"><strong>Gewinner:</strong> Team ${afterData.winningTeam}</p>
+              </div>
+
+              <p>Bitte logge dich in die TTV Champions App ein um die Anfrage zu genehmigen oder abzulehnen.</p>
+
+              <p style="margin-top: 30px; color: #6b7280; font-size: 12px;">
+                Diese E-Mail wurde automatisch generiert. Bitte nicht antworten.
+              </p>
+            </div>
+          `,
+        };
+
+        try {
+          await transporter.sendMail(mailOptions);
+          logger.info(`✅ Email sent to coach ${coach.email}`);
+          return {success: true, email: coach.email};
+        } catch (error) {
+          logger.error(`❌ Failed to send email to ${coach.email}:`, error);
+          return {success: false, email: coach.email, error: error.message};
+        }
+      });
+
+      const results = await Promise.all(emailPromises);
+      const successCount = results.filter((r) => r?.success).length;
+
+      logger.info(
+        `📧 Email notification complete: ${successCount}/${coachesSnapshot.size} coaches notified`
+      );
+
+      return {success: true, notified: successCount};
+    } catch (error) {
+      logger.error("💥 Error in notifyCoachesDoublesRequest:", error);
+      return {success: false, error: error.message};
+    }
+  }
+);
+
+// ========================================================================
+// ===== TODO: Additional Email Notifications =====
 // ========================================================================
 // Future enhancement: Send email notifications when:
-// 1. Match request created → notify playerB
-// 2. PlayerB approves → notify coach
+// 1. Match request created → notify playerB (Singles)
+// 2. PlayerB approves → notify coach (Singles)
 // 3. Coach approves/rejects → notify both players
 // 4. PlayerB rejects → notify playerA
