@@ -7,7 +7,7 @@ import { getFunctions, connectFunctionsEmulator } from "https://www.gstatic.com/
 import { firebaseConfig } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
-import { initializeExerciseMilestones, getExerciseMilestones, isExerciseTieredPointsEnabled } from './milestone-management.js';
+import { initializeExerciseMilestones, getExerciseMilestones, isExerciseTieredPointsEnabled, initializeExercisePartnerSystem, getExercisePartnerSettings } from './milestone-management.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -134,6 +134,9 @@ function initializeAdminPage(userData, user) {
 
         // Initialize milestone management
         initializeExerciseMilestones();
+
+        // Initialize partner system
+        initializeExercisePartnerSystem();
 
         // Modal Listeners
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
