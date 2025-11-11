@@ -1,4 +1,4 @@
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { renderTableForDisplay } from './tableEditor.js';
 
@@ -6,6 +6,57 @@ import { renderTableForDisplay } from './tableEditor.js';
  * Exercises Module
  * Handles exercise display, creation, and management for both dashboard and coach
  */
+
+// Module-level context for player progress
+let exerciseContext = {
+    db: null,
+    userId: null,
+    userRole: null
+};
+
+/**
+ * Sets the context for exercise progress tracking
+ * @param {Object} db - Firestore database instance
+ * @param {string} userId - Current user ID
+ * @param {string} userRole - Current user role (player, coach, admin)
+ */
+export function setExerciseContext(db, userId, userRole) {
+    exerciseContext.db = db;
+    exerciseContext.userId = userId;
+    exerciseContext.userRole = userRole;
+}
+
+/**
+ * Calculates the current season start and end dates
+ * Season runs from November 1st to October 31st of the following year
+ * @returns {Object} Object with seasonStart and seasonEnd Date objects
+ */
+function getCurrentSeason() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-11
+
+    // If we're in Nov or Dec, season started this year
+    // Otherwise, season started last year
+    const seasonStartYear = currentMonth >= 10 ? currentYear : currentYear - 1;
+
+    const seasonStart = new Date(seasonStartYear, 10, 1); // November 1st
+    const seasonEnd = new Date(seasonStartYear + 1, 10, 31, 23, 59, 59); // October 31st next year
+
+    return { seasonStart, seasonEnd };
+}
+
+/**
+ * Formats a date as German date string
+ * @param {Date} date - Date to format
+ * @returns {string} Formatted date string (DD.MM.YYYY)
+ */
+function formatGermanDate(date) {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+}
 
 /**
  * Loads exercises for the dashboard with tag filtering
@@ -32,6 +83,7 @@ export function loadExercises(db, unsubscribes) {
             const exercise = doc.data();
             const card = document.createElement('div');
             card.className = 'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300';
+            card.dataset.id = doc.id; // Add exercise ID for progress tracking
             card.dataset.title = exercise.title;
             // Support both old and new format
             if (exercise.descriptionContent) {
@@ -382,13 +434,14 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { title, descriptionContent, imageUrl, points, tags, tieredPoints } = card.dataset;
-        openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints);
+        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = card.dataset;
+        openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
     }
 }
 
 /**
  * Opens the exercise modal with exercise details
+ * @param {string} exerciseId - Exercise ID for progress tracking
  * @param {string} title - Exercise title
  * @param {string} descriptionContent - Exercise description content (JSON string)
  * @param {string} imageUrl - Exercise image URL
@@ -396,7 +449,7 @@ export function handleExerciseClick(event) {
  * @param {string} tags - Exercise tags (JSON string)
  * @param {string} tieredPoints - Tiered points data (JSON string, optional)
  */
-export function openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints) {
+export async function openExerciseModal(exerciseId, title, descriptionContent, imageUrl, points, tags, tieredPoints) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
 
@@ -438,23 +491,106 @@ export function openExerciseModal(title, descriptionContent, imageUrl, points, t
 
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
 
+    // Load player progress if player role and milestones are enabled
+    let playerProgress = null;
+    if (hasTieredPoints && exerciseContext.userRole === 'player' && exerciseContext.db && exerciseContext.userId && exerciseId) {
+        try {
+            const progressRef = doc(exerciseContext.db, `users/${exerciseContext.userId}/exerciseMilestones`, exerciseId);
+            const progressSnap = await getDoc(progressRef);
+            if (progressSnap.exists()) {
+                playerProgress = progressSnap.data();
+            }
+        } catch (error) {
+            console.log('Could not load player progress:', error);
+        }
+    }
+
+    const currentCount = playerProgress?.currentCount || 0;
+    const { seasonEnd } = getCurrentSeason();
+
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
 
         // Display milestones if container exists
         if (milestonesContainer) {
+            // Show player progress for players
+            let progressHtml = '';
+            if (exerciseContext.userRole === 'player') {
+                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
+                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+
+                progressHtml = `
+                    <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">📈</span>
+                            <span class="font-bold text-gray-800">Dein Fortschritt</span>
+                        </div>
+                        <p class="text-base text-gray-700 mb-2">
+                            Du hast diese Übung bereits <span class="font-bold text-blue-600">${currentCount}×</span> abgeschlossen
+                        </p>
+                        ${nextMilestone ? `
+                            <p class="text-sm text-gray-600">
+                                Noch <span class="font-semibold text-orange-600">${remaining}×</span> bis zum nächsten Meilenstein
+                            </p>
+                        ` : `
+                            <p class="text-sm text-green-600 font-semibold">
+                                ✓ Alle Meilensteine erreicht!
+                            </p>
+                        `}
+                        <p class="text-xs text-gray-500 mt-2">
+                            🔄 Fortschritt wird am ${formatGermanDate(seasonEnd)} zurückgesetzt
+                        </p>
+                    </div>
+                `;
+            }
+
             const milestonesHtml = tieredPointsData.milestones
                 .sort((a, b) => a.count - b.count)
                 .map((milestone, index) => {
                     const isFirst = index === 0;
                     const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
-                    return `<div class="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-2 border border-indigo-100">
+
+                    // Determine milestone status for players
+                    let bgColor, borderColor, iconColor, textColor, statusIcon;
+                    if (exerciseContext.userRole === 'player') {
+                        if (currentCount >= milestone.count) {
+                            // Achieved
+                            bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
+                            borderColor = 'border-green-300';
+                            iconColor = 'text-green-600';
+                            textColor = 'text-green-700';
+                            statusIcon = '✓';
+                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
+                            // Next achievable
+                            bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
+                            borderColor = 'border-orange-300';
+                            iconColor = 'text-orange-600';
+                            textColor = 'text-orange-700';
+                            statusIcon = '🎯';
+                        } else {
+                            // Future
+                            bgColor = 'bg-gradient-to-r from-gray-50 to-slate-50';
+                            borderColor = 'border-gray-300';
+                            iconColor = 'text-gray-500';
+                            textColor = 'text-gray-600';
+                            statusIcon = '⚪';
+                        }
+                    } else {
+                        // Default for coach/admin
+                        bgColor = 'bg-gradient-to-r from-indigo-50 to-purple-50';
+                        borderColor = 'border-indigo-100';
+                        iconColor = 'text-indigo-600';
+                        textColor = 'text-gray-800';
+                        statusIcon = '🎯';
+                    }
+
+                    return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                         <div class="flex items-center gap-3">
-                            <span class="text-2xl">🎯</span>
-                            <span class="text-base font-semibold text-gray-800">${milestone.count}× abgeschlossen</span>
+                            <span class="text-2xl">${statusIcon}</span>
+                            <span class="text-base font-semibold ${textColor}">${milestone.count}× abgeschlossen</span>
                         </div>
                         <div class="text-right">
-                            <div class="text-xl font-bold text-indigo-600">${displayPoints} P.</div>
+                            <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
                             <div class="text-xs text-gray-500 font-medium">Gesamt: ${milestone.points} P.</div>
                         </div>
                     </div>`;
@@ -467,6 +603,7 @@ export function openExerciseModal(title, descriptionContent, imageUrl, points, t
                         <span class="text-2xl">📊</span>
                         <span>Meilensteine</span>
                     </h4>
+                    ${progressHtml}
                     ${milestonesHtml}
                 </div>`;
             milestonesContainer.classList.remove('hidden');
@@ -501,8 +638,8 @@ function escapeHtml(text) {
  * @param {Object} dataset - Dataset object containing exercise details
  */
 export function openExerciseModalFromDataset(dataset) {
-    const { title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
-    openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints);
+    const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
+    openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
 }
 
 /**
