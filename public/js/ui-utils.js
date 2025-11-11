@@ -13,7 +13,7 @@ function getFixedSeasonEnd() {
 
         // If stored date is in the past, create a new one
         if (storedDate <= now) {
-            const newEnd = new Date(now.getTime() + 5 * 60 * 1000);
+            const newEnd = new Date(now.getTime() + 2 * 60 * 1000); // ⚠️ 2 minutes for testing
             localStorage.setItem('TESTING_SEASON_END', newEnd.toISOString());
             console.log('⏰ Old season ended, new season end set to:', newEnd.toLocaleString('de-DE'));
             return newEnd;
@@ -22,7 +22,7 @@ function getFixedSeasonEnd() {
         console.log('🎯 Using stored season end:', storedDate.toLocaleString('de-DE'));
         return storedDate;
     } else {
-        const newEnd = new Date(now.getTime() + 5 * 60 * 1000);
+        const newEnd = new Date(now.getTime() + 2 * 60 * 1000); // ⚠️ 2 minutes for testing
         localStorage.setItem('TESTING_SEASON_END', newEnd.toISOString());
         console.log('🎯 New season end set to:', newEnd.toLocaleString('de-DE'));
         return newEnd;
