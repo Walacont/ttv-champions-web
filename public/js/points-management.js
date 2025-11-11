@@ -390,6 +390,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         let partnerName = ''; // For feedback
 
         await runTransaction(db, async (transaction) => {
+            // ===== PHASE 1: ALL READS FIRST =====
+            // Read player document
             const playerDocRef = doc(db, 'users', playerId);
             const playerDoc = await transaction.get(playerDocRef);
             if (!playerDoc.exists()) throw new Error("Spieler nicht gefunden.");
@@ -398,7 +400,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             let grundlagenCount = playerData.grundlagenCompleted || 0;
             let isGrundlagenExercise = false;
 
-            // Check if this is a "Grundlage" exercise (from exercise selection)
+            // Read exercise document if needed
             if (exerciseId) {
                 const exerciseRef = doc(db, 'exercises', exerciseId);
                 const exerciseDoc = await transaction.get(exerciseRef);
@@ -414,6 +416,19 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 isGrundlagenExercise = lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
             }
 
+            // Read partner document if partner system is enabled (MUST READ BEFORE ANY WRITES)
+            let partnerDoc = null;
+            let partnerDocRef = null;
+            let partnerData = null;
+            if (hasPartnerSystem && partnerId) {
+                partnerDocRef = doc(db, 'users', partnerId);
+                partnerDoc = await transaction.get(partnerDocRef);
+                if (partnerDoc.exists()) {
+                    partnerData = partnerDoc.data();
+                }
+            }
+
+            // ===== PHASE 2: CALCULATE ALL VALUES =====
             // Get current values to ensure floors at 0
             const currentPoints = playerData.points || 0;
             const currentXP = playerData.xp || 0;
@@ -422,7 +437,20 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             actualPointsChange = Math.max(-currentPoints, points);
             actualXPChange = Math.max(-currentXP, xpChange);
 
-            // Prepare update object
+            // Calculate partner values if applicable
+            if (partnerData) {
+                const partnerPoints = Math.round(actualPointsChange * (partnerPercentage / 100));
+                const partnerXP = Math.round(actualXPChange * (partnerPercentage / 100));
+
+                const currentPartnerPoints = partnerData.points || 0;
+                const currentPartnerXP = partnerData.xp || 0;
+
+                actualPartnerPointsChange = Math.max(-currentPartnerPoints, partnerPoints);
+                actualPartnerXPChange = Math.max(-currentPartnerXP, partnerXP);
+                partnerName = `${partnerData.firstName} ${partnerData.lastName}`;
+            }
+
+            // Prepare update object for player
             const updateData = {
                 points: increment(actualPointsChange),
                 xp: increment(actualXPChange),
@@ -444,6 +472,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
+            // ===== PHASE 3: ALL WRITES =====
             // Update player document
             transaction.update(playerDocRef, updateData);
 
@@ -516,79 +545,59 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             }
 
             // Award points to partner if partner system is enabled
-            if (hasPartnerSystem && partnerId) {
-                const partnerDocRef = doc(db, 'users', partnerId);
-                const partnerDoc = await transaction.get(partnerDocRef);
+            if (partnerData && partnerDocRef) {
+                // Update partner document
+                transaction.update(partnerDocRef, {
+                    points: increment(actualPartnerPointsChange),
+                    xp: increment(actualPartnerXPChange),
+                    lastXPUpdate: serverTimestamp()
+                });
 
-                if (partnerDoc.exists()) {
-                    const partnerData = partnerDoc.data();
+                // Get active player name for partner's history
+                const activePlayerName = `${playerData.firstName} ${playerData.lastName}`;
+                const partnerReason = `🤝 Partner: ${reason} (mit ${activePlayerName})`;
 
-                    // Calculate partner points and XP (percentage of active player's points)
-                    const partnerPoints = Math.round(actualPointsChange * (partnerPercentage / 100));
-                    const partnerXP = Math.round(actualXPChange * (partnerPercentage / 100));
+                // Partner points history
+                const partnerHistoryColRef = collection(db, `users/${partnerId}/pointsHistory`);
+                transaction.set(doc(partnerHistoryColRef), {
+                    points: actualPartnerPointsChange,
+                    xp: actualPartnerXPChange,
+                    eloChange: 0,
+                    reason: partnerReason,
+                    timestamp: serverTimestamp(),
+                    awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                    isPartner: true,
+                    partnerId: playerId
+                });
 
-                    // Get current values to ensure floors at 0
-                    const currentPartnerPoints = partnerData.points || 0;
-                    const currentPartnerXP = partnerData.xp || 0;
-
-                    // Calculate actual changes (can't go below 0) - assign to outer scope
-                    actualPartnerPointsChange = Math.max(-currentPartnerPoints, partnerPoints);
-                    actualPartnerXPChange = Math.max(-currentPartnerXP, partnerXP);
-                    partnerName = `${partnerData.firstName} ${partnerData.lastName}`;
-
-                    // Update partner document
-                    transaction.update(partnerDocRef, {
-                        points: increment(actualPartnerPointsChange),
-                        xp: increment(actualPartnerXPChange),
-                        lastXPUpdate: serverTimestamp()
-                    });
-
-                    // Get active player name for partner's history
-                    const activePlayerName = `${playerData.firstName} ${playerData.lastName}`;
-                    const partnerReason = `🤝 Partner: ${reason} (mit ${activePlayerName})`;
-
-                    // Partner points history
-                    const partnerHistoryColRef = collection(db, `users/${partnerId}/pointsHistory`);
-                    transaction.set(doc(partnerHistoryColRef), {
-                        points: actualPartnerPointsChange,
+                // Partner XP history (only if XP changed)
+                if (actualPartnerXPChange !== 0) {
+                    const partnerXpHistoryColRef = collection(db, `users/${partnerId}/xpHistory`);
+                    transaction.set(doc(partnerXpHistoryColRef), {
                         xp: actualPartnerXPChange,
-                        eloChange: 0,
                         reason: partnerReason,
                         timestamp: serverTimestamp(),
                         awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
                         isPartner: true,
                         partnerId: playerId
                     });
-
-                    // Partner XP history (only if XP changed)
-                    if (actualPartnerXPChange !== 0) {
-                        const partnerXpHistoryColRef = collection(db, `users/${partnerId}/xpHistory`);
-                        transaction.set(doc(partnerXpHistoryColRef), {
-                            xp: actualPartnerXPChange,
-                            reason: partnerReason,
-                            timestamp: serverTimestamp(),
-                            awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
-                            isPartner: true,
-                            partnerId: playerId
-                        });
-                    }
-
-                    // Also update active player's history to include partner info
-                    const playerHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
-                    const activeReason = `💪 ${reason} (Partner: ${partnerName})`;
-
-                    // Update the player's history entry with partner info
-                    transaction.set(playerHistoryRef, {
-                        points: actualPointsChange,
-                        xp: actualXPChange,
-                        eloChange: 0,
-                        reason: activeReason,
-                        timestamp: serverTimestamp(),
-                        awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
-                        isActivePlayer: true,
-                        partnerId: partnerId
-                    });
                 }
+
+                // Also update active player's history to include partner info
+                const playerHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                const activeReason = `💪 ${reason} (Partner: ${partnerName})`;
+
+                // Update the player's history entry with partner info
+                transaction.set(playerHistoryRef, {
+                    points: actualPointsChange,
+                    xp: actualXPChange,
+                    eloChange: 0,
+                    reason: activeReason,
+                    timestamp: serverTimestamp(),
+                    awardedBy: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                    isActivePlayer: true,
+                    partnerId: partnerId
+                });
             }
         });
 
