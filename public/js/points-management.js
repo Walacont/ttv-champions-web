@@ -424,7 +424,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             // Read milestone progress documents (if milestones are being awarded)
             let exerciseMilestoneDoc = null;
             let challengeMilestoneDoc = null;
-            const currentSeasonKey = getCurrentSeasonKey();
+            const currentSeasonKey = await getCurrentSeasonKey(db);
 
             if (exerciseId && reasonType === 'exercise') {
                 const eOption = document.getElementById('exercise-select').options[document.getElementById('exercise-select').selectedIndex];
@@ -908,7 +908,7 @@ async function handleExerciseChallengeChange(db, type) {
         milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
 
         // Check if progress is from current season
-        const currentSeasonKey = getCurrentSeasonKey();
+        const currentSeasonKey = await getCurrentSeasonKey(db);
         const progressSeasonKey = playerProgress.lastSeasonUpdated || '';
         const isCurrentSeason = progressSeasonKey === currentSeasonKey;
         const currentCount = isCurrentSeason ? (playerProgress.currentCount || 0) : 0;
@@ -934,7 +934,7 @@ async function handleExerciseChallengeChange(db, type) {
         });
 
         // Update progress display
-        updateMilestoneProgressDisplay(playerProgress, milestones);
+        await updateMilestoneProgressDisplay(playerProgress, milestones, db);
     }
 
     // Handle partner system
@@ -1005,12 +1005,13 @@ async function getMilestoneProgress(db, playerId, collectionName, itemId) {
  * Updates the milestone progress display
  * @param {Object} progress - Player's progress
  * @param {Array} milestones - All milestones
+ * @param {Object} db - Firestore database instance
  */
-function updateMilestoneProgressDisplay(progress, milestones) {
+async function updateMilestoneProgressDisplay(progress, milestones, db) {
     const progressText = document.getElementById('milestone-progress-text');
 
     if (progressText) {
-        const currentSeasonKey = getCurrentSeasonKey();
+        const currentSeasonKey = await getCurrentSeasonKey(db);
         const progressSeasonKey = progress.lastSeasonUpdated || '';
 
         // Check if progress is from current season
@@ -1018,7 +1019,7 @@ function updateMilestoneProgressDisplay(progress, milestones) {
         const currentCount = isCurrentSeason ? (progress.currentCount || 0) : 0;
 
         // Add season info
-        const seasonEndDate = formatSeasonEndDate();
+        const seasonEndDate = await formatSeasonEndDate(db);
         const seasonInfo = `📅 Saison endet: ${seasonEndDate}`;
 
         const nextMilestone = milestones.find(m => m.count > currentCount);
@@ -1216,8 +1217,8 @@ async function showCompletionStatus(db, type, itemId, playerId) {
         const completionRef = doc(db, `users/${playerId}/${collectionName}`, itemId);
         const completionDoc = await getDoc(completionRef);
 
-        const currentSeasonKey = getCurrentSeasonKey();
-        const seasonEndDate = formatSeasonEndDate();
+        const currentSeasonKey = await getCurrentSeasonKey(db);
+        const seasonEndDate = await formatSeasonEndDate(db);
 
         if (completionDoc.exists()) {
             const data = completionDoc.data();
