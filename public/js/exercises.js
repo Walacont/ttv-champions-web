@@ -2,6 +2,7 @@ import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, g
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { renderTableForDisplay } from './tableEditor.js';
 import { getExercisePartnerSettings } from './milestone-management.js';
+import { formatSeasonEndDate } from './ui-utils.js';
 
 /**
  * Exercises Module
@@ -27,37 +28,7 @@ export function setExerciseContext(db, userId, userRole) {
     exerciseContext.userRole = userRole;
 }
 
-/**
- * Calculates the current season start and end dates
- * Season runs from November 1st to October 31st of the following year
- * @returns {Object} Object with seasonStart and seasonEnd Date objects
- */
-function getCurrentSeason() {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-11
-
-    // If we're in Nov or Dec, season started this year
-    // Otherwise, season started last year
-    const seasonStartYear = currentMonth >= 10 ? currentYear : currentYear - 1;
-
-    const seasonStart = new Date(seasonStartYear, 10, 1); // November 1st
-    const seasonEnd = new Date(seasonStartYear + 1, 10, 31, 23, 59, 59); // October 31st next year
-
-    return { seasonStart, seasonEnd };
-}
-
-/**
- * Formats a date as German date string
- * @param {Date} date - Date to format
- * @returns {string} Formatted date string (DD.MM.YYYY)
- */
-function formatGermanDate(date) {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
-}
+// Season management functions removed - now using ui-utils.js functions
 
 /**
  * Loads exercises for the dashboard with tag filtering
@@ -514,7 +485,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     }
 
     const currentCount = playerProgress?.currentCount || 0;
-    const { seasonEnd } = getCurrentSeason();
+    const seasonEndDate = formatSeasonEndDate(); // Use countdown logic
 
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
@@ -546,7 +517,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                             </p>
                         `}
                         <p class="text-xs text-gray-500 mt-2">
-                            🔄 Rekord wird am ${formatGermanDate(seasonEnd)} zurückgesetzt
+                            🔄 Rekord wird am ${seasonEndDate} zurückgesetzt
                         </p>
                     </div>
                 `;
