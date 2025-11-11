@@ -107,6 +107,18 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
         allow read, write: if isCoachOrAdmin();
       }
+
+      // Subcollection: exerciseMilestones (tracks completion count per exercise)
+      match /exerciseMilestones/{exerciseId} {
+        allow read: if isOwner(userId);
+        allow read, write: if isCoachOrAdmin();
+      }
+
+      // Subcollection: challengeMilestones (tracks completion count per challenge)
+      match /challengeMilestones/{challengeId} {
+        allow read: if isOwner(userId);
+        allow read, write: if isCoachOrAdmin();
+      }
     }
 
     // Clubs collection
