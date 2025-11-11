@@ -326,6 +326,73 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Doubles Matches collection
+    match /doublesMatches/{matchId} {
+      // Players can read matches in their club
+      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+
+      // Coaches can create matches in their club
+      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+
+      // Only coaches can update/delete matches
+      allow update, delete: if isCoachOfClub(resource.data.clubId);
+    }
+
+    // Doubles Match Requests collection (Player-initiated doubles matches)
+    match /doublesMatchRequests/{requestId} {
+      // Players can read requests they're involved in (initiator, partner, or opponent)
+      // Coaches can read all requests in their club
+      allow read: if isAuthenticated() && (
+        resource.data.initiatedBy == request.auth.uid ||
+        resource.data.teamA.player1Id == request.auth.uid ||
+        resource.data.teamA.player2Id == request.auth.uid ||
+        resource.data.teamB.player1Id == request.auth.uid ||
+        resource.data.teamB.player2Id == request.auth.uid ||
+        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+      );
+
+      // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)
+      // All 4 players must be match-ready
+      allow create: if isAuthenticated() &&
+        request.resource.data.initiatedBy == request.auth.uid &&
+        isSameClub(request.resource.data.clubId) &&
+        request.resource.data.status == 'pending_opponent' &&
+        request.resource.data.keys().hasAll(['teamA', 'teamB', 'winningTeam', 'clubId', 'status', 'sets', 'initiatedBy']) &&
+        playerIsMatchReady(request.resource.data.teamA.player1Id) &&
+        playerIsMatchReady(request.resource.data.teamA.player2Id) &&
+        playerIsMatchReady(request.resource.data.teamB.player1Id) &&
+        playerIsMatchReady(request.resource.data.teamB.player2Id);
+
+      // Opponents can update (approve/reject) if they are one of the opponents and status is pending_opponent
+      allow update: if isAuthenticated() &&
+        (resource.data.teamB.player1Id == request.auth.uid ||
+         resource.data.teamB.player2Id == request.auth.uid) &&
+        resource.data.status == 'pending_opponent';
+
+      // Coach can update (approve/reject) if pending_coach and same club
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending_coach';
+
+      // Initiator can delete their own request if nobody has responded yet
+      allow delete: if isAuthenticated() &&
+        resource.data.initiatedBy == request.auth.uid &&
+        resource.data.status == 'pending_opponent';
+
+      // Coaches can delete any request in their club
+      allow delete: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId);
+    }
+
+    // Doubles Pairings collection (Team statistics for leaderboard)
+    match /doublesPairings/{pairingId} {
+      // All authenticated players can read pairings in their club
+      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+
+      // Only Cloud Functions can write (computed/aggregate data)
+      allow write: if false;
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;
