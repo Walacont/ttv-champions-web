@@ -3,6 +3,9 @@
  * Common UI utility functions for tabs and countdown timers
  */
 
+// ⚠️ TESTING MODE: Fixed season end time (set once on page load)
+let FIXED_SEASON_END = null;
+
 /**
  * Sets up tab navigation for both dashboard and coach views
  * @param {string} defaultTab - The default tab to show (e.g., 'overview', 'dashboard')
@@ -48,8 +51,12 @@ export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEn
     const now = new Date();
     let endOfSeason;
 
-    // ⚠️ TESTING MODE: Season ends in 5 minutes
-    endOfSeason = new Date(now.getTime() + 5 * 60 * 1000);
+    // ⚠️ TESTING MODE: Set fixed season end time (once per page load)
+    if (!FIXED_SEASON_END) {
+        FIXED_SEASON_END = new Date(now.getTime() + 5 * 60 * 1000);
+        console.log('🎯 Fixed season end set to:', FIXED_SEASON_END.toLocaleString('de-DE'));
+    }
+    endOfSeason = FIXED_SEASON_END;
 
     // ORIGINAL LOGIC (uncomment to restore):
     // if (now.getDate() < 15) {
@@ -85,8 +92,12 @@ export function getSeasonEndDate() {
     const now = new Date();
     let endOfSeason;
 
-    // ⚠️ TESTING MODE: Season ends in 5 minutes
-    endOfSeason = new Date(now.getTime() + 5 * 60 * 1000);
+    // ⚠️ TESTING MODE: Use fixed season end time (same as countdown)
+    if (!FIXED_SEASON_END) {
+        FIXED_SEASON_END = new Date(now.getTime() + 5 * 60 * 1000);
+        console.log('🎯 Fixed season end set to:', FIXED_SEASON_END.toLocaleString('de-DE'));
+    }
+    endOfSeason = FIXED_SEASON_END;
 
     // ORIGINAL LOGIC (uncomment to restore):
     // if (now.getDate() < 15) {
