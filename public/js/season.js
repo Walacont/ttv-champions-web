@@ -55,10 +55,11 @@ export async function handleSeasonReset(userId, userData, db) {
         return;
     }
 
-    // ⚠️ TESTING MODE: Reset if more than 5 minutes have passed since last reset
+    // ⚠️ TESTING MODE: Reset if more than 5 minutes have passed OR if countdown triggered
     const timeSinceLastReset = now - lastReset;
     const fiveMinutesInMs = 5 * 60 * 1000;
-    const needsReset = timeSinceLastReset >= fiveMinutesInMs;
+    const countdownTriggered = localStorage.getItem('SEASON_RESET_TRIGGERED') === 'true';
+    const needsReset = timeSinceLastReset >= fiveMinutesInMs || countdownTriggered;
 
     // ORIGINAL LOGIC (restore after testing):
     // const lastResetDay = lastReset.getDate();
@@ -76,10 +77,17 @@ export async function handleSeasonReset(userId, userData, db) {
         lastReset: lastReset.toLocaleString('de-DE'),
         now: now.toLocaleString('de-DE'),
         timeSinceLastReset: Math.floor(timeSinceLastReset / 1000) + 's',
+        countdownTriggered,
         needsReset
     });
 
     if (!needsReset) return;
+
+    // Clear the trigger flag after detecting it
+    if (countdownTriggered) {
+        localStorage.removeItem('SEASON_RESET_TRIGGERED');
+        console.log('🗑️ Cleared SEASON_RESET_TRIGGERED flag');
+    }
 
     const loaderText = document.getElementById('loader-text');
     const pageLoader = document.getElementById('page-loader');
