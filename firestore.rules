@@ -317,6 +317,15 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // Config collection (for season reset tracking, etc.)
+    match /config/{configId} {
+      // Everyone can read config documents (e.g., season end date for countdown)
+      allow read: if isAuthenticated();
+
+      // Only Cloud Functions can write (no frontend writes)
+      allow write: if false;
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;
