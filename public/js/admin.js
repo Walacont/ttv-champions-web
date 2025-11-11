@@ -559,20 +559,41 @@ async function handleCreateExercise(e) {
     const submitBtn = document.getElementById('create-exercise-submit');
     const title = document.getElementById('exercise-title').value;
     const descriptionContent = descriptionEditor.getContent();
-    const points = parseInt(document.getElementById('exercise-points').value);
     const file = document.getElementById('exercise-image').files[0];
     const tagsInput = document.getElementById('exercise-tags').value;
     const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
 
-    // Get milestone data
+    // Get milestone data and calculate points
     const tieredPoints = isExerciseTieredPointsEnabled();
     const milestones = tieredPoints ? getExerciseMilestones() : [];
+
+    let points = 0;
+    if (tieredPoints) {
+        if (milestones.length === 0) {
+            feedbackEl.textContent = 'Bitte mindestens einen Meilenstein hinzufügen.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Übung speichern';
+            return;
+        }
+        // Total points is sum of all milestones
+        points = milestones.reduce((sum, m) => sum + m.points, 0);
+    } else {
+        points = parseInt(document.getElementById('exercise-points').value);
+        if (isNaN(points) || points <= 0) {
+            feedbackEl.textContent = 'Bitte gültige Punkte angeben.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Übung speichern';
+            return;
+        }
+    }
 
     feedbackEl.textContent = '';
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !file || isNaN(points) || points <= 0) {
+    if (!title || !file) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
@@ -594,10 +615,31 @@ async function handleCreateExercise(e) {
             tags
         };
 
-        // Add milestone data if tiered points are enabled
-        if (tieredPoints) {
-            exerciseData.tieredPoints = true;
-            exerciseData.milestones = milestones;
+        // Add tieredPoints if enabled
+        if (tieredPoints && milestones) {
+            exerciseData.tieredPoints = {
+                enabled: true,
+                milestones: milestones
+            };
+        } else {
+            exerciseData.tieredPoints = {
+                enabled: false,
+                milestones: []
+            };
+        }
+
+        // Add partner system settings if enabled
+        const partnerSettings = getExercisePartnerSettings();
+        if (partnerSettings) {
+            exerciseData.partnerSystem = {
+                enabled: true,
+                partnerPercentage: partnerSettings.partnerPercentage
+            };
+        } else {
+            exerciseData.partnerSystem = {
+                enabled: false,
+                partnerPercentage: 50
+            };
         }
 
         await addDoc(collection(db, "exercises"), exerciseData);
@@ -605,6 +647,25 @@ async function handleCreateExercise(e) {
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         createExerciseForm.reset();
+
+        // Reset points field
+        document.getElementById('exercise-points').value = '';
+
+        // Reset milestones
+        document.getElementById('exercise-milestones-list').innerHTML = '';
+        document.getElementById('exercise-tiered-points-toggle').checked = false;
+        document.getElementById('exercise-points-container-admin').classList.remove('hidden');
+        document.getElementById('exercise-milestones-container').classList.add('hidden');
+
+        // Reset partner system
+        const partnerToggle = document.getElementById('exercise-partner-system-toggle');
+        const partnerContainer = document.getElementById('exercise-partner-container');
+        const partnerPercentageInput = document.getElementById('exercise-partner-percentage');
+        if (partnerToggle) partnerToggle.checked = false;
+        if (partnerContainer) partnerContainer.classList.add('hidden');
+        if (partnerPercentageInput) partnerPercentageInput.value = 50;
+
+        // Clear description editor
         descriptionEditor.clear();
 
     } catch (error) {

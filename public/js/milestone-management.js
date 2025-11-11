@@ -15,9 +15,11 @@ export function initializeExerciseMilestones() {
   const container = document.getElementById('exercise-milestones-container');
   const addBtn = document.getElementById('add-exercise-milestone-btn');
 
-  // Admin hints (only exist in admin.html)
-  const hintStandard = document.getElementById('exercise-points-hint-standard');
-  const hintMilestones = document.getElementById('exercise-points-hint-milestones');
+  // Points container (different IDs for admin vs coach)
+  const pointsContainer = document.getElementById('exercise-points-container-admin') ||
+                          document.getElementById('exercise-standard-points-container');
+  const pointsInput = document.getElementById('exercise-points') ||
+                      document.getElementById('exercise-points-form');
 
   if (!toggle || !container || !addBtn) return;
 
@@ -26,10 +28,12 @@ export function initializeExerciseMilestones() {
     if (toggle.checked) {
       container.classList.remove('hidden');
 
-      // Show admin hint (if elements exist)
-      if (hintStandard && hintMilestones) {
-        hintStandard.classList.add('hidden');
-        hintMilestones.classList.remove('hidden');
+      // Hide points container (for both admin and coach)
+      if (pointsContainer) {
+        pointsContainer.classList.add('hidden');
+      }
+      if (pointsInput) {
+        pointsInput.removeAttribute('required');
       }
 
       // Add initial milestone if none exist
@@ -40,10 +44,12 @@ export function initializeExerciseMilestones() {
     } else {
       container.classList.add('hidden');
 
-      // Show standard hint (if elements exist)
-      if (hintStandard && hintMilestones) {
-        hintStandard.classList.remove('hidden');
-        hintMilestones.classList.add('hidden');
+      // Show points container (for both admin and coach)
+      if (pointsContainer) {
+        pointsContainer.classList.remove('hidden');
+      }
+      if (pointsInput) {
+        pointsInput.setAttribute('required', 'required');
       }
 
       clearMilestones('exercise-milestones-list');
