@@ -7,12 +7,12 @@ import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://w
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML, setLeaderboardSubgroupFilter } from './leaderboard.js';
 import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleAttendanceSave, loadPlayersForAttendance, updateAttendanceCount, setAttendanceSubgroupFilter, openAttendanceModalForSession, getCurrentSessionId } from './attendance.js';
-import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations } from './challenges.js';
-import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation } from './exercises.js';
+import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations, setupChallengeMilestones } from './challenges.js';
+import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation, setupExerciseMilestones } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings, initializeHandicapToggle } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
-import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange } from './points-management.js';
+import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
@@ -20,9 +20,6 @@ import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleE
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
-import { populateMatchHistoryPlayerDropdown } from './coach-match-history.js';
-import { initializeExerciseMilestones, initializeChallengeMilestones, getExerciseMilestones, getChallengeMilestones, isExerciseTieredPointsEnabled, isChallengeTieredPointsEnabled } from './milestone-management.js';
-import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -49,8 +46,7 @@ let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
 let currentSubgroupFilter = 'all';
-let calendarUnsubscribe = null;
-let descriptionEditor = null; 
+let calendarUnsubscribe = null; 
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -200,7 +196,6 @@ async function initializeCoachPage(userData) {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateHistoryFilterDropdown(clubPlayers);
-        populateMatchHistoryPlayerDropdown(clubPlayers, db);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
 
@@ -279,30 +274,25 @@ async function initializeCoachPage(userData) {
     // Attendance Modal Listeners
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => document.getElementById('attendance-modal').classList.add('hidden'));
 
-    // Initialize description editor for exercise creation
-    descriptionEditor = setupDescriptionEditor({
-        textAreaId: 'exercise-description-form',
-        toggleContainerId: 'description-toggle-container-coach',
-        tableEditorContainerId: 'description-table-editor-coach'
-    });
-
     // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
-    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData, getChallengeMilestones, isChallengeTieredPointsEnabled));
+    document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
-    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage, descriptionEditor, getExerciseMilestones, isExerciseTieredPointsEnabled));
+    document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
     document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
 
     // Setup exercise points auto-calculation (based on level + difficulty)
     setupExercisePointsCalculation();
 
+    // Setup exercise milestones system
+    setupExerciseMilestones();
+
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
 
-    // Initialize milestone management for tiered points
-    initializeExerciseMilestones();
-    initializeChallengeMilestones();
+    // Setup challenge milestones system
+    setupChallengeMilestones();
 
     document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
     document.getElementById('edit-subgroup-form').addEventListener('submit', (e) => handleEditSubgroupSubmit(e, db));
@@ -311,6 +301,9 @@ async function initializeCoachPage(userData) {
 
     // Other UI Listeners
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
+
+    // Setup milestone selectors for exercise/challenge points awarding
+    setupMilestoneSelectors(db);
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
         const sessionId = getCurrentSessionId();
         handleGeneratePairings(clubPlayers, currentSubgroupFilter, sessionId);
@@ -318,6 +311,26 @@ async function initializeCoachPage(userData) {
     document.getElementById('close-pairings-modal-button').addEventListener('click', () => { document.getElementById('pairings-modal').classList.add('hidden'); });
     document.getElementById('exercises-list-coach').addEventListener('click', (e) => { const card = e.target.closest('[data-id]'); if(card) { openExerciseModalFromDataset(card.dataset); } });
     document.getElementById('close-exercise-modal-button').addEventListener('click', closeExerciseModal);
+
+    // Toggle abbreviations in exercise modal (Coach)
+    const toggleAbbreviationsCoach = document.getElementById('toggle-abbreviations-coach');
+    const abbreviationsContentCoach = document.getElementById('abbreviations-content-coach');
+    const abbreviationsIconCoach = document.getElementById('abbreviations-icon-coach');
+    if (toggleAbbreviationsCoach && abbreviationsContentCoach && abbreviationsIconCoach) {
+        toggleAbbreviationsCoach.addEventListener('click', () => {
+            const isHidden = abbreviationsContentCoach.classList.contains('hidden');
+            if (isHidden) {
+                abbreviationsContentCoach.classList.remove('hidden');
+                abbreviationsIconCoach.style.transform = 'rotate(180deg)';
+                toggleAbbreviationsCoach.innerHTML = '<svg id="abbreviations-icon-coach" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
+            } else {
+                abbreviationsContentCoach.classList.add('hidden');
+                abbreviationsIconCoach.style.transform = 'rotate(0deg)';
+                toggleAbbreviationsCoach.innerHTML = '<svg id="abbreviations-icon-coach" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
+            }
+        });
+    }
+
     document.getElementById('prev-month-btn').addEventListener('click', () => {
         currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
