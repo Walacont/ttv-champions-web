@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/fi
 import { getFirestore, doc, getDoc, collection, onSnapshot, query, where, orderBy, getDocs, updateDoc, writeBatch, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
-import { loadExercises, handleExerciseClick, closeExerciseModal } from './exercises.js';
+import { loadExercises, handleExerciseClick, closeExerciseModal, setExerciseContext } from './exercises.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
 import { loadOverviewData, loadRivalData, loadProfileData, updateRankDisplay, updateGrundlagenDisplay } from './profile.js';
@@ -111,6 +111,7 @@ async function initializeDashboard(userData) {
     }, currentDisplayDate, db);
 
     loadExercises(db, unsubscribes);
+    setExerciseContext(db, userData.id, userData.role);
 
     // Set leaderboard filter to 'all' for initial load (club view)
     import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
