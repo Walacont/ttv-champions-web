@@ -10,6 +10,8 @@ import { renderCalendar, fetchMonthlyAttendance, handleCalendarDayClick, handleA
 import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loadChallengesForDropdown, calculateExpiry, updateAllCountdowns, reactivateChallenge, endChallenge, deleteChallenge, populateSubgroupDropdown, setupChallengePointRecommendations, setupChallengeMilestones } from './challenges.js';
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation, setupExerciseMilestones } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings, initializeHandicapToggle } from './matches.js';
+import { initializeDoublesCoachUI, populateDoublesDropdowns, handleDoublesMatchSave, getCurrentMatchType, setDoublesSetScoreInput } from './doubles-coach-ui.js';
+import { loadCoachDoublesMatchRequests } from './doubles-matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors, setupManualPartnerSystem } from './points-management.js';
@@ -200,6 +202,7 @@ async function initializeCoachPage(userData) {
     loadPlayersForAttendance(userData.clubId, db, (players) => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
+        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter); // Populate doubles dropdowns
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
@@ -207,12 +210,21 @@ async function initializeCoachPage(userData) {
     // Initialize set score input for coach match form
     initializeCoachSetScoreInput();
 
+    // Initialize doubles match UI
+    initializeDoublesCoachUI();
+
     loadLeaderboard(userData, db, []);
     loadGlobalLeaderboard(userData, db, []);
 
-    // Load coach match requests
+    // Load coach match requests (singles and doubles)
     loadCoachMatchRequests(userData, db);
     loadCoachProcessedRequests(userData, db);
+
+    // Load doubles match requests in container (if exists)
+    const doublesRequestsContainer = document.getElementById('coach-doubles-pending-requests-list');
+    if (doublesRequestsContainer) {
+        loadCoachDoublesMatchRequests(userData, db, doublesRequestsContainer);
+    }
 
     calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 
@@ -285,7 +297,14 @@ async function initializeCoachPage(userData) {
     document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
     document.getElementById('attendance-form').addEventListener('submit', (e) => handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, (date) => renderCalendar(date, db, userData)));
     document.getElementById('create-exercise-form').addEventListener('submit', (e) => handleCreateExercise(e, db, storage));
-    document.getElementById('match-form').addEventListener('submit', (e) => handleMatchSave(e, db, userData, clubPlayers));
+    document.getElementById('match-form').addEventListener('submit', async (e) => {
+        const matchType = getCurrentMatchType();
+        if (matchType === 'doubles') {
+            await handleDoublesMatchSave(e, db, userData);
+        } else {
+            await handleMatchSave(e, db, userData, clubPlayers);
+        }
+    });
 
     // Setup exercise points auto-calculation (based on level + difficulty)
     setupExercisePointsCalculation();
