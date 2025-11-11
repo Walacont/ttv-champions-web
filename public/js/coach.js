@@ -458,8 +458,8 @@ async function initializeCoachPage(userData) {
     });
 
     // Intervals
-    updateSeasonCountdown('season-countdown-coach', false);
-    setInterval(() => updateSeasonCountdown('season-countdown-coach', false), 1000);
+    updateSeasonCountdown('season-countdown-coach', false, db);
+    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, db), 1000);
     setInterval(updateAllCountdowns, 1000);
 }
 

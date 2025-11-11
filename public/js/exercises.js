@@ -666,7 +666,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     }
 
     const currentCount = playerProgress?.currentCount || 0;
-    const seasonEndDate = formatSeasonEndDate(); // Use countdown logic
+    const seasonEndDate = exerciseContext.db ? await formatSeasonEndDate(exerciseContext.db) : 'Lädt...'; // Use countdown logic
 
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
