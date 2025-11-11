@@ -15,12 +15,23 @@ export function initializeExerciseMilestones() {
   const container = document.getElementById('exercise-milestones-container');
   const addBtn = document.getElementById('add-exercise-milestone-btn');
 
+  // Admin hints (only exist in admin.html)
+  const hintStandard = document.getElementById('exercise-points-hint-standard');
+  const hintMilestones = document.getElementById('exercise-points-hint-milestones');
+
   if (!toggle || !container || !addBtn) return;
 
   // Toggle visibility
   toggle.addEventListener('change', () => {
     if (toggle.checked) {
       container.classList.remove('hidden');
+
+      // Show admin hint (if elements exist)
+      if (hintStandard && hintMilestones) {
+        hintStandard.classList.add('hidden');
+        hintMilestones.classList.remove('hidden');
+      }
+
       // Add initial milestone if none exist
       const list = document.getElementById('exercise-milestones-list');
       if (list && list.children.length === 0) {
@@ -28,6 +39,13 @@ export function initializeExerciseMilestones() {
       }
     } else {
       container.classList.add('hidden');
+
+      // Show standard hint (if elements exist)
+      if (hintStandard && hintMilestones) {
+        hintStandard.classList.remove('hidden');
+        hintMilestones.classList.add('hidden');
+      }
+
       clearMilestones('exercise-milestones-list');
     }
   });
