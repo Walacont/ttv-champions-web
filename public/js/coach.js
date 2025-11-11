@@ -13,7 +13,7 @@ import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updat
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors, setupManualPartnerSystem } from './points-management.js';
-import { loadLeaguesForSelector } from './season.js';
+import { loadLeaguesForSelector, checkAndResetClubSeason } from './season.js';
 import { initializeExercisePartnerSystemCoach, initializeChallengePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
@@ -66,6 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const userData = userDocSnap.data();
                     if (userData.role === 'coach' || userData.role === 'admin') {
                         currentUserData = {id: user.uid, ...userData};
+
+                        // Check for season reset
+                        await checkAndResetClubSeason(userData.clubId, db);
+
                         initializeCoachPage(currentUserData);
                     } else {
                         showAuthError(`Ihre Rolle ('${userData.role}') ist nicht berechtigt.`);

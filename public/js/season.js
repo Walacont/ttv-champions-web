@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, where, updateDoc, writeBatch, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, doc, getDocs, query, where, updateDoc, writeBatch, serverTimestamp, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT } from './leaderboard.js';
 import { loadLeaderboardForCoach } from './leaderboard.js';
 import { getSeasonEndDate } from './ui-utils.js';
@@ -7,6 +7,34 @@ import { getSeasonEndDate } from './ui-utils.js';
  * Season Management Module
  * Handles season resets, league promotions/demotions, and league selector management
  */
+
+/**
+ * Checks and resets season for entire club (called by coach)
+ * @param {string} clubId - Club ID
+ * @param {Object} db - Firestore database instance
+ */
+export async function checkAndResetClubSeason(clubId, db) {
+    try {
+        // Get any player from the club to check season status
+        const playersQuery = query(
+            collection(db, "users"),
+            where("clubId", "==", clubId),
+            where("role", "==", "player")
+        );
+        const playersSnapshot = await getDocs(playersQuery);
+
+        if (playersSnapshot.empty) {
+            console.log('No players found in club');
+            return;
+        }
+
+        // Use first player to trigger season check
+        const firstPlayer = playersSnapshot.docs[0];
+        await handleSeasonReset(firstPlayer.id, firstPlayer.data(), db);
+    } catch (error) {
+        console.error('Error checking club season:', error);
+    }
+}
 
 /**
  * Handles season reset logic for players
@@ -27,9 +55,10 @@ export async function handleSeasonReset(userId, userData, db) {
         return;
     }
 
-    // ⚠️ TESTING MODE: Check if season end has passed
-    const seasonEnd = getSeasonEndDate();
-    const needsReset = now >= seasonEnd && lastReset < seasonEnd;
+    // ⚠️ TESTING MODE: Reset if more than 5 minutes have passed since last reset
+    const timeSinceLastReset = now - lastReset;
+    const fiveMinutesInMs = 5 * 60 * 1000;
+    const needsReset = timeSinceLastReset >= fiveMinutesInMs;
 
     // ORIGINAL LOGIC (restore after testing):
     // const lastResetDay = lastReset.getDate();
@@ -41,6 +70,14 @@ export async function handleSeasonReset(userId, userData, db) {
     // const needsReset = (currentYear > lastResetYear) ||
     //                    (currentMonth > lastResetMonth) ||
     //                    (lastResetDay < 15 && currentDay >= 15);
+
+    console.log('🔍 Season Reset Check:', {
+        userId,
+        lastReset: lastReset.toLocaleString('de-DE'),
+        now: now.toLocaleString('de-DE'),
+        timeSinceLastReset: Math.floor(timeSinceLastReset / 1000) + 's',
+        needsReset
+    });
 
     if (!needsReset) return;
 
