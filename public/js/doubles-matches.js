@@ -508,3 +508,166 @@ function formatDoublesSets(sets) {
 
     return `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
 }
+
+// ========================================================================
+// ===== OPPONENT CONFIRMATION WORKFLOW =====
+// ========================================================================
+
+/**
+ * Loads pending doubles match requests where current user is an opponent
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {HTMLElement} container - Container element to render requests
+ */
+export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
+    const q = query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_opponent'),
+        orderBy('createdAt', 'desc')
+    );
+
+    onSnapshot(q, async (snapshot) => {
+        if (snapshot.empty) {
+            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Doppel-Anfragen</p>';
+            return;
+        }
+
+        const requests = [];
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+
+            // Check if current user is one of the opponents (teamB)
+            if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
+                // Fetch player names
+                const [teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2] = await Promise.all([
+                    getDoc(doc(db, 'users', data.teamA.player1Id)),
+                    getDoc(doc(db, 'users', data.teamA.player2Id)),
+                    getDoc(doc(db, 'users', data.teamB.player1Id)),
+                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                ]);
+
+                requests.push({
+                    id: docSnap.id,
+                    ...data,
+                    teamAPlayer1: teamAPlayer1.data(),
+                    teamAPlayer2: teamAPlayer2.data(),
+                    teamBPlayer1: teamBPlayer1.data(),
+                    teamBPlayer2: teamBPlayer2.data()
+                });
+            }
+        }
+
+        if (requests.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Doppel-Anfragen</p>';
+            return;
+        }
+
+        renderPendingDoublesRequestsForOpponent(requests, container, db, userData);
+    });
+}
+
+/**
+ * Renders pending doubles requests cards for opponent confirmation
+ * @param {Array} requests - Array of request objects
+ * @param {HTMLElement} container - Container element
+ * @param {Object} db - Firestore database instance
+ * @param {Object} userData - Current user data
+ */
+function renderPendingDoublesRequestsForOpponent(requests, container, db, userData) {
+    container.innerHTML = '';
+
+    requests.forEach(request => {
+        const card = document.createElement('div');
+        card.className = 'border border-green-200 bg-green-50 rounded-lg p-4';
+
+        const teamAName1 = request.teamAPlayer1?.firstName || 'Unbekannt';
+        const teamAName2 = request.teamAPlayer2?.firstName || 'Unbekannt';
+        const teamBName1 = request.teamBPlayer1?.firstName || 'Unbekannt';
+        const teamBName2 = request.teamBPlayer2?.firstName || 'Unbekannt';
+
+        const setsDisplay = formatDoublesSets(request.sets);
+        const winnerTeamName = request.winningTeam === 'A'
+            ? `${teamAName1} & ${teamAName2}`
+            : `${teamBName1} & ${teamBName2}`;
+
+        const createdDate = request.createdAt?.toDate ?
+            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
+            'Unbekannt';
+
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <div class="text-sm font-semibold text-gray-800 mb-1">🎾 Doppel-Match bestätigen</div>
+                    <div class="text-xs text-gray-500">${createdDate}</div>
+                </div>
+                <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-semibold">
+                    Warte auf deine Bestätigung
+                </span>
+            </div>
+
+            <div class="space-y-2 mb-3">
+                <div class="text-sm">
+                    <span class="font-semibold text-indigo-700">Team A:</span>
+                    ${teamAName1} & ${teamAName2}
+                </div>
+                <div class="text-sm">
+                    <span class="font-semibold text-orange-700">Team B (dein Team):</span>
+                    ${teamBName1} & ${teamBName2}
+                </div>
+            </div>
+
+            <div class="bg-white rounded p-2 mb-3">
+                <div class="text-xs text-gray-600 mb-1">Ergebnis:</div>
+                <div class="text-sm">${setsDisplay}</div>
+                <div class="text-xs text-green-600 mt-1">🏆 Gewinner: ${winnerTeamName}</div>
+            </div>
+
+            <div class="flex gap-2">
+                <button
+                    class="confirm-doubles-btn flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 px-4 rounded transition"
+                    data-request-id="${request.id}"
+                >
+                    ✓ Bestätigen
+                </button>
+                <button
+                    class="reject-doubles-btn flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2 px-4 rounded transition"
+                    data-request-id="${request.id}"
+                >
+                    ✗ Ablehnen
+                </button>
+            </div>
+        `;
+
+        // Add event listeners
+        const confirmBtn = card.querySelector('.confirm-doubles-btn');
+        const rejectBtn = card.querySelector('.reject-doubles-btn');
+
+        confirmBtn.addEventListener('click', async () => {
+            if (!confirm('Möchtest du dieses Doppel-Match bestätigen?')) return;
+
+            try {
+                await confirmDoublesMatchRequest(request.id, userData.id, db);
+                alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
+            } catch (error) {
+                console.error('Error confirming doubles request:', error);
+                alert('Fehler beim Bestätigen: ' + error.message);
+            }
+        });
+
+        rejectBtn.addEventListener('click', async () => {
+            const reason = prompt('Grund für die Ablehnung (optional):');
+            if (reason === null) return; // User cancelled
+
+            try {
+                await rejectDoublesMatchRequest(request.id, reason || 'Abgelehnt vom Gegner', db, userData);
+                alert('Doppel-Match abgelehnt.');
+            } catch (error) {
+                console.error('Error rejecting doubles request:', error);
+                alert('Fehler beim Ablehnen: ' + error.message);
+            }
+        });
+
+        container.appendChild(card);
+    });
+}
