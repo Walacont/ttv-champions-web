@@ -12,6 +12,7 @@ import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 import { handleSeasonReset } from './season.js';
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
+import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './doubles-player-ui.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
 
@@ -130,6 +131,11 @@ async function initializeDashboard(userData) {
 
     // Initialize match request functionality
     initializeMatchRequestForm(userData, db, clubPlayers);
+
+    // Initialize doubles match UI
+    initializeDoublesPlayerUI();
+    populateDoublesPlayerDropdowns(clubPlayers, userData.id);
+
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);
 
