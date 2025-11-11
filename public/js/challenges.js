@@ -61,13 +61,20 @@ export async function handleCreateChallenge(e, db, currentUserData) {
             isActive: true,
             isRepeatable: isRepeatable,
             createdAt: serverTimestamp(),
-            lastReactivatedAt: serverTimestamp(),
-            hasMilestones: milestonesEnabled
+            lastReactivatedAt: serverTimestamp()
         };
 
-        // Add milestones if enabled
+        // Add tieredPoints if enabled
         if (milestonesEnabled && milestones) {
-            challengeData.milestones = milestones;
+            challengeData.tieredPoints = {
+                enabled: true,
+                milestones: milestones
+            };
+        } else {
+            challengeData.tieredPoints = {
+                enabled: false,
+                milestones: []
+            };
         }
 
         await addDoc(collection(db, "challenges"), challengeData);
@@ -364,17 +371,23 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
         activeChallenges.forEach(challenge => {
             const option = document.createElement('option');
             option.value = challenge.id;
-            const displayText = challenge.hasMilestones
+
+            // Check for tieredPoints format
+            const hasTieredPoints = challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
+            const displayText = hasTieredPoints
                 ? `${challenge.title} (bis zu ${challenge.points} P. - Meilensteine)`
                 : `${challenge.title} (+${challenge.points} P.)`;
+
             option.textContent = displayText;
             option.dataset.points = challenge.points;
             option.dataset.title = challenge.title;
             option.dataset.subgroupId = challenge.subgroupId || 'all';
-            option.dataset.hasMilestones = challenge.hasMilestones || false;
-            if (challenge.hasMilestones && challenge.milestones) {
-                option.dataset.milestones = JSON.stringify(challenge.milestones);
+            option.dataset.hasMilestones = hasTieredPoints;
+
+            if (hasTieredPoints) {
+                option.dataset.milestones = JSON.stringify(challenge.tieredPoints.milestones);
             }
+
             select.appendChild(option);
         });
     });
