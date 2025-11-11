@@ -108,6 +108,12 @@ service cloud.firestore {
         allow read, write: if isCoachOrAdmin();
       }
 
+      // Subcollection: completedExercises (tracks which exercises were completed this season)
+      match /completedExercises/{exerciseId} {
+        allow read: if isOwner(userId);
+        allow read, write: if isCoachOrAdmin();
+      }
+
       // Subcollection: exerciseMilestones (tracks completion count per exercise)
       match /exerciseMilestones/{exerciseId} {
         allow read: if isOwner(userId);
