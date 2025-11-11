@@ -626,6 +626,34 @@
                                     Mehrfach einlösbar <span class="text-gray-500">(z.B. für "Besiegter Spieler")</span>
                                 </label>
                             </div>
+
+                            <!-- Partner System -->
+                            <div class="border-t pt-4">
+                                <div class="flex items-center mb-3">
+                                    <input type="checkbox" id="challenge-partner-system-toggle-coach" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                    <label for="challenge-partner-system-toggle-coach" class="ml-2 text-sm font-medium text-gray-700">
+                                        👥 Partner-System aktivieren (Challenge mit Trainingspartner)
+                                    </label>
+                                </div>
+                                <div id="challenge-partner-container-coach" class="hidden space-y-3 bg-green-50 p-4 rounded-lg">
+                                    <p class="text-xs text-green-700 mb-3">
+                                        <strong>Partner-System:</strong> Bei dieser Challenge trainieren zwei Spieler zusammen. Der passive Spieler (z.B. Zuspieler/Blocker) erhält einen Prozentsatz der Punkte des aktiven Spielers.
+                                    </p>
+                                    <div>
+                                        <label for="challenge-partner-percentage-coach" class="block text-sm font-medium text-gray-700">
+                                            Prozentsatz für passiven Spieler
+                                        </label>
+                                        <div class="flex items-center gap-3 mt-2">
+                                            <input type="number" id="challenge-partner-percentage-coach" min="0" max="100" value="50" class="w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                            <span class="text-sm text-gray-600">% der Punkte & XP</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            Standard: 50% (Zuspieler/Blocker). Bei 100% erhalten beide Spieler die gleichen Punkte.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Challenge erstellen</button>
                              <p id="challenge-feedback" class="mt-3 text-sm font-medium text-center"></p>
                         </form>

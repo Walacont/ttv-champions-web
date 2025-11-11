@@ -14,7 +14,7 @@ import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
-import { initializeExercisePartnerSystemCoach } from './milestone-management.js';
+import { initializeExercisePartnerSystemCoach, initializeChallengePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
 import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleEditSubgroupSubmit, closeEditSubgroupModal } from './subgroups-management.js';
@@ -297,6 +297,9 @@ async function initializeCoachPage(userData) {
 
     // Setup challenge milestones system
     setupChallengeMilestones();
+
+    // Initialize partner system for challenges
+    initializeChallengePartnerSystemCoach();
 
     document.getElementById('create-subgroup-form').addEventListener('submit', (e) => handleCreateSubgroup(e, db, userData.clubId));
     document.getElementById('edit-subgroup-form').addEventListener('submit', (e) => handleEditSubgroupSubmit(e, db));
