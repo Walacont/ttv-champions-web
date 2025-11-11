@@ -39,6 +39,9 @@ export async function loadExercises(db, unsubscribes) {
     const exercisesListEl = document.getElementById('exercises-list');
     if (!exercisesListEl) return;
 
+    // Store exercises data for real-time updates
+    let exercisesData = [];
+
     const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
 
     const exerciseListener = onSnapshot(q, async (snapshot) => {
@@ -50,11 +53,15 @@ export async function loadExercises(db, unsubscribes) {
         exercisesListEl.innerHTML = '';
         const allTags = new Set();
         const exercises = [];
+        exercisesData = []; // Reset
 
         // Process each exercise
         for (const docSnap of snapshot.docs) {
             const exercise = docSnap.data();
             const exerciseId = docSnap.id;
+
+            // Store for later updates
+            exercisesData.push({ docSnap, exercise, exerciseId });
 
             // Load player progress if available
             let progressPercent = 0;
@@ -74,6 +81,68 @@ export async function loadExercises(db, unsubscribes) {
     });
 
     if (unsubscribes) unsubscribes.push(exerciseListener);
+
+    // Set up real-time listeners for player progress (if player is logged in)
+    if (exerciseContext.userId && exerciseContext.userRole === 'player') {
+        // Listen to completedExercises changes
+        const completedListener = onSnapshot(
+            collection(db, `users/${exerciseContext.userId}/completedExercises`),
+            (snapshot) => {
+                snapshot.docChanges().forEach(change => {
+                    const exerciseId = change.doc.id;
+                    updateExerciseCardProgress(db, exerciseId, exercisesData);
+                });
+            }
+        );
+
+        // Listen to exerciseMilestones changes
+        const milestonesListener = onSnapshot(
+            collection(db, `users/${exerciseContext.userId}/exerciseMilestones`),
+            (snapshot) => {
+                snapshot.docChanges().forEach(change => {
+                    const exerciseId = change.doc.id;
+                    updateExerciseCardProgress(db, exerciseId, exercisesData);
+                });
+            }
+        );
+
+        if (unsubscribes) {
+            unsubscribes.push(completedListener);
+            unsubscribes.push(milestonesListener);
+        }
+    }
+}
+
+/**
+ * Updates a single exercise card's progress circle in real-time
+ * @param {Object} db - Firestore instance
+ * @param {string} exerciseId - Exercise ID to update
+ * @param {Array} exercisesData - Array of all exercises data
+ */
+async function updateExerciseCardProgress(db, exerciseId, exercisesData) {
+    // Find the card element
+    const cardElement = document.querySelector(`.exercise-card[data-id="${exerciseId}"]`);
+    if (!cardElement) return;
+
+    // Find exercise data
+    const exerciseInfo = exercisesData.find(e => e.exerciseId === exerciseId);
+    if (!exerciseInfo) return;
+
+    // Recalculate progress
+    const progressPercent = await calculateExerciseProgress(
+        db,
+        exerciseContext.userId,
+        exerciseId,
+        exerciseInfo.exercise
+    );
+
+    // Find and update the progress circle
+    const progressContainer = cardElement.querySelector('.absolute.top-2.right-2');
+    if (progressContainer) {
+        progressContainer.outerHTML = generateProgressCircle(progressPercent);
+    }
+
+    console.log(`✅ Updated progress for exercise ${exerciseId}: ${progressPercent}%`);
 }
 
 /**
