@@ -1,6 +1,7 @@
-import { collection, doc, getDocs, query, where, updateDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, doc, getDocs, query, where, updateDoc, writeBatch, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT } from './leaderboard.js';
 import { loadLeaderboardForCoach } from './leaderboard.js';
+import { getSeasonEndDate } from './ui-utils.js';
 
 /**
  * Season Management Module
@@ -26,17 +27,20 @@ export async function handleSeasonReset(userId, userData, db) {
         return;
     }
 
-    const lastResetDay = lastReset.getDate();
-    const lastResetMonth = lastReset.getMonth();
-    const lastResetYear = lastReset.getFullYear();
+    // ⚠️ TESTING MODE: Check if season end has passed
+    const seasonEnd = getSeasonEndDate();
+    const needsReset = now >= seasonEnd && lastReset < seasonEnd;
 
-    const currentDay = now.getDate();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const needsReset = (currentYear > lastResetYear) ||
-                       (currentMonth > lastResetMonth) ||
-                       (lastResetDay < 15 && currentDay >= 15);
+    // ORIGINAL LOGIC (restore after testing):
+    // const lastResetDay = lastReset.getDate();
+    // const lastResetMonth = lastReset.getMonth();
+    // const lastResetYear = lastReset.getFullYear();
+    // const currentDay = now.getDate();
+    // const currentMonth = now.getMonth();
+    // const currentYear = now.getFullYear();
+    // const needsReset = (currentYear > lastResetYear) ||
+    //                    (currentMonth > lastResetMonth) ||
+    //                    (lastResetDay < 15 && currentDay >= 15);
 
     if (!needsReset) return;
 
@@ -86,6 +90,41 @@ export async function handleSeasonReset(userId, userData, db) {
         });
 
         await batch.commit();
+
+        // ⚠️ TESTING MODE: Also delete milestone progress and completion status
+        console.log('🔄 Resetting milestones and completion status for all players...');
+        for (const player of allPlayers) {
+            try {
+                // Delete exercise milestones
+                const exerciseMilestones = await getDocs(collection(db, `users/${player.id}/exerciseMilestones`));
+                for (const milestone of exerciseMilestones.docs) {
+                    await deleteDoc(milestone.ref);
+                }
+
+                // Delete challenge milestones
+                const challengeMilestones = await getDocs(collection(db, `users/${player.id}/challengeMilestones`));
+                for (const milestone of challengeMilestones.docs) {
+                    await deleteDoc(milestone.ref);
+                }
+
+                // Delete completed exercises
+                const completedExercises = await getDocs(collection(db, `users/${player.id}/completedExercises`));
+                for (const completed of completedExercises.docs) {
+                    await deleteDoc(completed.ref);
+                }
+
+                // Delete completed challenges
+                const completedChallenges = await getDocs(collection(db, `users/${player.id}/completedChallenges`));
+                for (const completed of completedChallenges.docs) {
+                    await deleteDoc(completed.ref);
+                }
+
+                console.log(`✅ Reset complete for player: ${player.firstName} ${player.lastName}`);
+            } catch (subError) {
+                console.error(`Error resetting player ${player.id}:`, subError);
+            }
+        }
+        console.log('✨ Season reset complete!');
     } catch (error) {
         console.error("Fehler beim Saison-Reset:", error);
     }
