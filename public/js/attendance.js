@@ -1138,7 +1138,9 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
  */
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     const q = query(collection(db, 'users'), where('clubId', '==', clubId), where('role', '==', 'player'));
-    onSnapshot(q, (snapshot) => {
+
+    // Helper function to process players (deduplication logic)
+    const processPlayers = (snapshot) => {
         console.log(`[Attendance] Loaded ${snapshot.docs.length} player documents from Firestore`);
 
         // Use Map to prevent duplicate players
@@ -1176,9 +1178,38 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         console.log(`[Attendance] After deduplication: ${players.length} unique players (removed ${duplicateCount} duplicates)`);
 
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+        return players;
+    };
+
+    // OPTIMIZATION: Initial load with getDocs (fast, one-time)
+    getDocs(q).then(snapshot => {
+        console.log('[Attendance] ⚡ Initial load complete (getDocs - optimized)');
+        const players = processPlayers(snapshot);
         onPlayersLoaded(players);
-    }, (error) => {
-        console.error("Fehler beim Laden der Spieler für die Anwesenheit:", error);
+
+        // OPTIMIZATION: Then activate live updates with debouncing
+        let debounceTimeout = null;
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log('[Attendance] 🔄 Live update received, debouncing...');
+
+            // Clear existing timeout
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+
+            // Debounce updates (500ms) - bundles rapid changes
+            debounceTimeout = setTimeout(() => {
+                console.log('[Attendance] ✅ Processing debounced live update');
+                const players = processPlayers(snapshot);
+                onPlayersLoaded(players);
+            }, 500);
+        }, (error) => {
+            console.error("Fehler beim Laden der Spieler für die Anwesenheit:", error);
+        });
+
+        // Store unsubscribe function for cleanup
+        if (!window.attendanceUnsubscribes) window.attendanceUnsubscribes = [];
+        window.attendanceUnsubscribes.push(unsubscribe);
+    }).catch(error => {
+        console.error('[Attendance] ❌ Error during initial load:', error);
     });
 }
 
