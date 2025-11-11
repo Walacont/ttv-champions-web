@@ -134,29 +134,56 @@ export function setupChallengeMilestones() {
     const milestonesContainer = document.getElementById('challenge-milestones-container');
     const pointsInput = document.getElementById('challenge-points');
 
-    if (!milestonesEnabled || !standardContainer || !milestonesContainer) return;
+    if (!milestonesEnabled || !standardContainer || !milestonesContainer) {
+        console.error('❌ Challenge milestone setup: Missing required elements', {
+            milestonesEnabled: !!milestonesEnabled,
+            standardContainer: !!standardContainer,
+            milestonesContainer: !!milestonesContainer
+        });
+        return;
+    }
 
-    // Toggle between standard points and milestones
-    milestonesEnabled.addEventListener('change', () => {
+    console.log('✅ Challenge milestone setup: All elements found');
+
+    // Function to update UI based on checkbox state
+    const updateUI = () => {
+        console.log('🔄 Updating challenge UI, checkbox checked:', milestonesEnabled.checked);
         if (milestonesEnabled.checked) {
             standardContainer.classList.add('hidden');
             milestonesContainer.classList.remove('hidden');
-            pointsInput.removeAttribute('required');
-            // Add first milestone by default
+            if (pointsInput) pointsInput.removeAttribute('required');
+            // Add first milestone by default if none exist
             if (getChallengeMilestones().length === 0) {
                 addChallengeMilestone();
             }
         } else {
             standardContainer.classList.remove('hidden');
             milestonesContainer.classList.add('hidden');
-            pointsInput.setAttribute('required', 'required');
+            if (pointsInput) pointsInput.setAttribute('required', 'required');
         }
-    });
+    };
+
+    // Set initial state
+    updateUI();
+
+    // Toggle between standard points and milestones
+    milestonesEnabled.addEventListener('change', updateUI);
 
     // Add milestone button
     const addBtn = document.getElementById('add-challenge-milestone-btn');
     if (addBtn) {
         addBtn.addEventListener('click', addChallengeMilestone);
+    }
+
+    // When form is reset, ensure UI is reset too
+    const form = document.getElementById('create-challenge-form');
+    if (form) {
+        form.addEventListener('reset', () => {
+            setTimeout(() => {
+                milestonesEnabled.checked = false;
+                updateUI();
+            }, 0);
+        });
     }
 }
 

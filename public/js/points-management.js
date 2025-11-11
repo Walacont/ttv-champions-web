@@ -603,16 +603,7 @@ async function handleExerciseChallengeChange(db, type) {
         return;
     }
 
-    const playerId = playerSelect.value;
-    console.log('Player ID:', playerId);
-
-    if (!playerId) {
-        console.log('❌ No player selected, hiding container');
-        milestoneContainer.classList.add('hidden');
-        return;
-    }
-
-    console.log('✅ Showing milestone container');
+    console.log('✅ Has milestones, showing container');
     // Show milestone container
     milestoneContainer.classList.remove('hidden');
 
@@ -622,11 +613,19 @@ async function handleExerciseChallengeChange(db, type) {
 
     console.log('Milestones:', milestones);
 
-    // Get player's current progress
-    const collectionName = type === 'exercise' ? 'exerciseMilestones' : 'challengeMilestones';
-    const playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId);
+    // Get player ID (may be null)
+    const playerId = playerSelect?.value;
+    console.log('Player ID:', playerId);
 
-    console.log('Player progress:', playerProgress);
+    // Get player's current progress (only if player is selected)
+    let playerProgress = { currentCount: 0 };
+    if (playerId) {
+        const collectionName = type === 'exercise' ? 'exerciseMilestones' : 'challengeMilestones';
+        playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId);
+        console.log('Player progress:', playerProgress);
+    } else {
+        console.log('⚠️ No player selected yet, showing milestones without progress');
+    }
 
     // Populate milestone dropdown
     milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
@@ -634,7 +633,7 @@ async function handleExerciseChallengeChange(db, type) {
     milestones.forEach((milestone, index) => {
         const option = document.createElement('option');
         option.value = index;
-        const isCompleted = playerProgress.currentCount >= milestone.count;
+        const isCompleted = playerId && playerProgress.currentCount >= milestone.count;
         const status = isCompleted ? '✅' : '';
         option.textContent = `${milestone.count}× erreicht → ${milestone.points} P. ${status}`;
         option.dataset.count = milestone.count;
