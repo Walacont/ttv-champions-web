@@ -514,29 +514,56 @@ export function setupExerciseMilestones() {
     const milestonesContainer = document.getElementById('exercise-milestones-container');
     const pointsInput = document.getElementById('exercise-points-form');
 
-    if (!milestonesEnabled || !standardContainer || !milestonesContainer) return;
+    if (!milestonesEnabled || !standardContainer || !milestonesContainer) {
+        console.error('❌ Exercise milestone setup: Missing required elements', {
+            milestonesEnabled: !!milestonesEnabled,
+            standardContainer: !!standardContainer,
+            milestonesContainer: !!milestonesContainer
+        });
+        return;
+    }
 
-    // Toggle between standard points and milestones
-    milestonesEnabled.addEventListener('change', () => {
+    console.log('✅ Exercise milestone setup: All elements found');
+
+    // Function to update UI based on checkbox state
+    const updateUI = () => {
+        console.log('🔄 Updating exercise UI, checkbox checked:', milestonesEnabled.checked);
         if (milestonesEnabled.checked) {
             standardContainer.classList.add('hidden');
             milestonesContainer.classList.remove('hidden');
-            pointsInput.removeAttribute('required');
-            // Add first milestone by default
+            if (pointsInput) pointsInput.removeAttribute('required');
+            // Add first milestone by default if none exist
             if (getExerciseMilestones().length === 0) {
                 addExerciseMilestone();
             }
         } else {
             standardContainer.classList.remove('hidden');
             milestonesContainer.classList.add('hidden');
-            pointsInput.setAttribute('required', 'required');
+            if (pointsInput) pointsInput.setAttribute('required', 'required');
         }
-    });
+    };
+
+    // Set initial state
+    updateUI();
+
+    // Toggle between standard points and milestones
+    milestonesEnabled.addEventListener('change', updateUI);
 
     // Add milestone button
     const addBtn = document.getElementById('add-exercise-milestone-btn');
     if (addBtn) {
         addBtn.addEventListener('click', addExerciseMilestone);
+    }
+
+    // When form is reset, ensure UI is reset too
+    const form = document.getElementById('create-exercise-form');
+    if (form) {
+        form.addEventListener('reset', () => {
+            setTimeout(() => {
+                milestonesEnabled.checked = false;
+                updateUI();
+            }, 0);
+        });
     }
 }
 
