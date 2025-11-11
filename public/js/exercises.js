@@ -523,14 +523,14 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                     <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="text-lg">📈</span>
-                            <span class="font-bold text-gray-800">Dein Fortschritt</span>
+                            <span class="font-bold text-gray-800">Deine beste Leistung</span>
                         </div>
                         <p class="text-base text-gray-700 mb-2">
-                            Du hast diese Übung bereits <span class="font-bold text-blue-600">${currentCount}×</span> abgeschlossen
+                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
                         </p>
                         ${nextMilestone ? `
                             <p class="text-sm text-gray-600">
-                                Noch <span class="font-semibold text-orange-600">${remaining}×</span> bis zum nächsten Meilenstein
+                                Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
                             </p>
                         ` : `
                             <p class="text-sm text-green-600 font-semibold">
@@ -538,7 +538,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                             </p>
                         `}
                         <p class="text-xs text-gray-500 mt-2">
-                            🔄 Fortschritt wird am ${formatGermanDate(seasonEnd)} zurückgesetzt
+                            🔄 Rekord wird am ${formatGermanDate(seasonEnd)} zurückgesetzt
                         </p>
                     </div>
                 `;
@@ -587,7 +587,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                     return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                         <div class="flex items-center gap-3">
                             <span class="text-2xl">${statusIcon}</span>
-                            <span class="text-base font-semibold ${textColor}">${milestone.count}× abgeschlossen</span>
+                            <span class="text-base font-semibold ${textColor}">${milestone.count} Wiederholungen</span>
                         </div>
                         <div class="text-right">
                             <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
