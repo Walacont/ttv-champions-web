@@ -48,12 +48,15 @@ export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEn
     const now = new Date();
     let endOfSeason;
 
-    // Season ends either on the 15th or at month end
-    if (now.getDate() < 15) {
-        endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 0, 0, 0);
-    } else {
-        endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    }
+    // ⚠️ TESTING MODE: Season ends in 5 minutes
+    endOfSeason = new Date(now.getTime() + 5 * 60 * 1000);
+
+    // ORIGINAL LOGIC (uncomment to restore):
+    // if (now.getDate() < 15) {
+    //     endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 0, 0, 0);
+    // } else {
+    //     endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    // }
 
     const diff = endOfSeason - now;
 
@@ -82,12 +85,15 @@ export function getSeasonEndDate() {
     const now = new Date();
     let endOfSeason;
 
-    // Season ends either on the 15th or at month end
-    if (now.getDate() < 15) {
-        endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 23, 59, 59);
-    } else {
-        endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    }
+    // ⚠️ TESTING MODE: Season ends in 5 minutes
+    endOfSeason = new Date(now.getTime() + 5 * 60 * 1000);
+
+    // ORIGINAL LOGIC (uncomment to restore):
+    // if (now.getDate() < 15) {
+    //     endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 23, 59, 59);
+    // } else {
+    //     endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    // }
 
     return endOfSeason;
 }
@@ -101,7 +107,13 @@ export function formatSeasonEndDate() {
     const day = String(endDate.getDate()).padStart(2, '0');
     const month = String(endDate.getMonth() + 1).padStart(2, '0');
     const year = endDate.getFullYear();
-    return `${day}.${month}.${year}`;
+    const hours = String(endDate.getHours()).padStart(2, '0');
+    const minutes = String(endDate.getMinutes()).padStart(2, '0');
+
+    // ⚠️ TESTING MODE: Show time for 5-minute test
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
+
+    // ORIGINAL: return `${day}.${month}.${year}`;
 }
 
 /**
@@ -111,5 +123,9 @@ export function formatSeasonEndDate() {
  */
 export function getCurrentSeasonKey() {
     const endDate = getSeasonEndDate();
-    return `${endDate.getMonth() + 1}-${endDate.getFullYear()}`;
+
+    // ⚠️ TESTING MODE: Use timestamp for unique keys in 5-minute cycles
+    return `test-${Math.floor(endDate.getTime() / 1000)}`;
+
+    // ORIGINAL: return `${endDate.getMonth() + 1}-${endDate.getFullYear()}`;
 }
