@@ -202,16 +202,63 @@
                     <!-- Coach Match Reporting Form -->
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
                         <h2 class="text-xl font-semibold mb-4">Wettkampf-Match melden (Coach)</h2>
-                        <p class="text-sm text-gray-600 mb-4">Wähle zwei Spieler aus, um ein Match zu melden. Das System berechnet automatisch einen Handicap-Vorschlag, um das Spiel fairer zu gestalten.</p>
+                        <p class="text-sm text-gray-600 mb-4">Wähle Spieler aus, um ein Match zu melden. Das System berechnet automatisch einen Handicap-Vorschlag, um das Spiel fairer zu gestalten.</p>
                         <form id="match-form" class="space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Match Type Toggle (Singles/Doubles) -->
+                            <div class="flex justify-center mb-6">
+                                <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
+                                    <button type="button" id="singles-toggle" class="match-type-toggle active px-6 py-2 rounded-md text-sm font-medium transition-all">
+                                        <i class="fas fa-user mr-2"></i>Einzel
+                                    </button>
+                                    <button type="button" id="doubles-toggle" class="match-type-toggle px-6 py-2 rounded-md text-sm font-medium transition-all">
+                                        <i class="fas fa-users mr-2"></i>Doppel
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Singles Players (default) -->
+                            <div id="singles-players-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label for="player-a-select" class="block text-sm font-medium text-gray-700">Spieler A</label>
-                                    <select id="player-a-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                    <select id="player-a-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
                                 </div>
                                 <div>
                                     <label for="player-b-select" class="block text-sm font-medium text-gray-700">Spieler B</label>
-                                    <select id="player-b-select" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                    <select id="player-b-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                </div>
+                            </div>
+
+                            <!-- Doubles Players (hidden by default) -->
+                            <div id="doubles-players-container" class="hidden space-y-4">
+                                <div class="border-2 border-indigo-100 rounded-lg p-4 bg-indigo-50">
+                                    <h3 class="text-md font-semibold text-indigo-800 mb-3">
+                                        <i class="fas fa-user-friends mr-2"></i>Team A
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="doubles-team-a-player1-select" class="block text-sm font-medium text-gray-700">Spieler 1</label>
+                                            <select id="doubles-team-a-player1-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                        </div>
+                                        <div>
+                                            <label for="doubles-team-a-player2-select" class="block text-sm font-medium text-gray-700">Spieler 2</label>
+                                            <select id="doubles-team-a-player2-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="border-2 border-orange-100 rounded-lg p-4 bg-orange-50">
+                                    <h3 class="text-md font-semibold text-orange-800 mb-3">
+                                        <i class="fas fa-user-friends mr-2"></i>Team B
+                                    </h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="doubles-team-b-player1-select" class="block text-sm font-medium text-gray-700">Spieler 1</label>
+                                            <select id="doubles-team-b-player1-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                        </div>
+                                        <div>
+                                            <label for="doubles-team-b-player2-select" class="block text-sm font-medium text-gray-700">Spieler 2</label>
+                                            <select id="doubles-team-b-player2-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
