@@ -46,11 +46,19 @@ export function loadPointsHistory(userData, db, unsubscribes) {
                 detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
             }
 
+            // Add partner badge if applicable
+            let partnerBadge = '';
+            if (entry.isActivePlayer) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">💪 Aktiv</span>';
+            } else if (entry.isPartner) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-2">🤝 Partner</span>';
+            }
+
             const li = document.createElement('li');
             li.className = 'flex justify-between items-start text-sm';
             li.innerHTML = `
                 <div>
-                    <p class="font-medium">${entry.reason}</p>
+                    <p class="font-medium">${entry.reason}${partnerBadge}</p>
                     <p class="text-xs text-gray-500">${date}</p>
                 </div>
                 <div class="text-right">${detailsHTML}</div>
@@ -114,11 +122,19 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
                 detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
             }
 
+            // Add partner badge if applicable
+            let partnerBadge = '';
+            if (entry.isActivePlayer) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">💪 Aktiv</span>';
+            } else if (entry.isPartner) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-2">🤝 Partner</span>';
+            }
+
             const li = document.createElement('li');
             li.className = 'flex justify-between items-start text-sm bg-gray-50 p-2 rounded-md';
             li.innerHTML = `
                 <div>
-                    <p class="font-medium">${entry.reason}</p>
+                    <p class="font-medium">${entry.reason}${partnerBadge}</p>
                     <p class="text-xs text-gray-500">${date} - ${entry.awardedBy || 'Unbekannt'}</p>
                 </div>
                 <div class="text-right">${detailsHTML}</div>
