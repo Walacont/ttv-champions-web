@@ -10,40 +10,32 @@ import { getSeasonEndDate } from './ui-utils.js';
 
 /**
  * Checks and resets season for entire club (called by coach)
+ * NOTE: Season resets are now handled by Cloud Function (every 6 weeks)
+ * This function only checks if a reset has occurred and is no longer needed for testing
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
  */
 export async function checkAndResetClubSeason(clubId, db) {
-    try {
-        // Get any player from the club to check season status
-        const playersQuery = query(
-            collection(db, "users"),
-            where("clubId", "==", clubId),
-            where("role", "==", "player")
-        );
-        const playersSnapshot = await getDocs(playersQuery);
-
-        if (playersSnapshot.empty) {
-            console.log('No players found in club');
-            return;
-        }
-
-        // Use first player to trigger season check
-        const firstPlayer = playersSnapshot.docs[0];
-        await handleSeasonReset(firstPlayer.id, firstPlayer.data(), db);
-    } catch (error) {
-        console.error('Error checking club season:', error);
-    }
+    // DISABLED: Season resets are now fully handled by Cloud Function
+    // This function is kept for backwards compatibility but does nothing
+    console.log('✅ Season check: Cloud Function handles all resets (6-week cycle)');
+    return;
 }
 
 /**
- * Handles season reset logic for players
- * Checks if a new season has started and processes league changes
+ * DEPRECATED: Season reset logic (now handled by Cloud Function)
+ * This function is kept for reference but is no longer called
+ * Cloud Function `autoSeasonReset` handles all resets every 6 weeks
  * @param {string} userId - User ID
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
  */
 export async function handleSeasonReset(userId, userData, db) {
+    console.warn('⚠️ handleSeasonReset called - this is deprecated. Cloud Function handles resets.');
+    // Function body kept for reference but does nothing
+    return;
+
+    /* ORIGINAL LOGIC - NOW IN CLOUD FUNCTION
     const now = new Date();
     const lastReset = userData.lastSeasonReset?.toDate();
 
@@ -55,124 +47,8 @@ export async function handleSeasonReset(userId, userData, db) {
         return;
     }
 
-    // ⚠️ TESTING MODE: Reset if more than 5 minutes have passed OR if countdown triggered
-    const timeSinceLastReset = now - lastReset;
-    const fiveMinutesInMs = 5 * 60 * 1000;
-    const countdownTriggered = localStorage.getItem('SEASON_RESET_TRIGGERED') === 'true';
-    const needsReset = timeSinceLastReset >= fiveMinutesInMs || countdownTriggered;
-
-    // ORIGINAL LOGIC (restore after testing):
-    // const lastResetDay = lastReset.getDate();
-    // const lastResetMonth = lastReset.getMonth();
-    // const lastResetYear = lastReset.getFullYear();
-    // const currentDay = now.getDate();
-    // const currentMonth = now.getMonth();
-    // const currentYear = now.getFullYear();
-    // const needsReset = (currentYear > lastResetYear) ||
-    //                    (currentMonth > lastResetMonth) ||
-    //                    (lastResetDay < 15 && currentDay >= 15);
-
-    console.log('🔍 Season Reset Check:', {
-        userId,
-        lastReset: lastReset.toLocaleString('de-DE'),
-        now: now.toLocaleString('de-DE'),
-        timeSinceLastReset: Math.floor(timeSinceLastReset / 1000) + 's',
-        countdownTriggered,
-        needsReset
-    });
-
-    if (!needsReset) return;
-
-    // Clear the trigger flag after detecting it
-    if (countdownTriggered) {
-        localStorage.removeItem('SEASON_RESET_TRIGGERED');
-        console.log('🗑️ Cleared SEASON_RESET_TRIGGERED flag');
-    }
-
-    const loaderText = document.getElementById('loader-text');
-    const pageLoader = document.getElementById('page-loader');
-    if (loaderText) loaderText.textContent = "Neue Saison startet! Berechne Ergebnisse...";
-    if (pageLoader) pageLoader.style.display = 'flex';
-
-    try {
-        const clubId = userData.clubId;
-        const batch = writeBatch(db);
-        const allPlayersQuery = query(collection(db, "users"), where("clubId", "==", clubId), where("role", "==", "player"));
-        const allPlayersSnapshot = await getDocs(allPlayersQuery);
-        const allPlayers = allPlayersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        const playersByLeague = allPlayers.reduce((acc, player) => {
-            const league = player.league || 'Bronze';
-            if (!acc[league]) acc[league] = [];
-            acc[league].push(player);
-            return acc;
-        }, {});
-
-        for (const leagueName in playersByLeague) {
-            const playersInLeague = playersByLeague[leagueName];
-            const sortedPlayers = playersInLeague.sort((a, b) => (b.points || 0) - (a.points || 0));
-            const totalPlayers = sortedPlayers.length;
-            const leagueKeys = Object.keys(LEAGUES);
-
-            sortedPlayers.forEach((player, index) => {
-                const rank = index + 1;
-                const playerRef = doc(db, 'users', player.id);
-                let newLeague = leagueName;
-
-                if (rank <= PROMOTION_COUNT) {
-                    const currentLeagueIndex = leagueKeys.indexOf(leagueName);
-                    if (currentLeagueIndex < leagueKeys.length - 1) newLeague = leagueKeys[currentLeagueIndex + 1];
-                } else if (rank > totalPlayers - DEMOTION_COUNT && totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT) {
-                    const currentLeagueIndex = leagueKeys.indexOf(leagueName);
-                    if (currentLeagueIndex > 0) newLeague = leagueKeys[currentLeagueIndex - 1];
-                }
-                batch.update(playerRef, { points: 0, league: newLeague });
-            });
-        }
-
-        allPlayers.forEach(player => {
-            batch.update(doc(db, 'users', player.id), { lastSeasonReset: serverTimestamp() });
-        });
-
-        await batch.commit();
-
-        // ⚠️ TESTING MODE: Also delete milestone progress and completion status
-        console.log('🔄 Resetting milestones and completion status for all players...');
-        for (const player of allPlayers) {
-            try {
-                // Delete exercise milestones
-                const exerciseMilestones = await getDocs(collection(db, `users/${player.id}/exerciseMilestones`));
-                for (const milestone of exerciseMilestones.docs) {
-                    await deleteDoc(milestone.ref);
-                }
-
-                // Delete challenge milestones
-                const challengeMilestones = await getDocs(collection(db, `users/${player.id}/challengeMilestones`));
-                for (const milestone of challengeMilestones.docs) {
-                    await deleteDoc(milestone.ref);
-                }
-
-                // Delete completed exercises
-                const completedExercises = await getDocs(collection(db, `users/${player.id}/completedExercises`));
-                for (const completed of completedExercises.docs) {
-                    await deleteDoc(completed.ref);
-                }
-
-                // Delete completed challenges
-                const completedChallenges = await getDocs(collection(db, `users/${player.id}/completedChallenges`));
-                for (const completed of completedChallenges.docs) {
-                    await deleteDoc(completed.ref);
-                }
-
-                console.log(`✅ Reset complete for player: ${player.firstName} ${player.lastName}`);
-            } catch (subError) {
-                console.error(`Error resetting player ${player.id}:`, subError);
-            }
-        }
-        console.log('✨ Season reset complete!');
-    } catch (error) {
-        console.error("Fehler beim Saison-Reset:", error);
-    }
+    // ... rest of logic moved to Cloud Function autoSeasonReset
+    */
 }
 
 /**
