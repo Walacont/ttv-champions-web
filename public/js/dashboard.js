@@ -13,6 +13,7 @@ import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 import { handleSeasonReset } from './season.js';
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
+import { loadMatchHistory } from './match-history.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -130,6 +131,9 @@ async function initializeDashboard(userData) {
     initializeMatchRequestForm(userData, db, clubPlayers);
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);
+
+    // Load match history (competition results)
+    loadMatchHistory(db, userData);
 
     // Initialize match suggestions (Gegnervorschläge)
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
