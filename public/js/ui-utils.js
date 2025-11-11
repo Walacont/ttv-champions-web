@@ -88,7 +88,15 @@ export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEn
 
     if (diff <= 0) {
         seasonCountdownEl.textContent = "Saison beendet!";
+
+        // ⚠️ TESTING MODE: Mark that season just ended
+        if (!localStorage.getItem('SEASON_RESET_TRIGGERED')) {
+            localStorage.setItem('SEASON_RESET_TRIGGERED', 'true');
+            console.log('⏰ Season ended! Marking for reset on next load...');
+        }
+
         if (reloadOnEnd) {
+            console.log('🔄 Reloading page in 5 seconds for season reset...');
             setTimeout(() => window.location.reload(), 5000);
         }
         return;
