@@ -372,3 +372,54 @@ export function isExercisePartnerSystemEnabled() {
                  document.getElementById('exercise-partner-system-toggle-coach');
   return toggle ? toggle.checked : false;
 }
+
+// ========================================================================
+// ===== CHALLENGE PARTNER SYSTEM =====
+// ========================================================================
+
+/**
+ * Initialize partner system UI for challenges (Coach)
+ */
+export function initializeChallengePartnerSystemCoach() {
+  const toggle = document.getElementById('challenge-partner-system-toggle-coach');
+  const container = document.getElementById('challenge-partner-container-coach');
+
+  if (!toggle || !container) return;
+
+  // Toggle visibility
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      container.classList.remove('hidden');
+    } else {
+      container.classList.add('hidden');
+    }
+  });
+}
+
+/**
+ * Get partner system settings for challenge
+ * @returns {Object|null} Partner settings object or null if disabled
+ */
+export function getChallengePartnerSettings() {
+  const toggle = document.getElementById('challenge-partner-system-toggle-coach');
+
+  if (!toggle || !toggle.checked) return null;
+
+  const percentageInput = document.getElementById('challenge-partner-percentage-coach');
+
+  const percentage = percentageInput ? parseInt(percentageInput.value) : 50;
+
+  return {
+    enabled: true,
+    partnerPercentage: Math.max(0, Math.min(100, percentage)) // Clamp between 0-100
+  };
+}
+
+/**
+ * Check if challenge has partner system enabled
+ * @returns {boolean}
+ */
+export function isChallengePartnerSystemEnabled() {
+  const toggle = document.getElementById('challenge-partner-system-toggle-coach');
+  return toggle ? toggle.checked : false;
+}

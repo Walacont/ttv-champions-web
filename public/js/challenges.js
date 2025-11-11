@@ -1,4 +1,5 @@
 import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getChallengePartnerSettings } from './milestone-management.js';
 
 /**
  * Challenges Module
@@ -77,6 +78,20 @@ export async function handleCreateChallenge(e, db, currentUserData) {
             };
         }
 
+        // Add partner system settings if enabled
+        const partnerSettings = getChallengePartnerSettings();
+        if (partnerSettings) {
+            challengeData.partnerSystem = {
+                enabled: true,
+                partnerPercentage: partnerSettings.partnerPercentage
+            };
+        } else {
+            challengeData.partnerSystem = {
+                enabled: false,
+                partnerPercentage: 50
+            };
+        }
+
         await addDoc(collection(db, "challenges"), challengeData);
         feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
@@ -90,6 +105,14 @@ export async function handleCreateChallenge(e, db, currentUserData) {
         document.getElementById('challenge-milestones-enabled').checked = false;
         document.getElementById('challenge-standard-points-container').classList.remove('hidden');
         document.getElementById('challenge-milestones-container').classList.add('hidden');
+
+        // Reset partner system
+        const partnerToggle = document.getElementById('challenge-partner-system-toggle-coach');
+        const partnerContainer = document.getElementById('challenge-partner-container-coach');
+        const partnerPercentageInput = document.getElementById('challenge-partner-percentage-coach');
+        if (partnerToggle) partnerToggle.checked = false;
+        if (partnerContainer) partnerContainer.classList.add('hidden');
+        if (partnerPercentageInput) partnerPercentageInput.value = 50;
     } catch (error) {
         console.error("Fehler beim Erstellen der Challenge:", error);
         feedbackEl.textContent = 'Fehler: Challenge konnte nicht erstellt werden.';
