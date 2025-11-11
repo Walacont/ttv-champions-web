@@ -224,7 +224,10 @@ async function enrichMatchData(db, match, userData) {
       }
     } catch (opponentError) {
       // Failed to fetch opponent (probably from different club or deleted)
-      console.warn("Could not fetch opponent data:", opponentError.code || opponentError.message);
+      // Only log if it's not a permission-denied error (which is expected for cross-club matches)
+      if (opponentError.code !== 'permission-denied') {
+        console.warn("Could not fetch opponent data:", opponentError.code || opponentError.message);
+      }
       enriched.opponentName = 'Gegner';
     }
 
