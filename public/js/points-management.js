@@ -530,22 +530,32 @@ export function handleReasonChange() {
  * @param {Object} db - Firestore database instance
  */
 export function setupMilestoneSelectors(db) {
+    console.log('🎯 Setup milestone selectors called');
     const exerciseSelect = document.getElementById('exercise-select');
     const challengeSelect = document.getElementById('challenge-select');
     const playerSelect = document.getElementById('player-select');
 
+    console.log('Selectors found:', { exerciseSelect: !!exerciseSelect, challengeSelect: !!challengeSelect, playerSelect: !!playerSelect });
+
     if (exerciseSelect) {
-        exerciseSelect.addEventListener('change', () => handleExerciseChallengeChange(db, 'exercise'));
+        exerciseSelect.addEventListener('change', () => {
+            console.log('Exercise select changed!');
+            handleExerciseChallengeChange(db, 'exercise');
+        });
     }
 
     if (challengeSelect) {
-        challengeSelect.addEventListener('change', () => handleExerciseChallengeChange(db, 'challenge'));
+        challengeSelect.addEventListener('change', () => {
+            console.log('Challenge select changed!');
+            handleExerciseChallengeChange(db, 'challenge');
+        });
     }
 
     if (playerSelect) {
         // Reload milestone progress when player changes
         playerSelect.addEventListener('change', () => {
             const reasonType = document.getElementById('reason-select').value;
+            console.log('Player changed, reason type:', reasonType);
             if (reasonType === 'exercise' || reasonType === 'challenge') {
                 handleExerciseChallengeChange(db, reasonType);
             }
@@ -559,27 +569,50 @@ export function setupMilestoneSelectors(db) {
  * @param {string} type - 'exercise' or 'challenge'
  */
 async function handleExerciseChallengeChange(db, type) {
+    console.log(`🔄 handleExerciseChallengeChange called for type: ${type}`);
+
     const select = document.getElementById(`${type}-select`);
     const milestoneContainer = document.getElementById('milestone-select-container');
     const milestoneSelect = document.getElementById('milestone-select');
     const playerSelect = document.getElementById('player-select');
 
-    if (!select || !milestoneContainer || !milestoneSelect) return;
+    console.log('Elements found:', {
+        select: !!select,
+        milestoneContainer: !!milestoneContainer,
+        milestoneSelect: !!milestoneSelect,
+        playerSelect: !!playerSelect
+    });
+
+    if (!select || !milestoneContainer || !milestoneSelect) {
+        console.log('❌ Missing elements, returning');
+        return;
+    }
 
     const selectedOption = select.options[select.selectedIndex];
     const hasMilestones = selectedOption?.dataset.hasMilestones === 'true';
 
+    console.log('Selected option:', {
+        value: selectedOption?.value,
+        hasMilestones,
+        milestonesData: selectedOption?.dataset.milestones
+    });
+
     if (!hasMilestones || !selectedOption.value) {
+        console.log('❌ No milestones or no value, hiding container');
         milestoneContainer.classList.add('hidden');
         return;
     }
 
     const playerId = playerSelect.value;
+    console.log('Player ID:', playerId);
+
     if (!playerId) {
+        console.log('❌ No player selected, hiding container');
         milestoneContainer.classList.add('hidden');
         return;
     }
 
+    console.log('✅ Showing milestone container');
     // Show milestone container
     milestoneContainer.classList.remove('hidden');
 
@@ -587,9 +620,13 @@ async function handleExerciseChallengeChange(db, type) {
     const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
     const itemId = selectedOption.value;
 
+    console.log('Milestones:', milestones);
+
     // Get player's current progress
     const collectionName = type === 'exercise' ? 'exerciseMilestones' : 'challengeMilestones';
     const playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId);
+
+    console.log('Player progress:', playerProgress);
 
     // Populate milestone dropdown
     milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
