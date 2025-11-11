@@ -1082,8 +1082,22 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     }
   });
 
+  // Store setScoreInput reference globally so doubles-player-ui can access it
+  window.playerSetScoreInput = setScoreInput;
+
   // Form submission
   form.addEventListener("submit", async (e) => {
+    // Check if this is a doubles match request
+    const matchType = window.getCurrentPlayerMatchType ? window.getCurrentPlayerMatchType() : 'singles';
+
+    if (matchType === 'doubles') {
+      // Handle doubles match request
+      const { handleDoublesPlayerMatchRequest } = await import('./doubles-player-ui.js');
+      await handleDoublesPlayerMatchRequest(e, db, userData);
+      return;
+    }
+
+    // Handle singles match request (existing logic)
     e.preventDefault();
 
     const opponentId = opponentSelect.value;
