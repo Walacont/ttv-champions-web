@@ -214,12 +214,18 @@ async function enrichMatchData(db, match, userData) {
     }
 
     // Get opponent data
-    const opponentDoc = await getDoc(doc(db, "users", opponentId));
-    if (opponentDoc.exists()) {
-      const opponentData = opponentDoc.data();
-      enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
-    } else {
-      enriched.opponentName = 'Unbekannt';
+    try {
+      const opponentDoc = await getDoc(doc(db, "users", opponentId));
+      if (opponentDoc.exists()) {
+        const opponentData = opponentDoc.data();
+        enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
+      } else {
+        enriched.opponentName = 'Unbekannt';
+      }
+    } catch (opponentError) {
+      // Failed to fetch opponent (probably from different club or deleted)
+      console.warn("Could not fetch opponent data:", opponentError.code || opponentError.message);
+      enriched.opponentName = 'Gegner';
     }
 
     // Get ELO change from pointsHistory
