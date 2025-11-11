@@ -10,7 +10,7 @@ import { loadOverviewData, loadRivalData, loadProfileData, updateRankDisplay, up
 import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
-import { handleSeasonReset } from './season.js';
+// Season reset import removed - now handled by Cloud Function
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
 import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './doubles-player-ui.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
@@ -46,7 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const initialDocSnap = await getDoc(userDocRef);
                 if (!initialDocSnap.exists()) { signOut(auth); return; }
                 
-                await handleSeasonReset(initialDocSnap.id, initialDocSnap.data(), db);
+                // Season resets are now handled by Cloud Function (every 6 weeks)
+                // No frontend reset logic needed anymore
 
                 const userListener = onSnapshot(userDocRef, (docSnap) => {
                     if (docSnap.exists()) {
