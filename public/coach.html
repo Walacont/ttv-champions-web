@@ -243,23 +243,6 @@
                             <p id="match-feedback" class="mt-3 text-sm font-medium text-center"></p>
                         </form>
                     </div>
-
-                    <!-- Match History - Competition Results -->
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                        <h2 class="text-xl font-semibold text-gray-800 mb-4">🏆 Wettkampf-Historie</h2>
-                        <p class="text-sm text-gray-600 mb-4">Wähle einen Spieler aus, um seine Wettkampf-Historie zu sehen</p>
-
-                        <div class="mb-4">
-                            <label for="match-history-player-filter" class="block text-sm font-medium text-gray-700 mb-2">Spieler auswählen</label>
-                            <select id="match-history-player-filter" class="w-full px-3 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-                                <option value="">Bitte Spieler wählen...</option>
-                            </select>
-                        </div>
-
-                        <div id="coach-match-history-list" class="space-y-3 min-h-[100px]">
-                            <p class="text-gray-400 text-center py-4 text-sm">Wähle einen Spieler aus...</p>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -403,44 +386,6 @@
 
                                 <details class="group">
                                     <summary class="flex justify-between items-center cursor-pointer">
-                                        <span class="font-medium">⭐ Wie funktioniert die abgestufte Punktevergabe (Meilensteine)?</span>
-                                        <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                    </summary>
-                                    <div class="mt-2 text-gray-700 space-y-3">
-                                        <p>Manche <strong>Übungen und Challenges</strong> haben ein spezielles Belohnungssystem: Du erhältst <strong>mehr Punkte</strong>, je öfter du die Übung/Challenge erfolgreich abschließt!</p>
-
-                                        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-                                            <p class="font-semibold text-indigo-900 mb-2">📊 Beispiel für eine abgestufte Übung:</p>
-                                            <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
-                                                <li><strong>1× geschafft:</strong> +3 Punkte</li>
-                                                <li><strong>3× geschafft:</strong> +5 Punkte (zusätzlich = insgesamt 8 Punkte)</li>
-                                                <li><strong>5× geschafft:</strong> +8 Punkte (zusätzlich = insgesamt 16 Punkte)</li>
-                                            </ul>
-                                        </div>
-
-                                        <div>
-                                            <p class="font-semibold mb-1">🎯 Wichtige Regeln:</p>
-                                            <ul class="list-disc list-inside ml-2 space-y-1 text-sm">
-                                                <li><strong>Kumulative Punkte:</strong> Die Punkte sammeln sich! Beim 5× Erreichen bekommst du 3+5+8 = 16 Punkte insgesamt.</li>
-                                                <li><strong>Einmal pro Saison:</strong> Für jede Meilenstein-Übung/Challenge kannst du Punkte nur einmal pro Saison sammeln.</li>
-                                                <li><strong>Fortschritt wird gespeichert:</strong> Dein Fortschritt (wie oft du die Übung geschafft hast) wird gespeichert.</li>
-                                                <li><strong>Saison-Reset:</strong> Bei Start einer neuen Saison (alle 6 Wochen) wird der Fortschritt zurückgesetzt und du kannst wieder von vorne beginnen!</li>
-                                            </ul>
-                                        </div>
-
-                                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                            <p class="text-sm">
-                                                <strong>💡 Tipp:</strong> Übungen mit abgestufter Punktevergabe sind mit einem Stern ⭐ markiert und zeigen "Bis zu X Punkte!" an.
-                                                Das ist eine tolle Möglichkeit, durch wiederholtes Üben und Verbessern viele Punkte zu sammeln!
-                                            </p>
-                                        </div>
-
-                                        <p class="mt-2"><strong>Für Coaches:</strong> Diese Funktion kann beim Erstellen von Übungen und Challenges aktiviert werden, indem die Checkbox "⭐ Abgestufte Punktevergabe aktivieren" angehakt wird. Dann kannst du die Meilensteine festlegen (z.B. 1×=3P, 3×=5P, 5×=8P).</p>
-                                    </div>
-                                </details>
-
-                                <details class="group">
-                                    <summary class="flex justify-between items-center cursor-pointer">
                                         <span class="font-medium">Wie funktionieren die Ränge und das Leaderboard?</span>
                                         <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                     </summary>
@@ -517,6 +462,19 @@
                             <div id="challenge-select-container" class="hidden">
                                 <label for="challenge-select" class="block text-sm font-medium text-gray-700">Challenge auswählen</label>
                                 <select id="challenge-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"></select>
+                            </div>
+                            <!-- Milestone Selector (shown when exercise/challenge has milestones) -->
+                            <div id="milestone-select-container" class="hidden bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                                <label for="milestone-select" class="block text-sm font-medium text-indigo-900 mb-2">🎯 Welcher Meilenstein wurde erreicht?</label>
+                                <select id="milestone-select" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-indigo-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white">
+                                    <option value="">Meilenstein wählen...</option>
+                                </select>
+                                <div id="milestone-info" class="mt-3 text-xs text-indigo-700 bg-white p-2 rounded">
+                                    <div class="flex justify-between">
+                                        <span><strong>Fortschritt:</strong> <span id="milestone-progress-text">-</span></span>
+                                        <span><strong>Punkte:</strong> <span id="milestone-points-text" class="font-bold text-indigo-600">0 P.</span></span>
+                                    </div>
+                                </div>
                             </div>
                             <div id="penalty-container" class="hidden space-y-4">
                                 <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
@@ -599,7 +557,17 @@
                                 <label for="challenge-description" class="block text-sm font-medium text-gray-700">Beschreibung</label>
                                 <textarea id="challenge-description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                             </div>
-                            <div>
+                            <!-- Points System Toggle -->
+                            <div class="border-t border-gray-200 pt-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="challenge-milestones-enabled" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">✨ Abgestufte Punktevergabe (Meilensteine)</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1 ml-6">Z.B. 1× erreicht = 3 Punkte, 3× erreicht = +5 Punkte zusätzlich</p>
+                            </div>
+
+                            <!-- Standard Points -->
+                            <div id="challenge-standard-points-container">
                                 <label for="challenge-points" class="block text-sm font-medium text-gray-700">Punkte</label>
                                 <input type="number" id="challenge-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                                 <p id="challenge-points-hint" class="mt-1 text-xs text-gray-600">
@@ -607,30 +575,19 @@
                                 </p>
                             </div>
 
-                            <!-- Tiered Points System for Challenges -->
-                            <div class="border-t pt-4">
-                                <div class="flex items-center mb-3">
-                                    <input type="checkbox" id="challenge-tiered-points-toggle" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                                    <label for="challenge-tiered-points-toggle" class="ml-2 text-sm font-medium text-gray-700">
-                                        🎯 Abgestufte Punktevergabe aktivieren (für wiederholbare Challenges)
-                                    </label>
+                            <!-- Milestone Points -->
+                            <div id="challenge-milestones-container" class="hidden space-y-3">
+                                <label class="block text-sm font-medium text-gray-700">Meilensteine definieren</label>
+                                <div id="challenge-milestones-list" class="space-y-2">
+                                    <!-- Milestone entries will be added here dynamically -->
                                 </div>
-                                <div id="challenge-milestones-container" class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg">
-                                    <p class="text-xs text-indigo-700 mb-2">
-                                        <strong>Meilensteine:</strong> Spieler können während der Challenge-Laufzeit Punkte sammeln, indem sie die Challenge mehrmals schaffen. Punkte sind kumulativ!
-                                    </p>
-                                    <div id="challenge-milestones-list" class="space-y-2">
-                                        <!-- Milestones will be added here dynamically -->
-                                    </div>
-                                    <button type="button" id="add-challenge-milestone-btn" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md">
-                                        + Meilenstein hinzufügen
-                                    </button>
-                                    <div class="text-xs text-indigo-600 font-semibold mt-2">
-                                        Max. erreichbare Punkte: <span id="challenge-max-points-display">0</span> P.
-                                    </div>
+                                <button type="button" id="add-challenge-milestone-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                                    + Meilenstein hinzufügen
+                                </button>
+                                <div class="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                    <strong>Max. erreichbare Punkte:</strong> <span id="challenge-total-milestone-points" class="font-bold text-indigo-600">0</span> P.
                                 </div>
                             </div>
-
                             <div>
                                 <label for="challenge-subgroup" class="block text-sm font-medium text-gray-700">Untergruppe</label>
                                 <select id="challenge-subgroup" required class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
@@ -699,36 +656,35 @@
                                     <option value="hard">⭐⭐⭐ Schwer</option>
                                 </select>
                             </div>
-                            <div>
+                            <!-- Points System Toggle -->
+                            <div class="border-t border-gray-200 pt-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="exercise-milestones-enabled" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">✨ Abgestufte Punktevergabe (Meilensteine)</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1 ml-6">Z.B. 1× geschafft = 3 Punkte, 3× geschafft = +5 Punkte zusätzlich</p>
+                            </div>
+
+                            <!-- Standard Points (Auto-calculated) -->
+                            <div id="exercise-standard-points-container">
                                 <label for="exercise-points-form" class="block text-sm font-medium text-gray-700">Punkte (automatisch berechnet)</label>
                                 <input type="number" id="exercise-points-form" readonly min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-700 font-semibold cursor-not-allowed">
                                 <p class="text-xs text-gray-500 mt-1">Wird automatisch basierend auf Level + Schwierigkeit berechnet</p>
                             </div>
 
-                            <!-- Tiered Points System -->
-                            <div class="border-t pt-4">
-                                <div class="flex items-center mb-3">
-                                    <input type="checkbox" id="exercise-tiered-points-toggle" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                                    <label for="exercise-tiered-points-toggle" class="ml-2 text-sm font-medium text-gray-700">
-                                        🎯 Abgestufte Punktevergabe aktivieren (für wiederholbare Übungen)
-                                    </label>
+                            <!-- Milestone Points -->
+                            <div id="exercise-milestones-container" class="hidden space-y-3">
+                                <label class="block text-sm font-medium text-gray-700">Meilensteine definieren</label>
+                                <div id="exercise-milestones-list" class="space-y-2">
+                                    <!-- Milestone entries will be added here dynamically -->
                                 </div>
-                                <div id="exercise-milestones-container" class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg">
-                                    <p class="text-xs text-indigo-700 mb-2">
-                                        <strong>Meilensteine:</strong> Spieler können pro Saison Punkte sammeln, indem sie diese Übung mehrmals schaffen. Punkte sind kumulativ!
-                                    </p>
-                                    <div id="exercise-milestones-list" class="space-y-2">
-                                        <!-- Milestones will be added here dynamically -->
-                                    </div>
-                                    <button type="button" id="add-exercise-milestone-btn" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md">
-                                        + Meilenstein hinzufügen
-                                    </button>
-                                    <div class="text-xs text-indigo-600 font-semibold mt-2">
-                                        Max. erreichbare Punkte: <span id="exercise-max-points-display">0</span> P.
-                                    </div>
+                                <button type="button" id="add-exercise-milestone-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                                    + Meilenstein hinzufügen
+                                </button>
+                                <div class="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                    <strong>Max. erreichbare Punkte:</strong> <span id="exercise-total-milestone-points" class="font-bold text-indigo-600">0</span> P.
                                 </div>
                             </div>
-
                             <div>
                                 <label for="exercise-tags-form" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
                                 <input type="text" id="exercise-tags-form" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">

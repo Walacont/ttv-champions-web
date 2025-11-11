@@ -46,21 +46,11 @@ export function loadExercises(db, unsubscribes) {
             card.dataset.imageUrl = exercise.imageUrl;
             card.dataset.points = exercise.points;
             card.dataset.tags = JSON.stringify(exercise.tags || []);
-            card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints || {});
 
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
             const tagsHtml = exerciseTags.map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
-
-            // Calculate points display (tiered or regular)
-            let pointsDisplay = '';
-            if (exercise.tieredPoints && exercise.tieredPoints.enabled && exercise.tieredPoints.milestones && exercise.tieredPoints.milestones.length > 0) {
-                const totalPoints = exercise.tieredPoints.milestones.reduce((sum, m) => sum + m.points, 0);
-                pointsDisplay = `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">⭐ Bis zu ${totalPoints} P.!</span>`;
-            } else {
-                pointsDisplay = `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
-            }
 
             card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
                               <div class="p-4 flex flex-col flex-grow">
@@ -68,7 +58,7 @@ export function loadExercises(db, unsubscribes) {
                                   <div class="mb-2">${tagsHtml}</div>
                                   <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
                                   <div class="mt-4 text-right">
-                                      ${pointsDisplay}
+                                      <span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>
                                   </div>
                               </div>`;
             exercises.push({ card, tags: exerciseTags });
@@ -305,27 +295,17 @@ function renderCoachExercises(exercises, filterTag) {
         card.dataset.imageUrl = exercise.imageUrl;
         card.dataset.points = exercise.points;
         card.dataset.tags = JSON.stringify(exercise.tags || []);
-        card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints || {});
 
         const tagsHtml = (exercise.tags || []).map(tag =>
             `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
         ).join('');
-
-        // Calculate points display for coach view
-        let pointsBadge = '';
-        if (exercise.tieredPoints && exercise.tieredPoints.enabled && exercise.tieredPoints.milestones && exercise.tieredPoints.milestones.length > 0) {
-            const totalPoints = exercise.tieredPoints.milestones.reduce((sum, m) => sum + m.points, 0);
-            pointsBadge = `<span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">⭐ ${totalPoints} P.</span>`;
-        } else {
-            pointsBadge = `<span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${exercise.points} P.</span>`;
-        }
 
         card.innerHTML = `
             <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
             <div class="p-4 flex flex-col flex-grow pointer-events-none">
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
-                    ${pointsBadge}
+                    <span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${exercise.points} P.</span>
                 </div>
                 <div class="pt-2">${tagsHtml}</div>
             </div>`;
@@ -352,9 +332,22 @@ export function loadExercisesForDropdown(db) {
             const e = doc.data();
             const option = document.createElement('option');
             option.value = doc.id;
-            option.textContent = `${e.title} (+${e.points} P.)`;
+
+            // Check for tieredPoints format
+            const hasTieredPoints = e.tieredPoints?.enabled && e.tieredPoints?.milestones?.length > 0;
+            const displayText = hasTieredPoints
+                ? `${e.title} (bis zu ${e.points} P. - Meilensteine)`
+                : `${e.title} (+${e.points} P.)`;
+
+            option.textContent = displayText;
             option.dataset.points = e.points;
             option.dataset.title = e.title;
+            option.dataset.hasMilestones = hasTieredPoints;
+
+            if (hasTieredPoints) {
+                option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
+            }
+
             select.appendChild(option);
         });
     });
@@ -367,8 +360,8 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { title, descriptionContent, imageUrl, points, tags, tieredPoints } = card.dataset;
-        openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints);
+        const { title, descriptionContent, imageUrl, points, tags } = card.dataset;
+        openExerciseModal(title, descriptionContent, imageUrl, points, tags);
     }
 }
 
@@ -379,9 +372,8 @@ export function handleExerciseClick(event) {
  * @param {string} imageUrl - Exercise image URL
  * @param {string} points - Exercise points
  * @param {string} tags - Exercise tags (JSON string)
- * @param {string} tieredPoints - Tiered points data (JSON string, optional)
  */
-export function openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints = '{}') {
+export function openExerciseModal(title, descriptionContent, imageUrl, points, tags) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
 
@@ -408,40 +400,7 @@ export function openExerciseModal(title, descriptionContent, imageUrl, points, t
         modalDescription.style.whiteSpace = 'pre-wrap';
     }
 
-    // Handle tiered points display
-    const pointsContainer = document.getElementById('modal-exercise-points');
-    let tieredData;
-    try {
-        tieredData = JSON.parse(tieredPoints || '{}');
-    } catch (e) {
-        tieredData = {};
-    }
-
-    if (tieredData && tieredData.enabled && tieredData.milestones && tieredData.milestones.length > 0) {
-        // Display tiered points with milestone list
-        const totalPoints = tieredData.milestones.reduce((sum, m) => sum + m.points, 0);
-        const milestonesHtml = tieredData.milestones.map(m =>
-            `<div class="flex items-center justify-between py-1 border-b border-gray-100 last:border-b-0">
-                <span class="text-sm text-gray-700">${m.completions}× geschafft</span>
-                <span class="text-sm font-semibold text-indigo-600">+${m.points} P.</span>
-            </div>`
-        ).join('');
-
-        pointsContainer.innerHTML = `
-            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-semibold text-gray-700">⭐ Abgestufte Punktevergabe</span>
-                    <span class="text-sm font-bold text-indigo-600">Gesamt: ${totalPoints} P.</span>
-                </div>
-                <div class="space-y-1">
-                    ${milestonesHtml}
-                </div>
-                <p class="text-xs text-gray-500 mt-2 italic">Punkte sammeln sich beim Erreichen der Meilensteine (einmal pro Saison).</p>
-            </div>
-        `;
-    } else {
-        pointsContainer.textContent = `+${points} P.`;
-    }
+    document.getElementById('modal-exercise-points').textContent = `+${points} P.`;
 
     const tagsContainer = document.getElementById('modal-exercise-tags');
     const tagsArray = JSON.parse(tags || '[]');
@@ -465,8 +424,8 @@ function escapeHtml(text) {
  * @param {Object} dataset - Dataset object containing exercise details
  */
 export function openExerciseModalFromDataset(dataset) {
-    const { title, descriptionContent, imageUrl, points, tags, tieredPoints } = dataset;
-    openExerciseModal(title, descriptionContent, imageUrl, points, tags, tieredPoints);
+    const { title, descriptionContent, imageUrl, points, tags } = dataset;
+    openExerciseModal(title, descriptionContent, imageUrl, points, tags);
 }
 
 /**
@@ -547,29 +506,184 @@ export function setupExercisePointsCalculation() {
 }
 
 /**
+ * Sets up milestone system for exercises
+ */
+export function setupExerciseMilestones() {
+    const milestonesEnabled = document.getElementById('exercise-milestones-enabled');
+    const standardContainer = document.getElementById('exercise-standard-points-container');
+    const milestonesContainer = document.getElementById('exercise-milestones-container');
+    const pointsInput = document.getElementById('exercise-points-form');
+
+    if (!milestonesEnabled || !standardContainer || !milestonesContainer) {
+        console.error('❌ Exercise milestone setup: Missing required elements', {
+            milestonesEnabled: !!milestonesEnabled,
+            standardContainer: !!standardContainer,
+            milestonesContainer: !!milestonesContainer
+        });
+        return;
+    }
+
+    console.log('✅ Exercise milestone setup: All elements found');
+
+    // Function to update UI based on checkbox state
+    const updateUI = () => {
+        console.log('🔄 Updating exercise UI, checkbox checked:', milestonesEnabled.checked);
+        if (milestonesEnabled.checked) {
+            standardContainer.classList.add('hidden');
+            milestonesContainer.classList.remove('hidden');
+            if (pointsInput) pointsInput.removeAttribute('required');
+            // Add first milestone by default if none exist
+            if (getExerciseMilestones().length === 0) {
+                addExerciseMilestone();
+            }
+        } else {
+            standardContainer.classList.remove('hidden');
+            milestonesContainer.classList.add('hidden');
+            if (pointsInput) pointsInput.setAttribute('required', 'required');
+        }
+    };
+
+    // Set initial state
+    updateUI();
+
+    // Toggle between standard points and milestones
+    milestonesEnabled.addEventListener('change', updateUI);
+
+    // Add milestone button
+    const addBtn = document.getElementById('add-exercise-milestone-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', addExerciseMilestone);
+    }
+
+    // When form is reset, ensure UI is reset too
+    const form = document.getElementById('create-exercise-form');
+    if (form) {
+        form.addEventListener('reset', () => {
+            setTimeout(() => {
+                milestonesEnabled.checked = false;
+                updateUI();
+            }, 0);
+        });
+    }
+}
+
+/**
+ * Adds a new milestone input row for exercises
+ */
+function addExerciseMilestone() {
+    const list = document.getElementById('exercise-milestones-list');
+    if (!list) return;
+
+    const index = list.children.length;
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-center bg-gray-50 p-2 rounded';
+    row.innerHTML = `
+        <input type="number"
+               class="exercise-milestone-count w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="z.B. 1"
+               min="1"
+               required>
+        <span class="text-gray-600 text-xs whitespace-nowrap">× →</span>
+        <input type="number"
+               class="exercise-milestone-points w-16 px-2 py-1 border border-gray-300 rounded text-sm"
+               placeholder="Punkte"
+               min="1"
+               required>
+        <span class="text-gray-600 text-xs">P.</span>
+        <button type="button" class="remove-exercise-milestone text-red-600 hover:text-red-800 px-1 text-sm flex-shrink-0">
+            🗑️
+        </button>
+    `;
+
+    // Add remove handler
+    row.querySelector('.remove-exercise-milestone').addEventListener('click', () => {
+        row.remove();
+        updateExerciseTotalPoints();
+    });
+
+    // Add update handlers
+    row.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateExerciseTotalPoints);
+    });
+
+    list.appendChild(row);
+    updateExerciseTotalPoints();
+}
+
+/**
+ * Gets all milestones from the form
+ * @returns {Array} Array of {count, points} objects
+ */
+function getExerciseMilestones() {
+    const list = document.getElementById('exercise-milestones-list');
+    if (!list) return [];
+
+    const milestones = [];
+    list.querySelectorAll('.flex').forEach(row => {
+        const count = parseInt(row.querySelector('.exercise-milestone-count')?.value || 0);
+        const points = parseInt(row.querySelector('.exercise-milestone-points')?.value || 0);
+        if (count > 0 && points > 0) {
+            milestones.push({ count, points });
+        }
+    });
+
+    // Sort by count ascending
+    milestones.sort((a, b) => a.count - b.count);
+    return milestones;
+}
+
+/**
+ * Updates the total milestone points display
+ */
+function updateExerciseTotalPoints() {
+    const milestones = getExerciseMilestones();
+    const total = milestones.reduce((sum, m) => sum + m.points, 0);
+    const totalEl = document.getElementById('exercise-total-milestone-points');
+    if (totalEl) {
+        totalEl.textContent = total;
+    }
+}
+
+/**
  * Handles exercise creation form submission (for coach)
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} storage - Firebase storage instance
  * @param {Object} descriptionEditor - Description editor instance (optional)
- * @param {Function} getMilestonesCallback - Optional callback to get milestones from UI
- * @param {Function} isTieredCallback - Optional callback to check if tiered points enabled
  */
-export async function handleCreateExercise(e, db, storage, descriptionEditor = null, getMilestonesCallback = null, isTieredCallback = null) {
+export async function handleCreateExercise(e, db, storage, descriptionEditor = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
     const title = document.getElementById('exercise-title-form').value;
     const level = document.getElementById('exercise-level-form').value;
     const difficulty = document.getElementById('exercise-difficulty-form').value;
-    const points = parseInt(document.getElementById('exercise-points-form').value);
     const file = document.getElementById('exercise-image-form').files[0];
     const tagsInput = document.getElementById('exercise-tags-form').value;
     const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
 
-    // Check if tiered points are enabled and get milestones
-    const tieredPointsEnabled = isTieredCallback ? isTieredCallback() : false;
-    const milestones = (tieredPointsEnabled && getMilestonesCallback) ? getMilestonesCallback() : [];
+    // Check if milestones are enabled
+    const milestonesEnabled = document.getElementById('exercise-milestones-enabled')?.checked || false;
+    let points = 0;
+    let milestones = null;
+
+    if (milestonesEnabled) {
+        milestones = getExerciseMilestones();
+        if (milestones.length === 0) {
+            feedbackEl.textContent = 'Bitte mindestens einen Meilenstein hinzufügen.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+        // Total points is sum of all milestones
+        points = milestones.reduce((sum, m) => sum + m.points, 0);
+    } else {
+        points = parseInt(document.getElementById('exercise-points-form').value);
+        if (isNaN(points) || points <= 0) {
+            feedbackEl.textContent = 'Bitte gültige Punkte angeben.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+            return;
+        }
+    }
 
     // Get description content from editor or fallback to textarea
     let descriptionContent;
@@ -584,7 +698,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !file || !level || !difficulty || isNaN(points) || points <= 0) {
+    if (!title || !file || !level || !difficulty) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
@@ -596,43 +710,49 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
         const snapshot = await uploadBytes(storageRef, file);
         const imageUrl = await getDownloadURL(snapshot.ref);
+
         const exerciseData = {
             title,
             descriptionContent: JSON.stringify(descriptionContent),
-            level,          // Store level
-            difficulty,     // Store difficulty
+            level,
+            difficulty,
             points,
             imageUrl,
             createdAt: serverTimestamp(),
             tags
         };
 
-        // Add tiered points data if enabled
-        if (tieredPointsEnabled && milestones.length > 0) {
+        // Add tieredPoints if enabled
+        if (milestonesEnabled && milestones) {
             exerciseData.tieredPoints = {
                 enabled: true,
                 milestones: milestones
             };
+        } else {
+            exerciseData.tieredPoints = {
+                enabled: false,
+                milestones: []
+            };
         }
 
         await addDoc(collection(db, "exercises"), exerciseData);
+
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+
         // Reset points field
         document.getElementById('exercise-points-form').value = '';
+
+        // Reset milestones
+        document.getElementById('exercise-milestones-list').innerHTML = '';
+        document.getElementById('exercise-milestones-enabled').checked = false;
+        document.getElementById('exercise-standard-points-container').classList.remove('hidden');
+        document.getElementById('exercise-milestones-container').classList.add('hidden');
+
         // Clear description editor
         if (descriptionEditor) {
             descriptionEditor.clear();
-        }
-        // Reset tiered points
-        const tieredToggle = document.getElementById('exercise-tiered-points-toggle');
-        if (tieredToggle) {
-            tieredToggle.checked = false;
-            const container = document.getElementById('exercise-milestones-container');
-            if (container) container.classList.add('hidden');
-            const list = document.getElementById('exercise-milestones-list');
-            if (list) list.innerHTML = '';
         }
     } catch (error) {
         console.error("Fehler beim Erstellen der Übung:", error);
