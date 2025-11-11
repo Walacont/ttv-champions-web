@@ -203,14 +203,14 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 if (challengeHasMilestones) {
                     const milestoneSelect = document.getElementById('milestone-select');
                     const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
-                    if (!selectedMilestone || !selectedMilestone.value) {
+                    if (!selectedMilestone || selectedMilestone.value === '' || !selectedMilestone.dataset.count) {
                         throw new Error('Bitte einen Meilenstein auswählen.');
                     }
 
                     // Get cumulative points
                     points = parseInt(selectedMilestone.dataset.cumulativePoints);
                     xpChange = points;
-                    const milestoneCount = selectedMilestone.dataset.count;
+                    const milestoneCount = parseInt(selectedMilestone.dataset.count);
                     reason = `Challenge: ${cOption.dataset.title} (${milestoneCount}× Meilenstein)`;
                 } else {
                     points = parseInt(cOption.dataset.points);
@@ -231,14 +231,14 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 if (exerciseHasMilestones) {
                     const milestoneSelect = document.getElementById('milestone-select');
                     const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
-                    if (!selectedMilestone || !selectedMilestone.value) {
+                    if (!selectedMilestone || selectedMilestone.value === '' || !selectedMilestone.dataset.count) {
                         throw new Error('Bitte einen Meilenstein auswählen.');
                     }
 
                     // Get cumulative points
                     points = parseInt(selectedMilestone.dataset.cumulativePoints);
                     xpChange = points;
-                    const milestoneCount = selectedMilestone.dataset.count;
+                    const milestoneCount = parseInt(selectedMilestone.dataset.count);
                     reason = `Übung: ${eOption.dataset.title} (${milestoneCount}× Meilenstein)`;
                 } else {
                     points = parseInt(eOption.dataset.points);
