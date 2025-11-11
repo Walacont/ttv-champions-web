@@ -140,8 +140,8 @@ async function initializeDashboard(userData) {
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
 
     // Start season countdown timer
-    updateSeasonCountdown('season-countdown', true);
-    setInterval(() => updateSeasonCountdown('season-countdown', true), 1000);
+    updateSeasonCountdown('season-countdown', true, db);
+    setInterval(() => updateSeasonCountdown('season-countdown', true, db), 1000);
 
     logoutButton.addEventListener('click', () => signOut(auth));
     setupTabs('overview');  // 'overview' is default tab for dashboard

@@ -3,29 +3,59 @@
  * Common UI utility functions for tabs and countdown timers
  */
 
-// ⚠️ TESTING MODE: Get or create fixed season end time (persisted in localStorage)
-function getFixedSeasonEnd() {
-    const stored = localStorage.getItem('TESTING_SEASON_END');
-    const now = new Date();
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-    if (stored) {
-        const storedDate = new Date(stored);
+// Module-level cache for season end date
+let cachedSeasonEnd = null;
+let lastFetchTime = null;
+const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
 
-        // If stored date is in the past, create a new one
-        if (storedDate <= now) {
-            const newEnd = new Date(now.getTime() + 2 * 60 * 1000); // ⚠️ 2 minutes for testing
-            localStorage.setItem('TESTING_SEASON_END', newEnd.toISOString());
-            console.log('⏰ Old season ended, new season end set to:', newEnd.toLocaleString('de-DE'));
-            return newEnd;
+/**
+ * Fetches the season end date from Firestore config
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<Date>} The end date of the current season
+ */
+async function fetchSeasonEndDate(db) {
+    try {
+        // Check cache first
+        if (cachedSeasonEnd && lastFetchTime && (Date.now() - lastFetchTime < CACHE_DURATION)) {
+            return cachedSeasonEnd;
         }
 
-        console.log('🎯 Using stored season end:', storedDate.toLocaleString('de-DE'));
-        return storedDate;
-    } else {
-        const newEnd = new Date(now.getTime() + 2 * 60 * 1000); // ⚠️ 2 minutes for testing
-        localStorage.setItem('TESTING_SEASON_END', newEnd.toISOString());
-        console.log('🎯 New season end set to:', newEnd.toLocaleString('de-DE'));
-        return newEnd;
+        const configRef = doc(db, 'config', 'seasonReset');
+        const configDoc = await getDoc(configRef);
+
+        if (configDoc.exists()) {
+            const data = configDoc.data();
+            const lastResetDate = data.lastResetDate.toDate();
+            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+            const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
+
+            // Cache the result
+            cachedSeasonEnd = seasonEnd;
+            lastFetchTime = Date.now();
+
+            console.log('📅 Season end date loaded from Firestore:', seasonEnd.toLocaleString('de-DE'));
+            return seasonEnd;
+        } else {
+            // Fallback: If no config exists, calculate from today + 6 weeks
+            console.warn('⚠️ No season reset config found, using fallback calculation');
+            const now = new Date();
+            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+            const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
+
+            cachedSeasonEnd = fallbackEnd;
+            lastFetchTime = Date.now();
+
+            return fallbackEnd;
+        }
+    } catch (error) {
+        console.error('Error fetching season end date:', error);
+
+        // Fallback calculation
+        const now = new Date();
+        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+        return new Date(now.getTime() + sixWeeksInMs);
     }
 }
 
@@ -63,41 +93,32 @@ export function setupTabs(defaultTab = 'overview') {
 
 /**
  * Updates the season countdown timer
- * Season ends on the 15th of each month or at end of month
+ * Shows countdown to the end of the 6-week season cycle
  * @param {string} elementId - The ID of the countdown element (default: 'season-countdown')
- * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false for coach, true for player)
+ * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false)
+ * @param {Object} db - Firestore database instance (required)
  */
-export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEnd = false) {
+export async function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEnd = false, db = null) {
     const seasonCountdownEl = document.getElementById(elementId);
     if (!seasonCountdownEl) return;
 
+    if (!db) {
+        console.error('Firestore instance required for season countdown');
+        seasonCountdownEl.textContent = "Lädt...";
+        return;
+    }
+
     const now = new Date();
-    let endOfSeason;
-
-    // ⚠️ TESTING MODE: Use localStorage to persist season end across reloads
-    endOfSeason = getFixedSeasonEnd();
-
-    // ORIGINAL LOGIC (uncomment to restore):
-    // if (now.getDate() < 15) {
-    //     endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 0, 0, 0);
-    // } else {
-    //     endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    // }
+    const endOfSeason = await fetchSeasonEndDate(db);
 
     const diff = endOfSeason - now;
 
     if (diff <= 0) {
-        seasonCountdownEl.textContent = "Saison beendet!";
-
-        // ⚠️ TESTING MODE: Mark that season just ended
-        if (!localStorage.getItem('SEASON_RESET_TRIGGERED')) {
-            localStorage.setItem('SEASON_RESET_TRIGGERED', 'true');
-            console.log('⏰ Season ended! Marking for reset on next load...');
-        }
+        seasonCountdownEl.textContent = "Saison beendet! Wird automatisch zurückgesetzt...";
 
         if (reloadOnEnd) {
-            console.log('🔄 Reloading page in 5 seconds for season reset...');
-            setTimeout(() => window.location.reload(), 5000);
+            console.log('🔄 Season ended, reloading page in 30 seconds...');
+            setTimeout(() => window.location.reload(), 30000);
         }
         return;
     }
@@ -112,52 +133,52 @@ export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEn
 
 /**
  * Gets the current season end date
- * Season ends either on the 15th or at month end
- * @returns {Date} The end date of the current season
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<Date>} The end date of the current season
  */
-export function getSeasonEndDate() {
-    // ⚠️ TESTING MODE: Use localStorage to persist season end across reloads
-    const endOfSeason = getFixedSeasonEnd();
-
-    // ORIGINAL LOGIC (uncomment to restore):
-    // const now = new Date();
-    // if (now.getDate() < 15) {
-    //     endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 23, 59, 59);
-    // } else {
-    //     endOfSeason = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    // }
-
-    return endOfSeason;
+export async function getSeasonEndDate(db) {
+    return await fetchSeasonEndDate(db);
 }
 
 /**
  * Formats the season end date for display
- * @returns {string} Formatted date string (e.g., "15.11.2025")
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<string>} Formatted date string (e.g., "15.12.2025")
  */
-export function formatSeasonEndDate() {
-    const endDate = getSeasonEndDate();
+export async function formatSeasonEndDate(db) {
+    const endDate = await fetchSeasonEndDate(db);
     const day = String(endDate.getDate()).padStart(2, '0');
     const month = String(endDate.getMonth() + 1).padStart(2, '0');
     const year = endDate.getFullYear();
-    const hours = String(endDate.getHours()).padStart(2, '0');
-    const minutes = String(endDate.getMinutes()).padStart(2, '0');
 
-    // ⚠️ TESTING MODE: Show time for 5-minute test
-    return `${day}.${month}.${year} ${hours}:${minutes}`;
-
-    // ORIGINAL: return `${day}.${month}.${year}`;
+    return `${day}.${month}.${year}`;
 }
 
 /**
- * Gets the current season key (format: "MONTH-YEAR")
+ * Gets the current season key (format: "MONTH-YEAR" based on reset date)
  * Used for tracking which season a milestone was completed in
- * @returns {string} Season key (e.g., "11-2025")
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<string>} Season key (e.g., "11-2025")
  */
-export function getCurrentSeasonKey() {
-    const endDate = getSeasonEndDate();
+export async function getCurrentSeasonKey(db) {
+    try {
+        const configRef = doc(db, 'config', 'seasonReset');
+        const configDoc = await getDoc(configRef);
 
-    // ⚠️ TESTING MODE: Use timestamp for unique keys in 5-minute cycles
-    return `test-${Math.floor(endDate.getTime() / 1000)}`;
+        if (configDoc.exists()) {
+            const data = configDoc.data();
+            const lastResetDate = data.lastResetDate.toDate();
 
-    // ORIGINAL: return `${endDate.getMonth() + 1}-${endDate.getFullYear()}`;
+            // Season key is based on the month/year when the season started (lastResetDate)
+            return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
+        } else {
+            // Fallback: Use current month/year
+            const now = new Date();
+            return `${now.getMonth() + 1}-${now.getFullYear()}`;
+        }
+    } catch (error) {
+        console.error('Error getting season key:', error);
+        const now = new Date();
+        return `${now.getMonth() + 1}-${now.getFullYear()}`;
+    }
 }

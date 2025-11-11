@@ -1048,6 +1048,251 @@ exports.migrateAttendanceToSessions = onCall(
 );
 
 // ========================================================================
+// ===== SCHEDULED FUNCTION: Auto Season Reset (Every 6 Weeks) =====
+// ========================================================================
+/**
+ * Scheduled function that runs every 6 weeks to reset seasons
+ * - Resets season points to 0
+ * - Handles league promotions/demotions
+ * - Deletes milestone progress and completion status
+ */
+exports.autoSeasonReset = onSchedule(
+  {
+    // Run daily at 00:00 CET to check if 6 weeks have passed
+    schedule: "0 0 * * *", // Every day at midnight
+    timeZone: "Europe/Berlin",
+    region: CONFIG.REGION,
+  },
+  async (event) => {
+    logger.info("🔄 Checking if 6-week season reset is needed...");
+
+    try {
+      const now = admin.firestore.Timestamp.now();
+
+      // Check last reset date from config document
+      const configRef = db.collection("config").doc("seasonReset");
+      const configDoc = await configRef.get();
+
+      const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000; // 6 weeks in milliseconds
+
+      if (configDoc.exists) {
+        const lastReset = configDoc.data().lastResetDate;
+        const timeSinceLastReset = now.toMillis() - lastReset.toMillis();
+
+        if (timeSinceLastReset < sixWeeksInMs) {
+          const daysRemaining = Math.ceil(
+            (sixWeeksInMs - timeSinceLastReset) / (24 * 60 * 60 * 1000)
+          );
+          logger.info(
+            `Not yet time for season reset. ${daysRemaining} days remaining.`
+          );
+          return {
+            success: true,
+            message: `${daysRemaining} days until next reset`,
+            daysRemaining,
+          };
+        }
+      }
+
+      logger.info(
+        "✅ 6 weeks have passed (or first run). Starting season reset..."
+      );
+
+      // Get all clubs
+      const clubsSnapshot = await db.collection("clubs").get();
+
+      if (clubsSnapshot.empty) {
+        logger.info("No clubs found");
+        return {success: true, clubsReset: 0};
+      }
+
+      logger.info(`Found ${clubsSnapshot.size} clubs to process`);
+
+      let totalClubsReset = 0;
+      let totalPlayersReset = 0;
+
+      // Define league structure (same as frontend)
+      const LEAGUES = {
+        Bronze: {name: "Bronze", color: "#CD7F32", icon: "🥉"},
+        Silber: {name: "Silber", color: "#C0C0C0", icon: "🥈"},
+        Gold: {name: "Gold", color: "#FFD700", icon: "🥇"},
+        Platin: {name: "Platin", color: "#E5E4E2", icon: "💎"},
+        Diamant: {name: "Diamant", color: "#B9F2FF", icon: "💠"},
+        Champion: {name: "Champion", color: "#FF4500", icon: "👑"},
+      };
+      const PROMOTION_COUNT = 2; // Top 2 players get promoted
+      const DEMOTION_COUNT = 2; // Bottom 2 players get demoted
+
+      // Process each club
+      for (const clubDoc of clubsSnapshot.docs) {
+        const clubId = clubDoc.id;
+        logger.info(`Processing club: ${clubId}`);
+
+        try {
+          // Get all players in this club
+          const playersQuery = await db
+            .collection(CONFIG.COLLECTIONS.USERS)
+            .where("clubId", "==", clubId)
+            .where("role", "==", "player")
+            .get();
+
+          if (playersQuery.empty) {
+            logger.info(`No players found in club ${clubId}`);
+            continue;
+          }
+
+          const allPlayers = playersQuery.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          logger.info(`Found ${allPlayers.length} players in club ${clubId}`);
+
+          // Group players by league
+          const playersByLeague = allPlayers.reduce((acc, player) => {
+            const league = player.league || "Bronze";
+            if (!acc[league]) acc[league] = [];
+            acc[league].push(player);
+            return acc;
+          }, {});
+
+          // Calculate promotions/demotions
+          const batch = db.batch();
+          const leagueKeys = Object.keys(LEAGUES);
+
+          for (const leagueName in playersByLeague) {
+            const playersInLeague = playersByLeague[leagueName];
+            const sortedPlayers = playersInLeague.sort(
+              (a, b) => (b.points || 0) - (a.points || 0)
+            );
+            const totalPlayers = sortedPlayers.length;
+
+            sortedPlayers.forEach((player, index) => {
+              const rank = index + 1;
+              const playerRef = db
+                .collection(CONFIG.COLLECTIONS.USERS)
+                .doc(player.id);
+              let newLeague = leagueName;
+
+              // Promotion logic
+              if (rank <= PROMOTION_COUNT) {
+                const currentLeagueIndex = leagueKeys.indexOf(leagueName);
+                if (currentLeagueIndex < leagueKeys.length - 1) {
+                  newLeague = leagueKeys[currentLeagueIndex + 1];
+                  logger.info(
+                    `Promoting ${player.firstName} ${player.lastName} from ${leagueName} to ${newLeague}`
+                  );
+                }
+              }
+              // Demotion logic
+              else if (
+                rank > totalPlayers - DEMOTION_COUNT &&
+                totalPlayers > PROMOTION_COUNT + DEMOTION_COUNT
+              ) {
+                const currentLeagueIndex = leagueKeys.indexOf(leagueName);
+                if (currentLeagueIndex > 0) {
+                  newLeague = leagueKeys[currentLeagueIndex - 1];
+                  logger.info(
+                    `Demoting ${player.firstName} ${player.lastName} from ${leagueName} to ${newLeague}`
+                  );
+                }
+              }
+
+              // Reset season points and update league
+              batch.update(playerRef, {
+                points: 0,
+                league: newLeague,
+                lastSeasonReset: now,
+              });
+            });
+          }
+
+          // Commit batch updates
+          await batch.commit();
+          logger.info(`✅ Batch updates committed for club ${clubId}`);
+
+          // Delete milestone progress and completion status for all players
+          for (const player of allPlayers) {
+            try {
+              // Delete exercise milestones
+              const exerciseMilestones = await db
+                .collection(`users/${player.id}/exerciseMilestones`)
+                .get();
+              for (const milestone of exerciseMilestones.docs) {
+                await milestone.ref.delete();
+              }
+
+              // Delete challenge milestones
+              const challengeMilestones = await db
+                .collection(`users/${player.id}/challengeMilestones`)
+                .get();
+              for (const milestone of challengeMilestones.docs) {
+                await milestone.ref.delete();
+              }
+
+              // Delete completed exercises
+              const completedExercises = await db
+                .collection(`users/${player.id}/completedExercises`)
+                .get();
+              for (const completed of completedExercises.docs) {
+                await completed.ref.delete();
+              }
+
+              // Delete completed challenges
+              const completedChallenges = await db
+                .collection(`users/${player.id}/completedChallenges`)
+                .get();
+              for (const completed of completedChallenges.docs) {
+                await completed.ref.delete();
+              }
+
+              logger.info(
+                `✅ Reset milestones for player: ${player.firstName} ${player.lastName}`
+              );
+              totalPlayersReset++;
+            } catch (subError) {
+              logger.error(
+                `Error resetting milestones for player ${player.id}:`,
+                subError
+              );
+            }
+          }
+
+          totalClubsReset++;
+          logger.info(`✅ Season reset complete for club: ${clubId}`);
+        } catch (clubError) {
+          logger.error(`💥 Error processing club ${clubId}:`, clubError);
+        }
+      }
+
+      // Update config with new reset date
+      await configRef.set(
+        {
+          lastResetDate: now,
+          lastResetTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true}
+      );
+
+      logger.info(
+        `✅ Automatic season reset complete: ${totalClubsReset} clubs, ${totalPlayersReset} players`
+      );
+      return {
+        success: true,
+        clubsReset: totalClubsReset,
+        playersReset: totalPlayersReset,
+        nextResetDate: new Date(
+          now.toMillis() + sixWeeksInMs
+        ).toISOString(),
+      };
+    } catch (error) {
+      logger.error("💥 Error during automatic season reset:", error);
+      return {success: false, error: error.message};
+    }
+  }
+);
+
+// ========================================================================
 // ===== TODO: Email Notifications =====
 // ========================================================================
 // Future enhancement: Send email notifications when:
