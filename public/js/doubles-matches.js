@@ -424,7 +424,7 @@ function renderCoachDoublesRequestCards(requests, db, userData, container) {
         const teamBName1 = request.teamBPlayer1?.firstName || 'Unbekannt';
         const teamBName2 = request.teamBPlayer2?.firstName || 'Unbekannt';
 
-        const setsDisplay = formatDoublesS ets(request.sets);
+        const setsDisplay = formatDoublesSets(request.sets);
         const winnerTeamName = request.winningTeam === 'A'
             ? `${teamAName1} & ${teamAName2}`
             : `${teamBName1} & ${teamBName2}`;
