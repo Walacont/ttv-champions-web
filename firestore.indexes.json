@@ -93,6 +93,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "doublesPairings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "clubId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "matchesWon",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
