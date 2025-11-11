@@ -299,3 +299,76 @@ export function isChallengeTieredPointsEnabled() {
   const toggle = document.getElementById('challenge-tiered-points-toggle');
   return toggle ? toggle.checked : false;
 }
+
+// ========================================================================
+// ===== PARTNER SYSTEM MANAGEMENT =====
+// ========================================================================
+
+/**
+ * Initialize partner system UI for exercises (Admin)
+ */
+export function initializeExercisePartnerSystem() {
+  const toggle = document.getElementById('exercise-partner-system-toggle');
+  const container = document.getElementById('exercise-partner-container');
+
+  if (!toggle || !container) return;
+
+  // Toggle visibility
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      container.classList.remove('hidden');
+    } else {
+      container.classList.add('hidden');
+    }
+  });
+}
+
+/**
+ * Initialize partner system UI for exercises (Coach)
+ */
+export function initializeExercisePartnerSystemCoach() {
+  const toggle = document.getElementById('exercise-partner-system-toggle-coach');
+  const container = document.getElementById('exercise-partner-container-coach');
+
+  if (!toggle || !container) return;
+
+  // Toggle visibility
+  toggle.addEventListener('change', () => {
+    if (toggle.checked) {
+      container.classList.remove('hidden');
+    } else {
+      container.classList.add('hidden');
+    }
+  });
+}
+
+/**
+ * Get partner system settings for exercise
+ * @returns {Object|null} Partner settings object or null if disabled
+ */
+export function getExercisePartnerSettings() {
+  const toggle = document.getElementById('exercise-partner-system-toggle') ||
+                 document.getElementById('exercise-partner-system-toggle-coach');
+
+  if (!toggle || !toggle.checked) return null;
+
+  const percentageInput = document.getElementById('exercise-partner-percentage') ||
+                          document.getElementById('exercise-partner-percentage-coach');
+
+  const percentage = percentageInput ? parseInt(percentageInput.value) : 50;
+
+  return {
+    enabled: true,
+    partnerPercentage: Math.max(0, Math.min(100, percentage)) // Clamp between 0-100
+  };
+}
+
+/**
+ * Check if exercise has partner system enabled
+ * @returns {boolean}
+ */
+export function isExercisePartnerSystemEnabled() {
+  const toggle = document.getElementById('exercise-partner-system-toggle') ||
+                 document.getElementById('exercise-partner-system-toggle-coach');
+  return toggle ? toggle.checked : false;
+}

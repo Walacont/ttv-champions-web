@@ -14,6 +14,7 @@ import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
+import { initializeExercisePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
 import { checkAndMigrate } from './migration.js';
 import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleEditSubgroupSubmit, closeEditSubgroupModal } from './subgroups-management.js';
@@ -287,6 +288,9 @@ async function initializeCoachPage(userData) {
 
     // Setup exercise milestones system
     setupExerciseMilestones();
+
+    // Initialize partner system for exercises
+    initializeExercisePartnerSystemCoach();
 
     // Setup challenge point recommendations (based on duration)
     setupChallengePointRecommendations();
