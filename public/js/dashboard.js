@@ -110,8 +110,8 @@ async function initializeDashboard(userData) {
         calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
     }, currentDisplayDate, db);
 
-    loadExercises(db, unsubscribes);
     setExerciseContext(db, userData.id, userData.role);
+    loadExercises(db, unsubscribes);
 
     // Set leaderboard filter to 'all' for initial load (club view)
     import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
