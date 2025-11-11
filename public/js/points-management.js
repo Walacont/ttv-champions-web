@@ -1,4 +1,5 @@
 import { collection, doc, onSnapshot, query, orderBy, runTransaction, serverTimestamp, increment, getDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getCurrentSeasonKey, formatSeasonEndDate } from './ui-utils.js';
 
 /**
  * Points Management Module
@@ -420,7 +421,77 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 }
             }
 
-            // ===== PHASE 2: CALCULATE ALL VALUES =====
+            // Read milestone progress documents (if milestones are being awarded)
+            let exerciseMilestoneDoc = null;
+            let challengeMilestoneDoc = null;
+            const currentSeasonKey = getCurrentSeasonKey();
+
+            if (exerciseId && reasonType === 'exercise') {
+                const eOption = document.getElementById('exercise-select').options[document.getElementById('exercise-select').selectedIndex];
+                if (eOption?.dataset.hasMilestones === 'true') {
+                    const progressRef = doc(db, `users/${playerId}/exerciseMilestones`, exerciseId);
+                    exerciseMilestoneDoc = await transaction.get(progressRef);
+                }
+            }
+
+            if (challengeId && reasonType === 'challenge') {
+                const cOption = document.getElementById('challenge-select').options[document.getElementById('challenge-select').selectedIndex];
+                if (cOption?.dataset.hasMilestones === 'true') {
+                    const progressRef = doc(db, `users/${playerId}/challengeMilestones`, challengeId);
+                    challengeMilestoneDoc = await transaction.get(progressRef);
+                }
+            }
+
+            // ===== PHASE 2: VALIDATE & CALCULATE ALL VALUES =====
+
+            // Validate milestone progression (exercise)
+            if (exerciseMilestoneDoc && reasonType === 'exercise') {
+                const milestoneSelect = document.getElementById('milestone-select');
+                const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
+                if (selectedMilestone && selectedMilestone.value) {
+                    const newMilestoneCount = parseInt(selectedMilestone.dataset.count);
+
+                    if (exerciseMilestoneDoc.exists()) {
+                        const progressData = exerciseMilestoneDoc.data();
+                        const lastSeasonKey = progressData.lastSeasonUpdated || '';
+
+                        // If same season, validate that new milestone is higher
+                        if (lastSeasonKey === currentSeasonKey) {
+                            const currentCount = progressData.currentCount || 0;
+                            if (newMilestoneCount <= currentCount) {
+                                throw new Error(`Du kannst nur höhere Meilensteine vergeben! Aktueller Fortschritt: ${currentCount}×, gewählt: ${newMilestoneCount}×`);
+                            }
+                        }
+                        // If different season, milestone resets to 0 automatically (no validation needed)
+                    }
+                    // If no previous progress, any milestone is allowed
+                }
+            }
+
+            // Validate milestone progression (challenge)
+            if (challengeMilestoneDoc && reasonType === 'challenge') {
+                const milestoneSelect = document.getElementById('milestone-select');
+                const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
+                if (selectedMilestone && selectedMilestone.value) {
+                    const newMilestoneCount = parseInt(selectedMilestone.dataset.count);
+
+                    if (challengeMilestoneDoc.exists()) {
+                        const progressData = challengeMilestoneDoc.data();
+                        const lastSeasonKey = progressData.lastSeasonUpdated || '';
+
+                        // If same season, validate that new milestone is higher
+                        if (lastSeasonKey === currentSeasonKey) {
+                            const currentCount = progressData.currentCount || 0;
+                            if (newMilestoneCount <= currentCount) {
+                                throw new Error(`Du kannst nur höhere Meilensteine vergeben! Aktueller Fortschritt: ${currentCount}×, gewählt: ${newMilestoneCount}×`);
+                            }
+                        }
+                        // If different season, milestone resets to 0 automatically (no validation needed)
+                    }
+                    // If no previous progress, any milestone is allowed
+                }
+            }
+
             // Get current values to ensure floors at 0
             const currentPoints = playerData.points || 0;
             const currentXP = playerData.xp || 0;
@@ -511,7 +582,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         transaction.set(progressRef, {
                             currentCount: milestoneCount,
                             lastUpdated: serverTimestamp(),
-                            lastSeasonUpdated: new Date().getMonth() + 1 + '-' + new Date().getFullYear() // Track season
+                            lastSeasonUpdated: currentSeasonKey // Track season
                         }, { merge: true });
                     }
                 }
@@ -530,7 +601,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         transaction.set(progressRef, {
                             currentCount: milestoneCount,
                             lastUpdated: serverTimestamp(),
-                            lastSeasonUpdated: new Date().getMonth() + 1 + '-' + new Date().getFullYear() // Track season
+                            lastSeasonUpdated: currentSeasonKey // Track season
                         }, { merge: true });
                     }
                 }
@@ -813,10 +884,16 @@ async function handleExerciseChallengeChange(db, type) {
         // Populate milestone dropdown
         milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
 
+        // Check if progress is from current season
+        const currentSeasonKey = getCurrentSeasonKey();
+        const progressSeasonKey = playerProgress.lastSeasonUpdated || '';
+        const isCurrentSeason = progressSeasonKey === currentSeasonKey;
+        const currentCount = isCurrentSeason ? (playerProgress.currentCount || 0) : 0;
+
         milestones.forEach((milestone, index) => {
             const option = document.createElement('option');
             option.value = index;
-            const isCompleted = playerId && playerProgress.currentCount >= milestone.count;
+            const isCompleted = playerId && currentCount >= milestone.count;
             const status = isCompleted ? '✅' : '';
             option.textContent = `${milestone.count}× erreicht → ${milestone.points} P. ${status}`;
             option.dataset.count = milestone.count;
@@ -910,15 +987,28 @@ function updateMilestoneProgressDisplay(progress, milestones) {
     const progressText = document.getElementById('milestone-progress-text');
 
     if (progressText) {
-        const currentCount = progress.currentCount || 0;
+        const currentSeasonKey = getCurrentSeasonKey();
+        const progressSeasonKey = progress.lastSeasonUpdated || '';
+
+        // Check if progress is from current season
+        const isCurrentSeason = progressSeasonKey === currentSeasonKey;
+        const currentCount = isCurrentSeason ? (progress.currentCount || 0) : 0;
+
+        // Add season info
+        const seasonEndDate = formatSeasonEndDate();
+        const seasonInfo = `📅 Saison endet: ${seasonEndDate}`;
+
         const nextMilestone = milestones.find(m => m.count > currentCount);
 
-        if (nextMilestone) {
-            progressText.textContent = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)`;
+        if (!isCurrentSeason && progress.currentCount > 0) {
+            // Progress from old season - will reset
+            progressText.innerHTML = `Neue Saison! Fortschritt wurde zurückgesetzt (0×)<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
+        } else if (nextMilestone) {
+            progressText.innerHTML = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
         } else if (currentCount >= milestones[milestones.length - 1]?.count) {
-            progressText.textContent = `${currentCount}× - Alle Meilensteine erreicht! 🎉`;
+            progressText.innerHTML = `${currentCount}× - Alle Meilensteine erreicht! 🎉<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
         } else {
-            progressText.textContent = `${currentCount}× erreicht`;
+            progressText.innerHTML = `${currentCount}× erreicht<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
         }
     }
 
