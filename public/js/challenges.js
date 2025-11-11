@@ -415,6 +415,13 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
                 option.dataset.milestones = JSON.stringify(challenge.tieredPoints.milestones);
             }
 
+            // Add partner system data
+            const hasPartnerSystem = challenge.partnerSystem?.enabled || false;
+            option.dataset.hasPartnerSystem = hasPartnerSystem;
+            if (hasPartnerSystem) {
+                option.dataset.partnerPercentage = challenge.partnerSystem.partnerPercentage || 50;
+            }
+
             select.appendChild(option);
         });
     });

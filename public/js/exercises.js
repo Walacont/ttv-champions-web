@@ -423,6 +423,13 @@ export function loadExercisesForDropdown(db) {
                 option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
             }
 
+            // Add partner system data
+            const hasPartnerSystem = e.partnerSystem?.enabled || false;
+            option.dataset.hasPartnerSystem = hasPartnerSystem;
+            if (hasPartnerSystem) {
+                option.dataset.partnerPercentage = e.partnerSystem.partnerPercentage || 50;
+            }
+
             select.appendChild(option);
         });
     });
