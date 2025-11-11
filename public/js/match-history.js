@@ -205,6 +205,14 @@ async function enrichMatchData(db, match, userData) {
     // Determine opponent ID
     const opponentId = match.winnerId === userData.id ? match.loserId : match.winnerId;
 
+    // Check if opponentId is valid before attempting to fetch
+    if (!opponentId || opponentId === '' || opponentId === null || opponentId === undefined) {
+      enriched.opponentName = 'Unbekannt';
+      enriched.eloChange = null;
+      enriched.pointsGained = null;
+      return enriched;
+    }
+
     // Get opponent data
     const opponentDoc = await getDoc(doc(db, "users", opponentId));
     if (opponentDoc.exists()) {
