@@ -12,7 +12,7 @@ import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDatase
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings, initializeHandicapToggle } from './matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
-import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors } from './points-management.js';
+import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors, setupManualPartnerSystem } from './points-management.js';
 import { loadLeaguesForSelector } from './season.js';
 import { initializeExercisePartnerSystemCoach, initializeChallengePartnerSystemCoach } from './milestone-management.js';
 import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
@@ -311,6 +311,10 @@ async function initializeCoachPage(userData) {
 
     // Setup milestone selectors for exercise/challenge points awarding
     setupMilestoneSelectors(db);
+
+    // Setup manual partner system for manual points awarding
+    setupManualPartnerSystem(db);
+
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
         const sessionId = getCurrentSessionId();
         handleGeneratePairings(clubPlayers, currentSubgroupFilter, sessionId);

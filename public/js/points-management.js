@@ -297,6 +297,24 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
                 }
             }
+        } else if (reasonType === 'manual') {
+            // Check manual partner toggle
+            const manualToggle = document.getElementById('manual-partner-toggle');
+            hasPartnerSystem = manualToggle?.checked || false;
+
+            if (hasPartnerSystem) {
+                partnerPercentage = parseInt(document.getElementById('manual-partner-percentage')?.value) || 50;
+                partnerId = document.getElementById('manual-partner-select')?.value;
+
+                // Validate partner selection
+                if (!partnerId) {
+                    throw new Error('Bitte wähle einen Trainingspartner aus.');
+                }
+
+                if (partnerId === playerId) {
+                    throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
+                }
+            }
         }
 
         // Validate challenge subgroup membership and repeatable status
@@ -599,6 +617,15 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         feedbackEl.textContent = feedbackText;
         feedbackEl.className = actualPointsChange >= 0 ? 'mt-3 text-sm font-medium text-center text-green-600' : 'mt-3 text-sm font-medium text-center text-orange-600';
         e.target.reset();
+
+        // Reset manual partner system
+        const manualToggle = document.getElementById('manual-partner-toggle');
+        const manualContainer = document.getElementById('manual-partner-container');
+        const manualPercentage = document.getElementById('manual-partner-percentage');
+        if (manualToggle) manualToggle.checked = false;
+        if (manualContainer) manualContainer.classList.add('hidden');
+        if (manualPercentage) manualPercentage.value = 50;
+
         handleReasonChangeCallback();
     } catch (error) {
         console.error("Fehler bei der Punktevergabe:", error);
@@ -959,5 +986,93 @@ async function populatePartnerDropdown(db, activePlayerId) {
         console.log(`✅ Partner dropdown populated with ${playersSnapshot.size - 1} players`);
     } catch (error) {
         console.error('Error populating partner dropdown:', error);
+    }
+}
+
+/**
+ * Populates the manual partner dropdown with all players except the active player
+ * @param {Object} db - Firestore database instance
+ * @param {string} activePlayerId - ID of the active player to exclude
+ */
+async function populateManualPartnerDropdown(db, activePlayerId) {
+    const partnerSelect = document.getElementById('manual-partner-select');
+    if (!partnerSelect) return;
+
+    // Clear existing options except the first one
+    partnerSelect.innerHTML = '<option value="">Partner wählen...</option>';
+
+    if (!activePlayerId) {
+        console.log('⚠️ No active player selected, manual partner dropdown empty');
+        return;
+    }
+
+    try {
+        // Get active player's club
+        const activePlayerDoc = await getDoc(doc(db, 'users', activePlayerId));
+        if (!activePlayerDoc.exists()) {
+            console.error('Active player document not found');
+            return;
+        }
+
+        const clubId = activePlayerDoc.data().clubId;
+
+        // Query all players from the same club
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'player')
+        );
+
+        const playersSnapshot = await getDocs(playersQuery);
+
+        playersSnapshot.forEach(doc => {
+            // Exclude the active player
+            if (doc.id === activePlayerId) return;
+
+            const player = doc.data();
+            const option = document.createElement('option');
+            option.value = doc.id;
+            option.textContent = `${player.firstName} ${player.lastName}`;
+            partnerSelect.appendChild(option);
+        });
+
+        console.log(`✅ Manual partner dropdown populated with ${playersSnapshot.size - 1} players`);
+    } catch (error) {
+        console.error('Error populating manual partner dropdown:', error);
+    }
+}
+
+/**
+ * Initialize manual partner system toggle and dropdown
+ * @param {Object} db - Firestore database instance
+ */
+export function setupManualPartnerSystem(db) {
+    const toggle = document.getElementById('manual-partner-toggle');
+    const container = document.getElementById('manual-partner-container');
+    const playerSelect = document.getElementById('player-select');
+
+    if (!toggle || !container) return;
+
+    // Toggle visibility
+    toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+            container.classList.remove('hidden');
+            // Populate dropdown when enabled
+            const playerId = playerSelect?.value;
+            if (playerId) {
+                populateManualPartnerDropdown(db, playerId);
+            }
+        } else {
+            container.classList.add('hidden');
+        }
+    });
+
+    // Repopulate manual partner dropdown when player changes
+    if (playerSelect) {
+        playerSelect.addEventListener('change', () => {
+            if (toggle.checked) {
+                populateManualPartnerDropdown(db, playerSelect.value);
+            }
+        });
     }
 }
