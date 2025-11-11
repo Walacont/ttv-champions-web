@@ -3,8 +3,31 @@
  * Common UI utility functions for tabs and countdown timers
  */
 
-// ⚠️ TESTING MODE: Fixed season end time (set once on page load)
-let FIXED_SEASON_END = null;
+// ⚠️ TESTING MODE: Get or create fixed season end time (persisted in localStorage)
+function getFixedSeasonEnd() {
+    const stored = localStorage.getItem('TESTING_SEASON_END');
+    const now = new Date();
+
+    if (stored) {
+        const storedDate = new Date(stored);
+
+        // If stored date is in the past, create a new one
+        if (storedDate <= now) {
+            const newEnd = new Date(now.getTime() + 5 * 60 * 1000);
+            localStorage.setItem('TESTING_SEASON_END', newEnd.toISOString());
+            console.log('⏰ Old season ended, new season end set to:', newEnd.toLocaleString('de-DE'));
+            return newEnd;
+        }
+
+        console.log('🎯 Using stored season end:', storedDate.toLocaleString('de-DE'));
+        return storedDate;
+    } else {
+        const newEnd = new Date(now.getTime() + 5 * 60 * 1000);
+        localStorage.setItem('TESTING_SEASON_END', newEnd.toISOString());
+        console.log('🎯 New season end set to:', newEnd.toLocaleString('de-DE'));
+        return newEnd;
+    }
+}
 
 /**
  * Sets up tab navigation for both dashboard and coach views
@@ -51,12 +74,8 @@ export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEn
     const now = new Date();
     let endOfSeason;
 
-    // ⚠️ TESTING MODE: Set fixed season end time (once per page load)
-    if (!FIXED_SEASON_END) {
-        FIXED_SEASON_END = new Date(now.getTime() + 5 * 60 * 1000);
-        console.log('🎯 Fixed season end set to:', FIXED_SEASON_END.toLocaleString('de-DE'));
-    }
-    endOfSeason = FIXED_SEASON_END;
+    // ⚠️ TESTING MODE: Use localStorage to persist season end across reloads
+    endOfSeason = getFixedSeasonEnd();
 
     // ORIGINAL LOGIC (uncomment to restore):
     // if (now.getDate() < 15) {
@@ -89,17 +108,11 @@ export function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEn
  * @returns {Date} The end date of the current season
  */
 export function getSeasonEndDate() {
-    const now = new Date();
-    let endOfSeason;
-
-    // ⚠️ TESTING MODE: Use fixed season end time (same as countdown)
-    if (!FIXED_SEASON_END) {
-        FIXED_SEASON_END = new Date(now.getTime() + 5 * 60 * 1000);
-        console.log('🎯 Fixed season end set to:', FIXED_SEASON_END.toLocaleString('de-DE'));
-    }
-    endOfSeason = FIXED_SEASON_END;
+    // ⚠️ TESTING MODE: Use localStorage to persist season end across reloads
+    const endOfSeason = getFixedSeasonEnd();
 
     // ORIGINAL LOGIC (uncomment to restore):
+    // const now = new Date();
     // if (now.getDate() < 15) {
     //     endOfSeason = new Date(now.getFullYear(), now.getMonth(), 15, 23, 59, 59);
     // } else {
