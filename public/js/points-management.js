@@ -288,12 +288,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 partnerPercentage = parseInt(selectedOption.dataset.partnerPercentage) || 50;
                 partnerId = document.getElementById('partner-select')?.value;
 
-                // Validate partner selection
-                if (!partnerId) {
-                    throw new Error('Bitte wähle einen Trainingspartner aus.');
-                }
-
-                if (partnerId === playerId) {
+                // Validate partner selection (only if a partner is selected)
+                if (partnerId && partnerId === playerId) {
                     throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
                 }
             }
@@ -306,12 +302,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 partnerPercentage = parseInt(document.getElementById('manual-partner-percentage')?.value) || 50;
                 partnerId = document.getElementById('manual-partner-select')?.value;
 
-                // Validate partner selection
-                if (!partnerId) {
-                    throw new Error('Bitte wähle einen Trainingspartner aus.');
-                }
-
-                if (partnerId === playerId) {
+                // Validate partner selection (only if a partner is selected)
+                if (partnerId && partnerId === playerId) {
                     throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
                 }
             }
@@ -955,7 +947,7 @@ async function populatePartnerDropdown(db, activePlayerId) {
     if (!partnerSelect) return;
 
     // Clear existing options except the first one
-    partnerSelect.innerHTML = '<option value="">Partner wählen...</option>';
+    partnerSelect.innerHTML = '<option value="">Kein Partner (Spieler trainiert alleine oder mit Trainer)</option>';
 
     if (!activePlayerId) {
         console.log('⚠️ No active player selected, partner dropdown empty');
@@ -1008,7 +1000,7 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
     if (!partnerSelect) return;
 
     // Clear existing options except the first one
-    partnerSelect.innerHTML = '<option value="">Partner wählen...</option>';
+    partnerSelect.innerHTML = '<option value="">Kein Partner (Spieler trainiert alleine oder mit Trainer)</option>';
 
     if (!activePlayerId) {
         console.log('⚠️ No active player selected, manual partner dropdown empty');
