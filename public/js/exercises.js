@@ -448,16 +448,25 @@ export function openExerciseModal(title, descriptionContent, imageUrl, points, t
                 .map((milestone, index) => {
                     const isFirst = index === 0;
                     const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
-                    return `<div class="flex justify-between items-center py-1">
-                        <span class="text-sm text-gray-700">${milestone.count}× abgeschlossen:</span>
-                        <span class="font-semibold text-indigo-600">${displayPoints} P. (gesamt: ${milestone.points} P.)</span>
+                    return `<div class="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-2 border border-indigo-100">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🎯</span>
+                            <span class="text-base font-semibold text-gray-800">${milestone.count}× abgeschlossen</span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xl font-bold text-indigo-600">${displayPoints} P.</div>
+                            <div class="text-xs text-gray-500 font-medium">Gesamt: ${milestone.points} P.</div>
+                        </div>
                     </div>`;
                 })
                 .join('');
 
             milestonesContainer.innerHTML = `
-                <div class="mt-3 mb-3 border-t border-gray-200 pt-3">
-                    <h4 class="text-sm font-semibold text-gray-700 mb-2">📊 Meilensteine:</h4>
+                <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
+                    <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="text-2xl">📊</span>
+                        <span>Meilensteine</span>
+                    </h4>
                     ${milestonesHtml}
                 </div>`;
             milestonesContainer.classList.remove('hidden');
