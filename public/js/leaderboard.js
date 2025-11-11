@@ -1,5 +1,6 @@
 import { collection, query, where, orderBy, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
+import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
 
 // Module state for subgroup filtering
 let currentLeaderboardSubgroupFilter = 'all';
@@ -43,6 +44,10 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                 <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
                     <div>🏆 Ränge</div>
                     <div class="text-xs text-gray-500 font-normal">(Level)</div>
+                </button>
+                <button id="tab-doubles" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
+                    <div>🎾 Doppel</div>
+                    <div class="text-xs text-gray-500 font-normal">(Teams)</div>
                 </button>
             </div>
 
@@ -88,6 +93,12 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                     <p class="text-center text-gray-500 py-8">Lade Level-Übersicht...</p>
                 </div>
             </div>
+
+            <div id="content-doubles" class="leaderboard-tab-content hidden">
+                <div id="doubles-list" class="mt-6">
+                    <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                </div>
+            </div>
         </div>
     `;
 }
@@ -112,9 +123,10 @@ export function setupLeaderboardTabs() {
     const tabSkillBtn = document.getElementById('tab-skill');
     const tabEffortBtn = document.getElementById('tab-effort');
     const tabRanksBtn = document.getElementById('tab-ranks');
+    const tabDoublesBtn = document.getElementById('tab-doubles');
     const scopeToggleContainer = document.getElementById('scope-toggle-container');
 
-    if (!tabSkillBtn || !tabEffortBtn || !tabRanksBtn) return;
+    if (!tabSkillBtn || !tabEffortBtn || !tabRanksBtn || !tabDoublesBtn) return;
 
     const switchTab = (tabName) => {
         currentActiveTab = tabName;
@@ -139,9 +151,9 @@ export function setupLeaderboardTabs() {
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (Ranks tab doesn't have global view)
+        // Show/hide scope toggle based on tab (Ranks and Doubles tabs don't have global view)
         if (scopeToggleContainer) {
-            if (tabName === 'ranks') {
+            if (tabName === 'ranks' || tabName === 'doubles') {
                 scopeToggleContainer.classList.add('hidden');
             } else {
                 scopeToggleContainer.classList.remove('hidden');
@@ -152,6 +164,7 @@ export function setupLeaderboardTabs() {
     tabSkillBtn.addEventListener('click', () => switchTab('skill'));
     tabEffortBtn.addEventListener('click', () => switchTab('effort'));
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
+    tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
     // Activate first tab by default
     switchTab('effort'); // GEÄNDERT: Standard-Tab ist jetzt 'effort'
@@ -196,7 +209,7 @@ export function setupLeaderboardToggle() {
 }
 
 /**
- * Loads all 3 leaderboard tabs for a player
+ * Loads all 4 leaderboard tabs (Skill, Effort, Ranks, Doubles)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
@@ -205,6 +218,25 @@ export function loadLeaderboard(userData, db, unsubscribes) {
     loadSkillLeaderboard(userData, db, unsubscribes);
     loadEffortLeaderboard(userData, db, unsubscribes);
     loadRanksView(userData, db, unsubscribes);
+    loadDoublesLeaderboardTab(userData, db);
+}
+
+/**
+ * Loads the Doubles leaderboard
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ */
+async function loadDoublesLeaderboardTab(userData, db) {
+    const listEl = document.getElementById('doubles-list');
+    if (!listEl) return;
+
+    try {
+        const pairings = await loadDoublesLeaderboard(userData.clubId, db);
+        renderDoublesLeaderboard(pairings, listEl);
+    } catch (error) {
+        console.error('Error loading doubles leaderboard:', error);
+        listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Doppel-Rangliste.</p>';
+    }
 }
 
 /**
