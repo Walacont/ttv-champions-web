@@ -6,6 +6,7 @@ Allow: /
 Allow: /faq.html
 Allow: /register.html
 
+
 # Blockiere geschützte Bereiche
 Disallow: /dashboard.html
 Disallow: /coach.html
