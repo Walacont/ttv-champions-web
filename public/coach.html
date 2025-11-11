@@ -962,11 +962,12 @@
 
     <div id="exercise-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
         <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center mb-4">
+            <!-- Close button - absolute positioned -->
+            <button id="close-exercise-modal-button" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-colors z-10">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div class="mb-4 pr-10">
                 <h3 id="modal-exercise-title" class="text-xl leading-6 font-medium text-gray-900"></h3>
-                <button id="close-exercise-modal-button" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
             </div>
             <img id="modal-exercise-image" src="" alt="Übungsbild" class="w-full max-h-96 object-contain rounded-md mb-4">
             <div id="modal-exercise-tags" class="mb-4"></div>
