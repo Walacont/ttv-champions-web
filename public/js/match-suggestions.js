@@ -295,17 +295,34 @@ function createSuggestionCard(player, userData, db) {
   const div = document.createElement("div");
   div.className = "bg-white border border-indigo-200 rounded-md p-2 shadow-sm";
 
-  const eloDiff = Math.abs((userData.eloRating || 1000) - (player.eloRating || 1000));
+  const myElo = userData.eloRating || 1000;
+  const playerElo = player.eloRating || 1000;
+  const eloDiff = Math.abs(myElo - playerElo);
   const neverPlayed = player.history.matchCount === 0;
   const lastPlayedStr = player.history.lastMatchDate
     ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short" }).format(player.history.lastMatchDate)
     : null;
 
+  // Calculate handicap (same logic as in player-matches.js)
+  let handicapHTML = '';
+  if (eloDiff >= 25) {
+    const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
+    const weakerPlayerIsMe = myElo < playerElo;
+    const weakerPlayerName = weakerPlayerIsMe ? "Du" : player.firstName;
+
+    handicapHTML = `
+      <div class="text-xs text-blue-600 mt-1">
+        <i class="fas fa-balance-scale-right mr-1"></i>
+        Handicap: ${weakerPlayerName} ${handicapPoints} Punkt${handicapPoints === 1 ? '' : 'e'}/Satz
+      </div>
+    `;
+  }
+
   div.innerHTML = `
     <div class="flex justify-between items-center mb-1">
       <div class="flex-1">
         <p class="font-semibold text-gray-800 text-sm">${player.firstName} ${player.lastName}</p>
-        <p class="text-xs text-gray-600">ELO: ${Math.round(player.eloRating || 1000)}</p>
+        <p class="text-xs text-gray-600">ELO: ${Math.round(playerElo)}</p>
       </div>
     </div>
 
@@ -315,6 +332,7 @@ function createSuggestionCard(player, userData, db) {
         : `${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'}${lastPlayedStr ? `, zuletzt ${lastPlayedStr}` : ''}`
       }
     </div>
+    ${handicapHTML}
   `;
 
   return div;
