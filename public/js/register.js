@@ -46,7 +46,6 @@ const registrationForm = document.getElementById("registration-form");
 const errorMessage = document.getElementById("error-message");
 const formSubtitle = document.getElementById("form-subtitle");
 const submitButton = document.getElementById("submit-button");
-// NEU: Referenz zum Info-Container
 const tokenRequiredMessageContainer = document.getElementById("token-required-message");
 
 let tokenId = null;
@@ -148,20 +147,33 @@ window.addEventListener("load", async () => {
   }
 });
 
-// ===== REGISTRIERUNG =====
+// ===== REGISTRIERUNG (MIT NEUER CHECKBOX-VALIDIERUNG) =====
 registrationForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   errorMessage.textContent = "";
 
+  // Formulardaten abrufen
   const email = document.getElementById("email-address").value;
   const password = document.getElementById("password").value;
   const passwordConfirm = document.getElementById("password-confirm").value;
 
+  // NEU: Die Checkboxen abrufen
+  const consentStudy = document.getElementById("consent-study").checked;
+  const consentPrivacy = document.getElementById("consent-privacy").checked;
+
+  // Passwort-Prüfung
   if (password !== passwordConfirm) {
     errorMessage.textContent = "Die Passwörter stimmen nicht überein.";
     return;
   }
 
+  // NEU: Die Checkboxen-Prüfung
+  if (!consentStudy || !consentPrivacy) {
+    errorMessage.textContent = "Du musst der Studie und der Datenschutzerklärung zustimmen.";
+    return; // Bricht die Funktion hier ab
+  }
+
+  // Ab hier geht der Code normal weiter...
   submitButton.disabled = true;
   submitButton.textContent = "Registriere...";
 
@@ -233,7 +245,7 @@ registrationForm.addEventListener("submit", async (e) => {
   }
 });
 
-// ===== FEHLERANZEIGE (NEUE, NICHT-ZERSTÖRERISCHE VERSION) =====
+// ===== FEHLERANZEIGE (NICHT-ZERSTÖRERISCHE VERSION) =====
 function displayError(message) {
   // 1. Verstecke alle Haupt-Container
   loader.classList.add("hidden");
