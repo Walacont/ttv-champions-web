@@ -1087,6 +1087,9 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
   // Form submission
   form.addEventListener("submit", async (e) => {
+    // IMPORTANT: Prevent default IMMEDIATELY to avoid page reload
+    e.preventDefault();
+
     // Check if this is a doubles match request
     const matchType = window.getCurrentPlayerMatchType ? window.getCurrentPlayerMatchType() : 'singles';
 
@@ -1098,7 +1101,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     }
 
     // Handle singles match request (existing logic)
-    e.preventDefault();
 
     const opponentId = opponentSelect.value;
     const handicapUsed = handicapToggle.checked;
