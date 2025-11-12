@@ -334,13 +334,33 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   const debouncedRenderAll = () => {
     if (renderTimeout) clearTimeout(renderTimeout);
     renderTimeout = setTimeout(async () => {
-      // Pending:
+      // Pending SINGLES:
       // - Incoming requests that need my response
       // - My sent requests that are still pending (waiting for opponent or coach)
       const pendingMyRequests = myRequests.filter(r =>
         r.status === "pending_player" || r.status === "pending_coach"
       );
-      const pendingRequests = [...incomingRequests, ...pendingMyRequests].sort((a, b) => {
+
+      // Pending DOUBLES:
+      // - My created doubles requests that are still pending
+      const pendingMyDoublesRequests = myDoublesRequests.filter(r =>
+        r.status === "pending_opponent" || r.status === "pending_coach"
+      ).map(r => ({ ...r, matchType: 'doubles' }));
+
+      // - Doubles requests where I need to confirm (I'm in teamB and status is pending_opponent)
+      const pendingDoublesIncoming = doublesInvolvedRequests.filter(r => {
+        const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
+        const isInitiator = r.initiatedBy === userData.id;
+        // Show if: I'm in TeamB AND status is pending_opponent AND I'm not the initiator
+        return isInTeamB && r.status === "pending_opponent" && !isInitiator;
+      }).map(r => ({ ...r, matchType: 'doubles' }));
+
+      const pendingRequests = [
+        ...incomingRequests,
+        ...pendingMyRequests,
+        ...pendingMyDoublesRequests,
+        ...pendingDoublesIncoming
+      ].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
         return bTime - aTime; // Most recent first
@@ -390,7 +410,12 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       console.log(`  - Total processedRequests (singles): ${processedRequests.length}`);
       console.log(`  - Total myDoublesRequests: ${myDoublesRequests.length}`);
       console.log(`  - Total doublesInvolvedRequests: ${doublesInvolvedRequests.length}`);
-      console.log(`  - Pending requests to show: ${pendingRequests.length}`);
+      console.log('  - Pending breakdown:', {
+        pendingMyRequests: pendingMyRequests.length,
+        pendingMyDoublesRequests: pendingMyDoublesRequests.length,
+        pendingDoublesIncoming: pendingDoublesIncoming.length,
+        totalPending: pendingRequests.length
+      });
       console.log(`  - History requests to show: ${historyRequests.length}`);
       console.log('  - History breakdown:', {
         completedMyRequests: completedMyRequests.length,
@@ -411,8 +436,9 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       await renderPendingRequests(pendingRequests, userData, db);
       await renderHistoryRequests(historyRequests, userData, db);
 
-      // Update badge count (only incoming requests need action)
-      updateMatchRequestBadge(incomingRequests.length);
+      // Update badge count (only incoming requests that need my action)
+      const actionRequiredCount = incomingRequests.length + pendingDoublesIncoming.length;
+      updateMatchRequestBadge(actionRequiredCount);
     }, 100);
   };
 
@@ -892,6 +918,107 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
       ${getDoublesStatusDescription(request.status)}
     </div>
   `;
+
+  return div;
+}
+
+/**
+ * Creates a card for pending doubles requests
+ */
+function createPendingDoublesCard(request, playersData, userData, db) {
+  const div = document.createElement("div");
+
+  // Check if current user needs to respond (is in TeamB and status is pending_opponent)
+  const isInTeamB = request.teamB.player1Id === userData.id || request.teamB.player2Id === userData.id;
+  const needsMyResponse = isInTeamB && request.status === "pending_opponent" && request.initiatedBy !== userData.id;
+
+  // Determine status styling
+  let borderColor = needsMyResponse ? "border-indigo-200" : "border-yellow-200";
+  let bgColor = needsMyResponse ? "bg-white" : "bg-yellow-50";
+
+  div.className = `${bgColor} border ${borderColor} rounded-lg p-4 shadow-md`;
+
+  // Format player names
+  const teamAPlayer1Name = playersData.teamAPlayer1 ? `${playersData.teamAPlayer1.firstName}` : "Unbekannt";
+  const teamAPlayer2Name = playersData.teamAPlayer2 ? `${playersData.teamAPlayer2.firstName}` : "Unbekannt";
+  const teamBPlayer1Name = playersData.teamBPlayer1 ? `${playersData.teamBPlayer1.firstName}` : "Unbekannt";
+  const teamBPlayer2Name = playersData.teamBPlayer2 ? `${playersData.teamBPlayer2.firstName}` : "Unbekannt";
+
+  // Format sets display
+  const setsDisplay = formatDoublesSetDisplay(request.sets);
+
+  // Get winner
+  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name);
+
+  // Format timestamp
+  const timeAgo = formatTimestamp(request.createdAt);
+
+  // Status message
+  let statusMessage = "";
+  if (request.status === "pending_opponent") {
+    if (needsMyResponse) {
+      statusMessage = '<p class="text-xs text-indigo-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Bitte bestätige oder lehne diese Doppel-Anfrage ab.</p>';
+    } else {
+      statusMessage = '<p class="text-xs text-yellow-700 mt-2"><i class="fas fa-clock mr-1"></i> Wartet auf Bestätigung des Gegner-Teams.</p>';
+    }
+  } else if (request.status === "pending_coach") {
+    statusMessage = '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-hourglass-half mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
+  }
+
+  // Build HTML
+  div.innerHTML = `
+    <div class="mb-3">
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded font-medium">🎾 Doppel</span>
+          </div>
+          <p class="font-semibold text-gray-800">
+            ${teamAPlayer1Name} & ${teamAPlayer2Name} <span class="text-gray-500">vs</span> ${teamBPlayer1Name} & ${teamBPlayer2Name}
+          </p>
+        </div>
+        ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
+      </div>
+
+      <p class="text-sm text-gray-600">${setsDisplay}</p>
+      ${winner ? `<p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>` : ''}
+      ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+      ${statusMessage}
+    </div>
+    ${needsMyResponse ? `
+      <div class="flex gap-2">
+        <button class="approve-doubles-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+          <i class="fas fa-check"></i> Akzeptieren
+        </button>
+        <button class="reject-doubles-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+          <i class="fas fa-times"></i> Ablehnen
+        </button>
+      </div>
+    ` : ''}
+  `;
+
+  // Add event listeners for buttons if they exist
+  if (needsMyResponse) {
+    const approveBtn = div.querySelector(".approve-doubles-btn");
+    const rejectBtn = div.querySelector(".reject-doubles-btn");
+
+    if (approveBtn) {
+      approveBtn.addEventListener("click", async () => {
+        const { approveDoublesMatchRequest } = await import('./doubles-matches.js');
+        await approveDoublesMatchRequest(request.id, db, userData);
+      });
+    }
+
+    if (rejectBtn) {
+      rejectBtn.addEventListener("click", async () => {
+        const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
+        const reason = prompt("Grund für Ablehnung (optional):");
+        if (reason !== null) { // null means user cancelled
+          await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
+        }
+      });
+    }
+  }
 
   return div;
 }
@@ -1415,15 +1542,39 @@ async function renderPendingRequests(requests, userData, db) {
 
   for (const request of requestsToShow) {
     let card;
-    if (request.playerBId === userData.id) {
-      // Incoming request - I need to respond
-      const playerAData = await getUserData(request.playerAId, db);
-      card = createIncomingRequestCard(request, playerAData, userData, db);
+
+    if (request.matchType === 'doubles') {
+      // DOUBLES REQUEST
+      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+
+      const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+        getDoc(doc(db, 'users', request.teamA.player1Id)),
+        getDoc(doc(db, 'users', request.teamA.player2Id)),
+        getDoc(doc(db, 'users', request.teamB.player1Id)),
+        getDoc(doc(db, 'users', request.teamB.player2Id))
+      ]);
+
+      const playersData = {
+        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+      };
+
+      card = createPendingDoublesCard(request, playersData, userData, db);
     } else {
-      // My sent request - waiting for response
-      const playerBData = await getUserData(request.playerBId, db);
-      card = createMyRequestCard(request, playerBData, userData, db);
+      // SINGLES REQUEST
+      if (request.playerBId === userData.id) {
+        // Incoming request - I need to respond
+        const playerAData = await getUserData(request.playerAId, db);
+        card = createIncomingRequestCard(request, playerAData, userData, db);
+      } else {
+        // My sent request - waiting for response
+        const playerBData = await getUserData(request.playerBId, db);
+        card = createMyRequestCard(request, playerBData, userData, db);
+      }
     }
+
     container.appendChild(card);
   }
 
