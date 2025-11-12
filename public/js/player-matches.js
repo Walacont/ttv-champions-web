@@ -385,15 +385,25 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
 
       // Debug logging
       console.log('📊 Match Requests Debug:');
-      console.log(`  - Total myRequests: ${myRequests.length}`);
-      console.log(`  - Total incomingRequests: ${incomingRequests.length}`);
-      console.log(`  - Total processedRequests: ${processedRequests.length}`);
+      console.log(`  - Total myRequests (singles): ${myRequests.length}`);
+      console.log(`  - Total incomingRequests (singles): ${incomingRequests.length}`);
+      console.log(`  - Total processedRequests (singles): ${processedRequests.length}`);
+      console.log(`  - Total myDoublesRequests: ${myDoublesRequests.length}`);
+      console.log(`  - Total doublesInvolvedRequests: ${doublesInvolvedRequests.length}`);
       console.log(`  - Pending requests to show: ${pendingRequests.length}`);
       console.log(`  - History requests to show: ${historyRequests.length}`);
       console.log('  - History breakdown:', {
         completedMyRequests: completedMyRequests.length,
-        completedProcessedRequests: completedProcessedRequests.length
+        completedProcessedRequests: completedProcessedRequests.length,
+        completedMyDoublesRequests: completedMyDoublesRequests.length,
+        completedDoublesInvolved: completedDoublesInvolved.length
       });
+      if (myDoublesRequests.length > 0) {
+        console.log('  - Sample myDoublesRequest:', myDoublesRequests[0]);
+      }
+      if (doublesInvolvedRequests.length > 0) {
+        console.log('  - Sample doublesInvolvedRequest:', doublesInvolvedRequests[0]);
+      }
       if (historyRequests.length > 0) {
         console.log('  - Sample history request:', historyRequests[0]);
       }
