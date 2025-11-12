@@ -527,7 +527,11 @@ async function renderMyRequests(requests, userData, db) {
 
   // Render request cards
   for (const request of requestsToShow) {
-    const playerBData = await getUserData(request.playerBId, db);
+    const playerBData = {
+      id: request.playerBId,
+      firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
+      lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+    };
     const card = createMyRequestCard(request, playerBData, userData, db);
     container.appendChild(card);
   }
@@ -576,7 +580,11 @@ async function renderIncomingRequests(requests, userData, db) {
 
   // Render request cards
   for (const request of requestsToShow) {
-    const playerAData = await getUserData(request.playerAId, db);
+    const playerAData = {
+      id: request.playerAId,
+      firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+    };
     const card = createIncomingRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
   }
@@ -625,7 +633,11 @@ async function renderProcessedRequests(requests, userData, db) {
 
   // Render request cards
   for (const request of requestsToShow) {
-    const playerAData = await getUserData(request.playerAId, db);
+    const playerAData = {
+      id: request.playerAId,
+      firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+    };
     const card = createProcessedRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
   }
@@ -679,13 +691,13 @@ function createMyRequestCard(request, playerB, userData, db) {
       </div>
     </div>
     <div class="flex gap-2 mt-3">
-      ${request.status === "pending_player" && !request.approvals?.playerB?.status
+      ${(request.status === "pending_player" || request.status === "pending_coach") && (!request.approvals?.playerB?.status || request.approvals?.playerB?.status === null)
         ? `
         <button class="edit-request-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-edit"></i> Bearbeiten
         </button>
         <button class="delete-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-          <i class="fas fa-trash"></i> Löschen
+          <i class="fas fa-trash"></i> Zurückziehen
         </button>
         `
         : ""
@@ -933,8 +945,12 @@ function createPendingDoublesCard(request, playersData, userData, db) {
   const needsMyResponse = isInTeamB && request.status === "pending_opponent" && request.initiatedBy !== userData.id;
 
   // Check if current user is the initiator
+<<<<<<< HEAD
   const isInitiator = request.initiatedBy === userData.id;
   const canDelete = isInitiator && (request.status === "pending_opponent" || request.status === "pending_coach");
+=======
+  const isMyRequest = request.initiatedBy === userData.id;
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
 
   // Determine status styling
   let borderColor = needsMyResponse ? "border-indigo-200" : "border-yellow-200";
@@ -999,10 +1015,17 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         </button>
       </div>
     ` : ''}
+<<<<<<< HEAD
     ${canDelete ? `
       <div class="flex gap-2">
         <button class="delete-doubles-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-trash"></i> Anfrage löschen
+=======
+    ${isMyRequest && request.status === "pending_opponent" ? `
+      <div class="flex gap-2 mt-3">
+        <button class="delete-doubles-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+          <i class="fas fa-trash"></i> Zurückziehen
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
         </button>
       </div>
     ` : ''}
@@ -1015,8 +1038,14 @@ function createPendingDoublesCard(request, playersData, userData, db) {
 
     if (approveBtn) {
       approveBtn.addEventListener("click", async () => {
-        const { approveDoublesMatchRequest } = await import('./doubles-matches.js');
-        await approveDoublesMatchRequest(request.id, db, userData);
+        const { confirmDoublesMatchRequest } = await import('./doubles-matches.js');
+        try {
+          await confirmDoublesMatchRequest(request.id, userData.id, db);
+          showFeedback("Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.", "success");
+        } catch (error) {
+          console.error("Error confirming doubles request:", error);
+          showFeedback(`Fehler: ${error.message}`, "error");
+        }
       });
     }
 
@@ -1025,14 +1054,24 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
         const reason = prompt("Grund für Ablehnung (optional):");
         if (reason !== null) { // null means user cancelled
-          await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
+          try {
+            await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
+            showFeedback("Doppel-Match abgelehnt.", "success");
+          } catch (error) {
+            console.error("Error rejecting doubles request:", error);
+            showFeedback(`Fehler: ${error.message}`, "error");
+          }
         }
       });
     }
   }
 
   // Add event listener for delete button if it exists
+<<<<<<< HEAD
   if (canDelete) {
+=======
+  if (isMyRequest && request.status === "pending_opponent") {
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
     const deleteBtn = div.querySelector(".delete-doubles-request-btn");
     if (deleteBtn) {
       deleteBtn.addEventListener("click", () => deleteDoublesMatchRequest(request.id, db));
@@ -1249,6 +1288,7 @@ async function deleteMatchRequest(requestId, db) {
  * Deletes a doubles match request
  */
 async function deleteDoublesMatchRequest(requestId, db) {
+<<<<<<< HEAD
   if (!confirm("Möchtest du diese Doppel-Anfrage wirklich löschen?")) return;
 
   try {
@@ -1257,6 +1297,16 @@ async function deleteDoublesMatchRequest(requestId, db) {
   } catch (error) {
     console.error("Error deleting doubles request:", error);
     showFeedback("Fehler beim Löschen der Doppel-Anfrage.", "error");
+=======
+  if (!confirm("Möchtest du diese Doppel-Anfrage wirklich zurückziehen?")) return;
+
+  try {
+    await deleteDoc(doc(db, "doublesMatchRequests", requestId));
+    showFeedback("Doppel-Anfrage zurückgezogen.", "success");
+  } catch (error) {
+    console.error("Error deleting doubles request:", error);
+    showFeedback("Fehler beim Zurückziehen der Doppel-Anfrage.", "error");
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
   }
 }
 
@@ -1375,6 +1425,12 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   const handicapToggle = document.getElementById("match-handicap-toggle");
   const handicapInfo = document.getElementById("match-handicap-info");
   const setScoreContainer = document.getElementById("set-score-container");
+
+  // Create a map of player IDs to player data for easy lookup
+  const playersMap = new Map();
+  clubPlayers.forEach(player => {
+    playersMap.set(player.id, player);
+  });
 
   // Check if player has completed Grundlagen requirement
   const grundlagenCompleted = userData.grundlagenCompleted || 0;
@@ -1524,11 +1580,16 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const winnerId = validation.winnerId === "A" ? userData.id : opponentId;
     const loserId = validation.winnerId === "A" ? opponentId : userData.id;
 
+    // Get opponent data from the map
+    const opponentData = playersMap.get(opponentId);
+
     try {
       await addDoc(collection(db, "matchRequests"), {
         status: "pending_player",
         playerAId: userData.id,
         playerBId: opponentId,
+        playerAName: `${userData.firstName} ${userData.lastName}`,
+        playerBName: opponentData ? `${opponentData.firstName} ${opponentData.lastName}` : 'Unbekannt',
         winnerId,
         loserId,
         handicapUsed,
@@ -1578,6 +1639,7 @@ async function renderPendingRequests(requests, userData, db) {
     let card;
 
     if (request.matchType === 'doubles') {
+<<<<<<< HEAD
       // DOUBLES REQUEST
       const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
 
@@ -1606,17 +1668,50 @@ async function renderPendingRequests(requests, userData, db) {
           teamBPlayer2: null
         };
       }
+=======
+      // DOUBLES REQUEST - use stored names
+      const playersData = {
+        teamAPlayer1: {
+          id: request.teamA.player1Id,
+          firstName: request.teamA.player1Name ? request.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player1Name ? request.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamAPlayer2: {
+          id: request.teamA.player2Id,
+          firstName: request.teamA.player2Name ? request.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player2Name ? request.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer1: {
+          id: request.teamB.player1Id,
+          firstName: request.teamB.player1Name ? request.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player1Name ? request.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer2: {
+          id: request.teamB.player2Id,
+          firstName: request.teamB.player2Name ? request.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
+        }
+      };
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
 
       card = createPendingDoublesCard(request, playersData, userData, db);
     } else {
       // SINGLES REQUEST
       if (request.playerBId === userData.id) {
         // Incoming request - I need to respond
-        const playerAData = await getUserData(request.playerAId, db);
+        const playerAData = {
+          id: request.playerAId,
+          firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+        };
         card = createIncomingRequestCard(request, playerAData, userData, db);
       } else {
         // My sent request - waiting for response
-        const playerBData = await getUserData(request.playerBId, db);
+        const playerBData = {
+          id: request.playerBId,
+          firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+        };
         card = createMyRequestCard(request, playerBData, userData, db);
       }
     }
@@ -1668,6 +1763,7 @@ async function renderHistoryRequests(requests, userData, db) {
     let card;
 
     if (request.matchType === 'doubles') {
+<<<<<<< HEAD
       // DOUBLES REQUEST
       const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
 
@@ -1696,17 +1792,50 @@ async function renderHistoryRequests(requests, userData, db) {
           teamBPlayer2: null
         };
       }
+=======
+      // DOUBLES REQUEST - use stored names
+      const playersData = {
+        teamAPlayer1: {
+          id: request.teamA.player1Id,
+          firstName: request.teamA.player1Name ? request.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player1Name ? request.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamAPlayer2: {
+          id: request.teamA.player2Id,
+          firstName: request.teamA.player2Name ? request.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player2Name ? request.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer1: {
+          id: request.teamB.player1Id,
+          firstName: request.teamB.player1Name ? request.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player1Name ? request.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer2: {
+          id: request.teamB.player2Id,
+          firstName: request.teamB.player2Name ? request.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
+        }
+      };
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
 
       card = createDoublesHistoryCard(request, playersData, userData, db);
     } else {
       // SINGLES REQUEST
       if (request.playerAId === userData.id) {
         // My sent request
-        const playerBData = await getUserData(request.playerBId, db);
+        const playerBData = {
+          id: request.playerBId,
+          firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+        };
         card = createMyRequestCard(request, playerBData, userData, db);
       } else {
         // Incoming request - use processed card for history (always completed)
-        const playerAData = await getUserData(request.playerAId, db);
+        const playerAData = {
+          id: request.playerAId,
+          firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+        };
         card = createProcessedRequestCard(request, playerAData, userData, db);
       }
     }
@@ -1767,6 +1896,7 @@ export async function loadCombinedPendingRequests(userData, db) {
       // Process singles requests
       for (const docSnap of singlesSnapshot.docs) {
         const data = docSnap.data();
+<<<<<<< HEAD
 
         try {
           const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
@@ -1787,6 +1917,20 @@ export async function loadCombinedPendingRequests(userData, db) {
             playerAData: null
           });
         }
+=======
+        const playerAData = {
+          id: data.playerAId,
+          firstName: data.playerAName ? data.playerAName.split(' ')[0] : 'Unbekannt',
+          lastName: data.playerAName ? data.playerAName.split(' ').slice(1).join(' ') : ''
+        };
+
+        allRequests.push({
+          id: docSnap.id,
+          type: 'singles',
+          ...data,
+          playerAData
+        });
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
       }
 
       // Process doubles requests (only where current user is opponent)
@@ -1802,6 +1946,7 @@ export async function loadCombinedPendingRequests(userData, db) {
 
         // Check if current user is one of the opponents (teamB)
         if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
+<<<<<<< HEAD
           try {
             const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
               getDoc(doc(db, 'users', data.teamA.player1Id)),
@@ -1834,6 +1979,35 @@ export async function loadCombinedPendingRequests(userData, db) {
               teamBPlayer2: null
             });
           }
+=======
+          console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
+
+          allRequests.push({
+            id: docSnap.id,
+            type: 'doubles',
+            ...data,
+            teamAPlayer1: {
+              id: data.teamA.player1Id,
+              firstName: data.teamA.player1Name ? data.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamA.player1Name ? data.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+            },
+            teamAPlayer2: {
+              id: data.teamA.player2Id,
+              firstName: data.teamA.player2Name ? data.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamA.player2Name ? data.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+            },
+            teamBPlayer1: {
+              id: data.teamB.player1Id,
+              firstName: data.teamB.player1Name ? data.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamB.player1Name ? data.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+            },
+            teamBPlayer2: {
+              id: data.teamB.player2Id,
+              firstName: data.teamB.player2Name ? data.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamB.player2Name ? data.teamB.player2Name.split(' ').slice(1).join(' ') : ''
+            }
+          });
+>>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
         }
       }
 

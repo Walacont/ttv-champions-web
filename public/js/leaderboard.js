@@ -1,9 +1,20 @@
-import { collection, query, where, orderBy, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, query, where, orderBy, onSnapshot, getDocs, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
 
 // Module state for subgroup filtering
 let currentLeaderboardSubgroupFilter = 'all';
+
+// Module state for leaderboard limits
+const DEFAULT_LIMIT = 15;
+let showFullLeaderboards = {
+    skillClub: false,
+    skillGlobal: false,
+    effortClub: false,
+    effortGlobal: false,
+    seasonClub: false,
+    seasonGlobal: false
+};
 
 /**
  * Sets the current subgroup filter for leaderboard
@@ -299,9 +310,18 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
         }
 
         listEl.innerHTML = '';
-        players.forEach((player, index) => {
+        const playersToShow = showFullLeaderboards.skillClub ? players : players.slice(0, DEFAULT_LIMIT);
+        playersToShow.forEach((player, index) => {
             renderSkillRow(player, index, userData.id, listEl);
         });
+
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
+            renderShowMoreButton(listEl, 'skillClub', players.length, () => {
+                showFullLeaderboards.skillClub = !showFullLeaderboards.skillClub;
+                loadSkillLeaderboard(userData, db, null);
+            }, showFullLeaderboards.skillClub);
+        }
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -345,9 +365,18 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
         }
 
         listEl.innerHTML = '';
-        players.forEach((player, index) => {
+        const playersToShow = showFullLeaderboards.effortClub ? players : players.slice(0, DEFAULT_LIMIT);
+        playersToShow.forEach((player, index) => {
             renderEffortRow(player, index, userData.id, listEl);
         });
+
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
+            renderShowMoreButton(listEl, 'effortClub', players.length, () => {
+                showFullLeaderboards.effortClub = !showFullLeaderboards.effortClub;
+                loadEffortLeaderboard(userData, db, null);
+            }, showFullLeaderboards.effortClub);
+        }
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -391,9 +420,18 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
         }
 
         listEl.innerHTML = '';
-        players.forEach((player, index) => {
+        const playersToShow = showFullLeaderboards.seasonClub ? players : players.slice(0, DEFAULT_LIMIT);
+        playersToShow.forEach((player, index) => {
             renderSeasonRow(player, index, userData.id, listEl);
         });
+
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
+            renderShowMoreButton(listEl, 'seasonClub', players.length, () => {
+                showFullLeaderboards.seasonClub = !showFullLeaderboards.seasonClub;
+                loadSeasonLeaderboard(userData, db, null);
+            }, showFullLeaderboards.seasonClub);
+        }
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -519,9 +557,18 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
 
         const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         listEl.innerHTML = '';
-        players.forEach((player, index) => {
+        const playersToShow = showFullLeaderboards.skillGlobal ? players : players.slice(0, DEFAULT_LIMIT);
+        playersToShow.forEach((player, index) => {
             renderSkillRow(player, index, userData.id, listEl, true);
         });
+
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
+            renderShowMoreButton(listEl, 'skillGlobal', players.length, () => {
+                showFullLeaderboards.skillGlobal = !showFullLeaderboards.skillGlobal;
+                loadGlobalSkillLeaderboard(userData, db, null);
+            }, showFullLeaderboards.skillGlobal);
+        }
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -548,9 +595,18 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
 
         const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         listEl.innerHTML = '';
-        players.forEach((player, index) => {
+        const playersToShow = showFullLeaderboards.effortGlobal ? players : players.slice(0, DEFAULT_LIMIT);
+        playersToShow.forEach((player, index) => {
             renderEffortRow(player, index, userData.id, listEl, true);
         });
+
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
+            renderShowMoreButton(listEl, 'effortGlobal', players.length, () => {
+                showFullLeaderboards.effortGlobal = !showFullLeaderboards.effortGlobal;
+                loadGlobalEffortLeaderboard(userData, db, null);
+            }, showFullLeaderboards.effortGlobal);
+        }
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -577,9 +633,18 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
 
         const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         listEl.innerHTML = '';
-        players.forEach((player, index) => {
+        const playersToShow = showFullLeaderboards.seasonGlobal ? players : players.slice(0, DEFAULT_LIMIT);
+        playersToShow.forEach((player, index) => {
             renderSeasonRow(player, index, userData.id, listEl, true);
         });
+
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
+            renderShowMoreButton(listEl, 'seasonGlobal', players.length, () => {
+                showFullLeaderboards.seasonGlobal = !showFullLeaderboards.seasonGlobal;
+                loadGlobalSeasonLeaderboard(userData, db, null);
+            }, showFullLeaderboards.seasonGlobal);
+        }
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -591,6 +656,37 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
  */
 export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCallback) {
     console.warn('loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.');
+}
+
+/**
+ * Renders a "Show more/less" button to toggle leaderboard view
+ * @param {HTMLElement} container - Container to append the button to
+ * @param {string} leaderboardKey - Key for the leaderboard state
+ * @param {number} totalCount - Total number of players
+ * @param {Function} onClick - Callback when button is clicked
+ * @param {boolean} isExpanded - Whether the list is currently expanded
+ */
+function renderShowMoreButton(container, leaderboardKey, totalCount, onClick, isExpanded) {
+    const buttonDiv = document.createElement('div');
+    buttonDiv.className = 'text-center mt-4';
+
+    if (isExpanded) {
+        buttonDiv.innerHTML = `
+            <button class="show-more-btn px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors">
+                <i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen
+            </button>
+        `;
+    } else {
+        buttonDiv.innerHTML = `
+            <button class="show-more-btn px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                <i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${totalCount - DEFAULT_LIMIT} weitere)
+            </button>
+        `;
+    }
+
+    const button = buttonDiv.querySelector('.show-more-btn');
+    button.addEventListener('click', onClick);
+    container.appendChild(buttonDiv);
 }
 
 /**

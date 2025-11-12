@@ -138,16 +138,23 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const initiatorPairingId = createPairingId(initiatorId, partnerId);
     const opponentPairingId = createPairingId(opponent1Id, opponent2Id);
 
+    // Get player names from requestData if provided, otherwise use userData
+    const playerNames = requestData.playerNames || {};
+
     // Build the request document data
     const doublesRequestData = {
         teamA: {
             player1Id: initiatorId,
             player2Id: partnerId,
+            player1Name: playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
+            player2Name: playerNames.player2 || 'Unbekannt',
             pairingId: initiatorPairingId
         },
         teamB: {
             player1Id: opponent1Id,
             player2Id: opponent2Id,
+            player1Name: playerNames.opponent1 || 'Unbekannt',
+            player2Name: playerNames.opponent2 || 'Unbekannt',
             pairingId: opponentPairingId
         },
         winningTeam: winningTeam,
@@ -278,42 +285,16 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         orderBy('matchesWon', 'desc')
     );
 
-    const listener = onSnapshot(pairingsQuery, async (snapshot) => {
-        const pairings = [];
-
-        for (const docSnap of snapshot.docs) {
+    const listener = onSnapshot(pairingsQuery, (snapshot) => {
+        const pairings = snapshot.docs.map(docSnap => {
             const data = docSnap.data();
-
-            try {
-                // Fetch player names
-                const player1Doc = await getDoc(doc(db, 'users', data.player1Id));
-                const player2Doc = await getDoc(doc(db, 'users', data.player2Id));
-
-                if (player1Doc.exists() && player2Doc.exists()) {
-                    const player1 = player1Doc.data();
-                    const player2 = player2Doc.data();
-
-                    pairings.push({
-                        id: docSnap.id,
-                        player1Name: `${player1.firstName} ${player1.lastName}`,
-                        player2Name: `${player2.firstName} ${player2.lastName}`,
-                        ...data
-                    });
-                } else {
-                    // Skip pairings with missing player documents (e.g., deleted or migrated offline players)
-                    console.warn(`Skipping pairing ${docSnap.id}: Player documents not found`, {
-                        player1Exists: player1Doc.exists(),
-                        player2Exists: player2Doc.exists(),
-                        player1Id: data.player1Id,
-                        player2Id: data.player2Id
-                    });
-                }
-            } catch (error) {
-                // Handle permission errors or missing documents gracefully
-                console.error(`Error loading pairing ${docSnap.id}:`, error);
-                console.warn(`Skipping pairing ${docSnap.id} due to error`);
-            }
-        }
+            return {
+                id: docSnap.id,
+                player1Name: data.player1Name || 'Unbekannt',
+                player2Name: data.player2Name || 'Unbekannt',
+                ...data
+            };
+        });
 
         // Render the leaderboard with updated data
         renderDoublesLeaderboard(pairings, container);

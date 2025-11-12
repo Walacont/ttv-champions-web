@@ -1047,6 +1047,100 @@ exports.migrateAttendanceToSessions = onCall(
   }
 );
 
+/**
+ * Migrates existing doublesPairings documents to add player names
+ * Call this once to fix old documents without names
+ */
+exports.migrateDoublesPairingsNames = onCall(
+  {region: CONFIG.REGION},
+  async (request) => {
+    // Check if user is admin
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be authenticated");
+    }
+
+    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
+    if (!callerDoc.exists || callerDoc.data().role !== "admin") {
+      throw new HttpsError("permission-denied", "Only admins can run migrations");
+    }
+
+    logger.info("🔄 Starting doublesPairings names migration...");
+
+    try {
+      const pairingsSnapshot = await db.collection("doublesPairings").get();
+
+      if (pairingsSnapshot.empty) {
+        logger.info("No doublesPairings found");
+        return {success: true, migrated: 0, skipped: 0};
+      }
+
+      logger.info(`Found ${pairingsSnapshot.size} doublesPairings`);
+
+      let migrated = 0;
+      let skipped = 0;
+      const batch = db.batch();
+      let batchCount = 0;
+
+      for (const pairingDoc of pairingsSnapshot.docs) {
+        const pairing = pairingDoc.data();
+
+        // Skip if already has names
+        if (pairing.player1Name && pairing.player2Name) {
+          skipped++;
+          continue;
+        }
+
+        // Fetch player data
+        const [player1Doc, player2Doc] = await Promise.all([
+          db.collection("users").doc(pairing.player1Id).get(),
+          db.collection("users").doc(pairing.player2Id).get(),
+        ]);
+
+        if (!player1Doc.exists || !player2Doc.exists) {
+          logger.warn(`⚠️ Players not found for pairing ${pairingDoc.id}`);
+          skipped++;
+          continue;
+        }
+
+        const player1Data = player1Doc.data();
+        const player2Data = player2Doc.data();
+
+        // Update pairing with player names
+        batch.update(pairingDoc.ref, {
+          player1Name: `${player1Data.firstName} ${player1Data.lastName}`,
+          player2Name: `${player2Data.firstName} ${player2Data.lastName}`,
+        });
+
+        batchCount++;
+        migrated++;
+
+        // Commit batch every 500 operations (Firestore limit)
+        if (batchCount >= 500) {
+          await batch.commit();
+          batchCount = 0;
+          logger.info(`Committed batch, ${migrated} pairings migrated so far`);
+        }
+      }
+
+      // Commit remaining operations
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+
+      logger.info(`✅ Migration complete: ${migrated} migrated, ${skipped} skipped`);
+      return {
+        success: true,
+        migrated,
+        skipped,
+        total: pairingsSnapshot.size,
+      };
+    } catch (error) {
+      logger.error("💥 Error migrating doublesPairings:", error);
+      throw new HttpsError("internal", error.message);
+    }
+  }
+);
+
 // ========================================================================
 // ===== SCHEDULED FUNCTION: Auto Season Reset (Every 6 Weeks) =====
 // ========================================================================
@@ -1534,6 +1628,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
         batch.set(winningPairingRef, {
           player1Id: winningPlayerIds[0],
           player2Id: winningPlayerIds[1],
+          player1Name: `${winner1Data.firstName} ${winner1Data.lastName}`,
+          player2Name: `${winner2Data.firstName} ${winner2Data.lastName}`,
           pairingId: winningPairingId,
           matchesPlayed: 1,
           matchesWon: 1,
@@ -1549,6 +1645,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
         const newMatchesPlayed = (winningPairingData.matchesPlayed || 0) + 1;
         const newMatchesWon = (winningPairingData.matchesWon || 0) + 1;
         batch.update(winningPairingRef, {
+          player1Name: `${winner1Data.firstName} ${winner1Data.lastName}`,
+          player2Name: `${winner2Data.firstName} ${winner2Data.lastName}`,
           matchesPlayed: newMatchesPlayed,
           matchesWon: newMatchesWon,
           winRate: newMatchesWon / newMatchesPlayed,
@@ -1561,6 +1659,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
         batch.set(losingPairingRef, {
           player1Id: losingPlayerIds[0],
           player2Id: losingPlayerIds[1],
+          player1Name: `${loser1Data.firstName} ${loser1Data.lastName}`,
+          player2Name: `${loser2Data.firstName} ${loser2Data.lastName}`,
           pairingId: losingPairingId,
           matchesPlayed: 1,
           matchesWon: 0,
@@ -1577,6 +1677,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
         const newMatchesWon = losingPairingData.matchesWon || 0;
         const newMatchesLost = (losingPairingData.matchesLost || 0) + 1;
         batch.update(losingPairingRef, {
+          player1Name: `${loser1Data.firstName} ${loser1Data.lastName}`,
+          player2Name: `${loser2Data.firstName} ${loser2Data.lastName}`,
           matchesPlayed: newMatchesPlayed,
           matchesLost: newMatchesLost,
           winRate: newMatchesPlayed > 0 ? newMatchesWon / newMatchesPlayed : 0,
