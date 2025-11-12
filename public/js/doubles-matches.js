@@ -284,20 +284,34 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
 
-            // Fetch player names
-            const player1Doc = await getDoc(doc(db, 'users', data.player1Id));
-            const player2Doc = await getDoc(doc(db, 'users', data.player2Id));
+            try {
+                // Fetch player names
+                const player1Doc = await getDoc(doc(db, 'users', data.player1Id));
+                const player2Doc = await getDoc(doc(db, 'users', data.player2Id));
 
-            if (player1Doc.exists() && player2Doc.exists()) {
-                const player1 = player1Doc.data();
-                const player2 = player2Doc.data();
+                if (player1Doc.exists() && player2Doc.exists()) {
+                    const player1 = player1Doc.data();
+                    const player2 = player2Doc.data();
 
-                pairings.push({
-                    id: docSnap.id,
-                    player1Name: `${player1.firstName} ${player1.lastName}`,
-                    player2Name: `${player2.firstName} ${player2.lastName}`,
-                    ...data
-                });
+                    pairings.push({
+                        id: docSnap.id,
+                        player1Name: `${player1.firstName} ${player1.lastName}`,
+                        player2Name: `${player2.firstName} ${player2.lastName}`,
+                        ...data
+                    });
+                } else {
+                    // Skip pairings with missing player documents (e.g., deleted or migrated offline players)
+                    console.warn(`Skipping pairing ${docSnap.id}: Player documents not found`, {
+                        player1Exists: player1Doc.exists(),
+                        player2Exists: player2Doc.exists(),
+                        player1Id: data.player1Id,
+                        player2Id: data.player2Id
+                    });
+                }
+            } catch (error) {
+                // Handle permission errors or missing documents gracefully
+                console.error(`Error loading pairing ${docSnap.id}:`, error);
+                console.warn(`Skipping pairing ${docSnap.id} due to error`);
             }
         }
 
@@ -401,22 +415,36 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
 
-            // Fetch all 4 player names
-            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-                getDoc(doc(db, 'users', data.teamA.player1Id)),
-                getDoc(doc(db, 'users', data.teamA.player2Id)),
-                getDoc(doc(db, 'users', data.teamB.player1Id)),
-                getDoc(doc(db, 'users', data.teamB.player2Id))
-            ]);
+            try {
+                // Fetch all 4 player names
+                const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                    getDoc(doc(db, 'users', data.teamA.player1Id)),
+                    getDoc(doc(db, 'users', data.teamA.player2Id)),
+                    getDoc(doc(db, 'users', data.teamB.player1Id)),
+                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                ]);
 
-            requests.push({
-                id: docSnap.id,
-                ...data,
-                teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-                teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-                teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-                teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-            });
+                requests.push({
+                    id: docSnap.id,
+                    ...data,
+                    teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                    teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                    teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+                });
+            } catch (error) {
+                // Handle permission errors for migrated offline players
+                console.error(`Error loading players for doubles request ${docSnap.id}:`, error);
+                // Still add the request but with null player data
+                requests.push({
+                    id: docSnap.id,
+                    ...data,
+                    teamAPlayer1: null,
+                    teamAPlayer2: null,
+                    teamBPlayer1: null,
+                    teamBPlayer2: null
+                });
+            }
         }
 
         renderCoachDoublesRequestCards(requests, db, userData, container);
@@ -557,22 +585,35 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
 
             // Check if current user is one of the opponents (teamB)
             if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
-                // Fetch player names
-                const [teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2] = await Promise.all([
-                    getDoc(doc(db, 'users', data.teamA.player1Id)),
-                    getDoc(doc(db, 'users', data.teamA.player2Id)),
-                    getDoc(doc(db, 'users', data.teamB.player1Id)),
-                    getDoc(doc(db, 'users', data.teamB.player2Id))
-                ]);
+                try {
+                    // Fetch player names
+                    const [teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2] = await Promise.all([
+                        getDoc(doc(db, 'users', data.teamA.player1Id)),
+                        getDoc(doc(db, 'users', data.teamA.player2Id)),
+                        getDoc(doc(db, 'users', data.teamB.player1Id)),
+                        getDoc(doc(db, 'users', data.teamB.player2Id))
+                    ]);
 
-                requests.push({
-                    id: docSnap.id,
-                    ...data,
-                    teamAPlayer1: teamAPlayer1.data(),
-                    teamAPlayer2: teamAPlayer2.data(),
-                    teamBPlayer1: teamBPlayer1.data(),
-                    teamBPlayer2: teamBPlayer2.data()
-                });
+                    requests.push({
+                        id: docSnap.id,
+                        ...data,
+                        teamAPlayer1: teamAPlayer1.exists() ? teamAPlayer1.data() : null,
+                        teamAPlayer2: teamAPlayer2.exists() ? teamAPlayer2.data() : null,
+                        teamBPlayer1: teamBPlayer1.exists() ? teamBPlayer1.data() : null,
+                        teamBPlayer2: teamBPlayer2.exists() ? teamBPlayer2.data() : null
+                    });
+                } catch (error) {
+                    console.error(`Error loading players for doubles opponent request ${docSnap.id}:`, error);
+                    // Still add request with null player data
+                    requests.push({
+                        id: docSnap.id,
+                        ...data,
+                        teamAPlayer1: null,
+                        teamAPlayer2: null,
+                        teamBPlayer1: null,
+                        teamBPlayer2: null
+                    });
+                }
             }
         }
 
