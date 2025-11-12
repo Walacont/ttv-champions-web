@@ -7,6 +7,7 @@ import {
   limit,
   doc,
   getDoc,
+  onSnapshot,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
@@ -18,177 +19,115 @@ import {
 // ===== LOAD AND DISPLAY MATCH HISTORY =====
 // ========================================================================
 
+// Store the unsubscribe function globally so we can clean up
+let matchHistoryUnsubscribe = null;
+
 /**
- * Load and display match history for the current player
+ * Load and display match history for the current player with real-time updates
  * @param {Object} db - Firestore database instance
  * @param {Object} userData - Current user data
+ * @returns {Function} Unsubscribe function to stop listening
  */
-export async function loadMatchHistory(db, userData) {
+export function loadMatchHistory(db, userData) {
   const container = document.getElementById("match-history-list");
   if (!container) {
     console.error("Match history container not found");
     return;
   }
 
-  console.log("[Match History] Loading for user:", userData.id, "club:", userData.clubId);
+  // Clean up existing listener if any
+  if (matchHistoryUnsubscribe) {
+    matchHistoryUnsubscribe();
+  }
+
+  console.log("[Match History] 🔄 Setting up real-time listener for user:", userData.id, "club:", userData.clubId);
   container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
-  try {
-    // Query matches where user is a participant
-    const matchesRef = collection(db, "matches");
+  // Query matches for this club
+  const matchesRef = collection(db, "matches");
+  const matchesQuery = query(
+    matchesRef,
+    where("clubId", "==", userData.clubId),
+    where("processed", "==", true),
+    limit(100)
+  );
 
-    console.log("[Match History] Starting diagnostic queries...");
+  // Set up real-time listener
+  matchHistoryUnsubscribe = onSnapshot(
+    matchesQuery,
+    async (snapshot) => {
+      console.log("[Match History] 📥 Real-time update received:", snapshot.docs.length, "matches");
 
-    // DIAGNOSTIC 1: Check if ANY matches exist at all
-    try {
-      const testQuery = query(matchesRef, limit(5));
-      const testSnapshot = await getDocs(testQuery);
-      console.log("[Match History] DIAGNOSTIC 1 - Total matches in entire collection:", testSnapshot.docs.length);
-      if (testSnapshot.docs.length > 0) {
-        const sampleData = testSnapshot.docs[0].data();
-        console.log("[Match History] DIAGNOSTIC 1 - Sample match:", {
-          id: testSnapshot.docs[0].id,
-          clubId: sampleData.clubId,
-          processed: sampleData.processed,
-          hasPlayerAId: !!sampleData.playerAId,
-          hasPlayerBId: !!sampleData.playerBId,
-          hasWinnerId: !!sampleData.winnerId,
-          timestamp: !!sampleData.timestamp
-        });
+      if (snapshot.docs.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+        return;
       }
-    } catch (e) {
-      console.error("[Match History] DIAGNOSTIC 1 failed:", e);
-    }
 
-    // DIAGNOSTIC 2: Try clubId only (no processed filter)
-    let clubMatches = 0;
-    try {
-      const clubQuery = query(matchesRef, where("clubId", "==", userData.clubId), limit(100));
-      const clubSnapshot = await getDocs(clubQuery);
-      clubMatches = clubSnapshot.docs.length;
-      console.log("[Match History] DIAGNOSTIC 2 - Matches with clubId=" + userData.clubId + ":", clubMatches);
-      if (clubMatches > 0) {
-        const sample = clubSnapshot.docs[0].data();
-        console.log("[Match History] DIAGNOSTIC 2 - Sample:", {
-          processed: sample.processed,
-          playerAId: sample.playerAId,
-          playerBId: sample.playerBId
-        });
+      // Filter matches where user is involved (client-side filtering)
+      const matches = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(match => {
+          // Check if user is involved in this match
+          return (
+            match.playerAId === userData.id ||
+            match.playerBId === userData.id ||
+            match.winnerId === userData.id ||
+            match.loserId === userData.id ||
+            (match.playerIds && match.playerIds.includes(userData.id))
+          );
+        })
+        .slice(0, 50); // Limit to 50 matches for performance
+
+      console.log("[Match History] User matches found:", matches.length, "out of", snapshot.docs.length);
+
+      // Sort by timestamp descending
+      matches.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
+        const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
+
+      if (matches.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+        return;
       }
-    } catch (e) {
-      console.error("[Match History] DIAGNOSTIC 2 failed:", e);
-    }
 
-    // DIAGNOSTIC 3: Try with processed=true filter
-    let snapshot;
-    try {
-      const processedQuery = query(
-        matchesRef,
-        where("clubId", "==", userData.clubId),
-        where("processed", "==", true),
-        limit(100)
+      // Get player names and ELO changes for all matches
+      const matchesWithDetails = await Promise.all(
+        matches.map(match => enrichMatchData(db, match, userData))
       );
-      snapshot = await getDocs(processedQuery);
-      console.log("[Match History] DIAGNOSTIC 3 - Matches with clubId AND processed=true:", snapshot.docs.length);
-    } catch (indexError) {
-      console.warn("[Match History] DIAGNOSTIC 3 - Processed query failed:", indexError);
-      // Use clubId-only results if we have them
-      if (clubMatches > 0) {
-        const clubQuery = query(matchesRef, where("clubId", "==", userData.clubId), limit(100));
-        snapshot = await getDocs(clubQuery);
-        console.log("[Match History] Using clubId-only query as fallback");
+
+      // Render matches (limit to first 4 for player view to keep page short)
+      const limitedMatches = matchesWithDetails.slice(0, 4);
+      renderMatchHistory(container, limitedMatches, userData);
+
+      // Add "show more" button if there are more matches
+      if (matchesWithDetails.length > 4) {
+        const showMoreContainer = document.createElement('div');
+        showMoreContainer.className = 'text-center mt-4';
+
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
+        showMoreBtn.innerHTML = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe anzeigen`;
+
+        showMoreBtn.addEventListener('click', () => {
+          // Clear container and render all matches
+          renderMatchHistory(container, matchesWithDetails, userData);
+          showMoreContainer.remove(); // Remove the button
+        });
+
+        showMoreContainer.appendChild(showMoreBtn);
+        container.appendChild(showMoreContainer);
       }
+    },
+    (error) => {
+      console.error("[Match History] ❌ Real-time listener error:", error);
+      console.error("[Match History] Error details:", error.message, error.code);
+      container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie: ${error.message}</p>`;
     }
+  );
 
-    if (!snapshot || snapshot.docs.length === 0) {
-      console.error("[Match History] ❌ No matches found with any query!");
-      container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Wettkämpfe gefunden. Bitte Konsole überprüfen.</p>';
-      return;
-    }
-
-    console.log("[Match History] ✓ Using snapshot with", snapshot.docs.length, "matches");
-
-    // Log some sample data for debugging
-    if (snapshot.docs.length > 0) {
-      const sampleMatch = snapshot.docs[0].data();
-      console.log("[Match History] Sample match data:", {
-        playerAId: sampleMatch.playerAId,
-        playerBId: sampleMatch.playerBId,
-        winnerId: sampleMatch.winnerId,
-        loserId: sampleMatch.loserId,
-        processed: sampleMatch.processed,
-        clubId: sampleMatch.clubId
-      });
-    }
-
-    // Filter matches where user is involved (client-side filtering)
-    const matches = snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(match => {
-        // Check if user is involved in this match
-        const isInvolved = (
-          match.playerAId === userData.id ||
-          match.playerBId === userData.id ||
-          match.winnerId === userData.id ||
-          match.loserId === userData.id ||
-          (match.playerIds && match.playerIds.includes(userData.id))
-        );
-        if (!isInvolved && snapshot.docs.length < 10) {
-          // Only log for small sets to avoid spam
-          console.log("[Match History] Match filtered out:", match.id, "playerA:", match.playerAId, "playerB:", match.playerBId);
-        }
-        return isInvolved;
-      })
-      .slice(0, 50); // Limit to 50 matches for performance
-
-    console.log("[Match History] User matches found after filtering:", matches.length, "out of", snapshot.docs.length);
-
-    // Sort by timestamp descending
-    matches.sort((a, b) => {
-      const timeA = a.timestamp?.toMillis() || a.playedAt?.toMillis() || 0;
-      const timeB = b.timestamp?.toMillis() || b.playedAt?.toMillis() || 0;
-      return timeB - timeA;
-    });
-
-    if (matches.length === 0) {
-      container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
-      console.log("[Match History] No matches to display");
-      return;
-    }
-
-    // Get player names and ELO changes for all matches
-    const matchesWithDetails = await Promise.all(
-      matches.map(match => enrichMatchData(db, match, userData))
-    );
-
-    // Render matches (limit to first 4 for player view to keep page short)
-    const limitedMatches = matchesWithDetails.slice(0, 4);
-    renderMatchHistory(container, limitedMatches, userData);
-
-    // Add "show more" button if there are more matches
-    if (matchesWithDetails.length > 4) {
-      const showMoreContainer = document.createElement('div');
-      showMoreContainer.className = 'text-center mt-4';
-
-      const showMoreBtn = document.createElement('button');
-      showMoreBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
-      showMoreBtn.innerHTML = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe anzeigen`;
-
-      showMoreBtn.addEventListener('click', () => {
-        // Clear container and render all matches
-        renderMatchHistory(container, matchesWithDetails, userData);
-        showMoreContainer.remove(); // Remove the button
-      });
-
-      showMoreContainer.appendChild(showMoreBtn);
-      container.appendChild(showMoreContainer);
-    }
-
-  } catch (error) {
-    console.error("[Match History] Error loading match history:", error);
-    console.error("[Match History] Error details:", error.message, error.code);
-    container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie: ${error.message}</p>`;
-  }
+  return matchHistoryUnsubscribe;
 }
 
 /**
