@@ -380,10 +380,10 @@ service cloud.firestore {
         isSameClub(resource.data.clubId) &&
         resource.data.status == 'pending_coach';
 
-      // Initiator can delete their own request if nobody has responded yet
+      // Initiator can delete their own request if still pending (before approved/rejected)
       allow delete: if isAuthenticated() &&
         resource.data.initiatedBy == request.auth.uid &&
-        resource.data.status == 'pending_opponent';
+        resource.data.status in ['pending_opponent', 'pending_coach'];
 
       // Coaches can delete any request in their club
       allow delete: if isCoachOrAdmin() &&
