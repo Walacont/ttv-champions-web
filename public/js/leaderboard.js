@@ -43,27 +43,29 @@ export function renderLeaderboardHTML(containerId, options = {}) {
         <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
             <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
-            <div class="flex justify-center border-b border-gray-200 mb-4">
-                <button id="tab-effort" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
-                    <div>💪 Fleiß</div>
-                    <div class="text-xs text-gray-500 font-normal">(XP)</div>
-                </button>
-                <button id="tab-season" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
-                    <div>⭐ Season</div>
-                    <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
-                </button>
-                <button id="tab-skill" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
-                    <div>⚡ Skill</div>
-                    <div class="text-xs text-gray-500 font-normal">(Elo)</div>
-                </button>
-                <button id="tab-ranks" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
-                    <div>🏆 Ränge</div>
-                    <div class="text-xs text-gray-500 font-normal">(Level)</div>
-                </button>
-                <button id="tab-doubles" class="leaderboard-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
-                    <div>🎾 Doppel</div>
-                    <div class="text-xs text-gray-500 font-normal">(Teams)</div>
-                </button>
+            <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div class="flex justify-center min-w-max">
+                    <button id="tab-effort" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
+                        <div>💪 Fleiß</div>
+                        <div class="text-xs text-gray-500 font-normal">(XP)</div>
+                    </button>
+                    <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
+                        <div>⭐ Season</div>
+                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                    </button>
+                    <button id="tab-skill" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
+                        <div>⚡ Skill</div>
+                        <div class="text-xs text-gray-500 font-normal">(Elo)</div>
+                    </button>
+                    <button id="tab-ranks" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
+                        <div>🏆 Ränge</div>
+                        <div class="text-xs text-gray-500 font-normal">(Level)</div>
+                    </button>
+                    <button id="tab-doubles" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
+                        <div>🎾 Doppel</div>
+                        <div class="text-xs text-gray-500 font-normal">(Teams)</div>
+                    </button>
+                </div>
             </div>
 
             ${showToggle ? `
