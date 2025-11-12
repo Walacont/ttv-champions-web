@@ -121,8 +121,14 @@ export function populateDoublesPlayerDropdowns(players, currentUserId) {
 
     if (!partnerSelect || !opponent1Select || !opponent2Select) return;
 
-    // Filter out current user
-    const otherPlayers = players.filter(p => p.id !== currentUserId);
+    // Filter: exclude current user AND only show match-ready players
+    const otherPlayers = players.filter(p => {
+        if (p.id === currentUserId) return false;
+
+        // Player must be match-ready (either flag is set OR has 5+ Grundlagen)
+        const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5;
+        return isMatchReady;
+    });
 
     // Populate all 3 dropdowns
     [partnerSelect, opponent1Select, opponent2Select].forEach(select => {
@@ -136,7 +142,7 @@ export function populateDoublesPlayerDropdowns(players, currentUserId) {
         });
     });
 
-    console.log(`Populated doubles player dropdowns with ${otherPlayers.length} players`);
+    console.log(`Populated doubles player dropdowns with ${otherPlayers.length} match-ready players`);
 }
 
 // ========================================================================
