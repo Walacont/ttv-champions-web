@@ -256,6 +256,10 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     const sets = setScoreInput.getSets();
     const handicapUsed = document.getElementById('match-handicap-toggle')?.checked || false;
 
+    // Get match mode from dropdown
+    const matchModeSelect = document.getElementById('match-mode-select');
+    const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+
     // Convert set field names from playerA/playerB to teamA/teamB for doubles
     const doublesSets = sets.map(set => ({
         teamA: set.playerA,
@@ -278,6 +282,7 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
             opponent2Id: opponent2Id,
             sets: doublesSets,
             handicapUsed: handicapUsed,
+            matchMode: matchMode,
             playerNames: {
                 player1: `${currentUserData.firstName} ${currentUserData.lastName}`,
                 player2: partnerData ? `${partnerData.firstName} ${partnerData.lastName}` : 'Unbekannt',

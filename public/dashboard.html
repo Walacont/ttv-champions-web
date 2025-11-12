@@ -355,6 +355,22 @@
                                 </div>
                             </div>
 
+                            <!-- Match Mode Selection -->
+                            <div>
+                                <label for="match-mode-select" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Spielmodus
+                                </label>
+                                <select
+                                    id="match-mode-select"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                >
+                                    <option value="single-set">1 Satz</option>
+                                    <option value="best-of-3">Best of 3</option>
+                                    <option value="best-of-5" selected>Best of 5 (Standard)</option>
+                                    <option value="best-of-7">Best of 7</option>
+                                </select>
+                            </div>
+
                             <!-- Singles Opponent Selection (default) -->
                             <div id="singles-opponent-container">
                                 <label for="opponent-select" class="block text-sm font-medium text-gray-700 mb-2">
@@ -419,7 +435,7 @@
 
                             <!-- Set Score Input -->
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-3">
+                                <label id="set-score-label" class="block text-sm font-medium text-gray-700 mb-3">
                                     Spielergebnis eingeben (mind. 3 Sätze)
                                 </label>
                                 <div id="set-score-container" class="space-y-2">
