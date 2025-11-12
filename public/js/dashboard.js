@@ -16,6 +16,7 @@ import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './dou
 import { confirmDoublesMatchRequest, rejectDoublesMatchRequest } from './doubles-matches.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
+import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -154,6 +155,10 @@ async function initializeDashboard(userData) {
     logoutButton.addEventListener('click', () => signOut(auth));
     setupTabs('overview');  // 'overview' is default tab for dashboard
     setupLeaderboardTabs();  // Setup 3-tab navigation
+
+    // Initialize leaderboard preferences
+    initializeLeaderboardPreferences(userData, db);
+    applyPreferences();
 
     // Setup global subgroup filter change handler
     const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
