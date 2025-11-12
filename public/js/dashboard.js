@@ -599,10 +599,12 @@ function renderCombinedOverview(items, userData, db, showAll) {
             // Doubles match request
             // Convert teamA/teamB to playerA/playerB for formatSetsDisplaySimple
             // Support both old (playerA/playerB) and new (teamA/teamB) format
-            const convertedSets = item.data.sets.map(s => ({
+            console.log('🔍 DEBUG Doubles sets:', item.data.sets);
+            const convertedSets = item.data.sets ? item.data.sets.map(s => ({
                 playerA: s.teamA !== undefined ? s.teamA : s.playerA,
                 playerB: s.teamB !== undefined ? s.teamB : s.playerB
-            }));
+            })) : [];
+            console.log('🔍 DEBUG Converted sets:', convertedSets);
             const setsDisplay = formatSetsDisplaySimple(convertedSets);
             const teamAName1 = item.teamAPlayer1?.firstName || 'Unbekannt';
             const teamAName2 = item.teamAPlayer2?.firstName || 'Unbekannt';
