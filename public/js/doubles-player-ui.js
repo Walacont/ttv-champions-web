@@ -127,6 +127,12 @@ export function populateDoublesPlayerDropdowns(players, currentUserId) {
 
         // Player must be match-ready (either flag is set OR has 5+ Grundlagen)
         const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5;
+
+        // Debug log for filtering
+        if (!isMatchReady) {
+            console.log(`Filtering out ${p.firstName} ${p.lastName}: isMatchReady=${p.isMatchReady}, grundlagenCompleted=${p.grundlagenCompleted || 0}`);
+        }
+
         return isMatchReady;
     });
 
