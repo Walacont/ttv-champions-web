@@ -1,4 +1,5 @@
 import { createDoublesMatchRequest } from './doubles-matches.js';
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 /**
  * Doubles Player UI Module
@@ -163,6 +164,40 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     const allPlayerIds = [currentUserData.id, partnerId, opponent1Id, opponent2Id];
     if (new Set(allPlayerIds).size !== 4) {
         feedbackEl.textContent = 'Alle 4 Spieler müssen unterschiedlich sein!';
+        feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
+        feedbackEl.classList.remove('hidden');
+        return;
+    }
+
+    // Validate all players are match-ready (5+ Grundlagen)
+    try {
+        const playerDocs = await Promise.all([
+            getDoc(doc(db, 'users', currentUserData.id)),
+            getDoc(doc(db, 'users', partnerId)),
+            getDoc(doc(db, 'users', opponent1Id)),
+            getDoc(doc(db, 'users', opponent2Id))
+        ]);
+
+        const notReadyPlayers = [];
+        playerDocs.forEach((playerDoc, index) => {
+            if (playerDoc.exists()) {
+                const data = playerDoc.data();
+                const grundlagen = data.grundlagenCompleted || 0;
+                if (grundlagen < 5) {
+                    notReadyPlayers.push(data.firstName + ' ' + data.lastName);
+                }
+            }
+        });
+
+        if (notReadyPlayers.length > 0) {
+            feedbackEl.textContent = `Folgende Spieler haben noch nicht genug Grundlagen (min. 5): ${notReadyPlayers.join(', ')}`;
+            feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
+            feedbackEl.classList.remove('hidden');
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking player readiness:', error);
+        feedbackEl.textContent = 'Fehler beim Überprüfen der Spieler-Berechtigung.';
         feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
         feedbackEl.classList.remove('hidden');
         return;
