@@ -932,6 +932,10 @@ function createPendingDoublesCard(request, playersData, userData, db) {
   const isInTeamB = request.teamB.player1Id === userData.id || request.teamB.player2Id === userData.id;
   const needsMyResponse = isInTeamB && request.status === "pending_opponent" && request.initiatedBy !== userData.id;
 
+  // Check if current user is the initiator
+  const isInitiator = request.initiatedBy === userData.id;
+  const canDelete = isInitiator && (request.status === "pending_opponent" || request.status === "pending_coach");
+
   // Determine status styling
   let borderColor = needsMyResponse ? "border-indigo-200" : "border-yellow-200";
   let bgColor = needsMyResponse ? "bg-white" : "bg-yellow-50";
@@ -995,6 +999,13 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         </button>
       </div>
     ` : ''}
+    ${canDelete ? `
+      <div class="flex gap-2">
+        <button class="delete-doubles-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+          <i class="fas fa-trash"></i> Anfrage löschen
+        </button>
+      </div>
+    ` : ''}
   `;
 
   // Add event listeners for buttons if they exist
@@ -1017,6 +1028,14 @@ function createPendingDoublesCard(request, playersData, userData, db) {
           await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
         }
       });
+    }
+  }
+
+  // Add event listener for delete button if it exists
+  if (canDelete) {
+    const deleteBtn = div.querySelector(".delete-doubles-request-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", () => deleteDoublesMatchRequest(request.id, db));
     }
   }
 
@@ -1223,6 +1242,21 @@ async function deleteMatchRequest(requestId, db) {
   } catch (error) {
     console.error("Error deleting request:", error);
     showFeedback("Fehler beim Löschen der Anfrage.", "error");
+  }
+}
+
+/**
+ * Deletes a doubles match request
+ */
+async function deleteDoublesMatchRequest(requestId, db) {
+  if (!confirm("Möchtest du diese Doppel-Anfrage wirklich löschen?")) return;
+
+  try {
+    await deleteDoc(doc(db, "doublesMatchRequests", requestId));
+    showFeedback("Doppel-Anfrage gelöscht.", "success");
+  } catch (error) {
+    console.error("Error deleting doubles request:", error);
+    showFeedback("Fehler beim Löschen der Doppel-Anfrage.", "error");
   }
 }
 
