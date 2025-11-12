@@ -333,17 +333,64 @@
                                 </details>
                                 <details class="group">
                                     <summary class="flex justify-between items-center cursor-pointer">
-                                        <span class="font-medium">Wie funktionieren die Punkte bei Matches?</span>
+                                        <span class="font-medium">Wie funktionieren die Punkte bei Einzel-Matches?</span>
                                         <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                     </summary>
                                     <div class="mt-2 text-gray-700">
-                                       <p>Wenn du ein Wettkampf-Match (kein Handicap-Match) spielst, werden deine <strong>Elo-Punkte</strong> und deine <strong>Saison-Punkte</strong> angepasst. Deine <strong>XP</strong> können nur steigen.</p>
+                                       <p>Wenn ein Spieler ein Wettkampf-Match (kein Handicap-Match) spielt, werden seine <strong>Elo-Punkte</strong> und <strong>Saison-Punkte</strong> angepasst. Seine <strong>XP</strong> können nur steigen.</p>
                                        <ul class="list-disc list-inside mt-2 space-y-1">
-                                            <li><strong>Sieg:</strong> Du gewinnst Elo-Punkte, Saison-Punkte und XP.</li>
-                                            <li><strong>Niederlage:</strong> Du verlierst Elo-Punkte und Saison-Punkte. Du verlierst <strong>keine</strong> XP.</li>
-                                            <li><strong>Fairness:</strong> Gewinnst du gegen einen stärkeren Spieler (höheres Elo), erhältst du mehr Punkte. Verlierst du gegen einen stärkeren Spieler, verlierst du nur wenige Punkte.</li>
+                                            <li><strong>Sieg:</strong> Spieler gewinnt Elo-Punkte, Saison-Punkte und XP.</li>
+                                            <li><strong>Niederlage:</strong> Spieler verliert Elo-Punkte und Saison-Punkte. Er verliert <strong>keine</strong> XP.</li>
+                                            <li><strong>Fairness:</strong> Gewinnt der Spieler gegen einen stärkeren Gegner (höheres Elo), erhält er mehr Punkte. Verliert er gegen einen stärkeren Gegner, verliert er nur wenige Punkte.</li>
                                        </ul>
-                                       <p class="mt-2"><strong>Wichtig für Rekruten:</strong> Als Rekrut (niedrigster Rang) musst du erst <strong>5 Grundlagen-Übungen</strong> abschließen, bevor du Wettkampf-Matches spielen darfst. So stellst du sicher, dass du die Basics beherrschst!</p>
+                                       <p class="mt-2"><strong>Wichtig für Rekruten:</strong> Als Rekrut (niedrigster Rang) müssen Spieler erst <strong>5 Grundlagen-Übungen</strong> abschließen, bevor sie Wettkampf-Matches spielen dürfen!</p>
+                                    </div>
+                                </details>
+
+                                <details class="group">
+                                    <summary class="flex justify-between items-center cursor-pointer">
+                                        <span class="font-medium">🎾 Wie funktionieren Doppel-Matches?</span>
+                                        <svg class="h-6 w-6 transform transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </summary>
+                                    <div class="mt-2 text-gray-700">
+                                        <p>Neben Einzel-Matches können Spieler auch <strong>Doppel-Matches</strong> spielen! Im Doppel spielen zwei Spieler gemeinsam gegen ein anderes Team.</p>
+
+                                        <p class="mt-3"><strong>📋 Der Ablauf:</strong></p>
+                                        <ul class="list-disc list-inside mt-2 space-y-1">
+                                            <li><strong>Team bilden:</strong> Ein Spieler wählt einen Partner (Team A) und zwei Gegner (Team B)</li>
+                                            <li><strong>Anfrage senden:</strong> Das Gegner-Team muss die Anfrage bestätigen</li>
+                                            <li><strong>Coach-Genehmigung:</strong> Du musst das Match genehmigen und das Ergebnis eintragen</li>
+                                            <li><strong>Punkte:</strong> Alle 4 Spieler erhalten oder verlieren Doppel-Elo-Punkte</li>
+                                        </ul>
+
+                                        <p class="mt-3"><strong>⚡ Doppel-Elo-System:</strong></p>
+                                        <ul class="list-disc list-inside mt-2 space-y-1">
+                                            <li>Jeder Spieler hat ein <strong>separates Doppel-Elo</strong> (startet bei 800), unabhängig vom Einzel-Elo</li>
+                                            <li>Das Team-Elo wird aus dem Durchschnitt der beiden Spieler berechnet</li>
+                                            <li><strong>Beispiel:</strong> Spieler A (Doppel-Elo 900) + Spieler B (Doppel-Elo 1000) = Team-Elo 950</li>
+                                            <li>Wie beim Einzel gilt: Gewinne gegen stärkere Teams bringen mehr Punkte</li>
+                                        </ul>
+
+                                        <p class="mt-3"><strong>🏆 Doppel-Rangliste:</strong></p>
+                                        <p class="mt-1">Es gibt eine eigene Doppel-Rangliste im <strong>Ranglisten-Tab</strong>, die zeigt, welche Teams die besten Doppel-Elo-Werte haben!</p>
+
+                                        <p class="mt-3"><strong>📊 Punkte-Berechnung:</strong></p>
+                                        <ul class="list-disc list-inside mt-2 space-y-1">
+                                            <li><strong>Sieg:</strong> Beide Spieler des Gewinnerteams erhalten Doppel-Elo und Saison-Punkte</li>
+                                            <li><strong>Niederlage:</strong> Beide Spieler des Verliererteams verlieren Doppel-Elo und Saison-Punkte</li>
+                                            <li><strong>XP:</strong> Nur das Gewinnerteam erhält XP (kein XP-Verlust bei Niederlage)</li>
+                                            <li><strong>Handicap:</strong> Doppel-Matches können auch mit Handicap gespielt werden (keine Elo-Änderung)</li>
+                                        </ul>
+
+                                        <p class="mt-3"><strong>👨‍🏫 Für Coaches:</strong></p>
+                                        <ul class="list-disc list-inside mt-2 space-y-1 bg-indigo-50 p-3 rounded">
+                                            <li>Doppel-Anfragen findest du im <strong>Wettkampf-Tab</strong> unter "Doppel"</li>
+                                            <li>Du kannst das Ergebnis eintragen und entscheiden, ob Handicap verwendet wurde</li>
+                                            <li>Du kannst auch selbst Doppel-Matches für Spieler eintragen (z.B. bei offiziellen Turnieren)</li>
+                                            <li>Die Doppel-Historie jedes Spielers wird automatisch protokolliert</li>
+                                        </ul>
+
+                                        <p class="mt-3"><strong>💡 Tipp:</strong> Doppel-Matches sind eine großartige Möglichkeit für Spieler, Teamwork zu trainieren und neue Spielstile kennenzulernen!</p>
                                     </div>
                                 </details>
                                 <details class="group">
@@ -498,7 +545,8 @@
 
                                         <p class="mt-3"><strong>Was bleibt erhalten?</strong></p>
                                         <ul class="list-disc list-inside mt-2 space-y-1">
-                                            <li><strong>Elo-Punkte:</strong> Die Skill-Bewertung bleibt permanent</li>
+                                            <li><strong>Einzel-Elo:</strong> Die Einzel-Skill-Bewertung bleibt permanent</li>
+                                            <li><strong>Doppel-Elo:</strong> Die Doppel-Skill-Bewertung bleibt permanent</li>
                                             <li><strong>XP (Erfahrungspunkte):</strong> Der Fleiß wird nie zurückgesetzt</li>
                                             <li><strong>Rang:</strong> Der Rang (Rekrut, Bronze, Silber...) ist permanent</li>
                                             <li><strong>Grundlagen-Abschlüsse:</strong> Die 5 Grundlagen-Übungen bleiben abgeschlossen</li>
@@ -531,12 +579,15 @@
 
                                         <p class="mt-2"><strong>Wichtig:</strong> Du musst immer <strong>beide</strong> Anforderungen (Elo UND XP) für den nächsten Rang erfüllen. Für Bronze musst du zusätzlich 5 Grundlagen-Übungen abschließen.</p>
 
-                                        <p class="mt-2"><strong>Das Leaderboard ist in 3 Tabs aufgeteilt:</strong></p>
+                                        <p class="mt-2"><strong>Das Leaderboard (Ranglisten) ist in mehrere Tabs aufgeteilt:</strong></p>
                                          <ul class="list-disc list-inside mt-2 space-y-1">
-                                            <li><strong>⚡ Skill:</strong> Zeigt die Rangliste basierend auf Elo-Punkten.</li>
-                                            <li><strong>💪 Fleiß:</strong> Zeigt die Rangliste basierend auf XP.</li>
-                                            <li><strong>🏆 Level:</strong> Zeigt alle Spieler gruppiert nach ihrem aktuellen Rang (z.B. alle in Bronze, alle in Silber).</li>
+                                            <li><strong>💪 Fleiß (XP):</strong> Zeigt die Rangliste basierend auf Erfahrungspunkten.</li>
+                                            <li><strong>⭐ Season (Punkte):</strong> Zeigt die aktuelle Saison-Rangliste.</li>
+                                            <li><strong>⚡ Skill (Elo):</strong> Zeigt die Rangliste basierend auf Einzel-Elo-Punkten.</li>
+                                            <li><strong>🏆 Ränge (Level):</strong> Zeigt alle Spieler gruppiert nach ihrem aktuellen Rang (z.B. alle in Bronze, alle in Silber).</li>
+                                            <li><strong>🎾 Doppel (Teams):</strong> Zeigt die Doppel-Rangliste mit den besten Team-Kombinationen basierend auf Doppel-Elo.</li>
                                         </ul>
+                                        <p class="mt-2 text-sm italic text-gray-600">Spieler können im Ranglisten-Tab einstellen, welche Ranglisten sie sehen möchten.</p>
                                     </div>
                                 </details>
                             </div>
