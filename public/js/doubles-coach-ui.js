@@ -205,6 +205,12 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
     const sets = doublesSetScoreInput.getSets();
     const winningTeam = setValidation.winnerId; // 'A' or 'B'
 
+    // Convert set field names from playerA/playerB to teamA/teamB for doubles
+    const doublesSets = sets.map(set => ({
+        teamA: set.playerA,
+        teamB: set.playerB
+    }));
+
     const handicapUsed = document.getElementById('handicap-toggle')?.checked || false;
 
     feedbackEl.textContent = 'Speichere Doppel-Match...';
@@ -217,7 +223,7 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
             teamB_player1Id: teamBPlayer1Id,
             teamB_player2Id: teamBPlayer2Id,
             winningTeam: winningTeam,
-            sets: sets,
+            sets: doublesSets,
             handicapUsed: handicapUsed
         };
 
