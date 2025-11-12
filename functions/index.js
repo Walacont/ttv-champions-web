@@ -293,6 +293,7 @@ exports.processMatchResult = onDocumentCreated(
       batch.update(snap.ref, {
         processed: true,
         pointsExchanged: seasonPointChange,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       await batch.commit();
@@ -1691,6 +1692,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
       batch.update(snap.ref, {
         processed: true,
         pointsExchanged: seasonPointChange,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       await batch.commit();
