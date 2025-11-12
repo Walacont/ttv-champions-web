@@ -71,6 +71,16 @@ function switchMatchType(type) {
 
         // Clear singles selections
         clearSinglesSelections();
+
+        // Hide handicap suggestion when switching to doubles
+        const handicapSuggestion = document.getElementById('handicap-suggestion');
+        const handicapToggleContainer = document.getElementById('handicap-toggle-container');
+        if (handicapSuggestion) {
+            handicapSuggestion.classList.add('hidden');
+        }
+        if (handicapToggleContainer) {
+            handicapToggleContainer.classList.add('hidden');
+        }
     }
 
     console.log(`Match type switched to: ${type}`);
