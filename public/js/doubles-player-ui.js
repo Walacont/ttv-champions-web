@@ -70,6 +70,12 @@ function switchPlayerMatchType(type) {
 
         // Clear singles selection
         clearSinglesSelection();
+
+        // Hide handicap info when switching to doubles
+        const handicapInfo = document.getElementById('match-handicap-info');
+        if (handicapInfo) {
+            handicapInfo.classList.add('hidden');
+        }
     }
 
     console.log(`Player match type switched to: ${type}`);
