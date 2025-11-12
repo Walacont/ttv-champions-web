@@ -275,7 +275,16 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   const pendingRequestsList = document.getElementById("pending-result-requests-list");
   const historyRequestsList = document.getElementById("history-result-requests-list");
 
-  if (!pendingRequestsList || !historyRequestsList) return;
+  // If neither container exists, nothing to do
+  if (!pendingRequestsList && !historyRequestsList) {
+    console.log('⚠️ No match request containers found in DOM');
+    return;
+  }
+
+  console.log('✓ Found match request containers:', {
+    pending: !!pendingRequestsList,
+    history: !!historyRequestsList
+  });
 
   // Query for requests created by me (playerA)
   const myRequestsQuery = query(
