@@ -138,8 +138,8 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const initiatorPairingId = createPairingId(initiatorId, partnerId);
     const opponentPairingId = createPairingId(opponent1Id, opponent2Id);
 
-    // Create request document
-    const requestData = {
+    // Build the request document data
+    const doublesRequestData = {
         teamA: {
             player1Id: initiatorId,
             player2Id: partnerId,
@@ -175,7 +175,7 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         clubId: currentUserData.clubId
     });
 
-    const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), requestData);
+    const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), doublesRequestData);
 
     console.log('✅ Doubles match request created successfully! ID:', requestRef.id);
     return { success: true, requestId: requestRef.id };
