@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, signOut, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, query, deleteDoc, serverTimestamp, orderBy, updateDoc, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getStorage, ref, deleteObject, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
-import { getFunctions, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { firebaseConfig } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
@@ -739,4 +739,47 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
             alert("Fehler: Die Übung konnte nicht vollständig gelöscht werden.");
         }
     }
+}
+
+// ========================================================================
+// ===== MIGRATIONS =====
+// ========================================================================
+
+const migrateDoublesNamesBtn = document.getElementById('migrate-doubles-names-btn');
+const migrationStatus = document.getElementById('migration-status');
+
+if (migrateDoublesNamesBtn) {
+    migrateDoublesNamesBtn.addEventListener('click', async () => {
+        if (!confirm('Möchtest du die Migration starten? Dies aktualisiert alle doublesPairings-Dokumente mit Spielernamen.')) {
+            return;
+        }
+
+        migrateDoublesNamesBtn.disabled = true;
+        migrateDoublesNamesBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Migration läuft...';
+        migrationStatus.textContent = 'Migration wird ausgeführt...';
+        migrationStatus.className = 'text-sm font-medium text-blue-600';
+
+        try {
+            const migrateFunction = httpsCallable(functions, 'migrateDoublesPairingsNames');
+            const result = await migrateFunction();
+
+            console.log('Migration result:', result);
+
+            if (result.data.success) {
+                migrationStatus.textContent = `✅ Erfolgreich! ${result.data.migrated} Paarungen aktualisiert, ${result.data.skipped} übersprungen.`;
+                migrationStatus.className = 'text-sm font-medium text-green-600';
+                alert(`Migration erfolgreich!\n\n${result.data.migrated} Paarungen wurden aktualisiert.\n${result.data.skipped} wurden übersprungen (hatten bereits Namen).`);
+            } else {
+                throw new Error('Migration fehlgeschlagen');
+            }
+        } catch (error) {
+            console.error('Migration error:', error);
+            migrationStatus.textContent = '❌ Fehler: ' + error.message;
+            migrationStatus.className = 'text-sm font-medium text-red-600';
+            alert('Fehler bei der Migration: ' + error.message);
+        } finally {
+            migrateDoublesNamesBtn.disabled = false;
+            migrateDoublesNamesBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Migration starten';
+        }
+    });
 }
