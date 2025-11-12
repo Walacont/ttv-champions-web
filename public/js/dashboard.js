@@ -597,7 +597,12 @@ function renderCombinedOverview(items, userData, db, showAll) {
 
         if (item.matchType === 'doubles') {
             // Doubles match request
-            const setsDisplay = formatSetsDisplaySimple(item.data.sets);
+            // Convert teamA/teamB to playerA/playerB for formatSetsDisplaySimple
+            const convertedSets = item.data.sets.map(s => ({
+                playerA: s.teamA,
+                playerB: s.teamB
+            }));
+            const setsDisplay = formatSetsDisplaySimple(convertedSets);
             const teamAName1 = item.teamAPlayer1?.firstName || 'Unbekannt';
             const teamAName2 = item.teamAPlayer2?.firstName || 'Unbekannt';
             const teamBName1 = item.teamBPlayer1?.firstName || 'Unbekannt';
