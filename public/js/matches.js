@@ -1029,7 +1029,27 @@ function getWinnerName(sets, playerA, playerB) {
  */
 async function approveCoachRequest(requestId, db, userData) {
     try {
-        await updateDoc(doc(db, 'matchRequests', requestId), {
+        // First, fetch the request to check its current status
+        const requestRef = doc(db, 'matchRequests', requestId);
+        const requestSnap = await getDoc(requestRef);
+
+        if (!requestSnap.exists()) {
+            console.error('Request not found:', requestId);
+            alert('Anfrage nicht gefunden.');
+            return;
+        }
+
+        const requestData = requestSnap.data();
+        console.log('Current request status:', requestData.status);
+        console.log('Coach data:', userData);
+
+        if (requestData.status !== 'pending_coach') {
+            console.error('Request status is not pending_coach:', requestData.status);
+            alert(`Fehler: Anfrage hat den Status "${requestData.status}" statt "pending_coach"`);
+            return;
+        }
+
+        await updateDoc(requestRef, {
             'approvals.coach': {
                 status: 'approved',
                 timestamp: serverTimestamp(),
@@ -1043,7 +1063,7 @@ async function approveCoachRequest(requestId, db, userData) {
         alert('Match wurde genehmigt! Es wird automatisch verarbeitet.');
     } catch (error) {
         console.error('Error approving request:', error);
-        alert('Fehler beim Genehmigen der Anfrage.');
+        alert('Fehler beim Genehmigen der Anfrage: ' + error.message);
     }
 }
 
@@ -1054,7 +1074,26 @@ async function rejectCoachRequest(requestId, db, userData) {
     const reason = prompt('Grund für die Ablehnung (optional):');
 
     try {
-        await updateDoc(doc(db, 'matchRequests', requestId), {
+        // First, fetch the request to check its current status
+        const requestRef = doc(db, 'matchRequests', requestId);
+        const requestSnap = await getDoc(requestRef);
+
+        if (!requestSnap.exists()) {
+            console.error('Request not found:', requestId);
+            alert('Anfrage nicht gefunden.');
+            return;
+        }
+
+        const requestData = requestSnap.data();
+        console.log('Current request status:', requestData.status);
+
+        if (requestData.status !== 'pending_coach') {
+            console.error('Request status is not pending_coach:', requestData.status);
+            alert(`Fehler: Anfrage hat den Status "${requestData.status}" statt "pending_coach"`);
+            return;
+        }
+
+        await updateDoc(requestRef, {
             'approvals.coach': {
                 status: 'rejected',
                 timestamp: serverTimestamp(),
@@ -1070,7 +1109,7 @@ async function rejectCoachRequest(requestId, db, userData) {
         alert('Match-Anfrage wurde abgelehnt.');
     } catch (error) {
         console.error('Error rejecting request:', error);
-        alert('Fehler beim Ablehnen der Anfrage.');
+        alert('Fehler beim Ablehnen der Anfrage: ' + error.message);
     }
 }
 
