@@ -240,21 +240,21 @@ export function loadLeaderboard(userData, db, unsubscribes) {
     loadEffortLeaderboard(userData, db, unsubscribes);
     loadSeasonLeaderboard(userData, db, unsubscribes);
     loadRanksView(userData, db, unsubscribes);
-    loadDoublesLeaderboardTab(userData, db);
+    loadDoublesLeaderboardTab(userData, db, unsubscribes);
 }
 
 /**
- * Loads the Doubles leaderboard
+ * Loads the Doubles leaderboard with real-time updates
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-async function loadDoublesLeaderboardTab(userData, db) {
+function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
     const listEl = document.getElementById('doubles-list');
     if (!listEl) return;
 
     try {
-        const pairings = await loadDoublesLeaderboard(userData.clubId, db);
-        renderDoublesLeaderboard(pairings, listEl);
+        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes);
     } catch (error) {
         console.error('Error loading doubles leaderboard:', error);
         listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Doppel-Rangliste.</p>';

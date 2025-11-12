@@ -252,42 +252,49 @@ export async function rejectDoublesMatchRequest(requestId, reason, db, currentUs
 // ========================================================================
 
 /**
- * Loads doubles pairings leaderboard for a club
+ * Loads doubles pairings leaderboard for a club with real-time updates
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
- * @returns {Promise<Array>} Array of pairing objects sorted by wins
+ * @param {HTMLElement} container - Container element to render leaderboard
+ * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
  */
-export async function loadDoublesLeaderboard(clubId, db) {
+export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
+    if (!container) return;
+
     const pairingsQuery = query(
         collection(db, 'doublesPairings'),
         where('clubId', '==', clubId),
         orderBy('matchesWon', 'desc')
     );
 
-    const snapshot = await getDocs(pairingsQuery);
-    const pairings = [];
+    const listener = onSnapshot(pairingsQuery, async (snapshot) => {
+        const pairings = [];
 
-    for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
 
-        // Fetch player names
-        const player1Doc = await getDoc(doc(db, 'users', data.player1Id));
-        const player2Doc = await getDoc(doc(db, 'users', data.player2Id));
+            // Fetch player names
+            const player1Doc = await getDoc(doc(db, 'users', data.player1Id));
+            const player2Doc = await getDoc(doc(db, 'users', data.player2Id));
 
-        if (player1Doc.exists() && player2Doc.exists()) {
-            const player1 = player1Doc.data();
-            const player2 = player2Doc.data();
+            if (player1Doc.exists() && player2Doc.exists()) {
+                const player1 = player1Doc.data();
+                const player2 = player2Doc.data();
 
-            pairings.push({
-                id: docSnap.id,
-                player1Name: `${player1.firstName} ${player1.lastName}`,
-                player2Name: `${player2.firstName} ${player2.lastName}`,
-                ...data
-            });
+                pairings.push({
+                    id: docSnap.id,
+                    player1Name: `${player1.firstName} ${player1.lastName}`,
+                    player2Name: `${player2.firstName} ${player2.lastName}`,
+                    ...data
+                });
+            }
         }
-    }
 
-    return pairings;
+        // Render the leaderboard with updated data
+        renderDoublesLeaderboard(pairings, container);
+    });
+
+    if (unsubscribes) unsubscribes.push(listener);
 }
 
 /**
