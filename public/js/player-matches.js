@@ -989,12 +989,7 @@ function createPendingDoublesCard(request, playersData, userData, db) {
   const needsMyResponse = isInTeamB && request.status === "pending_opponent" && request.initiatedBy !== userData.id;
 
   // Check if current user is the initiator
-<<<<<<< HEAD
-  const isInitiator = request.initiatedBy === userData.id;
-  const canDelete = isInitiator && (request.status === "pending_opponent" || request.status === "pending_coach");
-=======
   const isMyRequest = request.initiatedBy === userData.id;
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
 
   // Determine status styling
   let borderColor = needsMyResponse ? "border-indigo-200" : "border-yellow-200";
@@ -1059,17 +1054,10 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         </button>
       </div>
     ` : ''}
-<<<<<<< HEAD
-    ${canDelete ? `
-      <div class="flex gap-2">
-        <button class="delete-doubles-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-          <i class="fas fa-trash"></i> Anfrage löschen
-=======
     ${isMyRequest && request.status === "pending_opponent" ? `
       <div class="flex gap-2 mt-3">
         <button class="delete-doubles-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-trash"></i> Zurückziehen
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
         </button>
       </div>
     ` : ''}
@@ -1111,11 +1099,7 @@ function createPendingDoublesCard(request, playersData, userData, db) {
   }
 
   // Add event listener for delete button if it exists
-<<<<<<< HEAD
-  if (canDelete) {
-=======
   if (isMyRequest && request.status === "pending_opponent") {
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
     const deleteBtn = div.querySelector(".delete-doubles-request-btn");
     if (deleteBtn) {
       deleteBtn.addEventListener("click", () => deleteDoublesMatchRequest(request.id, db));
@@ -1332,16 +1316,6 @@ async function deleteMatchRequest(requestId, db) {
  * Deletes a doubles match request
  */
 async function deleteDoublesMatchRequest(requestId, db) {
-<<<<<<< HEAD
-  if (!confirm("Möchtest du diese Doppel-Anfrage wirklich löschen?")) return;
-
-  try {
-    await deleteDoc(doc(db, "doublesMatchRequests", requestId));
-    showFeedback("Doppel-Anfrage gelöscht.", "success");
-  } catch (error) {
-    console.error("Error deleting doubles request:", error);
-    showFeedback("Fehler beim Löschen der Doppel-Anfrage.", "error");
-=======
   if (!confirm("Möchtest du diese Doppel-Anfrage wirklich zurückziehen?")) return;
 
   try {
@@ -1350,7 +1324,6 @@ async function deleteDoublesMatchRequest(requestId, db) {
   } catch (error) {
     console.error("Error deleting doubles request:", error);
     showFeedback("Fehler beim Zurückziehen der Doppel-Anfrage.", "error");
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
   }
 }
 
@@ -1726,36 +1699,6 @@ async function renderPendingRequests(requests, userData, db) {
     let card;
 
     if (request.matchType === 'doubles') {
-<<<<<<< HEAD
-      // DOUBLES REQUEST
-      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
-
-      let playersData;
-      try {
-        const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-          getDoc(doc(db, 'users', request.teamA.player1Id)),
-          getDoc(doc(db, 'users', request.teamA.player2Id)),
-          getDoc(doc(db, 'users', request.teamB.player1Id)),
-          getDoc(doc(db, 'users', request.teamB.player2Id))
-        ]);
-
-        playersData = {
-          teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-          teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-          teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-          teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-        };
-      } catch (error) {
-        console.error('Error loading players for doubles request:', error);
-        // Use placeholder data if player documents can't be loaded
-        playersData = {
-          teamAPlayer1: null,
-          teamAPlayer2: null,
-          teamBPlayer1: null,
-          teamBPlayer2: null
-        };
-      }
-=======
       // DOUBLES REQUEST - use stored names
       const playersData = {
         teamAPlayer1: {
@@ -1779,7 +1722,6 @@ async function renderPendingRequests(requests, userData, db) {
           lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
         }
       };
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
 
       card = createPendingDoublesCard(request, playersData, userData, db);
     } else {
@@ -1850,36 +1792,6 @@ async function renderHistoryRequests(requests, userData, db) {
     let card;
 
     if (request.matchType === 'doubles') {
-<<<<<<< HEAD
-      // DOUBLES REQUEST
-      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
-
-      let playersData;
-      try {
-        const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-          getDoc(doc(db, 'users', request.teamA.player1Id)),
-          getDoc(doc(db, 'users', request.teamA.player2Id)),
-          getDoc(doc(db, 'users', request.teamB.player1Id)),
-          getDoc(doc(db, 'users', request.teamB.player2Id))
-        ]);
-
-        playersData = {
-          teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-          teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-          teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-          teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-        };
-      } catch (error) {
-        console.error('Error loading players for doubles history:', error);
-        // Use placeholder data if player documents can't be loaded
-        playersData = {
-          teamAPlayer1: null,
-          teamAPlayer2: null,
-          teamBPlayer1: null,
-          teamBPlayer2: null
-        };
-      }
-=======
       // DOUBLES REQUEST - use stored names
       const playersData = {
         teamAPlayer1: {
@@ -1903,7 +1815,6 @@ async function renderHistoryRequests(requests, userData, db) {
           lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
         }
       };
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
 
       card = createDoublesHistoryCard(request, playersData, userData, db);
     } else {
@@ -1983,28 +1894,6 @@ export async function loadCombinedPendingRequests(userData, db) {
       // Process singles requests
       for (const docSnap of singlesSnapshot.docs) {
         const data = docSnap.data();
-<<<<<<< HEAD
-
-        try {
-          const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
-
-          allRequests.push({
-            id: docSnap.id,
-            type: 'singles',
-            ...data,
-            playerAData: playerADoc.exists() ? playerADoc.data() : null
-          });
-        } catch (error) {
-          console.error(`Error loading player for singles request ${docSnap.id}:`, error);
-          // Still add request with null player data
-          allRequests.push({
-            id: docSnap.id,
-            type: 'singles',
-            ...data,
-            playerAData: null
-          });
-        }
-=======
         const playerAData = {
           id: data.playerAId,
           firstName: data.playerAName ? data.playerAName.split(' ')[0] : 'Unbekannt',
@@ -2017,7 +1906,6 @@ export async function loadCombinedPendingRequests(userData, db) {
           ...data,
           playerAData
         });
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
       }
 
       // Process doubles requests (only where current user is opponent)
@@ -2033,40 +1921,6 @@ export async function loadCombinedPendingRequests(userData, db) {
 
         // Check if current user is one of the opponents (teamB)
         if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
-<<<<<<< HEAD
-          try {
-            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-              getDoc(doc(db, 'users', data.teamA.player1Id)),
-              getDoc(doc(db, 'users', data.teamA.player2Id)),
-              getDoc(doc(db, 'users', data.teamB.player1Id)),
-              getDoc(doc(db, 'users', data.teamB.player2Id))
-            ]);
-
-            console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
-
-            allRequests.push({
-              id: docSnap.id,
-              type: 'doubles',
-              ...data,
-              teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-              teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-              teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-              teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-            });
-          } catch (error) {
-            console.error(`Error loading players for doubles request ${docSnap.id}:`, error);
-            // Still add request with null player data
-            allRequests.push({
-              id: docSnap.id,
-              type: 'doubles',
-              ...data,
-              teamAPlayer1: null,
-              teamAPlayer2: null,
-              teamBPlayer1: null,
-              teamBPlayer2: null
-            });
-          }
-=======
           console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
 
           allRequests.push({
@@ -2094,7 +1948,6 @@ export async function loadCombinedPendingRequests(userData, db) {
               lastName: data.teamB.player2Name ? data.teamB.player2Name.split(' ').slice(1).join(' ') : ''
             }
           });
->>>>>>> claude/limit-ranking-to-15-011CV4BTPoGuX6CAkrJT1WGW
         }
       }
 
