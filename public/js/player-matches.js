@@ -1026,8 +1026,14 @@ function createPendingDoublesCard(request, playersData, userData, db) {
 
     if (approveBtn) {
       approveBtn.addEventListener("click", async () => {
-        const { approveDoublesMatchRequest } = await import('./doubles-matches.js');
-        await approveDoublesMatchRequest(request.id, db, userData);
+        const { confirmDoublesMatchRequest } = await import('./doubles-matches.js');
+        try {
+          await confirmDoublesMatchRequest(request.id, userData.id, db);
+          showFeedback("Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.", "success");
+        } catch (error) {
+          console.error("Error confirming doubles request:", error);
+          showFeedback(`Fehler: ${error.message}`, "error");
+        }
       });
     }
 
@@ -1036,7 +1042,13 @@ function createPendingDoublesCard(request, playersData, userData, db) {
         const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
         const reason = prompt("Grund für Ablehnung (optional):");
         if (reason !== null) { // null means user cancelled
-          await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
+          try {
+            await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
+            showFeedback("Doppel-Match abgelehnt.", "success");
+          } catch (error) {
+            console.error("Error rejecting doubles request:", error);
+            showFeedback(`Fehler: ${error.message}`, "error");
+          }
         }
       });
     }
