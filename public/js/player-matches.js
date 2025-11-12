@@ -691,13 +691,13 @@ function createMyRequestCard(request, playerB, userData, db) {
       </div>
     </div>
     <div class="flex gap-2 mt-3">
-      ${request.status === "pending_player" && !request.approvals?.playerB?.status
+      ${(request.status === "pending_player" || request.status === "pending_coach") && (!request.approvals?.playerB?.status || request.approvals?.playerB?.status === null)
         ? `
         <button class="edit-request-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-edit"></i> Bearbeiten
         </button>
         <button class="delete-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-          <i class="fas fa-trash"></i> Löschen
+          <i class="fas fa-trash"></i> Zurückziehen
         </button>
         `
         : ""

@@ -266,12 +266,23 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     feedbackEl.classList.remove('hidden');
 
     try {
+        // Extract player names from already loaded player docs
+        const partnerData = playerDocs[1]?.data();
+        const opponent1Data = playerDocs[2]?.data();
+        const opponent2Data = playerDocs[3]?.data();
+
         const requestData = {
             partnerId: partnerId,
             opponent1Id: opponent1Id,
             opponent2Id: opponent2Id,
             sets: doublesSets,
-            handicapUsed: handicapUsed
+            handicapUsed: handicapUsed,
+            playerNames: {
+                player1: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                player2: partnerData ? `${partnerData.firstName} ${partnerData.lastName}` : 'Unbekannt',
+                opponent1: opponent1Data ? `${opponent1Data.firstName} ${opponent1Data.lastName}` : 'Unbekannt',
+                opponent2: opponent2Data ? `${opponent2Data.firstName} ${opponent2Data.lastName}` : 'Unbekannt'
+            }
         };
 
         const result = await createDoublesMatchRequest(requestData, db, currentUserData);
