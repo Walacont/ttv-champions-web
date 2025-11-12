@@ -206,11 +206,14 @@ async function initializeCoachPage(userData) {
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
 
-    // Initialize set score input for coach match form
-    initializeCoachSetScoreInput();
+    // Initialize set score input for coach match form (used by both singles and doubles)
+    const setScoreInput = initializeCoachSetScoreInput();
 
-    // Initialize doubles match UI
+    // Initialize doubles match UI and set the same set score input
     initializeDoublesCoachUI();
+    if (setScoreInput) {
+        setDoublesSetScoreInput(setScoreInput);
+    }
 
     loadLeaderboard(userData, db, []);
     loadGlobalLeaderboard(userData, db, []);
