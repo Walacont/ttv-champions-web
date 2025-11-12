@@ -606,46 +606,86 @@ export async function loadCoachMatchRequests(userData, db) {
     const badge = document.getElementById('coach-match-request-badge');
     if (!container) return;
 
-    // Query for requests awaiting coach approval
-    const requestsQuery = query(
+    // Query for SINGLES requests awaiting coach approval
+    const singlesQuery = query(
         collection(db, 'matchRequests'),
         where('clubId', '==', userData.clubId),
         where('status', '==', 'pending_coach'),
         orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(requestsQuery, async (snapshot) => {
-        if (snapshot.empty) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
-            if (badge) badge.classList.add('hidden');
-            return;
-        }
+    // Query for DOUBLES requests awaiting coach approval
+    const doublesQuery = query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_coach'),
+        orderBy('createdAt', 'desc')
+    );
 
-        const requests = [];
-        for (const docSnap of snapshot.docs) {
-            const data = docSnap.data();
+    // Listen to both singles and doubles requests
+    const unsubscribe1 = onSnapshot(singlesQuery, async (singlesSnapshot) => {
+        const unsubscribe2 = onSnapshot(doublesQuery, async (doublesSnapshot) => {
+            const allRequests = [];
 
-            // Fetch player names
-            const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
-            const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
+            // Process singles requests
+            for (const docSnap of singlesSnapshot.docs) {
+                const data = docSnap.data();
+                const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+                const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
 
-            requests.push({
-                id: docSnap.id,
-                ...data,
-                playerAData: playerADoc.exists() ? playerADoc.data() : null,
-                playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+                allRequests.push({
+                    id: docSnap.id,
+                    type: 'singles',
+                    ...data,
+                    playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+                });
+            }
+
+            // Process doubles requests
+            for (const docSnap of doublesSnapshot.docs) {
+                const data = docSnap.data();
+                const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                    getDoc(doc(db, 'users', data.teamA.player1Id)),
+                    getDoc(doc(db, 'users', data.teamA.player2Id)),
+                    getDoc(doc(db, 'users', data.teamB.player1Id)),
+                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                ]);
+
+                allRequests.push({
+                    id: docSnap.id,
+                    type: 'doubles',
+                    ...data,
+                    teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                    teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                    teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+                });
+            }
+
+            // Sort by createdAt
+            allRequests.sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return bTime - aTime;
             });
-        }
 
-        renderCoachRequestCards(requests, db, userData);
+            if (allRequests.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+                if (badge) badge.classList.add('hidden');
+                return;
+            }
 
-        if (badge) {
-            badge.textContent = requests.length;
-            badge.classList.remove('hidden');
-        }
+            renderCoachRequestCards(allRequests, db, userData);
+
+            if (badge) {
+                badge.textContent = allRequests.length;
+                badge.classList.remove('hidden');
+            }
+        });
     });
 
-    return unsubscribe;
+    return unsubscribe1;
 }
 
 /**
@@ -815,25 +855,78 @@ function renderCoachRequestCards(requests, db, userData) {
         const card = document.createElement('div');
         card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
-        const playerAName = request.playerAData?.firstName || 'Unbekannt';
-        const playerBName = request.playerBData?.firstName || 'Unbekannt';
-        const setsDisplay = formatSetsForCoach(request.sets);
-        const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
-
         const createdDate = request.createdAt?.toDate ?
             request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
             'Unbekannt';
+
+        let matchTypeTag, playersDisplay, setsDisplay, winnerDisplay, buttonsHtml;
+
+        if (request.type === 'doubles') {
+            // Doubles match
+            matchTypeTag = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-users mr-1"></i>Doppel</span>';
+
+            const teamAName1 = request.teamAPlayer1?.firstName || '?';
+            const teamAName2 = request.teamAPlayer2?.firstName || '?';
+            const teamBName1 = request.teamBPlayer1?.firstName || '?';
+            const teamBName2 = request.teamBPlayer2?.firstName || '?';
+
+            playersDisplay = `
+                <span class="text-indigo-700">${teamAName1} & ${teamAName2}</span>
+                <span class="text-gray-500 mx-2">vs</span>
+                <span class="text-indigo-700">${teamBName1} & ${teamBName2}</span>
+            `;
+
+            const setsStr = request.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ');
+            const winsA = request.sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
+            const winsB = request.sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
+            setsDisplay = `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
+
+            const winnerTeamName = request.winningTeam === 'A'
+                ? `${teamAName1} & ${teamAName2}`
+                : `${teamBName1} & ${teamBName2}`;
+            winnerDisplay = `<i class="fas fa-trophy mr-1"></i> Gewinner: ${winnerTeamName}`;
+
+            buttonsHtml = `
+                <button class="doubles-approve-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-check"></i> Genehmigen
+                </button>
+                <button class="doubles-reject-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-times"></i> Ablehnen
+                </button>
+            `;
+        } else {
+            // Singles match
+            matchTypeTag = '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-user mr-1"></i>Einzel</span>';
+
+            const playerAName = request.playerAData?.firstName || 'Unbekannt';
+            const playerBName = request.playerBData?.firstName || 'Unbekannt';
+
+            playersDisplay = `${playerAName} <span class="text-gray-500">vs</span> ${playerBName}`;
+            setsDisplay = formatSetsForCoach(request.sets);
+            const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
+            winnerDisplay = `<i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}`;
+
+            buttonsHtml = `
+                <button class="coach-approve-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-check"></i> Genehmigen
+                </button>
+                <button class="coach-reject-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
+                    <i class="fas fa-times"></i> Ablehnen
+                </button>
+            `;
+        }
 
         card.innerHTML = `
             <div class="mb-3">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
+                        <div class="mb-2">${matchTypeTag}</div>
                         <p class="font-semibold text-gray-800">
-                            ${playerAName} <span class="text-gray-500">vs</span> ${playerBName}
+                            ${playersDisplay}
                         </p>
                         <p class="text-sm text-gray-600 mt-1">${setsDisplay}</p>
                         <p class="text-sm font-medium text-indigo-700 mt-1">
-                            <i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}
+                            ${winnerDisplay}
                         </p>
                         ${request.handicapUsed ?
                             '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' :
@@ -849,20 +942,33 @@ function renderCoachRequestCards(requests, db, userData) {
                 </div>
             </div>
             <div class="flex gap-2 mt-3">
-                <button class="coach-approve-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-                    <i class="fas fa-check"></i> Genehmigen
-                </button>
-                <button class="coach-reject-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
-                    <i class="fas fa-times"></i> Ablehnen
-                </button>
+                ${buttonsHtml}
             </div>
         `;
 
-        const approveBtn = card.querySelector('.coach-approve-btn');
-        const rejectBtn = card.querySelector('.coach-reject-btn');
+        // Add event listeners based on type
+        if (request.type === 'doubles') {
+            const approveBtn = card.querySelector('.doubles-approve-btn');
+            const rejectBtn = card.querySelector('.doubles-reject-btn');
 
-        approveBtn.addEventListener('click', () => approveCoachRequest(request.id, db, userData));
-        rejectBtn.addEventListener('click', () => rejectCoachRequest(request.id, db, userData));
+            approveBtn.addEventListener('click', async () => {
+                const { approveDoublesMatchRequest } = await import('./doubles-matches.js');
+                await approveDoublesMatchRequest(request.id, db, userData);
+                alert('Doppel-Match genehmigt!');
+            });
+            rejectBtn.addEventListener('click', async () => {
+                const reason = prompt('Grund für die Ablehnung (optional):');
+                const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
+                await rejectDoublesMatchRequest(request.id, reason, db, userData);
+                alert('Doppel-Match abgelehnt.');
+            });
+        } else {
+            const approveBtn = card.querySelector('.coach-approve-btn');
+            const rejectBtn = card.querySelector('.coach-reject-btn');
+
+            approveBtn.addEventListener('click', () => approveCoachRequest(request.id, db, userData));
+            rejectBtn.addEventListener('click', () => rejectCoachRequest(request.id, db, userData));
+        }
 
         container.appendChild(card);
     });

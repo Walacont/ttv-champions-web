@@ -11,7 +11,6 @@ import { handleCreateChallenge, loadActiveChallenges, loadExpiredChallenges, loa
 import { loadAllExercises, loadExercisesForDropdown, openExerciseModalFromDataset, handleCreateExercise, closeExerciseModal, setupExercisePointsCalculation, setupExerciseMilestones } from './exercises.js';
 import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updatePairingsButtonState, handleMatchSave, updateMatchUI, populateMatchDropdowns, loadCoachMatchRequests, loadCoachProcessedRequests, initializeCoachSetScoreInput, loadSavedPairings, initializeHandicapToggle } from './matches.js';
 import { initializeDoublesCoachUI, populateDoublesDropdowns, handleDoublesMatchSave, getCurrentMatchType, setDoublesSetScoreInput } from './doubles-coach-ui.js';
-import { loadCoachDoublesMatchRequests } from './doubles-matches.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors, setupManualPartnerSystem } from './points-management.js';
@@ -217,14 +216,9 @@ async function initializeCoachPage(userData) {
     loadGlobalLeaderboard(userData, db, []);
 
     // Load coach match requests (singles and doubles)
+    // Load combined match requests (singles + doubles)
     loadCoachMatchRequests(userData, db);
     loadCoachProcessedRequests(userData, db);
-
-    // Load doubles match requests in container (if exists)
-    const doublesRequestsContainer = document.getElementById('coach-doubles-pending-requests-list');
-    if (doublesRequestsContainer) {
-        loadCoachDoublesMatchRequests(userData, db, doublesRequestsContainer);
-    }
 
     calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
 

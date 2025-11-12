@@ -1255,3 +1255,248 @@ async function renderHistoryRequests(requests, userData, db) {
     container.appendChild(buttonContainer);
   }
 }
+
+/**
+ * Loads combined pending requests for player (singles + doubles)
+ * Displays all requests in one list with type tags
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+export async function loadCombinedPendingRequests(userData, db) {
+  const container = document.getElementById('pending-requests-list');
+  if (!container) return;
+
+  // Query for singles requests where user is playerB
+  const singlesQuery = query(
+    collection(db, 'matchRequests'),
+    where('playerBId', '==', userData.id),
+    where('status', '==', 'pending_player'),
+    orderBy('createdAt', 'desc')
+  );
+
+  // Query for doubles requests where user is opponent (teamB)
+  const doublesQuery = query(
+    collection(db, 'doublesMatchRequests'),
+    where('clubId', '==', userData.clubId),
+    where('status', '==', 'pending_opponent'),
+    orderBy('createdAt', 'desc')
+  );
+
+  // Listen to both query types
+  const unsubscribe1 = onSnapshot(singlesQuery, async (singlesSnapshot) => {
+    const unsubscribe2 = onSnapshot(doublesQuery, async (doublesSnapshot) => {
+      const allRequests = [];
+
+      // Process singles requests
+      for (const docSnap of singlesSnapshot.docs) {
+        const data = docSnap.data();
+        const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+
+        allRequests.push({
+          id: docSnap.id,
+          type: 'singles',
+          ...data,
+          playerAData: playerADoc.exists() ? playerADoc.data() : null
+        });
+      }
+
+      // Process doubles requests (only where current user is opponent)
+      for (const docSnap of doublesSnapshot.docs) {
+        const data = docSnap.data();
+
+        // Check if current user is one of the opponents (teamB)
+        if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
+          const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+            getDoc(doc(db, 'users', data.teamA.player1Id)),
+            getDoc(doc(db, 'users', data.teamA.player2Id)),
+            getDoc(doc(db, 'users', data.teamB.player1Id)),
+            getDoc(doc(db, 'users', data.teamB.player2Id))
+          ]);
+
+          allRequests.push({
+            id: docSnap.id,
+            type: 'doubles',
+            ...data,
+            teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+            teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+            teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+            teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+          });
+        }
+      }
+
+      // Sort by createdAt
+      allRequests.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis?.() || 0;
+        const bTime = b.createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+      });
+
+      if (allRequests.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Anfragen</p>';
+        return;
+      }
+
+      renderCombinedPendingRequests(allRequests, container, db, userData);
+    });
+  });
+
+  return unsubscribe1;
+}
+
+/**
+ * Renders combined pending requests (singles + doubles) with type tags
+ */
+function renderCombinedPendingRequests(requests, container, db, userData) {
+  container.innerHTML = '';
+
+  requests.forEach(request => {
+    const card = document.createElement('div');
+    card.className = 'border border-gray-200 rounded-lg p-4 bg-gray-50';
+
+    const createdDate = request.createdAt?.toDate ?
+      request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
+      'Unbekannt';
+
+    if (request.type === 'doubles') {
+      // Doubles request
+      const teamAName1 = request.teamAPlayer1?.firstName || '?';
+      const teamAName2 = request.teamAPlayer2?.firstName || '?';
+      const teamBName1 = request.teamBPlayer1?.firstName || '?';
+      const teamBName2 = request.teamBPlayer2?.firstName || '?';
+
+      const setsStr = request.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ');
+      const winsA = request.sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
+      const winsB = request.sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
+      const setsDisplay = `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
+
+      const winnerTeamName = request.winningTeam === 'A'
+        ? `${teamAName1} & ${teamAName2}`
+        : `${teamBName1} & ${teamBName2}`;
+
+      card.innerHTML = `
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full"><i class="fas fa-users mr-1"></i>Doppel</span>
+            <div class="text-sm font-semibold text-gray-800 mt-2">🎾 Doppel-Match bestätigen</div>
+            <div class="text-xs text-gray-500 mt-1">${createdDate}</div>
+          </div>
+          <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-semibold">
+            Warte auf deine Bestätigung
+          </span>
+        </div>
+
+        <div class="space-y-2 mb-3">
+          <div class="text-sm">
+            <span class="font-semibold text-indigo-700">Team A:</span>
+            ${teamAName1} & ${teamAName2}
+          </div>
+          <div class="text-sm">
+            <span class="font-semibold text-orange-700">Team B (dein Team):</span>
+            ${teamBName1} & ${teamBName2}
+          </div>
+        </div>
+
+        <div class="bg-white rounded p-2 mb-3">
+          <div class="text-xs text-gray-600 mb-1">Ergebnis:</div>
+          <div class="text-sm">${setsDisplay}</div>
+          <div class="text-xs text-green-600 mt-1">🏆 Gewinner: ${winnerTeamName}</div>
+        </div>
+
+        <div class="flex gap-2">
+          <button
+            class="confirm-doubles-btn flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 px-4 rounded transition"
+            data-request-id="${request.id}"
+          >
+            ✓ Bestätigen
+          </button>
+          <button
+            class="reject-doubles-btn flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2 px-4 rounded transition"
+            data-request-id="${request.id}"
+          >
+            ✗ Ablehnen
+          </button>
+        </div>
+      `;
+
+      const confirmBtn = card.querySelector('.confirm-doubles-btn');
+      const rejectBtn = card.querySelector('.reject-doubles-btn');
+
+      confirmBtn.addEventListener('click', async () => {
+        if (!confirm('Möchtest du dieses Doppel-Match bestätigen?')) return;
+        try {
+          const { confirmDoublesMatchRequest } = await import('./doubles-matches.js');
+          await confirmDoublesMatchRequest(request.id, userData.id, db);
+          alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
+        } catch (error) {
+          console.error('Error confirming doubles request:', error);
+          alert('Fehler beim Bestätigen: ' + error.message);
+        }
+      });
+
+      rejectBtn.addEventListener('click', async () => {
+        const reason = prompt('Grund für die Ablehnung (optional):');
+        if (reason === null) return;
+        try {
+          const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
+          await rejectDoublesMatchRequest(request.id, reason || 'Abgelehnt vom Gegner', db, userData);
+          alert('Doppel-Match abgelehnt.');
+        } catch (error) {
+          console.error('Error rejecting doubles request:', error);
+          alert('Fehler beim Ablehnen: ' + error.message);
+        }
+      });
+
+    } else {
+      // Singles request
+      const playerAName = request.playerAData?.firstName || 'Unbekannt';
+      const setsDisplay = formatSets(request.sets);
+
+      card.innerHTML = `
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full"><i class="fas fa-user mr-1"></i>Einzel</span>
+            <div class="text-sm font-semibold text-gray-800 mt-2">${playerAName} möchte ein Match mit dir bestätigen</div>
+            <div class="text-xs text-gray-500 mt-1">${createdDate}</div>
+          </div>
+          <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-semibold">
+            Wartet
+          </span>
+        </div>
+
+        <div class="bg-white rounded p-2 mb-3">
+          <div class="text-xs text-gray-600 mb-1">Ergebnis:</div>
+          <div class="text-sm">${setsDisplay}</div>
+        </div>
+
+        <div class="flex gap-2">
+          <button
+            class="player-approve-btn flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 px-4 rounded transition"
+            data-request-id="${request.id}"
+          >
+            ✓ Bestätigen
+          </button>
+          <button
+            class="player-reject-btn flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2 px-4 rounded transition"
+            data-request-id="${request.id}"
+          >
+            ✗ Ablehnen
+          </button>
+        </div>
+      `;
+
+      const approveBtn = card.querySelector('.player-approve-btn');
+      const rejectBtn = card.querySelector('.player-reject-btn');
+
+      approveBtn.addEventListener('click', async () => {
+        await approveMatchRequest(request.id, userData, db);
+      });
+
+      rejectBtn.addEventListener('click', async () => {
+        await rejectMatchRequest(request.id, userData, db);
+      });
+    }
+
+    container.appendChild(card);
+  });
+}
