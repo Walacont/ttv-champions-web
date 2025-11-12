@@ -462,9 +462,21 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
 
-        // Reset set score input to 3 sets
-        if (coachSetScoreInput) {
-            coachSetScoreInput.reset();
+        // Reset match mode dropdown to default and recreate set score input
+        const matchModeSelect = document.getElementById('coach-match-mode-select');
+        const setScoreLabel = document.getElementById('coach-set-score-label');
+        const container = document.getElementById('coach-set-score-container');
+
+        if (matchModeSelect) {
+            matchModeSelect.value = 'best-of-5';
+        }
+
+        // Recreate set score input with default mode to keep fields and dropdown in sync
+        if (container) {
+            coachSetScoreInput = createSetScoreInput(container, [], 'best-of-5');
+            if (setScoreLabel) {
+                setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
+            }
         }
 
         updateMatchUI(clubPlayers);
