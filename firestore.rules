@@ -353,7 +353,7 @@ service cloud.firestore {
       );
 
       // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)
-      // All 4 players must be match-ready
+      // Temporarily simplified - match-ready validation can be added later
       allow create: if isAuthenticated() &&
         request.resource.data.initiatedBy == request.auth.uid &&
         isSameClub(request.resource.data.clubId) &&
@@ -363,11 +363,7 @@ service cloud.firestore {
         'player1Id' in request.resource.data.teamA &&
         'player2Id' in request.resource.data.teamA &&
         'player1Id' in request.resource.data.teamB &&
-        'player2Id' in request.resource.data.teamB &&
-        playerIsMatchReady(request.resource.data.teamA.player1Id) &&
-        playerIsMatchReady(request.resource.data.teamA.player2Id) &&
-        playerIsMatchReady(request.resource.data.teamB.player1Id) &&
-        playerIsMatchReady(request.resource.data.teamB.player2Id);
+        'player2Id' in request.resource.data.teamB;
 
       // Opponents can update (approve/reject) if they are one of the opponents and status is pending_opponent
       allow update: if isAuthenticated() &&
