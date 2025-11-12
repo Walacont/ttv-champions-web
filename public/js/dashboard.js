@@ -215,6 +215,24 @@ async function initializeDashboard(userData) {
         }
     });
 
+    // Toggle leaderboard preferences
+    const togglePreferencesBtn = document.getElementById('toggle-leaderboard-preferences');
+    if (togglePreferencesBtn) {
+        togglePreferencesBtn.addEventListener('click', () => {
+            const content = document.getElementById('leaderboard-preferences-content');
+            const chevron = document.getElementById('preferences-chevron');
+            const isHidden = content.classList.contains('hidden');
+
+            if (isHidden) {
+                content.classList.remove('hidden');
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                content.classList.add('hidden');
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        });
+    }
+
     // Calendar listeners with proper listener management
     document.getElementById('prev-month').addEventListener('click', () => {
         currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);

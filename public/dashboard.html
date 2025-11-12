@@ -107,7 +107,7 @@
                     Übersicht
                 </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="profile">
-                    Mein Profil
+                    Anwesenheit
                 </button>
                 <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="exercises">
                     Übungskatalog
@@ -116,7 +116,7 @@
                     Wettkampf
                 </button>
                  <button class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="leaderboard">
-                    Leaderboard
+                    Ranglisten
                 </button>
                 <a href="/faq.html" class="whitespace-nowrap py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
                     FAQ & Regeln
@@ -291,33 +291,6 @@
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
                         <h2 class="text-xl font-semibold mb-4">Deine Erfolge</h2>
                         <p class="text-gray-500">Hier werden bald deine freigeschalteten Abzeichen und Erfolge angezeigt.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                        <h2 class="text-xl font-semibold mb-4">⚙️ Ranglisten-Einstellungen</h2>
-                        <p class="text-sm text-gray-600 mb-4">Wähle, welche Ranglisten du sehen möchtest:</p>
-                        <div class="space-y-3">
-                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
-                                <input type="checkbox" id="pref-effort" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-                                <span class="text-gray-700">💪 Fleiß (XP)</span>
-                            </label>
-                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
-                                <input type="checkbox" id="pref-season" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-                                <span class="text-gray-700">⭐ Season (Punkte)</span>
-                            </label>
-                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
-                                <input type="checkbox" id="pref-skill" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-                                <span class="text-gray-700">⚡ Skill (Elo)</span>
-                            </label>
-                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
-                                <input type="checkbox" id="pref-ranks" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-                                <span class="text-gray-700">🏆 Ränge (Level)</span>
-                            </label>
-                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
-                                <input type="checkbox" id="pref-doubles" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-                                <span class="text-gray-700">🎾 Doppel (Teams)</span>
-                            </label>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-4">Die Einstellungen werden automatisch gespeichert.</p>
                     </div>
                 </div>
             </div>
@@ -516,6 +489,45 @@
             </div>
 
             <div id="tab-content-leaderboard" class="tab-content hidden">
+                <!-- Leaderboard Preferences (Collapsible) -->
+                <div class="bg-white rounded-lg shadow-sm max-w-2xl mx-auto mb-4 border border-gray-200">
+                    <button
+                        id="toggle-leaderboard-preferences"
+                        class="w-full p-4 flex justify-between items-center text-left hover:bg-gray-50 transition rounded-lg"
+                    >
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">⚙️ Ranglisten-Einstellungen</h2>
+                            <p class="text-xs text-gray-600">Passe an, welche Ranglisten angezeigt werden</p>
+                        </div>
+                        <i id="preferences-chevron" class="fas fa-chevron-down text-gray-600 transition-transform"></i>
+                    </button>
+                    <div id="leaderboard-preferences-content" class="hidden px-4 pb-4">
+                        <div class="space-y-3">
+                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
+                                <input type="checkbox" id="pref-effort" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
+                                <span class="text-gray-700">💪 Fleiß (XP)</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
+                                <input type="checkbox" id="pref-season" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
+                                <span class="text-gray-700">⭐ Season (Punkte)</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
+                                <input type="checkbox" id="pref-skill" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
+                                <span class="text-gray-700">⚡ Skill (Elo)</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
+                                <input type="checkbox" id="pref-ranks" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
+                                <span class="text-gray-700">🏆 Ränge (Level)</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition">
+                                <input type="checkbox" id="pref-doubles" class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
+                                <span class="text-gray-700">🎾 Doppel (Teams)</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-4">Die Einstellungen werden automatisch gespeichert.</p>
+                    </div>
+                </div>
+
                 <!-- Leaderboard Content (filter controlled by global header switch) -->
                 <div id="leaderboard-content-wrapper">
                 </div>
