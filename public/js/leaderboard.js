@@ -315,12 +315,12 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             renderSkillRow(player, index, userData.id, listEl);
         });
 
-        // Add "Show more" button if needed
-        if (!showFullLeaderboards.skillClub && players.length > DEFAULT_LIMIT) {
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(listEl, 'skillClub', players.length, () => {
-                showFullLeaderboards.skillClub = true;
+                showFullLeaderboards.skillClub = !showFullLeaderboards.skillClub;
                 loadSkillLeaderboard(userData, db, null);
-            });
+            }, showFullLeaderboards.skillClub);
         }
     });
 
@@ -370,12 +370,12 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
             renderEffortRow(player, index, userData.id, listEl);
         });
 
-        // Add "Show more" button if needed
-        if (!showFullLeaderboards.effortClub && players.length > DEFAULT_LIMIT) {
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(listEl, 'effortClub', players.length, () => {
-                showFullLeaderboards.effortClub = true;
+                showFullLeaderboards.effortClub = !showFullLeaderboards.effortClub;
                 loadEffortLeaderboard(userData, db, null);
-            });
+            }, showFullLeaderboards.effortClub);
         }
     });
 
@@ -425,12 +425,12 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
             renderSeasonRow(player, index, userData.id, listEl);
         });
 
-        // Add "Show more" button if needed
-        if (!showFullLeaderboards.seasonClub && players.length > DEFAULT_LIMIT) {
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(listEl, 'seasonClub', players.length, () => {
-                showFullLeaderboards.seasonClub = true;
+                showFullLeaderboards.seasonClub = !showFullLeaderboards.seasonClub;
                 loadSeasonLeaderboard(userData, db, null);
-            });
+            }, showFullLeaderboards.seasonClub);
         }
     });
 
@@ -562,12 +562,12 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             renderSkillRow(player, index, userData.id, listEl, true);
         });
 
-        // Add "Show more" button if needed
-        if (!showFullLeaderboards.skillGlobal && players.length > DEFAULT_LIMIT) {
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(listEl, 'skillGlobal', players.length, () => {
-                showFullLeaderboards.skillGlobal = true;
+                showFullLeaderboards.skillGlobal = !showFullLeaderboards.skillGlobal;
                 loadGlobalSkillLeaderboard(userData, db, null);
-            });
+            }, showFullLeaderboards.skillGlobal);
         }
     });
 
@@ -600,12 +600,12 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
             renderEffortRow(player, index, userData.id, listEl, true);
         });
 
-        // Add "Show more" button if needed
-        if (!showFullLeaderboards.effortGlobal && players.length > DEFAULT_LIMIT) {
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(listEl, 'effortGlobal', players.length, () => {
-                showFullLeaderboards.effortGlobal = true;
+                showFullLeaderboards.effortGlobal = !showFullLeaderboards.effortGlobal;
                 loadGlobalEffortLeaderboard(userData, db, null);
-            });
+            }, showFullLeaderboards.effortGlobal);
         }
     });
 
@@ -638,12 +638,12 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
             renderSeasonRow(player, index, userData.id, listEl, true);
         });
 
-        // Add "Show more" button if needed
-        if (!showFullLeaderboards.seasonGlobal && players.length > DEFAULT_LIMIT) {
+        // Add "Show more/less" button if needed
+        if (players.length > DEFAULT_LIMIT) {
             renderShowMoreButton(listEl, 'seasonGlobal', players.length, () => {
-                showFullLeaderboards.seasonGlobal = true;
+                showFullLeaderboards.seasonGlobal = !showFullLeaderboards.seasonGlobal;
                 loadGlobalSeasonLeaderboard(userData, db, null);
-            });
+            }, showFullLeaderboards.seasonGlobal);
         }
     });
 
@@ -659,20 +659,31 @@ export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCal
 }
 
 /**
- * Renders a "Show more" button to load the full leaderboard
+ * Renders a "Show more/less" button to toggle leaderboard view
  * @param {HTMLElement} container - Container to append the button to
  * @param {string} leaderboardKey - Key for the leaderboard state
  * @param {number} totalCount - Total number of players
  * @param {Function} onClick - Callback when button is clicked
+ * @param {boolean} isExpanded - Whether the list is currently expanded
  */
-function renderShowMoreButton(container, leaderboardKey, totalCount, onClick) {
+function renderShowMoreButton(container, leaderboardKey, totalCount, onClick, isExpanded) {
     const buttonDiv = document.createElement('div');
     buttonDiv.className = 'text-center mt-4';
-    buttonDiv.innerHTML = `
-        <button class="show-more-btn px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
-            Mehr anzeigen (${totalCount - DEFAULT_LIMIT} weitere)
-        </button>
-    `;
+
+    if (isExpanded) {
+        buttonDiv.innerHTML = `
+            <button class="show-more-btn px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors">
+                <i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen
+            </button>
+        `;
+    } else {
+        buttonDiv.innerHTML = `
+            <button class="show-more-btn px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
+                <i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${totalCount - DEFAULT_LIMIT} weitere)
+            </button>
+        `;
+    }
+
     const button = buttonDiv.querySelector('.show-more-btn');
     button.addEventListener('click', onClick);
     container.appendChild(buttonDiv);
