@@ -1547,19 +1547,31 @@ async function renderPendingRequests(requests, userData, db) {
       // DOUBLES REQUEST
       const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
 
-      const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-        getDoc(doc(db, 'users', request.teamA.player1Id)),
-        getDoc(doc(db, 'users', request.teamA.player2Id)),
-        getDoc(doc(db, 'users', request.teamB.player1Id)),
-        getDoc(doc(db, 'users', request.teamB.player2Id))
-      ]);
+      let playersData;
+      try {
+        const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+          getDoc(doc(db, 'users', request.teamA.player1Id)),
+          getDoc(doc(db, 'users', request.teamA.player2Id)),
+          getDoc(doc(db, 'users', request.teamB.player1Id)),
+          getDoc(doc(db, 'users', request.teamB.player2Id))
+        ]);
 
-      const playersData = {
-        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-      };
+        playersData = {
+          teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+          teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+          teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+          teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+        };
+      } catch (error) {
+        console.error('Error loading players for doubles request:', error);
+        // Use placeholder data if player documents can't be loaded
+        playersData = {
+          teamAPlayer1: null,
+          teamAPlayer2: null,
+          teamBPlayer1: null,
+          teamBPlayer2: null
+        };
+      }
 
       card = createPendingDoublesCard(request, playersData, userData, db);
     } else {
@@ -1625,19 +1637,31 @@ async function renderHistoryRequests(requests, userData, db) {
       // DOUBLES REQUEST
       const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
 
-      const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-        getDoc(doc(db, 'users', request.teamA.player1Id)),
-        getDoc(doc(db, 'users', request.teamA.player2Id)),
-        getDoc(doc(db, 'users', request.teamB.player1Id)),
-        getDoc(doc(db, 'users', request.teamB.player2Id))
-      ]);
+      let playersData;
+      try {
+        const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+          getDoc(doc(db, 'users', request.teamA.player1Id)),
+          getDoc(doc(db, 'users', request.teamA.player2Id)),
+          getDoc(doc(db, 'users', request.teamB.player1Id)),
+          getDoc(doc(db, 'users', request.teamB.player2Id))
+        ]);
 
-      const playersData = {
-        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-      };
+        playersData = {
+          teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+          teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+          teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+          teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+        };
+      } catch (error) {
+        console.error('Error loading players for doubles history:', error);
+        // Use placeholder data if player documents can't be loaded
+        playersData = {
+          teamAPlayer1: null,
+          teamAPlayer2: null,
+          teamBPlayer1: null,
+          teamBPlayer2: null
+        };
+      }
 
       card = createDoublesHistoryCard(request, playersData, userData, db);
     } else {
@@ -1709,14 +1733,26 @@ export async function loadCombinedPendingRequests(userData, db) {
       // Process singles requests
       for (const docSnap of singlesSnapshot.docs) {
         const data = docSnap.data();
-        const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
 
-        allRequests.push({
-          id: docSnap.id,
-          type: 'singles',
-          ...data,
-          playerAData: playerADoc.exists() ? playerADoc.data() : null
-        });
+        try {
+          const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+
+          allRequests.push({
+            id: docSnap.id,
+            type: 'singles',
+            ...data,
+            playerAData: playerADoc.exists() ? playerADoc.data() : null
+          });
+        } catch (error) {
+          console.error(`Error loading player for singles request ${docSnap.id}:`, error);
+          // Still add request with null player data
+          allRequests.push({
+            id: docSnap.id,
+            type: 'singles',
+            ...data,
+            playerAData: null
+          });
+        }
       }
 
       // Process doubles requests (only where current user is opponent)
@@ -1732,24 +1768,38 @@ export async function loadCombinedPendingRequests(userData, db) {
 
         // Check if current user is one of the opponents (teamB)
         if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
-          const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-            getDoc(doc(db, 'users', data.teamA.player1Id)),
-            getDoc(doc(db, 'users', data.teamA.player2Id)),
-            getDoc(doc(db, 'users', data.teamB.player1Id)),
-            getDoc(doc(db, 'users', data.teamB.player2Id))
-          ]);
+          try {
+            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+              getDoc(doc(db, 'users', data.teamA.player1Id)),
+              getDoc(doc(db, 'users', data.teamA.player2Id)),
+              getDoc(doc(db, 'users', data.teamB.player1Id)),
+              getDoc(doc(db, 'users', data.teamB.player2Id))
+            ]);
 
-          console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
+            console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
 
-          allRequests.push({
-            id: docSnap.id,
-            type: 'doubles',
-            ...data,
-            teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-            teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-            teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-            teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
-          });
+            allRequests.push({
+              id: docSnap.id,
+              type: 'doubles',
+              ...data,
+              teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+              teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+              teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+              teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+            });
+          } catch (error) {
+            console.error(`Error loading players for doubles request ${docSnap.id}:`, error);
+            // Still add request with null player data
+            allRequests.push({
+              id: docSnap.id,
+              type: 'doubles',
+              ...data,
+              teamAPlayer1: null,
+              teamAPlayer2: null,
+              teamBPlayer1: null,
+              teamBPlayer2: null
+            });
+          }
         }
       }
 
