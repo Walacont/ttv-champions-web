@@ -43,7 +43,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
       setsToWin = 1;
       break;
     case 'best-of-3':
-      minSets = 1;
+      minSets = 2;
       maxSets = 3;
       setsToWin = 2;
       break;
