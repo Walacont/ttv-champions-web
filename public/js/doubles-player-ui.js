@@ -1,13 +1,12 @@
 import { createDoublesMatchRequest } from './doubles-matches.js';
-import { createSetScoreInput } from './player-matches.js';
 
 /**
  * Doubles Player UI Module
  * Handles player interface for doubles match requests
+ * NOTE: Set score input is shared via window.playerSetScoreInput (from player-matches.js)
  */
 
 let currentPlayerMatchType = 'singles'; // 'singles' or 'doubles'
-let doublesPlayerSetScoreInput = null;
 
 // ========================================================================
 // ===== INITIALIZATION =====
@@ -169,15 +168,7 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
         return;
     }
 
-    // Validate set scores
-    if (!doublesPlayerSetScoreInput) {
-        feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
-        feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
-        feedbackEl.classList.remove('hidden');
-        return;
-    }
-
-    // Use the global set score input from player-matches.js
+    // Use the global set score input from player-matches.js (shared between singles and doubles)
     const setScoreInput = window.playerSetScoreInput;
     if (!setScoreInput) {
         feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
@@ -240,12 +231,4 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
  */
 export function getCurrentPlayerMatchType() {
     return currentPlayerMatchType;
-}
-
-/**
- * Sets the doubles set score input instance
- * @param {Object} inputInstance - Set score input instance
- */
-export function setDoublesPlayerSetScoreInput(inputInstance) {
-    doublesPlayerSetScoreInput = inputInstance;
 }
