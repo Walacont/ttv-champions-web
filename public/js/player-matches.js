@@ -272,19 +272,23 @@ export function createSetScoreInput(container, existingSets = []) {
  */
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   // Updated to use new two-section layout: pending (to respond) and history (completed)
+  // Now includes BOTH singles and doubles requests
   const pendingRequestsList = document.getElementById("pending-result-requests-list");
   const historyRequestsList = document.getElementById("history-result-requests-list");
 
   if (!pendingRequestsList || !historyRequestsList) return;
 
-  // Query for requests created by me (playerA)
+  console.log('[Request History] Loading requests for user:', userData.id);
+
+  // SINGLES QUERIES
+  // Query for singles requests created by me (playerA)
   const myRequestsQuery = query(
     collection(db, "matchRequests"),
     where("playerAId", "==", userData.id),
     orderBy("createdAt", "desc")
   );
 
-  // Query for requests sent to me (playerB) - still pending
+  // Query for singles requests sent to me (playerB) - still pending
   const incomingRequestsQuery = query(
     collection(db, "matchRequests"),
     where("playerBId", "==", userData.id),
@@ -292,10 +296,25 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     orderBy("createdAt", "desc")
   );
 
-  // Query for requests I processed as playerB - no longer pending_player
+  // Query for singles requests I processed as playerB - no longer pending_player
   const processedRequestsQuery = query(
     collection(db, "matchRequests"),
     where("playerBId", "==", userData.id),
+    orderBy("createdAt", "desc")
+  );
+
+  // DOUBLES QUERIES
+  // Query for doubles requests created by me (initiatedBy)
+  const myDoublesRequestsQuery = query(
+    collection(db, "doublesMatchRequests"),
+    where("initiatedBy", "==", userData.id),
+    orderBy("createdAt", "desc")
+  );
+
+  // Query for all doubles requests in my club (we'll filter client-side)
+  const doublesInvolvedQuery = query(
+    collection(db, "doublesMatchRequests"),
+    where("clubId", "==", userData.clubId),
     orderBy("createdAt", "desc")
   );
 
@@ -303,35 +322,71 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   let myRequests = [];
   let incomingRequests = [];
   let processedRequests = [];
+  let myDoublesRequests = [];
+  let doublesInvolvedRequests = [];
   let renderTimeout = null;
 
   const debouncedRenderAll = () => {
     if (renderTimeout) clearTimeout(renderTimeout);
     renderTimeout = setTimeout(async () => {
-      // Pending:
-      // - Incoming requests that need my response
-      // - My sent requests that are still pending (waiting for opponent or coach)
+      console.log('[Request History] Processing all requests...');
+      console.log('  Singles - My:', myRequests.length, 'Incoming:', incomingRequests.length, 'Processed:', processedRequests.length);
+      console.log('  Doubles - My:', myDoublesRequests.length, 'Involved:', doublesInvolvedRequests.length);
+
+      // PENDING REQUESTS
+      // Singles: Incoming + my pending singles
       const pendingMyRequests = myRequests.filter(r =>
         r.status === "pending_player" || r.status === "pending_coach"
-      );
-      const pendingRequests = [...incomingRequests, ...pendingMyRequests].sort((a, b) => {
+      ).map(r => ({ ...r, matchType: 'singles' }));
+
+      const pendingIncoming = incomingRequests.map(r => ({ ...r, matchType: 'singles' }));
+
+      // Doubles: My pending + involved doubles where I need to respond
+      const pendingMyDoubles = myDoublesRequests.filter(r =>
+        r.status === "pending_opponent" || r.status === "pending_coach"
+      ).map(r => ({ ...r, matchType: 'doubles' }));
+
+      // Filter doubles where I'm involved (partner or opponent)
+      const pendingDoublesInvolved = doublesInvolvedRequests.filter(r => {
+        const isInTeamA = r.teamA.player1Id === userData.id || r.teamA.player2Id === userData.id;
+        const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
+        return (isInTeamA || isInTeamB) && (r.status === "pending_opponent" || r.status === "pending_coach");
+      }).map(r => ({ ...r, matchType: 'doubles' }));
+
+      const pendingRequests = [...pendingIncoming, ...pendingMyRequests, ...pendingMyDoubles, ...pendingDoublesInvolved].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
         return bTime - aTime; // Most recent first
       });
 
-      // History: Only completed requests (approved/rejected)
+      // HISTORY: Only completed requests (approved/rejected)
+      // Singles history
       const completedMyRequests = myRequests.filter(r =>
         r.status === "approved" || r.status === "rejected"
-      );
+      ).map(r => ({ ...r, matchType: 'singles' }));
+
       const completedProcessedRequests = processedRequests.filter(r =>
         r.status === "approved" || r.status === "rejected"
-      );
-      const historyRequests = [...completedMyRequests, ...completedProcessedRequests].sort((a, b) => {
+      ).map(r => ({ ...r, matchType: 'singles' }));
+
+      // Doubles history
+      const completedMyDoubles = myDoublesRequests.filter(r =>
+        r.status === "approved" || r.status === "rejected"
+      ).map(r => ({ ...r, matchType: 'doubles' }));
+
+      const completedDoublesInvolved = doublesInvolvedRequests.filter(r => {
+        const isInTeamA = r.teamA.player1Id === userData.id || r.teamA.player2Id === userData.id;
+        const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
+        return (isInTeamA || isInTeamB) && (r.status === "approved" || r.status === "rejected");
+      }).map(r => ({ ...r, matchType: 'doubles' }));
+
+      const historyRequests = [...completedMyRequests, ...completedProcessedRequests, ...completedMyDoubles, ...completedDoublesInvolved].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
         return bTime - aTime; // Most recent first
       });
+
+      console.log('[Request History] Rendering - Pending:', pendingRequests.length, 'History:', historyRequests.length);
 
       await renderPendingRequests(pendingRequests, userData, db);
       await renderHistoryRequests(historyRequests, userData, db);
@@ -374,7 +429,35 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     debouncedRenderAll();
   });
 
-  unsubscribes.push(myRequestsUnsubscribe, incomingRequestsUnsubscribe, processedRequestsUnsubscribe);
+  // Listen to my doubles requests
+  const myDoublesRequestsUnsubscribe = onSnapshot(myDoublesRequestsQuery, async (snapshot) => {
+    myDoublesRequests = [];
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      myDoublesRequests.push({ id: docSnap.id, ...data });
+    }
+    console.log('[Request History] My doubles requests updated:', myDoublesRequests.length);
+    debouncedRenderAll();
+  });
+
+  // Listen to doubles requests where I'm involved
+  const doublesInvolvedUnsubscribe = onSnapshot(doublesInvolvedQuery, async (snapshot) => {
+    doublesInvolvedRequests = [];
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      doublesInvolvedRequests.push({ id: docSnap.id, ...data });
+    }
+    console.log('[Request History] Doubles involved requests updated:', doublesInvolvedRequests.length);
+    debouncedRenderAll();
+  });
+
+  unsubscribes.push(
+    myRequestsUnsubscribe,
+    incomingRequestsUnsubscribe,
+    processedRequestsUnsubscribe,
+    myDoublesRequestsUnsubscribe,
+    doublesInvolvedUnsubscribe
+  );
 }
 
 /**
