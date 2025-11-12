@@ -187,9 +187,10 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
         return;
     }
 
-    // Validate all players are match-ready (5+ Grundlagen)
+    // Validate all players are match-ready (5+ Grundlagen) and load player data
+    let playerDocs;
     try {
-        const playerDocs = await Promise.all([
+        playerDocs = await Promise.all([
             getDoc(doc(db, 'users', currentUserData.id)),
             getDoc(doc(db, 'users', partnerId)),
             getDoc(doc(db, 'users', opponent1Id)),
@@ -209,6 +210,20 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
 
         if (notReadyPlayers.length > 0) {
             feedbackEl.textContent = `Folgende Spieler haben noch nicht genug Grundlagen (min. 5): ${notReadyPlayers.join(', ')}`;
+            feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
+            feedbackEl.classList.remove('hidden');
+            return;
+        }
+
+        // NEW: Validate that at least one opponent is an online player
+        const opponent1Data = playerDocs[2]?.data(); // opponent1Id (index 2)
+        const opponent2Data = playerDocs[3]?.data(); // opponent2Id (index 3)
+
+        const opponent1IsOffline = opponent1Data?.isOffline === true;
+        const opponent2IsOffline = opponent2Data?.isOffline === true;
+
+        if (opponent1IsOffline && opponent2IsOffline) {
+            feedbackEl.textContent = 'Mindestens einer der beiden Gegner muss ein Online-Spieler sein (mit Code angemeldet). Beide Gegner können nicht Offline-Spieler sein.';
             feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
             feedbackEl.classList.remove('hidden');
             return;
@@ -252,12 +267,23 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     feedbackEl.classList.remove('hidden');
 
     try {
+        // Extract player names from already loaded player docs
+        const partnerData = playerDocs[1]?.data();
+        const opponent1Data = playerDocs[2]?.data();
+        const opponent2Data = playerDocs[3]?.data();
+
         const requestData = {
             partnerId: partnerId,
             opponent1Id: opponent1Id,
             opponent2Id: opponent2Id,
             sets: doublesSets,
-            handicapUsed: handicapUsed
+            handicapUsed: handicapUsed,
+            playerNames: {
+                player1: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                player2: partnerData ? `${partnerData.firstName} ${partnerData.lastName}` : 'Unbekannt',
+                opponent1: opponent1Data ? `${opponent1Data.firstName} ${opponent1Data.lastName}` : 'Unbekannt',
+                opponent2: opponent2Data ? `${opponent2Data.firstName} ${opponent2Data.lastName}` : 'Unbekannt'
+            }
         };
 
         const result = await createDoublesMatchRequest(requestData, db, currentUserData);
