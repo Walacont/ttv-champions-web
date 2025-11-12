@@ -19,12 +19,15 @@ let currentPairingPlayerBId = null;
 
 /**
  * Initializes the set score input for coach match form
+ * @returns {Object|null} The set score input instance
  */
 export function initializeCoachSetScoreInput() {
     const container = document.getElementById('coach-set-score-container');
     if (container) {
         coachSetScoreInput = createSetScoreInput(container);
+        return coachSetScoreInput;
     }
+    return null;
 }
 
 /**
