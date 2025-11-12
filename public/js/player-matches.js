@@ -334,6 +334,21 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         return bTime - aTime; // Most recent first
       });
 
+      // Debug logging
+      console.log('📊 Match Requests Debug:');
+      console.log(`  - Total myRequests: ${myRequests.length}`);
+      console.log(`  - Total incomingRequests: ${incomingRequests.length}`);
+      console.log(`  - Total processedRequests: ${processedRequests.length}`);
+      console.log(`  - Pending requests to show: ${pendingRequests.length}`);
+      console.log(`  - History requests to show: ${historyRequests.length}`);
+      console.log('  - History breakdown:', {
+        completedMyRequests: completedMyRequests.length,
+        completedProcessedRequests: completedProcessedRequests.length
+      });
+      if (historyRequests.length > 0) {
+        console.log('  - Sample history request:', historyRequests[0]);
+      }
+
       await renderPendingRequests(pendingRequests, userData, db);
       await renderHistoryRequests(historyRequests, userData, db);
 
