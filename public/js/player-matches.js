@@ -527,7 +527,11 @@ async function renderMyRequests(requests, userData, db) {
 
   // Render request cards
   for (const request of requestsToShow) {
-    const playerBData = await getUserData(request.playerBId, db);
+    const playerBData = {
+      id: request.playerBId,
+      firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
+      lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+    };
     const card = createMyRequestCard(request, playerBData, userData, db);
     container.appendChild(card);
   }
@@ -576,7 +580,11 @@ async function renderIncomingRequests(requests, userData, db) {
 
   // Render request cards
   for (const request of requestsToShow) {
-    const playerAData = await getUserData(request.playerAId, db);
+    const playerAData = {
+      id: request.playerAId,
+      firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+    };
     const card = createIncomingRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
   }
@@ -625,7 +633,11 @@ async function renderProcessedRequests(requests, userData, db) {
 
   // Render request cards
   for (const request of requestsToShow) {
-    const playerAData = await getUserData(request.playerAId, db);
+    const playerAData = {
+      id: request.playerAId,
+      firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+    };
     const card = createProcessedRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
   }
@@ -1342,6 +1354,12 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   const handicapInfo = document.getElementById("match-handicap-info");
   const setScoreContainer = document.getElementById("set-score-container");
 
+  // Create a map of player IDs to player data for easy lookup
+  const playersMap = new Map();
+  clubPlayers.forEach(player => {
+    playersMap.set(player.id, player);
+  });
+
   // Check if player has completed Grundlagen requirement
   const grundlagenCompleted = userData.grundlagenCompleted || 0;
   const isMatchReady = grundlagenCompleted >= 5;
@@ -1490,11 +1508,16 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const winnerId = validation.winnerId === "A" ? userData.id : opponentId;
     const loserId = validation.winnerId === "A" ? opponentId : userData.id;
 
+    // Get opponent data from the map
+    const opponentData = playersMap.get(opponentId);
+
     try {
       await addDoc(collection(db, "matchRequests"), {
         status: "pending_player",
         playerAId: userData.id,
         playerBId: opponentId,
+        playerAName: `${userData.firstName} ${userData.lastName}`,
+        playerBName: opponentData ? `${opponentData.firstName} ${opponentData.lastName}` : 'Unbekannt',
         winnerId,
         loserId,
         handicapUsed,
@@ -1544,21 +1567,28 @@ async function renderPendingRequests(requests, userData, db) {
     let card;
 
     if (request.matchType === 'doubles') {
-      // DOUBLES REQUEST
-      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
-
-      const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-        getDoc(doc(db, 'users', request.teamA.player1Id)),
-        getDoc(doc(db, 'users', request.teamA.player2Id)),
-        getDoc(doc(db, 'users', request.teamB.player1Id)),
-        getDoc(doc(db, 'users', request.teamB.player2Id))
-      ]);
-
+      // DOUBLES REQUEST - use stored names
       const playersData = {
-        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+        teamAPlayer1: {
+          id: request.teamA.player1Id,
+          firstName: request.teamA.player1Name ? request.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player1Name ? request.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamAPlayer2: {
+          id: request.teamA.player2Id,
+          firstName: request.teamA.player2Name ? request.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player2Name ? request.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer1: {
+          id: request.teamB.player1Id,
+          firstName: request.teamB.player1Name ? request.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player1Name ? request.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer2: {
+          id: request.teamB.player2Id,
+          firstName: request.teamB.player2Name ? request.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
+        }
       };
 
       card = createPendingDoublesCard(request, playersData, userData, db);
@@ -1566,11 +1596,19 @@ async function renderPendingRequests(requests, userData, db) {
       // SINGLES REQUEST
       if (request.playerBId === userData.id) {
         // Incoming request - I need to respond
-        const playerAData = await getUserData(request.playerAId, db);
+        const playerAData = {
+          id: request.playerAId,
+          firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+        };
         card = createIncomingRequestCard(request, playerAData, userData, db);
       } else {
         // My sent request - waiting for response
-        const playerBData = await getUserData(request.playerBId, db);
+        const playerBData = {
+          id: request.playerBId,
+          firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+        };
         card = createMyRequestCard(request, playerBData, userData, db);
       }
     }
@@ -1622,21 +1660,28 @@ async function renderHistoryRequests(requests, userData, db) {
     let card;
 
     if (request.matchType === 'doubles') {
-      // DOUBLES REQUEST
-      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
-
-      const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-        getDoc(doc(db, 'users', request.teamA.player1Id)),
-        getDoc(doc(db, 'users', request.teamA.player2Id)),
-        getDoc(doc(db, 'users', request.teamB.player1Id)),
-        getDoc(doc(db, 'users', request.teamB.player2Id))
-      ]);
-
+      // DOUBLES REQUEST - use stored names
       const playersData = {
-        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+        teamAPlayer1: {
+          id: request.teamA.player1Id,
+          firstName: request.teamA.player1Name ? request.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player1Name ? request.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamAPlayer2: {
+          id: request.teamA.player2Id,
+          firstName: request.teamA.player2Name ? request.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamA.player2Name ? request.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer1: {
+          id: request.teamB.player1Id,
+          firstName: request.teamB.player1Name ? request.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player1Name ? request.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+        },
+        teamBPlayer2: {
+          id: request.teamB.player2Id,
+          firstName: request.teamB.player2Name ? request.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+          lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
+        }
       };
 
       card = createDoublesHistoryCard(request, playersData, userData, db);
@@ -1644,11 +1689,19 @@ async function renderHistoryRequests(requests, userData, db) {
       // SINGLES REQUEST
       if (request.playerAId === userData.id) {
         // My sent request
-        const playerBData = await getUserData(request.playerBId, db);
+        const playerBData = {
+          id: request.playerBId,
+          firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+        };
         card = createMyRequestCard(request, playerBData, userData, db);
       } else {
         // Incoming request - use processed card for history (always completed)
-        const playerAData = await getUserData(request.playerAId, db);
+        const playerAData = {
+          id: request.playerAId,
+          firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
+          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+        };
         card = createProcessedRequestCard(request, playerAData, userData, db);
       }
     }
@@ -1709,13 +1762,17 @@ export async function loadCombinedPendingRequests(userData, db) {
       // Process singles requests
       for (const docSnap of singlesSnapshot.docs) {
         const data = docSnap.data();
-        const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+        const playerAData = {
+          id: data.playerAId,
+          firstName: data.playerAName ? data.playerAName.split(' ')[0] : 'Unbekannt',
+          lastName: data.playerAName ? data.playerAName.split(' ').slice(1).join(' ') : ''
+        };
 
         allRequests.push({
           id: docSnap.id,
           type: 'singles',
           ...data,
-          playerAData: playerADoc.exists() ? playerADoc.data() : null
+          playerAData
         });
       }
 
@@ -1732,23 +1789,32 @@ export async function loadCombinedPendingRequests(userData, db) {
 
         // Check if current user is one of the opponents (teamB)
         if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
-          const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-            getDoc(doc(db, 'users', data.teamA.player1Id)),
-            getDoc(doc(db, 'users', data.teamA.player2Id)),
-            getDoc(doc(db, 'users', data.teamB.player1Id)),
-            getDoc(doc(db, 'users', data.teamB.player2Id))
-          ]);
-
           console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
 
           allRequests.push({
             id: docSnap.id,
             type: 'doubles',
             ...data,
-            teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-            teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-            teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-            teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+            teamAPlayer1: {
+              id: data.teamA.player1Id,
+              firstName: data.teamA.player1Name ? data.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamA.player1Name ? data.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+            },
+            teamAPlayer2: {
+              id: data.teamA.player2Id,
+              firstName: data.teamA.player2Name ? data.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamA.player2Name ? data.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+            },
+            teamBPlayer1: {
+              id: data.teamB.player1Id,
+              firstName: data.teamB.player1Name ? data.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamB.player1Name ? data.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+            },
+            teamBPlayer2: {
+              id: data.teamB.player2Id,
+              firstName: data.teamB.player2Name ? data.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+              lastName: data.teamB.player2Name ? data.teamB.player2Name.split(' ').slice(1).join(' ') : ''
+            }
           });
         }
       }

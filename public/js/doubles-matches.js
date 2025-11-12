@@ -138,16 +138,23 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const initiatorPairingId = createPairingId(initiatorId, partnerId);
     const opponentPairingId = createPairingId(opponent1Id, opponent2Id);
 
+    // Get player names from requestData if provided, otherwise use userData
+    const playerNames = requestData.playerNames || {};
+
     // Build the request document data
     const doublesRequestData = {
         teamA: {
             player1Id: initiatorId,
             player2Id: partnerId,
+            player1Name: playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
+            player2Name: playerNames.player2 || 'Unbekannt',
             pairingId: initiatorPairingId
         },
         teamB: {
             player1Id: opponent1Id,
             player2Id: opponent2Id,
+            player1Name: playerNames.opponent1 || 'Unbekannt',
+            player2Name: playerNames.opponent2 || 'Unbekannt',
             pairingId: opponentPairingId
         },
         winningTeam: winningTeam,
