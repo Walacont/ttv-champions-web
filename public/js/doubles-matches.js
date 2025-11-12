@@ -278,28 +278,16 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         orderBy('matchesWon', 'desc')
     );
 
-    const listener = onSnapshot(pairingsQuery, async (snapshot) => {
-        const pairings = [];
-
-        for (const docSnap of snapshot.docs) {
+    const listener = onSnapshot(pairingsQuery, (snapshot) => {
+        const pairings = snapshot.docs.map(docSnap => {
             const data = docSnap.data();
-
-            // Fetch player names
-            const player1Doc = await getDoc(doc(db, 'users', data.player1Id));
-            const player2Doc = await getDoc(doc(db, 'users', data.player2Id));
-
-            if (player1Doc.exists() && player2Doc.exists()) {
-                const player1 = player1Doc.data();
-                const player2 = player2Doc.data();
-
-                pairings.push({
-                    id: docSnap.id,
-                    player1Name: `${player1.firstName} ${player1.lastName}`,
-                    player2Name: `${player2.firstName} ${player2.lastName}`,
-                    ...data
-                });
-            }
-        }
+            return {
+                id: docSnap.id,
+                player1Name: data.player1Name || 'Unbekannt',
+                player2Name: data.player2Name || 'Unbekannt',
+                ...data
+            };
+        });
 
         // Render the leaderboard with updated data
         renderDoublesLeaderboard(pairings, container);

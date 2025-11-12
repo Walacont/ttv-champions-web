@@ -1534,6 +1534,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
         batch.set(winningPairingRef, {
           player1Id: winningPlayerIds[0],
           player2Id: winningPlayerIds[1],
+          player1Name: `${winner1Data.firstName} ${winner1Data.lastName}`,
+          player2Name: `${winner2Data.firstName} ${winner2Data.lastName}`,
           pairingId: winningPairingId,
           matchesPlayed: 1,
           matchesWon: 1,
@@ -1561,6 +1563,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
         batch.set(losingPairingRef, {
           player1Id: losingPlayerIds[0],
           player2Id: losingPlayerIds[1],
+          player1Name: `${loser1Data.firstName} ${loser1Data.lastName}`,
+          player2Name: `${loser2Data.firstName} ${loser2Data.lastName}`,
           pairingId: losingPairingId,
           matchesPlayed: 1,
           matchesWon: 0,
