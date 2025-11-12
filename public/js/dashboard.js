@@ -13,6 +13,7 @@ import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 // Season reset import removed - now handled by Cloud Function
 import { initializeMatchRequestForm, loadPlayerMatchRequests, loadCombinedPendingRequests } from './player-matches.js';
 import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './doubles-player-ui.js';
+import { confirmDoublesMatchRequest, rejectDoublesMatchRequest } from './doubles-matches.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
 
@@ -494,33 +495,66 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     let allItems = [];
     let showAll = false;
 
-    // Query for match result requests (incoming, need my approval)
-    // Remove orderBy to avoid composite index requirement - will sort in JavaScript
+    // Query for SINGLES match result requests (incoming, need my approval)
     const incomingRequestsQuery = query(
         collection(db, 'matchRequests'),
         where('playerBId', '==', userData.id),
         where('status', '==', 'pending_player')
     );
 
-    // Real-time listener with debouncing to prevent race conditions
-    let refreshTimeout = null;
-    const unsubRequests = onSnapshot(incomingRequestsQuery, async (snapshot) => {
-        if (refreshTimeout) clearTimeout(refreshTimeout);
-        refreshTimeout = setTimeout(async () => {
+    // Query for DOUBLES requests where user is opponent (teamB)
+    const doublesRequestsQuery = query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_opponent')
+    );
+
+    // Real-time listener for singles requests
+    const unsubSingles = onSnapshot(incomingRequestsQuery, async (singlesSnapshot) => {
+        // Real-time listener for doubles requests
+        const unsubDoubles = onSnapshot(doublesRequestsQuery, async (doublesSnapshot) => {
             allItems = [];
 
-            // Add match result requests (use real-time snapshot data)
-            for (const docSnap of snapshot.docs) {
+            // Add singles match result requests
+            for (const docSnap of singlesSnapshot.docs) {
                 const data = docSnap.data();
                 const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
                 const playerAData = playerADoc.exists() ? playerADoc.data() : null;
                 allItems.push({
                     type: 'match-request',
+                    matchType: 'singles',
                     id: docSnap.id,
                     data,
                     playerAData,
                     createdAt: data.createdAt
                 });
+            }
+
+            // Add doubles match requests (only where current user is opponent)
+            for (const docSnap of doublesSnapshot.docs) {
+                const data = docSnap.data();
+
+                // Check if current user is one of the opponents (teamB)
+                if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
+                    const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                        getDoc(doc(db, 'users', data.teamA.player1Id)),
+                        getDoc(doc(db, 'users', data.teamA.player2Id)),
+                        getDoc(doc(db, 'users', data.teamB.player1Id)),
+                        getDoc(doc(db, 'users', data.teamB.player2Id))
+                    ]);
+
+                    allItems.push({
+                        type: 'match-request',
+                        matchType: 'doubles',
+                        id: docSnap.id,
+                        data,
+                        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
+                        createdAt: data.createdAt
+                    });
+                }
             }
 
             // Sort by creation date (newest first)
@@ -532,10 +566,12 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
 
             renderCombinedOverview(allItems, userData, db, showAll);
             updateMatchRequestBadge(allItems.length);
-        }, 100);
+        });
+
+        unsubscribes.push(unsubDoubles);
     });
 
-    unsubscribes.push(unsubRequests);
+    unsubscribes.push(unsubSingles);
 }
 
 /**
@@ -557,42 +593,80 @@ function renderCombinedOverview(items, userData, db, showAll) {
 
     itemsToShow.forEach(item => {
         const card = document.createElement('div');
-
         card.className = 'bg-white border-2 border-blue-300 bg-blue-50 rounded-lg p-3 shadow-sm';
 
-        // Match result request
-        const setsDisplay = formatSetsDisplaySimple(item.data.sets);
-        const playerName = item.playerAData?.firstName || 'Unbekannt';
+        if (item.matchType === 'doubles') {
+            // Doubles match request
+            const setsDisplay = formatSetsDisplaySimple(item.data.sets);
+            const teamAName1 = item.teamAPlayer1?.firstName || 'Unbekannt';
+            const teamAName2 = item.teamAPlayer2?.firstName || 'Unbekannt';
+            const teamBName1 = item.teamBPlayer1?.firstName || 'Unbekannt';
+            const teamBName2 = item.teamBPlayer2?.firstName || 'Unbekannt';
 
-        card.innerHTML = `
-            <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-semibold text-blue-700 bg-blue-200 px-2 py-1 rounded">📊 Ergebnis</span>
-            </div>
-            <div class="flex justify-between items-start mb-2">
-                <div class="flex-1">
-                    <p class="font-semibold text-gray-800 text-sm">${playerName} vs ${userData.firstName}</p>
-                    <p class="text-xs text-gray-600">${setsDisplay}</p>
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded"><i class="fas fa-users mr-1"></i>Doppel</span>
                 </div>
-            </div>
-            <div class="flex gap-2 mt-2">
-                <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}">
-                    <i class="fas fa-check"></i> Akzeptieren
-                </button>
-                <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}">
-                    <i class="fas fa-times"></i> Ablehnen
-                </button>
-            </div>
-        `;
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800 text-sm">${teamAName1} & ${teamAName2} vs ${teamBName1} & ${teamBName2}</p>
+                        <p class="text-xs text-gray-600">${setsDisplay}</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles">
+                        <i class="fas fa-check"></i> Bestätigen
+                    </button>
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles">
+                        <i class="fas fa-times"></i> Ablehnen
+                    </button>
+                </div>
+            `;
+        } else {
+            // Singles match request
+            const setsDisplay = formatSetsDisplaySimple(item.data.sets);
+            const playerName = item.playerAData?.firstName || 'Unbekannt';
+
+            card.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-xs font-semibold text-blue-700 bg-blue-200 px-2 py-1 rounded"><i class="fas fa-user mr-1"></i>Einzel</span>
+                </div>
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-800 text-sm">${playerName} vs ${userData.firstName}</p>
+                        <p class="text-xs text-gray-600">${setsDisplay}</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles">
+                        <i class="fas fa-check"></i> Akzeptieren
+                    </button>
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles">
+                        <i class="fas fa-times"></i> Ablehnen
+                    </button>
+                </div>
+            `;
+        }
 
         const approveBtn = card.querySelector('.approve-overview-btn');
         const rejectBtn = card.querySelector('.reject-overview-btn');
 
         approveBtn.addEventListener('click', async () => {
-            await approveOverviewRequest(item.id, db);
+            const matchType = approveBtn.getAttribute('data-match-type');
+            if (matchType === 'doubles') {
+                await approveDoublesOverviewRequest(item.id, userData.id, db);
+            } else {
+                await approveOverviewRequest(item.id, db);
+            }
         });
 
         rejectBtn.addEventListener('click', async () => {
-            await rejectOverviewRequest(item.id, db);
+            const matchType = rejectBtn.getAttribute('data-match-type');
+            if (matchType === 'doubles') {
+                await rejectDoublesOverviewRequest(item.id, db);
+            } else {
+                await rejectOverviewRequest(item.id, db);
+            }
         });
 
         container.appendChild(card);
@@ -667,6 +741,30 @@ async function rejectOverviewRequest(requestId, db) {
     } catch (error) {
         console.error('Error rejecting request:', error);
         alert('Fehler beim Ablehnen der Anfrage.');
+    }
+}
+
+/**
+ * Approves doubles request from overview
+ */
+async function approveDoublesOverviewRequest(requestId, playerId, db) {
+    try {
+        await confirmDoublesMatchRequest(requestId, playerId, db);
+    } catch (error) {
+        console.error('Error approving doubles request:', error);
+        alert('Fehler beim Bestätigen der Doppel-Anfrage.');
+    }
+}
+
+/**
+ * Rejects doubles request from overview
+ */
+async function rejectDoublesOverviewRequest(requestId, db) {
+    try {
+        await rejectDoublesMatchRequest(requestId, db);
+    } catch (error) {
+        console.error('Error rejecting doubles request:', error);
+        alert('Fehler beim Ablehnen der Doppel-Anfrage.');
     }
 }
 
