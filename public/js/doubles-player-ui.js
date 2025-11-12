@@ -188,6 +188,12 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     const sets = setScoreInput.getSets();
     const handicapUsed = document.getElementById('match-handicap-toggle')?.checked || false;
 
+    // Convert set field names from playerA/playerB to teamA/teamB for doubles
+    const doublesSets = sets.map(set => ({
+        teamA: set.playerA,
+        teamB: set.playerB
+    }));
+
     feedbackEl.textContent = 'Sende Doppel-Anfrage...';
     feedbackEl.className = 'bg-blue-100 border border-blue-300 text-blue-700 px-4 py-3 rounded';
     feedbackEl.classList.remove('hidden');
@@ -197,7 +203,7 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
             partnerId: partnerId,
             opponent1Id: opponent1Id,
             opponent2Id: opponent2Id,
-            sets: sets,
+            sets: doublesSets,
             handicapUsed: handicapUsed
         };
 
