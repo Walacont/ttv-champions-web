@@ -250,9 +250,24 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
 
             // Reset form
             e.target.reset();
-            if (doublesSetScoreInput) {
-                doublesSetScoreInput.reset();
+
+            // Reset match mode dropdown to default and recreate set score input
+            const matchModeSelect = document.getElementById('coach-match-mode-select');
+            const setScoreLabel = document.getElementById('coach-set-score-label');
+            const container = document.getElementById('coach-set-score-container');
+
+            if (matchModeSelect) {
+                matchModeSelect.value = 'best-of-5';
             }
+
+            // Recreate doubles set score input with default mode
+            if (container) {
+                doublesSetScoreInput = createSetScoreInput(container, [], 'best-of-5');
+                if (setScoreLabel) {
+                    setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
+                }
+            }
+
             clearDoublesSelections();
         }
     } catch (error) {

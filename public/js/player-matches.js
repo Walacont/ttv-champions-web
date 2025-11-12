@@ -165,26 +165,18 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     // Auto-add next set dynamically based on match mode
     // Only auto-add if we haven't reached maxSets and no one has won yet
     if (sets.length < maxSets && playerAWins < setsToWin && playerBWins < setsToWin) {
-      // Check if we should add the next set
-      const currentSetCount = sets.length;
-
       // For single set mode, never auto-add
       if (mode === 'single-set') {
         return;
       }
 
-      // For best-of-3: auto-add 2nd set if 1:0 or 0:1, auto-add 3rd set if 1:1
-      // For best-of-5: auto-add 4th set if 2:1 or 1:2, auto-add 5th set if 2:2
-      // For best-of-7: similar logic
-
-      const oneSetAway = setsToWin - 1;
-
-      // Auto-add next set when score is close (one player is one set away from winning, or it's tied)
-      if (
-        (playerAWins === oneSetAway && playerBWins > 0 && playerBWins < setsToWin) ||
-        (playerBWins === oneSetAway && playerAWins > 0 && playerAWins < setsToWin) ||
-        (playerAWins === playerBWins && playerAWins > 0)
-      ) {
+      // Auto-add next set ONLY when it's tied (safest and clearest logic)
+      // This prevents adding sets too early (e.g., at 3:2 in Best of 7)
+      // Examples:
+      // - Best of 3: Add 3rd set at 1:1
+      // - Best of 5: Add 5th set at 2:2
+      // - Best of 7: Add 6th set at 2:2, add 7th set at 3:3
+      if (playerAWins === playerBWins && playerAWins > 0) {
         sets.push({ playerA: "", playerB: "" });
         renderSets();
       }
@@ -1716,7 +1708,20 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
       showFeedback("Anfrage erfolgreich erstellt! Warte auf Bestätigung.", "success");
       form.reset();
-      setScoreInput.reset();
+
+      // Reset match mode dropdown to default (form.reset() sets it to the selected value in HTML)
+      if (matchModeSelect) {
+        matchModeSelect.value = 'best-of-5';
+      }
+
+      // Recreate set score input with default mode to keep fields and dropdown in sync
+      currentMode = 'best-of-5';
+      setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
+      updateSetScoreLabel(currentMode);
+
+      // Update global reference for doubles-player-ui
+      window.playerSetScoreInput = setScoreInput;
+
       handicapInfo.classList.add("hidden");
     } catch (error) {
       console.error("Error creating match request:", error);
