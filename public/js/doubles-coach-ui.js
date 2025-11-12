@@ -223,6 +223,10 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
 
     const handicapUsed = document.getElementById('handicap-toggle')?.checked || false;
 
+    // Get match mode from dropdown
+    const matchModeSelect = document.getElementById('coach-match-mode-select');
+    const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+
     feedbackEl.textContent = 'Speichere Doppel-Match...';
     feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
 
@@ -234,7 +238,8 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
             teamB_player2Id: teamBPlayer2Id,
             winningTeam: winningTeam,
             sets: doublesSets,
-            handicapUsed: handicapUsed
+            handicapUsed: handicapUsed,
+            matchMode: matchMode
         };
 
         const result = await saveDoublesMatch(matchData, db, currentUserData);

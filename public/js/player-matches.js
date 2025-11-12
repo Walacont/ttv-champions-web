@@ -26,16 +26,44 @@ import {
  * Creates dynamic set score input fields
  * @param {HTMLElement} container - Container element for set inputs
  * @param {Array} existingSets - Existing set scores (for edit mode)
+ * @param {String} mode - Match mode ('single-set', 'best-of-3', 'best-of-5', 'best-of-7')
  * @returns {Object} Object with getSets() and validate() methods
  */
-export function createSetScoreInput(container, existingSets = []) {
+export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
   container.innerHTML = "";
 
   const sets = existingSets.length > 0 ? [...existingSets] : [];
-  const minSets = 3;
-  const maxSets = 5;
 
-  // Ensure at least 3 sets
+  // Determine min/max sets and winning sets based on mode
+  let minSets, maxSets, setsToWin;
+  switch(mode) {
+    case 'single-set':
+      minSets = 1;
+      maxSets = 1;
+      setsToWin = 1;
+      break;
+    case 'best-of-3':
+      minSets = 1;
+      maxSets = 3;
+      setsToWin = 2;
+      break;
+    case 'best-of-5':
+      minSets = 3;
+      maxSets = 5;
+      setsToWin = 3;
+      break;
+    case 'best-of-7':
+      minSets = 4;
+      maxSets = 7;
+      setsToWin = 4;
+      break;
+    default:
+      minSets = 3;
+      maxSets = 5;
+      setsToWin = 3;
+  }
+
+  // Ensure at least minSets
   while (sets.length < minSets) {
     sets.push({ playerA: "", playerB: "" });
   }
@@ -134,19 +162,32 @@ export function createSetScoreInput(container, existingSets = []) {
       if (setB > setA && setB >= 11) playerBWins++;
     }
 
-    // Auto-add 4th set if score is 2:1 or 1:2 and we only have 3 sets
-    if (sets.length === 3 && (
-      (playerAWins === 2 && playerBWins === 1) ||
-      (playerAWins === 1 && playerBWins === 2)
-    )) {
-      sets.push({ playerA: "", playerB: "" });
-      renderSets();
-    }
+    // Auto-add next set dynamically based on match mode
+    // Only auto-add if we haven't reached maxSets and no one has won yet
+    if (sets.length < maxSets && playerAWins < setsToWin && playerBWins < setsToWin) {
+      // Check if we should add the next set
+      const currentSetCount = sets.length;
 
-    // Auto-add 5th set if score is 2:2 and we only have 4 sets
-    if (sets.length === 4 && playerAWins === 2 && playerBWins === 2) {
-      sets.push({ playerA: "", playerB: "" });
-      renderSets();
+      // For single set mode, never auto-add
+      if (mode === 'single-set') {
+        return;
+      }
+
+      // For best-of-3: auto-add 2nd set if 1:0 or 0:1, auto-add 3rd set if 1:1
+      // For best-of-5: auto-add 4th set if 2:1 or 1:2, auto-add 5th set if 2:2
+      // For best-of-7: similar logic
+
+      const oneSetAway = setsToWin - 1;
+
+      // Auto-add next set when score is close (one player is one set away from winning, or it's tied)
+      if (
+        (playerAWins === oneSetAway && playerBWins > 0 && playerBWins < setsToWin) ||
+        (playerBWins === oneSetAway && playerAWins > 0 && playerAWins < setsToWin) ||
+        (playerAWins === playerBWins && playerAWins > 0)
+      ) {
+        sets.push({ playerA: "", playerB: "" });
+        renderSets();
+      }
     }
   }
 
@@ -192,17 +233,20 @@ export function createSetScoreInput(container, existingSets = []) {
       if (winner === 'B') playerBWins++;
     });
 
-    // Check if someone won (3 sets)
-    if (playerAWins < 3 && playerBWins < 3) {
-      return { valid: false, error: "Ein Spieler muss 3 Sätze gewinnen." };
+    // Check if someone won (setsToWin sets)
+    if (playerAWins < setsToWin && playerBWins < setsToWin) {
+      const errorMsg = mode === 'single-set'
+        ? "Der Satz muss ausgefüllt sein."
+        : `Ein Spieler muss ${setsToWin} Sätze gewinnen.`;
+      return { valid: false, error: errorMsg };
     }
 
     // Check if match is finished (no need for more sets)
-    if (playerAWins === 3 || playerBWins === 3) {
+    if (playerAWins === setsToWin || playerBWins === setsToWin) {
       // Valid match result
       return {
         valid: true,
-        winnerId: playerAWins === 3 ? "A" : "B",
+        winnerId: playerAWins === setsToWin ? "A" : "B",
         playerAWins,
         playerBWins,
       };
@@ -1425,6 +1469,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   const handicapToggle = document.getElementById("match-handicap-toggle");
   const handicapInfo = document.getElementById("match-handicap-info");
   const setScoreContainer = document.getElementById("set-score-container");
+  const matchModeSelect = document.getElementById("match-mode-select");
+  const setScoreLabel = document.getElementById("set-score-label");
 
   // Create a map of player IDs to player data for easy lookup
   const playersMap = new Map();
@@ -1485,8 +1531,48 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
       opponentSelect.appendChild(option);
     });
 
-  // Initialize set score input
-  const setScoreInput = createSetScoreInput(setScoreContainer);
+  // Initialize set score input with current mode
+  let currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+  let setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
+
+  // Function to update label text based on mode
+  function updateSetScoreLabel(mode) {
+    if (!setScoreLabel) return;
+    switch(mode) {
+      case 'single-set':
+        setScoreLabel.textContent = 'Spielergebnis eingeben (1 Satz)';
+        break;
+      case 'best-of-3':
+        setScoreLabel.textContent = 'Spielergebnis eingeben (Best of 3)';
+        break;
+      case 'best-of-5':
+        setScoreLabel.textContent = 'Spielergebnis eingeben (Best of 5)';
+        break;
+      case 'best-of-7':
+        setScoreLabel.textContent = 'Spielergebnis eingeben (Best of 7)';
+        break;
+      default:
+        setScoreLabel.textContent = 'Spielergebnis eingeben (mind. 3 Sätze)';
+    }
+  }
+
+  // Update label on page load
+  updateSetScoreLabel(currentMode);
+
+  // Handle match mode changes
+  if (matchModeSelect) {
+    matchModeSelect.addEventListener('change', () => {
+      currentMode = matchModeSelect.value;
+      // Recreate the set score input with new mode
+      setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
+      updateSetScoreLabel(currentMode);
+
+      // Reapply handicap if it was active
+      if (currentHandicapData && handicapToggle && handicapToggle.checked) {
+        setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+      }
+    });
+  }
 
   // Store current handicap data
   let currentHandicapData = null;
@@ -1593,6 +1679,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         winnerId,
         loserId,
         handicapUsed,
+        matchMode: currentMode || 'best-of-5',
         clubId: userData.clubId,
         sets,
         approvals: {

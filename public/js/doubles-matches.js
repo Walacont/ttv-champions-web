@@ -52,7 +52,8 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         teamB_player2Id,
         winningTeam, // "A" or "B"
         sets,
-        handicapUsed
+        handicapUsed,
+        matchMode = 'best-of-5'
     } = matchData;
 
     // Validate all players are different
@@ -82,6 +83,7 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         losingPairingId: winningTeam === 'A' ? teamBPairingId : teamAPairingId,
         sets: sets,
         handicapUsed: handicapUsed || false,
+        matchMode: matchMode,
         reportedBy: currentUserData.id,
         clubId: currentUserData.clubId,
         createdAt: serverTimestamp(),
@@ -110,7 +112,8 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         opponent1Id,
         opponent2Id,
         sets,
-        handicapUsed
+        handicapUsed,
+        matchMode = 'best-of-5'
     } = requestData;
 
     const initiatorId = currentUserData.id;
@@ -121,17 +124,36 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
+    // Determine required sets to win based on match mode
+    let setsToWin;
+    switch(matchMode) {
+        case 'single-set':
+            setsToWin = 1;
+            break;
+        case 'best-of-3':
+            setsToWin = 2;
+            break;
+        case 'best-of-5':
+            setsToWin = 3;
+            break;
+        case 'best-of-7':
+            setsToWin = 4;
+            break;
+        default:
+            setsToWin = 3;
+    }
+
     // Determine winner
     const setsWonByInitiatorTeam = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
     const setsWonByOpponentTeam = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
     let winningTeam;
-    if (setsWonByInitiatorTeam >= 3) {
+    if (setsWonByInitiatorTeam >= setsToWin) {
         winningTeam = 'A'; // Initiator's team won
-    } else if (setsWonByOpponentTeam >= 3) {
+    } else if (setsWonByOpponentTeam >= setsToWin) {
         winningTeam = 'B'; // Opponent team won
     } else {
-        throw new Error('Ungültiges Ergebnis: Kein Team hat 3 Sätze gewonnen');
+        throw new Error(`Ungültiges Ergebnis: Kein Team hat ${setsToWin} Sätze gewonnen`);
     }
 
     // Create pairing IDs
@@ -162,6 +184,7 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         losingPairingId: winningTeam === 'A' ? opponentPairingId : initiatorPairingId,
         sets: sets,
         handicapUsed: handicapUsed || false,
+        matchMode: matchMode,
         initiatedBy: initiatorId,
         confirmations: {
             [partnerId]: false, // Partner notified

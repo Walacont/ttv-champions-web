@@ -23,11 +23,48 @@ let currentPairingPlayerBId = null;
  */
 export function initializeCoachSetScoreInput() {
     const container = document.getElementById('coach-set-score-container');
-    if (container) {
-        coachSetScoreInput = createSetScoreInput(container);
-        return coachSetScoreInput;
+    const matchModeSelect = document.getElementById('coach-match-mode-select');
+    const setScoreLabel = document.getElementById('coach-set-score-label');
+
+    if (!container) return null;
+
+    // Function to update label text based on mode
+    function updateSetScoreLabel(mode) {
+        if (!setScoreLabel) return;
+        switch(mode) {
+            case 'single-set':
+                setScoreLabel.textContent = 'Satzergebnisse (1 Satz)';
+                break;
+            case 'best-of-3':
+                setScoreLabel.textContent = 'Satzergebnisse (Best of 3)';
+                break;
+            case 'best-of-5':
+                setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
+                break;
+            case 'best-of-7':
+                setScoreLabel.textContent = 'Satzergebnisse (Best of 7)';
+                break;
+            default:
+                setScoreLabel.textContent = 'Satzergebnisse';
+        }
     }
-    return null;
+
+    // Initialize with current mode
+    const currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+    coachSetScoreInput = createSetScoreInput(container, [], currentMode);
+    updateSetScoreLabel(currentMode);
+
+    // Handle match mode changes
+    if (matchModeSelect) {
+        matchModeSelect.addEventListener('change', () => {
+            const newMode = matchModeSelect.value;
+            // Recreate the set score input with new mode
+            coachSetScoreInput = createSetScoreInput(container, [], newMode);
+            updateSetScoreLabel(newMode);
+        });
+    }
+
+    return coachSetScoreInput;
 }
 
 /**
@@ -402,6 +439,10 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
     const loserId = winnerId === playerAId ? playerBId : playerAId;
     feedbackEl.textContent = 'Speichere Match-Ergebnis...';
 
+    // Get current match mode
+    const matchModeSelect = document.getElementById('coach-match-mode-select');
+    const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+
     try {
         await addDoc(collection(db, 'matches'), {
             playerAId,
@@ -410,6 +451,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
             winnerId,
             loserId,
             handicapUsed: handicapUsed,
+            matchMode: matchMode,
             sets: sets,
             reportedBy: currentUserData.id,
             clubId: currentUserData.clubId,
