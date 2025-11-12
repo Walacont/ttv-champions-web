@@ -38,6 +38,13 @@ service cloud.firestore {
       return grundlagenCompleted != null && grundlagenCompleted >= 5;
     }
 
+    function atLeastOneOpponentIsOnline(opponent1Id, opponent2Id) {
+      let opponent1Data = get(/databases/$(database)/documents/users/$(opponent1Id)).data;
+      let opponent2Data = get(/databases/$(database)/documents/users/$(opponent2Id)).data;
+      // At least one opponent must NOT be offline (isOffline == false or not set)
+      return (opponent1Data.isOffline != true) || (opponent2Data.isOffline != true);
+    }
+
     // Users collection
     match /users/{userId} {
       // Users can read their own data
@@ -354,6 +361,7 @@ service cloud.firestore {
 
       // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)
       // All 4 players must be match-ready (5+ grundlagen completed)
+      // At least one opponent must be an online player (not both offline)
       allow create: if isAuthenticated() &&
         request.resource.data.initiatedBy == request.auth.uid &&
         isSameClub(request.resource.data.clubId) &&
@@ -367,7 +375,8 @@ service cloud.firestore {
         playerIsMatchReady(request.resource.data.teamA.player1Id) &&
         playerIsMatchReady(request.resource.data.teamA.player2Id) &&
         playerIsMatchReady(request.resource.data.teamB.player1Id) &&
-        playerIsMatchReady(request.resource.data.teamB.player2Id);
+        playerIsMatchReady(request.resource.data.teamB.player2Id) &&
+        atLeastOneOpponentIsOnline(request.resource.data.teamB.player1Id, request.resource.data.teamB.player2Id);
 
       // Opponents can update (approve/reject) if they are one of the opponents and status is pending_opponent
       allow update: if isAuthenticated() &&

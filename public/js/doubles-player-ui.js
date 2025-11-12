@@ -213,6 +213,20 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
             feedbackEl.classList.remove('hidden');
             return;
         }
+
+        // NEW: Validate that at least one opponent is an online player
+        const opponent1Data = playerDocs[2]?.data(); // opponent1Id (index 2)
+        const opponent2Data = playerDocs[3]?.data(); // opponent2Id (index 3)
+
+        const opponent1IsOffline = opponent1Data?.isOffline === true;
+        const opponent2IsOffline = opponent2Data?.isOffline === true;
+
+        if (opponent1IsOffline && opponent2IsOffline) {
+            feedbackEl.textContent = 'Mindestens einer der beiden Gegner muss ein Online-Spieler sein (mit Code angemeldet). Beide Gegner können nicht Offline-Spieler sein.';
+            feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
+            feedbackEl.classList.remove('hidden');
+            return;
+        }
     } catch (error) {
         console.error('Error checking player readiness:', error);
         feedbackEl.textContent = 'Fehler beim Überprüfen der Spieler-Berechtigung.';
