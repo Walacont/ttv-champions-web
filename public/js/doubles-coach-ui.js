@@ -124,10 +124,10 @@ function clearDoublesSelections() {
  * @param {string} currentSubgroupFilter - Current subgroup filter
  */
 export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
-    // Filter match-ready players (grundlagenCompleted >= 5)
+    // Filter match-ready players (isMatchReady flag OR grundlagenCompleted >= 5)
     let matchReadyPlayers = clubPlayers.filter(p => {
-        const grundlagen = p.grundlagenCompleted || 0;
-        return grundlagen >= 5;
+        const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5;
+        return isMatchReady;
     });
 
     // Filter by subgroup if not "all"
