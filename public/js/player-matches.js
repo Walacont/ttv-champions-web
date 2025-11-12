@@ -715,6 +715,7 @@ function createMyRequestCard(request, playerB, userData, db) {
   div.className = "bg-white border border-gray-200 rounded-lg p-4 shadow-sm";
 
   const setsDisplay = formatSetsDisplay(request.sets);
+  const winner = getWinner(request.sets, userData, playerB, request.matchMode);
   const statusBadge = getStatusBadge(request.status, request.approvals);
   const timeAgo = formatTimestamp(request.createdAt);
 
@@ -729,6 +730,7 @@ function createMyRequestCard(request, playerB, userData, db) {
       <div class="flex justify-between items-start">
         <div class="flex-1">
           <p class="text-sm text-gray-600">${setsDisplay}</p>
+          <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
           ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
         </div>
         ${statusBadge}
@@ -772,7 +774,7 @@ function createIncomingRequestCard(request, playerA, userData, db) {
   div.className = "bg-white border border-indigo-200 rounded-lg p-4 shadow-md";
 
   const setsDisplay = formatSetsDisplay(request.sets);
-  const winner = getWinner(request.sets, playerA, userData);
+  const winner = getWinner(request.sets, playerA, userData, request.matchMode);
   const timeAgo = formatTimestamp(request.createdAt);
 
   div.innerHTML = `
@@ -829,7 +831,7 @@ function createProcessedRequestCard(request, playerA, userData, db) {
   div.className = `bg-white border ${borderColor} rounded-lg p-4 shadow-sm`;
 
   const setsDisplay = formatSetsDisplay(request.sets);
-  const winner = getWinner(request.sets, playerA, userData);
+  const winner = getWinner(request.sets, playerA, userData, request.matchMode);
   const statusBadge = getProcessedStatusBadge(request.status, request.approvals);
   const timeAgo = formatTimestamp(request.createdAt);
 
@@ -939,7 +941,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
   const setsDisplay = formatDoublesSetDisplay(request.sets);
 
   // Get winner
-  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name);
+  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name, request.matchMode);
 
   // Format timestamp
   const timeAgo = formatTimestamp(request.createdAt);
@@ -1007,7 +1009,7 @@ function createPendingDoublesCard(request, playersData, userData, db) {
   const setsDisplay = formatDoublesSetDisplay(request.sets);
 
   // Get winner
-  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name);
+  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name, request.matchMode);
 
   // Format timestamp
   const timeAgo = formatTimestamp(request.createdAt);
@@ -1124,15 +1126,40 @@ function formatDoublesSetDisplay(sets) {
 
 /**
  * Gets winner for doubles match
+ * @param {Array} sets - Array of set scores
+ * @param {String} p1Name - Team A player 1 name
+ * @param {String} p2Name - Team A player 2 name
+ * @param {String} p3Name - Team B player 1 name
+ * @param {String} p4Name - Team B player 2 name
+ * @param {String} matchMode - Optional match mode (single-set, best-of-3, best-of-5, best-of-7)
  */
-function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name) {
+function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'best-of-5') {
   if (!sets || sets.length === 0) return null;
 
   const winsA = sets.filter((s) => s.teamA > s.teamB && s.teamA >= 11).length;
   const winsB = sets.filter((s) => s.teamB > s.teamA && s.teamB >= 11).length;
 
-  if (winsA >= 3) return `${p1Name} & ${p2Name}`;
-  if (winsB >= 3) return `${p3Name} & ${p4Name}`;
+  // Determine required wins based on match mode
+  let setsToWin;
+  switch(matchMode) {
+    case 'single-set':
+      setsToWin = 1;
+      break;
+    case 'best-of-3':
+      setsToWin = 2;
+      break;
+    case 'best-of-5':
+      setsToWin = 3;
+      break;
+    case 'best-of-7':
+      setsToWin = 4;
+      break;
+    default:
+      setsToWin = 3;
+  }
+
+  if (winsA >= setsToWin) return `${p1Name} & ${p2Name}`;
+  if (winsB >= setsToWin) return `${p3Name} & ${p4Name}`;
   return null;
 }
 
@@ -1193,15 +1220,38 @@ function formatSetsDisplay(sets) {
 
 /**
  * Gets winner name
+ * @param {Array} sets - Array of set scores
+ * @param {Object} playerA - Player A data
+ * @param {Object} playerB - Player B data
+ * @param {String} matchMode - Optional match mode (single-set, best-of-3, best-of-5, best-of-7)
  */
-function getWinner(sets, playerA, playerB) {
+function getWinner(sets, playerA, playerB, matchMode = 'best-of-5') {
   if (!sets || sets.length === 0) return "Unbekannt";
 
   const winsA = sets.filter((s) => s.playerA > s.playerB && s.playerA >= 11).length;
   const winsB = sets.filter((s) => s.playerB > s.playerA && s.playerB >= 11).length;
 
-  if (winsA >= 3) return playerA?.firstName || "Spieler A";
-  if (winsB >= 3) return playerB?.firstName || "Spieler B";
+  // Determine required wins based on match mode
+  let setsToWin;
+  switch(matchMode) {
+    case 'single-set':
+      setsToWin = 1;
+      break;
+    case 'best-of-3':
+      setsToWin = 2;
+      break;
+    case 'best-of-5':
+      setsToWin = 3;
+      break;
+    case 'best-of-7':
+      setsToWin = 4;
+      break;
+    default:
+      setsToWin = 3;
+  }
+
+  if (winsA >= setsToWin) return playerA?.firstName || "Spieler A";
+  if (winsB >= setsToWin) return playerB?.firstName || "Spieler B";
   return "Unbekannt";
 }
 
