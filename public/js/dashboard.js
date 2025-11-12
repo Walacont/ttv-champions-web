@@ -529,69 +529,84 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'pending_opponent')
     );
 
+    // Store data from both listeners
+    let singlesData = [];
+    let doublesData = [];
+
     // Real-time listener for singles requests
     const unsubSingles = onSnapshot(incomingRequestsQuery, async (singlesSnapshot) => {
-        // Real-time listener for doubles requests
-        const unsubDoubles = onSnapshot(doublesRequestsQuery, async (doublesSnapshot) => {
-            allItems = [];
+        singlesData = [];
 
-            // Add singles match result requests
-            for (const docSnap of singlesSnapshot.docs) {
-                const data = docSnap.data();
-                const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
-                const playerAData = playerADoc.exists() ? playerADoc.data() : null;
-                allItems.push({
+        // Add singles match result requests
+        for (const docSnap of singlesSnapshot.docs) {
+            const data = docSnap.data();
+            const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+            const playerAData = playerADoc.exists() ? playerADoc.data() : null;
+            singlesData.push({
+                type: 'match-request',
+                matchType: 'singles',
+                id: docSnap.id,
+                data,
+                playerAData,
+                createdAt: data.createdAt
+            });
+        }
+
+        // Combine and render
+        combineAndRender();
+    });
+
+    // Real-time listener for doubles requests (PARALLEL, not nested!)
+    const unsubDoubles = onSnapshot(doublesRequestsQuery, async (doublesSnapshot) => {
+        doublesData = [];
+
+        // Add doubles match requests (only where current user is opponent)
+        for (const docSnap of doublesSnapshot.docs) {
+            const data = docSnap.data();
+
+            // Check if current user is one of the opponents (teamB)
+            if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
+                const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                    getDoc(doc(db, 'users', data.teamA.player1Id)),
+                    getDoc(doc(db, 'users', data.teamA.player2Id)),
+                    getDoc(doc(db, 'users', data.teamB.player1Id)),
+                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                ]);
+
+                doublesData.push({
                     type: 'match-request',
-                    matchType: 'singles',
+                    matchType: 'doubles',
                     id: docSnap.id,
                     data,
-                    playerAData,
+                    teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                    teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                    teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
                     createdAt: data.createdAt
                 });
             }
+        }
 
-            // Add doubles match requests (only where current user is opponent)
-            for (const docSnap of doublesSnapshot.docs) {
-                const data = docSnap.data();
-
-                // Check if current user is one of the opponents (teamB)
-                if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
-                    const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-                        getDoc(doc(db, 'users', data.teamA.player1Id)),
-                        getDoc(doc(db, 'users', data.teamA.player2Id)),
-                        getDoc(doc(db, 'users', data.teamB.player1Id)),
-                        getDoc(doc(db, 'users', data.teamB.player2Id))
-                    ]);
-
-                    allItems.push({
-                        type: 'match-request',
-                        matchType: 'doubles',
-                        id: docSnap.id,
-                        data,
-                        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-                        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-                        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-                        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
-                        createdAt: data.createdAt
-                    });
-                }
-            }
-
-            // Sort by creation date (newest first)
-            allItems.sort((a, b) => {
-                const timeA = a.createdAt?.toMillis?.() || 0;
-                const timeB = b.createdAt?.toMillis?.() || 0;
-                return timeB - timeA;
-            });
-
-            renderCombinedOverview(allItems, userData, db, showAll);
-            updateMatchRequestBadge(allItems.length);
-        });
-
-        unsubscribes.push(unsubDoubles);
+        // Combine and render
+        combineAndRender();
     });
 
-    unsubscribes.push(unsubSingles);
+    // Function to combine both data sources and render
+    function combineAndRender() {
+        allItems = [...singlesData, ...doublesData];
+
+        // Sort by creation date (newest first)
+        allItems.sort((a, b) => {
+            const timeA = a.createdAt?.toMillis?.() || 0;
+            const timeB = b.createdAt?.toMillis?.() || 0;
+            return timeB - timeA;
+        });
+
+        renderCombinedOverview(allItems, userData, db, showAll);
+        updateMatchRequestBadge(allItems.length);
+    }
+
+    unsubscribes.push(unsubSingles, unsubDoubles);
 }
 
 /**
