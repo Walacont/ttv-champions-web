@@ -18,10 +18,22 @@ let currentGrundlagenListener = null;
 export async function handleAddOfflinePlayer(e, db, currentUserData) {
     e.preventDefault();
     const form = e.target;
-    const firstName = form.querySelector('#firstName').value;
-    const lastName = form.querySelector('#lastName').value;
+
+    // Get submit button and disable it immediately to prevent double-clicks
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) {
+        if (submitButton.disabled) {
+            console.log('Form submission already in progress, ignoring...');
+            return; // Already processing
+        }
+        submitButton.disabled = true;
+        submitButton.textContent = 'Erstelle Spieler...';
+    }
+
+    const firstName = form.querySelector('#firstName').value.trim();
+    const lastName = form.querySelector('#lastName').value.trim();
     const emailField = form.querySelector('#email');
-    const email = emailField ? emailField.value : '';
+    const email = emailField ? emailField.value.trim() : '';
 
     // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
     // Include both checked and disabled checkboxes (disabled = Hauptgruppe, always included)
@@ -40,7 +52,36 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
 
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
+        // Re-enable button
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Spieler erstellen';
+        }
         return;
+    }
+
+    // Check for duplicate: same first name, last name, and club
+    try {
+        const duplicateQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', currentUserData.clubId),
+            where('firstName', '==', firstName),
+            where('lastName', '==', lastName)
+        );
+        const duplicateSnapshot = await getDocs(duplicateQuery);
+
+        if (!duplicateSnapshot.empty) {
+            alert(`Ein Spieler mit dem Namen "${firstName} ${lastName}" existiert bereits in deinem Verein.`);
+            // Re-enable button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Spieler erstellen';
+            }
+            return;
+        }
+    } catch (error) {
+        console.error('Error checking for duplicates:', error);
+        // Continue anyway, better to create than to block
     }
 
     // QTTR zu ELO Umrechnung
@@ -51,6 +92,11 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
         // Validierung: QTTR sollte zwischen 800 und 2500 liegen
         if (qttrPoints < 800 || qttrPoints > 2500) {
             alert('QTTR-Punkte müssen zwischen 800 und 2500 liegen.');
+            // Re-enable button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Spieler erstellen';
+            }
             return;
         }
         // Konservative Umrechnung: ELO = QTTR * 0.9, mindestens 800
@@ -95,12 +141,28 @@ export async function handleAddOfflinePlayer(e, db, currentUserData) {
             alert('Offline Spieler erfolgreich erstellt!');
             form.reset();
             document.getElementById('add-offline-player-modal').classList.add('hidden');
+            // Re-enable button for next use
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Spieler erstellen';
+            }
+        } else {
+            // For 'code' type, modal stays open showing the generated code
+            // Re-enable button so modal can be closed and form reused
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Spieler erstellen';
+            }
         }
-        // For 'code' type, modal stays open showing the generated code
 
     } catch (error) {
         console.error("Fehler beim Erstellen des Spielers:", error);
         alert('Fehler: Der Spieler konnte nicht erstellt werden.');
+        // Re-enable button on error
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Spieler erstellen';
+        }
     }
 }
 
