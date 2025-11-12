@@ -217,6 +217,39 @@
                     </div>
                 </div>
             </section>
+
+            <section id="migrations-section" class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-database mr-2 text-blue-600"></i>Daten-Migrationen
+                </h2>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                    <p class="text-sm text-blue-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <strong>Hinweis:</strong> Diese Tools aktualisieren bestehende Daten in der Datenbank.
+                        Bitte nur ausführen, wenn du weißt, was du tust!
+                    </p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- Doubles Pairings Names Migration -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-2 flex items-center">
+                            <i class="fas fa-user-friends mr-2 text-indigo-600"></i>
+                            Doppel-Paarungen: Namen hinzufügen
+                        </h3>
+                        <p class="text-sm text-gray-600 mb-4">
+                            Aktualisiert alle bestehenden Doppel-Paarungen (doublesPairings) und fügt die Spielernamen hinzu.
+                            Dies behebt das Problem, dass in der Doppel-Rangliste "Unbekannt" angezeigt wird.
+                        </p>
+                        <div class="flex items-center gap-4">
+                            <button id="migrate-doubles-names-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition">
+                                <i class="fas fa-play mr-2"></i>Migration starten
+                            </button>
+                            <div id="migration-status" class="text-sm font-medium"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
