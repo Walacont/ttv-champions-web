@@ -358,11 +358,13 @@ service cloud.firestore {
         request.resource.data.initiatedBy == request.auth.uid &&
         isSameClub(request.resource.data.clubId) &&
         request.resource.data.status == 'pending_opponent' &&
-        request.resource.data.keys().hasAll(['teamA', 'teamB', 'winningTeam', 'clubId', 'status', 'sets', 'initiatedBy', 'confirmations', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['teamA', 'teamB', 'winningTeam', 'winningPairingId', 'losingPairingId', 'clubId', 'status', 'sets', 'initiatedBy', 'confirmations', 'handicapUsed']) &&
         'player1Id' in request.resource.data.teamA &&
         'player2Id' in request.resource.data.teamA &&
+        'pairingId' in request.resource.data.teamA &&
         'player1Id' in request.resource.data.teamB &&
         'player2Id' in request.resource.data.teamB &&
+        'pairingId' in request.resource.data.teamB &&
         playerIsMatchReady(request.resource.data.teamA.player1Id) &&
         playerIsMatchReady(request.resource.data.teamA.player2Id) &&
         playerIsMatchReady(request.resource.data.teamB.player1Id) &&
