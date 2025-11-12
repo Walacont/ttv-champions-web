@@ -308,10 +308,27 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     orderBy("createdAt", "desc")
   );
 
+  // DOUBLES QUERIES
+  // Query for doubles requests created by me (initiatedBy)
+  const myDoublesRequestsQuery = query(
+    collection(db, "doublesMatchRequests"),
+    where("initiatedBy", "==", userData.id),
+    orderBy("createdAt", "desc")
+  );
+
+  // Query for all doubles requests in my club (we'll filter client-side for involvement)
+  const doublesInvolvedQuery = query(
+    collection(db, "doublesMatchRequests"),
+    where("clubId", "==", userData.clubId),
+    orderBy("createdAt", "desc")
+  );
+
   // Store all requests for combined rendering
   let myRequests = [];
   let incomingRequests = [];
   let processedRequests = [];
+  let myDoublesRequests = [];
+  let doublesInvolvedRequests = [];
   let renderTimeout = null;
 
   const debouncedRenderAll = () => {
@@ -329,7 +346,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         return bTime - aTime; // Most recent first
       });
 
-      // History:
+      // History SINGLES:
       // - My created requests: only approved/rejected (pending_coach stays in "Ausstehend")
       // - Requests I responded to: approved/rejected/pending_coach (I'm done with them)
       const completedMyRequests = myRequests.filter(r =>
@@ -338,7 +355,29 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       const completedProcessedRequests = processedRequests.filter(r =>
         r.status === "approved" || r.status === "rejected" || r.status === "pending_coach"
       );
-      const historyRequests = [...completedMyRequests, ...completedProcessedRequests].sort((a, b) => {
+
+      // History DOUBLES:
+      // - My created doubles requests: only approved/rejected
+      const completedMyDoublesRequests = myDoublesRequests.filter(r =>
+        r.status === "approved" || r.status === "rejected"
+      ).map(r => ({ ...r, matchType: 'doubles' }));
+
+      // - Doubles requests I'm involved in (as partner or opponent): approved/rejected/pending_coach
+      const completedDoublesInvolved = doublesInvolvedRequests.filter(r => {
+        const isInTeamA = r.teamA.player1Id === userData.id || r.teamA.player2Id === userData.id;
+        const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
+        const isInvolved = isInTeamA || isInTeamB;
+        const isInitiator = r.initiatedBy === userData.id;
+        // Only show if: involved AND NOT initiator AND completed/pending_coach
+        return isInvolved && !isInitiator && (r.status === "approved" || r.status === "rejected" || r.status === "pending_coach");
+      }).map(r => ({ ...r, matchType: 'doubles' }));
+
+      const historyRequests = [
+        ...completedMyRequests,
+        ...completedProcessedRequests,
+        ...completedMyDoublesRequests,
+        ...completedDoublesInvolved
+      ].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
         return bTime - aTime; // Most recent first
@@ -400,7 +439,33 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
     debouncedRenderAll();
   });
 
-  unsubscribes.push(myRequestsUnsubscribe, incomingRequestsUnsubscribe, processedRequestsUnsubscribe);
+  // Listen to my doubles requests
+  const myDoublesUnsubscribe = onSnapshot(myDoublesRequestsQuery, async (snapshot) => {
+    myDoublesRequests = [];
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      myDoublesRequests.push({ id: docSnap.id, ...data });
+    }
+    debouncedRenderAll();
+  });
+
+  // Listen to doubles requests I'm involved in
+  const doublesInvolvedUnsubscribe = onSnapshot(doublesInvolvedQuery, async (snapshot) => {
+    doublesInvolvedRequests = [];
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      doublesInvolvedRequests.push({ id: docSnap.id, ...data });
+    }
+    debouncedRenderAll();
+  });
+
+  unsubscribes.push(
+    myRequestsUnsubscribe,
+    incomingRequestsUnsubscribe,
+    processedRequestsUnsubscribe,
+    myDoublesUnsubscribe,
+    doublesInvolvedUnsubscribe
+  );
 }
 
 /**
@@ -744,6 +809,147 @@ function getStatusDescription(status, approvals) {
       const coachName = approvals?.coach?.coachName || "Coach";
       return `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Anfrage wurde von ${coachName} abgelehnt.</p>`;
     }
+  }
+
+  return "";
+}
+
+/**
+ * Creates a card for doubles requests in history
+ */
+function createDoublesHistoryCard(request, playersData, userData, db) {
+  const div = document.createElement("div");
+
+  // Determine status styling
+  let borderColor = "border-gray-200";
+  let bgColor = "bg-white";
+
+  if (request.status === "pending_coach") {
+    borderColor = "border-blue-200";
+    bgColor = "bg-blue-50";
+  } else if (request.status === "approved") {
+    borderColor = "border-green-200";
+    bgColor = "bg-green-50";
+  } else if (request.status === "rejected") {
+    borderColor = "border-red-200";
+    bgColor = "bg-red-50";
+  }
+
+  div.className = `${bgColor} border ${borderColor} rounded-lg p-4 shadow-sm`;
+
+  // Format player names
+  const teamAPlayer1Name = playersData.teamAPlayer1 ? `${playersData.teamAPlayer1.firstName}` : "Unbekannt";
+  const teamAPlayer2Name = playersData.teamAPlayer2 ? `${playersData.teamAPlayer2.firstName}` : "Unbekannt";
+  const teamBPlayer1Name = playersData.teamBPlayer1 ? `${playersData.teamBPlayer1.firstName}` : "Unbekannt";
+  const teamBPlayer2Name = playersData.teamBPlayer2 ? `${playersData.teamBPlayer2.firstName}` : "Unbekannt";
+
+  // Format sets display (doubles sets use teamA/teamB)
+  const setsDisplay = formatDoublesSetDisplay(request.sets);
+
+  // Get winner
+  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name);
+
+  // Format timestamp
+  const timeAgo = formatTimestamp(request.createdAt);
+
+  // Get status badge
+  const statusBadge = getDoublesStatusBadge(request.status);
+
+  // Build HTML
+  div.innerHTML = `
+    <div class="mb-3">
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded font-medium">🎾 Doppel</span>
+          </div>
+          <p class="font-semibold text-gray-800">
+            ${teamAPlayer1Name} & ${teamAPlayer2Name} <span class="text-gray-500">vs</span> ${teamBPlayer1Name} & ${teamBPlayer2Name}
+          </p>
+        </div>
+        ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
+      </div>
+
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex-1">
+          <p class="text-sm text-gray-600">${setsDisplay}</p>
+          ${winner ? `<p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>` : ''}
+          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+        </div>
+        ${statusBadge}
+      </div>
+
+      ${getDoublesStatusDescription(request.status)}
+    </div>
+  `;
+
+  return div;
+}
+
+/**
+ * Formats doubles sets display (teamA/teamB format)
+ */
+function formatDoublesSetDisplay(sets) {
+  if (!sets || sets.length === 0) return "Kein Ergebnis";
+
+  const setsStr = sets.map((s) => `${s.teamA}:${s.teamB}`).join(", ");
+  const winsA = sets.filter((s) => s.teamA > s.teamB && s.teamA >= 11).length;
+  const winsB = sets.filter((s) => s.teamB > s.teamA && s.teamB >= 11).length;
+
+  return `${winsA}:${winsB} (${setsStr})`;
+}
+
+/**
+ * Gets winner for doubles match
+ */
+function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name) {
+  if (!sets || sets.length === 0) return null;
+
+  const winsA = sets.filter((s) => s.teamA > s.teamB && s.teamA >= 11).length;
+  const winsB = sets.filter((s) => s.teamB > s.teamA && s.teamB >= 11).length;
+
+  if (winsA >= 3) return `${p1Name} & ${p2Name}`;
+  if (winsB >= 3) return `${p3Name} & ${p4Name}`;
+  return null;
+}
+
+/**
+ * Gets status badge for doubles requests
+ */
+function getDoublesStatusBadge(status) {
+  if (status === "pending_opponent") {
+    return '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Wartet auf Gegner</span>';
+  }
+
+  if (status === "pending_coach") {
+    return '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">⏳ Wartet auf Coach</span>';
+  }
+
+  if (status === "approved") {
+    return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Genehmigt</span>';
+  }
+
+  if (status === "rejected") {
+    return '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">✗ Abgelehnt</span>';
+  }
+
+  return "";
+}
+
+/**
+ * Gets status description for doubles requests
+ */
+function getDoublesStatusDescription(status) {
+  if (status === "pending_coach") {
+    return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
+  }
+
+  if (status === "approved") {
+    return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde genehmigt und das Match wurde erstellt.</p>';
+  }
+
+  if (status === "rejected") {
+    return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Doppel-Anfrage wurde abgelehnt.</p>';
   }
 
   return "";
@@ -1253,14 +1459,37 @@ async function renderHistoryRequests(requests, userData, db) {
 
   for (const request of requestsToShow) {
     let card;
-    if (request.playerAId === userData.id) {
-      // My sent request
-      const playerBData = await getUserData(request.playerBId, db);
-      card = createMyRequestCard(request, playerBData, userData, db);
+
+    if (request.matchType === 'doubles') {
+      // DOUBLES REQUEST
+      const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+
+      const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+        getDoc(doc(db, 'users', request.teamA.player1Id)),
+        getDoc(doc(db, 'users', request.teamA.player2Id)),
+        getDoc(doc(db, 'users', request.teamB.player1Id)),
+        getDoc(doc(db, 'users', request.teamB.player2Id))
+      ]);
+
+      const playersData = {
+        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+      };
+
+      card = createDoublesHistoryCard(request, playersData, userData, db);
     } else {
-      // Incoming request - use processed card for history (always completed)
-      const playerAData = await getUserData(request.playerAId, db);
-      card = createProcessedRequestCard(request, playerAData, userData, db);
+      // SINGLES REQUEST
+      if (request.playerAId === userData.id) {
+        // My sent request
+        const playerBData = await getUserData(request.playerBId, db);
+        card = createMyRequestCard(request, playerBData, userData, db);
+      } else {
+        // Incoming request - use processed card for history (always completed)
+        const playerAData = await getUserData(request.playerAId, db);
+        card = createProcessedRequestCard(request, playerAData, userData, db);
+      }
     }
     container.appendChild(card);
   }
