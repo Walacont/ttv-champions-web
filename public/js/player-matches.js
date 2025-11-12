@@ -320,8 +320,9 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         return bTime - aTime; // Most recent first
       });
 
-      // History: Completed requests (approved/rejected) AND requests waiting for coach
-      // Include pending_coach because player has already processed it
+      // History:
+      // - My created requests: only approved/rejected (pending_coach stays in "Ausstehend")
+      // - Requests I responded to: approved/rejected/pending_coach (I'm done with them)
       const completedMyRequests = myRequests.filter(r =>
         r.status === "approved" || r.status === "rejected"
       );
