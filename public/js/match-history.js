@@ -326,7 +326,19 @@ function renderMatchHistory(container, matches, userData) {
     matchDiv.className = "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition";
 
     const isWinner = match.winnerId === userData.id;
-    const matchTime = match.timestamp?.toDate() || match.playedAt?.toDate() || new Date();
+
+    // Debug: Check which timestamp field exists
+    if (!match.timestamp && !match.playedAt) {
+      console.warn('⚠️ Match has no timestamp or playedAt:', {
+        id: match.id,
+        hasTimestamp: !!match.timestamp,
+        hasPlayedAt: !!match.playedAt,
+        hasCreatedAt: !!match.createdAt,
+        fields: Object.keys(match)
+      });
+    }
+
+    const matchTime = match.timestamp?.toDate() || match.playedAt?.toDate() || match.createdAt?.toDate() || new Date();
     const formattedTime = formatMatchTime(matchTime);
     const formattedDate = formatMatchDate(matchTime);
 
