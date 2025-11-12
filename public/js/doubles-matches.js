@@ -139,7 +139,7 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const opponentPairingId = createPairingId(opponent1Id, opponent2Id);
 
     // Create request document
-    const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), {
+    const requestData = {
         teamA: {
             player1Id: initiatorId,
             player2Id: partnerId,
@@ -164,9 +164,20 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         status: 'pending_opponent', // pending_opponent → pending_coach → approved
         clubId: currentUserData.clubId,
         createdAt: serverTimestamp()
+    };
+
+    console.log('📤 Creating doubles match request:', {
+        initiator: initiatorId,
+        partner: partnerId,
+        opponents: [opponent1Id, opponent2Id],
+        winningTeam,
+        status: 'pending_opponent',
+        clubId: currentUserData.clubId
     });
 
-    console.log('Doubles match request created:', requestRef.id);
+    const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), requestData);
+
+    console.log('✅ Doubles match request created successfully! ID:', requestRef.id);
     return { success: true, requestId: requestRef.id };
 }
 
