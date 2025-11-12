@@ -187,9 +187,10 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
         return;
     }
 
-    // Validate all players are match-ready (5+ Grundlagen)
+    // Validate all players are match-ready (5+ Grundlagen) and load player data
+    let playerDocs;
     try {
-        const playerDocs = await Promise.all([
+        playerDocs = await Promise.all([
             getDoc(doc(db, 'users', currentUserData.id)),
             getDoc(doc(db, 'users', partnerId)),
             getDoc(doc(db, 'users', opponent1Id)),
