@@ -1303,8 +1303,15 @@ export async function loadCombinedPendingRequests(userData, db) {
       }
 
       // Process doubles requests (only where current user is opponent)
+      console.log(`📥 Found ${doublesSnapshot.docs.length} doubles requests with status pending_opponent`);
+
       for (const docSnap of doublesSnapshot.docs) {
         const data = docSnap.data();
+        console.log(`🔍 Checking doubles request ${docSnap.id}:`, {
+          teamB: data.teamB,
+          currentUserId: userData.id,
+          isOpponent: data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id
+        });
 
         // Check if current user is one of the opponents (teamB)
         if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
@@ -1314,6 +1321,8 @@ export async function loadCombinedPendingRequests(userData, db) {
             getDoc(doc(db, 'users', data.teamB.player1Id)),
             getDoc(doc(db, 'users', data.teamB.player2Id))
           ]);
+
+          console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
 
           allRequests.push({
             id: docSnap.id,
@@ -1326,6 +1335,8 @@ export async function loadCombinedPendingRequests(userData, db) {
           });
         }
       }
+
+      console.log(`📋 Total pending requests to display: ${allRequests.length} (${allRequests.filter(r => r.type === 'singles').length} singles, ${allRequests.filter(r => r.type === 'doubles').length} doubles)`);
 
       // Sort by createdAt
       allRequests.sort((a, b) => {
