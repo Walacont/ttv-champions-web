@@ -139,13 +139,12 @@ export function populateDoublesPlayerDropdowns(players, currentUserId) {
 
 /**
  * Handles doubles match request submission
+ * NOTE: e.preventDefault() is already called in player-matches.js before this function
  * @param {Event} e - Form submit event
  * @param {Object} db - Firestore database instance
  * @param {Object} currentUserData - Current user data
  */
 export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
-    e.preventDefault();
-
     const feedbackEl = document.getElementById('match-request-feedback');
 
     // Get player selections
