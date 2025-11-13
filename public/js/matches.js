@@ -1065,7 +1065,8 @@ function formatSetsForCoach(sets) {
 }
 
 /**
- * Gets winner name
+ * Gets winner name from set scores
+ * Works for all match modes (Best of 3, 5, 7, single set)
  */
 function getWinnerName(sets, playerA, playerB) {
     if (!sets || sets.length === 0) return 'Unbekannt';
@@ -1073,9 +1074,12 @@ function getWinnerName(sets, playerA, playerB) {
     const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
     const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
 
-    if (winsA >= 3) return playerA?.firstName || 'Spieler A';
-    if (winsB >= 3) return playerB?.firstName || 'Spieler B';
-    return 'Unbekannt';
+    // Determine winner by who won more sets (works for all match modes)
+    if (winsA > winsB) return playerA?.firstName || 'Spieler A';
+    if (winsB > winsA) return playerB?.firstName || 'Spieler B';
+
+    // If equal sets won, it's a draw (shouldn't happen in normal matches)
+    return 'Unentschieden';
 }
 
 /**
