@@ -59,13 +59,32 @@ const PHASES = {
 
 /**
  * Initialize supercompensation display
+ * Non-blocking: Loads data in background
  * @param {Object} db - Firestore database instance
  * @param {Object} currentUserData - Current user's data
  */
-export async function initializeSupercompensation(db, currentUserData) {
-    try {
-        console.log('[Supercompensation] Initializing for user:', currentUserData.id);
+export function initializeSupercompensation(db, currentUserData) {
+    console.log('[Supercompensation] Initializing for user:', currentUserData.id);
 
+    // Show loading state immediately
+    displayLoadingState();
+
+    // Load data in background (non-blocking)
+    loadAndDisplaySupercompensation(db, currentUserData)
+        .catch(error => {
+            console.error('[Supercompensation] Error initializing:', error);
+            displayError();
+        });
+
+    console.log('[Supercompensation] Initialized (loading data in background)');
+}
+
+/**
+ * Load and display supercompensation data
+ * @private
+ */
+async function loadAndDisplaySupercompensation(db, currentUserData) {
+    try {
         // Get last training date
         const lastTraining = await getLastTraining(db, currentUserData.id, currentUserData.clubId);
 
@@ -86,10 +105,10 @@ export async function initializeSupercompensation(db, currentUserData) {
         // Draw visualization
         drawSupercompensationCurve(hoursSince);
 
-        console.log('[Supercompensation] Initialized successfully');
+        console.log('[Supercompensation] Data loaded and displayed successfully');
     } catch (error) {
-        console.error('[Supercompensation] Error initializing:', error);
-        displayError();
+        console.error('[Supercompensation] Error loading data:', error);
+        throw error;
     }
 }
 
@@ -209,6 +228,21 @@ function updateSupercompensationUI(lastTraining, hoursSince, phase) {
 
     // Update recommendation
     document.getElementById('supercomp-recommendation').textContent = phase.recommendation;
+}
+
+/**
+ * Display loading state while data is being fetched
+ */
+function displayLoadingState() {
+    // Elements already show "Lade..." from HTML, so we can keep it simple
+    // Or optionally update with a more explicit loading message
+    const statusDiv = document.getElementById('supercomp-status');
+    if (statusDiv) {
+        statusDiv.innerHTML = `
+            <span class="text-2xl">⏳</span>
+            <span class="text-lg font-semibold text-gray-600">Lädt...</span>
+        `;
+    }
 }
 
 /**

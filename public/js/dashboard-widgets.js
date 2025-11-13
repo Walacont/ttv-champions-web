@@ -91,25 +91,32 @@ let currentUserId = null;
 
 /**
  * Initialize widget management system
+ * Non-blocking: Shows defaults immediately, then loads saved settings in background
  * @param {Object} firestoreInstance - Firestore database instance
  * @param {string} userId - Current user ID
  */
-export async function initializeWidgetSystem(firestoreInstance, userId) {
+export function initializeWidgetSystem(firestoreInstance, userId) {
     db = firestoreInstance;
     currentUserId = userId;
 
     console.log('[Widget System] Initializing for user:', userId);
 
-    // Load user's widget settings
-    await loadWidgetSettings();
-
-    // Apply settings to dashboard
+    // Use default settings immediately (non-blocking)
+    currentSettings = getDefaultSettings();
     applyWidgetSettings();
 
     // Setup event listeners
     setupWidgetControls();
 
-    console.log('[Widget System] Initialized successfully');
+    // Load user's saved settings in background (non-blocking)
+    loadWidgetSettings().then(() => {
+        console.log('[Widget System] Saved settings loaded, applying...');
+        applyWidgetSettings();
+    }).catch(error => {
+        console.warn('[Widget System] Could not load saved settings, using defaults:', error);
+    });
+
+    console.log('[Widget System] Initialized with defaults (loading saved settings in background)');
 }
 
 /**
