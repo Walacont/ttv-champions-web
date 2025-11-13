@@ -772,15 +772,18 @@ exports.processApprovedMatchRequest = onDocumentWritten(
         clubId,
         sets,
         requestedBy,
+        matchMode,
       } = afterData;
 
       // Create match document
       const matchRef = await db.collection(CONFIG.COLLECTIONS.MATCHES).add({
         playerAId,
         playerBId,
+        playerIds: [playerAId, playerBId], // For match history queries
         winnerId,
         loserId,
         handicapUsed: handicapUsed || false,
+        matchMode: matchMode || 'best-of-5', // Use matchMode from request, default to best-of-5
         sets: sets || [],
         reportedBy: requestedBy,
         clubId,
@@ -1756,6 +1759,7 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
         clubId,
         sets,
         initiatedBy,
+        matchMode,
       } = afterData;
 
       // Create doubles match document
@@ -1766,6 +1770,7 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
         winningPairingId,
         losingPairingId,
         handicapUsed: handicapUsed || false,
+        matchMode: matchMode || 'best-of-5', // Use matchMode from request, default to best-of-5
         sets: sets || [],
         reportedBy: initiatedBy,
         clubId,
