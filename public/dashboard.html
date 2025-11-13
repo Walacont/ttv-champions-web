@@ -136,9 +136,9 @@
 
         <main>
             <div id="tab-content-overview" class="tab-content">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="dashboard-widgets-container">
                     <!-- Info Banner explaining the 3 systems -->
-                    <div class="lg:col-span-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-4 rounded-lg">
+                    <div data-widget-id="info-banner" class="dashboard-widget lg:col-span-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-4 rounded-lg">
                         <div class="flex items-start">
                             <div class="flex-shrink-0">
                                 <svg class="h-5 w-5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
@@ -157,7 +157,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                    <div data-widget-id="statistics" class="dashboard-widget lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-lg font-semibold text-gray-500 mb-4 text-center">Deine Statistiken</h2>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <!-- XP Card -->
@@ -208,7 +208,7 @@
                         </div>
                     </div>
                     <!-- Season Countdown -->
-                    <div class="lg:col-span-3 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 p-4 rounded-xl shadow-md">
+                    <div data-widget-id="season-countdown" class="dashboard-widget lg:col-span-3 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 p-4 rounded-xl shadow-md">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="bg-yellow-400 p-3 rounded-full">
@@ -226,7 +226,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="lg:col-span-3 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 p-6 rounded-xl shadow-md">
+                    <div data-widget-id="match-requests" class="dashboard-widget lg:col-span-3 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 p-6 rounded-xl shadow-md">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-semibold text-indigo-800">🏓 Wettkampf-Anfragen</h2>
                             <div class="flex items-center gap-2">
@@ -245,7 +245,7 @@
                     </div>
 
                     <!-- Superkompensations-Box -->
-                    <div class="lg:col-span-3 bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl shadow-md border-2 border-green-200">
+                    <div data-widget-id="supercompensation" class="dashboard-widget lg:col-span-3 bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl shadow-md border-2 border-green-200">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-xl font-semibold text-gray-800">📊 Deine Trainings-Balance</h2>
                             <span class="cursor-help text-green-600 hover:text-green-800" title="Superkompensation zeigt den optimalen Zeitpunkt für dein nächstes Training">ⓘ</span>
@@ -291,27 +291,34 @@
                         </div>
                     </div>
 
-                    <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div data-widget-id="rank" class="dashboard-widget bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">Dein Rang</h2>
                         <div id="rank-info" class="text-gray-600"><p>Rang wird geladen...</p></div>
                     </div>
-                    
-                    <div class="bg-white p-6 rounded-xl shadow-md">
+
+                    <div data-widget-id="skill-rival" class="dashboard-widget bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">⚡ Skill-Rivale (Elo)</h2>
                         <div id="rival-skill-info" class="text-gray-600"><p>Daten werden geladen...</p></div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md">
+                    <div data-widget-id="effort-rival" class="dashboard-widget bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">💪 Fleiß-Rivale (XP)</h2>
                         <div id="rival-effort-info" class="text-gray-600"><p>Daten werden geladen...</p></div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md md:col-span-1 lg:col-span-2">
+                    <div data-widget-id="points-history" class="dashboard-widget bg-white p-6 rounded-xl shadow-md md:col-span-1 lg:col-span-2">
                         <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
                         <ul id="points-history" class="space-y-3 max-h-64 overflow-y-auto"><li>Historie wird geladen...</li></ul>
                     </div>
-                    <div class="md:col-span-2 lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                    <div data-widget-id="challenges" class="dashboard-widget md:col-span-2 lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">Aktive Challenges</h2>
                         <div id="challenges-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><p>Challenges werden geladen...</p></div>
                     </div>
+                </div>
+
+                <!-- Edit Dashboard Button -->
+                <div class="mt-8 text-center">
+                    <button id="edit-dashboard-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-all transform hover:scale-105">
+                        <i class="fas fa-edit mr-2"></i> Startseite bearbeiten
+                    </button>
                 </div>
             </div>
             
@@ -699,6 +706,42 @@
             <div id="training-day-modal-content" class="space-y-3">
                 <!-- Content will be dynamically populated -->
             </div>
+        </div>
+    </div>
+
+    <!-- Widget Settings Modal -->
+    <div id="widget-settings-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-2xl leading-6 font-bold text-gray-900">Startseite anpassen</h3>
+                    <p class="text-sm text-gray-600 mt-1">Wähle aus, welche Widgets auf deiner Startseite angezeigt werden sollen</p>
+                </div>
+                <button id="close-widget-settings-modal" class="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <div class="space-y-3 max-h-96 overflow-y-auto mb-6">
+                <!-- Widget toggles will be dynamically generated here -->
+                <div id="widget-settings-list"></div>
+            </div>
+
+            <div class="flex justify-between items-center pt-4 border-t">
+                <button id="reset-widgets-button" class="text-gray-600 hover:text-gray-800 font-medium text-sm transition-colors">
+                    <i class="fas fa-undo mr-1"></i> Auf Standard zurücksetzen
+                </button>
+                <div class="flex gap-3">
+                    <button id="cancel-widget-settings-button" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors">
+                        Abbrechen
+                    </button>
+                    <button id="save-widget-settings-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors shadow-md">
+                        <i class="fas fa-save mr-2"></i> Speichern
+                    </button>
+                </div>
+            </div>
+
+            <div id="widget-settings-feedback" class="hidden mt-4 text-center"></div>
         </div>
     </div>
 

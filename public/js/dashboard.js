@@ -18,6 +18,7 @@ import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
 import { initializeSupercompensation } from './supercompensation.js';
+import { initializeWidgetSystem } from './dashboard-widgets.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -101,6 +102,9 @@ async function initializeDashboard(userData) {
 
     // Initialize supercompensation display
     initializeSupercompensation(db, userData);
+
+    // Initialize widget system (customizable dashboard)
+    initializeWidgetSystem(db, userData.id);
 
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
