@@ -43,91 +43,134 @@ export function loadMatchHistory(db, userData) {
   console.log("[Match History] 🔄 Setting up real-time listener for user:", userData.id, "club:", userData.clubId);
   container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
-  // Query matches for this club
-  const matchesRef = collection(db, "matches");
-  const matchesQuery = query(
-    matchesRef,
+  // Query SINGLES matches for this club
+  const singlesMatchesRef = collection(db, "matches");
+  const singlesQuery = query(
+    singlesMatchesRef,
     where("clubId", "==", userData.clubId),
     where("processed", "==", true),
     limit(100)
   );
 
-  // Set up real-time listener
-  matchHistoryUnsubscribe = onSnapshot(
-    matchesQuery,
-    async (snapshot) => {
-      console.log("[Match History] 📥 Real-time update received:", snapshot.docs.length, "matches");
+  // Query DOUBLES matches for this club
+  const doublesMatchesRef = collection(db, "doublesMatches");
+  const doublesQuery = query(
+    doublesMatchesRef,
+    where("clubId", "==", userData.clubId),
+    where("processed", "==", true),
+    limit(100)
+  );
 
-      if (snapshot.docs.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
-        return;
-      }
+  // Set up real-time listeners for BOTH singles and doubles
+  const unsubscribeSingles = onSnapshot(
+    singlesQuery,
+    async (singlesSnapshot) => {
+      // Wait for doubles snapshot as well
+      const unsubscribeDoubles = onSnapshot(
+        doublesQuery,
+        async (doublesSnapshot) => {
+          console.log("[Match History] 📥 Real-time update received:",
+            singlesSnapshot.docs.length, "singles,",
+            doublesSnapshot.docs.length, "doubles");
 
-      // Filter matches where user is involved (client-side filtering)
-      const matches = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(match => {
-          // Check if user is involved in this match
-          return (
-            match.playerAId === userData.id ||
-            match.playerBId === userData.id ||
-            match.winnerId === userData.id ||
-            match.loserId === userData.id ||
-            (match.playerIds && match.playerIds.includes(userData.id))
+          // Combine and filter singles matches
+          const singlesMatches = singlesSnapshot.docs
+            .map(doc => ({ id: doc.id, type: 'singles', ...doc.data() }))
+            .filter(match => {
+              // Check if user is involved in this singles match
+              return (
+                match.playerAId === userData.id ||
+                match.playerBId === userData.id ||
+                match.winnerId === userData.id ||
+                match.loserId === userData.id ||
+                (match.playerIds && match.playerIds.includes(userData.id))
+              );
+            });
+
+          // Filter doubles matches where user is involved
+          const doublesMatches = doublesSnapshot.docs
+            .map(doc => ({ id: doc.id, type: 'doubles', ...doc.data() }))
+            .filter(match => {
+              // Check if user is in any team
+              return (
+                match.teamA?.player1Id === userData.id ||
+                match.teamA?.player2Id === userData.id ||
+                match.teamB?.player1Id === userData.id ||
+                match.teamB?.player2Id === userData.id
+              );
+            });
+
+          // Combine all matches
+          const allMatches = [...singlesMatches, ...doublesMatches].slice(0, 50);
+
+          console.log("[Match History] User matches found:",
+            singlesMatches.length, "singles,",
+            doublesMatches.length, "doubles");
+
+          if (allMatches.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+            return;
+          }
+
+          // Sort by timestamp descending
+          allMatches.sort((a, b) => {
+            const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
+            const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
+            return timeB - timeA;
+          });
+
+          // Get player names and ELO changes for all matches
+          const matchesWithDetails = await Promise.all(
+            allMatches.map(match => enrichMatchData(db, match, userData))
           );
-        })
-        .slice(0, 50); // Limit to 50 matches for performance
 
-      console.log("[Match History] User matches found:", matches.length, "out of", snapshot.docs.length);
+          // Render matches (limit to first 4 for player view to keep page short)
+          const limitedMatches = matchesWithDetails.slice(0, 4);
+          renderMatchHistory(container, limitedMatches, userData);
 
-      // Sort by timestamp descending
-      matches.sort((a, b) => {
-        const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
-        const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
-        return timeB - timeA;
-      });
+          // Add "show more" button if there are more matches
+          if (matchesWithDetails.length > 4) {
+            const showMoreContainer = document.createElement('div');
+            showMoreContainer.className = 'text-center mt-4';
 
-      if (matches.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
-        return;
-      }
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
+            showMoreBtn.innerHTML = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe anzeigen`;
 
-      // Get player names and ELO changes for all matches
-      const matchesWithDetails = await Promise.all(
-        matches.map(match => enrichMatchData(db, match, userData))
+            showMoreBtn.addEventListener('click', () => {
+              // Clear container and render all matches
+              renderMatchHistory(container, matchesWithDetails, userData);
+              showMoreContainer.remove(); // Remove the button
+            });
+
+            showMoreContainer.appendChild(showMoreBtn);
+            container.appendChild(showMoreContainer);
+          }
+        },
+        (error) => {
+          console.error("[Match History] ❌ Doubles listener error:", error);
+          console.error("[Match History] Error details:", error.message, error.code);
+          container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie: ${error.message}</p>`;
+        }
       );
 
-      // Render matches (limit to first 4 for player view to keep page short)
-      const limitedMatches = matchesWithDetails.slice(0, 4);
-      renderMatchHistory(container, limitedMatches, userData);
-
-      // Add "show more" button if there are more matches
-      if (matchesWithDetails.length > 4) {
-        const showMoreContainer = document.createElement('div');
-        showMoreContainer.className = 'text-center mt-4';
-
-        const showMoreBtn = document.createElement('button');
-        showMoreBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
-        showMoreBtn.innerHTML = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe anzeigen`;
-
-        showMoreBtn.addEventListener('click', () => {
-          // Clear container and render all matches
-          renderMatchHistory(container, matchesWithDetails, userData);
-          showMoreContainer.remove(); // Remove the button
-        });
-
-        showMoreContainer.appendChild(showMoreBtn);
-        container.appendChild(showMoreContainer);
-      }
+      // Store the doubles unsubscribe function
+      matchHistoryUnsubscribe = unsubscribeDoubles;
     },
     (error) => {
-      console.error("[Match History] ❌ Real-time listener error:", error);
+      console.error("[Match History] ❌ Singles listener error:", error);
       console.error("[Match History] Error details:", error.message, error.code);
-      container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie: ${error.message}</p>`;
+      container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie: ${error.message}</p>`;
     }
   );
 
-  return matchHistoryUnsubscribe;
+  // Return cleanup function that unsubscribes from both listeners
+  return () => {
+    if (matchHistoryUnsubscribe) {
+      matchHistoryUnsubscribe();
+    }
+    unsubscribeSingles();
+  };
 }
 
 /**
@@ -141,33 +184,77 @@ async function enrichMatchData(db, match, userData) {
   const enriched = { ...match };
 
   try {
-    // Determine opponent ID
-    const opponentId = match.winnerId === userData.id ? match.loserId : match.winnerId;
+    // Handle DOUBLES matches differently
+    if (match.type === 'doubles') {
+      // Determine user's team and opponent team
+      const isTeamA = match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
+      const userTeam = isTeamA ? match.teamA : match.teamB;
+      const opponentTeam = isTeamA ? match.teamB : match.teamA;
 
-    // Check if opponentId is valid before attempting to fetch
-    if (!opponentId || opponentId === '' || opponentId === null || opponentId === undefined) {
-      enriched.opponentName = 'Unbekannt';
-      enriched.eloChange = null;
-      enriched.pointsGained = null;
-      return enriched;
-    }
+      // Get partner ID (the other player on user's team)
+      const partnerId = userTeam.player1Id === userData.id ? userTeam.player2Id : userTeam.player1Id;
 
-    // Get opponent data
-    try {
-      const opponentDoc = await getDoc(doc(db, "users", opponentId));
-      if (opponentDoc.exists()) {
-        const opponentData = opponentDoc.data();
-        enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
-      } else {
+      // Fetch all player names
+      try {
+        const [partnerDoc, opp1Doc, opp2Doc] = await Promise.all([
+          getDoc(doc(db, "users", partnerId)),
+          getDoc(doc(db, "users", opponentTeam.player1Id)),
+          getDoc(doc(db, "users", opponentTeam.player2Id))
+        ]);
+
+        const partnerName = partnerDoc.exists()
+          ? `${partnerDoc.data().firstName || ''} ${partnerDoc.data().lastName || ''}`.trim()
+          : 'Unbekannt';
+        const opp1Name = opp1Doc.exists()
+          ? opp1Doc.data().firstName || 'Unbekannt'
+          : 'Unbekannt';
+        const opp2Name = opp2Doc.exists()
+          ? opp2Doc.data().firstName || 'Unbekannt'
+          : 'Unbekannt';
+
+        enriched.partnerName = partnerName;
+        enriched.opponentName = `${opp1Name} & ${opp2Name}`;
+      } catch (error) {
+        console.warn("Could not fetch doubles player data:", error);
+        enriched.partnerName = 'Partner';
+        enriched.opponentName = 'Gegner-Team';
+      }
+
+      // Determine if user's team won
+      enriched.isWinner = (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
+
+    } else {
+      // Handle SINGLES matches
+      // Determine opponent ID
+      const opponentId = match.winnerId === userData.id ? match.loserId : match.winnerId;
+
+      // Check if opponentId is valid before attempting to fetch
+      if (!opponentId || opponentId === '' || opponentId === null || opponentId === undefined) {
         enriched.opponentName = 'Unbekannt';
+        enriched.eloChange = null;
+        enriched.pointsGained = null;
+        return enriched;
       }
-    } catch (opponentError) {
-      // Failed to fetch opponent (probably from different club or deleted)
-      // Only log if it's not a permission-denied error (which is expected for cross-club matches)
-      if (opponentError.code !== 'permission-denied') {
-        console.warn("Could not fetch opponent data:", opponentError.code || opponentError.message);
+
+      // Get opponent data
+      try {
+        const opponentDoc = await getDoc(doc(db, "users", opponentId));
+        if (opponentDoc.exists()) {
+          const opponentData = opponentDoc.data();
+          enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
+        } else {
+          enriched.opponentName = 'Unbekannt';
+        }
+      } catch (opponentError) {
+        // Failed to fetch opponent (probably from different club or deleted)
+        // Only log if it's not a permission-denied error (which is expected for cross-club matches)
+        if (opponentError.code !== 'permission-denied') {
+          console.warn("Could not fetch opponent data:", opponentError.code || opponentError.message);
+        }
+        enriched.opponentName = 'Gegner';
       }
-      enriched.opponentName = 'Gegner';
+
+      enriched.isWinner = match.winnerId === userData.id;
     }
 
     // Get ELO change from pointsHistory
@@ -264,7 +351,8 @@ function renderMatchHistory(container, matches, userData) {
     const matchDiv = document.createElement("div");
     matchDiv.className = "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition";
 
-    const isWinner = match.winnerId === userData.id;
+    const isWinner = match.isWinner !== undefined ? match.isWinner : (match.winnerId === userData.id);
+    const isDoubles = match.type === 'doubles';
 
     // Debug: Check which timestamp field exists
     if (!match.timestamp && !match.playedAt) {
@@ -282,7 +370,15 @@ function renderMatchHistory(container, matches, userData) {
     const formattedDate = formatMatchDate(matchTime);
 
     // Format sets
-    const setsDisplay = formatSets(match.sets, match.playerAId === userData.id);
+    let isPlayerA;
+    if (isDoubles) {
+      // For doubles, check if user is in teamA
+      isPlayerA = match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
+    } else {
+      // For singles, check if user is playerA
+      isPlayerA = match.playerAId === userData.id;
+    }
+    const setsDisplay = formatSets(match.sets, isPlayerA);
 
     // ELO change display
     const eloChangeDisplay = match.eloChange !== null
@@ -306,15 +402,33 @@ function renderMatchHistory(container, matches, userData) {
           </div>
 
           <div class="flex items-center gap-3 mb-2">
-            ${isWinner
-              ? `<span class="text-2xl">🏆</span>
-                 <div>
-                   <p class="text-sm font-semibold text-green-700">Sieg gegen ${match.opponentName}</p>
-                 </div>`
-              : `<span class="text-2xl">😔</span>
-                 <div>
-                   <p class="text-sm font-semibold text-red-700">Niederlage gegen ${match.opponentName}</p>
-                 </div>`
+            ${isDoubles
+              ? (isWinner
+                  ? `<span class="text-2xl">🏆</span>
+                     <div>
+                       <p class="text-sm font-semibold text-green-700">
+                         <span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded mr-1">Doppel</span>
+                         Sieg mit ${match.partnerName}
+                       </p>
+                       <p class="text-xs text-gray-600 mt-0.5">gegen ${match.opponentName}</p>
+                     </div>`
+                  : `<span class="text-2xl">😔</span>
+                     <div>
+                       <p class="text-sm font-semibold text-red-700">
+                         <span class="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded mr-1">Doppel</span>
+                         Niederlage mit ${match.partnerName}
+                       </p>
+                       <p class="text-xs text-gray-600 mt-0.5">gegen ${match.opponentName}</p>
+                     </div>`)
+              : (isWinner
+                  ? `<span class="text-2xl">🏆</span>
+                     <div>
+                       <p class="text-sm font-semibold text-green-700">Sieg gegen ${match.opponentName}</p>
+                     </div>`
+                  : `<span class="text-2xl">😔</span>
+                     <div>
+                       <p class="text-sm font-semibold text-red-700">Niederlage gegen ${match.opponentName}</p>
+                     </div>`)
             }
           </div>
 
@@ -341,17 +455,26 @@ function renderMatchHistory(container, matches, userData) {
 
 /**
  * Format sets for display
- * @param {Array} sets - Array of set objects with playerA and playerB scores
- * @param {boolean} isPlayerA - Whether current user is playerA
+ * @param {Array} sets - Array of set objects with playerA/playerB or teamA/teamB scores
+ * @param {boolean} isPlayerA - Whether current user is playerA (for singles) or teamA (for doubles)
  * @returns {string} Formatted sets string
  */
 function formatSets(sets, isPlayerA) {
   if (!sets || sets.length === 0) return 'N/A';
 
   return sets.map(set => {
-    const myScore = isPlayerA ? set.playerA : set.playerB;
-    const oppScore = isPlayerA ? set.playerB : set.playerA;
-    return `${myScore}:${oppScore}`;
+    // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
+    if (set.teamA !== undefined && set.teamB !== undefined) {
+      // Doubles match
+      const myScore = isPlayerA ? set.teamA : set.teamB;
+      const oppScore = isPlayerA ? set.teamB : set.teamA;
+      return `${myScore}:${oppScore}`;
+    } else {
+      // Singles match
+      const myScore = isPlayerA ? set.playerA : set.playerB;
+      const oppScore = isPlayerA ? set.playerB : set.playerA;
+      return `${myScore}:${oppScore}`;
+    }
   }).join(', ');
 }
 
