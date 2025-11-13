@@ -32,8 +32,9 @@ class SPAEnhancer {
             }
         });
 
-        // Store initial state
-        const currentPath = window.location.pathname;
+        // Store initial state with FULL URL (including query string and hash)
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        console.log("[SPA] init() - storing initial state:", currentPath);
         history.replaceState({ url: currentPath }, '', currentPath);
     }
 
@@ -277,9 +278,24 @@ class SPAEnhancer {
     }
 }
 
-// Initialize SPA enhancer when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+// Initialize SPA enhancer when DOM is ready (only once!)
+if (!window.spaEnhancer) {
+    console.log("[SPA] Initializing SPAEnhancer for the first time");
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.spaEnhancer = new SPAEnhancer();
+
+            // Provide a global navigate function for programmatic navigation
+            window.spaNavigate = (url) => {
+                if (window.spaEnhancer) {
+                    window.spaEnhancer.navigateTo(url);
+                } else {
+                    window.location.href = url;
+                }
+            };
+        });
+    } else {
         window.spaEnhancer = new SPAEnhancer();
 
         // Provide a global navigate function for programmatic navigation
@@ -290,18 +306,9 @@ if (document.readyState === 'loading') {
                 window.location.href = url;
             }
         };
-    });
+    }
 } else {
-    window.spaEnhancer = new SPAEnhancer();
-
-    // Provide a global navigate function for programmatic navigation
-    window.spaNavigate = (url) => {
-        if (window.spaEnhancer) {
-            window.spaEnhancer.navigateTo(url);
-        } else {
-            window.location.href = url;
-        }
-    };
+    console.log("[SPA] SPAEnhancer already initialized, skipping");
 }
 
 // Export for module usage
