@@ -9,9 +9,12 @@ class SPAEnhancer {
         this.currentPageScripts = [];
         this.cache = new Map();
         this.isNavigating = false;
+        this.loadingIndicator = null;
+        this.eventCallbacks = {};
 
         // Initialize
         this.init();
+        this.createLoadingIndicator();
     }
 
     init() {
@@ -167,10 +170,19 @@ class SPAEnhancer {
             // Clean up old page scripts
             this.cleanup();
 
+            // Trigger navigation start event
+            this.trigger('navigationStart', { url });
+
             // Replace body
             const newBody = newDoc.body;
             document.body.className = newBody.className;
             document.body.innerHTML = newBody.innerHTML;
+
+            // Add page transition animation
+            const mainContent = document.getElementById('main-content') ||
+                               document.getElementById('app-content') ||
+                               document.body;
+            this.addPageTransition(mainContent);
 
             // Update or add styles
             this.updateStyles(newDoc);
@@ -183,6 +195,9 @@ class SPAEnhancer {
 
             // Hide loader
             this.hideLoader();
+
+            // Trigger navigation end event
+            this.trigger('navigationEnd', { url });
 
         } catch (error) {
             console.error('Navigation failed:', error);
@@ -269,13 +284,38 @@ class SPAEnhancer {
     /**
      * Show loading indicator
      */
+    /**
+     * Create loading indicator
+     */
+    createLoadingIndicator() {
+        if (!this.loadingIndicator) {
+            this.loadingIndicator = document.createElement('div');
+            this.loadingIndicator.className = 'spa-loading-indicator';
+            this.loadingIndicator.innerHTML = '<div class="spa-loading-bar"></div>';
+            document.body.appendChild(this.loadingIndicator);
+        }
+    }
+
+    /**
+     * Show loading indicator
+     */
     showLoader() {
+        // Show new loading bar
+        if (this.loadingIndicator) {
+            this.loadingIndicator.style.display = 'block';
+            this.loadingIndicator.classList.remove('loading-complete');
+        }
+
+        // Also show existing page loader if present
         const loader = document.getElementById('spa-loader') ||
                       document.getElementById('page-loader');
         if (loader) {
             loader.style.display = 'flex';
             loader.classList.remove('hidden');
         }
+
+        // Trigger event
+        this.trigger('loadStart');
     }
 
     /**
@@ -283,12 +323,24 @@ class SPAEnhancer {
      */
     hideLoader() {
         setTimeout(() => {
+            // Hide loading bar with animation
+            if (this.loadingIndicator) {
+                this.loadingIndicator.classList.add('loading-complete');
+                setTimeout(() => {
+                    this.loadingIndicator.style.display = 'none';
+                }, 300);
+            }
+
+            // Hide existing page loader
             const loader = document.getElementById('spa-loader') ||
                           document.getElementById('page-loader');
             if (loader) {
                 loader.style.display = 'none';
                 loader.classList.add('hidden');
             }
+
+            // Trigger event
+            this.trigger('loadEnd');
         }, 100);
     }
 
@@ -313,6 +365,40 @@ class SPAEnhancer {
             }
         } catch (error) {
             console.warn('Prefetch failed:', url, error);
+        }
+    }
+
+    /**
+     * Event system - Register callback
+     */
+    on(event, callback) {
+        if (!this.eventCallbacks[event]) {
+            this.eventCallbacks[event] = [];
+        }
+        this.eventCallbacks[event].push(callback);
+    }
+
+    /**
+     * Event system - Trigger event
+     */
+    trigger(event, data) {
+        if (this.eventCallbacks[event]) {
+            this.eventCallbacks[event].forEach(callback => {
+                try {
+                    callback(data);
+                } catch (error) {
+                    console.error(`Error in ${event} callback:`, error);
+                }
+            });
+        }
+    }
+
+    /**
+     * Add page transition animations
+     */
+    addPageTransition(element) {
+        if (element) {
+            element.style.animation = 'fadeIn 0.3s ease-in-out';
         }
     }
 }
