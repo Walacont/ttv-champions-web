@@ -170,19 +170,28 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         return;
       }
 
-      // Progressive auto-add: Add next set when the leader is one set away from winning
-      // This ensures the deciding set is always available when needed
-      // Examples for Best of 5 (need 3 to win, oneSetFromWinning = 2):
-      //   - At 2:0 or 0:2 or 2:1 or 1:2 → Add 4th set (someone has 2)
-      //   - At 2:2 → Add 5th set (both have 2)
-      // Examples for Best of 7 (need 4 to win, oneSetFromWinning = 3):
-      //   - At 3:0 or 0:3 or 3:1 or 1:3 or 3:2 or 2:3 → Add 6th set (someone has 3)
-      //   - At 3:3 → Add 7th set (both have 3)
-      const oneSetFromWinning = setsToWin - 1;
+      // Calculate how many fields we need based on current score
+      // Formula: gespielte Sätze + (Sätze zum Sieg - höchste Satzgewinne)
+      //
+      // Best of 5 Examples (setsToWin = 3):
+      //   1:0 → 1 + (3-1) = 3 Felder
+      //   2:0 → 2 + (3-2) = 3 Felder
+      //   1:1 → 2 + (3-1) = 4 Felder
+      //   2:1 → 3 + (3-2) = 4 Felder
+      //   2:2 → 4 + (3-2) = 5 Felder
+      //
+      // Best of 7 Examples (setsToWin = 4):
+      //   1:0 → 1 + (4-1) = 4 Felder
+      //   2:0 → 2 + (4-2) = 4 Felder
+      //   3:0 → 3 + (4-3) = 4 Felder
+      //   2:2 → 4 + (4-2) = 6 Felder
+      //   3:3 → 6 + (4-3) = 7 Felder
+      const totalSetsPlayed = playerAWins + playerBWins;
       const maxWins = Math.max(playerAWins, playerBWins);
+      const fieldsNeeded = totalSetsPlayed + (setsToWin - maxWins);
 
-      // Add a new set if the leader is one set away from winning
-      if (maxWins >= oneSetFromWinning) {
+      // Add fields if needed
+      if (sets.length < fieldsNeeded) {
         sets.push({ playerA: "", playerB: "" });
         renderSets();
       }
