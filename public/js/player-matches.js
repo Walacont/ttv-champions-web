@@ -170,13 +170,28 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         return;
       }
 
-      // Auto-add next set ONLY when it's tied (safest and clearest logic)
-      // This prevents adding sets too early (e.g., at 3:2 in Best of 7)
-      // Examples:
-      // - Best of 3: Add 3rd set at 1:1
-      // - Best of 5: Add 5th set at 2:2
-      // - Best of 7: Add 6th set at 2:2, add 7th set at 3:3
-      if (playerAWins === playerBWins && playerAWins > 0) {
+      // Calculate how many fields we need based on current score
+      // Formula: gespielte Sätze + (Sätze zum Sieg - höchste Satzgewinne)
+      //
+      // Best of 5 Examples (setsToWin = 3):
+      //   1:0 → 1 + (3-1) = 3 Felder
+      //   2:0 → 2 + (3-2) = 3 Felder
+      //   1:1 → 2 + (3-1) = 4 Felder
+      //   2:1 → 3 + (3-2) = 4 Felder
+      //   2:2 → 4 + (3-2) = 5 Felder
+      //
+      // Best of 7 Examples (setsToWin = 4):
+      //   1:0 → 1 + (4-1) = 4 Felder
+      //   2:0 → 2 + (4-2) = 4 Felder
+      //   3:0 → 3 + (4-3) = 4 Felder
+      //   2:2 → 4 + (4-2) = 6 Felder
+      //   3:3 → 6 + (4-3) = 7 Felder
+      const totalSetsPlayed = playerAWins + playerBWins;
+      const maxWins = Math.max(playerAWins, playerBWins);
+      const fieldsNeeded = totalSetsPlayed + (setsToWin - maxWins);
+
+      // Add fields if needed
+      if (sets.length < fieldsNeeded) {
         sets.push({ playerA: "", playerB: "" });
         renderSets();
       }
