@@ -69,11 +69,14 @@ class SPAEnhancer {
 
         // Don't intercept navigation to these pages (they need full reload):
         // - Landing page (index.html)
-        // - Role-based dashboards when switching roles
+        // - Role-based dashboards (main entry points that need fresh auth state)
         // - Authentication pages
         const noInterceptPages = [
             '/index.html',
             '/',
+            '/dashboard.html',   // Player dashboard - needs full reload
+            '/coach.html',       // Coach dashboard - needs full reload
+            '/admin.html',       // Admin dashboard - needs full reload
             '/onboarding.html',
             '/register.html'
         ];
@@ -86,7 +89,7 @@ class SPAEnhancer {
             linkPath = '/' + linkPath;
         }
 
-        console.log("[SPA] Checking if should intercept - linkPath:", linkPath, "noInterceptPages:", noInterceptPages);
+        console.log("[SPA] Checking if should intercept - linkPath:", linkPath);
 
         // Check if the link is to a no-intercept page
         if (noInterceptPages.includes(linkPath)) {
@@ -94,15 +97,8 @@ class SPAEnhancer {
             return false;
         }
 
-        // Don't intercept if navigating between different role dashboards
-        const currentPage = window.location.pathname;
-        const roleDashboards = ['/dashboard.html', '/coach.html', '/admin.html'];
-
-        if (roleDashboards.includes(currentPage) && roleDashboards.includes(linkPath) && currentPage !== linkPath) {
-            console.log("[SPA] Not intercepting role dashboard switch:", currentPage, "→", linkPath);
-            return false;
-        }
-
+        // All other internal links can use SPA navigation
+        console.log("[SPA] Intercepting link (SPA navigation)");
         return true;
     }
 
