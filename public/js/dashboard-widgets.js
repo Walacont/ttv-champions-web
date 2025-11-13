@@ -39,7 +39,7 @@ const WIDGETS = [
         name: '🏓 Wettkampf-Anfragen',
         description: 'Ausstehende und eingegangene Match-Anfragen',
         default: true,
-        essential: false
+        essential: true // Cannot be disabled - required for match system
     },
     {
         id: 'supercompensation',
