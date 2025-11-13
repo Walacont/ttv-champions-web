@@ -52,9 +52,9 @@ export async function initPushNotifications(firebaseApp, db, auth, options = {})
 
     // If permission granted but no token, get the token silently
     if (permissionStatus === 'granted' && !hasExisting) {
-        console.log('[Notifications] Permission granted but no token, requesting token...');
+        console.log('[Notifications] Permission granted but no token, getting token silently...');
         try {
-            const result = await fcmManager.requestPermission();
+            const result = await fcmManager.getTokenSilently();
             if (result.success) {
                 console.log('[Notifications] Token obtained silently');
                 if (onPermissionGranted) {

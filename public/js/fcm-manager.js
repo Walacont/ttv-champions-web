@@ -92,6 +92,53 @@ class FCMManager {
     }
 
     /**
+     * Get FCM token silently (when permission already granted)
+     * Does NOT request permission - assumes permission is already granted
+     */
+    async getTokenSilently() {
+        if (!this.isSupported()) {
+            throw new Error('Push notifications are not supported in this browser');
+        }
+
+        if (Notification.permission !== 'granted') {
+            throw new Error('Permission not granted - cannot get token silently');
+        }
+
+        console.log('[FCM] Getting token silently (permission already granted)...');
+
+        try {
+            // Register service worker
+            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+            console.log('[FCM] Service Worker registered:', registration);
+
+            // Wait for service worker to be ready
+            await navigator.serviceWorker.ready;
+
+            // Get FCM token (NO permission request!)
+            const token = await getToken(this.messaging, {
+                vapidKey: this.vapidKey,
+                serviceWorkerRegistration: registration
+            });
+
+            if (token) {
+                console.log('[FCM] Token obtained silently:', token);
+                this.currentToken = token;
+
+                // Save token to Firestore
+                await this.saveTokenToFirestore(token);
+
+                return { success: true, token };
+            } else {
+                throw new Error('No registration token available');
+            }
+
+        } catch (error) {
+            console.error('[FCM] Error getting token silently:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Save FCM token to Firestore
      */
     async saveTokenToFirestore(token) {
