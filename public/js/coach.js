@@ -13,6 +13,7 @@ import { calculateHandicap, handleGeneratePairings, renderPairingsInModal, updat
 import { initializeDoublesCoachUI, populateDoublesDropdowns, handleDoublesMatchSave, getCurrentMatchType, setDoublesSetScoreInput } from './doubles-coach-ui.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { handleAddOfflinePlayer, handlePlayerListActions, loadPlayerList, loadPlayersForDropdown, updateCoachGrundlagenDisplay, loadSubgroupsForPlayerForm, openEditPlayerModal, handleSavePlayerSubgroups, updatePointsPlayerDropdown } from './player-management.js';
+import { initPushNotifications } from './init-notifications.js';
 import { loadPointsHistoryForCoach, populateHistoryFilterDropdown, handlePointsFormSubmit, handleReasonChange, setupMilestoneSelectors, setupManualPartnerSystem } from './points-management.js';
 import { loadLeaguesForSelector, checkAndResetClubSeason } from './season.js';
 import { initializeExercisePartnerSystemCoach, initializeChallengePartnerSystemCoach } from './milestone-management.js';
@@ -72,6 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         await checkAndResetClubSeason(userData.clubId, db);
 
                         initializeCoachPage(currentUserData);
+
+                        // Initialize push notifications (auto-prompt after 3 seconds)
+                        initPushNotifications(app, db, auth, {
+                            autoPrompt: true,
+                            promptDelay: 3000,
+                            showOnlyOnce: true
+                        });
                     } else {
                         showAuthError(`Ihre Rolle ('${userData.role}') ist nicht berechtigt.`);
                     }

@@ -4,6 +4,8 @@ import { getAuth, onAuthStateChanged, connectAuthEmulator, verifyBeforeUpdateEma
 import { getFirestore, doc, getDoc, updateDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { firebaseConfig } from './firebase-config.js';
+import { requestNotificationPermission, disableNotifications, updateNotificationPreferences, getNotificationPreferences, getNotificationStatus } from './init-notifications.js';
+import { getFCMManager } from './fcm-manager.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -271,3 +273,170 @@ updateEmailForm.addEventListener('submit', async (e) => {
         `;
     }
 });
+// ========================================================================
+// ===== NOTIFICATION SETTINGS =====
+// ========================================================================
+
+// Initialize notification settings when user is loaded
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        await initializeNotificationSettings();
+    }
+});
+
+async function initializeNotificationSettings() {
+    const statusText = document.getElementById('notification-status-text');
+    const toggleBtn = document.getElementById('toggle-notifications-btn');
+    const preferencesSection = document.getElementById('notification-preferences');
+    const notSupportedMsg = document.getElementById('notification-not-supported');
+    const savePreferencesBtn = document.getElementById('save-preferences-btn');
+    const preferencesFeedback = document.getElementById('preferences-feedback');
+
+    // Check if supported
+    const status = getNotificationStatus();
+
+    if (!status.supported) {
+        statusText.textContent = 'Dein Browser unterstützt keine Push-Benachrichtigungen';
+        toggleBtn.disabled = true;
+        notSupportedMsg.classList.remove('hidden');
+        return;
+    }
+
+    // Update UI based on current permission status
+    const permission = status.permission;
+
+    if (permission === 'granted') {
+        // Check if FCM token exists
+        const fcmManager = getFCMManager();
+        const hasToken = fcmManager ? await fcmManager.checkExistingPermission() : false;
+
+        if (hasToken) {
+            statusText.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Benachrichtigungen aktiviert</span>';
+            toggleBtn.textContent = 'Deaktivieren';
+            toggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
+            toggleBtn.disabled = false;
+
+            // Show preferences
+            preferencesSection.classList.remove('hidden');
+
+            // Load current preferences
+            await loadNotificationPreferences();
+        } else {
+            statusText.innerHTML = '<span class="text-gray-600">Benachrichtigungen verfügbar</span>';
+            toggleBtn.textContent = 'Aktivieren';
+            toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
+            toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            toggleBtn.disabled = false;
+            preferencesSection.classList.add('hidden');
+        }
+    } else if (permission === 'denied') {
+        statusText.innerHTML = '<span class="text-red-600"><i class="fas fa-times-circle mr-1"></i>Benachrichtigungen blockiert</span>';
+        toggleBtn.disabled = true;
+        toggleBtn.textContent = 'Blockiert';
+
+        // Show instructions how to unblock
+        preferencesFeedback.innerHTML = `
+            <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mt-2">
+                <p class="text-sm text-yellow-800">
+                    <strong>Benachrichtigungen sind blockiert.</strong><br>
+                    Um sie zu aktivieren, musst du sie in deinen Browser-Einstellungen erlauben.
+                </p>
+            </div>
+        `;
+    } else {
+        // Default / not yet asked
+        statusText.textContent = 'Benachrichtigungen verfügbar';
+        toggleBtn.textContent = 'Aktivieren';
+        toggleBtn.disabled = false;
+        preferencesSection.classList.add('hidden');
+    }
+
+    // Toggle button click handler
+    toggleBtn.addEventListener('click', async () => {
+        toggleBtn.disabled = true;
+
+        if (toggleBtn.textContent === 'Aktivieren') {
+            // Enable notifications
+            const result = await requestNotificationPermission();
+
+            if (result.success) {
+                window.notifications.success('Benachrichtigungen aktiviert! 🔔');
+                await initializeNotificationSettings(); // Refresh UI
+            } else {
+                if (result.reason === 'permission_denied') {
+                    window.notifications.error('Benachrichtigungen wurden blockiert');
+                } else {
+                    window.notifications.error('Fehler beim Aktivieren der Benachrichtigungen');
+                }
+                toggleBtn.disabled = false;
+            }
+        } else {
+            // Disable notifications
+            const success = await disableNotifications();
+
+            if (success) {
+                window.notifications.success('Benachrichtigungen deaktiviert');
+                await initializeNotificationSettings(); // Refresh UI
+            } else {
+                window.notifications.error('Fehler beim Deaktivieren');
+                toggleBtn.disabled = false;
+            }
+        }
+    });
+
+    // Save preferences button
+    savePreferencesBtn.addEventListener('click', async () => {
+        savePreferencesBtn.disabled = true;
+        preferencesFeedback.innerHTML = '<span class="text-gray-600">Speichere...</span>';
+
+        try {
+            const preferences = {
+                matchApproved: document.getElementById('pref-match-approved').checked,
+                matchRequest: document.getElementById('pref-match-request').checked,
+                trainingReminder: document.getElementById('pref-training-reminder').checked,
+                challengeAvailable: document.getElementById('pref-challenge-available').checked,
+                rankUp: document.getElementById('pref-rank-up').checked,
+                matchSuggestion: document.getElementById('pref-match-suggestion').checked
+            };
+
+            const success = await updateNotificationPreferences(preferences);
+
+            if (success) {
+                preferencesFeedback.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Präferenzen gespeichert!</span>';
+                window.notifications.success('Präferenzen gespeichert!');
+            } else {
+                preferencesFeedback.innerHTML = '<span class="text-red-600">Fehler beim Speichern</span>';
+                window.notifications.error('Fehler beim Speichern der Präferenzen');
+            }
+        } catch (error) {
+            console.error('Error saving preferences:', error);
+            preferencesFeedback.innerHTML = '<span class="text-red-600">Fehler beim Speichern</span>';
+            window.notifications.error('Fehler beim Speichern der Präferenzen');
+        } finally {
+            savePreferencesBtn.disabled = false;
+
+            // Clear feedback after 3 seconds
+            setTimeout(() => {
+                preferencesFeedback.innerHTML = '';
+            }, 3000);
+        }
+    });
+}
+
+async function loadNotificationPreferences() {
+    try {
+        const preferences = await getNotificationPreferences();
+
+        if (preferences) {
+            document.getElementById('pref-match-approved').checked = preferences.matchApproved !== false;
+            document.getElementById('pref-match-request').checked = preferences.matchRequest !== false;
+            document.getElementById('pref-training-reminder').checked = preferences.trainingReminder !== false;
+            document.getElementById('pref-challenge-available').checked = preferences.challengeAvailable !== false;
+            document.getElementById('pref-rank-up').checked = preferences.rankUp !== false;
+            document.getElementById('pref-match-suggestion').checked = preferences.matchSuggestion === true;
+        }
+    } catch (error) {
+        console.error('Error loading preferences:', error);
+    }
+}

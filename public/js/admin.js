@@ -8,6 +8,7 @@ import { firebaseConfig } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { initializeExerciseMilestones, getExerciseMilestones, isExerciseTieredPointsEnabled, initializeExercisePartnerSystem, getExercisePartnerSettings } from './milestone-management.js';
+import { initPushNotifications } from './init-notifications.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -93,6 +94,13 @@ onAuthStateChanged(auth, async (user) => {
                  const userData = userDocSnap.data();
                 if (userData.role === 'admin') {
                     initializeAdminPage(userData, user);
+
+                    // Initialize push notifications (auto-prompt after 3 seconds)
+                    initPushNotifications(app, db, auth, {
+                        autoPrompt: true,
+                        promptDelay: 3000,
+                        showOnlyOnce: true
+                    });
                 } else {
                      showAuthError(`Ihre Rolle ('${userData.role}') hat keine Admin-Berechtigung.`);
                 }
