@@ -1948,3 +1948,327 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
 // 2. PlayerB approves → notify coach (Singles)
 // 3. Coach approves/rejects → notify both players
 // 4. PlayerB rejects → notify playerA
+// ========================================================================
+// ===== PUSH NOTIFICATIONS =====
+// ========================================================================
+
+/**
+ * Send push notification to a user
+ * @param {string} userId - User ID
+ * @param {string} title - Notification title
+ * @param {string} body - Notification body
+ * @param {object} data - Additional data
+ * @return {Promise<boolean>} Success status
+ */
+async function sendPushNotification(userId, title, body, data = {}) {
+  try {
+    // Get user's FCM token
+    const userDoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(userId).get();
+
+    if (!userDoc.exists) {
+      logger.warn(`User ${userId} not found`);
+      return false;
+    }
+
+    const userData = userDoc.data();
+
+    if (!userData.fcmToken || !userData.notificationsEnabled) {
+      logger.info(`User ${userId} does not have notifications enabled`);
+      return false;
+    }
+
+    // Check notification preferences
+    const preferences = userData.notificationPreferences || {};
+    const notificationType = data.type;
+
+    if (notificationType && preferences[notificationType] === false) {
+      logger.info(`User ${userId} has disabled ${notificationType} notifications`);
+      return false;
+    }
+
+    // Send FCM message
+    const message = {
+      token: userData.fcmToken,
+      notification: {
+        title,
+        body,
+      },
+      data: {
+        ...data,
+        url: data.url || "/dashboard.html",
+      },
+      webpush: {
+        fcmOptions: {
+          link: data.url || "/dashboard.html",
+        },
+        notification: {
+          icon: "/icons/icon-192x192.png",
+          badge: "/icons/badge-72x72.png",
+          vibrate: [200, 100, 200],
+          requireInteraction: false,
+        },
+      },
+    };
+
+    await admin.messaging().send(message);
+    logger.info(`✅ Push notification sent to user ${userId}`);
+    return true;
+  } catch (error) {
+    logger.error(`Error sending push notification to ${userId}:`, error);
+
+    // If token is invalid, clear it from Firestore
+    if (error.code === "messaging/invalid-registration-token" ||
+        error.code === "messaging/registration-token-not-registered") {
+      await db.collection(CONFIG.COLLECTIONS.USERS).doc(userId).update({
+        fcmToken: null,
+        notificationsEnabled: false,
+      });
+      logger.info(`Cleared invalid FCM token for user ${userId}`);
+    }
+
+    return false;
+  }
+}
+
+/**
+ * Send push notification when match is approved by coach
+ */
+exports.sendMatchApprovedNotification = onDocumentWritten(
+  {
+    document: "matches/{matchId}",
+    region: CONFIG.REGION,
+  },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : null;
+    const afterData = event.data.after.exists ? event.data.after.data() : null;
+
+    // Check if status changed to approved
+    if (!afterData || afterData.status !== "approved") {
+      return null;
+    }
+
+    if (beforeData && beforeData.status === "approved") {
+      return null; // Already approved
+    }
+
+    logger.info(`Match ${event.params.matchId} approved, sending notifications...`);
+
+    // Get player names
+    const playerADoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(afterData.playerA).get();
+    const playerBDoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(afterData.playerB).get();
+
+    const playerAName = playerADoc.exists ? playerADoc.data().firstName : "Spieler";
+    const playerBName = playerBDoc.exists ? playerBDoc.data().firstName : "Gegner";
+
+    // Send notification to both players
+    const promises = [
+      sendPushNotification(
+        afterData.playerA,
+        "🏓 Match genehmigt!",
+        `Dein Match gegen ${playerBName} wurde genehmigt.`,
+        {
+          type: "matchApproved",
+          matchId: event.params.matchId,
+          url: "/dashboard.html",
+        }
+      ),
+      sendPushNotification(
+        afterData.playerB,
+        "🏓 Match genehmigt!",
+        `Dein Match gegen ${playerAName} wurde genehmigt.`,
+        {
+          type: "matchApproved",
+          matchId: event.params.matchId,
+          url: "/dashboard.html",
+        }
+      ),
+    ];
+
+    await Promise.all(promises);
+
+    return null;
+  }
+);
+
+/**
+ * Send push notification when match request is created
+ */
+exports.sendMatchRequestNotification = onDocumentCreated(
+  {
+    document: "matchRequests/{requestId}",
+    region: CONFIG.REGION,
+  },
+  async (event) => {
+    const data = event.data.data();
+
+    logger.info(`Match request ${event.params.requestId} created, sending notification...`);
+
+    // Get requester name
+    const requesterDoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(data.requester).get();
+    const requesterName = requesterDoc.exists ? requesterDoc.data().firstName : "Jemand";
+
+    // Send notification to playerB
+    await sendPushNotification(
+      data.playerB,
+      "🏓 Neue Match-Anfrage",
+      `${requesterName} möchte ein Match gegen dich spielen.`,
+      {
+        type: "matchRequest",
+        requestId: event.params.requestId,
+        url: "/dashboard.html",
+      }
+    );
+
+    return null;
+  }
+);
+
+/**
+ * Send push notification when user ranks up
+ */
+exports.sendRankUpNotification = onDocumentWritten(
+  {
+    document: "users/{userId}",
+    region: CONFIG.REGION,
+  },
+  async (event) => {
+    const beforeData = event.data.before.exists ? event.data.before.data() : null;
+    const afterData = event.data.after.exists ? event.data.after.data() : null;
+
+    if (!beforeData || !afterData) return null;
+
+    // Check if rank changed
+    const oldRank = beforeData.rank || "Bronze";
+    const newRank = afterData.rank || "Bronze";
+
+    if (oldRank === newRank) return null;
+
+    // Define rank hierarchy
+    const ranks = ["Bronze", "Silber", "Gold", "Platin", "Diamant", "Meister", "Legende"];
+    const oldIndex = ranks.indexOf(oldRank);
+    const newIndex = ranks.indexOf(newRank);
+
+    // Only send notification if ranking up (not down)
+    if (newIndex <= oldIndex) return null;
+
+    logger.info(`User ${event.params.userId} ranked up to ${newRank}, sending notification...`);
+
+    // Send notification
+    await sendPushNotification(
+      event.params.userId,
+      `🎉 ${newRank} erreicht!`,
+      `Glückwunsch! Du bist zu ${newRank} aufgestiegen!`,
+      {
+        type: "rankUp",
+        rank: newRank,
+        url: "/dashboard.html",
+      }
+    );
+
+    return null;
+  }
+);
+
+/**
+ * Send push notification for training reminders
+ * Runs daily at 17:00 (5 PM)
+ */
+exports.sendTrainingReminders = onSchedule(
+  {
+    schedule: "0 17 * * *", // Every day at 17:00
+    timeZone: "Europe/Berlin",
+    region: CONFIG.REGION,
+  },
+  async (event) => {
+    logger.info("Running training reminders...");
+
+    try {
+      // Get today's date (start of day)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Get tomorrow's date
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Find all trainings for tomorrow
+      const trainingsSnapshot = await db.collection("trainings")
+        .where("date", ">=", admin.firestore.Timestamp.fromDate(today))
+        .where("date", "<", admin.firestore.Timestamp.fromDate(tomorrow))
+        .get();
+
+      if (trainingsSnapshot.empty) {
+        logger.info("No trainings tomorrow");
+        return null;
+      }
+
+      logger.info(`Found ${trainingsSnapshot.size} trainings tomorrow`);
+
+      // Send notifications to all players in the club
+      const promises = [];
+
+      for (const trainingDoc of trainingsSnapshot.docs) {
+        const training = trainingDoc.data();
+
+        // Get all users in this club
+        const usersSnapshot = await db.collection(CONFIG.COLLECTIONS.USERS)
+          .where("clubId", "==", training.clubId)
+          .where("role", "==", "player")
+          .get();
+
+        for (const userDoc of usersSnapshot.docs) {
+          const time = training.time || "18:00";
+
+          promises.push(
+            sendPushNotification(
+              userDoc.id,
+              "🏓 Training morgen!",
+              `Erinnerung: Training morgen um ${time} Uhr`,
+              {
+                type: "trainingReminder",
+                trainingId: trainingDoc.id,
+                url: "/dashboard.html",
+              }
+            )
+          );
+        }
+      }
+
+      const results = await Promise.allSettled(promises);
+      const successCount = results.filter((r) => r.status === "fulfilled" && r.value === true).length;
+
+      logger.info(`Training reminders sent: ${successCount}/${promises.length}`);
+
+      return null;
+    } catch (error) {
+      logger.error("Error sending training reminders:", error);
+      return null;
+    }
+  }
+);
+
+// ========================================================================
+// ===== TEST FUNCTION: Send Test Notification =====
+// ========================================================================
+exports.sendTestNotification = onCall(
+  {region: CONFIG.REGION},
+  async (request) => {
+    const userId = request.auth?.uid;
+
+    if (!userId) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    await sendPushNotification(
+      userId,
+      "🧪 Test-Benachrichtigung",
+      "Dies ist eine Test-Benachrichtigung von TTV Champions!",
+      {
+        type: "test",
+        url: "/dashboard.html",
+      }
+    );
+
+    return {success: true, message: "Test notification sent"};
+  }
+);
