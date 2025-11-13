@@ -1,412 +1,301 @@
-# Test Plan - Match Request Feature & Fixes
+# Test Plan für SPA-Konvertierung
 
-## Branch: `claude/add-player-competition-tab-011CUtdpMAM38n45Bkc6DsSL`
+## Branch: `claude/convert-to-spa-011CV5tesKKnwW8kh7jNmjSh`
 
-## 📋 Übersicht aller Änderungen
-
-### 1. **Set-by-Set Eingabe mit offiziellen Tischtennis-Regeln**
-- **Dateien:** `public/js/player-matches.js`, `public/js/matches.js`, `public/coach.html`
-- **Was:** Beide (Coach + Spieler) können jetzt Satz-Ergebnisse eingeben
-- **Validierung:** Offizielle Tischtennis-Regeln werden erzwungen
-
-### 2. **Auto-Add 4./5. Satz**
-- **Dateien:** `public/js/player-matches.js`
-- **Was:** Automatisches Hinzufügen von Satz-Feldern bei 2:1 oder 2:2
-
-### 3. **Auto-Reset nach Submission**
-- **Dateien:** `public/js/player-matches.js`, `public/js/matches.js`
-- **Was:** Formular wird automatisch auf 3 Sätze zurückgesetzt
-
-### 4. **Handicap-Match Elo-Fix**
-- **Dateien:** `functions/index.js`
-- **Was:** Handicap = Fixed ±8 Elo, kein XP | Standard = Dynamic Elo + XP
-
-### 5. **Coach-Name auf verarbeiteten Anfragen**
-- **Dateien:** `public/js/matches.js`, `public/js/player-matches.js`
-- **Was:** Zeigt welcher Coach die Anfrage genehmigt/abgelehnt hat
-
-### 6. **Challenge-Punkte Permission-Fix**
-- **Dateien:** `firestore.rules`
-- **Was:** Coaches können jetzt Challenge-Punkte vergeben
-
-### 7. **Untergruppen-Filter für Punktevergabe**
-- **Dateien:** `public/js/player-management.js`, `public/js/coach.js`
-- **Was:** Punktevergabe-Dropdown zeigt nur Spieler der ausgewählten Untergruppe
-
-### 8. **Challenge-Untergruppen-Validierung**
-- **Dateien:** `public/js/points-management.js`, `public/js/challenges.js`
-- **Was:** Verhindert Punktevergabe an Spieler außerhalb der Challenge-Untergruppe
-
-### 9. **Spieler zu Coach befördern Fix**
-- **Dateien:** `firestore.rules`
-- **Was:** Coaches können Spieler zu Coaches befördern
+## Überblick
+Diese Checkliste testet alle Funktionalitäten der Single Page Application, insbesondere die Fixes für:
+- ✅ Registrierungsflow mit Einladungscodes
+- ✅ Login und Post-Login Redirects
+- ✅ Navigation zwischen Seiten
+- ✅ Logout-Sicherheit (NEU!)
+- ✅ Winner-Anzeige im Coach-View
+- ✅ Rolle-basierte Dashboards
 
 ---
 
-## 🧪 Testplan
+## 🔐 1. Authentifizierung & Registrierung
 
-### TEST 1: Set-Validierung (Coach & Spieler)
+### 1.1 Registrierung mit Einladungscode (KRITISCH)
+- [ ] Öffne `/index.html`
+- [ ] Gib einen gültigen Einladungscode ein
+- [ ] **Erwartung**: "Code erfolgreich validiert" Meldung
+- [ ] Navigation zur Registrierungsseite erfolgt
+- [ ] **Erwartung**: Registrierungsformular (E-Mail & Passwort) wird angezeigt
+- [ ] **NICHT**: "Einladung erforderlich" Fehlermeldung
+- [ ] Console öffnen und prüfen: `tokenId` oder `code` sollte NICHT `null` sein
+- [ ] Fülle das Registrierungsformular aus und sende es ab
+- [ ] **Erwartung**: Erfolgreiche Registrierung und Weiterleitung zum Onboarding
 
-#### Test 1.1: Gültige Set-Ergebnisse
-**Schritte:**
-1. Als Coach/Spieler: Öffne Wettkampf-Tab
-2. Trage folgende Sets ein und speichere:
-   - Satz 1: 11:9 ✓
-   - Satz 2: 12:10 ✓
-   - Satz 3: 14:12 ✓
+### 1.2 Login-Flow
+- [ ] Auf `/index.html` mit E-Mail & Passwort einloggen
+- [ ] **Erwartung**: Nach Login erfolgt automatische Weiterleitung
+  - Spieler → `/dashboard.html`
+  - Coach → `/coach.html`
+  - Admin → `/admin.html`
+- [ ] **Erwartung**: KEINE weiße leere Seite
+- [ ] Dashboard lädt vollständig mit allen Daten
 
-**Erwartetes Ergebnis:**
-- ✅ Formular wird akzeptiert
-- ✅ Match/Anfrage wird gespeichert
-- ✅ Keine Fehlermeldung
-
-#### Test 1.2: Ungültige Set-Ergebnisse
-**Schritte:**
-1. Trage ein: Satz 1: 11:10
-2. Versuche zu speichern
-
-**Erwartetes Ergebnis:**
-- ❌ Fehlermeldung: "Satz 1: Ab 10:10 muss eine Seite 2 Punkte Vorsprung haben (z.B. 12:10, 14:12)."
-- ❌ Formular wird nicht gespeichert
-
-#### Test 1.3: Zu wenige Punkte
-**Schritte:**
-1. Trage ein: Satz 1: 10:9
-2. Versuche zu speichern
-
-**Erwartetes Ergebnis:**
-- ❌ Fehlermeldung: "Satz 1: Mindestens eine Seite muss 11 Punkte haben."
-
-#### Test 1.4: Deuce-Regel
-**Schritte:**
-1. Trage folgende Sets ein:
-   - Satz 1: 13:11 ✓
-   - Satz 2: 15:13 ✓
-   - Satz 3: 11:9 ✓
-
-**Erwartetes Ergebnis:**
-- ✅ Alle Sets werden akzeptiert (2-Punkte-Regel erfüllt)
+### 1.3 Onboarding
+- [ ] Neuer Benutzer nach Registrierung
+- [ ] Onboarding-Formular ausfüllen (Name, Verein, etc.)
+- [ ] Formular absenden
+- [ ] **Erwartung**: Weiterleitung zum rollenspezifischen Dashboard
+- [ ] **Erwartung**: KEINE weiße leere Seite
+- [ ] Dashboard lädt vollständig
 
 ---
 
-### TEST 2: Auto-Add 4./5. Satz
+## 🧭 2. SPA-Navigation
 
-#### Test 2.1: Auto-Add bei 2:1
-**Schritte:**
-1. Trage ein:
-   - Satz 1: 11:9 (Spieler A gewinnt)
-   - Satz 2: 11:7 (Spieler A gewinnt)
-   - Satz 3: 9:11 (Spieler B gewinnt)
-2. Warte 1 Sekunde
+### 2.1 Navigation von Index/Dashboard zu anderen Seiten
+- [ ] Von Dashboard zu Settings navigieren
+- [ ] **Erwartung**: Settings-Seite lädt ohne vollständiges Page-Reload (SPA)
+- [ ] Von Dashboard zu FAQ navigieren
+- [ ] **Erwartung**: FAQ-Seite lädt ohne vollständiges Page-Reload (SPA)
+- [ ] Prüfe Browser-URL: ändert sich korrekt
 
-**Erwartetes Ergebnis:**
-- ✅ 4. Satz-Feld erscheint automatisch
+### 2.2 Zurück-Navigation zu Dashboards (KRITISCH)
+**Als Spieler:**
+- [ ] Login als Spieler → auf `/dashboard.html`
+- [ ] Navigiere zu Settings
+- [ ] Klicke Browser-Zurück-Button oder Link zurück zu Dashboard
+- [ ] **Erwartung**: Dashboard lädt vollständig (mit vollem Page-Reload)
+- [ ] **NICHT**: Weiße leere Seite
 
-#### Test 2.2: Auto-Add bei 2:2
-**Schritte:**
-1. Trage ein:
-   - Satz 1: 11:9
-   - Satz 2: 9:11
-   - Satz 3: 11:7
-   - Satz 4: 8:11
+**Als Coach:**
+- [ ] Login als Coach → auf `/coach.html`
+- [ ] Navigiere zu FAQ
+- [ ] Klicke Browser-Zurück-Button zurück zu Coach-Dashboard
+- [ ] **Erwartung**: Coach-Dashboard lädt vollständig (mit vollem Page-Reload)
+- [ ] **NICHT**: Weiße leere Seite
 
-**Erwartetes Ergebnis:**
-- ✅ 5. Satz-Feld erscheint automatisch
+**Als Admin:**
+- [ ] Login als Admin → auf `/admin.html`
+- [ ] Navigiere zu Settings
+- [ ] Klicke Browser-Zurück-Button zurück zu Admin-Dashboard
+- [ ] **Erwartung**: Admin-Dashboard lädt vollständig (mit vollem Page-Reload)
+- [ ] **NICHT**: Weiße leere Seite
 
----
-
-### TEST 3: Auto-Reset nach Submission
-
-#### Test 3.1: Coach Match-Formular
-**Schritte:**
-1. Als Coach: Trage ein 5-Satz-Match ein
-2. Speichere das Match
-3. Beobachte das Formular
-
-**Erwartetes Ergebnis:**
-- ✅ Formular wird zurückgesetzt
-- ✅ Nur 3 leere Satz-Felder sichtbar
-- ✅ Keine manuelle Aktualisierung nötig
-
-#### Test 3.2: Spieler Match-Request
-**Schritte:**
-1. Als Spieler: Erstelle Match-Anfrage mit 5 Sätzen
-2. Sende die Anfrage
-3. Beobachte das Formular
-
-**Erwartetes Ergebnis:**
-- ✅ Formular wird zurückgesetzt
-- ✅ Nur 3 leere Satz-Felder sichtbar
+### 2.3 Navigation auf Index (nicht angemeldet)
+- [ ] Öffne `/index.html` (abgemeldet)
+- [ ] Navigiere zu FAQ
+- [ ] Klicke zurück zu Index
+- [ ] **Erwartung**: Index lädt korrekt
+- [ ] **Erwartung**: Funktioniert problemlos (Index ist nicht betroffen vom Dashboard-Bug)
 
 ---
 
-### TEST 4: Handicap-Match Elo (Cloud Function)
+## 🔒 3. Logout-Sicherheit (KRITISCH - NEU GEFIXT!)
 
-#### Test 4.1: Handicap-Match mit Gewinner
-**Vorbereitung:**
-- Spieler A: 1000 Elo
-- Spieler B: 1100 Elo (sollte Handicap bekommen)
+### 3.1 Logout als Spieler
+- [ ] Login als Spieler
+- [ ] Auf Dashboard navigiere zu verschiedenen Seiten (Settings, FAQ)
+- [ ] Klicke auf Logout-Button
+- [ ] **Erwartung**: Weiterleitung zu `/index.html`
+- [ ] Klicke Browser-Zurück-Button (Alt + Pfeil links)
+- [ ] **Erwartung**: Du bleibst auf `/index.html` oder wirst sofort zurückgeleitet
+- [ ] **NICHT**: Du siehst das Dashboard wieder als angemeldet
+- [ ] Versuche manuell `/dashboard.html` aufzurufen
+- [ ] **Erwartung**: Automatische Weiterleitung zu `/index.html`
 
-**Schritte:**
-1. Als Coach: Erstelle Match mit Handicap
-2. Spieler A gewinnt
-3. Warte auf Verarbeitung
-4. Prüfe Spieler-Historie
+### 3.2 Logout als Coach
+- [ ] Login als Coach
+- [ ] Navigiere zu Settings oder FAQ
+- [ ] Klicke auf Logout-Button
+- [ ] **Erwartung**: Weiterleitung zu `/index.html`
+- [ ] Klicke Browser-Zurück-Button mehrmals
+- [ ] **Erwartung**: Du kannst NICHT zum Coach-Dashboard zurückkehren
+- [ ] Versuche manuell `/coach.html` aufzurufen
+- [ ] **Erwartung**: Automatische Weiterleitung zu `/index.html`
 
-**Erwartetes Ergebnis:**
-- ✅ Gewinner (A): +8 Punkte, +8 Elo, 0 XP
-- ✅ Verlierer (B): -8 Punkte, -8 Elo, 0 XP
-- ✅ Historie zeigt: "+8 Pkt • -8 Elo" (kein XP)
+### 3.3 Logout als Admin
+- [ ] Login als Admin
+- [ ] Navigiere durch verschiedene Seiten
+- [ ] Klicke auf Logout-Button
+- [ ] Klicke Browser-Zurück-Button
+- [ ] **Erwartung**: Kein Zugriff auf Admin-Seiten
+- [ ] Versuche manuell `/admin.html` aufzurufen
+- [ ] **Erwartung**: Automatische Weiterleitung zu `/index.html`
 
-#### Test 4.2: Standard-Match ohne Handicap
-**Schritte:**
-1. Als Coach: Erstelle Match ohne Handicap
-2. Spieler mit niedrigerem Elo gewinnt
-3. Prüfe Historie
-
-**Erwartetes Ergebnis:**
-- ✅ Gewinner: +X Punkte, +X Elo, +X XP (dynamisch berechnet)
-- ✅ Verlierer: -X Punkte, -X Elo, 0 XP
-- ✅ Historie zeigt: "+X Pkt • +X XP • +X Elo"
-
----
-
-### TEST 5: Coach-Name auf Anfragen
-
-#### Test 5.1: Genehmigte Anfrage
-**Schritte:**
-1. Als Spieler A: Erstelle Match-Anfrage an Spieler B
-2. Als Spieler B: Genehmige die Anfrage
-3. Als Coach "Max Mustermann": Genehmige die Anfrage
-4. Als Spieler A: Öffne "Meine Anfragen"
-
-**Erwartetes Ergebnis:**
-- ✅ Status zeigt: "✓ Genehmigt von Max"
-
-#### Test 5.2: Abgelehnte Anfrage
-**Schritte:**
-1. Erstelle Anfrage
-2. Spieler B genehmigt
-3. Coach "Anna Schmidt" lehnt ab
-4. Prüfe Status
-
-**Erwartetes Ergebnis:**
-- ✅ Status zeigt: "✗ Abgelehnt von Anna"
+### 3.4 Error-Logout-Button (Coach & Admin)
+- [ ] Teste auch die "error-logout-button" (falls Auth-Error auftritt)
+- [ ] **Erwartung**: Gleiche Sicherheit wie normaler Logout
 
 ---
 
-### TEST 6: Challenge-Punkte Permission
+## 🏆 4. Match-Funktionalität (Coach-View)
 
-#### Test 6.1: Challenge-Punkte vergeben
-**Schritte:**
-1. Als Coach: Öffne Punkte-Tab
-2. Wähle Spieler
-3. Wähle "Challenge" als Grund
-4. Wähle eine aktive Challenge
-5. Speichern
+### 4.1 Winner-Anzeige für Best of 3 (KRITISCH - GEFIXT)
+- [ ] Login als Spieler A
+- [ ] Erstelle ein Match (Best of 3) mit Spieler B
+- [ ] Gib Ergebnis ein: z.B. 2:1 in Sätzen (Spieler A gewinnt)
+- [ ] Match zur Freigabe senden
+- [ ] Login als Coach
+- [ ] Öffne Match-Freigabe-Ansicht
+- [ ] **Erwartung**: Gewinner zeigt "Spieler A" (oder Vorname)
+- [ ] **NICHT**: "Unbekannt"
 
-**Erwartetes Ergebnis:**
-- ✅ Keine Permission-Error (403)
-- ✅ Punkte werden erfolgreich vergeben
-- ✅ Challenge wird als abgeschlossen markiert
-- ✅ Erfolgs-Meldung erscheint
+### 4.2 Winner-Anzeige für Best of 5
+- [ ] Erstelle Best of 5 Match
+- [ ] Gib Ergebnis ein: z.B. 3:2 in Sätzen
+- [ ] Sende zur Freigabe
+- [ ] Coach-Ansicht öffnen
+- [ ] **Erwartung**: Korrekter Gewinnername angezeigt
+- [ ] **NICHT**: "Unbekannt"
 
----
+### 4.3 Winner-Anzeige für Best of 7
+- [ ] Erstelle Best of 7 Match
+- [ ] Gib Ergebnis ein: z.B. 4:3 in Sätzen
+- [ ] **Erwartung**: Korrekter Gewinnername im Coach-View
 
-### TEST 7: Untergruppen-Filter Punktevergabe
-
-#### Test 7.1: Filter auf spezifische Untergruppe
-**Vorbereitung:**
-- Untergruppe "Jugend" mit Spielern: Max, Lisa
-- Untergruppe "Erwachsene" mit Spielern: Tom, Sarah
-
-**Schritte:**
-1. Als Coach: Setze Untergruppen-Filter auf "Jugend"
-2. Öffne Punkte-Tab
-3. Prüfe Spieler-Dropdown
-
-**Erwartetes Ergebnis:**
-- ✅ Dropdown zeigt nur: Max, Lisa
-- ❌ Tom und Sarah sind NICHT sichtbar
-
-#### Test 7.2: Filter auf "Alle"
-**Schritte:**
-1. Setze Filter auf "Alle (Gesamtverein)"
-2. Prüfe Spieler-Dropdown
-
-**Erwartetes Ergebnis:**
-- ✅ Dropdown zeigt alle Spieler: Max, Lisa, Tom, Sarah
-
-#### Test 7.3: Filter-Wechsel
-**Schritte:**
-1. Filter auf "Jugend" → nur Max, Lisa sichtbar
-2. Wechsel zu "Erwachsene"
-3. Prüfe Dropdown
-
-**Erwartetes Ergebnis:**
-- ✅ Dropdown aktualisiert sich sofort
-- ✅ Zeigt jetzt nur: Tom, Sarah
+### 4.4 Winner-Anzeige für Einzelsatz
+- [ ] Erstelle Einzelsatz-Match
+- [ ] Gib Ergebnis ein: z.B. 11:9
+- [ ] **Erwartung**: Korrekter Gewinnername im Coach-View
 
 ---
 
-### TEST 8: Challenge-Untergruppen-Validierung
+## 🎯 5. Rolle-spezifische Funktionalität
 
-#### Test 8.1: Spieler in falscher Untergruppe
-**Vorbereitung:**
-- Challenge "Offizieller Sieg" für Untergruppe "Jugend"
-- Spieler "Tom" ist nur in "Erwachsene"
+### 5.1 Spieler-Dashboard
+- [ ] Login als Spieler
+- [ ] Dashboard lädt mit Leaderboard
+- [ ] Match-Historie wird angezeigt
+- [ ] Match-Vorschläge werden geladen
+- [ ] Neues Match kann erstellt werden
+- [ ] Navigation zu allen Unterseiten funktioniert
 
-**Schritte:**
-1. Setze Filter auf "Alle" (damit Tom sichtbar ist)
-2. Wähle Spieler: Tom
-3. Wähle Challenge: "Offizieller Sieg"
-4. Versuche zu speichern
+### 5.2 Coach-Dashboard
+- [ ] Login als Coach
+- [ ] Spielerliste wird angezeigt
+- [ ] Match-Freigaben werden geladen
+- [ ] Training-Kalender funktioniert
+- [ ] Übungen können verwaltet werden
 
-**Erwartetes Ergebnis:**
-- ❌ Fehlermeldung: "Tom Müller gehört nicht der Untergruppe an, für die diese Challenge erstellt wurde. Bitte füge die Person in die Untergruppe 'Jugend' ein, um ihr diese Challenge zuzuweisen."
-- ❌ Punkte werden NICHT vergeben
-
-#### Test 8.2: Spieler in korrekter Untergruppe
-**Vorbereitung:**
-- Challenge "Offizieller Sieg" für "Jugend"
-- Spieler "Max" ist in "Jugend"
-
-**Schritte:**
-1. Wähle Spieler: Max
-2. Wähle Challenge: "Offizieller Sieg"
-3. Speichern
-
-**Erwartetes Ergebnis:**
-- ✅ Keine Fehlermeldung
-- ✅ Punkte werden erfolgreich vergeben
-
-#### Test 8.3: Challenge für "Alle"
-**Vorbereitung:**
-- Challenge "Allgemeine Challenge" für "Alle"
-
-**Schritte:**
-1. Wähle beliebigen Spieler (egal welche Untergruppe)
-2. Wähle Challenge: "Allgemeine Challenge"
-3. Speichern
-
-**Erwartetes Ergebnis:**
-- ✅ Funktioniert für JEDEN Spieler
-- ✅ Keine Untergruppen-Validierung
+### 5.3 Admin-Dashboard
+- [ ] Login als Admin
+- [ ] Coach-Einladungen können erstellt werden
+- [ ] Übungen können erstellt/bearbeitet werden
+- [ ] Alle Admin-Funktionen sind verfügbar
 
 ---
 
-### TEST 9: Spieler zu Coach befördern
+## 🐛 6. Browser-Kompatibilität
 
-#### Test 9.1: Beförderung
-**Schritte:**
-1. Als Coach: Öffne Spieler-Modal
-2. Wähle einen Spieler
-3. Klicke "Zu Coach befördern"
-4. Bestätige
+### 6.1 Chrome/Edge
+- [ ] Alle oben genannten Tests durchführen
+- [ ] Keine Console-Fehler
+- [ ] SPA-Navigation funktioniert flüssig
 
-**Erwartetes Ergebnis:**
-- ✅ Keine Permission-Error
-- ✅ Spieler wird erfolgreich zu Coach
-- ✅ Rolle ändert sich in Datenbank
+### 6.2 Firefox
+- [ ] Alle oben genannten Tests durchführen
+- [ ] Keine Console-Fehler
+- [ ] SPA-Navigation funktioniert
+
+### 6.3 Safari (falls verfügbar)
+- [ ] Grundlegende Tests durchführen
+- [ ] SPA-Navigation funktioniert
 
 ---
 
-## 🔥 Kritische Tests (vor Deployment PFLICHT!)
+## 🔍 7. Console-Überprüfung
 
-### 🚨 KRITISCH 1: Firestore Rules Deploy
-**Warum:** Permission-Fixes funktionieren nur nach Deployment
+### Während der Tests auf folgendes achten:
+- [ ] **KEINE** JavaScript-Fehler in der Console
+- [ ] **KEINE** 404-Fehler beim Laden von Ressourcen
+- [ ] **KEINE** Firebase-Authentifizierungsfehler
+- [ ] SPA-Logs (z.B. "[SPA] Navigating to...") erscheinen bei Navigation
+- [ ] Bei Registrierung: `tokenId` oder `code` sind NICHT `null`
 
-**Test:**
+---
+
+## ✅ 8. Performance & UX
+
+### 8.1 Page-Load-Performance
+- [ ] SPA-Navigation ist spürbar schneller als Full-Page-Reload
+- [ ] Keine merkliche Verzögerung bei Navigation zwischen Seiten
+- [ ] Dashboards laden nach Login in angemessener Zeit
+
+### 8.2 User Experience
+- [ ] Keine Flicker/Blinken beim Seitenwechsel
+- [ ] Browser-URL aktualisiert sich korrekt
+- [ ] Zurück-Button funktioniert wie erwartet
+- [ ] Vor-Button funktioniert (nach Zurück-Navigation)
+
+---
+
+## 🚨 Kritische Probleme (sofort melden!)
+
+Falls einer dieser Tests fehlschlägt, NICHT ins Main pushen:
+
+1. ❌ Registrierung zeigt "Einladung erforderlich" trotz gültigem Code
+2. ❌ Weiße leere Seite nach Login oder Onboarding
+3. ❌ Weiße leere Seite bei Zurück-Navigation zu Dashboards
+4. ❌ Nach Logout kann man mit Zurück-Button wieder angemeldet sein
+5. ❌ Winner zeigt "Unbekannt" im Coach-View
+
+---
+
+## 📋 Code-Änderungen Zusammenfassung
+
+### Dateien geändert:
+```
+public/js/spa-enhancer.js        - Core SPA-Logik (Query-Parameter, noInterceptPages)
+public/js/register.js            - SPA-kompatible Initialisierung
+public/js/index.js               - Hybrid Navigation (SPA + Full Reload)
+public/js/onboarding.js          - Full Reload nach Onboarding
+public/js/dashboard.js           - Logout-Sicherheit + Replace-Navigation
+public/js/coach.js               - Logout-Sicherheit + Replace-Navigation
+public/js/admin.js               - Logout-Sicherheit + Replace-Navigation
+public/js/matches.js             - Winner-Anzeige Fix (alle Match-Modi)
+
+public/*.html                    - SPA-Enhancer-Script hinzugefügt
+```
+
+### Wichtigste Fixes:
+1. **Query-Parameter-Preservation**: URLs behalten Parameter bei SPA-Navigation
+2. **Dashboard-Reload**: Role-Dashboards verwenden Full-Reload für korrekte State-Init
+3. **Logout-Sicherheit**: `window.location.replace()` + SPA-Cache-Clearing
+4. **Winner-Detection**: Flexible Logik für alle Match-Modi (Best of 3/5/7, Single)
+5. **Event-Lifecycle**: SPA-kompatible Initialisierung (keine load-Events)
+
+---
+
+## 📝 Test-Ergebnisse
+
+**Getestet von**: _____________
+**Datum**: _____________
+**Browser**: _____________
+**Alle Tests bestanden**: ☐ Ja ☐ Nein
+
+### Test-Statistik:
+- Anzahl Tests: 50+
+- Kritische Tests: 11
+- Erfolgreich: ____
+- Fehlgeschlagen: ____
+
+**Notizen/Probleme**:
+```
+(Hier eventuelle Probleme oder Anmerkungen eintragen)
+```
+
+---
+
+## 🎯 Deployment-Hinweise
+
+**Wichtig**: Diese Branch enthält nur Frontend-Änderungen!
+
 ```bash
-firebase deploy --only firestore:rules
+# Nach Merge in Main:
+firebase deploy --only hosting
 ```
 
-**Erwartetes Ergebnis:**
-- ✅ Deployment erfolgreich
-- ✅ Keine Syntax-Fehler in Rules
-
-### 🚨 KRITISCH 2: Cloud Functions Deploy
-**Warum:** Handicap-Elo-Fix ist in Cloud Function
-
-**Test:**
-```bash
-firebase deploy --only functions
-```
-
-**Erwartetes Ergebnis:**
-- ✅ Deployment erfolgreich
-- ✅ onMatchCreated Function aktualisiert
-
-### 🚨 KRITISCH 3: End-to-End Test im Production-Modus
-**Schritte:**
-1. Nach allen Deployments
-2. Führe alle Tests 1-9 durch
-3. Prüfe Browser-Konsole auf Fehler
+Kein Deployment von:
+- ❌ Firestore Rules (nicht geändert)
+- ❌ Cloud Functions (nicht geändert)
 
 ---
 
-## ✅ Checkliste vor Merge in Main
-
-- [ ] Alle JavaScript-Dateien: Syntax OK
-- [ ] Firestore Rules: Syntax OK
-- [ ] Cloud Functions: Syntax OK
-- [ ] TEST 1: Set-Validierung funktioniert
-- [ ] TEST 2: Auto-Add funktioniert
-- [ ] TEST 3: Auto-Reset funktioniert
-- [ ] TEST 4: Handicap-Elo korrekt
-- [ ] TEST 5: Coach-Name wird angezeigt
-- [ ] TEST 6: Challenge-Punkte funktionieren (nach Rules-Deploy)
-- [ ] TEST 7: Untergruppen-Filter funktioniert
-- [ ] TEST 8: Challenge-Validierung funktioniert
-- [ ] TEST 9: Beförderung funktioniert (nach Rules-Deploy)
-- [ ] Firestore Rules deployed
-- [ ] Cloud Functions deployed
-- [ ] Browser-Konsole: Keine Fehler
-- [ ] Performance: Keine Verzögerungen
-
----
-
-## 📊 Geänderte Dateien
-
-```
-firestore.rules                  - Permissions für completedChallenges & Beförderung
-functions/index.js               - Handicap-Elo-Logik
-public/coach.html                - Set-Score Container
-public/js/challenges.js          - SubgroupId im Dataset
-public/js/coach.js               - Import & Aufruf updatePointsPlayerDropdown
-public/js/matches.js             - Coach Set-Score + Coach-Name speichern
-public/js/player-management.js   - updatePointsPlayerDropdown Funktion
-public/js/player-matches.js      - Set-Validierung + Auto-Add + Reset
-public/js/points-management.js   - Challenge-Untergruppen-Validierung
-```
-
----
-
-## 🎯 Deployment-Reihenfolge
-
-1. **Code auf Main mergen**
-2. **Firestore Rules deployen:**
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
-3. **Cloud Functions deployen:**
-   ```bash
-   firebase deploy --only functions
-   ```
-4. **Hosting deployen (Frontend):**
-   ```bash
-   firebase deploy --only hosting
-   ```
-5. **Finale Tests durchführen**
-
----
-
-## 🐛 Bekannte Einschränkungen
-
-Keine bekannten Bugs oder Einschränkungen zum aktuellen Zeitpunkt.
-
----
-
-**Erstellt:** 2025-11-08
-**Branch:** `claude/add-player-competition-tab-011CUtdpMAM38n45Bkc6DsSL`
-**Commits:** 10 (7e6269d..16f8fa4)
+**Erstellt:** 2025-11-13
+**Branch:** `claude/convert-to-spa-011CV5tesKKnwW8kh7jNmjSh`
+**Commits:** 6
