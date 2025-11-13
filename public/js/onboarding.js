@@ -130,10 +130,7 @@ function redirectToDashboard(role) {
         targetUrl = '/dashboard.html';
     }
 
-    // Use SPA navigation if available
-    if (window.spaNavigate) {
-        window.spaNavigate(targetUrl);
-    } else {
-        window.location.href = targetUrl;
-    }
+    console.log("[ONBOARDING] Onboarding complete, redirecting to:", targetUrl);
+    // Use normal navigation after onboarding (not SPA) to ensure fresh state
+    window.location.href = targetUrl;
 }

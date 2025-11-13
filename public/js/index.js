@@ -98,11 +98,8 @@ onAuthStateChanged(auth, async (user) => {
             const userData = userDoc.data();
             // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
             if (!userData.onboardingComplete) {
-                if (window.spaNavigate) {
-                    window.spaNavigate('/onboarding.html');
-                } else {
-                    window.location.href = '/onboarding.html';
-                }
+                console.log("[LOGIN] User not onboarded, redirecting to onboarding");
+                window.location.href = '/onboarding.html';
                 return;
             }
             // Ansonsten, normale Weiterleitung basierend auf der Rolle.
@@ -111,11 +108,9 @@ onAuthStateChanged(auth, async (user) => {
             else if (userData.role === 'coach') targetUrl = '/coach.html';
             else targetUrl = '/dashboard.html';
 
-            if (window.spaNavigate) {
-                window.spaNavigate(targetUrl);
-            } else {
-                window.location.href = targetUrl;
-            }
+            console.log("[LOGIN] User already logged in, redirecting to:", targetUrl);
+            // Use normal navigation for initial login redirect (not SPA navigation)
+            window.location.href = targetUrl;
         }
     }
 });
