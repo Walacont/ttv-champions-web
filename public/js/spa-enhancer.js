@@ -292,6 +292,7 @@ class SPAEnhancer {
             this.loadingIndicator = document.createElement('div');
             this.loadingIndicator.className = 'spa-loading-indicator';
             this.loadingIndicator.innerHTML = '<div class="spa-loading-bar"></div>';
+            this.loadingIndicator.style.display = 'none'; // Initially hidden
             document.body.appendChild(this.loadingIndicator);
         }
     }
