@@ -243,6 +243,54 @@
                         <div id="sent-proposals-list" class="hidden"></div>
                         <div id="received-proposals-list" class="hidden"></div>
                     </div>
+
+                    <!-- Superkompensations-Box -->
+                    <div class="lg:col-span-3 bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl shadow-md border-2 border-green-200">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-xl font-semibold text-gray-800">📊 Deine Trainings-Balance</h2>
+                            <span class="cursor-help text-green-600 hover:text-green-800" title="Superkompensation zeigt den optimalen Zeitpunkt für dein nächstes Training">ⓘ</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Linke Seite: Info -->
+                            <div class="space-y-4">
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <p class="text-sm text-gray-600 mb-1">Letztes Training</p>
+                                    <p id="supercomp-last-training" class="text-2xl font-bold text-gray-800">Lade...</p>
+                                    <p id="supercomp-days-ago" class="text-xs text-gray-500 mt-1"></p>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <p class="text-sm text-gray-600 mb-1">Aktueller Status</p>
+                                    <div id="supercomp-status" class="flex items-center gap-2">
+                                        <span class="text-2xl">💪</span>
+                                        <span class="text-lg font-semibold text-gray-800">Bereit</span>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-lg shadow-sm">
+                                    <p class="text-sm text-gray-600 mb-1">Empfehlung</p>
+                                    <p id="supercomp-recommendation" class="text-sm font-medium text-gray-800">Lade Empfehlung...</p>
+                                </div>
+                            </div>
+
+                            <!-- Rechte Seite: Visualisierung -->
+                            <div class="bg-white p-4 rounded-lg shadow-sm">
+                                <p class="text-sm text-gray-600 mb-3 text-center">Superkompensations-Kurve</p>
+                                <div id="supercomp-chart" class="relative h-48">
+                                    <!-- Chart wird hier von JS eingefügt -->
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                    <span>Training</span>
+                                    <span>24h</span>
+                                    <span>48h</span>
+                                    <span>72h</span>
+                                    <span>96h</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-semibold mb-4">Dein Rang</h2>
                         <div id="rank-info" class="text-gray-600"><p>Rang wird geladen...</p></div>
