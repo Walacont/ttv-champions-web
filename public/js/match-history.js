@@ -124,28 +124,8 @@ export function loadMatchHistory(db, userData) {
             allMatches.map(match => enrichMatchData(db, match, userData))
           );
 
-          // Render matches (limit to first 4 for player view to keep page short)
-          const limitedMatches = matchesWithDetails.slice(0, 4);
-          renderMatchHistory(container, limitedMatches, userData);
-
-          // Add "show more" button if there are more matches
-          if (matchesWithDetails.length > 4) {
-            const showMoreContainer = document.createElement('div');
-            showMoreContainer.className = 'text-center mt-4';
-
-            const showMoreBtn = document.createElement('button');
-            showMoreBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
-            showMoreBtn.innerHTML = `+ ${matchesWithDetails.length - 4} weitere Wettkämpfe anzeigen`;
-
-            showMoreBtn.addEventListener('click', () => {
-              // Clear container and render all matches
-              renderMatchHistory(container, matchesWithDetails, userData);
-              showMoreContainer.remove(); // Remove the button
-            });
-
-            showMoreContainer.appendChild(showMoreBtn);
-            container.appendChild(showMoreContainer);
-          }
+          // Render matches with toggle button
+          renderMatchesWithToggle(container, matchesWithDetails, userData);
         },
         (error) => {
           console.error("[Match History] ❌ Doubles listener error:", error);
@@ -336,6 +316,46 @@ async function enrichMatchData(db, match, userData) {
   }
 
   return enriched;
+}
+
+/**
+ * Render matches with toggle button for show more/less
+ * @param {HTMLElement} container - Container element
+ * @param {Array} allMatches - All matches to display
+ * @param {Object} userData - Current user data
+ */
+function renderMatchesWithToggle(container, allMatches, userData) {
+  let showingAll = false;
+
+  function render() {
+    const matchesToShow = showingAll ? allMatches : allMatches.slice(0, 4);
+    renderMatchHistory(container, matchesToShow, userData);
+
+    // Add toggle button if there are more than 4 matches
+    if (allMatches.length > 4) {
+      const toggleContainer = document.createElement('div');
+      toggleContainer.className = 'text-center mt-4';
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
+
+      if (showingAll) {
+        toggleBtn.innerHTML = '− Weniger anzeigen';
+      } else {
+        toggleBtn.innerHTML = `+ ${allMatches.length - 4} weitere Wettkämpfe anzeigen`;
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        showingAll = !showingAll;
+        render();
+      });
+
+      toggleContainer.appendChild(toggleBtn);
+      container.appendChild(toggleContainer);
+    }
+  }
+
+  render();
 }
 
 /**
