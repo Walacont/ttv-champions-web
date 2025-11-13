@@ -68,21 +68,20 @@ class SPAEnhancer {
     async navigateTo(url) {
         if (this.isNavigating) return;
 
-        // Normalize URL
-        if (!url.startsWith('/')) {
-            url = '/' + url;
-        }
+        // Parse URL to separate path and query string
+        const urlObj = new URL(url, window.location.origin);
+        const fullPath = urlObj.pathname + urlObj.search + urlObj.hash;
 
-        // Don't reload if we're already on this page
-        if (url === window.location.pathname) {
+        // Don't reload if we're already on this exact page (including query params)
+        if (fullPath === window.location.pathname + window.location.search + window.location.hash) {
             return;
         }
 
-        // Push state
-        history.pushState({ url }, '', url);
+        // Push state with full URL
+        history.pushState({ url: fullPath }, '', fullPath);
 
         // Load the page
-        await this.loadPage(url, true);
+        await this.loadPage(urlObj.pathname, true);
     }
 
     /**
@@ -274,9 +273,27 @@ class SPAEnhancer {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         window.spaEnhancer = new SPAEnhancer();
+
+        // Provide a global navigate function for programmatic navigation
+        window.spaNavigate = (url) => {
+            if (window.spaEnhancer) {
+                window.spaEnhancer.navigateTo(url);
+            } else {
+                window.location.href = url;
+            }
+        };
     });
 } else {
     window.spaEnhancer = new SPAEnhancer();
+
+    // Provide a global navigate function for programmatic navigation
+    window.spaNavigate = (url) => {
+        if (window.spaEnhancer) {
+            window.spaEnhancer.navigateTo(url);
+        } else {
+            window.location.href = url;
+        }
+    };
 }
 
 // Export for module usage

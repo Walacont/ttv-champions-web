@@ -62,7 +62,12 @@ onAuthStateChanged(auth, async (user) => {
             submitButton.disabled = true;
         }
     } else {
-        window.location.href = '/index.html';
+        // Use SPA navigation if available
+        if (window.spaNavigate) {
+            window.spaNavigate('/index.html');
+        } else {
+            window.location.href = '/index.html';
+        }
     }
 });
 
@@ -116,11 +121,19 @@ onboardingForm.addEventListener('submit', async (e) => {
 });
 
 function redirectToDashboard(role) {
+    let targetUrl;
     if (role === 'admin') {
-        window.location.href = '/admin.html';
+        targetUrl = '/admin.html';
     } else if (role === 'coach') {
-        window.location.href = '/coach.html';
+        targetUrl = '/coach.html';
     } else {
-        window.location.href = '/dashboard.html';
+        targetUrl = '/dashboard.html';
+    }
+
+    // Use SPA navigation if available
+    if (window.spaNavigate) {
+        window.spaNavigate(targetUrl);
+    } else {
+        window.location.href = targetUrl;
     }
 }

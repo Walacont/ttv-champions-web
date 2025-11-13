@@ -201,7 +201,12 @@ registrationForm.addEventListener("submit", async (e) => {
       if (result.data.success) {
         console.log("✅ Code erfolgreich eingelöst");
         // 5️⃣ Weiterleitung zum Onboarding
-        window.location.href = "/onboarding.html";
+        // Use SPA navigation if available
+        if (window.spaNavigate) {
+            window.spaNavigate("/onboarding.html");
+        } else {
+            window.location.href = "/onboarding.html";
+        }
       } else {
         throw new Error("Ein unbekannter Fehler ist aufgetreten.");
       }
@@ -215,7 +220,12 @@ registrationForm.addEventListener("submit", async (e) => {
       if (result.data.success) {
         console.log("✅ Token erfolgreich eingelöst");
         // 5️⃣ Weiterleitung zum Onboarding
-        window.location.href = "/onboarding.html";
+        // Use SPA navigation if available
+        if (window.spaNavigate) {
+            window.spaNavigate("/onboarding.html");
+        } else {
+            window.location.href = "/onboarding.html";
+        }
       } else {
         throw new Error("Ein unbekannter Fehler ist aufgetreten.");
       }

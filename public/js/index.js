@@ -98,13 +98,24 @@ onAuthStateChanged(auth, async (user) => {
             const userData = userDoc.data();
             // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
             if (!userData.onboardingComplete) {
-                window.location.href = '/onboarding.html';
+                if (window.spaNavigate) {
+                    window.spaNavigate('/onboarding.html');
+                } else {
+                    window.location.href = '/onboarding.html';
+                }
                 return;
             }
             // Ansonsten, normale Weiterleitung basierend auf der Rolle.
-            if (userData.role === 'admin') window.location.href = '/admin.html';
-            else if (userData.role === 'coach') window.location.href = '/coach.html';
-            else window.location.href = '/dashboard.html';
+            let targetUrl;
+            if (userData.role === 'admin') targetUrl = '/admin.html';
+            else if (userData.role === 'coach') targetUrl = '/coach.html';
+            else targetUrl = '/dashboard.html';
+
+            if (window.spaNavigate) {
+                window.spaNavigate(targetUrl);
+            } else {
+                window.location.href = targetUrl;
+            }
         }
     }
 });
@@ -210,7 +221,12 @@ codeForm.addEventListener('submit', async (e) => {
         feedbackMessage.classList.add('text-green-600');
 
         setTimeout(() => {
-            window.location.href = `/register.html?code=${code}`;
+            // Use SPA navigation if available, otherwise fallback to normal navigation
+            if (window.spaNavigate) {
+                window.spaNavigate(`/register.html?code=${code}`);
+            } else {
+                window.location.href = `/register.html?code=${code}`;
+            }
         }, 1000);
 
     } catch (error) {
