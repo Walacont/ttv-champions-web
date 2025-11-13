@@ -137,6 +137,12 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow read, write, delete: if isCoachOrAdmin();
       }
+
+      // Subcollection: preferences (user-specific preferences like dashboard widgets)
+      match /preferences/{preferenceId} {
+        allow read, write: if isOwner(userId);
+        allow read: if isCoachOrAdmin();
+      }
     }
 
     // Clubs collection
