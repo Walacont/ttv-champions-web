@@ -18,10 +18,17 @@ class SPAEnhancer {
         // Intercept link clicks
         document.addEventListener('click', (e) => {
             const link = e.target.closest('a');
-            if (link && this.shouldIntercept(link)) {
-                e.preventDefault();
+            if (link) {
                 const href = link.getAttribute('href');
-                this.navigateTo(href);
+                console.log("[SPA] Link clicked:", href);
+
+                if (this.shouldIntercept(link)) {
+                    console.log("[SPA] Intercepting link");
+                    e.preventDefault();
+                    this.navigateTo(href);
+                } else {
+                    console.log("[SPA] NOT intercepting link, allowing default behavior");
+                }
             }
         });
 
@@ -71,8 +78,17 @@ class SPAEnhancer {
             '/register.html'
         ];
 
+        // Normalize the link path (handle both relative and absolute paths)
+        let linkPath = href.split('?')[0]; // Remove query params for comparison
+
+        // Convert relative to absolute if needed
+        if (!linkPath.startsWith('/')) {
+            linkPath = '/' + linkPath;
+        }
+
+        console.log("[SPA] Checking if should intercept - linkPath:", linkPath, "noInterceptPages:", noInterceptPages);
+
         // Check if the link is to a no-intercept page
-        const linkPath = href.split('?')[0]; // Remove query params for comparison
         if (noInterceptPages.includes(linkPath)) {
             console.log("[SPA] Not intercepting link to:", linkPath, "(requires full reload)");
             return false;
