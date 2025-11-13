@@ -13,7 +13,7 @@ class FCMManager {
         this.auth = auth;
         this.messaging = null;
         this.currentToken = null;
-        this.vapidKey = 'YOUR_VAPID_KEY_HERE'; // TODO: Replace with actual VAPID key from Firebase Console
+        this.vapidKey = 'BM0qGt7-11vrNH9MmyoxOXa_xEC4Yi9Lo5OpfBZmzN9IBFxHkAUig_3OecSceVY_gAxyxDQ-rBavoeCNze-bFv4'; 
 
         try {
             this.messaging = getMessaging(this.app);
