@@ -54,7 +54,8 @@ let invitationCodeData = null;
 let registrationType = null; // 'token' or 'code'
 
 // ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
-window.addEventListener("load", async () => {
+// Function to initialize registration (works for both normal load and SPA navigation)
+async function initializeRegistration() {
   const urlParams = new URLSearchParams(window.location.search);
   tokenId = urlParams.get("token");
   invitationCode = urlParams.get("code");
@@ -145,7 +146,19 @@ window.addEventListener("load", async () => {
     console.error("Error message:", error.message);
     displayError("Fehler beim Überprüfen der Einladung: " + error.message);
   }
-});
+}
+
+// Call initialization function
+// For normal page load
+window.addEventListener("load", initializeRegistration);
+
+// For SPA navigation - call immediately if DOM is already loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeRegistration);
+} else {
+  // DOM is already ready, execute now (for SPA navigation)
+  initializeRegistration();
+}
 
 // ===== REGISTRIERUNG (MIT NEUER CHECKBOX-VALIDIERUNG) =====
 registrationForm.addEventListener("submit", async (e) => {
