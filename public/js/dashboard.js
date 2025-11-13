@@ -19,6 +19,7 @@ import { loadMatchHistory } from './match-history.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
 import { initializeSupercompensation } from './supercompensation.js';
 import { initializeWidgetSystem } from './dashboard-widgets.js';
+import { initializeTrainingStats } from './training-stats.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -102,6 +103,9 @@ async function initializeDashboard(userData) {
 
     // Initialize supercompensation display
     initializeSupercompensation(db, userData);
+
+    // Initialize training statistics (heatmap, monthly comparison)
+    initializeTrainingStats(db, userData);
 
     // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(db, userData.id);

@@ -49,6 +49,13 @@ const WIDGETS = [
         essential: false
     },
     {
+        id: 'training-stats',
+        name: '📈 Trainings-Statistiken',
+        description: 'Heatmap und Monatsvergleich deiner Trainings',
+        default: true,
+        essential: false
+    },
+    {
         id: 'rank',
         name: '🏆 Dein Rang',
         description: 'Deine aktuelle Rangstufe und Fortschritt',
