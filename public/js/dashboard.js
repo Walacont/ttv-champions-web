@@ -73,7 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 signOut(auth);
             }
         } else {
-            window.location.href = '/index.html';
+            // User logged out - use replace() to prevent back-button access
+            window.location.replace('/index.html');
         }
     });
 });
@@ -152,7 +153,19 @@ async function initializeDashboard(userData) {
     updateSeasonCountdown('season-countdown', true, db);
     setInterval(() => updateSeasonCountdown('season-countdown', true, db), 1000);
 
-    logoutButton.addEventListener('click', () => signOut(auth));
+    logoutButton.addEventListener('click', async () => {
+        try {
+            await signOut(auth);
+            // Clear SPA cache to prevent back-button access to authenticated pages
+            if (window.spaEnhancer) {
+                window.spaEnhancer.clearCache();
+            }
+            // Use replace() instead of href to clear history and prevent back navigation
+            window.location.replace('/index.html');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    });
     setupTabs('overview');  // 'overview' is default tab for dashboard
     setupLeaderboardTabs();  // Setup 3-tab navigation
 

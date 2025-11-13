@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAuthError(`DB-Fehler: ${error.message}`);
             }
         } else {
-            window.location.href = '/index.html';
+            // User logged out - use replace() to prevent back-button access
+            window.location.replace('/index.html');
         }
 
         function showAuthError(message) {
@@ -235,8 +236,30 @@ async function initializeCoachPage(userData) {
     });
 
     // --- Event Listeners ---
-    document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
-    document.getElementById('error-logout-button').addEventListener('click', () => signOut(auth));
+    document.getElementById('logout-button').addEventListener('click', async () => {
+        try {
+            await signOut(auth);
+            // Clear SPA cache to prevent back-button access to authenticated pages
+            if (window.spaEnhancer) {
+                window.spaEnhancer.clearCache();
+            }
+            // Use replace() instead of href to clear history and prevent back navigation
+            window.location.replace('/index.html');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    });
+    document.getElementById('error-logout-button').addEventListener('click', async () => {
+        try {
+            await signOut(auth);
+            if (window.spaEnhancer) {
+                window.spaEnhancer.clearCache();
+            }
+            window.location.replace('/index.html');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    });
     
     // Player Modal Listeners
     document.getElementById('open-player-modal-button').addEventListener('click', () => {

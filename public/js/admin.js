@@ -103,7 +103,8 @@ onAuthStateChanged(auth, async (user) => {
             showAuthError(`Datenbankfehler: ${error.message}`);
         }
     } else {
-        window.location.href = '/index.html';
+        // User logged out - use replace() to prevent back-button access
+        window.location.replace('/index.html');
     }
 });
 
@@ -113,8 +114,30 @@ function initializeAdminPage(userData, user) {
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
 
-        logoutButton.addEventListener('click', () => signOut(auth));
-        errorLogoutButton.addEventListener('click', () => signOut(auth));
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                // Clear SPA cache to prevent back-button access to authenticated pages
+                if (window.spaEnhancer) {
+                    window.spaEnhancer.clearCache();
+                }
+                // Use replace() instead of href to clear history and prevent back navigation
+                window.location.replace('/index.html');
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        });
+        errorLogoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                if (window.spaEnhancer) {
+                    window.spaEnhancer.clearCache();
+                }
+                window.location.replace('/index.html');
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        });
         inviteCoachForm.addEventListener('submit', handleInviteCoach);
         copyLinkButton.addEventListener('click', copyInviteLink);
         createExerciseForm.addEventListener('submit', handleCreateExercise);
