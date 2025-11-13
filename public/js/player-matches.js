@@ -170,13 +170,14 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         return;
       }
 
-      // Auto-add next set ONLY when it's tied (safest and clearest logic)
-      // This prevents adding sets too early (e.g., at 3:2 in Best of 7)
+      // ONLY auto-add the final set when both players are one set away from winning
+      // This prevents adding sets too early
       // Examples:
-      // - Best of 3: Add 3rd set at 1:1
-      // - Best of 5: Add 5th set at 2:2
-      // - Best of 7: Add 6th set at 2:2, add 7th set at 3:3
-      if (playerAWins === playerBWins && playerAWins > 0) {
+      // - Best of 3 (need 2 to win): Add 3rd set only at 1:1
+      // - Best of 5 (need 3 to win): Add 5th set only at 2:2
+      // - Best of 7 (need 4 to win): Add 7th set only at 3:3
+      const oneSetFromWinning = setsToWin - 1;
+      if (playerAWins === oneSetFromWinning && playerBWins === oneSetFromWinning) {
         sets.push({ playerA: "", playerB: "" });
         renderSets();
       }
