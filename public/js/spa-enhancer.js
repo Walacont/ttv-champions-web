@@ -60,6 +60,33 @@ class SPAEnhancer {
             return false;
         }
 
+        // Don't intercept navigation to these pages (they need full reload):
+        // - Landing page (index.html)
+        // - Role-based dashboards when switching roles
+        // - Authentication pages
+        const noInterceptPages = [
+            '/index.html',
+            '/',
+            '/onboarding.html',
+            '/register.html'
+        ];
+
+        // Check if the link is to a no-intercept page
+        const linkPath = href.split('?')[0]; // Remove query params for comparison
+        if (noInterceptPages.includes(linkPath)) {
+            console.log("[SPA] Not intercepting link to:", linkPath, "(requires full reload)");
+            return false;
+        }
+
+        // Don't intercept if navigating between different role dashboards
+        const currentPage = window.location.pathname;
+        const roleDashboards = ['/dashboard.html', '/coach.html', '/admin.html'];
+
+        if (roleDashboards.includes(currentPage) && roleDashboards.includes(linkPath) && currentPage !== linkPath) {
+            console.log("[SPA] Not intercepting role dashboard switch:", currentPage, "→", linkPath);
+            return false;
+        }
+
         return true;
     }
 
