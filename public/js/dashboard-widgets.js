@@ -45,14 +45,14 @@ const WIDGETS = [
         id: 'supercompensation',
         name: '💪 Trainings-Balance',
         description: 'Superkompensations-Analyse für optimales Training',
-        default: true,
+        default: false,
         essential: false
     },
     {
         id: 'training-stats',
         name: '📈 Trainings-Statistiken',
         description: 'Heatmap und Monatsvergleich deiner Trainings',
-        default: true,
+        default: false,
         essential: false
     },
     {
