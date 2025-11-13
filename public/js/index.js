@@ -221,11 +221,17 @@ codeForm.addEventListener('submit', async (e) => {
         feedbackMessage.classList.add('text-green-600');
 
         setTimeout(() => {
+            const targetUrl = `/register.html?code=${code}`;
+            console.log("[INDEX] Navigating to:", targetUrl);
+            console.log("[INDEX] spaNavigate available?", !!window.spaNavigate);
+
             // Use SPA navigation if available, otherwise fallback to normal navigation
             if (window.spaNavigate) {
-                window.spaNavigate(`/register.html?code=${code}`);
+                console.log("[INDEX] Using SPA navigation");
+                window.spaNavigate(targetUrl);
             } else {
-                window.location.href = `/register.html?code=${code}`;
+                console.log("[INDEX] Using normal navigation");
+                window.location.href = targetUrl;
             }
         }, 1000);
 

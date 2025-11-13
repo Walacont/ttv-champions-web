@@ -56,11 +56,17 @@ let registrationType = null; // 'token' or 'code'
 // ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
 // Function to initialize registration (works for both normal load and SPA navigation)
 async function initializeRegistration() {
+  console.log("=== initializeRegistration called ===");
+  console.log("Full URL:", window.location.href);
+  console.log("Pathname:", window.location.pathname);
+  console.log("Search:", window.location.search);
+  console.log("Hash:", window.location.hash);
+
   const urlParams = new URLSearchParams(window.location.search);
   tokenId = urlParams.get("token");
   invitationCode = urlParams.get("code");
 
-  console.log("Register.js loaded - tokenId:", tokenId, "code:", invitationCode);
+  console.log("Parsed - tokenId:", tokenId, "code:", invitationCode);
 
   // 1. Prüfe ob Token ODER Code vorhanden
   if (!tokenId && !invitationCode) {

@@ -68,17 +68,25 @@ class SPAEnhancer {
     async navigateTo(url) {
         if (this.isNavigating) return;
 
+        console.log("[SPA] navigateTo called with:", url);
+
         // Parse URL to separate path and query string
         const urlObj = new URL(url, window.location.origin);
         const fullPath = urlObj.pathname + urlObj.search + urlObj.hash;
 
+        console.log("[SPA] Parsed URL - pathname:", urlObj.pathname, "search:", urlObj.search, "fullPath:", fullPath);
+
         // Don't reload if we're already on this exact page (including query params)
         if (fullPath === window.location.pathname + window.location.search + window.location.hash) {
+            console.log("[SPA] Already on this page, skipping navigation");
             return;
         }
 
         // Push state with full URL
+        console.log("[SPA] Pushing state with fullPath:", fullPath);
         history.pushState({ url: fullPath }, '', fullPath);
+        console.log("[SPA] After pushState - window.location.href:", window.location.href);
+        console.log("[SPA] After pushState - window.location.search:", window.location.search);
 
         // Load the page
         await this.loadPage(urlObj.pathname, true);
