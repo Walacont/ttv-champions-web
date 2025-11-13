@@ -55,6 +55,11 @@ service cloud.firestore {
         resource.data.role == 'player' &&
         isSameClub(resource.data.clubId);
 
+      // Players can also read coaches/admins in their club (for match history partner/opponent names)
+      allow read: if isAuthenticated() &&
+        resource.data.role in ['coach', 'admin'] &&
+        isSameClub(resource.data.clubId);
+
       // Coaches and admins can read all users in their club
       allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
 
