@@ -704,11 +704,14 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 `;
             }
 
-            const milestonesHtml = tieredPointsData.milestones
-                .sort((a, b) => a.count - b.count)
+            const validMilestones = tieredPointsData.milestones
+                .filter(milestone => milestone && milestone.count !== undefined && milestone.points !== undefined)
+                .sort((a, b) => a.count - b.count);
+
+            const milestonesHtml = validMilestones
                 .map((milestone, index) => {
                     const isFirst = index === 0;
-                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - validMilestones[index - 1].points}`;
 
                     // Determine milestone status for players
                     let bgColor, borderColor, iconColor, textColor, statusIcon;
@@ -720,7 +723,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
                             statusIcon = '✓';
-                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
+                        } else if (index === 0 || currentCount >= validMilestones[index - 1].count) {
                             // Next achievable
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
