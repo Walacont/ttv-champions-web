@@ -21,6 +21,7 @@ import { initializeLeaderboardPreferences, applyPreferences } from './leaderboar
 import { initializeSupercompensation } from './supercompensation.js';
 import { initializeWidgetSystem } from './dashboard-widgets.js';
 import { initializeTrainingStats } from './training-stats.js';
+import { NotificationBellManager } from './notification-bell.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -70,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     promptDelay: 3000,
                                     showOnlyOnce: true
                                 });
+
+                                // Initialize notification bell
+                                const notificationBell = new NotificationBellManager(db, currentUserData.id);
                             } else {
                                 updateDashboard(currentUserData);
                             }
