@@ -741,8 +741,16 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 }
             }
 
+            console.log('🔎 RAW Meilensteine BEFORE filter:', JSON.stringify(tieredPointsData.milestones, null, 2));
+
             const validMilestones = tieredPointsData.milestones
-                .filter(milestone => milestone && milestone.count !== undefined && milestone.points !== undefined)
+                .filter(milestone => {
+                    const isValid = milestone && milestone.count !== undefined && milestone.points !== undefined;
+                    if (!isValid) {
+                        console.warn('❌ Filtered out milestone:', milestone);
+                    }
+                    return isValid;
+                })
                 .sort((a, b) => a.count - b.count);
 
             console.log('📊 Meilensteine für Anzeige:');
