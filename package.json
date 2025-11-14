@@ -1,14 +1,21 @@
 {
   "type": "module",
   "scripts": {
+    "build": "node build.js",
+    "build:prod": "NODE_ENV=production node build.js",
+    "dev": "firebase emulators:start",
+    "deploy": "npm run build:prod && firebase deploy --only hosting",
+    "deploy:all": "npm run build:prod && firebase deploy",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui"
   },
   "devDependencies": {
+    "esbuild": "^0.27.0",
     "firebase-admin": "^13.6.0",
     "firebase-tools": "^14.24.1",
+    "glob": "^11.0.3",
     "happy-dom": "^20.0.10",
     "vitest": "^4.0.8"
   },
