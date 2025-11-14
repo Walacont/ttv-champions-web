@@ -651,6 +651,19 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
 
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
 
+    console.log('🔍 Exercise Modal Debug:');
+    console.log('  - Exercise ID:', exerciseId);
+    console.log('  - Title:', title);
+    console.log('  - Has tiered points:', hasTieredPoints);
+    console.log('  - User role:', exerciseContext.userRole);
+    if (tieredPointsData) {
+        console.log('  - Tiered points enabled:', tieredPointsData.enabled);
+        console.log('  - Milestones count:', tieredPointsData.milestones?.length);
+        console.log('  - Milestones:', JSON.stringify(tieredPointsData.milestones, null, 2));
+    } else {
+        console.log('  - Tiered points data is null');
+    }
+
     // Load player progress if player role and milestones are enabled
     let playerProgress = null;
     if (hasTieredPoints && exerciseContext.userRole === 'player' && exerciseContext.db && exerciseContext.userId && exerciseId) {
@@ -666,6 +679,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     }
 
     const currentCount = playerProgress?.currentCount || 0;
+    const hasProgress = playerProgress !== null;
     const seasonEndDate = exerciseContext.db ? await formatSeasonEndDate(exerciseContext.db) : 'Lädt...'; // Use countdown logic
 
     if (hasTieredPoints) {
@@ -676,51 +690,99 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
             // Show player progress for players
             let progressHtml = '';
             if (exerciseContext.userRole === 'player') {
-                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
-                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+                if (hasProgress) {
+                    // Player has attempted this exercise
+                    const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
+                    const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
 
-                progressHtml = `
-                    <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="text-lg">📈</span>
-                            <span class="font-bold text-gray-800">Deine beste Leistung</span>
+                    progressHtml = `
+                        <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">📈</span>
+                                <span class="font-bold text-gray-800">Deine beste Leistung</span>
+                            </div>
+                            <p class="text-base text-gray-700 mb-2">
+                                Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
+                            </p>
+                            ${nextMilestone ? `
+                                <p class="text-sm text-gray-600">
+                                    Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
+                                </p>
+                            ` : `
+                                <p class="text-sm text-green-600 font-semibold">
+                                    ✓ Alle Meilensteine erreicht!
+                                </p>
+                            `}
+                            <p class="text-xs text-gray-500 mt-2">
+                                🔄 Rekord wird am ${seasonEndDate} zurückgesetzt
+                            </p>
                         </div>
-                        <p class="text-base text-gray-700 mb-2">
-                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
-                        </p>
-                        ${nextMilestone ? `
+                    `;
+                } else {
+                    // Player has not attempted this exercise yet
+                    const totalMilestones = tieredPointsData.milestones.filter(m => m && m.count !== undefined).length;
+                    progressHtml = `
+                        <div class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">🎯</span>
+                                <span class="font-bold text-gray-800">Meilenstein-Übung</span>
+                            </div>
+                            <p class="text-base text-gray-700 mb-2">
+                                Diese Übung hat <span class="font-bold text-indigo-600">${totalMilestones} Meilensteine</span>
+                            </p>
                             <p class="text-sm text-gray-600">
-                                Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
+                                Dein Coach wird deine beste Leistung eintragen, wenn du diese Übung absolvierst.
                             </p>
-                        ` : `
-                            <p class="text-sm text-green-600 font-semibold">
-                                ✓ Alle Meilensteine erreicht!
+                            <p class="text-xs text-gray-500 mt-2">
+                                🔄 Fortschritt wird am ${seasonEndDate} zurückgesetzt
                             </p>
-                        `}
-                        <p class="text-xs text-gray-500 mt-2">
-                            🔄 Rekord wird am ${seasonEndDate} zurückgesetzt
-                        </p>
-                    </div>
-                `;
+                        </div>
+                    `;
+                }
             }
 
-            const milestonesHtml = tieredPointsData.milestones
-                .sort((a, b) => a.count - b.count)
+            console.log('🔎 RAW Meilensteine BEFORE filter:', JSON.stringify(tieredPointsData.milestones, null, 2));
+
+            const validMilestones = tieredPointsData.milestones
+                .filter(milestone => {
+                    const isValid = milestone && milestone.count !== undefined && milestone.points !== undefined;
+                    if (!isValid) {
+                        console.warn('❌ Filtered out milestone:', milestone);
+                    }
+                    return isValid;
+                })
+                .sort((a, b) => a.count - b.count);
+
+            console.log('📊 Meilensteine für Anzeige:');
+            console.log('  - Total milestones:', tieredPointsData.milestones.length);
+            console.log('  - Valid milestones:', validMilestones.length);
+            console.log('  - Has progress:', hasProgress);
+            console.log('  - Current count:', currentCount);
+            console.log('  - Valid milestones array:', JSON.stringify(validMilestones, null, 2));
+
+            const milestonesHtml = validMilestones
                 .map((milestone, index) => {
                     const isFirst = index === 0;
-                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - validMilestones[index - 1].points}`;
 
                     // Determine milestone status for players
                     let bgColor, borderColor, iconColor, textColor, statusIcon;
                     if (exerciseContext.userRole === 'player') {
-                        if (currentCount >= milestone.count) {
+                        if (!hasProgress) {
+                            // No progress yet - show all as future/neutral
+                            bgColor = 'bg-gradient-to-r from-gray-50 to-slate-50';
+                            borderColor = 'border-gray-300';
+                            iconColor = 'text-gray-500';
+                            textColor = 'text-gray-600';
+                            statusIcon = '⚪';
+                        } else if (currentCount >= milestone.count) {
                             // Achieved
                             bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
                             borderColor = 'border-green-300';
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
                             statusIcon = '✓';
-                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
+                        } else if (index === 0 || currentCount >= validMilestones[index - 1].count) {
                             // Next achievable
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
@@ -757,6 +819,16 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 })
                 .join('');
 
+            console.log('📋 HTML-Länge:');
+            console.log('  - progressHtml length:', progressHtml.length);
+            console.log('  - milestonesHtml length:', milestonesHtml.length);
+            console.log('  - validMilestonesCount:', validMilestones.length);
+            if (milestonesHtml.length > 0) {
+                console.log('  - First 200 chars of milestonesHtml:', milestonesHtml.substring(0, 200));
+            } else {
+                console.warn('⚠️ milestonesHtml ist leer!');
+            }
+
             milestonesContainer.innerHTML = `
                 <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
                     <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -766,6 +838,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                     ${progressHtml}
                     ${milestonesHtml}
                 </div>`;
+            console.log('✅ Meilensteine Container aktualisiert');
             milestonesContainer.classList.remove('hidden');
         }
     } else {
