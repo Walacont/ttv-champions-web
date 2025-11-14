@@ -651,6 +651,14 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
 
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
 
+    console.log('🔍 Exercise Modal Debug:', {
+        exerciseId,
+        title,
+        hasTieredPoints,
+        tieredPointsData,
+        userRole: exerciseContext.userRole
+    });
+
     // Load player progress if player role and milestones are enabled
     let playerProgress = null;
     if (hasTieredPoints && exerciseContext.userRole === 'player' && exerciseContext.db && exerciseContext.userId && exerciseId) {
@@ -732,6 +740,14 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 .filter(milestone => milestone && milestone.count !== undefined && milestone.points !== undefined)
                 .sort((a, b) => a.count - b.count);
 
+            console.log('📊 Meilensteine für Anzeige:', {
+                total: tieredPointsData.milestones.length,
+                valid: validMilestones.length,
+                hasProgress,
+                currentCount,
+                milestones: validMilestones
+            });
+
             const milestonesHtml = validMilestones
                 .map((milestone, index) => {
                     const isFirst = index === 0;
@@ -791,6 +807,12 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 })
                 .join('');
 
+            console.log('📋 HTML-Länge:', {
+                progressHtml: progressHtml.length,
+                milestonesHtml: milestonesHtml.length,
+                validMilestonesCount: validMilestones.length
+            });
+
             milestonesContainer.innerHTML = `
                 <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
                     <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -800,6 +822,7 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                     ${progressHtml}
                     ${milestonesHtml}
                 </div>`;
+            console.log('✅ Meilensteine Container aktualisiert');
             milestonesContainer.classList.remove('hidden');
         }
     } else {
