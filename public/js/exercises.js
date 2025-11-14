@@ -651,13 +651,18 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
 
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
 
-    console.log('🔍 Exercise Modal Debug:', {
-        exerciseId,
-        title,
-        hasTieredPoints,
-        tieredPointsData,
-        userRole: exerciseContext.userRole
-    });
+    console.log('🔍 Exercise Modal Debug:');
+    console.log('  - Exercise ID:', exerciseId);
+    console.log('  - Title:', title);
+    console.log('  - Has tiered points:', hasTieredPoints);
+    console.log('  - User role:', exerciseContext.userRole);
+    if (tieredPointsData) {
+        console.log('  - Tiered points enabled:', tieredPointsData.enabled);
+        console.log('  - Milestones count:', tieredPointsData.milestones?.length);
+        console.log('  - Milestones:', JSON.stringify(tieredPointsData.milestones, null, 2));
+    } else {
+        console.log('  - Tiered points data is null');
+    }
 
     // Load player progress if player role and milestones are enabled
     let playerProgress = null;
@@ -740,13 +745,12 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 .filter(milestone => milestone && milestone.count !== undefined && milestone.points !== undefined)
                 .sort((a, b) => a.count - b.count);
 
-            console.log('📊 Meilensteine für Anzeige:', {
-                total: tieredPointsData.milestones.length,
-                valid: validMilestones.length,
-                hasProgress,
-                currentCount,
-                milestones: validMilestones
-            });
+            console.log('📊 Meilensteine für Anzeige:');
+            console.log('  - Total milestones:', tieredPointsData.milestones.length);
+            console.log('  - Valid milestones:', validMilestones.length);
+            console.log('  - Has progress:', hasProgress);
+            console.log('  - Current count:', currentCount);
+            console.log('  - Valid milestones array:', JSON.stringify(validMilestones, null, 2));
 
             const milestonesHtml = validMilestones
                 .map((milestone, index) => {
@@ -807,11 +811,15 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 })
                 .join('');
 
-            console.log('📋 HTML-Länge:', {
-                progressHtml: progressHtml.length,
-                milestonesHtml: milestonesHtml.length,
-                validMilestonesCount: validMilestones.length
-            });
+            console.log('📋 HTML-Länge:');
+            console.log('  - progressHtml length:', progressHtml.length);
+            console.log('  - milestonesHtml length:', milestonesHtml.length);
+            console.log('  - validMilestonesCount:', validMilestones.length);
+            if (milestonesHtml.length > 0) {
+                console.log('  - First 200 chars of milestonesHtml:', milestonesHtml.substring(0, 200));
+            } else {
+                console.warn('⚠️ milestonesHtml ist leer!');
+            }
 
             milestonesContainer.innerHTML = `
                 <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
