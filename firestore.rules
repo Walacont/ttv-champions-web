@@ -143,6 +143,22 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
         allow read: if isCoachOrAdmin();
       }
+
+      // Subcollection: notifications (in-app notifications for users)
+      match /notifications/{notificationId} {
+        // Users can read their own notifications
+        allow read: if isOwner(userId);
+
+        // Users can update their own notifications (to mark as read)
+        allow update: if isOwner(userId);
+
+        // Users can delete their own notifications
+        allow delete: if isOwner(userId);
+
+        // Cloud Functions can create notifications (via Admin SDK, no rule needed)
+        // Coaches can also view notifications (for debugging/support)
+        allow read: if isCoachOrAdmin();
+      }
     }
 
     // Clubs collection
