@@ -829,13 +829,16 @@ function renderCoachProcessedCards(requests, db) {
             request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
             'Unbekannt';
 
+        // Get coach name who processed the request
+        const coachName = request.approvals?.coach?.coachName || 'Ein Coach';
+
         const statusBadge = request.status === 'approved' ?
-            '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Von dir genehmigt</span>' :
-            '<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von dir abgelehnt</span>';
+            `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Von ${coachName} genehmigt</span>` :
+            `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von ${coachName} abgelehnt</span>`;
 
         const statusDescription = request.status === 'approved' ?
-            '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Du hast diese Anfrage genehmigt. Das Match wurde erstellt und verarbeitet.</p>' :
-            '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Du hast diese Anfrage abgelehnt.</p>';
+            `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> ${coachName} hat diese Anfrage genehmigt. Das Match wurde erstellt und verarbeitet.</p>` :
+            `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> ${coachName} hat diese Anfrage abgelehnt.</p>`;
 
         card.innerHTML = `
             <div class="mb-3">
