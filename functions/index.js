@@ -2031,39 +2031,6 @@ async function sendPushNotification(userId, title, body, data = {}) {
 }
 
 /**
- * Create an in-app notification for a user
- * @param {string} userId - User ID
- * @param {string} title - Notification title
- * @param {string} body - Notification body
- * @param {string} type - Notification type (e.g., 'match_request', 'challenge', 'points_awarded')
- * @param {object} data - Additional data
- * @return {Promise<boolean>} Success status
- */
-async function createInAppNotification(userId, title, body, type, data = {}) {
-  try {
-    const notificationRef = db.collection(CONFIG.COLLECTIONS.USERS)
-      .doc(userId)
-      .collection("notifications")
-      .doc();
-
-    await notificationRef.set({
-      title,
-      body,
-      type,
-      data,
-      read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    logger.info(`📢 In-app notification created for user ${userId}: ${title}`);
-    return true;
-  } catch (error) {
-    logger.error(`Error creating in-app notification for ${userId}:`, error);
-    return false;
-  }
-}
-
-/**
  * Send push notification when match is approved by coach
  */
 exports.sendMatchApprovedNotification = onDocumentWritten(
@@ -2093,7 +2060,7 @@ exports.sendMatchApprovedNotification = onDocumentWritten(
     const playerAName = playerADoc.exists ? playerADoc.data().firstName : "Spieler";
     const playerBName = playerBDoc.exists ? playerBDoc.data().firstName : "Gegner";
 
-    // Send notifications to both players
+    // Send notification to both players
     const promises = [
       sendPushNotification(
         afterData.playerA,
@@ -2112,28 +2079,6 @@ exports.sendMatchApprovedNotification = onDocumentWritten(
         {
           type: "matchApproved",
           matchId: event.params.matchId,
-          url: "/dashboard.html",
-        }
-      ),
-      createInAppNotification(
-        afterData.playerA,
-        "Match genehmigt!",
-        `Dein Match gegen ${playerBName} wurde genehmigt.`,
-        "match_approved",
-        {
-          matchId: event.params.matchId,
-          opponentId: afterData.playerB,
-          url: "/dashboard.html",
-        }
-      ),
-      createInAppNotification(
-        afterData.playerB,
-        "Match genehmigt!",
-        `Dein Match gegen ${playerAName} wurde genehmigt.`,
-        "match_approved",
-        {
-          matchId: event.params.matchId,
-          opponentId: afterData.playerA,
           url: "/dashboard.html",
         }
       ),
@@ -2162,7 +2107,7 @@ exports.sendMatchRequestNotification = onDocumentCreated(
     const requesterDoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(data.requester).get();
     const requesterName = requesterDoc.exists ? requesterDoc.data().firstName : "Jemand";
 
-    // Send push notification to playerB
+    // Send notification to playerB
     await sendPushNotification(
       data.playerB,
       "🏓 Neue Match-Anfrage",
@@ -2170,19 +2115,6 @@ exports.sendMatchRequestNotification = onDocumentCreated(
       {
         type: "matchRequest",
         requestId: event.params.requestId,
-        url: "/dashboard.html",
-      }
-    );
-
-    // Create in-app notification for playerB
-    await createInAppNotification(
-      data.playerB,
-      "Neue Match-Anfrage",
-      `${requesterName} möchte ein Match gegen dich spielen.`,
-      "match_request",
-      {
-        requestId: event.params.requestId,
-        playerAId: data.requester,
         url: "/dashboard.html",
       }
     );
@@ -2221,25 +2153,13 @@ exports.sendRankUpNotification = onDocumentWritten(
 
     logger.info(`User ${event.params.userId} ranked up to ${newRank}, sending notification...`);
 
-    // Send push notification
+    // Send notification
     await sendPushNotification(
       event.params.userId,
       `🎉 ${newRank} erreicht!`,
       `Glückwunsch! Du bist zu ${newRank} aufgestiegen!`,
       {
         type: "rankUp",
-        rank: newRank,
-        url: "/dashboard.html",
-      }
-    );
-
-    // Create in-app notification
-    await createInAppNotification(
-      event.params.userId,
-      `${newRank} erreicht!`,
-      `Glückwunsch! Du bist zu ${newRank} aufgestiegen!`,
-      "rank_up",
-      {
         rank: newRank,
         url: "/dashboard.html",
       }
@@ -2350,161 +2270,5 @@ exports.sendTestNotification = onCall(
     );
 
     return {success: true, message: "Test notification sent"};
-  }
-);
-
-/**
- * Send notification when a new challenge becomes active
- */
-exports.notifyOnNewChallenge = onDocumentWritten(
-  {
-    document: "challenges/{challengeId}",
-    region: CONFIG.REGION,
-  },
-  async (event) => {
-    const beforeData = event.data.before.exists ? event.data.before.data() : null;
-    const afterData = event.data.after.exists ? event.data.after.data() : null;
-
-    // Only notify if challenge just became active
-    if (!afterData || !afterData.isActive) {
-      return null;
-    }
-
-    // Don't notify if it was already active before
-    if (beforeData && beforeData.isActive) {
-      return null;
-    }
-
-    logger.info(`Challenge ${event.params.challengeId} activated, sending notifications...`);
-
-    // Get all users in the same club/subgroup
-    const usersQuery = db.collection(CONFIG.COLLECTIONS.USERS)
-      .where("role", "==", "player")
-      .where("clubId", "==", afterData.clubId);
-
-    if (afterData.subgroupId) {
-      usersQuery.where("subgroupId", "==", afterData.subgroupId);
-    }
-
-    const usersSnapshot = await usersQuery.get();
-
-    // Send notifications to all matching users
-    const promises = [];
-    usersSnapshot.forEach((userDoc) => {
-      const userId = userDoc.id;
-
-      // Send push notification
-      promises.push(
-        sendPushNotification(
-          userId,
-          "🎯 Neue Challenge verfügbar!",
-          `${afterData.title} - ${afterData.points} Punkte`,
-          {
-            type: "challengeAvailable",
-            challengeId: event.params.challengeId,
-            url: "/dashboard.html",
-          }
-        )
-      );
-
-      // Create in-app notification
-      promises.push(
-        createInAppNotification(
-          userId,
-          "Neue Challenge verfügbar!",
-          `${afterData.title} - ${afterData.points} Punkte`,
-          "challenge",
-          {
-            challengeId: event.params.challengeId,
-            url: "/dashboard.html",
-          }
-        )
-      );
-    });
-
-    await Promise.all(promises);
-
-    logger.info(`Sent ${usersSnapshot.size} notifications for new challenge`);
-
-    return null;
-  }
-);
-
-/**
- * Send notification when points are awarded to a player
- */
-exports.notifyOnPointsAwarded = onDocumentCreated(
-  {
-    document: "users/{userId}/pointsHistory/{historyId}",
-    region: CONFIG.REGION,
-  },
-  async (event) => {
-    const data = event.data.data();
-    const userId = event.params.userId;
-
-    // Don't send notification for negative points (point deductions)
-    if (data.points <= 0 && (!data.xp || data.xp <= 0)) {
-      return null;
-    }
-
-    logger.info(`Points awarded to user ${userId}, sending notification...`);
-
-    // Build notification message based on reason
-    let title = "Punkte erhalten!";
-    let body = "";
-
-    if (data.reason) {
-      if (data.reason.includes("Challenge")) {
-        title = "Challenge abgeschlossen!";
-        body = `+${data.points} Punkte für: ${data.reason}`;
-      } else if (data.reason.includes("Match") || data.reason.includes("Sieg")) {
-        title = "Punkte aus Match!";
-        body = `+${data.points} Punkte`;
-        if (data.xp > 0) {
-          body += ` und +${data.xp} XP`;
-        }
-      } else if (data.reason.includes("Übung") || data.reason.includes("Training")) {
-        title = "Training belohnt!";
-        body = `+${data.points} Punkte für: ${data.reason}`;
-      } else {
-        body = `+${data.points} Punkte für: ${data.reason}`;
-      }
-    } else {
-      body = `Du hast ${data.points} Punkte erhalten!`;
-    }
-
-    // Add XP to message if awarded
-    if (data.xp > 0 && !body.includes("XP")) {
-      body += ` (+${data.xp} XP)`;
-    }
-
-    // Send push notification
-    await sendPushNotification(
-      userId,
-      title,
-      body,
-      {
-        type: "pointsAwarded",
-        points: data.points,
-        xp: data.xp || 0,
-        url: "/dashboard.html",
-      }
-    );
-
-    // Create in-app notification
-    await createInAppNotification(
-      userId,
-      title,
-      body,
-      "points_awarded",
-      {
-        points: data.points,
-        xp: data.xp || 0,
-        reason: data.reason,
-        url: "/dashboard.html",
-      }
-    );
-
-    return null;
   }
 );
