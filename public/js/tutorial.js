@@ -23,6 +23,9 @@ class TutorialManager {
         this.tutorialBox = null;
         this.onComplete = null;
         this.isActive = false;
+        this.highlightedElement = null;
+        this.originalZIndex = null;
+        this.originalPosition = null;
     }
 
     /**
@@ -249,13 +252,26 @@ class TutorialManager {
      * Highlight a specific element with spotlight
      */
     highlightElement(selector) {
+        // Reset previous highlighted element
+        this.removeSpotlight();
+
         const element = document.querySelector(selector);
 
         if (!element) {
             console.warn(`Tutorial target not found: ${selector}`);
-            this.removeSpotlight();
             return;
         }
+
+        // Store original styles
+        this.highlightedElement = element;
+        this.originalZIndex = element.style.zIndex || getComputedStyle(element).zIndex;
+        this.originalPosition = element.style.position || getComputedStyle(element).position;
+
+        // Make element appear above overlay
+        if (this.originalPosition === 'static') {
+            element.style.position = 'relative';
+        }
+        element.style.zIndex = '10000';
 
         const rect = element.getBoundingClientRect();
         const padding = 8;
@@ -279,6 +295,19 @@ class TutorialManager {
     removeSpotlight() {
         if (this.spotlightElement) {
             this.spotlightElement.style.display = 'none';
+        }
+
+        // Restore original element styles
+        if (this.highlightedElement) {
+            if (this.originalPosition === 'static') {
+                this.highlightedElement.style.position = '';
+            }
+            if (this.originalZIndex === 'auto') {
+                this.highlightedElement.style.zIndex = '';
+            } else {
+                this.highlightedElement.style.zIndex = this.originalZIndex;
+            }
+            this.highlightedElement = null;
         }
     }
 
