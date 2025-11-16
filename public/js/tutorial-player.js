@@ -64,9 +64,35 @@ export const playerTutorialSteps = [
         noSpotlight: true
     },
 
+    // === ÜBERSICHT / STARTSEITE ===
+
+    // 2. Übersicht Tab
+    {
+        element: '[data-tab="overview"]',
+        title: 'Deine Startseite',
+        description: 'Das ist deine Startseite mit den wichtigsten Widgets: Aktuelle Challenges, deine Stats, Trainingsplan und mehr. Hier siehst du auf einen Blick alle wichtigen Informationen.',
+        category: 'Startseite',
+        position: 'bottom',
+        action: async () => {
+            await switchToTab('overview');
+        }
+    },
+
+    // 3. Widget-Einstellungen
+    {
+        element: '#edit-dashboard-button',
+        title: 'Startseite anpassen',
+        description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen. Mach dein Dashboard zu deinem eigenen!',
+        category: 'Startseite',
+        position: 'top',
+        action: async () => {
+            await switchToTab('overview');
+        }
+    },
+
     // === ANSICHTEN & FILTER ===
 
-    // 2. Untergruppen-Filter
+    // 4. Untergruppen-Filter
     {
         element: '#player-subgroup-filter',
         title: 'Ansicht wechseln',
@@ -77,7 +103,7 @@ export const playerTutorialSteps = [
 
     // === RANGLISTEN ===
 
-    // 3. Ranglisten Tab
+    // 5. Ranglisten Tab
     {
         element: '[data-tab="leaderboard"]',
         title: 'Ranglisten',
@@ -89,7 +115,7 @@ export const playerTutorialSteps = [
         }
     },
 
-    // 4. Ranglisten-Toggles
+    // 6. Ranglisten-Toggles
     {
         element: '#toggle-leaderboard-preferences',
         title: 'Ranglisten ein-/ausschalten',
@@ -101,7 +127,7 @@ export const playerTutorialSteps = [
         }
     },
 
-    // 5. Liga-Tabs
+    // 7. Liga-Tabs
     {
         element: '#tab-skill',
         title: 'Zwischen Ranglisten wechseln',
@@ -115,7 +141,7 @@ export const playerTutorialSteps = [
 
     // === WETTKAMPF ===
 
-    // 6. Wettkampf Tab
+    // 8. Wettkampf Tab
     {
         element: '[data-tab="matches"]',
         title: 'Wettkampf',
@@ -127,7 +153,19 @@ export const playerTutorialSteps = [
         }
     },
 
-    // 7. Match-Anfrage senden
+    // 9. Match-Vorschläge
+    {
+        element: '#toggle-match-suggestions',
+        title: 'Gegnervorschläge',
+        description: 'Hier findest du Vorschläge für passende Gegner basierend auf deiner ELO-Bewertung. Perfekt, um Spieler auf ähnlichem Niveau zu finden!',
+        category: 'Wettkampf',
+        position: 'bottom',
+        action: async () => {
+            await switchToTab('matches');
+        }
+    },
+
+    // 10. Match-Anfrage senden
     {
         element: '#match-request-form',
         title: 'Match-Anfrage senden',
@@ -139,35 +177,9 @@ export const playerTutorialSteps = [
         }
     },
 
-    // === ÜBERSICHT / STARTSEITE ===
-
-    // 8. Übersicht Tab
-    {
-        element: '[data-tab="overview"]',
-        title: 'Startseite / Übersicht',
-        description: 'Die Übersicht zeigt deine wichtigsten Widgets: Aktuelle Challenges, deine Stats, Trainingsplan und mehr.',
-        category: 'Startseite',
-        position: 'bottom',
-        action: async () => {
-            await switchToTab('overview');
-        }
-    },
-
-    // 9. Widget-Einstellungen
-    {
-        element: '#edit-dashboard-button',
-        title: 'Startseite anpassen',
-        description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen.',
-        category: 'Startseite',
-        position: 'top',
-        action: async () => {
-            await switchToTab('overview');
-        }
-    },
-
     // === ÜBUNGEN ===
 
-    // 10. Übungen Tab
+    // 11. Übungen Tab
     {
         element: '[data-tab="exercises"]',
         title: 'Übungskatalog',
@@ -179,7 +191,7 @@ export const playerTutorialSteps = [
         }
     },
 
-    // 11. Übungen Filter
+    // 12. Übungen Filter
     {
         element: '#toggle-tags-filter-player',
         title: 'Übungen filtern',
@@ -193,7 +205,7 @@ export const playerTutorialSteps = [
 
     // === ANWESENHEIT ===
 
-    // 12. Anwesenheit Tab
+    // 13. Anwesenheit Tab
     {
         element: '[data-tab="profile"]',
         title: 'Anwesenheit & Kalender',
@@ -205,7 +217,7 @@ export const playerTutorialSteps = [
         }
     },
 
-    // 13. Kalender
+    // 14. Kalender
     {
         element: '#calendar-grid',
         title: 'Trainingskalender',
@@ -219,7 +231,7 @@ export const playerTutorialSteps = [
 
     // === PUNKTESYSTEM ===
 
-    // 14. FAQ Link
+    // 15. FAQ Link
     {
         element: 'a[href="/faq.html"]',
         title: 'FAQ & Punktesystem',
@@ -230,7 +242,7 @@ export const playerTutorialSteps = [
 
     // === ABSCHLUSS ===
 
-    // 15. Abschluss
+    // 16. Abschluss
     {
         element: 'body',
         title: '🎉 Tutorial abgeschlossen!',
