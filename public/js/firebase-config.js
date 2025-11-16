@@ -5,5 +5,5 @@
     storageBucket: "ttv-champions-prod.firebasestorage.app",
     messagingSenderId: "569930663711",
     appId: "1:569930663711:web:2a5529aff927b28c12922a",
-    measurementId: "G-F1PHV19E5Z"
+    measurementId: "G-73FLWTKNS4"
   };
