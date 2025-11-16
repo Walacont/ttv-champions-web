@@ -18,6 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/spa-enhancements.css">
+    <link rel="stylesheet" href="/css/tutorial.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
         #page-loader {
@@ -216,6 +217,41 @@
                         <strong>Hinweis:</strong> Dein Browser unterstützt keine Push-Benachrichtigungen.
                         Bitte verwende einen modernen Browser wie Chrome, Firefox, Edge oder Safari (ab iOS 16.4).
                     </p>
+                </div>
+            </div>
+
+            <!-- Tutorial & Hilfe -->
+            <div id="tutorial-section">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <i class="fas fa-graduation-cap text-indigo-600"></i>
+                    Tutorial & Hilfe
+                </h2>
+
+                <div class="space-y-3">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                                    Coach Tutorial
+                                    <span id="tutorial-badge-coach" class="tutorial-badge tutorial-badge-pending">Ausstehend</span>
+                                </h3>
+                                <p class="text-sm text-gray-600 mb-3">
+                                    Lerne alle wichtigen Funktionen für Coaches kennen: Spielerverwaltung, Wettkämpfe, Challenges, Ranglisten und mehr.
+                                </p>
+                                <button id="start-coach-tutorial-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-md">
+                                    <i class="fas fa-play-circle mr-2"></i>
+                                    Tutorial starten
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <strong>Tipp:</strong> Das Tutorial kann jederzeit abgebrochen werden. Du kannst es später hier wiederholen.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

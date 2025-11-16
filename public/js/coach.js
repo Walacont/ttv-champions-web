@@ -24,6 +24,8 @@ import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleE
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
+import TutorialManager from './tutorial.js';
+import { coachTutorialSteps } from './tutorial-coach.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -537,6 +539,47 @@ async function initializeCoachPage(userData) {
     updateSeasonCountdown('season-countdown-coach', false, db);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, db), 1000);
     setInterval(updateAllCountdowns, 1000);
+
+    // Check if tutorial should be shown (first time coach login)
+    checkAndStartTutorial(userData);
+}
+
+/**
+ * Check if tutorial should be shown and start it
+ */
+async function checkAndStartTutorial(userData) {
+    // Check if tutorial should be started manually (from settings)
+    const startTutorialFlag = sessionStorage.getItem('startTutorial');
+    if (startTutorialFlag === 'coach') {
+        sessionStorage.removeItem('startTutorial');
+        // Start tutorial after a delay
+        setTimeout(() => {
+            window.startCoachTutorial();
+        }, 1000);
+        return;
+    }
+
+    // Check if tutorial was already completed
+    const tutorialCompleted = userData.tutorialCompleted?.coach || false;
+
+    if (!tutorialCompleted) {
+        // Wait a bit to ensure all content is loaded
+        setTimeout(() => {
+            const tutorial = new TutorialManager(coachTutorialSteps, {
+                tutorialKey: 'coach',
+                autoScroll: true,
+                scrollOffset: 100,
+                onComplete: () => {
+                    console.log('Coach Tutorial abgeschlossen!');
+                },
+                onSkip: () => {
+                    console.log('Coach Tutorial übersprungen');
+                }
+            });
+
+            tutorial.start();
+        }, 1000);
+    }
 }
 
 /**
@@ -681,3 +724,22 @@ document.getElementById('close-reactivate-modal')?.addEventListener('click', () 
     document.getElementById('reactivate-challenge-modal').classList.add('hidden');
     document.getElementById('reactivate-challenge-modal').classList.remove('flex');
 });
+
+/**
+ * Global function to manually start the coach tutorial (called from settings)
+ */
+window.startCoachTutorial = function() {
+    const tutorial = new TutorialManager(coachTutorialSteps, {
+        tutorialKey: 'coach',
+        autoScroll: true,
+        scrollOffset: 100,
+        onComplete: () => {
+            console.log('Coach Tutorial abgeschlossen!');
+        },
+        onSkip: () => {
+            console.log('Coach Tutorial übersprungen');
+        }
+    });
+
+    tutorial.start();
+};

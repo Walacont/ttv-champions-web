@@ -75,6 +75,9 @@ onAuthStateChanged(auth, async (user) => {
         currentEmailDisplay.textContent = user.email || 'Keine Email hinterlegt';
         updateEmailVerificationStatus(user.emailVerified);
 
+        // Tutorial-Status anzeigen
+        updateTutorialStatus(userData);
+
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
 
@@ -442,3 +445,63 @@ async function loadNotificationPreferences() {
         console.error('Error loading preferences:', error);
     }
 }
+
+// ===== TUTORIAL FUNCTIONS =====
+
+/**
+ * Tutorial-Status anzeigen
+ */
+function updateTutorialStatus(userData) {
+    const role = userData?.role;
+    const tutorialCompleted = userData?.tutorialCompleted?.coach || false;
+
+    // Nur für Coaches anzeigen
+    const tutorialSection = document.getElementById('tutorial-section');
+    if (!tutorialSection) return;
+
+    if (role !== 'coach' && role !== 'admin') {
+        tutorialSection.style.display = 'none';
+        return;
+    }
+
+    tutorialSection.style.display = 'block';
+
+    // Badge aktualisieren
+    const badge = document.getElementById('tutorial-badge-coach');
+    if (badge) {
+        if (tutorialCompleted) {
+            badge.className = 'tutorial-badge tutorial-badge-completed';
+            badge.innerHTML = '<i class="fas fa-check mr-1"></i> Abgeschlossen';
+        } else {
+            badge.className = 'tutorial-badge tutorial-badge-pending';
+            badge.textContent = 'Ausstehend';
+        }
+    }
+
+    // Button Text anpassen
+    const button = document.getElementById('start-coach-tutorial-btn');
+    if (button) {
+        if (tutorialCompleted) {
+            button.innerHTML = '<i class="fas fa-redo mr-2"></i> Tutorial wiederholen';
+        } else {
+            button.innerHTML = '<i class="fas fa-play-circle mr-2"></i> Tutorial starten';
+        }
+    }
+}
+
+/**
+ * Coach-Tutorial starten
+ */
+document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', () => {
+    // Zur Coach-Seite navigieren und Tutorial starten
+    if (window.location.pathname.includes('coach.html')) {
+        // Bereits auf der Coach-Seite
+        if (typeof window.startCoachTutorial === 'function') {
+            window.startCoachTutorial();
+        }
+    } else {
+        // Zur Coach-Seite navigieren und Tutorial-Flag setzen
+        sessionStorage.setItem('startTutorial', 'coach');
+        window.location.href = '/coach.html';
+    }
+});
