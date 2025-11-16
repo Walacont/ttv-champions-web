@@ -143,8 +143,9 @@ export class TutorialManager {
         // Auto-Scroll zum Element (nur wenn kein noSpotlight)
         if (this.options.autoScroll && !step.noSpotlight) {
             this.scrollToElement(element);
-            // Kurz warten nach Scroll
-            await new Promise(resolve => setTimeout(resolve, 300));
+            // Warten nach Scroll (länger auf Mobile)
+            const isMobile = window.innerWidth <= 640;
+            await new Promise(resolve => setTimeout(resolve, isMobile ? 500 : 300));
         }
 
         // Spotlight setzen (nur wenn nicht noSpotlight)

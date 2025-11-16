@@ -87,6 +87,8 @@ export const playerTutorialSteps = [
         position: 'top',
         action: async () => {
             await switchToTab('overview');
+            // Länger warten, damit alle Widgets laden
+            await new Promise(resolve => setTimeout(resolve, 600));
         }
     },
 

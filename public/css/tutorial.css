@@ -26,11 +26,14 @@
     position: relative;
     z-index: 9999 !important;
     box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px rgba(79, 70, 229, 0.8) !important;
-    border-radius: 8px;
+    border-radius: 8px !important;
     animation: tutorial-pulse 2s infinite;
     pointer-events: auto;
     /* Sicherstellen, dass das Element immer klickbar ist */
     cursor: pointer;
+    /* Sicherstellen, dass Spotlight über anderen Styles liegt */
+    outline: 3px solid rgba(79, 70, 229, 0.5) !important;
+    outline-offset: 2px !important;
 }
 
 @keyframes tutorial-pulse {
