@@ -84,9 +84,15 @@ export const playerTutorialSteps = [
         title: 'Startseite anpassen',
         description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen. Mach dein Dashboard zu deinem eigenen!',
         category: 'Startseite',
-        position: 'bottom',
+        position: 'top',
         action: async () => {
             await switchToTab('overview');
+            // Zum Button scrollen
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const button = document.getElementById('edit-dashboard-button');
+            if (button) {
+                button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
     },
 
