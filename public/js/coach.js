@@ -1,7 +1,7 @@
 // NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
+import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, query, where, writeBatch, serverTimestamp, increment, deleteDoc, updateDoc, runTransaction, orderBy, limit, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
@@ -133,6 +133,16 @@ async function initializeCoachPage(userData) {
     mainContent.style.display = 'block';
 
     document.getElementById('welcome-message').textContent = `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
+
+    // Track page view in Google Analytics
+    logEvent(analytics, 'page_view', {
+        page_title: 'Coach Dashboard',
+        page_location: window.location.href,
+        page_path: '/coach',
+        user_role: 'coach',
+        club_id: userData.clubId
+    });
+    console.log('[Analytics] Coach page view tracked');
 
     // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {

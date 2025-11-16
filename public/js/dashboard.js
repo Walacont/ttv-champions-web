@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
+import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
 import { getFirestore, doc, getDoc, collection, onSnapshot, query, where, orderBy, getDocs, updateDoc, writeBatch, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { firebaseConfig } from './firebase-config.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
@@ -295,6 +295,16 @@ async function initializeDashboard(userData) {
         // Setup new listener
         calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
     });
+
+    // Track page view in Google Analytics
+    logEvent(analytics, 'page_view', {
+        page_title: 'Player Dashboard',
+        page_location: window.location.href,
+        page_path: '/dashboard',
+        user_role: 'player',
+        club_id: currentUserData.clubId
+    });
+    console.log('[Analytics] Dashboard page view tracked');
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';

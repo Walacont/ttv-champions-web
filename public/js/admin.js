@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 // NEU: Zusätzliche Imports für die Emulatoren
 import { getAuth, onAuthStateChanged, signOut, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
+import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
 import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, query, deleteDoc, serverTimestamp, orderBy, updateDoc, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getStorage, ref, deleteObject, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
@@ -121,6 +121,16 @@ onAuthStateChanged(auth, async (user) => {
 function initializeAdminPage(userData, user) {
     try {
         welcomeMessage.textContent = `Willkommen, ${userData.firstName || user.email}!`;
+
+        // Track page view in Google Analytics
+        logEvent(analytics, 'page_view', {
+            page_title: 'Admin Dashboard',
+            page_location: window.location.href,
+            page_path: '/admin',
+            user_role: 'admin'
+        });
+        console.log('[Analytics] Admin page view tracked');
+
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
 
