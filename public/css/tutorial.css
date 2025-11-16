@@ -29,6 +29,8 @@
     border-radius: 8px;
     animation: tutorial-pulse 2s infinite;
     pointer-events: auto;
+    /* Sicherstellen, dass das Element immer klickbar ist */
+    cursor: pointer;
 }
 
 @keyframes tutorial-pulse {
@@ -235,6 +237,24 @@ body.tutorial-active {
         left: 16px !important;
         right: 16px !important;
         width: auto !important;
+        padding: 20px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    /* Tooltip immer am unteren Bildschirmrand auf Mobile */
+    .tutorial-tooltip:not(.centered) {
+        bottom: 16px !important;
+        top: auto !important;
+        transform: translateX(0) translateY(0) !important;
+    }
+
+    /* Zentrierte Tooltips (Welcome/Completion) auf Mobile */
+    .tutorial-tooltip.centered {
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        max-width: calc(100vw - 40px);
     }
 
     .tutorial-tooltip::before {
@@ -247,14 +267,49 @@ body.tutorial-active {
 
     .tutorial-description {
         font-size: 13px;
+        line-height: 1.5;
     }
 
     .tutorial-footer {
         flex-direction: column;
+        margin-top: 16px;
+        padding-top: 16px;
+        gap: 8px;
     }
 
     .tutorial-btn {
         width: 100%;
+    }
+
+    .tutorial-btn-primary {
+        order: -1; /* "Weiter" Button zuerst */
+    }
+
+    /* Spotlight weniger intensiv auf Mobile */
+    .tutorial-spotlight {
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(79, 70, 229, 0.6) !important;
+    }
+
+    @keyframes tutorial-pulse {
+        0%, 100% {
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(79, 70, 229, 0.6);
+        }
+        50% {
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 25px rgba(79, 70, 229, 0.8);
+        }
+    }
+}
+
+/* Tablet Responsiveness */
+@media (max-width: 768px) and (min-width: 641px) {
+    .tutorial-tooltip {
+        max-width: 380px;
+        padding: 22px;
+    }
+
+    .tutorial-tooltip:not(.centered) {
+        bottom: 20px !important;
+        top: auto !important;
     }
 }
 
