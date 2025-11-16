@@ -577,6 +577,9 @@ async function handleSpontaneousSessionSubmit(e) {
 
         showFeedback('spontaneous-session-feedback', 'Training erstellt! Öffne Anwesenheit...', 'success');
 
+        // Trigger calendar reload event so the new session appears in the calendar
+        window.dispatchEvent(new CustomEvent('trainingCreated', { detail: { sessionId, date } }));
+
         setTimeout(() => {
             closeSpontaneousSessionModal();
 

@@ -243,6 +243,15 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
     });
 
+    // Listen for training creation events to reload calendar
+    window.addEventListener('trainingCreated', () => {
+        console.log('[Coach] Training created, reloading calendar...');
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    });
+
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', async () => {
         try {
@@ -317,7 +326,15 @@ async function initializeCoachPage(userData) {
     document.getElementById('save-player-subgroups-button').addEventListener('click', () => handleSavePlayerSubgroups(db));
     
     // Attendance Modal Listeners
-    document.getElementById('close-attendance-modal-button').addEventListener('click', () => document.getElementById('attendance-modal').classList.add('hidden'));
+    document.getElementById('close-attendance-modal-button').addEventListener('click', () => {
+        document.getElementById('attendance-modal').classList.add('hidden');
+        // Reload calendar when closing attendance modal without saving
+        // This ensures newly created sessions are visible even if attendance wasn't recorded
+        if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
+            calendarUnsubscribe();
+        }
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    });
 
     // Form Submissions
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
