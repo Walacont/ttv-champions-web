@@ -91,9 +91,9 @@ export const playerTutorialSteps = [
 
     // 4. Ranglisten-Toggles
     {
-        element: '#leaderboard-toggles',
+        element: '#toggle-leaderboard-preferences',
         title: 'Ranglisten ein-/ausschalten',
-        description: 'Mit diesen Buttons kannst du einzelne Ranglisten ein- oder ausblenden. So siehst du nur die Rankings, die dich interessieren (z.B. nur ELO-Ranking ohne Saison-Punkte).',
+        description: 'Mit diesem Button öffnest du die Einstellungen, um einzelne Ranglisten ein- oder auszublenden. So siehst du nur die Rankings, die dich interessieren (z.B. nur ELO-Ranking ohne Saison-Punkte).',
         category: 'Ranglisten',
         position: 'auto',
         action: async () => {
@@ -103,11 +103,11 @@ export const playerTutorialSteps = [
 
     // 5. Liga-Tabs
     {
-        element: '#league-tabs',
+        element: '#tab-skill',
         title: 'Zwischen Ranglisten wechseln',
-        description: 'Hier kannst du zwischen verschiedenen Ranking-Typen wechseln: ELO-Ranking, Saison-Punkte oder XP-Level. Jede Rangliste zeigt einen anderen Aspekt deiner Leistung.',
+        description: 'Mit diesen Tabs kannst du zwischen verschiedenen Ranking-Typen wechseln: Skill (ELO), Fleiß (XP), Season (Saison-Punkte), Ränge oder Doppel. Jede Rangliste zeigt einen anderen Aspekt deiner Leistung.',
         category: 'Ranglisten',
-        position: 'auto',
+        position: 'top',
         action: async () => {
             await switchToTab('leaderboard');
         }
@@ -129,7 +129,7 @@ export const playerTutorialSteps = [
 
     // 7. Match-Anfrage senden
     {
-        element: '#player-match-form',
+        element: '#match-request-form',
         title: 'Match-Anfrage senden',
         description: 'Wähle einen Gegner, trage das Ergebnis ein und sende die Anfrage an deinen Coach. Der Coach genehmigt das Match und die Punkte werden automatisch berechnet.',
         category: 'Wettkampf',
@@ -155,11 +155,11 @@ export const playerTutorialSteps = [
 
     // 9. Widget-Einstellungen
     {
-        element: '#dashboard-settings-button',
+        element: '#edit-dashboard-button',
         title: 'Startseite anpassen',
-        description: 'Mit dem Zahnrad-Icon kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen.',
+        description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen.',
         category: 'Startseite',
-        position: 'left',
+        position: 'top',
         action: async () => {
             await switchToTab('overview');
         }
@@ -181,11 +181,11 @@ export const playerTutorialSteps = [
 
     // 11. Übungen Filter
     {
-        element: '#exercise-filters',
+        element: '#toggle-tags-filter-player',
         title: 'Übungen filtern',
-        description: 'Filtere die Übungen nach Schwierigkeit (Leicht, Mittel, Schwer) und Level (Anfänger, Fortgeschritten, Profi). So findest du die passenden Übungen für dein Training.',
+        description: 'Mit diesem Button öffnest du die Tag-Filter. Hier kannst du Übungen nach verschiedenen Kategorien filtern (z.B. Technik, Taktik, Fitness). So findest du die passenden Übungen für dein Training.',
         category: 'Übungen',
-        position: 'auto',
+        position: 'bottom',
         action: async () => {
             await switchToTab('exercises');
         }
@@ -207,7 +207,7 @@ export const playerTutorialSteps = [
 
     // 13. Kalender
     {
-        element: '#calendar-container',
+        element: '#calendar-grid',
         title: 'Trainingskalender',
         description: 'Im Kalender siehst du alle Trainingstage. Grün = anwesend, Gelb = Streak-Tag, Rot = gefehlt. Klicke auf einen Tag um deine Anwesenheit zu markieren.',
         category: 'Anwesenheit',
