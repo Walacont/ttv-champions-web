@@ -278,8 +278,8 @@ export class TutorialManager {
         this.tooltip.style.top = `${Math.max(20, top)}px`;
         this.tooltip.style.left = `${Math.max(20, left)}px`;
 
-        // Keine Position-Klasse (kein Pfeil)
-        this.tooltip.className = 'tutorial-tooltip visible';
+        // Centered Klasse hinzufügen (für Mobile-Ausnahme)
+        this.tooltip.className = 'tutorial-tooltip visible centered';
     }
 
     /**
