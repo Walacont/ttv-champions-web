@@ -8,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/spa-enhancements.css">
+    <link rel="stylesheet" href="/css/tutorial.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
         #page-loader {
@@ -206,6 +207,35 @@
                         <strong>Hinweis:</strong> Dein Browser unterstützt keine Push-Benachrichtigungen.
                         Bitte verwende einen modernen Browser wie Chrome, Firefox, Edge oder Safari (ab iOS 16.4).
                     </p>
+                </div>
+            </div>
+
+            <!-- Tutorial Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    Tutorial
+                </h2>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 text-3xl">🎓</div>
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-900 mb-2">Brauchst du eine Auffrischung?</p>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Das Tutorial zeigt dir alle wichtigen Funktionen der Plattform Schritt für Schritt.
+                                Perfekt, wenn du etwas vergessen hast oder die Funktionen noch einmal sehen möchtest.
+                            </p>
+                            <button id="restart-tutorial-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition flex items-center gap-2">
+                                <i class="fas fa-play"></i>
+                                Tutorial starten
+                            </button>
+                            <p id="tutorial-feedback" class="text-sm text-green-600 mt-2 hidden"></p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

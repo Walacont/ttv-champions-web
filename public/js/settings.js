@@ -6,6 +6,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } 
 import { firebaseConfig } from './firebase-config.js';
 import { requestNotificationPermission, disableNotifications, updateNotificationPreferences, getNotificationPreferences, getNotificationStatus } from './init-notifications.js';
 import { getFCMManager } from './fcm-manager.js';
+import { tutorialManager, playerTutorialSteps, coachTutorialSteps } from './tutorial.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -75,6 +76,9 @@ onAuthStateChanged(auth, async (user) => {
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
+
+        // Initialize tutorial settings
+        initializeTutorialSettings();
 
     } else {
         window.location.href = '/index.html';
@@ -439,4 +443,55 @@ async function loadNotificationPreferences() {
     } catch (error) {
         console.error('Error loading preferences:', error);
     }
+}
+
+// ========================================================================
+// ===== TUTORIAL SETTINGS =====
+// ========================================================================
+
+async function initializeTutorialSettings() {
+    const restartTutorialBtn = document.getElementById('restart-tutorial-btn');
+    const tutorialFeedback = document.getElementById('tutorial-feedback');
+
+    if (!restartTutorialBtn) return;
+
+    restartTutorialBtn.addEventListener('click', async () => {
+        try {
+            // Get user role from Firestore
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (!userDocSnap.exists()) return;
+
+            const userData = userDocSnap.data();
+            const role = userData.role;
+
+            // Reset tutorial status (pass role explicitly)
+            await tutorialManager.resetTutorial(role);
+
+            // Show feedback
+            tutorialFeedback.textContent = 'Tutorial wird zurückgesetzt...';
+            tutorialFeedback.classList.remove('hidden');
+
+            // Redirect to appropriate dashboard to start tutorial
+            setTimeout(() => {
+                if (role === 'coach') {
+                    window.location.href = '/coach.html';
+                } else if (role === 'player') {
+                    window.location.href = '/dashboard.html';
+                } else if (role === 'admin') {
+                    window.location.href = '/admin.html';
+                }
+            }, 500);
+        } catch (error) {
+            console.error('Error restarting tutorial:', error);
+            tutorialFeedback.textContent = 'Fehler beim Starten des Tutorials';
+            tutorialFeedback.classList.remove('text-green-600');
+            tutorialFeedback.classList.add('text-red-600');
+            tutorialFeedback.classList.remove('hidden');
+        }
+    });
 }

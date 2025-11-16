@@ -21,6 +21,7 @@ import { initializeLeaderboardPreferences, applyPreferences } from './leaderboar
 import { initializeSupercompensation } from './supercompensation.js';
 import { initializeWidgetSystem } from './dashboard-widgets.js';
 import { initializeTrainingStats } from './training-stats.js';
+import { tutorialManager, playerTutorialSteps } from './tutorial.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -192,6 +193,9 @@ async function initializeDashboard(userData) {
     // Initialize leaderboard preferences
     initializeLeaderboardPreferences(userData, db);
     applyPreferences();
+
+    // Initialize player tutorial
+    tutorialManager.init('player', playerTutorialSteps);
 
     // Setup global subgroup filter change handler
     const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');

@@ -23,6 +23,7 @@ import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleE
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
+import { tutorialManager, coachTutorialSteps } from './tutorial.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -140,6 +141,9 @@ async function initializeCoachPage(userData) {
     setupTabs('statistics');
     setupLeaderboardTabs();
     setupLeaderboardToggle();
+
+    // Initialize coach tutorial
+    tutorialManager.init('coach', coachTutorialSteps);
 
     // Add event listener for tab changes to load saved pairings when Wettkampf tab is opened
     document.querySelectorAll('.tab-button').forEach(button => {
