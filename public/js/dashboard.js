@@ -22,6 +22,8 @@ import { initializeLeaderboardPreferences, applyPreferences } from './leaderboar
 import { initializeSupercompensation } from './supercompensation.js';
 import { initializeWidgetSystem } from './dashboard-widgets.js';
 import { initializeTrainingStats } from './training-stats.js';
+import TutorialManager from './tutorial.js';
+import { playerTutorialSteps } from './tutorial-player.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -91,6 +93,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+/**
+ * Check and start player tutorial if not completed
+ */
+async function checkAndStartTutorial(userData) {
+    // Check sessionStorage flag first (from settings page restart)
+    const startTutorialFlag = sessionStorage.getItem('startTutorial');
+    if (startTutorialFlag === 'player') {
+        sessionStorage.removeItem('startTutorial');
+        setTimeout(() => window.startPlayerTutorial(), 1000);
+        return;
+    }
+
+    // Check if tutorial was already completed
+    const tutorialCompleted = userData.tutorialCompleted?.player || false;
+
+    if (!tutorialCompleted) {
+        // Start tutorial after a short delay to let page fully load
+        setTimeout(() => {
+            const tutorial = new TutorialManager(playerTutorialSteps, {
+                tutorialKey: 'player',
+                autoScroll: true,
+                scrollOffset: 100
+            });
+            tutorial.start();
+        }, 1000);
+    }
+}
+
+/**
+ * Global function to start player tutorial (callable from settings)
+ */
+window.startPlayerTutorial = function() {
+    const tutorial = new TutorialManager(playerTutorialSteps, {
+        tutorialKey: 'player',
+        autoScroll: true,
+        scrollOffset: 100
+    });
+    tutorial.start();
+};
 
 async function initializeDashboard(userData) {
     const pageLoader = document.getElementById('page-loader');
@@ -308,6 +350,9 @@ async function initializeDashboard(userData) {
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
+
+    // Check and start tutorial if needed
+    checkAndStartTutorial(userData);
 }
 
 function updateDashboard(userData) {

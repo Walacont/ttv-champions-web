@@ -454,38 +454,64 @@ async function loadNotificationPreferences() {
  */
 function updateTutorialStatus(userData) {
     const role = userData?.role;
-    const tutorialCompleted = userData?.tutorialCompleted?.coach || false;
-
-    // Nur für Coaches anzeigen
     const tutorialSection = document.getElementById('tutorial-section');
     if (!tutorialSection) return;
 
-    if (role !== 'coach' && role !== 'admin') {
-        tutorialSection.style.display = 'none';
-        return;
-    }
-
     tutorialSection.style.display = 'block';
 
-    // Badge aktualisieren
-    const badge = document.getElementById('tutorial-badge-coach');
-    if (badge) {
-        if (tutorialCompleted) {
-            badge.className = 'tutorial-badge tutorial-badge-completed';
-            badge.innerHTML = '<i class="fas fa-check mr-1"></i> Abgeschlossen';
+    // Coach Tutorial Status
+    const coachTutorialCompleted = userData?.tutorialCompleted?.coach || false;
+    const coachBadge = document.getElementById('tutorial-badge-coach');
+    const coachButton = document.getElementById('start-coach-tutorial-btn');
+
+    if (coachBadge) {
+        if (coachTutorialCompleted) {
+            coachBadge.className = 'tutorial-badge tutorial-badge-completed';
+            coachBadge.innerHTML = '<i class="fas fa-check mr-1"></i> Abgeschlossen';
         } else {
-            badge.className = 'tutorial-badge tutorial-badge-pending';
-            badge.textContent = 'Ausstehend';
+            coachBadge.className = 'tutorial-badge tutorial-badge-pending';
+            coachBadge.textContent = 'Ausstehend';
         }
     }
 
-    // Button Text anpassen
-    const button = document.getElementById('start-coach-tutorial-btn');
-    if (button) {
-        if (tutorialCompleted) {
-            button.innerHTML = '<i class="fas fa-redo mr-2"></i> Tutorial wiederholen';
+    if (coachButton) {
+        if (role === 'coach' || role === 'admin') {
+            coachButton.closest('.bg-gray-50').style.display = 'block';
+            if (coachTutorialCompleted) {
+                coachButton.innerHTML = '<i class="fas fa-redo mr-2"></i> Tutorial wiederholen';
+            } else {
+                coachButton.innerHTML = '<i class="fas fa-play-circle mr-2"></i> Tutorial starten';
+            }
         } else {
-            button.innerHTML = '<i class="fas fa-play-circle mr-2"></i> Tutorial starten';
+            coachButton.closest('.bg-gray-50').style.display = 'none';
+        }
+    }
+
+    // Player Tutorial Status
+    const playerTutorialCompleted = userData?.tutorialCompleted?.player || false;
+    const playerBadge = document.getElementById('tutorial-badge-player');
+    const playerButton = document.getElementById('start-player-tutorial-btn');
+
+    if (playerBadge) {
+        if (playerTutorialCompleted) {
+            playerBadge.className = 'tutorial-badge tutorial-badge-completed';
+            playerBadge.innerHTML = '<i class="fas fa-check mr-1"></i> Abgeschlossen';
+        } else {
+            playerBadge.className = 'tutorial-badge tutorial-badge-pending';
+            playerBadge.textContent = 'Ausstehend';
+        }
+    }
+
+    if (playerButton) {
+        if (role === 'player' || role === 'admin') {
+            playerButton.closest('.bg-gray-50').style.display = 'block';
+            if (playerTutorialCompleted) {
+                playerButton.innerHTML = '<i class="fas fa-redo mr-2"></i> Tutorial wiederholen';
+            } else {
+                playerButton.innerHTML = '<i class="fas fa-play-circle mr-2"></i> Tutorial starten';
+            }
+        } else {
+            playerButton.closest('.bg-gray-50').style.display = 'none';
         }
     }
 }
@@ -504,5 +530,22 @@ document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', (
         // Zur Coach-Seite navigieren und Tutorial-Flag setzen
         sessionStorage.setItem('startTutorial', 'coach');
         window.location.href = '/coach.html';
+    }
+});
+
+/**
+ * Player-Tutorial starten
+ */
+document.getElementById('start-player-tutorial-btn')?.addEventListener('click', () => {
+    // Zur Dashboard-Seite navigieren und Tutorial starten
+    if (window.location.pathname.includes('dashboard.html')) {
+        // Bereits auf der Dashboard-Seite
+        if (typeof window.startPlayerTutorial === 'function') {
+            window.startPlayerTutorial();
+        }
+    } else {
+        // Zur Dashboard-Seite navigieren und Tutorial-Flag setzen
+        sessionStorage.setItem('startTutorial', 'player');
+        window.location.href = '/dashboard.html';
     }
 });
