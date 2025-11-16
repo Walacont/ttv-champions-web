@@ -45,6 +45,166 @@ function closeModal(closeButtonSelector) {
 }
 
 /**
+ * Helper: Alle Demo-Daten entfernen
+ */
+function removeDemoData() {
+    const demoElements = document.querySelectorAll('[data-tutorial-demo="true"]');
+    demoElements.forEach(el => el.remove());
+}
+
+/**
+ * Helper: Demo Wettkampf-Anfrage erstellen
+ */
+function createDemoMatchRequest() {
+    const container = document.getElementById('coach-pending-requests-list');
+    if (!container) return;
+
+    // Bestehende "Keine Anfragen" Nachricht entfernen
+    const noRequests = container.querySelector('p.text-gray-500');
+    if (noRequests) noRequests.style.display = 'none';
+
+    const demoRequest = document.createElement('div');
+    demoRequest.setAttribute('data-tutorial-demo', 'true');
+    demoRequest.className = 'bg-white p-4 rounded-lg border-2 border-orange-300 shadow-sm';
+    demoRequest.innerHTML = `
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-sm font-semibold text-gray-900">Demo Spieler A</span>
+                    <span class="text-gray-400">vs</span>
+                    <span class="text-sm font-semibold text-gray-900">Demo Spieler B</span>
+                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Einzel</span>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Ergebnis: 3:1 (11:9, 11:7, 9:11, 11:5)</p>
+                <p class="text-xs text-gray-500">⏱️ Vor 5 Minuten</p>
+            </div>
+            <div class="flex gap-2 ml-4">
+                <button class="bg-green-600 text-white px-3 py-1 rounded text-sm" disabled>✓ Genehmigen</button>
+                <button class="bg-red-600 text-white px-3 py-1 rounded text-sm" disabled>✗ Ablehnen</button>
+            </div>
+        </div>
+        <div class="mt-2 bg-yellow-50 border-l-4 border-yellow-400 p-2 text-xs">
+            <strong>Tutorial-Demo:</strong> So sieht eine Wettkampf-Anfrage aus
+        </div>
+    `;
+    container.insertBefore(demoRequest, container.firstChild);
+}
+
+/**
+ * Helper: Demo Spieler erstellen
+ */
+function createDemoPlayers() {
+    const container = document.getElementById('modal-player-list');
+    if (!container) return;
+
+    const demoPlayers = [
+        { name: 'Max Mustermann', elo: '1650', status: 'Online', competitive: true },
+        { name: 'Anna Schmidt', elo: '1580', status: 'Offline', competitive: true },
+        { name: 'Tom Weber', elo: '1420', status: 'Online', competitive: false }
+    ];
+
+    demoPlayers.forEach(player => {
+        const playerEl = document.createElement('div');
+        playerEl.setAttribute('data-tutorial-demo', 'true');
+        playerEl.className = 'p-4 hover:bg-gray-50 cursor-pointer border-b';
+        playerEl.innerHTML = `
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold">
+                        ${player.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900">${player.name}</p>
+                        <p class="text-sm text-gray-500">ELO: ${player.elo} ${player.competitive ? '• Wettkampfbereit' : '• Nicht wettkampfbereit'}</p>
+                    </div>
+                </div>
+                <span class="text-xs px-2 py-1 rounded ${player.status === 'Online' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}">
+                    ${player.status}
+                </span>
+            </div>
+        `;
+        container.appendChild(playerEl);
+    });
+}
+
+/**
+ * Helper: Demo Rangliste erstellen
+ */
+function createDemoLeaderboard() {
+    const container = document.getElementById('leaderboard-list');
+    if (!container) return;
+
+    const demoRankings = [
+        { rank: 1, name: 'Lisa Müller', elo: 1850, change: '+25' },
+        { rank: 2, name: 'Max Mustermann', elo: 1650, change: '+12' },
+        { rank: 3, name: 'Anna Schmidt', elo: 1580, change: '-8' },
+        { rank: 4, name: 'Tom Weber', elo: 1420, change: '+5' }
+    ];
+
+    demoRankings.forEach(player => {
+        const rankEl = document.createElement('div');
+        rankEl.setAttribute('data-tutorial-demo', 'true');
+        rankEl.className = 'flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-md transition';
+        rankEl.innerHTML = `
+            <div class="flex items-center gap-4">
+                <span class="text-2xl font-bold text-gray-400">#${player.rank}</span>
+                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold">
+                    ${player.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div>
+                    <p class="font-semibold text-gray-900">${player.name}</p>
+                    <p class="text-sm text-gray-500">ELO: ${player.elo}</p>
+                </div>
+            </div>
+            <span class="text-sm font-semibold ${player.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}">
+                ${player.change}
+            </span>
+        `;
+        container.appendChild(rankEl);
+    });
+}
+
+/**
+ * Helper: Demo Untergruppe erstellen
+ */
+function createDemoSubgroup() {
+    const container = document.getElementById('subgroups-list');
+    if (!container) return;
+
+    const demoSubgroup = document.createElement('div');
+    demoSubgroup.setAttribute('data-tutorial-demo', 'true');
+    demoSubgroup.className = 'bg-white p-6 rounded-xl border-2 border-indigo-200 shadow-sm';
+    demoSubgroup.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="text-xl font-bold text-gray-900">Demo Jugend-Gruppe</h3>
+                <p class="text-sm text-gray-500 mt-1">Spieler unter 18 Jahren</p>
+            </div>
+            <div class="flex gap-2">
+                <button class="text-indigo-600 hover:text-indigo-800" disabled>
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="text-red-600 hover:text-red-800" disabled>
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+            <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full">
+                <i class="fas fa-users mr-1"></i> 8 Spieler
+            </span>
+            <span class="text-gray-600">
+                <i class="fas fa-chart-line mr-1"></i> Ø ELO: 1450
+            </span>
+        </div>
+        <div class="mt-3 bg-yellow-50 border-l-4 border-yellow-400 p-2 text-xs">
+            <strong>Tutorial-Demo:</strong> Beispiel einer Untergruppe
+        </div>
+    `;
+    container.insertBefore(demoSubgroup, container.firstChild);
+}
+
+/**
  * Coach Tutorial Steps
  */
 export const coachTutorialSteps = [
@@ -81,6 +241,10 @@ export const coachTutorialSteps = [
         position: 'auto',
         action: async () => {
             await switchToTab('statistics');
+            createDemoMatchRequest();
+        },
+        onNext: () => {
+            removeDemoData();
         }
     },
 
@@ -102,8 +266,11 @@ export const coachTutorialSteps = [
         position: 'auto',
         action: async () => {
             await openModal('#open-player-modal-button', '#player-list-modal');
+            // Kurz warten damit Modal sichtbar ist
+            setTimeout(() => createDemoPlayers(), 200);
         },
         onNext: () => {
+            removeDemoData();
             closeModal('#close-player-modal-button');
         }
     },
@@ -167,6 +334,10 @@ export const coachTutorialSteps = [
         position: 'bottom',
         action: async () => {
             await switchToTab('dashboard');
+            setTimeout(() => createDemoLeaderboard(), 200);
+        },
+        onNext: () => {
+            removeDemoData();
         }
     },
 
@@ -305,6 +476,10 @@ export const coachTutorialSteps = [
         position: 'bottom',
         action: async () => {
             await switchToTab('subgroups');
+            setTimeout(() => createDemoSubgroup(), 200);
+        },
+        onNext: () => {
+            removeDemoData();
         }
     },
 

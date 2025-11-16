@@ -449,6 +449,10 @@ export class TutorialManager {
             this.currentSpotlightElement.classList.remove('tutorial-spotlight');
         }
 
+        // Demo-Daten entfernen (falls vorhanden)
+        const demoElements = document.querySelectorAll('[data-tutorial-demo="true"]');
+        demoElements.forEach(el => el.remove());
+
         // Tooltip ausblenden
         if (this.tooltip) {
             this.tooltip.classList.remove('visible');
