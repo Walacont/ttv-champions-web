@@ -19,6 +19,32 @@ function switchToTab(tabName) {
 }
 
 /**
+ * Helper: Modal öffnen und warten
+ */
+function openModal(buttonSelector, modalSelector) {
+    return new Promise((resolve) => {
+        const button = document.querySelector(buttonSelector);
+        if (button) {
+            button.click();
+            // Warten bis Modal sichtbar ist
+            setTimeout(resolve, 400);
+        } else {
+            resolve();
+        }
+    });
+}
+
+/**
+ * Helper: Modal schließen
+ */
+function closeModal(closeButtonSelector) {
+    const closeButton = document.querySelector(closeButtonSelector);
+    if (closeButton) {
+        closeButton.click();
+    }
+}
+
+/**
  * Coach Tutorial Steps
  */
 export const coachTutorialSteps = [
@@ -62,27 +88,72 @@ export const coachTutorialSteps = [
     {
         element: '#open-player-modal-button',
         title: 'Spieler verwalten',
-        description: 'Mit diesem Button öffnest du die Spielerverwaltung. Hier siehst du alle Spieler und kannst sie bearbeiten, löschen oder von Offline zu Online konvertieren.',
+        description: 'Mit diesem Button öffnest du die Spielerverwaltung. Lass uns das Modal öffnen...',
         category: 'Grundlagen',
         position: 'bottom'
     },
 
-    // 5. Offline-Spieler Button
+    // 5. Spieler verwalten Modal
+    {
+        element: '#player-list-modal',
+        title: 'Spielerverwaltung',
+        description: 'Hier siehst du alle Spieler deines Teams. Du kannst Spieler bearbeiten, löschen oder von Offline zu Online konvertieren. Klicke auf einen Spieler um Details zu sehen.',
+        category: 'Grundlagen',
+        position: 'auto',
+        action: async () => {
+            await openModal('#open-player-modal-button', '#player-list-modal');
+        },
+        onNext: () => {
+            closeModal('#close-player-modal-button');
+        }
+    },
+
+    // 6. Offline-Spieler Button
     {
         element: '#add-offline-player-button',
         title: 'Offline-Spieler erstellen',
-        description: 'Hier kannst du Offline-Spieler anlegen. Diese haben keinen App-Zugang, können aber trotzdem in Wettkämpfen, Ranglisten und Statistiken erfasst werden. Wichtig: Nur "wettkampfbereite" Spieler erscheinen in der Rangliste.',
+        description: 'Hier kannst du Offline-Spieler anlegen. Lass uns das Formular anschauen...',
         category: 'Grundlagen',
         position: 'bottom'
     },
 
-    // 6. Einladungs-Code
+    // 7. Offline-Spieler Formular
+    {
+        element: '#add-offline-player-form',
+        title: 'Offline-Spieler Formular',
+        description: 'Hier gibst du die Daten des Offline-Spielers ein. Wichtig: Mit der Checkbox "Wettkampfbereit" legst du fest, ob der Spieler in offiziellen Wettkämpfen antreten kann und in der Rangliste erscheint.',
+        category: 'Grundlagen',
+        position: 'auto',
+        action: async () => {
+            await openModal('#add-offline-player-button', '#add-offline-player-modal');
+        },
+        onNext: () => {
+            closeModal('#close-add-player-modal-button');
+        }
+    },
+
+    // 8. Einladungs-Code Button
     {
         element: '#manage-invitation-codes-button',
         title: 'Einladungs-Codes',
-        description: 'Hier verwaltest du Einladungs-Codes. Spieler benötigen einen Code, um sich zu registrieren und deinem Team beizutreten. Du kannst Codes erstellen, anzeigen und deaktivieren.',
+        description: 'Hier verwaltest du Einladungs-Codes. Lass uns das Modal öffnen...',
         category: 'Grundlagen',
         position: 'bottom'
+    },
+
+    // 9. Einladungs-Codes Modal
+    {
+        element: '#invitation-codes-modal',
+        title: 'Einladungs-Codes verwalten',
+        description: 'Spieler benötigen einen Code, um sich zu registrieren und deinem Team beizutreten. Hier kannst du neue Codes erstellen, bestehende anzeigen oder deaktivieren.',
+        category: 'Grundlagen',
+        position: 'auto',
+        action: async () => {
+            await openModal('#manage-invitation-codes-button', '#invitation-codes-modal');
+        },
+        onNext: () => {
+            closeModal('#close-invitation-codes-modal-button');
+        }
     },
 
     // === VERWALTUNG ===
@@ -249,13 +320,14 @@ export const coachTutorialSteps = [
         }
     },
 
-    // 23. Abschluss
+    // Abschluss
     {
-        element: '#main-content',
+        element: 'body',
         title: '🎉 Tutorial abgeschlossen!',
         description: 'Du kennst jetzt alle wichtigen Funktionen für Coaches! Falls du etwas vergessen hast, kannst du das Tutorial jederzeit in den Einstellungen neu starten. Viel Erfolg mit deinem Team!',
         category: 'Abschluss',
-        position: 'auto'
+        position: 'auto',
+        noSpotlight: true
     }
 ];
 

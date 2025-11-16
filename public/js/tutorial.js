@@ -328,6 +328,12 @@ export class TutorialManager {
      * Nächster Step
      */
     next() {
+        // onNext Callback ausführen (z.B. zum Schließen von Modals)
+        const currentStep = this.steps[this.currentStepIndex];
+        if (currentStep.onNext && typeof currentStep.onNext === 'function') {
+            currentStep.onNext();
+        }
+
         if (this.currentStepIndex < this.steps.length - 1) {
             this.tooltip.classList.remove('visible');
             setTimeout(() => {
