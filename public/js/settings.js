@@ -57,8 +57,9 @@ onAuthStateChanged(auth, async (user) => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
 
+        let userData = null;
         if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
+            userData = userDocSnap.data();
             const initials = (userData.firstName?.[0] || '') + (userData.lastName?.[0] || '');
             profileImagePreview.src = userData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
             firstNameInput.value = userData.firstName || '';
@@ -69,14 +70,14 @@ onAuthStateChanged(auth, async (user) => {
                 console.log('Email-Adresse hat sich geändert, aktualisiere Firestore...');
                 await updateDoc(userDocRef, { email: user.email });
             }
+
+            // Tutorial-Status anzeigen
+            updateTutorialStatus(userData);
         }
 
         // Email-Adresse anzeigen und Verifizierungs-Status
         currentEmailDisplay.textContent = user.email || 'Keine Email hinterlegt';
         updateEmailVerificationStatus(user.emailVerified);
-
-        // Tutorial-Status anzeigen
-        updateTutorialStatus(userData);
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
