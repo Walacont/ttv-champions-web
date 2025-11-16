@@ -286,14 +286,25 @@ export class TutorialManager {
      * Zum Element scrollen
      */
     scrollToElement(element) {
-        const rect = element.getBoundingClientRect();
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        const targetY = rect.top + scrollTop - this.options.scrollOffset;
+        // Auf Mobile: scrollIntoView verwenden (funktioniert besser mit overflow: hidden)
+        const isMobile = window.innerWidth <= 640;
 
-        window.scrollTo({
-            top: targetY,
-            behavior: 'smooth'
-        });
+        if (isMobile) {
+            element.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            });
+        } else {
+            const rect = element.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const targetY = rect.top + scrollTop - this.options.scrollOffset;
+
+            window.scrollTo({
+                top: targetY,
+                behavior: 'smooth'
+            });
+        }
     }
 
     /**
