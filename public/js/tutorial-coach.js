@@ -87,25 +87,7 @@ export const coachTutorialSteps = [
 
     // === VERWALTUNG ===
 
-    // 8. Spieler verwalten
-    {
-        element: '#player-list',
-        title: 'Spieler verwalten',
-        description: 'In der Spielerliste kannst du auf einen Spieler klicken, um Details zu sehen. Du kannst Spieler bearbeiten, löschen oder von Offline zu Online konvertieren.',
-        category: 'Verwaltung',
-        position: 'right'
-    },
-
-    // 9. Offline → Online
-    {
-        element: '#player-details-container',
-        title: 'Offline zu Online konvertieren',
-        description: 'Wenn du einen Offline-Spieler ausgewählt hast, siehst du die Option "Zu Online-Spieler konvertieren". Damit erhält der Spieler Zugang zur App und kann sich dann selbst einloggen.',
-        category: 'Verwaltung',
-        position: 'left'
-    },
-
-    // 10. Rangliste Tab
+    // 8. Rangliste Tab
     {
         element: '[data-tab="dashboard"]',
         title: 'Rangliste',
