@@ -97,7 +97,7 @@ export const coachTutorialSteps = [
     {
         element: '#modal-player-list',
         title: 'Spielerverwaltung',
-        description: 'Hier siehst du alle Spieler deines Teams. Du kannst Spieler bearbeiten, löschen oder von Offline zu Online konvertieren. Klicke auf einen Spieler um Details zu sehen.',
+        description: 'Hier siehst du alle Spieler deines Teams. Du kannst Spieler bearbeiten, zum Coach ernennen, löschen oder von Offline zu Online konvertieren. Klicke auf einen Spieler um Details zu sehen.',
         category: 'Grundlagen',
         position: 'right',
         action: async () => {
@@ -145,7 +145,7 @@ export const coachTutorialSteps = [
     {
         element: '#invitation-codes-modal',
         title: 'Einladungs-Codes verwalten',
-        description: 'Spieler benötigen einen Code, um sich zu registrieren und deinem Team beizutreten. Hier kannst du neue Codes erstellen, bestehende anzeigen oder deaktivieren.',
+        description: 'Spieler benötigen einen Code, um sich zu registrieren und deinem Team beizutreten. Hier kannst du bestehende Codees anzeigen oder deaktivieren.',
         category: 'Grundlagen',
         position: 'auto',
         action: async () => {
@@ -162,7 +162,7 @@ export const coachTutorialSteps = [
     {
         element: '[data-tab="dashboard"]',
         title: 'Rangliste',
-        description: 'Die Rangliste zeigt das ELO-Ranking aller wettkampfbereiten Spieler. Sie wird automatisch nach jedem Wettkampf aktualisiert.',
+        description: 'Die Rangliste zeigt das ELO-Ranking und XP-Ranking aller wettkampfbereiten Spieler. Sie wird automatisch nach jedem Wettkampf aktualisiert.',
         category: 'Verwaltung',
         position: 'bottom',
         action: async () => {
@@ -188,7 +188,7 @@ export const coachTutorialSteps = [
     {
         element: '[data-tab="attendance"]',
         title: 'Anwesenheit & Kalender',
-        description: 'Hier trägst du die Anwesenheit beim Training ein. Der Kalender zeigt alle Trainingstage und -zeiten. Spieler können auch selbst ihre Anwesenheit markieren.',
+        description: 'Hier trägst du die Anwesenheit beim Training ein. Der Kalender zeigt alle Trainingstage und -zeiten.',
         category: 'Training & Wettkampf',
         position: 'bottom',
         action: async () => {
@@ -227,7 +227,7 @@ export const coachTutorialSteps = [
     {
         element: '[data-tab="points"]',
         title: 'Punkte vergeben',
-        description: 'Hier kannst du manuell XP-Punkte an Spieler vergeben - z.B. für besondere Leistungen, Training mit Partner oder andere Aktivitäten.',
+        description: 'Hier kannst du manuell XP-Punkte an Spieler vergeben - z.B. für besondere Leistungen, Training mit Partner oder andere Aktivitäten. Du kannst aber auch Bestrafungspunkte vergeben.',
         category: 'Gamification',
         position: 'bottom',
         action: async () => {
@@ -263,7 +263,7 @@ export const coachTutorialSteps = [
     {
         element: '#create-challenge-form',
         title: 'Challenge erstellen',
-        description: 'Beim Erstellen einer Challenge legst du Titel, Beschreibung, Ziel-Wert, XP-Belohnung und Zeitraum fest. Spieler sehen ihre Challenges in der App und können den Fortschritt verfolgen.',
+        description: 'Beim Erstellen einer Challenge legst du Titel, Beschreibung, Ziel-Wert, XP-Belohnung und Zeitraum fest. Spieler sehen ihre Challenges und können den Fortschritt verfolgen.',
         category: 'Gamification',
         position: 'auto',
         action: async () => {
@@ -275,7 +275,7 @@ export const coachTutorialSteps = [
     {
         element: '[data-tab="exercises"]',
         title: 'Übungen',
-        description: 'Im Übungen-Tab kannst du Trainingsübungen erstellen und verwalten. Diese können später von Spielern abgerufen werden.',
+        description: 'Im Übungen-Tab kannst du Trainingsübungen erstellen. Diese können später von Spielern abgerufen werden.',
         category: 'Gamification',
         position: 'bottom',
         action: async () => {
@@ -313,7 +313,7 @@ export const coachTutorialSteps = [
     {
         element: 'body',
         title: '🎉 Tutorial abgeschlossen!',
-        description: 'Du kennst jetzt alle wichtigen Funktionen für Coaches! Falls du etwas vergessen hast, kannst du das Tutorial jederzeit in den Einstellungen neu starten. Viel Erfolg mit deinem Team!',
+        description: 'Du kennst jetzt alle wichtigen Funktionen für Coaches! Falls du etwas vergessen hast, kannst du das Tutorial jederzeit in den Einstellungen neu starten. Viel Spaß mit TTV Champions!!!',
         category: 'Abschluss',
         position: 'auto',
         noSpotlight: true
