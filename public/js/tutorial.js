@@ -3,8 +3,8 @@
  * Zeigt interaktive Tooltips mit Spotlight-Effekt
  */
 
-import { doc, updateDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
-import { db, auth } from './firebase-config.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import { getFirestore, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 export class TutorialManager {
     constructor(steps = [], options = {}) {
@@ -339,6 +339,9 @@ export class TutorialManager {
         await this.cleanup();
 
         // In Firestore speichern
+        const auth = getAuth();
+        const db = getFirestore();
+
         if (auth.currentUser) {
             try {
                 const userRef = doc(db, 'users', auth.currentUser.uid);
@@ -444,6 +447,9 @@ export class TutorialManager {
  * Helper: Tutorial-Status aus Firestore abrufen
  */
 export async function getTutorialStatus(tutorialKey) {
+    const auth = getAuth();
+    const db = getFirestore();
+
     if (!auth.currentUser) return false;
 
     try {
