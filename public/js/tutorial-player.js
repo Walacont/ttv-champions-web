@@ -84,7 +84,7 @@ export const playerTutorialSteps = [
         title: 'Startseite anpassen',
         description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen. Mach dein Dashboard zu deinem eigenen!',
         category: 'Startseite',
-        position: 'top',
+        position: 'bottom',
         action: async () => {
             await switchToTab('overview');
         }
@@ -94,7 +94,7 @@ export const playerTutorialSteps = [
 
     // 4. Untergruppen-Filter
     {
-        element: '#player-subgroup-filter',
+        element: '#player-subgroup-filter-container',
         title: 'Ansicht wechseln',
         description: 'Hier kannst du zwischen verschiedenen Ansichten wechseln: Mein Verein (nur deine Vereinskollegen), Global (alle Spieler) oder spezifische Untergruppen (z.B. Jugend, Herren). Die Ansicht beeinflusst alle Ranglisten und Statistiken.',
         category: 'Ansichten & Filter',
@@ -233,7 +233,7 @@ export const playerTutorialSteps = [
 
     // 15. FAQ Link
     {
-        element: 'a[href="/faq.html"]',
+        element: '#faq-link',
         title: 'FAQ & Punktesystem',
         description: 'Hier findest du alle Antworten zum Punktesystem: Wie funktionieren ELO-Punkte? Was sind XP? Wie berechnen sich Saison-Punkte? Alle wichtigen Infos zum Ranking-System.',
         category: 'Hilfe',
