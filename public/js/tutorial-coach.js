@@ -95,11 +95,11 @@ export const coachTutorialSteps = [
 
     // 5. Spieler verwalten Modal
     {
-        element: '#player-list-modal',
+        element: '#modal-player-list',
         title: 'Spielerverwaltung',
         description: 'Hier siehst du alle Spieler deines Teams. Du kannst Spieler bearbeiten, löschen oder von Offline zu Online konvertieren. Klicke auf einen Spieler um Details zu sehen.',
         category: 'Grundlagen',
-        position: 'auto',
+        position: 'right',
         action: async () => {
             await openModal('#open-player-modal-button', '#player-list-modal');
         },
