@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   connectAuthEmulator,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
 import {
   getFirestore,
   doc,
@@ -28,6 +29,7 @@ import { isCodeExpired, validateCodeFormat } from "./invitation-code-utils.js";
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const analytics = getAnalytics(app);
 const functions = getFunctions(app, "europe-west3");
 
 // Emulator-Block
