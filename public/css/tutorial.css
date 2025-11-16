@@ -242,11 +242,21 @@ body.tutorial-active {
         overflow-y: auto;
     }
 
-    /* Tooltip immer am unteren Bildschirmrand auf Mobile */
-    .tutorial-tooltip:not(.centered) {
+    /* Tooltip am unteren Bildschirmrand auf Mobile (außer position-top) */
+    .tutorial-tooltip:not(.centered):not(.position-top) {
         bottom: 16px !important;
         top: auto !important;
         transform: translateX(0) translateY(0) !important;
+    }
+
+    /* Position-top Tooltips auf Mobile: Bleiben oben, aber mit Mindestabstand */
+    .tutorial-tooltip.position-top {
+        top: auto !important;
+        bottom: auto !important;
+        position: fixed !important;
+        /* Erscheint in der oberen Hälfte des Bildschirms */
+        top: 20px !important;
+        transform: translateX(0) !important;
     }
 
     /* Zentrierte Tooltips (Welcome/Completion) auf Mobile */
