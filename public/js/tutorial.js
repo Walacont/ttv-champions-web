@@ -117,6 +117,14 @@ export class TutorialManager {
         // Spotlight entfernen vom vorherigen Element
         if (this.currentSpotlightElement) {
             this.currentSpotlightElement.classList.remove('tutorial-spotlight');
+            this.currentSpotlightElement = null;
+        }
+
+        // Overlay-Modus anpassen (mit oder ohne Spotlight)
+        if (step.noSpotlight) {
+            this.overlay.classList.add('tutorial-no-spotlight');
+        } else {
+            this.overlay.classList.remove('tutorial-no-spotlight');
         }
 
         // Warten bis Element verfügbar ist (falls Tab-Wechsel nötig)
@@ -132,22 +140,29 @@ export class TutorialManager {
             return;
         }
 
-        // Auto-Scroll zum Element
-        if (this.options.autoScroll) {
+        // Auto-Scroll zum Element (nur wenn kein noSpotlight)
+        if (this.options.autoScroll && !step.noSpotlight) {
             this.scrollToElement(element);
             // Kurz warten nach Scroll
             await new Promise(resolve => setTimeout(resolve, 300));
         }
 
-        // Spotlight setzen
-        this.currentSpotlightElement = element;
-        element.classList.add('tutorial-spotlight');
+        // Spotlight setzen (nur wenn nicht noSpotlight)
+        if (!step.noSpotlight) {
+            this.currentSpotlightElement = element;
+            element.classList.add('tutorial-spotlight');
+        }
 
         // Tooltip-Inhalt aktualisieren
         this.updateTooltipContent(step, index);
 
         // Tooltip positionieren
-        this.positionTooltip(element, step.position || 'auto');
+        if (step.noSpotlight) {
+            // Bei noSpotlight: Tooltip zentriert im Bildschirm
+            this.centerTooltip();
+        } else {
+            this.positionTooltip(element, step.position || 'auto');
+        }
 
         // Tooltip anzeigen
         setTimeout(() => {
@@ -249,6 +264,22 @@ export class TutorialManager {
 
         // Pfeil-Klasse setzen
         this.tooltip.className = `tutorial-tooltip visible position-${position}`;
+    }
+
+    /**
+     * Tooltip zentriert im Bildschirm positionieren (für noSpotlight Steps)
+     */
+    centerTooltip() {
+        const tooltipRect = this.tooltip.getBoundingClientRect();
+
+        const top = (window.innerHeight - tooltipRect.height) / 2;
+        const left = (window.innerWidth - tooltipRect.width) / 2;
+
+        this.tooltip.style.top = `${Math.max(20, top)}px`;
+        this.tooltip.style.left = `${Math.max(20, left)}px`;
+
+        // Keine Position-Klasse (kein Pfeil)
+        this.tooltip.className = 'tutorial-tooltip visible';
     }
 
     /**

@@ -15,6 +15,12 @@
     pointer-events: all;
 }
 
+/* No Spotlight Mode - transparentes Overlay für Willkommens-Screen */
+.tutorial-overlay.tutorial-no-spotlight {
+    background: rgba(0, 0, 0, 0);
+    pointer-events: none;
+}
+
 /* Spotlight Effect - Element hervorheben */
 .tutorial-spotlight {
     position: relative;

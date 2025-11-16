@@ -24,11 +24,12 @@ function switchToTab(tabName) {
 export const coachTutorialSteps = [
     // 1. Willkommen
     {
-        element: '#main-content',
+        element: 'body',
         title: '👋 Willkommen beim Coach-Tutorial!',
         description: 'In den nächsten Schritten zeigen wir dir alle wichtigen Funktionen für Coaches. Du kannst das Tutorial jederzeit überspringen und später in den Einstellungen neu starten.',
         category: 'Einführung',
-        position: 'auto'
+        position: 'auto',
+        noSpotlight: true // Kein Spotlight-Effekt beim Willkommens-Screen
     },
 
     // === GRUNDLAGEN ===
@@ -37,7 +38,7 @@ export const coachTutorialSteps = [
     {
         element: '[data-tab="statistics"]',
         title: 'Statistik-Übersicht',
-        description: 'Hier findest du alle wichtigen Statistiken deines Teams. Besonders wichtig: Hier siehst du eingehende Anfragen von Spielern, die deinem Team beitreten möchten.',
+        description: 'Hier findest du alle wichtigen Statistiken deines Teams. Besonders wichtig: Hier siehst du eingehende Anfragen von Spielern, die wettkämpfe melden möchten.',
         category: 'Grundlagen',
         position: 'bottom',
         action: async () => {
@@ -70,21 +71,12 @@ export const coachTutorialSteps = [
     {
         element: '#add-offline-player-button',
         title: 'Offline-Spieler erstellen',
-        description: 'Hier kannst du Offline-Spieler anlegen. Diese haben keinen App-Zugang, können aber trotzdem in Wettkämpfen, Ranglisten und Statistiken erfasst werden.',
+        description: 'Hier kannst du Offline-Spieler anlegen. Diese haben keinen App-Zugang, können aber trotzdem in Wettkämpfen, Ranglisten und Statistiken erfasst werden. Wichtig: Nur "wettkampfbereite" Spieler erscheinen in der Rangliste.',
         category: 'Grundlagen',
         position: 'bottom'
     },
 
-    // 6. Wettkampf-bereit Erklärung
-    {
-        element: '#player-list',
-        title: 'Wettkampf-Bereitschaft',
-        description: 'Bei der Spielererstellung kannst du festlegen, ob ein Spieler "wettkampfbereit" ist. Nur wettkampfbereite Spieler können in offiziellen Wettkämpfen antreten und erscheinen in der Rangliste.',
-        category: 'Grundlagen',
-        position: 'right'
-    },
-
-    // 7. Einladungs-Code
+    // 6. Einladungs-Code
     {
         element: '#manage-invitation-codes-button',
         title: 'Einladungs-Codes',
