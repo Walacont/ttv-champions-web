@@ -84,9 +84,15 @@ export const playerTutorialSteps = [
         title: 'Startseite anpassen',
         description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen. Mach dein Dashboard zu deinem eigenen!',
         category: 'Startseite',
-        position: 'bottom',
+        position: 'top',
         action: async () => {
             await switchToTab('overview');
+            // Zum Button scrollen
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const button = document.getElementById('edit-dashboard-button');
+            if (button) {
+                button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
     },
 
@@ -237,7 +243,14 @@ export const playerTutorialSteps = [
         title: 'FAQ & Punktesystem',
         description: 'Hier findest du alle Antworten zum Punktesystem: Wie funktionieren ELO-Punkte? Was sind XP? Wie berechnen sich Saison-Punkte? Alle wichtigen Infos zum Ranking-System.',
         category: 'Hilfe',
-        position: 'bottom'
+        position: 'bottom',
+        action: async () => {
+            // Nach oben zum FAQ-Link scrollen
+            const faqLink = document.getElementById('faq-link');
+            if (faqLink) {
+                faqLink.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
     },
 
     // === ABSCHLUSS ===
