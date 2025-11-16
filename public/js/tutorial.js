@@ -3,8 +3,15 @@
  * Provides interactive step-by-step tutorials for coaches and players
  */
 
-import { auth, db } from './firebase-init.js';
-import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
+
+// Use existing Firebase app if already initialized, otherwise initialize
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 class TutorialManager {
     constructor() {
