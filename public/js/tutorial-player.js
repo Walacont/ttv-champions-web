@@ -70,7 +70,7 @@ export const playerTutorialSteps = [
     {
         element: '[data-tab="overview"]',
         title: 'Deine Startseite',
-        description: 'Das ist deine Startseite mit den wichtigsten Widgets: Aktuelle Challenges, deine Stats, Trainingsplan und mehr. Hier siehst du auf einen Blick alle wichtigen Informationen.',
+        description: 'Das ist deine Startseite mit den wichtigsten Widgets: Aktuelle Challenges, deine Stats, Punkte-Historie und mehr. Hier siehst du auf einen Blick alle wichtigen Informationen.',
         category: 'Startseite',
         position: 'bottom',
         action: async () => {
@@ -82,7 +82,7 @@ export const playerTutorialSteps = [
     {
         element: '#edit-dashboard-button',
         title: 'Startseite anpassen',
-        description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen, anordnen und Farben anpassen. Mach dein Dashboard zu deinem eigenen!',
+        description: 'Mit diesem Button kannst du deine Startseite personalisieren: Widgets hinzufügen, entfernen. Mach dein Dashboard zu deinem eigenen!',
         category: 'Startseite',
         position: 'top',
         action: async () => {
@@ -157,7 +157,7 @@ export const playerTutorialSteps = [
     {
         element: '#toggle-match-suggestions',
         title: 'Gegnervorschläge',
-        description: 'Hier findest du Vorschläge für passende Gegner basierend auf deiner ELO-Bewertung. Perfekt, um Spieler auf ähnlichem Niveau zu finden!',
+        description: 'Hier findest du Vorschläge für Vereinmitglieder gegen die du noch nie oder lange nicht mehr gespielt hast. Perfekt, um ein wenig Abwechslung reinzubringen!',
         category: 'Wettkampf',
         position: 'bottom',
         action: async () => {
@@ -169,7 +169,7 @@ export const playerTutorialSteps = [
     {
         element: '#match-request-form',
         title: 'Match-Anfrage senden',
-        description: 'Wähle einen Gegner, trage das Ergebnis ein und sende die Anfrage an deinen Coach. Der Coach genehmigt das Match und die Punkte werden automatisch berechnet.',
+        description: 'Wähle einen Gegner, trage das Ergebnis ein und sende die Anfrage an deinen Gegner. Der Coach genehmigt das Match und die Punkte werden automatisch berechnet.',
         category: 'Wettkampf',
         position: 'auto',
         action: async () => {
@@ -183,7 +183,7 @@ export const playerTutorialSteps = [
     {
         element: '[data-tab="exercises"]',
         title: 'Übungskatalog',
-        description: 'Hier findest du alle verfügbaren Trainingsübungen. Du kannst nach Schwierigkeit und Level filtern.',
+        description: 'Hier findest du alle verfügbaren Trainingsübungen. Du kannst nach Tags filtern.',
         category: 'Übungen',
         position: 'bottom',
         action: async () => {
@@ -209,7 +209,7 @@ export const playerTutorialSteps = [
     {
         element: '[data-tab="profile"]',
         title: 'Anwesenheit & Kalender',
-        description: 'Hier markierst du deine Trainingsanwesenheit. Für jedes Training bekommst du XP-Punkte. Streaks (mehrere Trainings hintereinander) bringen Bonus-Punkte!',
+        description: 'Hier siehst du deine Trainingsanwesenheit. Für jedes Training bekommst du XP-Punkte. Streaks (mehrere Trainings hintereinander) bringen Bonus-Punkte!',
         category: 'Anwesenheit',
         position: 'bottom',
         action: async () => {
