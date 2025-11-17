@@ -83,8 +83,7 @@ function addSpontaneousExerciseFromModal(exercise) {
         exerciseId: exercise.id,
         name: exercise.title,
         points: exercise.points || 0,
-        tieredPoints: exercise.tieredPoints?.enabled || false,
-        partnerSystem: exercise.partnerSystem?.enabled || false
+        tieredPoints: exercise.tieredPoints?.enabled || false
     });
 
     renderSpontaneousExercises();
@@ -180,9 +179,6 @@ function renderPlannedExercises() {
         if (exercise.tieredPoints) {
             badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
-        if (exercise.partnerSystem) {
-            badges += '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2" title="Partner-System">👥</span>';
-        }
 
         div.innerHTML = `
             <input
@@ -223,9 +219,6 @@ function renderSpontaneousExercises() {
         let badges = '';
         if (exercise.tieredPoints) {
             badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
-        }
-        if (exercise.partnerSystem) {
-            badges += '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2" title="Partner-System">👥</span>';
         }
 
         div.innerHTML = `
@@ -338,37 +331,30 @@ async function processIntelligentPointsDistribution(exercises) {
     }
 
     // Separate exercises by type
-    const standardExercises = [];
     const milestoneExercises = [];
-    const partnerExercises = [];
+    const regularExercises = [];
 
     exercises.forEach(ex => {
-        if (ex.partnerSystem) {
-            partnerExercises.push(ex);
-        } else if (ex.tieredPoints) {
+        if (ex.tieredPoints) {
             milestoneExercises.push(ex);
         } else {
-            standardExercises.push(ex);
+            regularExercises.push(ex);
         }
     });
 
-    // PHASE 1: Standard exercises (automatic distribution)
-    if (standardExercises.length > 0) {
-        await distributeStandardExercisePoints(standardExercises, presentPlayerIds);
-    }
-
-    // PHASE 2: Milestone exercises (requires input)
+    // PHASE 1: Milestone exercises (requires input)
     if (milestoneExercises.length > 0) {
         // TODO: Show milestone input modal
         console.warn('[Training Completion] Milestone exercises found, but input not yet implemented:', milestoneExercises);
     }
 
-    // PHASE 3: Partner exercises (pairing required)
-    if (partnerExercises.length > 0) {
-        console.log('[Training Completion] Partner exercises found, opening pairing modals');
+    // PHASE 2: Regular exercises (partner pairing required)
+    // All table tennis exercises require partner pairing
+    if (regularExercises.length > 0) {
+        console.log('[Training Completion] Processing exercises with partner pairing');
 
-        // Process each partner exercise one by one
-        for (const exercise of partnerExercises) {
+        // Process each exercise one by one
+        for (const exercise of regularExercises) {
             await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
         }
     }

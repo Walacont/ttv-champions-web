@@ -1,7 +1,6 @@
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { renderTableForDisplay } from './tableEditor.js';
-import { getExercisePartnerSettings } from './milestone-management.js';
 
 /**
  * Exercises Module
@@ -585,13 +584,6 @@ export function loadExercisesForDropdown(db) {
                     option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
                 }
 
-                // Add partner system data
-                const hasPartnerSystem = e.partnerSystem?.enabled || false;
-                option.dataset.hasPartnerSystem = hasPartnerSystem;
-                if (hasPartnerSystem) {
-                    option.dataset.partnerPercentage = e.partnerSystem.partnerPercentage || 50;
-                }
-
                 select.appendChild(option);
             });
         },
@@ -1122,20 +1114,6 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             };
         }
 
-        // Add partner system settings if enabled
-        const partnerSettings = getExercisePartnerSettings();
-        if (partnerSettings) {
-            exerciseData.partnerSystem = {
-                enabled: true,
-                partnerPercentage: partnerSettings.partnerPercentage
-            };
-        } else {
-            exerciseData.partnerSystem = {
-                enabled: false,
-                partnerPercentage: 50
-            };
-        }
-
         await addDoc(collection(db, "exercises"), exerciseData);
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
@@ -1150,17 +1128,6 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         document.getElementById('exercise-milestones-enabled').checked = false;
         document.getElementById('exercise-standard-points-container').classList.remove('hidden');
         document.getElementById('exercise-milestones-container').classList.add('hidden');
-
-        // Reset partner system
-        const partnerToggle = document.getElementById('exercise-partner-system-toggle') ||
-                              document.getElementById('exercise-partner-system-toggle-coach');
-        const partnerContainer = document.getElementById('exercise-partner-container') ||
-                                 document.getElementById('exercise-partner-container-coach');
-        const partnerPercentageInput = document.getElementById('exercise-partner-percentage') ||
-                                        document.getElementById('exercise-partner-percentage-coach');
-        if (partnerToggle) partnerToggle.checked = false;
-        if (partnerContainer) partnerContainer.classList.add('hidden');
-        if (partnerPercentageInput) partnerPercentageInput.value = 50;
 
         // Clear description editor
         if (descriptionEditor) {

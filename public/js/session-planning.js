@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 let db = null;
-let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints, partnerSystem}
+let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints}
 let allExercisesForSelection = []; // All exercises loaded from database
 let currentTagFilter = 'all'; // Current active tag filter
 let modalCallback = null; // Callback function for when an exercise is selected
@@ -211,9 +211,6 @@ function renderExerciseSelectionGrid(searchTerm = '') {
         if (exercise.tieredPoints?.enabled) {
             systemBadges += '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
         }
-        if (exercise.partnerSystem?.enabled) {
-            systemBadges += '<span class="absolute top-2 left-2 text-xs bg-purple-500 text-white px-2 py-1 rounded-full" title="Partner-System">👥</span>';
-        }
 
         // Tags display
         let tagsHtml = '';
@@ -267,8 +264,7 @@ function toggleExerciseSelection(exercise) {
             exerciseId: exercise.id,
             name: exercise.title,
             points: exercise.points || 0,
-            tieredPoints: exercise.tieredPoints?.enabled || false,
-            partnerSystem: exercise.partnerSystem?.enabled || false
+            tieredPoints: exercise.tieredPoints?.enabled || false
         });
     }
 
@@ -355,8 +351,7 @@ function addExerciseFromModal(exerciseId) {
         exerciseId: exercise.id,
         name: exercise.title,
         points: exercise.points || 0,
-        tieredPoints: exercise.tieredPoints?.enabled || false,
-        partnerSystem: exercise.partnerSystem?.enabled || false
+        tieredPoints: exercise.tieredPoints?.enabled || false
     });
 
     // Re-render list
@@ -394,9 +389,6 @@ function renderSelectedExercises() {
         if (exercise.tieredPoints) {
             badges += '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
-        if (exercise.partnerSystem) {
-            badges += '<span class="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded ml-2" title="Partner-System">👥</span>';
-        }
 
         div.innerHTML = `
             <span class="text-sm font-medium text-gray-700">
@@ -421,8 +413,7 @@ export function getPlannedExercises() {
         exerciseId: exercise.exerciseId,
         name: exercise.name,
         points: exercise.points,
-        tieredPoints: exercise.tieredPoints,
-        partnerSystem: exercise.partnerSystem
+        tieredPoints: exercise.tieredPoints
     }));
 }
 
@@ -438,8 +429,7 @@ export function loadPlannedExercises(plannedExercises) {
             exerciseId: ex.exerciseId,
             name: ex.name,
             points: ex.points || 0,
-            tieredPoints: ex.tieredPoints || false,
-            partnerSystem: ex.partnerSystem || false
+            tieredPoints: ex.tieredPoints || false
         }));
     }
     renderSelectedExercises();
