@@ -304,29 +304,37 @@ window.removeSinglePlayer = function(index) {
 async function confirmPairingAndDistributePoints() {
     const confirmBtn = document.getElementById('confirm-pairing-button');
     confirmBtn.disabled = true;
-    showPairingFeedback('Vergebe Punkte...', 'info');
 
-    try {
-        // Distribute points based on pairs and single players
-        await distributePartnerExercisePoints(formedPairs, singlePlayers, currentExercise, currentSessionData);
+    // Return pairing data without distributing points immediately
+    const pairingData = {
+        pairs: formedPairs.map(pair => ({
+            player1Id: pair.player1Id,
+            player2Id: pair.player2Id,
+            result: pair.result
+        })),
+        singlePlayers: singlePlayers.map(sp => ({
+            playerId: sp.playerId,
+            result: sp.result
+        })),
+        exercise: currentExercise
+    };
 
-        showPairingFeedback('Punkte erfolgreich vergeben!', 'success');
+    showPairingFeedback('Paarungen gespeichert!', 'success');
 
-        setTimeout(() => {
-            closePairingModal();
-            if (resolveCallback) resolveCallback();
-        }, 1000);
-    } catch (error) {
-        console.error('[Partner Pairing] Error distributing points:', error);
-        showPairingFeedback('Fehler: ' + error.message, 'error');
-        confirmBtn.disabled = false;
-    }
+    setTimeout(() => {
+        closePairingModal();
+        if (resolveCallback) resolveCallback(pairingData);
+    }, 500);
 }
 
 /**
  * Distribute points for partner exercise
+ * @param {Array} pairs - Array of paired players with results
+ * @param {Array} singles - Array of single players with results
+ * @param {Object} exercise - Exercise object
+ * @param {Object} sessionData - Session data
  */
-async function distributePartnerExercisePoints(pairs, singles, exercise, sessionData) {
+export async function distributePartnerExercisePoints(pairs, singles, exercise, sessionData) {
     const batch = writeBatch(db);
     const date = sessionData.date;
     const subgroupId = sessionData.subgroupId;

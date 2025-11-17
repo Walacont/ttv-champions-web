@@ -18,7 +18,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
-import { initializePartnerPairing, openPartnerPairingModal } from './partner-pairing.js';
+import { initializePartnerPairing, openPartnerPairingModal, distributePartnerExercisePoints } from './partner-pairing.js';
 
 let db = null;
 let currentUserData = null;
@@ -27,6 +27,11 @@ let currentSessionData = null;
 let currentAttendanceData = null;
 let plannedExercises = [];
 let spontaneousExercises = [];
+// Store partner pairings for each exercise: {planned: [{pairs, singlePlayers}], spontaneous: [{pairs, singlePlayers}]}
+let exercisePairings = {
+    planned: [],
+    spontaneous: []
+};
 
 /**
  * Initialize the training completion module
@@ -86,6 +91,9 @@ function addSpontaneousExerciseFromModal(exercise) {
         tieredPoints: exercise.tieredPoints?.enabled || false
     });
 
+    // Add placeholder for pairing data
+    exercisePairings.spontaneous.push(null);
+
     renderSpontaneousExercises();
 }
 
@@ -144,6 +152,10 @@ window.openTrainingCompletionModal = async function(sessionId, dateStr) {
         plannedExercises = currentSessionData.plannedExercises || [];
         document.getElementById('completion-planned-count').textContent = plannedExercises.length;
 
+        // Initialize pairing arrays (will be filled as user sets pairings)
+        exercisePairings.planned = new Array(plannedExercises.length).fill(null);
+        exercisePairings.spontaneous = new Array(spontaneousExercises.length).fill(null);
+
         renderPlannedExercises();
         renderSpontaneousExercises();
 
@@ -173,12 +185,18 @@ function renderPlannedExercises() {
 
     plannedExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
-        div.className = 'flex items-center p-2 bg-white border rounded hover:bg-gray-50';
+        div.className = 'flex items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50';
 
         let badges = '';
         if (exercise.tieredPoints) {
             badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
+
+        // Check if pairings are already set for this exercise
+        const hasPairings = exercisePairings.planned[index] !== undefined && exercisePairings.planned[index] !== null;
+        const pairingStatus = hasPairings
+            ? '<span class="text-xs text-green-600">✓ Paarungen gesetzt</span>'
+            : '<span class="text-xs text-orange-600">⚠ Paarungen fehlen</span>';
 
         div.innerHTML = `
             <input
@@ -188,14 +206,26 @@ function renderPlannedExercises() {
                 data-index="${index}"
                 checked
             >
-            <label for="planned-${index}" class="ml-3 flex-1 cursor-pointer text-sm text-gray-700">
+            <label for="planned-${index}" class="ml-2 flex-1 cursor-pointer text-sm text-gray-700">
                 ${exercise.name}
                 ${badges}
             </label>
-            <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
+                ${pairingStatus}
+                <button
+                    type="button"
+                    class="text-xs px-2 py-1 rounded ${hasPairings ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
+                    onclick="window.openPairingForPlannedExercise(${index})"
+                >
+                    ${hasPairings ? '✏️ Bearbeiten' : '👥 Partner wählen'}
+                </button>
+            </div>
         `;
         container.appendChild(div);
     });
+
+    updateSubmitButtonState();
 }
 
 /**
@@ -214,12 +244,18 @@ function renderSpontaneousExercises() {
 
     spontaneousExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
-        div.className = 'flex items-center p-2 bg-green-50 border border-green-200 rounded';
+        div.className = 'flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded';
 
         let badges = '';
         if (exercise.tieredPoints) {
             badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
+
+        // Check if pairings are already set for this exercise
+        const hasPairings = exercisePairings.spontaneous[index] !== undefined && exercisePairings.spontaneous[index] !== null;
+        const pairingStatus = hasPairings
+            ? '<span class="text-xs text-green-600">✓ Paarungen gesetzt</span>'
+            : '<span class="text-xs text-orange-600">⚠ Paarungen fehlen</span>';
 
         div.innerHTML = `
             <input
@@ -229,17 +265,29 @@ function renderSpontaneousExercises() {
                 data-index="${index}"
                 checked
             >
-            <label for="spontaneous-${index}" class="ml-3 flex-1 cursor-pointer text-sm text-gray-700">
+            <label for="spontaneous-${index}" class="ml-2 flex-1 cursor-pointer text-sm text-gray-700">
                 ${exercise.name}
                 ${badges}
             </label>
-            <button type="button" class="text-red-600 hover:text-red-800 text-xs" onclick="window.removeSpontaneousExercise(${index})">
-                <i class="fas fa-times"></i>
-            </button>
-            <span class="text-xs text-gray-500 ml-2">+${exercise.points} Pkt</span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
+                ${pairingStatus}
+                <button
+                    type="button"
+                    class="text-xs px-2 py-1 rounded ${hasPairings ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
+                    onclick="window.openPairingForSpontaneousExercise(${index})"
+                >
+                    ${hasPairings ? '✏️ Bearbeiten' : '👥 Partner wählen'}
+                </button>
+                <button type="button" class="text-red-600 hover:text-red-800 text-xs" onclick="window.removeSpontaneousExercise(${index})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
         `;
         container.appendChild(div);
     });
+
+    updateSubmitButtonState();
 }
 
 
@@ -249,6 +297,7 @@ function renderSpontaneousExercises() {
  */
 window.removeSpontaneousExercise = function(index) {
     spontaneousExercises.splice(index, 1);
+    exercisePairings.spontaneous.splice(index, 1);
     renderSpontaneousExercises();
 };
 
@@ -263,40 +312,56 @@ async function handleCompletionSubmit(e) {
     showFeedback('Verarbeite Training-Abschluss...', 'info');
 
     try {
-        // Collect checked exercises
-        const checkedExercises = [];
+        // Collect checked exercises with their pairings
+        const exercisesWithPairings = [];
 
         // Planned exercises
         document.querySelectorAll('.planned-exercise-checkbox:checked').forEach(checkbox => {
             const index = parseInt(checkbox.dataset.index);
-            checkedExercises.push(plannedExercises[index]);
+            const exercise = plannedExercises[index];
+            const pairingData = exercisePairings.planned[index];
+
+            exercisesWithPairings.push({
+                exercise,
+                pairingData,
+                type: 'planned',
+                index
+            });
         });
 
         // Spontaneous exercises
         document.querySelectorAll('.spontaneous-exercise-checkbox:checked').forEach(checkbox => {
             const index = parseInt(checkbox.dataset.index);
-            checkedExercises.push(spontaneousExercises[index]);
+            const exercise = spontaneousExercises[index];
+            const pairingData = exercisePairings.spontaneous[index];
+
+            exercisesWithPairings.push({
+                exercise,
+                pairingData,
+                type: 'spontaneous',
+                index
+            });
         });
 
-        if (checkedExercises.length === 0) {
+        if (exercisesWithPairings.length === 0) {
             alert('Bitte wähle mindestens eine durchgeführte Übung aus.');
             submitBtn.disabled = false;
             clearFeedback();
             return;
         }
 
-        // Process intelligent points distribution
-        await processIntelligentPointsDistribution(checkedExercises);
+        // Process points distribution with saved pairings
+        await processPointsDistributionWithPairings(exercisesWithPairings);
 
         // Mark session as completed
         await updateDoc(doc(db, 'trainingSessions', currentSessionId), {
             completed: true,
             completedAt: serverTimestamp(),
             completedBy: currentUserData.id,
-            completedExercises: checkedExercises.map(ex => ({
-                exerciseId: ex.exerciseId,
-                name: ex.name,
-                points: ex.points
+            completedExercises: exercisesWithPairings.map(item => ({
+                exerciseId: item.exercise.exerciseId,
+                name: item.exercise.name,
+                points: item.exercise.points
             }))
         });
 
@@ -321,41 +386,35 @@ async function handleCompletionSubmit(e) {
 }
 
 /**
- * Process intelligent points distribution
- * @param {Array} exercises - Checked exercises
+ * Process points distribution using saved pairing data
+ * @param {Array} exercisesWithPairings - Array of exercises with their pairing data
  */
-async function processIntelligentPointsDistribution(exercises) {
+async function processPointsDistributionWithPairings(exercisesWithPairings) {
     const presentPlayerIds = currentAttendanceData.presentPlayerIds || [];
     if (presentPlayerIds.length === 0) {
         throw new Error('Keine Spieler anwesend');
     }
 
-    // Separate exercises by type
-    const milestoneExercises = [];
-    const regularExercises = [];
+    // Process each exercise with its saved pairing data
+    for (const item of exercisesWithPairings) {
+        const { exercise, pairingData } = item;
 
-    exercises.forEach(ex => {
-        if (ex.tieredPoints) {
-            milestoneExercises.push(ex);
-        } else {
-            regularExercises.push(ex);
+        if (exercise.tieredPoints) {
+            // TODO: Milestone exercises (not yet implemented)
+            console.warn('[Training Completion] Milestone exercises not yet implemented:', exercise);
+            continue;
         }
-    });
 
-    // PHASE 1: Milestone exercises (requires input)
-    if (milestoneExercises.length > 0) {
-        // TODO: Show milestone input modal
-        console.warn('[Training Completion] Milestone exercises found, but input not yet implemented:', milestoneExercises);
-    }
-
-    // PHASE 2: Regular exercises (partner pairing required)
-    // All table tennis exercises require partner pairing
-    if (regularExercises.length > 0) {
-        console.log('[Training Completion] Processing exercises with partner pairing');
-
-        // Process each exercise one by one
-        for (const exercise of regularExercises) {
-            await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
+        // Regular exercises: use saved pairing data to distribute points
+        if (pairingData && pairingData.pairs && pairingData.singlePlayers) {
+            await distributePartnerExercisePoints(
+                pairingData.pairs,
+                pairingData.singlePlayers,
+                exercise,
+                currentSessionData
+            );
+        } else {
+            console.warn('[Training Completion] No pairing data for exercise:', exercise);
         }
     }
 }
@@ -469,4 +528,101 @@ function closeCompletionModal() {
     currentAttendanceData = null;
     plannedExercises = [];
     spontaneousExercises = [];
+    exercisePairings = {
+        planned: [],
+        spontaneous: []
+    };
+}
+
+/**
+ * Open partner pairing modal for a planned exercise
+ * @param {number} index - Index in plannedExercises array
+ */
+window.openPairingForPlannedExercise = async function(index) {
+    const exercise = plannedExercises[index];
+    if (!exercise) return;
+
+    const presentPlayerIds = currentAttendanceData.presentPlayerIds || [];
+    if (presentPlayerIds.length === 0) {
+        alert('Keine Spieler anwesend!');
+        return;
+    }
+
+    try {
+        // Open partner pairing modal and get the result
+        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
+
+        // Store the pairing data
+        exercisePairings.planned[index] = pairingData;
+
+        // Re-render to show updated status
+        renderPlannedExercises();
+    } catch (error) {
+        console.error('[Training Completion] Error setting pairings for planned exercise:', error);
+    }
+};
+
+/**
+ * Open partner pairing modal for a spontaneous exercise
+ * @param {number} index - Index in spontaneousExercises array
+ */
+window.openPairingForSpontaneousExercise = async function(index) {
+    const exercise = spontaneousExercises[index];
+    if (!exercise) return;
+
+    const presentPlayerIds = currentAttendanceData.presentPlayerIds || [];
+    if (presentPlayerIds.length === 0) {
+        alert('Keine Spieler anwesend!');
+        return;
+    }
+
+    try {
+        // Open partner pairing modal and get the result
+        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
+
+        // Store the pairing data
+        exercisePairings.spontaneous[index] = pairingData;
+
+        // Re-render to show updated status
+        renderSpontaneousExercises();
+    } catch (error) {
+        console.error('[Training Completion] Error setting pairings for spontaneous exercise:', error);
+    }
+};
+
+/**
+ * Update submit button state based on whether all pairings are set
+ */
+function updateSubmitButtonState() {
+    const submitBtn = document.getElementById('training-completion-submit');
+    if (!submitBtn) return;
+
+    // Get all checked exercises
+    const checkedPlanned = Array.from(document.querySelectorAll('.planned-exercise-checkbox:checked'));
+    const checkedSpontaneous = Array.from(document.querySelectorAll('.spontaneous-exercise-checkbox:checked'));
+
+    // Check if all checked exercises have pairings
+    const allPlannedHavePairings = checkedPlanned.every(checkbox => {
+        const index = parseInt(checkbox.dataset.index);
+        return exercisePairings.planned[index] !== undefined && exercisePairings.planned[index] !== null;
+    });
+
+    const allSpontaneousHavePairings = checkedSpontaneous.every(checkbox => {
+        const index = parseInt(checkbox.dataset.index);
+        return exercisePairings.spontaneous[index] !== undefined && exercisePairings.spontaneous[index] !== null;
+    });
+
+    const allPairingsSet = allPlannedHavePairings && allSpontaneousHavePairings;
+    const hasAnyExercises = checkedPlanned.length > 0 || checkedSpontaneous.length > 0;
+
+    // Enable button only if all pairings are set and there's at least one exercise
+    if (allPairingsSet && hasAnyExercises) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        submitBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+    } else {
+        submitBtn.disabled = true;
+        submitBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+    }
 }
