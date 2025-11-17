@@ -1,5 +1,5 @@
 import { collection, doc, onSnapshot, query, orderBy, runTransaction, serverTimestamp, increment, getDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { getCurrentSeasonKey, formatSeasonEndDate } from './ui-utils.js';
+import { getCurrentSeasonKey } from './ui-utils.js';
 
 /**
  * Points Management Module
@@ -1017,21 +1017,17 @@ async function updateMilestoneProgressDisplay(progress, milestones, db) {
         const isCurrentSeason = progressSeasonKey === currentSeasonKey;
         const currentCount = isCurrentSeason ? (progress.currentCount || 0) : 0;
 
-        // Add season info
-        const seasonEndDate = await formatSeasonEndDate(db);
-        const seasonInfo = `📅 Saison endet: ${seasonEndDate}`;
-
         const nextMilestone = milestones.find(m => m.count > currentCount);
 
         if (!isCurrentSeason && progress.currentCount > 0) {
-            // Progress from old season - will reset
-            progressText.innerHTML = `Neue Saison! Fortschritt wurde zurückgesetzt (0×)<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
+            // Progress from old season
+            progressText.textContent = `Fortschritt: 0×`;
         } else if (nextMilestone) {
-            progressText.innerHTML = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
+            progressText.textContent = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)`;
         } else if (currentCount >= milestones[milestones.length - 1]?.count) {
-            progressText.innerHTML = `${currentCount}× - Alle Meilensteine erreicht! 🎉<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
+            progressText.textContent = `${currentCount}× - Alle Meilensteine erreicht! 🎉`;
         } else {
-            progressText.innerHTML = `${currentCount}× erreicht<br><span class="text-xs text-gray-500">${seasonInfo}</span>`;
+            progressText.textContent = `${currentCount}× erreicht`;
         }
     }
 
@@ -1217,7 +1213,6 @@ async function showCompletionStatus(db, type, itemId, playerId) {
         const completionDoc = await getDoc(completionRef);
 
         const currentSeasonKey = await getCurrentSeasonKey(db);
-        const seasonEndDate = await formatSeasonEndDate(db);
 
         if (completionDoc.exists()) {
             const data = completionDoc.data();
@@ -1232,7 +1227,6 @@ async function showCompletionStatus(db, type, itemId, playerId) {
                         <span class="text-xl">✅</span>
                         <div class="flex-1">
                             <div class="font-semibold text-blue-900">Abgeschlossen am ${completedDate}</div>
-                            <div class="text-xs text-blue-700 mt-1">🔓 Wieder freigeschaltet am ${seasonEndDate} (Neue Saison)</div>
                         </div>
                     </div>
                 `;
@@ -1242,8 +1236,7 @@ async function showCompletionStatus(db, type, itemId, playerId) {
                     <div class="flex items-start gap-2">
                         <span class="text-xl">🆕</span>
                         <div class="flex-1">
-                            <div class="font-semibold text-blue-900">Neue Saison - Wieder verfügbar!</div>
-                            <div class="text-xs text-blue-700 mt-1">📅 Aktuell bis ${seasonEndDate}</div>
+                            <div class="font-semibold text-blue-900">Wieder verfügbar!</div>
                         </div>
                     </div>
                 `;
@@ -1255,7 +1248,6 @@ async function showCompletionStatus(db, type, itemId, playerId) {
                     <span class="text-xl">⭕</span>
                     <div class="flex-1">
                         <div class="font-semibold text-blue-900">Noch nicht abgeschlossen</div>
-                        <div class="text-xs text-blue-700 mt-1">📅 Saison endet am ${seasonEndDate}</div>
                     </div>
                 </div>
             `;
