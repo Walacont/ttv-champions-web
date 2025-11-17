@@ -64,19 +64,14 @@ const PHASES = {
  * @param {Object} currentUserData - Current user's data
  */
 export function initializeSupercompensation(db, currentUserData) {
-    console.log('[Supercompensation] Initializing for user:', currentUserData.id);
-
     // Show loading state immediately
     displayLoadingState();
 
     // Load data in background (non-blocking)
     loadAndDisplaySupercompensation(db, currentUserData)
         .catch(error => {
-            console.error('[Supercompensation] Error initializing:', error);
             displayError();
         });
-
-    console.log('[Supercompensation] Initialized (loading data in background)');
 }
 
 /**
@@ -104,10 +99,7 @@ async function loadAndDisplaySupercompensation(db, currentUserData) {
 
         // Draw visualization
         drawSupercompensationCurve(hoursSince);
-
-        console.log('[Supercompensation] Data loaded and displayed successfully');
     } catch (error) {
-        console.error('[Supercompensation] Error loading data:', error);
         throw error;
     }
 }
@@ -133,14 +125,11 @@ async function getLastTraining(db, playerId, clubId) {
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-            console.log('[Supercompensation] No training records found');
             return null;
         }
 
         const doc = snapshot.docs[0];
         const data = doc.data();
-
-        console.log('[Supercompensation] Last training:', data.date);
 
         return {
             id: doc.id,
@@ -148,7 +137,6 @@ async function getLastTraining(db, playerId, clubId) {
             subgroupId: data.subgroupId
         };
     } catch (error) {
-        console.error('[Supercompensation] Error fetching last training:', error);
         return null;
     }
 }
