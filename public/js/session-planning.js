@@ -13,6 +13,7 @@ import {
 let db = null;
 let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints, partnerSystem}
 let allExercisesForSelection = []; // All exercises loaded from database
+let currentTagFilter = 'all'; // Current active tag filter
 
 /**
  * Initialize the session planning module
@@ -52,6 +53,12 @@ export function openExerciseSelectionModal() {
     const modal = document.getElementById('exercise-selection-modal');
     if (!modal) return;
 
+    // Reset filter
+    currentTagFilter = 'all';
+
+    // Generate tag filter buttons
+    renderTagFilters();
+
     // Render exercises
     renderExerciseSelectionGrid();
 
@@ -68,6 +75,68 @@ export function openExerciseSelectionModal() {
 }
 
 /**
+ * Render tag filter buttons
+ */
+function renderTagFilters() {
+    const container = document.getElementById('exercise-tag-filters');
+    if (!container) return;
+
+    // Collect all unique tags from exercises
+    const allTags = new Set();
+    allExercisesForSelection.forEach(ex => {
+        if (ex.tags && Array.isArray(ex.tags)) {
+            ex.tags.forEach(tag => allTags.add(tag));
+        }
+    });
+
+    // Keep "Alle" button and clear the rest
+    const labelSpan = container.querySelector('.text-gray-500');
+    const alleButton = container.querySelector('[data-tag="all"]');
+    container.innerHTML = '';
+    if (labelSpan) container.appendChild(labelSpan);
+    if (alleButton) container.appendChild(alleButton);
+
+    // Add tag filter buttons
+    Array.from(allTags).sort().forEach(tag => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tag-filter-btn px-3 py-1 text-xs rounded-full border border-gray-300 hover:bg-gray-100 transition';
+        btn.dataset.tag = tag;
+        btn.textContent = tag;
+        btn.addEventListener('click', () => handleTagFilterClick(tag));
+        container.appendChild(btn);
+    });
+
+    // Add click handler to "Alle" button
+    if (alleButton) {
+        alleButton.addEventListener('click', () => handleTagFilterClick('all'));
+    }
+}
+
+/**
+ * Handle tag filter click
+ * @param {string} tag - Tag to filter by (or 'all')
+ */
+function handleTagFilterClick(tag) {
+    currentTagFilter = tag;
+
+    // Update button states
+    document.querySelectorAll('.tag-filter-btn').forEach(btn => {
+        if (btn.dataset.tag === tag) {
+            btn.classList.add('active', 'bg-indigo-100', 'text-indigo-700');
+            btn.classList.remove('hover:bg-gray-100');
+        } else {
+            btn.classList.remove('active', 'bg-indigo-100', 'text-indigo-700');
+            btn.classList.add('hover:bg-gray-100');
+        }
+    });
+
+    // Re-render grid with filter
+    const searchInput = document.getElementById('exercise-selection-search');
+    renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
+}
+
+/**
  * Close exercise selection modal
  */
 export function closeExerciseSelectionModal() {
@@ -76,6 +145,7 @@ export function closeExerciseSelectionModal() {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+    currentTagFilter = 'all';
 }
 
 /**
@@ -86,8 +156,15 @@ function renderExerciseSelectionGrid(searchTerm = '') {
     const grid = document.getElementById('exercise-selection-grid');
     if (!grid) return;
 
-    // Filter exercises
+    // Filter exercises by tag filter
     let exercises = allExercisesForSelection;
+    if (currentTagFilter !== 'all') {
+        exercises = exercises.filter(ex =>
+            ex.tags && ex.tags.includes(currentTagFilter)
+        );
+    }
+
+    // Filter by search term
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
         exercises = exercises.filter(ex =>
@@ -110,17 +187,30 @@ function renderExerciseSelectionGrid(searchTerm = '') {
         card.className = `relative border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer ${isAlreadySelected ? 'opacity-50 pointer-events-none' : ''}`;
         card.onclick = () => addExerciseFromModal(exercise.id);
 
-        // Badges
-        let badges = '';
+        // System badges (top corners)
+        let systemBadges = '';
         if (exercise.tieredPoints?.enabled) {
-            badges += '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
+            systemBadges += '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
         }
         if (exercise.partnerSystem?.enabled) {
-            badges += '<span class="absolute top-2 left-2 text-xs bg-purple-500 text-white px-2 py-1 rounded-full" title="Partner-System">👥</span>';
+            systemBadges += '<span class="absolute top-2 left-2 text-xs bg-purple-500 text-white px-2 py-1 rounded-full" title="Partner-System">👥</span>';
+        }
+
+        // Tags display
+        let tagsHtml = '';
+        if (exercise.tags && exercise.tags.length > 0) {
+            tagsHtml = '<div class="flex flex-wrap gap-1 mt-2">';
+            exercise.tags.slice(0, 3).forEach(tag => {
+                tagsHtml += `<span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">${tag}</span>`;
+            });
+            if (exercise.tags.length > 3) {
+                tagsHtml += `<span class="text-xs text-gray-500">+${exercise.tags.length - 3}</span>`;
+            }
+            tagsHtml += '</div>';
         }
 
         card.innerHTML = `
-            ${badges}
+            ${systemBadges}
             <img src="${exercise.imageUrl || '/images/placeholder.png'}" alt="${exercise.title}" class="w-full h-40 object-cover">
             <div class="p-3">
                 <h4 class="font-semibold text-gray-900 text-sm mb-1">${exercise.title}</h4>
@@ -128,6 +218,7 @@ function renderExerciseSelectionGrid(searchTerm = '') {
                     <span class="capitalize">${exercise.level || 'standard'}</span>
                     <span class="font-bold text-indigo-600">+${exercise.points || 0} Pkt</span>
                 </div>
+                ${tagsHtml}
                 ${isAlreadySelected ? '<p class="text-xs text-green-600 mt-2">✓ Bereits hinzugefügt</p>' : ''}
             </div>
         `;
