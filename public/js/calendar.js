@@ -597,7 +597,16 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
                             <div class="w-3 h-3 rounded-full" style="background-color: ${subgroupColor};"></div>
                             <span>${subgroupName}</span>
                         </div>
-                        ${session.plannedExercises && session.plannedExercises.length > 0 ? `
+                        ${isCompleted && session.completedExercises && session.completedExercises.length > 0 ? `
+                            <div class="text-xs text-gray-600 mt-2">
+                                <div class="font-medium mb-1">Durchgeführte Übungen:</div>
+                                <ul class="list-disc list-inside pl-2 space-y-0.5">
+                                    ${session.completedExercises.map(ex => `
+                                        <li>${ex.name} <span class="text-gray-500">(+${ex.points} Pkt)</span></li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : (!isCompleted && session.plannedExercises && session.plannedExercises.length > 0 ? `
                             <div class="text-xs text-gray-600 mt-2">
                                 <div class="font-medium mb-1">Geplante Übungen:</div>
                                 <ul class="list-disc list-inside pl-2 space-y-0.5">
@@ -606,7 +615,7 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
                                     `).join('')}
                                 </ul>
                             </div>
-                        ` : ''}
+                        ` : '')}
                     </div>
                     <div class="text-sm font-medium ${statusColor}">
                         ${statusText}
