@@ -341,15 +341,12 @@ async function handleCompletionSubmit(e) {
             });
         });
 
-        if (exercisesWithPairings.length === 0) {
-            alert('Keine Übungen vorhanden!');
-            submitBtn.disabled = false;
-            clearFeedback();
-            return;
+        // Process points distribution with saved pairings (only if there are exercises)
+        if (exercisesWithPairings.length > 0) {
+            await processPointsDistributionWithPairings(exercisesWithPairings);
+        } else {
+            console.log('[Training Completion] No exercises - completing training with attendance only');
         }
-
-        // Process points distribution with saved pairings
-        await processPointsDistributionWithPairings(exercisesWithPairings);
 
         // Mark session as completed
         await updateDoc(doc(db, 'trainingSessions', currentSessionId), {
@@ -363,7 +360,11 @@ async function handleCompletionSubmit(e) {
             }))
         });
 
-        showFeedback('Training erfolgreich abgeschlossen! Punkte wurden vergeben.', 'success');
+        // Show appropriate success message
+        const successMessage = exercisesWithPairings.length > 0
+            ? 'Training erfolgreich abgeschlossen! Punkte wurden vergeben.'
+            : 'Training erfolgreich abgeschlossen! (Nur Anwesenheit)';
+        showFeedback(successMessage, 'success');
 
         // Trigger calendar reload event
         window.dispatchEvent(new CustomEvent('trainingCompleted', {
@@ -556,8 +557,10 @@ function updateSubmitButtonState() {
     const allPairingsSet = allPlannedHavePairings && allSpontaneousHavePairings;
     const hasAnyExercises = plannedExercises.length > 0 || spontaneousExercises.length > 0;
 
-    // Enable button only if all pairings are set and there's at least one exercise
-    if (allPairingsSet && hasAnyExercises) {
+    // Enable button if:
+    // 1. No exercises (attendance-only training) OR
+    // 2. All exercises have pairings set
+    if (!hasAnyExercises || allPairingsSet) {
         submitBtn.disabled = false;
         submitBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
         submitBtn.classList.add('bg-green-600', 'hover:bg-green-700');
