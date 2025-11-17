@@ -547,8 +547,11 @@ window.openPairingForPlannedExercise = async function(index) {
     }
 
     try {
+        // Get existing pairings if editing
+        const existingPairings = exercisePairings.planned[index];
+
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
+        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData, existingPairings);
 
         // Store the pairing data
         exercisePairings.planned[index] = pairingData;
@@ -575,8 +578,11 @@ window.openPairingForSpontaneousExercise = async function(index) {
     }
 
     try {
+        // Get existing pairings if editing
+        const existingPairings = exercisePairings.spontaneous[index];
+
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
+        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData, existingPairings);
 
         // Store the pairing data
         exercisePairings.spontaneous[index] = pairingData;

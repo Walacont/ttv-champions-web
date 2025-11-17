@@ -44,9 +44,10 @@ function setupEventListeners() {
  * @param {Object} exercise - Exercise object
  * @param {Array} playerIds - Array of present player IDs
  * @param {Object} sessionData - Session data
+ * @param {Object} existingPairings - Existing pairing data (optional, for editing)
  * @returns {Promise} - Resolves when pairing is complete
  */
-export function openPartnerPairingModal(exercise, playerIds, sessionData) {
+export function openPartnerPairingModal(exercise, playerIds, sessionData, existingPairings = null) {
     return new Promise(async (resolve) => {
         resolveCallback = resolve;
         currentExercise = exercise;
@@ -65,6 +66,44 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData) {
                     ...playerDoc.data()
                 });
             }
+        }
+
+        // Load existing pairings if provided (for editing)
+        if (existingPairings) {
+            console.log('[Partner Pairing] Loading existing pairings:', existingPairings);
+
+            // Load formed pairs
+            if (existingPairings.pairs && existingPairings.pairs.length > 0) {
+                existingPairings.pairs.forEach(pairData => {
+                    const player1 = availablePlayers.find(p => p.id === pairData.player1Id);
+                    const player2 = availablePlayers.find(p => p.id === pairData.player2Id);
+
+                    if (player1 && player2) {
+                        formedPairs.push({
+                            player1: player1,
+                            player2: player2,
+                            result: pairData.result
+                        });
+                    }
+                });
+            }
+
+            // Load single players
+            if (existingPairings.singlePlayers && existingPairings.singlePlayers.length > 0) {
+                existingPairings.singlePlayers.forEach(singleData => {
+                    const player = availablePlayers.find(p => p.id === singleData.playerId);
+
+                    if (player) {
+                        singlePlayers.push({
+                            ...player,
+                            result: singleData.result
+                        });
+                    }
+                });
+            }
+
+            console.log('[Partner Pairing] Loaded pairs:', formedPairs);
+            console.log('[Partner Pairing] Loaded singles:', singlePlayers);
         }
 
         // Set exercise name
