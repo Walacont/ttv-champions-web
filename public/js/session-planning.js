@@ -12,6 +12,7 @@ import {
 
 let db = null;
 let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints, partnerSystem}
+let allExercisesForSelection = []; // All exercises loaded from database
 
 /**
  * Initialize the session planning module
@@ -22,16 +23,10 @@ export function initializeSessionPlanning(firestoreInstance) {
 }
 
 /**
- * Load exercises into the dropdown
+ * Load all exercises from database (for selection modal)
  * @param {Object} db - Firestore database instance
  */
-export async function loadExercisesIntoDropdown(db) {
-    const select = document.getElementById('session-exercise-select');
-    if (!select) {
-        console.warn('[Session Planning] Dropdown "session-exercise-select" not found');
-        return;
-    }
-
+export async function loadExercisesForSelection(db) {
     try {
         const exercisesQuery = query(
             collection(db, 'exercises'),
@@ -39,63 +34,135 @@ export async function loadExercisesIntoDropdown(db) {
         );
         const snapshot = await getDocs(exercisesQuery);
 
-        // Clear existing options (except first one)
-        select.innerHTML = '<option value="">Übung auswählen...</option>';
+        allExercisesForSelection = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
 
-        snapshot.docs.forEach(doc => {
-            const exercise = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = exercise.title;
-            option.dataset.points = exercise.points || 0;
-            option.dataset.tieredPoints = exercise.tieredPoints?.enabled || false;
-            option.dataset.partnerSystem = exercise.partnerSystem?.enabled || false;
-            select.appendChild(option);
-        });
-
-        console.log(`[Session Planning] Loaded ${snapshot.docs.length} exercises into dropdown`);
+        console.log(`[Session Planning] Loaded ${allExercisesForSelection.length} exercises for selection`);
     } catch (error) {
         console.error('[Session Planning] Error loading exercises:', error);
     }
 }
 
 /**
- * Add selected exercise to the list
+ * Open exercise selection modal
  */
-export function addExerciseToList() {
-    const select = document.getElementById('session-exercise-select');
-    if (!select || !select.value) {
-        console.warn('[Session Planning] No exercise selected or dropdown not found');
+export function openExerciseSelectionModal() {
+    const modal = document.getElementById('exercise-selection-modal');
+    if (!modal) return;
+
+    // Render exercises
+    renderExerciseSelectionGrid();
+
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // Focus search input
+    const searchInput = document.getElementById('exercise-selection-search');
+    if (searchInput) {
+        searchInput.value = '';
+        setTimeout(() => searchInput.focus(), 100);
+    }
+}
+
+/**
+ * Close exercise selection modal
+ */
+export function closeExerciseSelectionModal() {
+    const modal = document.getElementById('exercise-selection-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+/**
+ * Render exercise selection grid
+ * @param {string} searchTerm - Optional search term to filter exercises
+ */
+function renderExerciseSelectionGrid(searchTerm = '') {
+    const grid = document.getElementById('exercise-selection-grid');
+    if (!grid) return;
+
+    // Filter exercises
+    let exercises = allExercisesForSelection;
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        exercises = exercises.filter(ex =>
+            ex.title.toLowerCase().includes(term) ||
+            (ex.tags && ex.tags.some(tag => tag.toLowerCase().includes(term)))
+        );
+    }
+
+    if (exercises.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500">Keine Übungen gefunden.</div>';
         return;
     }
 
-    const selectedOption = select.options[select.selectedIndex];
-    const exerciseId = select.value;
-    const exerciseName = selectedOption.textContent;
-    const points = parseInt(selectedOption.dataset.points) || 0;
-    const hasTieredPoints = selectedOption.dataset.tieredPoints === 'true';
-    const hasPartnerSystem = selectedOption.dataset.partnerSystem === 'true';
+    grid.innerHTML = '';
+
+    exercises.forEach(exercise => {
+        const isAlreadySelected = selectedExercises.find(ex => ex.exerciseId === exercise.id);
+
+        const card = document.createElement('div');
+        card.className = `relative border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer ${isAlreadySelected ? 'opacity-50 pointer-events-none' : ''}`;
+        card.onclick = () => addExerciseFromModal(exercise.id);
+
+        // Badges
+        let badges = '';
+        if (exercise.tieredPoints?.enabled) {
+            badges += '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
+        }
+        if (exercise.partnerSystem?.enabled) {
+            badges += '<span class="absolute top-2 left-2 text-xs bg-purple-500 text-white px-2 py-1 rounded-full" title="Partner-System">👥</span>';
+        }
+
+        card.innerHTML = `
+            ${badges}
+            <img src="${exercise.imageUrl || '/images/placeholder.png'}" alt="${exercise.title}" class="w-full h-40 object-cover">
+            <div class="p-3">
+                <h4 class="font-semibold text-gray-900 text-sm mb-1">${exercise.title}</h4>
+                <div class="flex justify-between items-center text-xs text-gray-600">
+                    <span class="capitalize">${exercise.level || 'standard'}</span>
+                    <span class="font-bold text-indigo-600">+${exercise.points || 0} Pkt</span>
+                </div>
+                ${isAlreadySelected ? '<p class="text-xs text-green-600 mt-2">✓ Bereits hinzugefügt</p>' : ''}
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+/**
+ * Add exercise from modal
+ * @param {string} exerciseId - Exercise ID
+ */
+function addExerciseFromModal(exerciseId) {
+    const exercise = allExercisesForSelection.find(ex => ex.id === exerciseId);
+    if (!exercise) return;
 
     // Check if already added
     if (selectedExercises.find(ex => ex.exerciseId === exerciseId)) {
-        alert('Diese Übung wurde bereits hinzugefügt.');
         return;
     }
 
     // Add to array
     selectedExercises.push({
-        exerciseId,
-        name: exerciseName,
-        points,
-        tieredPoints: hasTieredPoints,
-        partnerSystem: hasPartnerSystem
+        exerciseId: exercise.id,
+        name: exercise.title,
+        points: exercise.points || 0,
+        tieredPoints: exercise.tieredPoints?.enabled || false,
+        partnerSystem: exercise.partnerSystem?.enabled || false
     });
 
     // Re-render list
     renderSelectedExercises();
 
-    // Reset dropdown
-    select.value = '';
+    // Re-render modal to show "already added" state
+    const searchInput = document.getElementById('exercise-selection-search');
+    renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
 }
 
 /**
@@ -186,23 +253,33 @@ export function loadPlannedExercises(plannedExercises) {
 export function resetSessionPlanning() {
     selectedExercises = [];
     renderSelectedExercises();
-
-    // Reset dropdown
-    const select = document.getElementById('session-exercise-select');
-    if (select) select.value = '';
 }
 
 /**
  * Initialize event listeners for session planning
  */
 export function initializeSessionPlanningListeners() {
-    // Add exercise button
-    const addButton = document.getElementById('add-session-exercise-button');
-    if (addButton) {
-        addButton.addEventListener('click', addExerciseToList);
-        console.log('[Session Planning] Event listener attached to add-session-exercise-button');
+    // Open exercise selection modal button
+    const openModalButton = document.getElementById('open-exercise-selection-button');
+    if (openModalButton) {
+        openModalButton.addEventListener('click', openExerciseSelectionModal);
+        console.log('[Session Planning] Event listener attached to open-exercise-selection-button');
     } else {
-        console.warn('[Session Planning] Button "add-session-exercise-button" not found');
+        console.warn('[Session Planning] Button "open-exercise-selection-button" not found');
+    }
+
+    // Close exercise selection modal button
+    const closeModalButton = document.getElementById('close-exercise-selection-modal-button');
+    if (closeModalButton) {
+        closeModalButton.addEventListener('click', closeExerciseSelectionModal);
+    }
+
+    // Search input in exercise selection modal
+    const searchInput = document.getElementById('exercise-selection-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            renderExerciseSelectionGrid(e.target.value);
+        });
     }
 
     // Create new exercise button

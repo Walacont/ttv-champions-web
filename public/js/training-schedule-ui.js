@@ -29,7 +29,7 @@ import {
 
 import {
     initializeSessionPlanning,
-    loadExercisesIntoDropdown,
+    loadExercisesForSelection,
     getPlannedExercises,
     resetSessionPlanning,
     initializeSessionPlanningListeners
@@ -58,8 +58,8 @@ export function initializeSpontaneousSessions(userData, firestoreInstance) {
     setupEventListeners();
     initializeSessionPlanningListeners();
 
-    // Load exercises into dropdown
-    loadExercisesIntoDropdown(firestoreInstance);
+    // Load exercises for selection modal
+    loadExercisesForSelection(firestoreInstance);
 }
 
 /**
