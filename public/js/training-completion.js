@@ -85,10 +85,10 @@ function openSpontaneousExerciseModal() {
 function addSpontaneousExerciseFromModal(exercise) {
     // Allow duplicates - exercises can be done multiple times in a training
     spontaneousExercises.push({
-        exerciseId: exercise.id,
-        name: exercise.title,
+        exerciseId: exercise.exerciseId || exercise.id,
+        name: exercise.name,
         points: exercise.points || 0,
-        tieredPoints: exercise.tieredPoints?.enabled || false
+        tieredPoints: exercise.tieredPoints || false
     });
 
     // Add placeholder for pairing data
