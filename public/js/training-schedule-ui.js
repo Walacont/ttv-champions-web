@@ -680,24 +680,53 @@ window.openSessionSelectionModalFromCalendar = async function(dateStr, sessions)
     sessions.forEach(session => {
         const subgroup = subgroups.find(s => s.id === session.subgroupId);
         const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
+        const isCompleted = session.completed || false;
+        const hasPlannedExercises = session.plannedExercises && session.plannedExercises.length > 0;
+
+        // Status badge
+        let statusBadge = '';
+        if (isCompleted) {
+            statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full ml-2">✓ Abgeschlossen</span>';
+        }
+
+        // Planned exercises info
+        let exercisesInfo = '';
+        if (hasPlannedExercises) {
+            exercisesInfo = `<p class="text-xs text-gray-500 mt-1">📋 ${session.plannedExercises.length} Übung(en) geplant</p>`;
+        }
 
         html += `
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div class="flex justify-between items-start mb-2">
-                    <div>
-                        <h4 class="font-semibold text-gray-900">${subgroupName}</h4>
+                    <div class="flex-1">
+                        <div class="flex items-center">
+                            <h4 class="font-semibold text-gray-900">${subgroupName}</h4>
+                            ${statusBadge}
+                        </div>
                         <p class="text-sm text-gray-600">
                             <i class="fas fa-clock mr-1"></i>
                             ${formatTimeRange(session.startTime, session.endTime)}
                         </p>
+                        ${exercisesInfo}
                     </div>
                     <button onclick="window.handleCancelSessionFromModal('${session.id}')" class="text-red-600 hover:text-red-800 text-sm">
                         <i class="fas fa-times mr-1"></i> Absagen
                     </button>
                 </div>
-                <button onclick="window.handleSelectSessionForAttendance('${session.id}', '${dateStr}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg mt-2">
-                    Anwesenheit erfassen
-                </button>
+                <div class="grid grid-cols-2 gap-2 mt-3">
+                    <button onclick="window.handleSelectSessionForAttendance('${session.id}', '${dateStr}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg">
+                        Anwesenheit erfassen
+                    </button>
+                    ${!isCompleted ? `
+                        <button onclick="window.handleCompleteTraining('${session.id}', '${dateStr}')" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg">
+                            <i class="fas fa-check mr-1"></i> Abschließen
+                        </button>
+                    ` : `
+                        <button disabled class="bg-gray-300 text-gray-600 font-medium py-2 px-4 rounded-lg cursor-not-allowed">
+                            Bereits abgeschlossen
+                        </button>
+                    `}
+                </div>
             </div>
         `;
     });
@@ -751,6 +780,20 @@ window.handleCancelSessionFromModal = async function(sessionId) {
     } catch (error) {
         console.error('Error canceling session:', error);
         alert('Fehler beim Absagen: ' + error.message);
+    }
+};
+
+/**
+ * Handle training completion
+ */
+window.handleCompleteTraining = async function(sessionId, dateStr) {
+    closeSessionSelectionModal();
+
+    // Call the training completion module
+    if (typeof window.openTrainingCompletionModal === 'function') {
+        await window.openTrainingCompletionModal(sessionId, dateStr);
+    } else {
+        alert('Training-Abschluss-Modul ist noch nicht geladen. Bitte Seite neu laden.');
     }
 };
 
