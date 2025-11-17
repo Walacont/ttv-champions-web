@@ -354,7 +354,6 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
     const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
     try {
-        console.log(`[recalculateSubsequentDays] Starting recalculation for player ${playerId} after ${removedDate}`);
 
         // Find all training days AFTER the removed date for this subgroup
         const subsequentTrainingsQuery = query(
@@ -537,7 +536,6 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
  */
 async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubId, db, batch) {
     try {
-        console.log(`[updateStreakAfterRemoval] Calculating new streak for player ${playerId} after removing ${removedDate}`);
 
         // Get all trainings for this subgroup (in order)
         const allTrainingsQuery = query(
@@ -745,7 +743,6 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
         let dedupCount = 0;
         playersInCurrentSubgroup.forEach(player => {
             if (playersMap.has(player.id)) {
-                console.warn(`[Attendance Modal] Duplicate player ID found: ${player.firstName} ${player.lastName} (ID: ${player.id})`);
                 dedupCount++;
             }
             playersMap.set(player.id, player);
@@ -977,14 +974,6 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     }).length;
                     const alreadyAttendedToday = otherTrainingsCount > 0;
 
-                    console.log(`[Attendance Save] Player ${player.firstName} ${player.lastName}:`);
-                    console.log(`  - Date: ${date}, SessionId: ${sessionId}`);
-                    console.log(`  - DocId: ${docId || '(new document)'}`);
-                    console.log(`  - Total trainings today (including current): ${otherTrainingsTodaySnapshot.size}`);
-                    console.log(`  - Other trainings today (excluding current): ${otherTrainingsCount}`);
-                    console.log(`  - Already attended OTHER training today: ${alreadyAttendedToday}`);
-                    console.log(`  - New streak: ${newStreak}`);
-
                     // Format date for display in history
                     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
                         day: '2-digit',
@@ -1101,7 +1090,6 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // IMPORTANT: Recalculate all subsequent training days
                     // When we remove a day, all future days need to be recalculated
                     // because their streaks might have changed
-                    console.log(`[Attendance] Recalculating subsequent days for player ${player.id} after removing ${date}`);
                     await recalculateSubsequentDays(player.id, date, subgroupId, currentUserData.clubId, db, batch, subgroupName);
 
                     // IMPORTANT: Update the streak subcollection
@@ -1169,12 +1157,10 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
 
             // Skip if we've already seen this player (by email or name)
             if (emailKey && seenIdentifiers.has(emailKey)) {
-                console.warn(`[Attendance] Duplicate player detected by email: ${playerData.email} (ID: ${playerData.id})`);
                 duplicateCount++;
                 return;
             }
             if (seenIdentifiers.has(nameKey)) {
-                console.warn(`[Attendance] Duplicate player detected by name: ${playerData.firstName} ${playerData.lastName} (ID: ${playerData.id})`);
                 duplicateCount++;
                 return;
             }
