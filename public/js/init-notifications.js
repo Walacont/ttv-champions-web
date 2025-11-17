@@ -33,7 +33,6 @@ export async function initPushNotifications(firebaseApp, db, auth, options = {})
 
     // Check if user is logged in
     if (!auth.currentUser) {
-        console.log('[Notifications] User not logged in, skipping initialization');
         return { supported: true, loggedIn: false };
     }
 
@@ -41,35 +40,28 @@ export async function initPushNotifications(firebaseApp, db, auth, options = {})
     const hasExisting = await fcmManager.checkExistingPermission();
     const permissionStatus = fcmManager.getPermissionStatus();
 
-    console.log('[Notifications] Permission status:', permissionStatus);
-    console.log('[Notifications] Has existing token:', hasExisting);
-
     // If already granted and has token, we're done
     if (permissionStatus === 'granted' && hasExisting) {
-        console.log('[Notifications] Already enabled');
         return { supported: true, enabled: true, status: 'already_enabled' };
     }
 
     // If permission granted but no token, get the token silently
     if (permissionStatus === 'granted' && !hasExisting) {
-        console.log('[Notifications] Permission granted but no token, getting token silently...');
         try {
             const result = await fcmManager.getTokenSilently();
             if (result.success) {
-                console.log('[Notifications] Token obtained silently');
                 if (onPermissionGranted) {
                     onPermissionGranted(result.token);
                 }
                 return { supported: true, enabled: true, status: 'token_obtained' };
             }
         } catch (error) {
-            console.error('[Notifications] Error getting token:', error);
+            // Silent fail
         }
     }
 
     // If explicitly denied, don't prompt again
     if (permissionStatus === 'denied') {
-        console.log('[Notifications] Permission denied by user');
         return { supported: true, enabled: false, status: 'denied' };
     }
 

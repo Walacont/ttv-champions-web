@@ -18,7 +18,6 @@ import {
  * @param {Object} currentUserData - Current user's data
  */
 export function initializeTrainingStats(db, currentUserData) {
-    console.log('[Training Stats] Initializing for user:', currentUserData.id);
 
     // Show loading state immediately
     displayLoadingState();
@@ -30,7 +29,6 @@ export function initializeTrainingStats(db, currentUserData) {
             displayError();
         });
 
-    console.log('[Training Stats] Initialized (loading data in background)');
 }
 
 /**
@@ -45,7 +43,6 @@ async function loadAndDisplayTrainingStats(db, currentUserData) {
 
         const trainingDates = await getTrainingDates(db, currentUserData.id, currentUserData.clubId, oneYearAgo);
 
-        console.log('[Training Stats] Found', trainingDates.length, 'training days');
 
         // Calculate statistics
         const stats = calculateStatistics(trainingDates);
@@ -56,7 +53,6 @@ async function loadAndDisplayTrainingStats(db, currentUserData) {
         // Draw heatmap
         drawHeatmap(trainingDates);
 
-        console.log('[Training Stats] Data loaded and displayed successfully');
     } catch (error) {
         console.error('[Training Stats] Error loading data:', error);
         throw error;

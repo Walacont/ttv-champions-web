@@ -328,14 +328,9 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
 
   // If neither container exists, nothing to do
   if (!pendingRequestsList && !historyRequestsList) {
-    console.log('⚠️ No match request containers found in DOM');
     return;
   }
 
-  console.log('✓ Found match request containers:', {
-    pending: !!pendingRequestsList,
-    history: !!historyRequestsList
-  });
 
   // Query for requests created by me (playerA)
   const myRequestsQuery = query(
@@ -455,33 +450,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       });
 
       // Debug logging
-      console.log('📊 Match Requests Debug:');
-      console.log(`  - Total myRequests (singles): ${myRequests.length}`);
-      console.log(`  - Total incomingRequests (singles): ${incomingRequests.length}`);
-      console.log(`  - Total processedRequests (singles): ${processedRequests.length}`);
-      console.log(`  - Total myDoublesRequests: ${myDoublesRequests.length}`);
-      console.log(`  - Total doublesInvolvedRequests: ${doublesInvolvedRequests.length}`);
-      console.log('  - Pending breakdown:', {
-        pendingMyRequests: pendingMyRequests.length,
-        pendingMyDoublesRequests: pendingMyDoublesRequests.length,
-        pendingDoublesIncoming: pendingDoublesIncoming.length,
-        totalPending: pendingRequests.length
-      });
-      console.log(`  - History requests to show: ${historyRequests.length}`);
-      console.log('  - History breakdown:', {
-        completedMyRequests: completedMyRequests.length,
-        completedProcessedRequests: completedProcessedRequests.length,
-        completedMyDoublesRequests: completedMyDoublesRequests.length,
-        completedDoublesInvolved: completedDoublesInvolved.length
-      });
-      if (myDoublesRequests.length > 0) {
-        console.log('  - Sample myDoublesRequest:', myDoublesRequests[0]);
-      }
-      if (doublesInvolvedRequests.length > 0) {
-        console.log('  - Sample doublesInvolvedRequest:', doublesInvolvedRequests[0]);
-      }
-      if (historyRequests.length > 0) {
-        console.log('  - Sample history request:', historyRequests[0]);
       }
 
       await renderPendingRequests(pendingRequests, userData, db);
@@ -1979,19 +1947,9 @@ export async function loadCombinedPendingRequests(userData, db) {
       }
 
       // Process doubles requests (only where current user is opponent)
-      console.log(`📥 Found ${doublesSnapshot.docs.length} doubles requests with status pending_opponent`);
 
       for (const docSnap of doublesSnapshot.docs) {
         const data = docSnap.data();
-        console.log(`🔍 Checking doubles request ${docSnap.id}:`, {
-          teamB: data.teamB,
-          currentUserId: userData.id,
-          isOpponent: data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id
-        });
-
-        // Check if current user is one of the opponents (teamB)
-        if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
-          console.log(`✅ Adding doubles request ${docSnap.id} to pending list`);
 
           allRequests.push({
             id: docSnap.id,
@@ -2021,7 +1979,6 @@ export async function loadCombinedPendingRequests(userData, db) {
         }
       }
 
-      console.log(`📋 Total pending requests to display: ${allRequests.length} (${allRequests.filter(r => r.type === 'singles').length} singles, ${allRequests.filter(r => r.type === 'doubles').length} doubles)`);
 
       // Sort by createdAt
       allRequests.sort((a, b) => {

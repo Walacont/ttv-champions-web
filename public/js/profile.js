@@ -59,9 +59,6 @@ export function updateRankDisplay(userData) {
     // Get Grundlagen count from user data (defaults to 0)
     const grundlagenCount = userData.grundlagenCompleted || 0;
 
-    // 🔍 DEBUG: Aktiviere diese Zeile, um zu sehen, welchen Wert wir WIRKLICH haben
-    console.log('🔍 updateRankDisplay called with grundlagen:', grundlagenCount, 'userData:', userData);
-
     const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
     const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
 

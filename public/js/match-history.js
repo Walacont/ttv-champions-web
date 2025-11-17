@@ -40,7 +40,6 @@ export function loadMatchHistory(db, userData) {
     matchHistoryUnsubscribe();
   }
 
-  console.log("[Match History] 🔄 Setting up real-time listener for user:", userData.id, "club:", userData.clubId);
   container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
   // Query SINGLES matches for this club
@@ -69,10 +68,6 @@ export function loadMatchHistory(db, userData) {
       const unsubscribeDoubles = onSnapshot(
         doublesQuery,
         async (doublesSnapshot) => {
-          console.log("[Match History] 📥 Real-time update received:",
-            singlesSnapshot.docs.length, "singles,",
-            doublesSnapshot.docs.length, "doubles");
-
           // Combine and filter singles matches
           const singlesMatches = singlesSnapshot.docs
             .map(doc => ({ id: doc.id, type: 'singles', ...doc.data() }))
@@ -103,10 +98,6 @@ export function loadMatchHistory(db, userData) {
           // Combine all matches
           const allMatches = [...singlesMatches, ...doublesMatches].slice(0, 50);
 
-          console.log("[Match History] User matches found:",
-            singlesMatches.length, "singles,",
-            doublesMatches.length, "doubles");
-
           if (allMatches.length === 0) {
             container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
             return;
@@ -128,9 +119,8 @@ export function loadMatchHistory(db, userData) {
           renderMatchesWithToggle(container, matchesWithDetails, userData);
         },
         (error) => {
-          console.error("[Match History] ❌ Doubles listener error:", error);
-          console.error("[Match History] Error details:", error.message, error.code);
-          container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie: ${error.message}</p>`;
+          console.error("[Match History] Error loading doubles history");
+          container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie</p>`;
         }
       );
 
@@ -138,9 +128,8 @@ export function loadMatchHistory(db, userData) {
       matchHistoryUnsubscribe = unsubscribeDoubles;
     },
     (error) => {
-      console.error("[Match History] ❌ Singles listener error:", error);
-      console.error("[Match History] Error details:", error.message, error.code);
-      container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie: ${error.message}</p>`;
+      console.error("[Match History] Error loading singles history");
+      container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>`;
     }
   );
 
@@ -374,16 +363,6 @@ function renderMatchHistory(container, matches, userData) {
     const isWinner = match.isWinner !== undefined ? match.isWinner : (match.winnerId === userData.id);
     const isDoubles = match.type === 'doubles';
 
-    // Debug: Check which timestamp field exists
-    if (!match.timestamp && !match.playedAt) {
-      console.warn('⚠️ Match has no timestamp or playedAt:', {
-        id: match.id,
-        hasTimestamp: !!match.timestamp,
-        hasPlayedAt: !!match.playedAt,
-        hasCreatedAt: !!match.createdAt,
-        fields: Object.keys(match)
-      });
-    }
 
     const matchTime = match.timestamp?.toDate() || match.playedAt?.toDate() || match.createdAt?.toDate() || new Date();
     const formattedTime = formatMatchTime(matchTime);
