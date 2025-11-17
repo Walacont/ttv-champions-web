@@ -545,14 +545,17 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         const player1Id = pair.player1?.id || pair.player1Id;
         const player2Id = pair.player2?.id || pair.player2Id;
 
+        // Determine success rate for history (only for awarded points)
+        const successRate = pair.result === 'both_success' ? '100%' : '50%';
+
         // Award to player 1
         if (points1 > 0 && player1Id) {
-            await awardPointsToPlayer(batch, player1Id, points1, exercise.name, date, subgroupId, subgroupName);
+            await awardPointsToPlayer(batch, player1Id, points1, exercise.name, date, subgroupId, subgroupName, successRate);
         }
 
         // Award to player 2
         if (points2 > 0 && player2Id) {
-            await awardPointsToPlayer(batch, player2Id, points2, exercise.name, date, subgroupId, subgroupName);
+            await awardPointsToPlayer(batch, player2Id, points2, exercise.name, date, subgroupId, subgroupName, successRate);
         }
     }
 
@@ -562,7 +565,8 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         // Extract player ID (handle both formats: {id} and {playerId})
         const playerId = single.id || single.playerId;
         if (points > 0 && playerId) {
-            await awardPointsToPlayer(batch, playerId, points, exercise.name, date, subgroupId, subgroupName);
+            // Single players always get 100% when successful (they only get points when they succeed)
+            await awardPointsToPlayer(batch, playerId, points, exercise.name, date, subgroupId, subgroupName, '100%');
         }
     }
 
@@ -572,8 +576,9 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
 
 /**
  * Award points to a player
+ * @param {string} successRate - Success rate indicator (e.g., "100%", "50%")
  */
-async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, subgroupId, subgroupName) {
+async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, subgroupId, subgroupName, successRate) {
     const playerRef = doc(db, 'users', playerId);
 
     // Update player points and XP
@@ -582,13 +587,16 @@ async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, 
         xp: increment(points)
     });
 
+    // Create reason string with success rate
+    const reason = `Training am ${formatDateGerman(date)} - ${subgroupName}: ${exerciseName} (${successRate})`;
+
     // Create points history entry
     const pointsHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
     batch.set(pointsHistoryRef, {
         points,
         xp: points,
         eloChange: 0,
-        reason: `Training am ${formatDateGerman(date)} - ${subgroupName}: ${exerciseName}`,
+        reason,
         timestamp: serverTimestamp(),
         date,
         subgroupId,
@@ -600,7 +608,7 @@ async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, 
     const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
     batch.set(xpHistoryRef, {
         xp: points,
-        reason: `Training am ${formatDateGerman(date)} - ${subgroupName}: ${exerciseName}`,
+        reason,
         timestamp: serverTimestamp(),
         date,
         subgroupId,
