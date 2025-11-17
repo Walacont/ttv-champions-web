@@ -1,6 +1,7 @@
 /**
- * Partner Pairing Module
- * Handles partner pairing for exercises and points distribution
+ * Exercise Pairing Module
+ * Handles player pairing for all table tennis exercises and points distribution
+ * All exercises require pairing since table tennis is always played with a partner
  */
 
 import {
@@ -70,7 +71,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
 
         // Load existing pairings if provided (for editing)
         if (existingPairings) {
-            console.log('[Partner Pairing] Loading existing pairings:', existingPairings);
+            console.log('[Exercise Pairing] Loading existing pairings:', existingPairings);
 
             // Load formed pairs
             if (existingPairings.pairs && existingPairings.pairs.length > 0) {
@@ -102,8 +103,8 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
                 });
             }
 
-            console.log('[Partner Pairing] Loaded pairs:', formedPairs);
-            console.log('[Partner Pairing] Loaded singles:', singlePlayers);
+            console.log('[Exercise Pairing] Loaded pairs:', formedPairs);
+            console.log('[Exercise Pairing] Loaded singles:', singlePlayers);
         }
 
         // Set exercise name
@@ -131,13 +132,13 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
 
         const confirmBtn = document.getElementById('confirm-pairing-button');
         if (confirmBtn) {
-            console.log('[Partner Pairing] Setting up confirm button listener');
+            console.log('[Exercise Pairing] Setting up confirm button listener');
             // Remove old listener if exists
             confirmBtn.replaceWith(confirmBtn.cloneNode(true));
             const newConfirmBtn = document.getElementById('confirm-pairing-button');
             newConfirmBtn.addEventListener('click', confirmPairingAndDistributePoints);
         } else {
-            console.error('[Partner Pairing] Confirm button not found in DOM!');
+            console.error('[Exercise Pairing] Confirm button not found in DOM!');
         }
 
         // Update button state initially
@@ -424,9 +425,9 @@ function updateConfirmButtonState() {
     const totalPlayers = availablePlayers.length;
     const remainingPlayers = totalPlayers - assignedPlayersCount;
 
-    console.log('[Partner Pairing] Total players:', totalPlayers);
-    console.log('[Partner Pairing] Assigned players:', assignedPlayersCount);
-    console.log('[Partner Pairing] Remaining players:', remainingPlayers);
+    console.log('[Exercise Pairing] Total players:', totalPlayers);
+    console.log('[Exercise Pairing] Assigned players:', assignedPlayersCount);
+    console.log('[Exercise Pairing] Remaining players:', remainingPlayers);
 
     // Update button state
     if (remainingPlayers === 0 && assignedPlayersCount > 0) {
@@ -453,13 +454,13 @@ function updateConfirmButtonState() {
  * Confirm pairing and distribute points
  */
 async function confirmPairingAndDistributePoints() {
-    console.log('[Partner Pairing] Confirm button clicked');
-    console.log('[Partner Pairing] Formed pairs:', formedPairs);
-    console.log('[Partner Pairing] Single players:', singlePlayers);
+    console.log('[Exercise Pairing] Confirm button clicked');
+    console.log('[Exercise Pairing] Formed pairs:', formedPairs);
+    console.log('[Exercise Pairing] Single players:', singlePlayers);
 
     const confirmBtn = document.getElementById('confirm-pairing-button');
     if (!confirmBtn) {
-        console.error('[Partner Pairing] Confirm button not found!');
+        console.error('[Exercise Pairing] Confirm button not found!');
         return;
     }
 
@@ -490,26 +491,27 @@ async function confirmPairingAndDistributePoints() {
         exercise: currentExercise
     };
 
-    console.log('[Partner Pairing] Pairing data:', pairingData);
+    console.log('[Exercise Pairing] Pairing data:', pairingData);
     showPairingFeedback('Paarungen gespeichert!', 'success');
 
     setTimeout(() => {
         closePairingModal();
         if (resolveCallback) {
-            console.log('[Partner Pairing] Calling resolve callback');
+            console.log('[Exercise Pairing] Calling resolve callback');
             resolveCallback(pairingData);
         }
     }, 500);
 }
 
 /**
- * Distribute points for partner exercise
+ * Distribute points for exercise based on pairing results
+ * All table tennis exercises are played with partners
  * @param {Array} pairs - Array of paired players with results
- * @param {Array} singles - Array of single players with results
+ * @param {Array} singles - Array of single players (with trainer) with results
  * @param {Object} exercise - Exercise object
  * @param {Object} sessionData - Session data
  */
-export async function distributePartnerExercisePoints(pairs, singles, exercise, sessionData) {
+export async function distributeExercisePoints(pairs, singles, exercise, sessionData) {
     const batch = writeBatch(db);
     const date = sessionData.date;
     const subgroupId = sessionData.subgroupId;
@@ -565,7 +567,7 @@ export async function distributePartnerExercisePoints(pairs, singles, exercise, 
     }
 
     await batch.commit();
-    console.log(`[Partner Pairing] Distributed points for ${pairs.length} pairs and ${singles.length} single players`);
+    console.log(`[Exercise Pairing] Distributed points for ${pairs.length} pairs and ${singles.length} single players`);
 }
 
 /**

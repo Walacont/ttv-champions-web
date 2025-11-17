@@ -18,7 +18,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
-import { initializePartnerPairing, openPartnerPairingModal, distributePartnerExercisePoints } from './partner-pairing.js';
+import { initializePartnerPairing, openPartnerPairingModal, distributeExercisePoints } from './partner-pairing.js';
 
 let db = null;
 let currentUserData = null;
@@ -403,9 +403,9 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
             continue;
         }
 
-        // Regular exercises: use saved pairing data to distribute points
+        // All table tennis exercises require pairing data
         if (pairingData && (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)) {
-            await distributePartnerExercisePoints(
+            await distributeExercisePoints(
                 pairingData.pairs || [],
                 pairingData.singlePlayers || [],
                 exercise,
@@ -415,63 +415,6 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
             console.warn('[Training Completion] No pairing data for exercise:', exercise);
         }
     }
-}
-
-/**
- * Distribute points for standard exercises
- * @param {Array} exercises - Standard exercises
- * @param {Array} playerIds - Present player IDs
- */
-async function distributeStandardExercisePoints(exercises, playerIds) {
-    const batch = writeBatch(db);
-    const date = currentSessionData.date;
-    const subgroupId = currentSessionData.subgroupId;
-
-    // Get subgroup name for history entries
-    const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
-    const subgroupName = subgroupDoc.exists() ? subgroupDoc.data().name : subgroupId;
-
-    const totalPoints = exercises.reduce((sum, ex) => sum + (ex.points || 0), 0);
-    const exerciseNames = exercises.map(ex => ex.name).join(', ');
-
-    for (const playerId of playerIds) {
-        const playerRef = doc(db, 'users', playerId);
-
-        // Update player points and XP (1:1 mapping)
-        batch.update(playerRef, {
-            points: increment(totalPoints),
-            xp: increment(totalPoints)  // XP = Points (1:1)
-        });
-
-        // Create points history entry
-        const pointsHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
-        batch.set(pointsHistoryRef, {
-            points: totalPoints,
-            xp: totalPoints,
-            eloChange: 0,
-            reason: `Training am ${formatDateGerman(date)} - ${subgroupName}: ${exerciseNames}`,
-            timestamp: serverTimestamp(),
-            date,
-            subgroupId,
-            awardedBy: `Coach: ${currentUserData.firstName} ${currentUserData.lastName}`,
-            sessionId: currentSessionId
-        });
-
-        // Create XP history entry
-        const xpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
-        batch.set(xpHistoryRef, {
-            xp: totalPoints,
-            reason: `Training am ${formatDateGerman(date)} - ${subgroupName}: ${exerciseNames}`,
-            timestamp: serverTimestamp(),
-            date,
-            subgroupId,
-            awardedBy: `Coach: ${currentUserData.firstName} ${currentUserData.lastName}`,
-            sessionId: currentSessionId
-        });
-    }
-
-    await batch.commit();
-    console.log(`[Training Completion] Distributed ${totalPoints} points to ${playerIds.length} players`);
 }
 
 /**
