@@ -178,6 +178,12 @@ function setupEventListeners() {
         if (btn) btn.addEventListener('click', closeSpontaneousSessionModal);
     });
 
+    // Toggle exercise planning section
+    const toggleExercisePlanningBtn = document.getElementById('toggle-exercise-planning-button');
+    if (toggleExercisePlanningBtn) {
+        toggleExercisePlanningBtn.addEventListener('click', toggleExercisePlanningSection);
+    }
+
     // Session selection modal close
     const closeSessionSelectionBtn = document.getElementById('close-session-selection-modal-button');
     if (closeSessionSelectionBtn) {
@@ -574,6 +580,39 @@ function closeSpontaneousSessionModal() {
         modal.classList.remove('flex');
     }
     clearFeedback('spontaneous-session-feedback');
+
+    // Reset exercise planning section to hidden
+    const exercisePlanningSection = document.getElementById('exercise-planning-section');
+    const toggleIcon = document.getElementById('toggle-exercise-planning-icon');
+    if (exercisePlanningSection) {
+        exercisePlanningSection.classList.add('hidden');
+    }
+    if (toggleIcon) {
+        toggleIcon.classList.remove('fa-chevron-up');
+        toggleIcon.classList.add('fa-chevron-down');
+    }
+}
+
+/**
+ * Toggle exercise planning section visibility
+ */
+function toggleExercisePlanningSection() {
+    const section = document.getElementById('exercise-planning-section');
+    const icon = document.getElementById('toggle-exercise-planning-icon');
+
+    if (!section || !icon) return;
+
+    if (section.classList.contains('hidden')) {
+        // Show section
+        section.classList.remove('hidden');
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-up');
+    } else {
+        // Hide section
+        section.classList.add('hidden');
+        icon.classList.remove('fa-chevron-up');
+        icon.classList.add('fa-chevron-down');
+    }
 }
 
 /**
