@@ -767,15 +767,15 @@ function loadAllExercises() {
 
             const tagsHtml = (exercise.tags || []).map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
 
-            // Image or placeholder with gradient background
+            // Image or subtle placeholder
             const imageHtml = exercise.imageUrl
                 ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
-                : `<div class="w-full h-56 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center pointer-events-none">
+                : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
                        <div class="text-center">
-                           <svg class="w-20 h-20 mx-auto text-indigo-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                            </svg>
-                           <p class="text-xs text-indigo-400 font-medium">Übung ohne Bild</p>
+                           <p class="text-xs text-gray-400">Kein Bild</p>
                        </div>
                    </div>`;
 
