@@ -120,6 +120,12 @@ window.openTrainingCompletionModal = async function(sessionId, dateStr) {
             ...sessionDoc.data()
         };
 
+        // Check if training is already completed
+        if (currentSessionData.completed) {
+            alert('Dieses Training wurde bereits abgeschlossen!');
+            return;
+        }
+
         // Load attendance data
         const attendanceQuery = query(
             collection(db, 'attendance'),
