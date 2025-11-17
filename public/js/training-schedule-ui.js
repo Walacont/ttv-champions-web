@@ -210,9 +210,23 @@ function setupEventListeners() {
         if (btn) btn.addEventListener('click', closeTrainingInfoModal);
     });
 
-    // Listen for training completion events to close session selection modal
-    window.addEventListener('trainingCompleted', () => {
-        closeSessionSelectionModal();
+    // Listen for training completion events to reload session selection modal
+    window.addEventListener('trainingCompleted', async (event) => {
+        // Reload the modal with fresh data
+        const dateDisplay = document.getElementById('session-selection-date');
+        const dateStr = dateDisplay?.getAttribute('data-date');
+
+        if (dateStr) {
+            try {
+                const sessions = await getSessionsForDate(currentUserData.clubId, dateStr);
+                window.openSessionSelectionModalFromCalendar(dateStr, sessions);
+            } catch (error) {
+                console.error('Error reloading sessions after completion:', error);
+                closeSessionSelectionModal();
+            }
+        } else {
+            closeSessionSelectionModal();
+        }
     });
 }
 
