@@ -1973,9 +1973,7 @@ export async function loadCombinedPendingRequests(userData, db) {
               lastName: data.teamB.player2Name ? data.teamB.player2Name.split(' ').slice(1).join(' ') : ''
             }
           });
-        }
       }
-
 
       // Sort by createdAt
       allRequests.sort((a, b) => {
