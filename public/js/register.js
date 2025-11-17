@@ -58,23 +58,14 @@ let registrationType = null; // 'token' or 'code'
 // ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
 // Function to initialize registration (works for both normal load and SPA navigation)
 async function initializeRegistration() {
-  console.log("=== initializeRegistration called ===");
-  console.log("Full URL:", window.location.href);
-  console.log("Pathname:", window.location.pathname);
-  console.log("Search:", window.location.search);
-  console.log("Hash:", window.location.hash);
-
   const urlParams = new URLSearchParams(window.location.search);
   tokenId = urlParams.get("token");
   invitationCode = urlParams.get("code");
-
-  console.log("Parsed - tokenId:", tokenId, "code:", invitationCode);
 
   // 1. Prüfe ob Token ODER Code vorhanden
   if (!tokenId && !invitationCode) {
     // KEIN Token/Code: Tu nichts. Die register.html zeigt bereits
     // die Standard-Nachricht (#token-required-message) an.
-    console.log("Kein Token/Code gefunden. Standardseite wird angezeigt.");
     return;
   }
 
@@ -87,17 +78,13 @@ async function initializeRegistration() {
   try {
     // ===== CODE-FLOW =====
     if (invitationCode) {
-      console.log("Code-Flow starting with code:", invitationCode);
       registrationType = 'code';
       invitationCode = invitationCode.trim().toUpperCase();
 
       // Validiere Format
       if (!validateCodeFormat(invitationCode)) {
-        console.error("Invalid code format:", invitationCode);
         return displayError("Ungültiges Code-Format."); // Nutzt neue displayError
       }
-
-      console.log("Code format valid, searching in Firestore...");
 
       // Suche Code in Firestore
       const q = query(
@@ -106,14 +93,11 @@ async function initializeRegistration() {
       );
       const snapshot = await getDocs(q);
 
-      console.log("Firestore query complete, empty:", snapshot.empty);
-
       if (snapshot.empty) {
         return displayError("Dieser Code existiert nicht.");
       }
 
       invitationCodeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-      console.log("Code data loaded:", invitationCodeData);
 
       // Prüfe ob Code bereits verwendet wurde
       if (invitationCodeData.used) {
@@ -149,10 +133,7 @@ async function initializeRegistration() {
     }
 
   } catch (error) {
-    console.error("Token/Code validation error:", error);
-    console.error("Error code:", error.code);
-    console.error("Error message:", error.message);
-    displayError("Fehler beim Überprüfen der Einladung: " + error.message);
+    displayError("Fehler beim Überprüfen der Einladung. Bitte versuche es erneut.");
   }
 }
 
@@ -202,7 +183,6 @@ registrationForm.addEventListener("submit", async (e) => {
     // 1️⃣ Firebase User erstellen
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    console.log("✅ Neuer Benutzer erstellt:", user.uid);
 
     // 2️⃣ Kurz warten, bis Auth-State vollständig aktiv ist
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -220,7 +200,6 @@ registrationForm.addEventListener("submit", async (e) => {
       });
 
       if (result.data.success) {
-        console.log("✅ Code erfolgreich eingelöst");
         // 5️⃣ Weiterleitung zum Onboarding
         // Use SPA navigation if available
         if (window.spaNavigate) {
@@ -239,7 +218,6 @@ registrationForm.addEventListener("submit", async (e) => {
       const result = await claimInvitationToken({ tokenId });
 
       if (result.data.success) {
-        console.log("✅ Token erfolgreich eingelöst");
         // 5️⃣ Weiterleitung zum Onboarding
         // Use SPA navigation if available
         if (window.spaNavigate) {
@@ -253,8 +231,6 @@ registrationForm.addEventListener("submit", async (e) => {
     }
 
   } catch (error) {
-    console.error("❌ Fehler bei der Registrierung:", error);
-
     let displayMsg = error.message;
     if (error.code === "auth/email-already-in-use") {
       displayMsg = "Diese E-Mail-Adresse wird bereits verwendet.";
