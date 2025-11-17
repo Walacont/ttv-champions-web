@@ -1595,53 +1595,59 @@
 
     <!-- Modal: Exercise Selection for Session Planning -->
     <div id="exercise-selection-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
-        <div class="relative mx-auto p-6 border w-full max-w-5xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl leading-6 font-medium text-gray-900">Übung zum Training hinzufügen</h3>
-                <button id="close-exercise-selection-modal-button" class="text-gray-400 hover:text-gray-600">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-            </div>
-
-            <!-- Selection Counter -->
-            <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                <div id="exercise-selection-counter" class="text-sm">
-                    <span class="text-gray-500">Keine Übungen ausgewählt</span>
-                </div>
-            </div>
-
-            <!-- Search bar -->
-            <div class="mb-3">
-                <input
-                    type="text"
-                    id="exercise-selection-search"
-                    placeholder="🔍 Übung suchen (Name oder Tag)..."
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-            </div>
-
-            <!-- Tag filters -->
-            <div class="mb-4">
-                <div class="flex items-center gap-2 flex-wrap" id="exercise-tag-filters">
-                    <span class="text-xs text-gray-500">Filter:</span>
-                    <button type="button" class="tag-filter-btn active px-3 py-1 text-xs rounded-full border border-gray-300 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition" data-tag="all">
-                        Alle
+        <div class="relative mx-auto border w-full max-w-5xl shadow-lg rounded-md bg-white max-h-[90vh] flex flex-col">
+            <!-- Header (fixed) -->
+            <div class="p-6 pb-4 border-b bg-white rounded-t-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl leading-6 font-medium text-gray-900">Übung zum Training hinzufügen</h3>
+                    <button id="close-exercise-selection-modal-button" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
-                    <!-- Dynamisch gefüllt mit Tags -->
+                </div>
+
+                <!-- Selection Counter -->
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                    <div id="exercise-selection-counter" class="text-sm">
+                        <span class="text-gray-500">Keine Übungen ausgewählt</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Exercise grid -->
-            <div id="exercise-selection-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Dynamisch gefüllt -->
-                <div class="col-span-full text-center py-8 text-gray-500">
-                    Lade Übungen...
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto px-6 py-4">
+                <!-- Search bar -->
+                <div class="mb-3">
+                    <input
+                        type="text"
+                        id="exercise-selection-search"
+                        placeholder="🔍 Übung suchen (Name oder Tag)..."
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                </div>
+
+                <!-- Tag filters -->
+                <div class="mb-4">
+                    <div class="flex items-center gap-2 flex-wrap" id="exercise-tag-filters">
+                        <span class="text-xs text-gray-500">Filter:</span>
+                        <button type="button" class="tag-filter-btn active px-3 py-1 text-xs rounded-full border border-gray-300 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition" data-tag="all">
+                            Alle
+                        </button>
+                        <!-- Dynamisch gefüllt mit Tags -->
+                    </div>
+                </div>
+
+                <!-- Exercise grid -->
+                <div id="exercise-selection-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+                    <!-- Dynamisch gefüllt -->
+                    <div class="col-span-full text-center py-8 text-gray-500">
+                        Lade Übungen...
+                    </div>
                 </div>
             </div>
 
-            <!-- Close button -->
-            <div class="mt-6 border-t pt-4">
-                <button type="button" id="done-selecting-exercises-button" class="w-full bg-gray-400 cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg" disabled>
+            <!-- Footer with floating button (fixed) -->
+            <div class="p-6 pt-4 border-t bg-white rounded-b-md">
+                <button type="button" id="done-selecting-exercises-button" class="w-full bg-gray-400 cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all" disabled>
                     <i class="fas fa-check mr-2"></i> Übungen hinzufügen
                 </button>
             </div>
