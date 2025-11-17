@@ -205,7 +205,9 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
             text: exercise.description || ''
         });
     }
-    card.dataset.imageUrl = exercise.imageUrl;
+    if (exercise.imageUrl) {
+        card.dataset.imageUrl = exercise.imageUrl;
+    }
     card.dataset.points = exercise.points;
     card.dataset.tags = JSON.stringify(exercise.tags || []);
 
@@ -228,9 +230,21 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     // Generate progress circle SVG
     const progressCircle = generateProgressCircle(progressPercent);
 
+    // Image or subtle placeholder
+    const imageHtml = exercise.imageUrl
+        ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">`
+        : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200">
+               <div class="text-center">
+                   <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                   </svg>
+                   <p class="text-xs text-gray-400">Kein Bild</p>
+               </div>
+           </div>`;
+
     card.innerHTML = `
         ${progressCircle}
-        <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
+        ${imageHtml}
         <div class="p-4 flex flex-col flex-grow">
             <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
             <div class="mb-2">${tagsHtml}</div>
@@ -517,7 +531,9 @@ function renderCoachExercises(exercises, filterTag) {
                 text: exercise.description || ''
             });
         }
-        card.dataset.imageUrl = exercise.imageUrl;
+        if (exercise.imageUrl) {
+            card.dataset.imageUrl = exercise.imageUrl;
+        }
         card.dataset.points = exercise.points;
         card.dataset.tags = JSON.stringify(exercise.tags || []);
 
@@ -536,8 +552,20 @@ function renderCoachExercises(exercises, filterTag) {
             ? `🎯 Bis zu ${exercise.points} P.`
             : `${exercise.points} P.`;
 
+        // Image or subtle placeholder
+        const imageHtml = exercise.imageUrl
+            ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
+            : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
+                   <div class="text-center">
+                       <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                       </svg>
+                       <p class="text-xs text-gray-400">Kein Bild</p>
+                   </div>
+               </div>`;
+
         card.innerHTML = `
-            <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
+            ${imageHtml}
             <div class="p-4 flex flex-col flex-grow pointer-events-none">
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
@@ -632,8 +660,16 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     if (!modal) return;
 
     document.getElementById('modal-exercise-title').textContent = title;
-    document.getElementById('modal-exercise-image').src = imageUrl;
-    document.getElementById('modal-exercise-image').alt = title;
+
+    // Handle image display - hide if no image is provided
+    const modalImage = document.getElementById('modal-exercise-image');
+    if (imageUrl) {
+        modalImage.src = imageUrl;
+        modalImage.alt = title;
+        modalImage.style.display = 'block';
+    } else {
+        modalImage.style.display = 'none';
+    }
 
     // Render description content
     const modalDescription = document.getElementById('modal-exercise-description');
@@ -1110,7 +1146,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !file || !level || !difficulty) {
+    if (!title || !level || !difficulty) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
@@ -1119,9 +1155,14 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     }
 
     try {
-        const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const imageUrl = await getDownloadURL(snapshot.ref);
+        let imageUrl = null;
+
+        // Upload image only if provided
+        if (file) {
+            const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            imageUrl = await getDownloadURL(snapshot.ref);
+        }
 
         const exerciseData = {
             title,
@@ -1129,10 +1170,14 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             level,
             difficulty,
             points,
-            imageUrl,
             createdAt: serverTimestamp(),
             tags
         };
+
+        // Add imageUrl only if provided
+        if (imageUrl) {
+            exerciseData.imageUrl = imageUrl;
+        }
 
         // Add tieredPoints if enabled
         if (milestonesEnabled && milestones) {
