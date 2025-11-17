@@ -1110,8 +1110,8 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !level || !difficulty) {
-        feedbackEl.textContent = 'Bitte Titel, Level und Schwierigkeit ausfüllen.';
+    if (!title || !file || !level || !difficulty) {
+        feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
         submitBtn.textContent = 'Übung speichern';
@@ -1119,13 +1119,9 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     }
 
     try {
-        // Upload image only if file is provided
-        let imageUrl = null;
-        if (file) {
-            const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
-            imageUrl = await getDownloadURL(snapshot.ref);
-        }
+        const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const imageUrl = await getDownloadURL(snapshot.ref);
 
         const exerciseData = {
             title,
