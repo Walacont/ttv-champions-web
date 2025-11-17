@@ -17,6 +17,8 @@ import {
     Timestamp
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
+import { openExerciseSelectionModal } from './session-planning.js';
+
 let db = null;
 let currentUserData = null;
 let currentSessionId = null;
@@ -24,7 +26,6 @@ let currentSessionData = null;
 let currentAttendanceData = null;
 let plannedExercises = [];
 let spontaneousExercises = [];
-let allExercises = []; // For dropdown
 
 /**
  * Initialize the training completion module
@@ -35,7 +36,6 @@ export function initializeTrainingCompletion(firestoreInstance, userData) {
     db = firestoreInstance;
     currentUserData = userData;
     setupEventListeners();
-    loadExercisesForDropdown();
 }
 
 /**
@@ -57,47 +57,42 @@ function setupEventListeners() {
     // Add spontaneous exercise button
     const addSpontBtn = document.getElementById('add-spontaneous-exercise-button');
     if (addSpontBtn) {
-        addSpontBtn.addEventListener('click', showSpontaneousExerciseSelector);
-    }
-
-    // Confirm spontaneous exercise
-    const confirmBtn = document.getElementById('confirm-spontaneous-exercise-button');
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', addSpontaneousExercise);
-    }
-
-    // Cancel spontaneous exercise
-    const cancelBtn = document.getElementById('cancel-spontaneous-exercise-button');
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', hideSpontaneousExerciseSelector);
+        addSpontBtn.addEventListener('click', openSpontaneousExerciseModal);
     }
 }
 
 /**
- * Load exercises for the dropdown
+ * Open exercise selection modal for spontaneous exercises
  */
-async function loadExercisesForDropdown() {
-    try {
-        const snapshot = await getDocs(collection(db, 'exercises'));
-        allExercises = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
+function openSpontaneousExerciseModal() {
+    // Get IDs of already added spontaneous exercises
+    const alreadyAddedIds = spontaneousExercises.map(ex => ex.exerciseId);
 
-        // Populate dropdown
-        const select = document.getElementById('completion-exercise-select');
-        if (select) {
-            select.innerHTML = '<option value="">Übung auswählen...</option>';
-            allExercises.forEach(exercise => {
-                const option = document.createElement('option');
-                option.value = exercise.id;
-                option.textContent = exercise.title;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('[Training Completion] Error loading exercises:', error);
+    // Open modal with callback to add spontaneous exercise
+    openExerciseSelectionModal((exercise) => {
+        addSpontaneousExerciseFromModal(exercise);
+    }, alreadyAddedIds);
+}
+
+/**
+ * Add spontaneous exercise from modal
+ * @param {Object} exercise - Exercise object from database
+ */
+function addSpontaneousExerciseFromModal(exercise) {
+    // Check if already added
+    if (spontaneousExercises.find(ex => ex.exerciseId === exercise.id)) {
+        return; // Silently ignore duplicates
     }
+
+    spontaneousExercises.push({
+        exerciseId: exercise.id,
+        name: exercise.title,
+        points: exercise.points || 0,
+        tieredPoints: exercise.tieredPoints?.enabled || false,
+        partnerSystem: exercise.partnerSystem?.enabled || false
+    });
+
+    renderSpontaneousExercises();
 }
 
 /**
@@ -259,57 +254,6 @@ function renderSpontaneousExercises() {
     });
 }
 
-/**
- * Show spontaneous exercise selector
- */
-function showSpontaneousExerciseSelector() {
-    const selector = document.getElementById('spontaneous-exercise-selector');
-    if (selector) {
-        selector.classList.remove('hidden');
-    }
-}
-
-/**
- * Hide spontaneous exercise selector
- */
-function hideSpontaneousExerciseSelector() {
-    const selector = document.getElementById('spontaneous-exercise-selector');
-    const select = document.getElementById('completion-exercise-select');
-    if (selector) selector.classList.add('hidden');
-    if (select) select.value = '';
-}
-
-/**
- * Add spontaneous exercise
- */
-function addSpontaneousExercise() {
-    const select = document.getElementById('completion-exercise-select');
-    if (!select || !select.value) {
-        alert('Bitte wähle eine Übung aus.');
-        return;
-    }
-
-    const exerciseId = select.value;
-    const exercise = allExercises.find(ex => ex.id === exerciseId);
-    if (!exercise) return;
-
-    // Check if already added
-    if (spontaneousExercises.find(ex => ex.exerciseId === exerciseId)) {
-        alert('Diese Übung wurde bereits hinzugefügt.');
-        return;
-    }
-
-    spontaneousExercises.push({
-        exerciseId: exercise.id,
-        name: exercise.title,
-        points: exercise.points || 0,
-        tieredPoints: exercise.tieredPoints?.enabled || false,
-        partnerSystem: exercise.partnerSystem?.enabled || false
-    });
-
-    renderSpontaneousExercises();
-    hideSpontaneousExerciseSelector();
-}
 
 /**
  * Remove spontaneous exercise
