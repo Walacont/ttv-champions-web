@@ -209,6 +209,11 @@ function setupEventListeners() {
     closeTrainingInfoBtns.forEach(btn => {
         if (btn) btn.addEventListener('click', closeTrainingInfoModal);
     });
+
+    // Listen for training completion events to close session selection modal
+    window.addEventListener('trainingCompleted', () => {
+        closeSessionSelectionModal();
+    });
 }
 
 /**
