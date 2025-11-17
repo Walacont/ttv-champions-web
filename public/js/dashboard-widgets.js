@@ -106,8 +106,6 @@ export function initializeWidgetSystem(firestoreInstance, userId) {
     db = firestoreInstance;
     currentUserId = userId;
 
-    console.log('[Widget System] Initializing for user:', userId);
-
     // Use default settings immediately (non-blocking)
     currentSettings = getDefaultSettings();
     applyWidgetSettings();
@@ -117,13 +115,10 @@ export function initializeWidgetSystem(firestoreInstance, userId) {
 
     // Load user's saved settings in background (non-blocking)
     loadWidgetSettings().then(() => {
-        console.log('[Widget System] Saved settings loaded, applying...');
         applyWidgetSettings();
     }).catch(error => {
-        console.warn('[Widget System] Could not load saved settings, using defaults:', error);
+        // Use defaults if loading fails
     });
-
-    console.log('[Widget System] Initialized with defaults (loading saved settings in background)');
 }
 
 /**
@@ -136,14 +131,11 @@ async function loadWidgetSettings() {
 
         if (settingsDoc.exists()) {
             currentSettings = settingsDoc.data().widgets || {};
-            console.log('[Widget System] Loaded settings:', currentSettings);
         } else {
             // Use default settings
             currentSettings = getDefaultSettings();
-            console.log('[Widget System] No saved settings, using defaults');
         }
     } catch (error) {
-        console.error('[Widget System] Error loading settings:', error);
         currentSettings = getDefaultSettings();
     }
 }
@@ -171,10 +163,8 @@ async function saveWidgetSettings(settings) {
             widgets: settings,
             updatedAt: serverTimestamp()
         });
-        console.log('[Widget System] Settings saved successfully');
         return true;
     } catch (error) {
-        console.error('[Widget System] Error saving settings:', error);
         return false;
     }
 }
@@ -183,10 +173,7 @@ async function saveWidgetSettings(settings) {
  * Apply widget settings to the dashboard (show/hide widgets)
  */
 function applyWidgetSettings() {
-    console.log('[Widget System] Applying settings to dashboard');
-
     const widgets = document.querySelectorAll('.dashboard-widget');
-    let hiddenCount = 0;
 
     widgets.forEach(widget => {
         const widgetId = widget.getAttribute('data-widget-id');
@@ -196,11 +183,8 @@ function applyWidgetSettings() {
             widget.classList.remove('hidden');
         } else {
             widget.classList.add('hidden');
-            hiddenCount++;
         }
     });
-
-    console.log(`[Widget System] Applied settings: ${hiddenCount} widgets hidden`);
 }
 
 /**
