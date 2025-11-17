@@ -1,9 +1,8 @@
 /**
  * Session Planning Module
- * Handles the planning of training activities and exercises for sessions
+ * Handles the planning of exercises for training sessions
  */
 
-import { STANDARD_ACTIVITIES, getActivityById } from './training-activities.js';
 import {
     collection,
     getDocs,
@@ -20,36 +19,6 @@ let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints,
  */
 export function initializeSessionPlanning(firestoreInstance) {
     db = firestoreInstance;
-}
-
-/**
- * Load standard activities into the modal
- */
-export function loadStandardActivities() {
-    const container = document.getElementById('standard-activities-list');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    STANDARD_ACTIVITIES.forEach(activity => {
-        const div = document.createElement('div');
-        div.className = 'flex items-center p-2 hover:bg-gray-100 rounded';
-        div.innerHTML = `
-            <input
-                type="checkbox"
-                id="activity-${activity.id}"
-                value="${activity.id}"
-                class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 standard-activity-checkbox"
-            >
-            <label for="activity-${activity.id}" class="ml-3 flex-1 cursor-pointer">
-                <span class="text-sm font-medium text-gray-700">
-                    ${activity.icon} ${activity.name}
-                </span>
-                <span class="ml-2 text-xs text-gray-500">(+${activity.points} Pkt)</span>
-            </label>
-        `;
-        container.appendChild(div);
-    });
 }
 
 /**
@@ -172,52 +141,43 @@ function renderSelectedExercises() {
 }
 
 /**
- * Get all selected activities (standard + exercises)
- * Returns array in the format required for trainingSessions.plannedActivities
- * @returns {Array} Planned activities
+ * Get all selected exercises
+ * Returns array in the format required for trainingSessions.plannedExercises
+ * @returns {Array} Planned exercises
  */
-export function getPlannedActivities() {
-    const activities = [];
+export function getPlannedExercises() {
+    return selectedExercises.map(exercise => ({
+        exerciseId: exercise.exerciseId,
+        name: exercise.name,
+        points: exercise.points,
+        tieredPoints: exercise.tieredPoints,
+        partnerSystem: exercise.partnerSystem
+    }));
+}
 
-    // Get checked standard activities
-    const checkboxes = document.querySelectorAll('.standard-activity-checkbox:checked');
-    checkboxes.forEach(checkbox => {
-        const activity = getActivityById(checkbox.value);
-        if (activity) {
-            activities.push({
-                type: 'standard',
-                id: activity.id,
-                name: activity.name,
-                points: activity.points,
-                icon: activity.icon
-            });
-        }
-    });
-
-    // Get selected exercises
-    selectedExercises.forEach(exercise => {
-        activities.push({
-            type: 'exercise',
-            exerciseId: exercise.exerciseId,
-            name: exercise.name,
-            points: exercise.points,
-            tieredPoints: exercise.tieredPoints,
-            partnerSystem: exercise.partnerSystem
-        });
-    });
-
-    return activities;
+/**
+ * Load planned exercises into the UI (for editing existing sessions)
+ * @param {Array} plannedExercises - Array of planned exercises
+ */
+export function loadPlannedExercises(plannedExercises) {
+    if (!plannedExercises || !Array.isArray(plannedExercises)) {
+        selectedExercises = [];
+    } else {
+        selectedExercises = plannedExercises.map(ex => ({
+            exerciseId: ex.exerciseId,
+            name: ex.name,
+            points: ex.points || 0,
+            tieredPoints: ex.tieredPoints || false,
+            partnerSystem: ex.partnerSystem || false
+        }));
+    }
+    renderSelectedExercises();
 }
 
 /**
  * Reset the session planning UI
  */
 export function resetSessionPlanning() {
-    // Uncheck all standard activities
-    const checkboxes = document.querySelectorAll('.standard-activity-checkbox');
-    checkboxes.forEach(checkbox => checkbox.checked = false);
-
-    // Clear selected exercises
     selectedExercises = [];
     renderSelectedExercises();
 

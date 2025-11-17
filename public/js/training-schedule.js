@@ -160,7 +160,7 @@ async function checkTemplateOverlap(dayOfWeek, startTime, endTime, subgroupId, c
  * @returns {Promise<string>} Session ID
  */
 export async function createTrainingSession(sessionData, userId = 'system') {
-    const { date, startTime, endTime, subgroupId, clubId, recurringTemplateId = null } = sessionData;
+    const { date, startTime, endTime, subgroupId, clubId, recurringTemplateId = null, plannedExercises = [] } = sessionData;
 
     // Validation
     if (!isValidDateFormat(date)) {
@@ -189,6 +189,9 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         clubId,
         recurringTemplateId,
         cancelled: false,
+        plannedExercises: plannedExercises || [],  // Array of planned exercises
+        completed: false,  // Tracking whether training has been completed
+        completedAt: null,  // Timestamp when training was completed
         createdAt: serverTimestamp(),
         createdBy: userId
     };

@@ -27,6 +27,14 @@ import {
     initializeTrainingSchedule as initTrainingScheduleModule
 } from './training-schedule.js';
 
+import {
+    initializeSessionPlanning,
+    loadExercisesIntoDropdown,
+    getPlannedExercises,
+    resetSessionPlanning,
+    initializeSessionPlanningListeners
+} from './session-planning.js';
+
 let db = null;
 let currentUserData = null;
 let subgroups = [];
@@ -40,6 +48,7 @@ let recurringTemplates = [];
 export function initializeSpontaneousSessions(userData, firestoreInstance) {
     db = firestoreInstance;
     initTrainingScheduleModule(firestoreInstance);
+    initializeSessionPlanning(firestoreInstance);
     currentUserData = userData;
 
     // Load subgroups for dropdown
@@ -47,6 +56,10 @@ export function initializeSpontaneousSessions(userData, firestoreInstance) {
 
     // Setup event listeners
     setupEventListeners();
+    initializeSessionPlanningListeners();
+
+    // Load exercises into dropdown
+    loadExercisesIntoDropdown(firestoreInstance);
 }
 
 /**
@@ -529,6 +542,7 @@ function openSpontaneousSessionModal(dateStr = null) {
     if (!modal || !form) return;
 
     form.reset();
+    resetSessionPlanning();  // Reset exercise selection
 
     if (dateStr) {
         dateInput.value = dateStr;
@@ -563,6 +577,9 @@ async function handleSpontaneousSessionSubmit(e) {
     const endTime = document.getElementById('spontaneous-session-end-time').value;
     const subgroupId = document.getElementById('spontaneous-session-subgroup-select').value;
 
+    // Get planned exercises from session planning module
+    const plannedExercises = getPlannedExercises();
+
     try {
         showFeedback('spontaneous-session-feedback', 'Erstelle Training...', 'info');
 
@@ -572,7 +589,8 @@ async function handleSpontaneousSessionSubmit(e) {
             endTime,
             subgroupId,
             clubId: currentUserData.clubId,
-            recurringTemplateId: null
+            recurringTemplateId: null,
+            plannedExercises  // Add planned exercises to session
         }, currentUserData.id);
 
         showFeedback('spontaneous-session-feedback', 'Training erstellt! Öffne Anwesenheit...', 'success');
