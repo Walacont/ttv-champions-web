@@ -364,6 +364,12 @@ export function initializeSessionPlanningListeners() {
         closeModalButton.addEventListener('click', closeExerciseSelectionModal);
     }
 
+    // Done selecting exercises button
+    const doneButton = document.getElementById('done-selecting-exercises-button');
+    if (doneButton) {
+        doneButton.addEventListener('click', closeExerciseSelectionModal);
+    }
+
     // Search input in exercise selection modal
     const searchInput = document.getElementById('exercise-selection-search');
     if (searchInput) {
