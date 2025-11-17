@@ -65,13 +65,10 @@ function setupEventListeners() {
  * Open exercise selection modal for spontaneous exercises
  */
 function openSpontaneousExerciseModal() {
-    // Get IDs of already added spontaneous exercises
-    const alreadyAddedIds = spontaneousExercises.map(ex => ex.exerciseId);
-
     // Open modal with callback to add spontaneous exercise
     openExerciseSelectionModal((exercise) => {
         addSpontaneousExerciseFromModal(exercise);
-    }, alreadyAddedIds);
+    });
 }
 
 /**
@@ -79,11 +76,7 @@ function openSpontaneousExerciseModal() {
  * @param {Object} exercise - Exercise object from database
  */
 function addSpontaneousExerciseFromModal(exercise) {
-    // Check if already added
-    if (spontaneousExercises.find(ex => ex.exerciseId === exercise.id)) {
-        return; // Silently ignore duplicates
-    }
-
+    // Allow duplicates - exercises can be done multiple times in a training
     spontaneousExercises.push({
         exerciseId: exercise.id,
         name: exercise.title,

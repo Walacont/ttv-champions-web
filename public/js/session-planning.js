@@ -15,7 +15,6 @@ let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints,
 let allExercisesForSelection = []; // All exercises loaded from database
 let currentTagFilter = 'all'; // Current active tag filter
 let modalCallback = null; // Callback function for when an exercise is selected
-let externalSelectedIds = []; // IDs of exercises already selected (for callback mode)
 
 /**
  * Initialize the session planning module
@@ -51,15 +50,13 @@ export async function loadExercisesForSelection(db) {
 /**
  * Open exercise selection modal
  * @param {Function} callback - Optional callback function to call when exercise is selected (instead of default behavior)
- * @param {Array} alreadySelectedIds - Optional array of exercise IDs that are already selected
  */
-export function openExerciseSelectionModal(callback = null, alreadySelectedIds = []) {
+export function openExerciseSelectionModal(callback = null) {
     const modal = document.getElementById('exercise-selection-modal');
     if (!modal) return;
 
     // Set callback (null means use default session planning behavior)
     modalCallback = callback;
-    externalSelectedIds = alreadySelectedIds;
 
     // Reset filter
     currentTagFilter = 'all';
@@ -189,12 +186,8 @@ function renderExerciseSelectionGrid(searchTerm = '') {
     grid.innerHTML = '';
 
     exercises.forEach(exercise => {
-        // Check if already selected (either in session planning or via external callback)
-        const isAlreadySelected = selectedExercises.find(ex => ex.exerciseId === exercise.id) ||
-                                   externalSelectedIds.includes(exercise.id);
-
         const card = document.createElement('div');
-        card.className = `relative border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer ${isAlreadySelected ? 'opacity-50 pointer-events-none' : ''}`;
+        card.className = 'relative border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer';
         card.onclick = () => addExerciseFromModal(exercise.id);
 
         // System badges (top corners)
@@ -229,7 +222,6 @@ function renderExerciseSelectionGrid(searchTerm = '') {
                     <span class="font-bold text-indigo-600">+${exercise.points || 0} Pkt</span>
                 </div>
                 ${tagsHtml}
-                ${isAlreadySelected ? '<p class="text-xs text-green-600 mt-2">✓ Bereits hinzugefügt</p>' : ''}
             </div>
         `;
         grid.appendChild(card);
@@ -247,19 +239,10 @@ function addExerciseFromModal(exerciseId) {
     // If callback is set, use it instead of default behavior
     if (modalCallback) {
         modalCallback(exercise);
-        // Re-render modal to update states
-        const searchInput = document.getElementById('exercise-selection-search');
-        renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
         return;
     }
 
-    // Default behavior: add to session planning
-    // Check if already added
-    if (selectedExercises.find(ex => ex.exerciseId === exerciseId)) {
-        return;
-    }
-
-    // Add to array
+    // Default behavior: add to session planning (allow duplicates for multiple rounds)
     selectedExercises.push({
         exerciseId: exercise.id,
         name: exercise.title,
@@ -270,18 +253,14 @@ function addExerciseFromModal(exerciseId) {
 
     // Re-render list
     renderSelectedExercises();
-
-    // Re-render modal to show "already added" state
-    const searchInput = document.getElementById('exercise-selection-search');
-    renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
 }
 
 /**
- * Remove exercise from the list
- * @param {string} exerciseId - Exercise ID to remove
+ * Remove exercise from the list by index
+ * @param {number} index - Index in selectedExercises array
  */
-export function removeExerciseFromList(exerciseId) {
-    selectedExercises = selectedExercises.filter(ex => ex.exerciseId !== exerciseId);
+export function removeExerciseFromList(index) {
+    selectedExercises.splice(index, 1);
     renderSelectedExercises();
 }
 
@@ -299,7 +278,7 @@ function renderSelectedExercises() {
 
     container.innerHTML = '';
 
-    selectedExercises.forEach(exercise => {
+    selectedExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
         div.className = 'flex items-center justify-between p-2 bg-white border rounded';
 
@@ -316,7 +295,7 @@ function renderSelectedExercises() {
                 📋 ${exercise.name}
                 ${badges}
             </span>
-            <button type="button" class="text-red-600 hover:text-red-800 text-sm font-bold" onclick="window.removeExerciseFromSessionPlan('${exercise.exerciseId}')">
+            <button type="button" class="text-red-600 hover:text-red-800 text-sm font-bold" onclick="window.removeExerciseFromSessionPlan(${index})">
                 <i class="fas fa-times"></i>
             </button>
         `;
