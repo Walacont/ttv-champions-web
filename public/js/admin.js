@@ -636,7 +636,7 @@ async function handleCreateExercise(e) {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
-    if (!title || !file) {
+    if (!title) {
         feedbackEl.textContent = 'Bitte alle Felder korrekt ausfüllen.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         submitBtn.disabled = false;
@@ -645,18 +645,27 @@ async function handleCreateExercise(e) {
     }
 
     try {
-        const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const imageUrl = await getDownloadURL(snapshot.ref);
+        let imageUrl = null;
+
+        // Upload image only if provided
+        if (file) {
+            const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
+            const snapshot = await uploadBytes(storageRef, file);
+            imageUrl = await getDownloadURL(snapshot.ref);
+        }
 
         const exerciseData = {
             title,
             descriptionContent: JSON.stringify(descriptionContent),
             points,
-            imageUrl,
             createdAt: serverTimestamp(),
             tags
         };
+
+        // Add imageUrl only if provided
+        if (imageUrl) {
+            exerciseData.imageUrl = imageUrl;
+        }
 
         // Add tieredPoints if enabled
         if (tieredPoints && milestones) {
@@ -745,7 +754,9 @@ function loadAllExercises() {
                     text: exercise.description || ''
                 });
             }
-            card.dataset.imageUrl = exercise.imageUrl;
+            if (exercise.imageUrl) {
+                card.dataset.imageUrl = exercise.imageUrl;
+            }
             card.dataset.points = exercise.points;
             card.dataset.tags = JSON.stringify(exercise.tags || []);
 
@@ -755,7 +766,13 @@ function loadAllExercises() {
             }
 
             const tagsHtml = (exercise.tags || []).map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
-            card.innerHTML = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
+
+            // Image or placeholder
+            const imageHtml = exercise.imageUrl
+                ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
+                : `<div class="w-full h-56 bg-gray-200 flex items-center justify-center pointer-events-none"><span class="text-gray-400 text-4xl">📋</span></div>`;
+
+            card.innerHTML = `${imageHtml}
                               <div class="p-4 flex flex-col flex-grow pointer-events-none">
                                   <h3 class="font-bold text-md mb-2 flex-grow">${exercise.title}</h3>
                                   <div class="pt-2">${tagsHtml}</div>
@@ -773,8 +790,13 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
      if (confirm("Sind Sie sicher, dass Sie diese Übung endgültig löschen möchten?")) {
         try {
             await deleteDoc(doc(db, "exercises", exerciseId));
-            const imageRef = ref(storage, imageUrl);
-            await deleteObject(imageRef);
+
+            // Only delete image if it exists
+            if (imageUrl) {
+                const imageRef = ref(storage, imageUrl);
+                await deleteObject(imageRef);
+            }
+
             alert("Übung erfolgreich gelöscht.");
             exerciseModal.classList.add('hidden');
         } catch (error) {
