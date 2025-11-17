@@ -299,15 +299,40 @@ window.cancelSinglePlayerSelection = function() {
  * Select different exercise for single player
  */
 window.selectDifferentExerciseForSinglePlayer = function() {
+    // Save the player reference before opening modal
+    const playerToAdd = selectedPlayers[0];
+    if (!playerToAdd) return;
+
     // Open exercise selection modal with callback
     openExerciseSelectionModal((selectedExercises) => {
         if (selectedExercises && selectedExercises.length > 0) {
             // Use the first selected exercise
             const exercise = selectedExercises[0];
-            window.confirmSinglePlayerWithExercise(exercise);
+
+            // Add player to single players with custom exercise
+            singlePlayers.push({
+                ...playerToAdd,
+                result: 'success', // Default
+                customExercise: exercise
+            });
+
+            // Remove from selected players
+            const index = selectedPlayers.indexOf(playerToAdd);
+            if (index > -1) {
+                selectedPlayers.splice(index, 1);
+            }
+
+            // Update UI
+            renderAvailablePlayers();
+            renderSinglePlayers();
+            renderSinglePlayerOption();
+            checkSinglePlayers();
+            updateConfirmButtonState();
         } else {
-            // User cancelled, go back to exercise selection
-            showSinglePlayerExerciseSelection(selectedPlayers[0]);
+            // User cancelled, go back to exercise selection if player still selected
+            if (selectedPlayers.length === 1) {
+                showSinglePlayerExerciseSelection(selectedPlayers[0]);
+            }
         }
     });
 }
