@@ -35,17 +35,8 @@ export function initializePartnerPairing(firestoreInstance, userData) {
  * Setup event listeners
  */
 function setupEventListeners() {
-    // Close modal
-    const closeBtn = document.getElementById('close-partner-pairing-modal-button');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closePairingModal);
-    }
-
-    // Confirm pairing
-    const confirmBtn = document.getElementById('confirm-pairing-button');
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', confirmPairingAndDistributePoints);
-    }
+    // Event listeners will be set when modal opens
+    // to ensure elements are in DOM
 }
 
 /**
@@ -88,6 +79,26 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData) {
         const modal = document.getElementById('partner-pairing-modal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+
+        // Setup event listeners now that modal is in DOM
+        const closeBtn = document.getElementById('close-partner-pairing-modal-button');
+        if (closeBtn) {
+            // Remove old listener if exists
+            closeBtn.replaceWith(closeBtn.cloneNode(true));
+            const newCloseBtn = document.getElementById('close-partner-pairing-modal-button');
+            newCloseBtn.addEventListener('click', closePairingModal);
+        }
+
+        const confirmBtn = document.getElementById('confirm-pairing-button');
+        if (confirmBtn) {
+            console.log('[Partner Pairing] Setting up confirm button listener');
+            // Remove old listener if exists
+            confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+            const newConfirmBtn = document.getElementById('confirm-pairing-button');
+            newConfirmBtn.addEventListener('click', confirmPairingAndDistributePoints);
+        } else {
+            console.error('[Partner Pairing] Confirm button not found in DOM!');
+        }
     });
 }
 
@@ -302,7 +313,16 @@ window.removeSinglePlayer = function(index) {
  * Confirm pairing and distribute points
  */
 async function confirmPairingAndDistributePoints() {
+    console.log('[Partner Pairing] Confirm button clicked');
+    console.log('[Partner Pairing] Formed pairs:', formedPairs);
+    console.log('[Partner Pairing] Single players:', singlePlayers);
+
     const confirmBtn = document.getElementById('confirm-pairing-button');
+    if (!confirmBtn) {
+        console.error('[Partner Pairing] Confirm button not found!');
+        return;
+    }
+
     confirmBtn.disabled = true;
 
     // Return pairing data without distributing points immediately
@@ -319,11 +339,15 @@ async function confirmPairingAndDistributePoints() {
         exercise: currentExercise
     };
 
+    console.log('[Partner Pairing] Pairing data:', pairingData);
     showPairingFeedback('Paarungen gespeichert!', 'success');
 
     setTimeout(() => {
         closePairingModal();
-        if (resolveCallback) resolveCallback(pairingData);
+        if (resolveCallback) {
+            console.log('[Partner Pairing] Calling resolve callback');
+            resolveCallback(pairingData);
+        }
     }, 500);
 }
 
