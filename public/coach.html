@@ -1634,6 +1634,44 @@
         </div>
     </div>
 
+    <!-- Modal: Training Information -->
+    <div id="training-info-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Trainingsinformationen</h3>
+                <button id="close-training-info-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <!-- Session Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 class="font-medium text-gray-900 mb-2">📅 Training Details</h4>
+                <div class="space-y-1 text-sm">
+                    <p><span class="text-gray-600">Gruppe:</span> <span id="training-info-subgroup" class="ml-2 font-semibold text-gray-900"></span></p>
+                    <p><span class="text-gray-600">Zeit:</span> <span id="training-info-time" class="ml-2 font-semibold text-gray-900"></span></p>
+                    <p><span class="text-gray-600">Datum:</span> <span id="training-info-date" class="ml-2 font-semibold text-gray-900"></span></p>
+                    <p id="training-info-status" class="mt-2"></p>
+                </div>
+            </div>
+
+            <!-- Planned Exercises -->
+            <div>
+                <h4 class="text-md font-medium text-gray-800 mb-3">📋 Geplante Übungen</h4>
+                <div id="training-info-exercises-list" class="space-y-2">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </div>
+
+            <!-- Close Button -->
+            <div class="mt-6">
+                <button type="button" id="close-training-info-button" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">
+                    Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Edit Subgroup -->
     <div id="edit-subgroup-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
         <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">

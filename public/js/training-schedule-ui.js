@@ -6,6 +6,7 @@
 import {
     collection,
     doc,
+    getDoc,
     getDocs,
     query,
     where,
@@ -193,6 +194,15 @@ function setupEventListeners() {
             openSpontaneousSessionModal(dateStr);
         });
     }
+
+    // Training info modal close buttons
+    const closeTrainingInfoBtns = [
+        document.getElementById('close-training-info-modal-button'),
+        document.getElementById('close-training-info-button')
+    ];
+    closeTrainingInfoBtns.forEach(btn => {
+        if (btn) btn.addEventListener('click', closeTrainingInfoModal);
+    });
 }
 
 /**
@@ -713,19 +723,24 @@ window.openSessionSelectionModalFromCalendar = async function(dateStr, sessions)
                         <i class="fas fa-times mr-1"></i> Absagen
                     </button>
                 </div>
-                <div class="grid grid-cols-2 gap-2 mt-3">
-                    <button onclick="window.handleSelectSessionForAttendance('${session.id}', '${dateStr}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg">
+                <div class="grid ${hasPlannedExercises ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mt-3">
+                    <button onclick="window.handleSelectSessionForAttendance('${session.id}', '${dateStr}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg text-sm">
                         Anwesenheit erfassen
                     </button>
                     ${!isCompleted ? `
-                        <button onclick="window.handleCompleteTraining('${session.id}', '${dateStr}')" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg">
+                        <button onclick="window.handleCompleteTraining('${session.id}', '${dateStr}')" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-sm">
                             <i class="fas fa-check mr-1"></i> Abschließen
                         </button>
                     ` : `
-                        <button disabled class="bg-gray-300 text-gray-600 font-medium py-2 px-4 rounded-lg cursor-not-allowed">
+                        <button disabled class="bg-gray-300 text-gray-600 font-medium py-2 px-4 rounded-lg cursor-not-allowed text-sm">
                             Bereits abgeschlossen
                         </button>
                     `}
+                    ${hasPlannedExercises ? `
+                        <button onclick="window.showTrainingInfo('${session.id}', '${dateStr}')" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg text-sm">
+                            <i class="fas fa-info-circle mr-1"></i> Info
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -803,6 +818,90 @@ window.handleCompleteTraining = async function(sessionId, dateStr) {
 window.openSpontaneousSessionModalFromCalendar = function(dateStr) {
     openSpontaneousSessionModal(dateStr);
 };
+
+/**
+ * Show training information modal
+ */
+window.showTrainingInfo = async function(sessionId, dateStr) {
+    try {
+        // Load session data
+        const sessionDoc = await getDoc(doc(db, 'trainingSessions', sessionId));
+        if (!sessionDoc.exists()) {
+            alert('Training-Session nicht gefunden!');
+            return;
+        }
+
+        const session = {
+            id: sessionDoc.id,
+            ...sessionDoc.data()
+        };
+
+        // Get subgroup name
+        const subgroup = subgroups.find(s => s.id === session.subgroupId);
+        const subgroupName = subgroup ? subgroup.name : 'Unbekannt';
+
+        // Populate modal
+        document.getElementById('training-info-subgroup').textContent = subgroupName;
+        document.getElementById('training-info-time').textContent = formatTimeRange(session.startTime, session.endTime);
+        document.getElementById('training-info-date').textContent = formatDateGerman(dateStr);
+
+        // Status
+        const statusElement = document.getElementById('training-info-status');
+        if (session.completed) {
+            statusElement.innerHTML = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Training abgeschlossen</span>';
+        } else {
+            statusElement.innerHTML = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Noch nicht abgeschlossen</span>';
+        }
+
+        // Render exercises list
+        const exercisesList = document.getElementById('training-info-exercises-list');
+        if (!session.plannedExercises || session.plannedExercises.length === 0) {
+            exercisesList.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Keine Übungen geplant</p>';
+        } else {
+            let html = '';
+            session.plannedExercises.forEach((exercise, index) => {
+                let badges = '';
+                if (exercise.tieredPoints) {
+                    badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
+                }
+                if (exercise.partnerSystem) {
+                    badges += '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2" title="Partner-System">👥</span>';
+                }
+
+                html += `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-gray-500 font-medium mr-3">${index + 1}.</span>
+                            <span class="text-sm font-medium text-gray-900">${exercise.name}</span>
+                            ${badges}
+                        </div>
+                        <span class="text-xs text-gray-600 font-semibold">+${exercise.points} Pkt</span>
+                    </div>
+                `;
+            });
+            exercisesList.innerHTML = html;
+        }
+
+        // Show modal
+        const modal = document.getElementById('training-info-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    } catch (error) {
+        console.error('[Training Info] Error loading training info:', error);
+        alert('Fehler beim Laden der Trainingsinformationen: ' + error.message);
+    }
+};
+
+/**
+ * Close training info modal
+ */
+function closeTrainingInfoModal() {
+    const modal = document.getElementById('training-info-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
 
 /**
  * Helper: Parse German date format back to YYYY-MM-DD
