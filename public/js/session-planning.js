@@ -26,8 +26,11 @@ export function initializeSessionPlanning(firestoreInstance) {
  * @param {Object} db - Firestore database instance
  */
 export async function loadExercisesIntoDropdown(db) {
-    const select = document.getElementById('exercise-select');
-    if (!select) return;
+    const select = document.getElementById('session-exercise-select');
+    if (!select) {
+        console.warn('[Session Planning] Dropdown "session-exercise-select" not found');
+        return;
+    }
 
     try {
         const exercisesQuery = query(
@@ -60,8 +63,11 @@ export async function loadExercisesIntoDropdown(db) {
  * Add selected exercise to the list
  */
 export function addExerciseToList() {
-    const select = document.getElementById('exercise-select');
-    if (!select || !select.value) return;
+    const select = document.getElementById('session-exercise-select');
+    if (!select || !select.value) {
+        console.warn('[Session Planning] No exercise selected or dropdown not found');
+        return;
+    }
 
     const selectedOption = select.options[select.selectedIndex];
     const exerciseId = select.value;
@@ -182,7 +188,7 @@ export function resetSessionPlanning() {
     renderSelectedExercises();
 
     // Reset dropdown
-    const select = document.getElementById('exercise-select');
+    const select = document.getElementById('session-exercise-select');
     if (select) select.value = '';
 }
 
@@ -191,9 +197,12 @@ export function resetSessionPlanning() {
  */
 export function initializeSessionPlanningListeners() {
     // Add exercise button
-    const addButton = document.getElementById('add-exercise-button');
+    const addButton = document.getElementById('add-session-exercise-button');
     if (addButton) {
         addButton.addEventListener('click', addExerciseToList);
+        console.log('[Session Planning] Event listener attached to add-session-exercise-button');
+    } else {
+        console.warn('[Session Planning] Button "add-session-exercise-button" not found');
     }
 
     // Make remove function globally available
