@@ -151,6 +151,7 @@ export function closeExerciseSelectionModal() {
         modal.classList.remove('flex');
     }
     currentTagFilter = 'all';
+    modalCallback = null; // Reset callback
 }
 
 /**
@@ -352,7 +353,7 @@ export function initializeSessionPlanningListeners() {
     // Open exercise selection modal button
     const openModalButton = document.getElementById('open-exercise-selection-button');
     if (openModalButton) {
-        openModalButton.addEventListener('click', openExerciseSelectionModal);
+        openModalButton.addEventListener('click', () => openExerciseSelectionModal());
         console.log('[Session Planning] Event listener attached to open-exercise-selection-button');
     } else {
         console.warn('[Session Planning] Button "open-exercise-selection-button" not found');
