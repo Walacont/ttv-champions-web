@@ -232,6 +232,9 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                     return attendance !== undefined;
                 }).length;
 
+                // Count how many sessions are completed
+                const completedCount = sessionsOnDay.filter(session => session.completed === true).length;
+
                 const totalRelevantSessions = sessionsOnDay.length;
 
                 if (attendedCount === totalRelevantSessions && totalRelevantSessions > 0) {
@@ -239,9 +242,16 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                     statusIcon.textContent = '✓';
                     statusIcon.classList.add('text-green-600', 'font-bold');
                 } else if (attendedCount === 0 && totalRelevantSessions > 0) {
-                    // Missed ALL sessions
-                    statusIcon.textContent = '✗';
-                    statusIcon.classList.add('text-red-600', 'font-bold');
+                    // No sessions attended
+                    if (completedCount === totalRelevantSessions) {
+                        // All completed - truly missed
+                        statusIcon.textContent = '✗';
+                        statusIcon.classList.add('text-red-600', 'font-bold');
+                    } else {
+                        // Some/all not completed yet - pending
+                        statusIcon.textContent = '○';
+                        statusIcon.classList.add('text-gray-400', 'font-bold');
+                    }
                 } else if (attendedCount > 0 && attendedCount < totalRelevantSessions) {
                     // Attended SOME sessions (partial attendance)
                     statusIcon.textContent = '◐';
@@ -551,22 +561,55 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         });
 
         const attended = attendance !== undefined;
+        const isCompleted = session.completed === true;
+
+        // Determine status and styling
+        let statusText, statusColor, bgColor, borderColor, icon;
+        if (attended) {
+            statusText = 'Teilgenommen';
+            statusColor = 'text-green-700';
+            bgColor = 'bg-green-50';
+            borderColor = 'border-green-300';
+            icon = '✓';
+        } else if (!isCompleted) {
+            statusText = 'Noch ausstehend';
+            statusColor = 'text-gray-600';
+            bgColor = 'bg-gray-50';
+            borderColor = 'border-gray-300';
+            icon = '○';
+        } else {
+            statusText = 'Verpasst';
+            statusColor = 'text-red-700';
+            bgColor = 'bg-red-50';
+            borderColor = 'border-red-300';
+            icon = '✗';
+        }
 
         html += `
-            <div class="border rounded-lg p-3 ${attended ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}">
+            <div class="border rounded-lg p-3 ${bgColor} ${borderColor}">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="text-lg">${attended ? '✓' : '✗'}</span>
+                            <span class="text-lg">${icon}</span>
                             <span class="font-semibold text-gray-900">${session.startTime} - ${session.endTime}</span>
                         </div>
-                        <div class="flex items-center gap-2 text-sm text-gray-700">
+                        <div class="flex items-center gap-2 text-sm text-gray-700 mb-2">
                             <div class="w-3 h-3 rounded-full" style="background-color: ${subgroupColor};"></div>
                             <span>${subgroupName}</span>
                         </div>
+                        ${session.plannedExercises && session.plannedExercises.length > 0 ? `
+                            <div class="text-xs text-gray-600 mt-2">
+                                <div class="font-medium mb-1">Geplante Übungen:</div>
+                                <ul class="list-disc list-inside pl-2 space-y-0.5">
+                                    ${session.plannedExercises.map(ex => `
+                                        <li>${ex.name} <span class="text-gray-500">(+${ex.points} Pkt)</span></li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
                     </div>
-                    <div class="text-sm font-medium ${attended ? 'text-green-700' : 'text-red-700'}">
-                        ${attended ? 'Teilgenommen' : 'Verpasst'}
+                    <div class="text-sm font-medium ${statusColor}">
+                        ${statusText}
                     </div>
                 </div>
             </div>
