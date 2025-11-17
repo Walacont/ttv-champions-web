@@ -25,6 +25,7 @@ import { loadSubgroupsList, handleCreateSubgroup, handleSubgroupActions, handleE
 import { initInvitationCodeManagement } from './invitation-code-management.js';
 import { initPlayerInvitationManagement, loadSubgroupsForOfflinePlayerForm, handlePostPlayerCreationInvitation, openSendInvitationModal } from './player-invitation-management.js';
 import { initializeSpontaneousSessions, loadRecurringTemplates, openSessionSelectionModal } from './training-schedule-ui.js';
+import { initializeTrainingCompletion } from './training-completion.js';
 import TutorialManager from './tutorial.js';
 import { coachTutorialSteps } from './tutorial-coach.js';
 
@@ -176,6 +177,9 @@ async function initializeCoachPage(userData) {
 
     // Initialize Spontaneous Sessions (for creating trainings from calendar)
     initializeSpontaneousSessions(userData, db);
+
+    // Initialize Training Completion (for intelligent points distribution)
+    initializeTrainingCompletion(db, userData);
 
     // Bridge function: Connect training-schedule-ui to attendance module
     window.openAttendanceForSessionFromSchedule = async function(sessionId, dateStr) {

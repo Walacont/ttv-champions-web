@@ -1,8 +1,6 @@
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
 import { renderTableForDisplay } from './tableEditor.js';
-import { getExercisePartnerSettings } from './milestone-management.js';
-import { formatSeasonEndDate } from './ui-utils.js';
 
 /**
  * Exercises Module
@@ -614,13 +612,6 @@ export function loadExercisesForDropdown(db) {
                     option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
                 }
 
-                // Add partner system data
-                const hasPartnerSystem = e.partnerSystem?.enabled || false;
-                option.dataset.hasPartnerSystem = hasPartnerSystem;
-                if (hasPartnerSystem) {
-                    option.dataset.partnerPercentage = e.partnerSystem.partnerPercentage || 50;
-                }
-
                 select.appendChild(option);
             });
         },
@@ -720,7 +711,6 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     }
 
     const currentCount = playerProgress?.currentCount || 0;
-    const seasonEndDate = exerciseContext.db ? await formatSeasonEndDate(exerciseContext.db) : 'Lädt...'; // Use countdown logic
 
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
@@ -751,9 +741,6 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                                 ✓ Alle Meilensteine erreicht!
                             </p>
                         `}
-                        <p class="text-xs text-gray-500 mt-2">
-                            🔄 Rekord wird am ${seasonEndDate} zurückgesetzt
-                        </p>
                     </div>
                 `;
             }
@@ -825,28 +812,8 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     } else {
         pointsContainer.textContent = `+${points} P.`;
         if (milestonesContainer) {
-            // Show reset info for exercises without milestones (for players)
-            if (exerciseContext.userRole === 'player') {
-                milestonesContainer.innerHTML = `
-                    <div class="mt-4 mb-3 border-t-2 border-blue-200 pt-4">
-                        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                            <div class="flex items-center gap-2 mb-2">
-                                <span class="text-lg">🔄</span>
-                                <span class="font-bold text-gray-800">Saisonzyklus</span>
-                            </div>
-                            <p class="text-sm text-gray-600">
-                                Diese Übung kann einmal pro Saison abgeschlossen werden.
-                            </p>
-                            <p class="text-xs text-gray-500 mt-2">
-                                🔓 Zurückgesetzt am ${seasonEndDate}
-                            </p>
-                        </div>
-                    </div>`;
-                milestonesContainer.classList.remove('hidden');
-            } else {
-                milestonesContainer.innerHTML = '';
-                milestonesContainer.classList.add('hidden');
-            }
+            milestonesContainer.innerHTML = '';
+            milestonesContainer.classList.add('hidden');
         }
     }
 
@@ -1192,20 +1159,6 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             };
         }
 
-        // Add partner system settings if enabled
-        const partnerSettings = getExercisePartnerSettings();
-        if (partnerSettings) {
-            exerciseData.partnerSystem = {
-                enabled: true,
-                partnerPercentage: partnerSettings.partnerPercentage
-            };
-        } else {
-            exerciseData.partnerSystem = {
-                enabled: false,
-                partnerPercentage: 50
-            };
-        }
-
         await addDoc(collection(db, "exercises"), exerciseData);
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
@@ -1220,17 +1173,6 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         document.getElementById('exercise-milestones-enabled').checked = false;
         document.getElementById('exercise-standard-points-container').classList.remove('hidden');
         document.getElementById('exercise-milestones-container').classList.add('hidden');
-
-        // Reset partner system
-        const partnerToggle = document.getElementById('exercise-partner-system-toggle') ||
-                              document.getElementById('exercise-partner-system-toggle-coach');
-        const partnerContainer = document.getElementById('exercise-partner-container') ||
-                                 document.getElementById('exercise-partner-container-coach');
-        const partnerPercentageInput = document.getElementById('exercise-partner-percentage') ||
-                                        document.getElementById('exercise-partner-percentage-coach');
-        if (partnerToggle) partnerToggle.checked = false;
-        if (partnerContainer) partnerContainer.classList.add('hidden');
-        if (partnerPercentageInput) partnerPercentageInput.value = 50;
 
         // Clear description editor
         if (descriptionEditor) {

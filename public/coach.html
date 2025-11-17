@@ -976,33 +976,6 @@
                                 <p class="text-xs text-gray-500 mt-1">💡 Tipp: Verwende "Grundlage" als Tag für Grundlagen-Übungen</p>
                             </div>
 
-                            <!-- Partner System -->
-                            <div class="border-t pt-4">
-                                <div class="flex items-center mb-3">
-                                    <input type="checkbox" id="exercise-partner-system-toggle-coach" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                                    <label for="exercise-partner-system-toggle-coach" class="ml-2 text-sm font-medium text-gray-700">
-                                        👥 Partner-System aktivieren (Übung mit Trainingspartner)
-                                    </label>
-                                </div>
-                                <div id="exercise-partner-container-coach" class="hidden space-y-3 bg-green-50 p-4 rounded-lg">
-                                    <p class="text-xs text-green-700 mb-3">
-                                        <strong>Partner-System:</strong> Bei dieser Übung trainieren zwei Spieler zusammen. Der passive Spieler (z.B. Zuspieler/Blocker) erhält einen Prozentsatz der Punkte des aktiven Spielers.
-                                    </p>
-                                    <div>
-                                        <label for="exercise-partner-percentage-coach" class="block text-sm font-medium text-gray-700">
-                                            Prozentsatz für passiven Spieler
-                                        </label>
-                                        <div class="flex items-center gap-3 mt-2">
-                                            <input type="number" id="exercise-partner-percentage-coach" min="0" max="100" value="50" class="w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500">
-                                            <span class="text-sm text-gray-600">% der Punkte & XP</span>
-                                        </div>
-                                        <p class="text-xs text-gray-500 mt-1">
-                                            Standard: 50% (Zuspieler/Blocker). Bei 100% erhalten beide Spieler die gleichen Punkte.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
                             <div>
                                 <label for="exercise-image-form" class="block text-sm font-medium text-gray-700">Bild (optional)</label>
                                 <input type="file" id="exercise-image-form" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -1452,7 +1425,7 @@
 
     <!-- Modal: Spontaneous Training Session -->
     <div id="spontaneous-session-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
-        <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
+        <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl leading-6 font-medium text-gray-900">Spontanes Training erstellen</h3>
                 <button id="close-spontaneous-session-modal-button" class="text-gray-400 hover:text-gray-600">
@@ -1486,6 +1459,27 @@
                     </select>
                 </div>
 
+                <!-- Training Exercises Planning -->
+                <div class="border-t pt-4">
+                    <h4 class="text-md font-medium text-gray-800 mb-3">Geplante Übungen</h4>
+                    <p class="text-xs text-gray-500 mb-3">Wähle die Übungen, die in diesem Training geplant sind. Diese können beim Training-Abschluss angepasst werden.</p>
+
+                    <!-- Selected Exercises List -->
+                    <div id="selected-exercises-list" class="space-y-2 mb-3 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50">
+                        <p class="text-xs text-gray-500 text-center py-2">Keine Übungen ausgewählt</p>
+                    </div>
+
+                    <!-- Exercise Selection -->
+                    <div class="space-y-2">
+                        <button type="button" id="open-exercise-selection-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-3 rounded-lg text-sm">
+                            <i class="fas fa-plus mr-2"></i> Übung hinzufügen
+                        </button>
+                        <button type="button" id="create-new-exercise-from-session-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">
+                            <i class="fas fa-plus-circle mr-2"></i> Neue Übung erstellen
+                        </button>
+                    </div>
+                </div>
+
                 <div class="flex space-x-3">
                     <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
                         Training erstellen
@@ -1496,6 +1490,239 @@
                 </div>
                 <p id="spontaneous-session-feedback" class="mt-3 text-sm font-medium text-center"></p>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal: Training Completion -->
+    <div id="training-completion-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-xl leading-6 font-medium text-gray-900">Training abschließen</h3>
+                    <p class="text-sm text-gray-600 mt-1" id="completion-session-info"></p>
+                </div>
+                <button id="close-training-completion-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <form id="training-completion-form" class="space-y-6">
+                <input type="hidden" id="completion-session-id">
+                <input type="hidden" id="completion-session-date">
+
+                <!-- Summary -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 mb-2">📊 Zusammenfassung</h4>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600">Anwesende Spieler:</span>
+                            <span id="completion-player-count" class="ml-2 font-bold text-indigo-600">0</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Geplante Übungen:</span>
+                            <span id="completion-planned-count" class="ml-2 font-bold text-indigo-600">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editable Checklist -->
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-md font-medium text-gray-800">Durchgeführte Übungen</h4>
+                        <button type="button" id="add-spontaneous-exercise-button" class="text-sm bg-green-600 hover:bg-green-700 text-white font-medium px-3 py-1 rounded">
+                            <i class="fas fa-plus mr-1"></i> Spontane Übung hinzufügen
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3">Hake ab, was tatsächlich gemacht wurde. Nicht durchgeführte Übungen einfach abhaken lassen.</p>
+
+                    <!-- Planned Exercises (left column) -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-2 bg-gray-100 px-2 py-1 rounded">📋 Geplante Übungen</h5>
+                            <div id="completion-planned-exercises" class="space-y-2">
+                                <!-- Dynamisch gefüllt -->
+                            </div>
+                        </div>
+
+                        <!-- Spontaneous Exercises (right column) -->
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-2 bg-green-100 px-2 py-1 rounded">➕ Spontane Übungen</h5>
+                            <div id="completion-spontaneous-exercises" class="space-y-2">
+                                <p class="text-xs text-gray-400 text-center py-4">Keine spontanen Übungen hinzugefügt</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- Submit -->
+                <div class="border-t pt-4">
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">
+                        <i class="fas fa-check mr-2"></i> Abschluss speichern & Punkte vergeben
+                    </button>
+                    <p id="training-completion-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Exercise Selection for Session Planning -->
+    <div id="exercise-selection-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto border w-full max-w-5xl shadow-lg rounded-md bg-white max-h-[90vh] flex flex-col">
+            <!-- Header (fixed) -->
+            <div class="p-6 pb-4 border-b bg-white rounded-t-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl leading-6 font-medium text-gray-900">Übung zum Training hinzufügen</h3>
+                    <button id="close-exercise-selection-modal-button" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <!-- Selection Counter -->
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                    <div id="exercise-selection-counter" class="text-sm">
+                        <span class="text-gray-500">Keine Übungen ausgewählt</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="flex-1 overflow-y-auto px-6 py-4">
+                <!-- Search bar -->
+                <div class="mb-3">
+                    <input
+                        type="text"
+                        id="exercise-selection-search"
+                        placeholder="🔍 Übung suchen (Name oder Tag)..."
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                </div>
+
+                <!-- Tag filters -->
+                <div class="mb-4">
+                    <div class="flex items-center gap-2 flex-wrap" id="exercise-tag-filters">
+                        <span class="text-xs text-gray-500">Filter:</span>
+                        <button type="button" class="tag-filter-btn active px-3 py-1 text-xs rounded-full border border-gray-300 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition" data-tag="all">
+                            Alle
+                        </button>
+                        <!-- Dynamisch gefüllt mit Tags -->
+                    </div>
+                </div>
+
+                <!-- Exercise grid -->
+                <div id="exercise-selection-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
+                    <!-- Dynamisch gefüllt -->
+                    <div class="col-span-full text-center py-8 text-gray-500">
+                        Lade Übungen...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer with floating button (fixed) -->
+            <div class="p-6 pt-4 border-t bg-white rounded-b-md">
+                <button type="button" id="done-selecting-exercises-button" class="w-full bg-gray-400 cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all" disabled>
+                    <i class="fas fa-check mr-2"></i> Übungen hinzufügen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Training Information -->
+    <div id="training-info-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl leading-6 font-medium text-gray-900">Trainingsinformationen</h3>
+                <button id="close-training-info-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <!-- Session Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 class="font-medium text-gray-900 mb-2">📅 Training Details</h4>
+                <div class="space-y-1 text-sm">
+                    <p><span class="text-gray-600">Gruppe:</span> <span id="training-info-subgroup" class="ml-2 font-semibold text-gray-900"></span></p>
+                    <p><span class="text-gray-600">Zeit:</span> <span id="training-info-time" class="ml-2 font-semibold text-gray-900"></span></p>
+                    <p><span class="text-gray-600">Datum:</span> <span id="training-info-date" class="ml-2 font-semibold text-gray-900"></span></p>
+                    <p id="training-info-status" class="mt-2"></p>
+                </div>
+            </div>
+
+            <!-- Planned Exercises -->
+            <div>
+                <h4 class="text-md font-medium text-gray-800 mb-3">📋 Geplante Übungen</h4>
+                <div id="training-info-exercises-list" class="space-y-2">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </div>
+
+            <!-- Close Button -->
+            <div class="mt-6">
+                <button type="button" id="close-training-info-button" class="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">
+                    Schließen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Partner Pairing for Exercise -->
+    <div id="partner-pairing-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center">
+        <div class="relative mx-auto p-6 border w-full max-w-3xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-xl leading-6 font-medium text-gray-900">Partner-Paarungen bilden</h3>
+                    <p class="text-sm text-gray-600 mt-1" id="pairing-exercise-name"></p>
+                </div>
+                <button id="close-partner-pairing-modal-button" class="text-gray-400 hover:text-gray-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 class="font-medium text-gray-900 mb-2">📝 Anleitung</h4>
+                <ul class="text-sm text-gray-700 space-y-1">
+                    <li>• <strong>Paar bilden:</strong> Klicke auf zwei Spieler → Wähle Ergebnis (Beide / Nur einer / Nicht geschafft)</li>
+                    <li>• <strong>Mit Trainer:</strong> Klicke auf einen Spieler → Button "Mit Trainer trainieren" → Wähle Ergebnis (Geschafft / Nicht geschafft)</li>
+                </ul>
+            </div>
+
+            <!-- Available Players -->
+            <div class="mb-4">
+                <h4 class="text-md font-medium text-gray-800 mb-3">Verfügbare Spieler</h4>
+                <div id="available-players-list" class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </div>
+
+            <!-- Single Player Option (when 1 player selected) -->
+            <div id="single-player-option-container" class="mb-4 hidden">
+                <!-- Dynamisch gefüllt -->
+            </div>
+
+            <!-- Formed Pairs -->
+            <div class="mb-4">
+                <h4 class="text-md font-medium text-gray-800 mb-3">Gebildete Paare</h4>
+                <div id="formed-pairs-list" class="space-y-2">
+                    <p class="text-xs text-gray-400 text-center py-4">Noch keine Paare gebildet</p>
+                </div>
+            </div>
+
+            <!-- Single Players -->
+            <div id="single-players-container" class="mb-4 hidden">
+                <h4 class="text-md font-medium text-gray-800 mb-3">Einzelspieler (mit Trainer)</h4>
+                <div id="single-players-list" class="space-y-2">
+                    <!-- Dynamisch gefüllt -->
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="border-t pt-4">
+                <button type="button" id="confirm-pairing-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">
+                    <i class="fas fa-check mr-2"></i> Paarungen bestätigen
+                </button>
+                <p id="pairing-feedback" class="mt-3 text-sm font-medium text-center"></p>
+            </div>
         </div>
     </div>
 
