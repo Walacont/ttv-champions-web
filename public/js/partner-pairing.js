@@ -539,22 +539,28 @@ export async function distributePartnerExercisePoints(pairs, singles, exercise, 
                 break;
         }
 
+        // Extract player IDs (handle both formats: {player1: {id}} and {player1Id})
+        const player1Id = pair.player1?.id || pair.player1Id;
+        const player2Id = pair.player2?.id || pair.player2Id;
+
         // Award to player 1
-        if (points1 > 0) {
-            await awardPointsToPlayer(batch, pair.player1.id, points1, exercise.name, date, subgroupId, subgroupName);
+        if (points1 > 0 && player1Id) {
+            await awardPointsToPlayer(batch, player1Id, points1, exercise.name, date, subgroupId, subgroupName);
         }
 
         // Award to player 2
-        if (points2 > 0) {
-            await awardPointsToPlayer(batch, pair.player2.id, points2, exercise.name, date, subgroupId, subgroupName);
+        if (points2 > 0 && player2Id) {
+            await awardPointsToPlayer(batch, player2Id, points2, exercise.name, date, subgroupId, subgroupName);
         }
     }
 
     // Process single players
     for (const single of singles) {
         const points = single.result === 'success' ? maxPoints : 0;
-        if (points > 0) {
-            await awardPointsToPlayer(batch, single.id, points, exercise.name, date, subgroupId, subgroupName);
+        // Extract player ID (handle both formats: {id} and {playerId})
+        const playerId = single.id || single.playerId;
+        if (points > 0 && playerId) {
+            await awardPointsToPlayer(batch, playerId, points, exercise.name, date, subgroupId, subgroupName);
         }
     }
 
