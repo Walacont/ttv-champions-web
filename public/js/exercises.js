@@ -230,10 +230,17 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     // Generate progress circle SVG
     const progressCircle = generateProgressCircle(progressPercent);
 
-    // Image or placeholder
+    // Image or placeholder with gradient background
     const imageHtml = exercise.imageUrl
         ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">`
-        : `<div class="w-full h-56 bg-gray-200 flex items-center justify-center"><span class="text-gray-400 text-4xl">📋</span></div>`;
+        : `<div class="w-full h-56 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center">
+               <div class="text-center">
+                   <svg class="w-20 h-20 mx-auto text-indigo-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                   </svg>
+                   <p class="text-xs text-indigo-400 font-medium">Übung ohne Bild</p>
+               </div>
+           </div>`;
 
     card.innerHTML = `
         ${progressCircle}
@@ -545,10 +552,17 @@ function renderCoachExercises(exercises, filterTag) {
             ? `🎯 Bis zu ${exercise.points} P.`
             : `${exercise.points} P.`;
 
-        // Image or placeholder
+        // Image or placeholder with gradient background
         const imageHtml = exercise.imageUrl
             ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
-            : `<div class="w-full h-56 bg-gray-200 flex items-center justify-center pointer-events-none"><span class="text-gray-400 text-4xl">📋</span></div>`;
+            : `<div class="w-full h-56 bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 flex items-center justify-center pointer-events-none">
+                   <div class="text-center">
+                       <svg class="w-20 h-20 mx-auto text-indigo-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                       </svg>
+                       <p class="text-xs text-indigo-400 font-medium">Übung ohne Bild</p>
+                   </div>
+               </div>`;
 
         card.innerHTML = `
             ${imageHtml}
@@ -646,8 +660,16 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     if (!modal) return;
 
     document.getElementById('modal-exercise-title').textContent = title;
-    document.getElementById('modal-exercise-image').src = imageUrl;
-    document.getElementById('modal-exercise-image').alt = title;
+
+    // Handle image display - hide if no image is provided
+    const modalImage = document.getElementById('modal-exercise-image');
+    if (imageUrl) {
+        modalImage.src = imageUrl;
+        modalImage.alt = title;
+        modalImage.style.display = 'block';
+    } else {
+        modalImage.style.display = 'none';
+    }
 
     // Render description content
     const modalDescription = document.getElementById('modal-exercise-description');
