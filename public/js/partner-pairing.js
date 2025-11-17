@@ -13,6 +13,8 @@ import {
     increment
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
+import { openExerciseSelectionModal } from './session-planning.js';
+
 let db = null;
 let currentUserData = null;
 let currentExercise = null;
@@ -97,7 +99,8 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
                     if (player) {
                         singlePlayers.push({
                             ...player,
-                            result: singleData.result
+                            result: singleData.result,
+                            customExercise: singleData.customExercise || null // Load custom exercise if exists
                         });
                     }
                 });
@@ -219,9 +222,62 @@ window.addAsSinglePlayer = function() {
     if (selectedPlayers.length !== 1) return;
 
     const player = selectedPlayers[0];
+
+    // Show exercise selection options
+    showSinglePlayerExerciseSelection(player);
+}
+
+/**
+ * Show exercise selection for single player
+ */
+function showSinglePlayerExerciseSelection(player) {
+    const container = document.getElementById('single-player-option-container');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p class="text-sm font-medium text-gray-900 mb-3">
+                ${player.firstName} ${player.lastName} trainiert mit Trainer
+            </p>
+            <p class="text-xs text-gray-600 mb-3">Welche Übung soll durchgeführt werden?</p>
+            <div class="space-y-2">
+                <button
+                    type="button"
+                    class="w-full px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-medium text-sm rounded"
+                    onclick="window.confirmSinglePlayerWithExercise(null)"
+                >
+                    <i class="fas fa-check mr-2"></i> Gleiche Übung wie alle
+                </button>
+                <button
+                    type="button"
+                    class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded"
+                    onclick="window.selectDifferentExerciseForSinglePlayer()"
+                >
+                    <i class="fas fa-list mr-2"></i> Andere Übung auswählen
+                </button>
+                <button
+                    type="button"
+                    class="w-full px-3 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 font-medium text-sm rounded"
+                    onclick="window.cancelSinglePlayerSelection()"
+                >
+                    <i class="fas fa-times mr-2"></i> Abbrechen
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Confirm single player with exercise (null = same exercise)
+ */
+window.confirmSinglePlayerWithExercise = function(customExercise) {
+    if (selectedPlayers.length !== 1) return;
+
+    const player = selectedPlayers[0];
     singlePlayers.push({
         ...player,
-        result: 'success' // Default
+        result: 'success', // Default
+        customExercise: customExercise // null = same exercise, otherwise custom exercise object
     });
     selectedPlayers = [];
 
@@ -230,6 +286,30 @@ window.addAsSinglePlayer = function() {
     renderSinglePlayerOption();
     checkSinglePlayers();
     updateConfirmButtonState();
+}
+
+/**
+ * Cancel single player selection
+ */
+window.cancelSinglePlayerSelection = function() {
+    renderSinglePlayerOption();
+}
+
+/**
+ * Select different exercise for single player
+ */
+window.selectDifferentExerciseForSinglePlayer = function() {
+    // Open exercise selection modal with callback
+    openExerciseSelectionModal((selectedExercises) => {
+        if (selectedExercises && selectedExercises.length > 0) {
+            // Use the first selected exercise
+            const exercise = selectedExercises[0];
+            window.confirmSinglePlayerWithExercise(exercise);
+        } else {
+            // User cancelled, go back to exercise selection
+            showSinglePlayerExerciseSelection(selectedPlayers[0]);
+        }
+    });
 }
 
 /**
@@ -346,12 +426,20 @@ function renderSinglePlayers() {
         const div = document.createElement('div');
         div.className = 'p-4 bg-yellow-50 border border-yellow-200 rounded-lg';
 
+        // Check if player has custom exercise
+        const exerciseInfo = player.customExercise
+            ? `<span class="text-xs text-blue-700 block mt-1">📝 Übung: ${player.customExercise.name} (+${player.customExercise.points} Pkt)</span>`
+            : `<span class="text-xs text-gray-600 block mt-1">📝 Gleiche Übung wie alle</span>`;
+
         div.innerHTML = `
             <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <span class="text-yellow-700">👤</span>
-                    <span class="font-medium text-gray-900">${player.firstName} ${player.lastName}</span>
-                    <span class="text-xs text-yellow-700">(mit Trainer)</span>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-yellow-700">👤</span>
+                        <span class="font-medium text-gray-900">${player.firstName} ${player.lastName}</span>
+                        <span class="text-xs text-yellow-700">(mit Trainer)</span>
+                    </div>
+                    ${exerciseInfo}
                 </div>
                 <button type="button" class="text-red-600 hover:text-red-800 text-sm" onclick="window.removeSinglePlayer(${index})">
                     <i class="fas fa-times"></i> Entfernen
@@ -486,7 +574,8 @@ async function confirmPairingAndDistributePoints() {
         })),
         singlePlayers: singlePlayers.map(sp => ({
             playerId: sp.id,
-            result: sp.result
+            result: sp.result,
+            customExercise: sp.customExercise || null // Save custom exercise if exists
         })),
         exercise: currentExercise
     };
@@ -564,9 +653,15 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         const points = single.result === 'success' ? maxPoints : 0;
         // Extract player ID (handle both formats: {id} and {playerId})
         const playerId = single.id || single.playerId;
-        if (points > 0 && playerId) {
+
+        // Check if player has custom exercise
+        const customExercise = single.customExercise;
+        const exerciseToUse = customExercise || exercise;
+        const customPoints = customExercise ? (single.result === 'success' ? customExercise.points : 0) : points;
+
+        if (customPoints > 0 && playerId) {
             // Single players always get 100% when successful (they only get points when they succeed)
-            await awardPointsToPlayer(batch, playerId, points, exercise.name, date, subgroupId, subgroupName, '100%');
+            await awardPointsToPlayer(batch, playerId, customPoints, exerciseToUse.name, date, subgroupId, subgroupName, '100%');
         }
     }
 
