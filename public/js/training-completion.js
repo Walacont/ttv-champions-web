@@ -199,17 +199,10 @@ function renderPlannedExercises() {
             : '<span class="text-xs text-orange-600">⚠ Paarungen fehlen</span>';
 
         div.innerHTML = `
-            <input
-                type="checkbox"
-                id="planned-${index}"
-                class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500 planned-exercise-checkbox"
-                data-index="${index}"
-                checked
-            >
-            <label for="planned-${index}" class="ml-2 flex-1 cursor-pointer text-sm text-gray-700">
-                ${exercise.name}
+            <span class="flex-1 text-sm text-gray-700">
+                📋 ${exercise.name}
                 ${badges}
-            </label>
+            </span>
             <div class="flex items-center gap-2">
                 <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
                 ${pairingStatus}
@@ -219,6 +212,13 @@ function renderPlannedExercises() {
                     onclick="window.openPairingForPlannedExercise(${index})"
                 >
                     ${hasPairings ? '✏️ Bearbeiten' : '👥 Partner wählen'}
+                </button>
+                <button
+                    type="button"
+                    class="text-red-600 hover:text-red-800 text-xs"
+                    onclick="window.removePlannedExercise(${index})"
+                >
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
         `;
@@ -258,17 +258,10 @@ function renderSpontaneousExercises() {
             : '<span class="text-xs text-orange-600">⚠ Paarungen fehlen</span>';
 
         div.innerHTML = `
-            <input
-                type="checkbox"
-                id="spontaneous-${index}"
-                class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500 spontaneous-exercise-checkbox"
-                data-index="${index}"
-                checked
-            >
-            <label for="spontaneous-${index}" class="ml-2 flex-1 cursor-pointer text-sm text-gray-700">
-                ${exercise.name}
+            <span class="flex-1 text-sm text-gray-700">
+                ⚡ ${exercise.name}
                 ${badges}
-            </label>
+            </span>
             <div class="flex items-center gap-2">
                 <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
                 ${pairingStatus}
@@ -292,6 +285,17 @@ function renderSpontaneousExercises() {
 
 
 /**
+ * Remove planned exercise
+ * @param {number} index - Index in plannedExercises array
+ */
+window.removePlannedExercise = function(index) {
+    plannedExercises.splice(index, 1);
+    exercisePairings.planned.splice(index, 1);
+    document.getElementById('completion-planned-count').textContent = plannedExercises.length;
+    renderPlannedExercises();
+};
+
+/**
  * Remove spontaneous exercise
  * @param {number} index - Index in spontaneousExercises array
  */
@@ -312,15 +316,12 @@ async function handleCompletionSubmit(e) {
     showFeedback('Verarbeite Training-Abschluss...', 'info');
 
     try {
-        // Collect checked exercises with their pairings
+        // Collect all exercises with their pairings
         const exercisesWithPairings = [];
 
         // Planned exercises
-        document.querySelectorAll('.planned-exercise-checkbox:checked').forEach(checkbox => {
-            const index = parseInt(checkbox.dataset.index);
-            const exercise = plannedExercises[index];
+        plannedExercises.forEach((exercise, index) => {
             const pairingData = exercisePairings.planned[index];
-
             exercisesWithPairings.push({
                 exercise,
                 pairingData,
@@ -330,11 +331,8 @@ async function handleCompletionSubmit(e) {
         });
 
         // Spontaneous exercises
-        document.querySelectorAll('.spontaneous-exercise-checkbox:checked').forEach(checkbox => {
-            const index = parseInt(checkbox.dataset.index);
-            const exercise = spontaneousExercises[index];
+        spontaneousExercises.forEach((exercise, index) => {
             const pairingData = exercisePairings.spontaneous[index];
-
             exercisesWithPairings.push({
                 exercise,
                 pairingData,
@@ -344,7 +342,7 @@ async function handleCompletionSubmit(e) {
         });
 
         if (exercisesWithPairings.length === 0) {
-            alert('Bitte wähle mindestens eine durchgeführte Übung aus.');
+            alert('Keine Übungen vorhanden!');
             submitBtn.disabled = false;
             clearFeedback();
             return;
@@ -597,23 +595,17 @@ function updateSubmitButtonState() {
     const submitBtn = document.getElementById('training-completion-submit');
     if (!submitBtn) return;
 
-    // Get all checked exercises
-    const checkedPlanned = Array.from(document.querySelectorAll('.planned-exercise-checkbox:checked'));
-    const checkedSpontaneous = Array.from(document.querySelectorAll('.spontaneous-exercise-checkbox:checked'));
-
-    // Check if all checked exercises have pairings
-    const allPlannedHavePairings = checkedPlanned.every(checkbox => {
-        const index = parseInt(checkbox.dataset.index);
+    // Check if all exercises have pairings
+    const allPlannedHavePairings = plannedExercises.every((exercise, index) => {
         return exercisePairings.planned[index] !== undefined && exercisePairings.planned[index] !== null;
     });
 
-    const allSpontaneousHavePairings = checkedSpontaneous.every(checkbox => {
-        const index = parseInt(checkbox.dataset.index);
+    const allSpontaneousHavePairings = spontaneousExercises.every((exercise, index) => {
         return exercisePairings.spontaneous[index] !== undefined && exercisePairings.spontaneous[index] !== null;
     });
 
     const allPairingsSet = allPlannedHavePairings && allSpontaneousHavePairings;
-    const hasAnyExercises = checkedPlanned.length > 0 || checkedSpontaneous.length > 0;
+    const hasAnyExercises = plannedExercises.length > 0 || spontaneousExercises.length > 0;
 
     // Enable button only if all pairings are set and there's at least one exercise
     if (allPairingsSet && hasAnyExercises) {
