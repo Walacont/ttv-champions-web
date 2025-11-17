@@ -1603,6 +1603,13 @@
                 </button>
             </div>
 
+            <!-- Selection Counter -->
+            <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+                <div id="exercise-selection-counter" class="text-sm">
+                    <span class="text-gray-500">Keine Übungen ausgewählt</span>
+                </div>
+            </div>
+
             <!-- Search bar -->
             <div class="mb-3">
                 <input
@@ -1634,8 +1641,8 @@
 
             <!-- Close button -->
             <div class="mt-6 border-t pt-4">
-                <button type="button" id="done-selecting-exercises-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">
-                    <i class="fas fa-check mr-2"></i> Fertig - Übungen übernommen
+                <button type="button" id="done-selecting-exercises-button" class="w-full bg-gray-400 cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg" disabled>
+                    <i class="fas fa-check mr-2"></i> Übungen hinzufügen
                 </button>
             </div>
         </div>

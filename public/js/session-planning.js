@@ -15,6 +15,7 @@ let selectedExercises = []; // Array of {exerciseId, name, points, tieredPoints,
 let allExercisesForSelection = []; // All exercises loaded from database
 let currentTagFilter = 'all'; // Current active tag filter
 let modalCallback = null; // Callback function for when an exercise is selected
+let tempModalSelection = []; // Temporary selection for modal (used in both modes)
 
 /**
  * Initialize the session planning module
@@ -58,6 +59,9 @@ export function openExerciseSelectionModal(callback = null) {
     // Set callback (null means use default session planning behavior)
     modalCallback = callback;
 
+    // Reset temporary selection
+    tempModalSelection = [];
+
     // Reset filter
     currentTagFilter = 'all';
 
@@ -66,6 +70,9 @@ export function openExerciseSelectionModal(callback = null) {
 
     // Render exercises
     renderExerciseSelectionGrid();
+
+    // Update counter
+    updateSelectionCounter();
 
     // Show modal
     modal.classList.remove('hidden');
@@ -152,6 +159,7 @@ export function closeExerciseSelectionModal() {
     }
     currentTagFilter = 'all';
     modalCallback = null; // Reset callback
+    tempModalSelection = []; // Reset temporary selection
 }
 
 /**
@@ -187,9 +195,16 @@ function renderExerciseSelectionGrid(searchTerm = '') {
     grid.innerHTML = '';
 
     exercises.forEach(exercise => {
+        // Check if this exercise is in temporary selection
+        const isSelected = tempModalSelection.find(ex => ex.exerciseId === exercise.id);
+
         const card = document.createElement('div');
-        card.className = 'relative border rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer';
-        card.onclick = () => addExerciseFromModal(exercise.id);
+        card.className = `relative border-2 rounded-lg overflow-hidden hover:shadow-lg transition-all cursor-pointer ${
+            isSelected
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-200 hover:border-indigo-300'
+        }`;
+        card.onclick = () => toggleExerciseSelection(exercise);
 
         // System badges (top corners)
         let systemBadges = '';
@@ -213,7 +228,14 @@ function renderExerciseSelectionGrid(searchTerm = '') {
             tagsHtml += '</div>';
         }
 
+        // Selection indicator
+        let selectionIndicator = '';
+        if (isSelected) {
+            selectionIndicator = '<div class="absolute top-2 left-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"><i class="fas fa-check"></i></div>';
+        }
+
         card.innerHTML = `
+            ${selectionIndicator}
             ${systemBadges}
             <img src="${exercise.imageUrl || '/images/placeholder.png'}" alt="${exercise.title}" class="w-full h-40 object-cover">
             <div class="p-3">
@@ -230,7 +252,92 @@ function renderExerciseSelectionGrid(searchTerm = '') {
 }
 
 /**
- * Add exercise from modal
+ * Toggle exercise selection in modal
+ * @param {Object} exercise - Exercise object
+ */
+function toggleExerciseSelection(exercise) {
+    const existingIndex = tempModalSelection.findIndex(ex => ex.exerciseId === exercise.id);
+
+    if (existingIndex >= 0) {
+        // Deselect - remove from temp selection
+        tempModalSelection.splice(existingIndex, 1);
+    } else {
+        // Select - add to temp selection
+        tempModalSelection.push({
+            exerciseId: exercise.id,
+            name: exercise.title,
+            points: exercise.points || 0,
+            tieredPoints: exercise.tieredPoints?.enabled || false,
+            partnerSystem: exercise.partnerSystem?.enabled || false
+        });
+    }
+
+    // Re-render grid to show selection state
+    const searchInput = document.getElementById('exercise-selection-search');
+    renderExerciseSelectionGrid(searchInput ? searchInput.value : '');
+
+    // Update counter
+    updateSelectionCounter();
+}
+
+/**
+ * Update selection counter display
+ */
+function updateSelectionCounter() {
+    const counterElement = document.getElementById('exercise-selection-counter');
+    const doneButton = document.getElementById('done-selecting-exercises-button');
+
+    if (counterElement) {
+        const count = tempModalSelection.length;
+        if (count > 0) {
+            counterElement.innerHTML = `<span class="text-green-600 font-semibold">${count} Übung${count > 1 ? 'en' : ''} ausgewählt</span>`;
+        } else {
+            counterElement.innerHTML = '<span class="text-gray-500">Keine Übungen ausgewählt</span>';
+        }
+    }
+
+    if (doneButton) {
+        const count = tempModalSelection.length;
+        if (count > 0) {
+            doneButton.innerHTML = `<i class="fas fa-check mr-2"></i> ${count} Übung${count > 1 ? 'en' : ''} hinzufügen`;
+            doneButton.disabled = false;
+            doneButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+            doneButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+        } else {
+            doneButton.innerHTML = '<i class="fas fa-check mr-2"></i> Übungen hinzufügen';
+            doneButton.disabled = true;
+            doneButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            doneButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+        }
+    }
+}
+
+/**
+ * Confirm selection and close modal
+ */
+function confirmSelectionAndClose() {
+    if (tempModalSelection.length === 0) {
+        return; // Nothing to add
+    }
+
+    if (modalCallback) {
+        // Callback mode: Pass each selected exercise to the callback
+        tempModalSelection.forEach(exercise => {
+            modalCallback(exercise);
+        });
+    } else {
+        // Session planning mode: Add all to selectedExercises
+        tempModalSelection.forEach(exercise => {
+            selectedExercises.push(exercise);
+        });
+        renderSelectedExercises();
+    }
+
+    closeExerciseSelectionModal();
+}
+
+/**
+ * Add exercise from modal (DEPRECATED - keeping for compatibility)
  * @param {string} exerciseId - Exercise ID
  */
 function addExerciseFromModal(exerciseId) {
@@ -368,7 +475,7 @@ export function initializeSessionPlanningListeners() {
     // Done selecting exercises button
     const doneButton = document.getElementById('done-selecting-exercises-button');
     if (doneButton) {
-        doneButton.addEventListener('click', closeExerciseSelectionModal);
+        doneButton.addEventListener('click', confirmSelectionAndClose);
     }
 
     // Search input in exercise selection modal
