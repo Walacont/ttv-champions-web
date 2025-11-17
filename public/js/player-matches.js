@@ -449,9 +449,6 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         return bTime - aTime; // Most recent first
       });
 
-      // Debug logging
-      }
-
       await renderPendingRequests(pendingRequests, userData, db);
       await renderHistoryRequests(historyRequests, userData, db);
 
