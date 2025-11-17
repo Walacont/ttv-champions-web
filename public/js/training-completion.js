@@ -404,10 +404,10 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
         }
 
         // Regular exercises: use saved pairing data to distribute points
-        if (pairingData && pairingData.pairs && pairingData.singlePlayers) {
+        if (pairingData && (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)) {
             await distributePartnerExercisePoints(
-                pairingData.pairs,
-                pairingData.singlePlayers,
+                pairingData.pairs || [],
+                pairingData.singlePlayers || [],
                 exercise,
                 currentSessionData
             );
