@@ -301,20 +301,41 @@ window.cancelSinglePlayerSelection = function() {
 window.selectDifferentExerciseForSinglePlayer = function() {
     // Save the player reference before opening modal
     const playerToAdd = selectedPlayers[0];
-    if (!playerToAdd) return;
+    if (!playerToAdd) {
+        console.log('[Exercise Pairing] No player selected');
+        return;
+    }
+
+    console.log('[Exercise Pairing] Opening exercise modal for player:', playerToAdd.firstName, playerToAdd.lastName);
+
+    // Track if callback was called
+    let exerciseSelected = false;
 
     // Open exercise selection modal with callback
-    openExerciseSelectionModal((selectedExercises) => {
-        if (selectedExercises && selectedExercises.length > 0) {
-            // Use the first selected exercise
-            const exercise = selectedExercises[0];
+    // NOTE: The callback receives a single exercise object, NOT an array
+    openExerciseSelectionModal((exercise) => {
+        console.log('[Exercise Pairing] Modal callback triggered with exercise:', exercise);
+
+        if (exercise) {
+            exerciseSelected = true;
+            console.log('[Exercise Pairing] Selected exercise:', exercise.title, 'Points:', exercise.points);
+
+            // Convert exercise to the format we need
+            const customExercise = {
+                exerciseId: exercise.id,
+                name: exercise.title,
+                points: exercise.points || 0,
+                tieredPoints: exercise.tieredPoints?.enabled || false
+            };
 
             // Add player to single players with custom exercise
             singlePlayers.push({
                 ...playerToAdd,
                 result: 'success', // Default
-                customExercise: exercise
+                customExercise: customExercise
             });
+
+            console.log('[Exercise Pairing] Single players after adding:', singlePlayers.length);
 
             // Remove from selected players
             const index = selectedPlayers.indexOf(playerToAdd);
@@ -323,16 +344,13 @@ window.selectDifferentExerciseForSinglePlayer = function() {
             }
 
             // Update UI
+            console.log('[Exercise Pairing] Updating UI...');
             renderAvailablePlayers();
             renderSinglePlayers();
             renderSinglePlayerOption();
             checkSinglePlayers();
             updateConfirmButtonState();
-        } else {
-            // User cancelled, go back to exercise selection if player still selected
-            if (selectedPlayers.length === 1) {
-                showSinglePlayerExerciseSelection(selectedPlayers[0]);
-            }
+            console.log('[Exercise Pairing] UI updated');
         }
     });
 }
