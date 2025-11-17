@@ -892,7 +892,6 @@ async function handleExerciseChallengeChange(db, type) {
 
         // Get player ID (may be null)
         const playerId = playerSelect?.value;
-        console.log('Player ID:', playerId);
 
         // Get player's current progress (only if player is selected)
         let playerProgress = { currentCount: 0 };
