@@ -212,13 +212,14 @@ function setupEventListeners() {
 
     // Listen for training completion events to reload session selection modal
     window.addEventListener('trainingCompleted', async (event) => {
-        // Reload the modal with fresh data
+        // Reload the modal with fresh data from server (bypass cache)
         const dateDisplay = document.getElementById('session-selection-date');
         const dateStr = dateDisplay?.getAttribute('data-date');
 
         if (dateStr) {
             try {
-                const sessions = await getSessionsForDate(currentUserData.clubId, dateStr);
+                // Force server fetch to get latest completed status
+                const sessions = await getSessionsForDate(currentUserData.clubId, dateStr, true);
                 window.openSessionSelectionModalFromCalendar(dateStr, sessions);
             } catch (error) {
                 console.error('Error reloading sessions after completion:', error);
@@ -840,11 +841,12 @@ window.handleCancelSessionFromModal = async function(sessionId) {
     try {
         await cancelTrainingSession(sessionId);
 
-        // Reload the current modal
+        // Reload the current modal with fresh data
         const dateDisplay = document.getElementById('session-selection-date');
         const dateStr = dateDisplay.getAttribute('data-date') || parseDateGerman(dateDisplay.textContent);
         if (dateStr) {
-            const sessions = await getSessionsForDate(currentUserData.clubId, dateStr);
+            // Force server fetch to get updated cancelled status
+            const sessions = await getSessionsForDate(currentUserData.clubId, dateStr, true);
             window.openSessionSelectionModalFromCalendar(dateStr, sessions);
         }
 

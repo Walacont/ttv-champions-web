@@ -10,6 +10,7 @@ import {
     updateDoc,
     deleteDoc,
     getDocs,
+    getDocsFromServer,
     getDoc,
     query,
     where,
@@ -229,9 +230,10 @@ export async function getTrainingSessions(clubId, startDate, endDate) {
  * Get all sessions for a specific date
  * @param {string} clubId
  * @param {string} date - YYYY-MM-DD
+ * @param {boolean} forceServerFetch - If true, bypass cache and fetch from server
  * @returns {Promise<Array>} Sessions
  */
-export async function getSessionsForDate(clubId, date) {
+export async function getSessionsForDate(clubId, date, forceServerFetch = false) {
     const q = query(
         collection(db, 'trainingSessions'),
         where('clubId', '==', clubId),
@@ -240,7 +242,8 @@ export async function getSessionsForDate(clubId, date) {
         orderBy('startTime', 'asc')
     );
 
-    const snapshot = await getDocs(q);
+    // Use getDocsFromServer to bypass cache when needed (e.g., after updating a session)
+    const snapshot = forceServerFetch ? await getDocsFromServer(q) : await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
