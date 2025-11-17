@@ -216,7 +216,7 @@ function handlePlayerClick(player) {
 }
 
 /**
- * Add selected player as single player (with trainer)
+ * Add selected player as single player (training alone)
  */
 window.addAsSinglePlayer = function() {
     if (selectedPlayers.length !== 1) return;
@@ -237,7 +237,7 @@ function showSinglePlayerExerciseSelection(player) {
     container.innerHTML = `
         <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p class="text-sm font-medium text-gray-900 mb-3">
-                ${player.firstName} ${player.lastName} trainiert mit Trainer
+                ${player.firstName} ${player.lastName} trainiert alleine
             </p>
             <p class="text-xs text-gray-600 mb-3">Welche Übung soll durchgeführt werden?</p>
             <div class="space-y-2">
@@ -332,7 +332,7 @@ function renderSinglePlayerOption() {
                     class="w-full px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium text-sm rounded"
                     onclick="window.addAsSinglePlayer()"
                 >
-                    <i class="fas fa-user-check mr-2"></i> Mit Trainer trainieren
+                    <i class="fas fa-user-check mr-2"></i> Alleine trainieren
                 </button>
             </div>
         `;
@@ -437,7 +437,7 @@ function renderSinglePlayers() {
                     <div class="flex items-center gap-2">
                         <span class="text-yellow-700">👤</span>
                         <span class="font-medium text-gray-900">${player.firstName} ${player.lastName}</span>
-                        <span class="text-xs text-yellow-700">(mit Trainer)</span>
+                        <span class="text-xs text-yellow-700">(alleine)</span>
                     </div>
                     ${exerciseInfo}
                 </div>
