@@ -74,6 +74,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData) {
         renderAvailablePlayers();
         renderFormedPairs();
         renderSinglePlayers();
+        renderSinglePlayerOption();
 
         // Show modal
         const modal = document.getElementById('partner-pairing-modal');
@@ -163,7 +164,57 @@ function handlePlayerClick(player) {
 
     renderAvailablePlayers();
     renderFormedPairs();
+    renderSinglePlayerOption();
     checkSinglePlayers();
+}
+
+/**
+ * Add selected player as single player (with trainer)
+ */
+window.addAsSinglePlayer = function() {
+    if (selectedPlayers.length !== 1) return;
+
+    const player = selectedPlayers[0];
+    singlePlayers.push({
+        ...player,
+        result: 'success' // Default
+    });
+    selectedPlayers = [];
+
+    renderAvailablePlayers();
+    renderSinglePlayers();
+    renderSinglePlayerOption();
+    checkSinglePlayers();
+}
+
+/**
+ * Render single player option button (when exactly 1 player is selected)
+ */
+function renderSinglePlayerOption() {
+    const container = document.getElementById('single-player-option-container');
+    if (!container) return;
+
+    if (selectedPlayers.length === 1) {
+        const player = selectedPlayers[0];
+        container.classList.remove('hidden');
+        container.innerHTML = `
+            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-sm text-gray-700 mb-2">
+                    <strong>${player.firstName} ${player.lastName}</strong> ausgewählt
+                </p>
+                <button
+                    type="button"
+                    class="w-full px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium text-sm rounded"
+                    onclick="window.addAsSinglePlayer()"
+                >
+                    <i class="fas fa-user-check mr-2"></i> Mit Trainer trainieren
+                </button>
+            </div>
+        `;
+    } else {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+    }
 }
 
 /**
@@ -289,6 +340,7 @@ window.removePair = function(index) {
     formedPairs.splice(index, 1);
     renderAvailablePlayers();
     renderFormedPairs();
+    renderSinglePlayerOption();
     checkSinglePlayers();
 };
 
@@ -307,6 +359,7 @@ window.removeSinglePlayer = function(index) {
     singlePlayers.splice(index, 1);
     renderAvailablePlayers();
     renderSinglePlayers();
+    renderSinglePlayerOption();
 };
 
 /**
@@ -328,12 +381,12 @@ async function confirmPairingAndDistributePoints() {
     // Return pairing data without distributing points immediately
     const pairingData = {
         pairs: formedPairs.map(pair => ({
-            player1Id: pair.player1Id,
-            player2Id: pair.player2Id,
+            player1Id: pair.player1.id,
+            player2Id: pair.player2.id,
             result: pair.result
         })),
         singlePlayers: singlePlayers.map(sp => ({
-            playerId: sp.playerId,
+            playerId: sp.id,
             result: sp.result
         })),
         exercise: currentExercise

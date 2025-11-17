@@ -1682,9 +1682,8 @@
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <h4 class="font-medium text-gray-900 mb-2">📝 Anleitung</h4>
                 <ul class="text-sm text-gray-700 space-y-1">
-                    <li>• Klicke auf zwei Spieler um ein Paar zu bilden</li>
-                    <li>• Wähle das Ergebnis: Geschafft / Nur einer / Nicht geschafft</li>
-                    <li>• Einzelne Spieler (mit Trainer): Geschafft / Nicht geschafft</li>
+                    <li>• <strong>Paar bilden:</strong> Klicke auf zwei Spieler → Wähle Ergebnis (Beide / Nur einer / Nicht geschafft)</li>
+                    <li>• <strong>Mit Trainer:</strong> Klicke auf einen Spieler → Button "Mit Trainer trainieren" → Wähle Ergebnis (Geschafft / Nicht geschafft)</li>
                 </ul>
             </div>
 
@@ -1694,6 +1693,11 @@
                 <div id="available-players-list" class="grid grid-cols-2 md:grid-cols-3 gap-2">
                     <!-- Dynamisch gefüllt -->
                 </div>
+            </div>
+
+            <!-- Single Player Option (when 1 player selected) -->
+            <div id="single-player-option-container" class="mb-4 hidden">
+                <!-- Dynamisch gefüllt -->
             </div>
 
             <!-- Formed Pairs -->
