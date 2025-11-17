@@ -100,6 +100,9 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData) {
         } else {
             console.error('[Partner Pairing] Confirm button not found in DOM!');
         }
+
+        // Update button state initially
+        updateConfirmButtonState();
     });
 }
 
@@ -166,6 +169,7 @@ function handlePlayerClick(player) {
     renderFormedPairs();
     renderSinglePlayerOption();
     checkSinglePlayers();
+    updateConfirmButtonState();
 }
 
 /**
@@ -185,6 +189,7 @@ window.addAsSinglePlayer = function() {
     renderSinglePlayers();
     renderSinglePlayerOption();
     checkSinglePlayers();
+    updateConfirmButtonState();
 }
 
 /**
@@ -342,6 +347,7 @@ window.removePair = function(index) {
     renderFormedPairs();
     renderSinglePlayerOption();
     checkSinglePlayers();
+    updateConfirmButtonState();
 };
 
 /**
@@ -360,7 +366,49 @@ window.removeSinglePlayer = function(index) {
     renderAvailablePlayers();
     renderSinglePlayers();
     renderSinglePlayerOption();
+    updateConfirmButtonState();
 };
+
+/**
+ * Update confirm button state based on whether all players are assigned
+ */
+function updateConfirmButtonState() {
+    const confirmBtn = document.getElementById('confirm-pairing-button');
+    if (!confirmBtn) return;
+
+    // Count assigned players
+    const pairedPlayersCount = formedPairs.length * 2;
+    const singlePlayersCount = singlePlayers.length;
+    const assignedPlayersCount = pairedPlayersCount + singlePlayersCount;
+
+    // Count total players
+    const totalPlayers = availablePlayers.length;
+    const remainingPlayers = totalPlayers - assignedPlayersCount;
+
+    console.log('[Partner Pairing] Total players:', totalPlayers);
+    console.log('[Partner Pairing] Assigned players:', assignedPlayersCount);
+    console.log('[Partner Pairing] Remaining players:', remainingPlayers);
+
+    // Update button state
+    if (remainingPlayers === 0 && assignedPlayersCount > 0) {
+        // All players assigned - enable button
+        confirmBtn.disabled = false;
+        confirmBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        confirmBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+        confirmBtn.innerHTML = '<i class="fas fa-check mr-2"></i> Paarungen bestätigen';
+    } else {
+        // Not all players assigned - disable button
+        confirmBtn.disabled = true;
+        confirmBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+        confirmBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+
+        if (remainingPlayers > 0) {
+            confirmBtn.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i> Noch ${remainingPlayers} Spieler nicht zugeordnet`;
+        } else {
+            confirmBtn.innerHTML = '<i class="fas fa-users mr-2"></i> Bitte Paarungen bilden';
+        }
+    }
+}
 
 /**
  * Confirm pairing and distribute points
@@ -373,6 +421,17 @@ async function confirmPairingAndDistributePoints() {
     const confirmBtn = document.getElementById('confirm-pairing-button');
     if (!confirmBtn) {
         console.error('[Partner Pairing] Confirm button not found!');
+        return;
+    }
+
+    // Validate all players are assigned
+    const pairedPlayersCount = formedPairs.length * 2;
+    const singlePlayersCount = singlePlayers.length;
+    const assignedPlayersCount = pairedPlayersCount + singlePlayersCount;
+    const totalPlayers = availablePlayers.length;
+
+    if (assignedPlayersCount !== totalPlayers) {
+        showPairingFeedback(`Bitte alle ${totalPlayers} Spieler zuordnen!`, 'error');
         return;
     }
 
