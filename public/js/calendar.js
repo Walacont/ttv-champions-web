@@ -71,28 +71,15 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         orderBy('date', 'desc')
     );
 
-    // NEW: Also load training sessions to show multiple sessions per day
+    // NEW: Set up real-time listeners for both sessions and attendance
     let allSessionsCache = [];
-    async function loadSessions() {
+    let allClubTrainingsCache = [];
+    let unsubscribeAttendance = () => {};
+    let unsubscribeSessions = () => {};
+
+    // Load subgroups for color mapping
+    async function loadSubgroups() {
         try {
-            const startDate = new Date(year, month, 1).toISOString().split('T')[0];
-            const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
-
-            const sessionsQuery = query(
-                collection(db, 'trainingSessions'),
-                where('clubId', '==', currentUserData.clubId),
-                where('date', '>=', startDate),
-                where('date', '<=', endDate),
-                where('cancelled', '==', false)
-            );
-
-            const sessionsSnapshot = await getDocs(sessionsQuery);
-            allSessionsCache = sessionsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-
-            // Load subgroups for color mapping
             const subgroupsSnapshot = await getDocs(query(
                 collection(db, 'subgroups'),
                 where('clubId', '==', currentUserData.clubId)
@@ -106,61 +93,58 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
                 });
             });
         } catch (error) {
-            console.error("Error loading sessions:", error);
+            console.error("Error loading subgroups:", error);
         }
     }
 
-    // Load sessions first, then set up attendance listener
-    let unsubscribe = () => {};
-    loadSessions().then(() => {
-        unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const allClubTrainings = querySnapshot.docs.map(doc => doc.data());
+    // Render calendar function that gets called when data changes
+    function renderCalendarGrid() {
+        const allClubTrainings = allClubTrainingsCache;
+        // Filter trainings by subgroup if a specific subgroup is selected
+        let filteredTrainings = allClubTrainings;
+        if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+            // Filter to only show trainings for the selected subgroup
+            filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
+        }
 
-            // Filter trainings by subgroup if a specific subgroup is selected
-            let filteredTrainings = allClubTrainings;
-            if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-                // Filter to only show trainings for the selected subgroup
-                filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
+        // Get all trainings for the player's subgroups (for missed training detection)
+        const userSubgroups = currentUserData.subgroupIDs || [];
+        const relevantTrainings = allClubTrainings.filter(training => {
+            // If no subgroups assigned, all trainings are relevant
+            if (userSubgroups.length === 0) return true;
+            // Otherwise, only trainings for the player's subgroups are relevant
+            return training.subgroupId && userSubgroups.includes(training.subgroupId);
+        });
+
+        const presentDatesSet = new Set();
+        const missedDatesSet = new Set();
+        const sessionsPerDay = new Map(); // Track sessions per day
+
+        // Build sessions per day map from cache
+        allSessionsCache.forEach(session => {
+            const dateKey = session.date;
+            if (!sessionsPerDay.has(dateKey)) {
+                sessionsPerDay.set(dateKey, []);
             }
 
-            // Get all trainings for the player's subgroups (for missed training detection)
-            const userSubgroups = currentUserData.subgroupIDs || [];
-            const relevantTrainings = allClubTrainings.filter(training => {
-                // If no subgroups assigned, all trainings are relevant
-                if (userSubgroups.length === 0) return true;
-                // Otherwise, only trainings for the player's subgroups are relevant
-                return training.subgroupId && userSubgroups.includes(training.subgroupId);
-            });
+            // Only include sessions for player's subgroups
+            if (userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)) {
+                sessionsPerDay.get(dateKey).push(session);
+            }
+        });
 
-            const presentDatesSet = new Set();
-            const missedDatesSet = new Set();
-            const sessionsPerDay = new Map(); // NEW: Track sessions per day
+        filteredTrainings.forEach(training => {
+            if (training.presentPlayerIds.includes(currentUserData.id)) {
+                presentDatesSet.add(training.date);
+            }
+        });
 
-            // NEW: Build sessions per day map
-            allSessionsCache.forEach(session => {
-                const dateKey = session.date;
-                if (!sessionsPerDay.has(dateKey)) {
-                    sessionsPerDay.set(dateKey, []);
-                }
-
-                // Only include sessions for player's subgroups
-                if (userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)) {
-                    sessionsPerDay.get(dateKey).push(session);
-                }
-            });
-
-            filteredTrainings.forEach(training => {
-                if (training.presentPlayerIds.includes(currentUserData.id)) {
-                    presentDatesSet.add(training.date);
-                }
-            });
-
-            // Identify missed trainings (relevant trainings where player was not present)
-            relevantTrainings.forEach(training => {
-                if (!training.presentPlayerIds.includes(currentUserData.id)) {
-                    missedDatesSet.add(training.date);
-                }
-            });
+        // Identify missed trainings (relevant trainings where player was not present)
+        relevantTrainings.forEach(training => {
+            if (!training.presentPlayerIds.includes(currentUserData.id)) {
+                missedDatesSet.add(training.date);
+            }
+        });
 
         const trainingDaysThisMonth = Array.from(presentDatesSet).filter(d => {
             const trainingDate = new Date(d + 'T12:00:00');
@@ -298,13 +282,51 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
             calendarGrid.appendChild(dayCell);
         }
+    }
+
+    // Load subgroups first, then set up real-time listeners
+    loadSubgroups().then(() => {
+        // Set up real-time listener for training sessions
+        const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+        const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+        const sessionsQuery = query(
+            collection(db, 'trainingSessions'),
+            where('clubId', '==', currentUserData.clubId),
+            where('date', '>=', startDate),
+            where('date', '<=', endDate),
+            where('cancelled', '==', false)
+        );
+
+        unsubscribeSessions = onSnapshot(sessionsQuery, (sessionsSnapshot) => {
+            console.log('[Calendar] Training sessions updated in real-time');
+            allSessionsCache = sessionsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // Re-render calendar with updated sessions
+            renderCalendarGrid();
+        }, (error) => {
+            console.error("Error loading sessions:", error);
+        });
+
+        // Set up real-time listener for attendance data
+        unsubscribeAttendance = onSnapshot(q, (querySnapshot) => {
+            console.log('[Calendar] Attendance data updated in real-time');
+            allClubTrainingsCache = querySnapshot.docs.map(doc => doc.data());
+            renderCalendarGrid();
         }, (error) => {
             console.error("Fehler beim Laden der Anwesenheitsdaten:", error);
             calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8 text-red-500">Fehler beim Laden der Daten</div>';
         });
     });
 
-    return unsubscribe;
+    // Return combined unsubscribe function
+    return () => {
+        unsubscribeAttendance();
+        unsubscribeSessions();
+    };
 }
 
 /**
