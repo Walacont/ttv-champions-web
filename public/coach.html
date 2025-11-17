@@ -1497,13 +1497,18 @@
                     </div>
 
                     <!-- Exercise Selection -->
-                    <div class="flex gap-2">
-                        <select id="session-exercise-select" class="flex-1 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
-                            <option value="">Übung auswählen...</option>
-                            <!-- Dynamisch gefüllt -->
-                        </select>
-                        <button type="button" id="add-session-exercise-button" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">
-                            <i class="fas fa-plus"></i> Hinzufügen
+                    <div class="space-y-2">
+                        <div class="flex gap-2">
+                            <select id="session-exercise-select" class="flex-1 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-md">
+                                <option value="">Übung auswählen...</option>
+                                <!-- Dynamisch gefüllt -->
+                            </select>
+                            <button type="button" id="add-session-exercise-button" class="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">
+                                <i class="fas fa-plus"></i> Hinzufügen
+                            </button>
+                        </div>
+                        <button type="button" id="create-new-exercise-from-session-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">
+                            <i class="fas fa-plus-circle mr-2"></i> Neue Übung erstellen
                         </button>
                     </div>
                 </div>

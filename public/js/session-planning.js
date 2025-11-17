@@ -205,6 +205,46 @@ export function initializeSessionPlanningListeners() {
         console.warn('[Session Planning] Button "add-session-exercise-button" not found');
     }
 
+    // Create new exercise button
+    const createButton = document.getElementById('create-new-exercise-from-session-button');
+    if (createButton) {
+        createButton.addEventListener('click', openCreateExerciseModal);
+        console.log('[Session Planning] Event listener attached to create-new-exercise-from-session-button');
+    } else {
+        console.warn('[Session Planning] Button "create-new-exercise-from-session-button" not found');
+    }
+
     // Make remove function globally available
     window.removeExerciseFromSessionPlan = removeExerciseFromList;
+}
+
+/**
+ * Open the exercise modal to create a new exercise
+ */
+function openCreateExerciseModal() {
+    // Close the spontaneous session modal first
+    const sessionModal = document.getElementById('spontaneous-session-modal');
+    if (sessionModal) {
+        sessionModal.classList.add('hidden');
+        sessionModal.classList.remove('flex');
+    }
+
+    // Switch to "Übungen verwalten" tab
+    const exercisesTab = document.querySelector('[data-tab="exercises"]');
+    if (exercisesTab) {
+        exercisesTab.click();
+
+        // Scroll to the create exercise form
+        setTimeout(() => {
+            const createForm = document.getElementById('create-exercise-form');
+            if (createForm) {
+                createForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Focus on the title input
+                const titleInput = document.getElementById('exercise-title-form');
+                if (titleInput) titleInput.focus();
+            }
+        }, 300);
+    } else {
+        alert('Konnte nicht zum Übungen-Tab wechseln. Bitte öffne manuell den "Übungen verwalten"-Tab.');
+    }
 }
