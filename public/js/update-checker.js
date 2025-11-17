@@ -23,6 +23,10 @@ async function initializeUpdateChecker() {
         const storedVersion = localStorage.getItem('app_version');
         if (!storedVersion) {
             localStorage.setItem('app_version', currentVersion);
+        } else if (storedVersion === currentVersion) {
+            // If versions match, update timestamp to current version
+            // This ensures we're in sync after a reload
+            localStorage.setItem('app_version', currentVersion);
         }
 
         // Start periodic check
@@ -122,17 +126,37 @@ function showUpdateBanner(message) {
     document.body.prepend(banner);
 
     // Add event listeners
-    document.getElementById('update-reload-btn').addEventListener('click', () => {
+    document.getElementById('update-reload-btn').addEventListener('click', async () => {
+        // Update stored version BEFORE reload to prevent banner from showing again
+        try {
+            const response = await fetch('/version.json?' + Date.now());
+            const versionData = await response.json();
+            localStorage.setItem('app_version', versionData.version);
+        } catch (error) {
+            // If fetch fails, still reload
+        }
+
         // Clear cache and reload
         if ('caches' in window) {
             caches.keys().then(names => {
                 names.forEach(name => caches.delete(name));
+            }).then(() => {
+                location.reload(true);
             });
+        } else {
+            location.reload(true);
         }
-        location.reload(true);
     });
 
-    document.getElementById('update-dismiss-btn').addEventListener('click', () => {
+    document.getElementById('update-dismiss-btn').addEventListener('click', async () => {
+        // Update stored version to prevent banner from showing again
+        try {
+            const response = await fetch('/version.json?' + Date.now());
+            const versionData = await response.json();
+            localStorage.setItem('app_version', versionData.version);
+        } catch (error) {
+            // Silent fail
+        }
         banner.remove();
     });
 }
