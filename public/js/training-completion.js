@@ -18,6 +18,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
+import { initializePartnerPairing, openPartnerPairingModal } from './partner-pairing.js';
 
 let db = null;
 let currentUserData = null;
@@ -36,6 +37,7 @@ export function initializeTrainingCompletion(firestoreInstance, userData) {
     db = firestoreInstance;
     currentUserData = userData;
     setupEventListeners();
+    initializePartnerPairing(firestoreInstance, userData);
 }
 
 /**
@@ -361,10 +363,14 @@ async function processIntelligentPointsDistribution(exercises) {
         console.warn('[Training Completion] Milestone exercises found, but input not yet implemented:', milestoneExercises);
     }
 
-    // PHASE 3: Partner exercises (manual handling required)
+    // PHASE 3: Partner exercises (pairing required)
     if (partnerExercises.length > 0) {
-        console.warn('[Training Completion] Partner exercises found, please handle manually:', partnerExercises);
-        alert(`⚠️ ${partnerExercises.length} Partner-Übung(en) gefunden.\n\nBitte vergib diese manuell im "Punkte vergeben"-Tab.`);
+        console.log('[Training Completion] Partner exercises found, opening pairing modals');
+
+        // Process each partner exercise one by one
+        for (const exercise of partnerExercises) {
+            await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData);
+        }
     }
 }
 
