@@ -798,10 +798,14 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
         try {
             await deleteDoc(doc(db, "exercises", exerciseId));
 
-            // Only delete image if it exists
-            if (imageUrl) {
-                const imageRef = ref(storage, imageUrl);
-                await deleteObject(imageRef);
+            // Only delete image if it exists and is a valid URL
+            if (imageUrl && imageUrl !== 'undefined' && imageUrl.trim() !== '') {
+                try {
+                    const imageRef = ref(storage, imageUrl);
+                    await deleteObject(imageRef);
+                } catch (storageError) {
+                    console.warn('Image could not be deleted, but exercise was removed:', storageError);
+                }
             }
 
             alert("Übung erfolgreich gelöscht.");
