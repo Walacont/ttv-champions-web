@@ -348,22 +348,31 @@ export function loadAllExercises(db) {
     const exercisesListCoachEl = document.getElementById('exercises-list-coach');
     if (!exercisesListCoachEl) return;
 
-    onSnapshot(query(collection(db, "exercises"), orderBy("createdAt", "desc")), (snapshot) => {
-        const exercises = [];
-        const allTags = new Set();
+    onSnapshot(
+        query(collection(db, "exercises"), orderBy("createdAt", "desc")),
+        (snapshot) => {
+            const exercises = [];
+            const allTags = new Set();
 
-        snapshot.forEach(doc => {
-            const exercise = { id: doc.id, ...doc.data() };
-            exercises.push(exercise);
-            (exercise.tags || []).forEach(tag => allTags.add(tag));
-        });
+            snapshot.forEach(doc => {
+                const exercise = { id: doc.id, ...doc.data() };
+                exercises.push(exercise);
+                (exercise.tags || []).forEach(tag => allTags.add(tag));
+            });
 
-        // Render tag filters for coach
-        renderTagFiltersCoach(allTags, exercises);
+            // Render tag filters for coach
+            renderTagFiltersCoach(allTags, exercises);
 
-        // Render all exercises initially
-        renderCoachExercises(exercises, 'all');
-    });
+            // Render all exercises initially
+            renderCoachExercises(exercises, 'all');
+        },
+        (error) => {
+            console.error("[Exercises] Error loading exercises:", error.code || error.message);
+            if (exercisesListCoachEl) {
+                exercisesListCoachEl.innerHTML = '<p class="text-gray-400 col-span-full">Keine Übungen verfügbar</p>';
+            }
+        }
+    );
 }
 
 /**
@@ -549,42 +558,51 @@ export function loadExercisesForDropdown(db) {
     if (!select) return;
 
     const q = query(collection(db, 'exercises'), orderBy('title'));
-    onSnapshot(q, snapshot => {
-        if (snapshot.empty) {
-            select.innerHTML = '<option value="">Keine Übungen in DB</option>';
-            return;
+    onSnapshot(
+        q,
+        (snapshot) => {
+            if (snapshot.empty) {
+                select.innerHTML = '<option value="">Keine Übungen in DB</option>';
+                return;
+            }
+            select.innerHTML = '<option value="">Übung wählen...</option>';
+            snapshot.forEach(doc => {
+                const e = doc.data();
+                const option = document.createElement('option');
+                option.value = doc.id;
+
+                // Check for tieredPoints format
+                const hasTieredPoints = e.tieredPoints?.enabled && e.tieredPoints?.milestones?.length > 0;
+                const displayText = hasTieredPoints
+                    ? `${e.title} (bis zu ${e.points} P. - Meilensteine)`
+                    : `${e.title} (+${e.points} P.)`;
+
+                option.textContent = displayText;
+                option.dataset.points = e.points;
+                option.dataset.title = e.title;
+                option.dataset.hasMilestones = hasTieredPoints;
+
+                if (hasTieredPoints) {
+                    option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
+                }
+
+                // Add partner system data
+                const hasPartnerSystem = e.partnerSystem?.enabled || false;
+                option.dataset.hasPartnerSystem = hasPartnerSystem;
+                if (hasPartnerSystem) {
+                    option.dataset.partnerPercentage = e.partnerSystem.partnerPercentage || 50;
+                }
+
+                select.appendChild(option);
+            });
+        },
+        (error) => {
+            console.error("[Exercises] Error loading exercises dropdown:", error.code || error.message);
+            if (select) {
+                select.innerHTML = '<option value="">Keine Übungen verfügbar</option>';
+            }
         }
-        select.innerHTML = '<option value="">Übung wählen...</option>';
-        snapshot.forEach(doc => {
-            const e = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id;
-
-            // Check for tieredPoints format
-            const hasTieredPoints = e.tieredPoints?.enabled && e.tieredPoints?.milestones?.length > 0;
-            const displayText = hasTieredPoints
-                ? `${e.title} (bis zu ${e.points} P. - Meilensteine)`
-                : `${e.title} (+${e.points} P.)`;
-
-            option.textContent = displayText;
-            option.dataset.points = e.points;
-            option.dataset.title = e.title;
-            option.dataset.hasMilestones = hasTieredPoints;
-
-            if (hasTieredPoints) {
-                option.dataset.milestones = JSON.stringify(e.tieredPoints.milestones);
-            }
-
-            // Add partner system data
-            const hasPartnerSystem = e.partnerSystem?.enabled || false;
-            option.dataset.hasPartnerSystem = hasPartnerSystem;
-            if (hasPartnerSystem) {
-                option.dataset.partnerPercentage = e.partnerSystem.partnerPercentage || 50;
-            }
-
-            select.appendChild(option);
-        });
-    });
+    );
 }
 
 /**
