@@ -952,8 +952,13 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
             // Collect all exercises including single player custom exercises
             const allExercises = [];
 
+            console.log('[Training Info] Processing completed exercises:', session.completedExercises);
+
             // Add main completed exercises
             for (const exercise of session.completedExercises) {
+                console.log('[Training Info] Processing exercise:', exercise.name);
+                console.log('[Training Info] Pairing data:', exercise.pairingData);
+
                 const isPlanned = session.plannedExercises?.some(ex => ex.exerciseId === exercise.exerciseId);
                 allExercises.push({
                     name: exercise.name,
@@ -964,13 +969,21 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
 
                 // Check for single players with custom exercises in this exercise
                 if (exercise.pairingData && exercise.pairingData.singlePlayers && exercise.pairingData.singlePlayers.length > 0) {
+                    console.log('[Training Info] Found single players:', exercise.pairingData.singlePlayers);
                     for (const single of exercise.pairingData.singlePlayers) {
+                        console.log('[Training Info] Single player data:', single);
+                        console.log('[Training Info] Custom exercise:', single.customExercise);
+
                         if (single.customExercise) {
                             try {
                                 // Load player data
                                 const playerDoc = await getDoc(doc(db, 'users', single.playerId));
                                 if (playerDoc.exists()) {
                                     const playerData = playerDoc.data();
+                                    console.log('[Training Info] Adding custom exercise from single player:', {
+                                        player: `${playerData.firstName} ${playerData.lastName}`,
+                                        exercise: single.customExercise.name
+                                    });
                                     allExercises.push({
                                         name: single.customExercise.name,
                                         points: single.customExercise.points,
@@ -986,6 +999,8 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
                     }
                 }
             }
+
+            console.log('[Training Info] All exercises to display:', allExercises);
 
             // Render all exercises
             let html = '';
