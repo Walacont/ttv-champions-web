@@ -18,7 +18,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
-import { initializePartnerPairing, openPartnerPairingModal, distributeExercisePoints } from './partner-pairing.js';
+import { initializePartnerPairing, openPartnerPairingModal, distributeExercisePoints, distributeMilestonePoints } from './partner-pairing.js';
 
 let db = null;
 let currentUserData = null;
@@ -363,6 +363,7 @@ async function handleCompletionSubmit(e) {
                 exerciseId: item.exercise.exerciseId,
                 name: item.exercise.name,
                 points: item.exercise.points,
+                tieredPoints: item.exercise.tieredPoints || false,
                 pairingData: item.pairingData // Include pairing data for single players
             }))
         });
@@ -406,8 +407,37 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
         const { exercise, pairingData } = item;
 
         if (exercise.tieredPoints) {
-            // TODO: Milestone exercises (not yet implemented)
-            console.warn('[Training Completion] Milestone exercises not yet implemented:', exercise);
+            // Milestone exercises - need to load full exercise data from database
+            console.log('[Training Completion] Processing milestone exercise:', exercise.name);
+
+            try {
+                // Load full exercise data to get milestone details
+                const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
+                if (!exerciseDoc.exists()) {
+                    console.error('[Training Completion] Exercise not found:', exercise.exerciseId);
+                    continue;
+                }
+
+                const fullExerciseData = exerciseDoc.data();
+                const exerciseWithMilestones = {
+                    ...exercise,
+                    tieredPoints: fullExerciseData.tieredPoints
+                };
+
+                // Distribute milestone points
+                if (pairingData && (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)) {
+                    await distributeMilestonePoints(
+                        pairingData.pairs || [],
+                        pairingData.singlePlayers || [],
+                        exerciseWithMilestones,
+                        currentSessionData
+                    );
+                } else {
+                    console.warn('[Training Completion] No pairing data for milestone exercise:', exercise);
+                }
+            } catch (error) {
+                console.error('[Training Completion] Error processing milestone exercise:', error);
+            }
             continue;
         }
 
@@ -498,11 +528,28 @@ window.openPairingForPlannedExercise = async function(index) {
     }
 
     try {
+        // Load full exercise data from database if it's a milestone exercise
+        let fullExercise = exercise;
+        if (exercise.tieredPoints) {
+            console.log('[Training Completion] Loading full exercise data for milestone exercise:', exercise.exerciseId);
+            const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
+            if (exerciseDoc.exists()) {
+                const exerciseData = exerciseDoc.data();
+                fullExercise = {
+                    ...exercise,
+                    tieredPoints: exerciseData.tieredPoints // Get full milestone details
+                };
+                console.log('[Training Completion] Loaded full exercise with milestones:', fullExercise.tieredPoints);
+            } else {
+                console.warn('[Training Completion] Exercise not found in database:', exercise.exerciseId);
+            }
+        }
+
         // Get existing pairings if editing
         const existingPairings = exercisePairings.planned[index];
 
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData, existingPairings);
+        const pairingData = await openPartnerPairingModal(fullExercise, presentPlayerIds, currentSessionData, existingPairings);
 
         // Store the pairing data
         exercisePairings.planned[index] = pairingData;
@@ -529,11 +576,28 @@ window.openPairingForSpontaneousExercise = async function(index) {
     }
 
     try {
+        // Load full exercise data from database if it's a milestone exercise
+        let fullExercise = exercise;
+        if (exercise.tieredPoints) {
+            console.log('[Training Completion] Loading full exercise data for milestone exercise:', exercise.exerciseId);
+            const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
+            if (exerciseDoc.exists()) {
+                const exerciseData = exerciseDoc.data();
+                fullExercise = {
+                    ...exercise,
+                    tieredPoints: exerciseData.tieredPoints // Get full milestone details
+                };
+                console.log('[Training Completion] Loaded full exercise with milestones:', fullExercise.tieredPoints);
+            } else {
+                console.warn('[Training Completion] Exercise not found in database:', exercise.exerciseId);
+            }
+        }
+
         // Get existing pairings if editing
         const existingPairings = exercisePairings.spontaneous[index];
 
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData, existingPairings);
+        const pairingData = await openPartnerPairingModal(fullExercise, presentPlayerIds, currentSessionData, existingPairings);
 
         // Store the pairing data
         exercisePairings.spontaneous[index] = pairingData;
