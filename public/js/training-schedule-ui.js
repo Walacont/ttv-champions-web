@@ -959,7 +959,8 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
                     name: exercise.name,
                     points: exercise.points,
                     type: isPlanned ? 'planned' : 'spontaneous',
-                    isSinglePlayer: false
+                    isSinglePlayer: false,
+                    tieredPoints: exercise.tieredPoints || false
                 });
 
                 // Check for single players with custom exercises in this exercise
@@ -976,7 +977,8 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
                                         points: single.customExercise.points,
                                         type: 'single',
                                         isSinglePlayer: true,
-                                        playerName: `${playerData.firstName} ${playerData.lastName}`
+                                        playerName: `${playerData.firstName} ${playerData.lastName}`,
+                                        tieredPoints: single.customExercise.tieredPoints || false
                                     });
                                 }
                             } catch (error) {
@@ -990,13 +992,20 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
             // Render all exercises
             let html = '';
             allExercises.forEach((exercise, index) => {
-                let badge = '';
+                let badges = '';
+
+                // Type badge
                 if (exercise.type === 'planned') {
-                    badge = '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2">📋 Geplant</span>';
+                    badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2">📋 Geplant</span>';
                 } else if (exercise.type === 'spontaneous') {
-                    badge = '<span class="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded ml-2">⚡ Spontan</span>';
+                    badges += '<span class="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded ml-2">⚡ Spontan</span>';
                 } else if (exercise.type === 'single') {
-                    badge = `<span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded ml-2">👤 Alleine (${exercise.playerName})</span>`;
+                    badges += `<span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded ml-2">👤 Alleine (${exercise.playerName})</span>`;
+                }
+
+                // Milestone badge
+                if (exercise.tieredPoints) {
+                    badges += '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊 Meilenstein</span>';
                 }
 
                 html += `
@@ -1004,7 +1013,7 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
                         <div class="flex items-center flex-wrap">
                             <span class="text-gray-500 font-medium mr-3">${index + 1}.</span>
                             <span class="text-sm font-medium text-gray-900">${exercise.name}</span>
-                            ${badge}
+                            ${badges}
                         </div>
                         <span class="text-xs text-gray-600 font-semibold whitespace-nowrap ml-2">+${exercise.points} Pkt</span>
                     </div>

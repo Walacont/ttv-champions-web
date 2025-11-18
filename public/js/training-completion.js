@@ -363,6 +363,7 @@ async function handleCompletionSubmit(e) {
                 exerciseId: item.exercise.exerciseId,
                 name: item.exercise.name,
                 points: item.exercise.points,
+                tieredPoints: item.exercise.tieredPoints || false,
                 pairingData: item.pairingData // Include pairing data for single players
             }))
         });
