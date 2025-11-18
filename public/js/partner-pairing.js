@@ -163,6 +163,8 @@ function renderAvailablePlayers() {
         !pairedPlayerIds.includes(p.id) && !singlePlayerIds.includes(p.id)
     );
 
+    console.log('[Exercise Pairing] Rendering available players:', available.length, 'Current single players:', singlePlayers.length);
+
     if (available.length === 0) {
         container.innerHTML = '<p class="col-span-full text-xs text-gray-400 text-center py-4">Alle Spieler zugewiesen</p>';
         return;
@@ -188,17 +190,22 @@ function renderAvailablePlayers() {
  * Handle player click
  */
 function handlePlayerClick(player) {
+    console.log('[Exercise Pairing] Player clicked:', player.firstName, player.lastName);
+
     const isSelected = selectedPlayers.find(p => p.id === player.id);
 
     if (isSelected) {
         // Deselect
+        console.log('[Exercise Pairing] Deselecting player');
         selectedPlayers = selectedPlayers.filter(p => p.id !== player.id);
     } else {
         // Select
+        console.log('[Exercise Pairing] Selecting player');
         selectedPlayers.push(player);
 
         // If 2 players selected, form a pair
         if (selectedPlayers.length === 2) {
+            console.log('[Exercise Pairing] Forming pair automatically');
             formedPairs.push({
                 player1: selectedPlayers[0],
                 player2: selectedPlayers[1],
@@ -208,6 +215,7 @@ function handlePlayerClick(player) {
         }
     }
 
+    console.log('[Exercise Pairing] Selected players count:', selectedPlayers.length);
     renderAvailablePlayers();
     renderFormedPairs();
     renderSinglePlayerOption();
@@ -366,10 +374,16 @@ window.selectDifferentExerciseForSinglePlayer = function() {
  */
 function renderSinglePlayerOption() {
     const container = document.getElementById('single-player-option-container');
-    if (!container) return;
+    if (!container) {
+        console.log('[Exercise Pairing] single-player-option-container not found!');
+        return;
+    }
+
+    console.log('[Exercise Pairing] renderSinglePlayerOption - selectedPlayers:', selectedPlayers.length);
 
     if (selectedPlayers.length === 1) {
         const player = selectedPlayers[0];
+        console.log('[Exercise Pairing] Showing "Alleine trainieren" option for:', player.firstName, player.lastName);
         container.classList.remove('hidden');
         container.innerHTML = `
             <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -386,6 +400,7 @@ function renderSinglePlayerOption() {
             </div>
         `;
     } else {
+        console.log('[Exercise Pairing] Hiding "Alleine trainieren" option');
         container.classList.add('hidden');
         container.innerHTML = '';
     }
