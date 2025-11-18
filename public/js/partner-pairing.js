@@ -419,10 +419,27 @@ function renderFormedPairs() {
         return;
     }
 
+    const isMilestoneExercise = currentExercise?.tieredPoints;
+
     container.innerHTML = '';
     formedPairs.forEach((pair, index) => {
         const div = document.createElement('div');
         div.className = 'p-4 bg-gray-50 border border-gray-200 rounded-lg';
+
+        // Milestone count input (only for milestone exercises and successful results)
+        const showCountInput = isMilestoneExercise && pair.result === 'both_success';
+        const countInput = showCountInput ? `
+            <div class="mt-3 pt-3 border-t border-gray-300">
+                <label class="block text-xs font-medium text-gray-700 mb-1">📊 Wie oft erfolgreich abgeschlossen?</label>
+                <input
+                    type="number"
+                    min="1"
+                    value="${pair.completionCount || 1}"
+                    onchange="window.setPairCompletionCount(${index}, parseInt(this.value))"
+                    class="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                > × geschafft
+            </div>
+        ` : '';
 
         div.innerHTML = `
             <div class="flex items-center justify-between mb-3">
@@ -430,6 +447,7 @@ function renderFormedPairs() {
                     <span class="font-medium text-gray-900">${pair.player1.firstName} ${pair.player1.lastName}</span>
                     <span class="text-gray-400">↔</span>
                     <span class="font-medium text-gray-900">${pair.player2.firstName} ${pair.player2.lastName}</span>
+                    ${isMilestoneExercise ? '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2">📊 Meilenstein</span>' : ''}
                 </div>
                 <button type="button" class="text-red-600 hover:text-red-800 text-sm" onclick="window.removePair(${index})">
                     <i class="fas fa-times"></i> Aufheben
@@ -446,6 +464,7 @@ function renderFormedPairs() {
                     ✗ Nicht geschafft (0%)
                 </button>
             </div>
+            ${countInput}
         `;
         container.appendChild(div);
     });
@@ -496,6 +515,24 @@ function renderSinglePlayers() {
             ? `<span class="text-xs text-blue-700 block mt-1">📝 Übung: ${player.customExercise.name} (+${player.customExercise.points} Pkt)</span>`
             : `<span class="text-xs text-gray-600 block mt-1">📝 Gleiche Übung wie alle</span>`;
 
+        // Determine if this specific player's exercise is a milestone
+        const playerExerciseMilestone = player.customExercise?.tieredPoints || currentExercise?.tieredPoints;
+
+        // Milestone count input (only for milestone exercises and successful results)
+        const showCountInput = playerExerciseMilestone && player.result === 'success';
+        const countInput = showCountInput ? `
+            <div class="mt-3 pt-3 border-t border-yellow-300">
+                <label class="block text-xs font-medium text-gray-700 mb-1">📊 Wie oft erfolgreich abgeschlossen?</label>
+                <input
+                    type="number"
+                    min="1"
+                    value="${player.completionCount || 1}"
+                    onchange="window.setSinglePlayerCompletionCount(${index}, parseInt(this.value))"
+                    class="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                > × geschafft
+            </div>
+        ` : '';
+
         div.innerHTML = `
             <div class="flex items-center justify-between mb-3">
                 <div class="flex-1">
@@ -503,6 +540,7 @@ function renderSinglePlayers() {
                         <span class="text-yellow-700">👤</span>
                         <span class="font-medium text-gray-900">${player.firstName} ${player.lastName}</span>
                         <span class="text-xs text-yellow-700">(alleine)</span>
+                        ${playerExerciseMilestone ? '<span class="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded ml-2">📊 Meilenstein</span>' : ''}
                     </div>
                     ${exerciseInfo}
                 </div>
@@ -518,6 +556,7 @@ function renderSinglePlayers() {
                     ✗ Nicht geschafft (0%)
                 </button>
             </div>
+            ${countInput}
         `;
         container.appendChild(div);
     });
@@ -528,7 +567,20 @@ function renderSinglePlayers() {
  */
 window.setPairResult = function(index, result) {
     formedPairs[index].result = result;
+    // Initialize completion count to 1 when marking as success for milestone exercises
+    if (result === 'both_success' && currentExercise?.tieredPoints && !formedPairs[index].completionCount) {
+        formedPairs[index].completionCount = 1;
+    }
     renderFormedPairs();
+};
+
+/**
+ * Set pair completion count (for milestone exercises)
+ */
+window.setPairCompletionCount = function(index, count) {
+    if (count && count > 0) {
+        formedPairs[index].completionCount = count;
+    }
 };
 
 /**
@@ -548,7 +600,21 @@ window.removePair = function(index) {
  */
 window.setSinglePlayerResult = function(index, result) {
     singlePlayers[index].result = result;
+    // Initialize completion count to 1 when marking as success for milestone exercises
+    const playerExerciseMilestone = singlePlayers[index].customExercise?.tieredPoints || currentExercise?.tieredPoints;
+    if (result === 'success' && playerExerciseMilestone && !singlePlayers[index].completionCount) {
+        singlePlayers[index].completionCount = 1;
+    }
     renderSinglePlayers();
+};
+
+/**
+ * Set single player completion count (for milestone exercises)
+ */
+window.setSinglePlayerCompletionCount = function(index, count) {
+    if (count && count > 0) {
+        singlePlayers[index].completionCount = count;
+    }
 };
 
 /**
@@ -635,12 +701,14 @@ async function confirmPairingAndDistributePoints() {
         pairs: formedPairs.map(pair => ({
             player1Id: pair.player1.id,
             player2Id: pair.player2.id,
-            result: pair.result
+            result: pair.result,
+            completionCount: pair.completionCount || 1 // For milestone exercises
         })),
         singlePlayers: singlePlayers.map(sp => ({
             playerId: sp.id,
             result: sp.result,
-            customExercise: sp.customExercise || null // Save custom exercise if exists
+            customExercise: sp.customExercise || null, // Save custom exercise if exists
+            completionCount: sp.completionCount || 1 // For milestone exercises
         })),
         exercise: currentExercise
     };
@@ -762,30 +830,33 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
     // Get current season key
     const currentSeasonKey = await getCurrentSeasonKey();
 
-    // Collect all players who completed successfully
+    // Collect all players who completed successfully with their completion counts
     const successfulPlayers = [];
 
     // Process pairs
     for (const pair of pairs) {
         const player1Id = pair.player1?.id || pair.player1Id;
         const player2Id = pair.player2?.id || pair.player2Id;
+        const count = pair.completionCount || 1;
 
         if (pair.result === 'both_success') {
-            if (player1Id) successfulPlayers.push(player1Id);
-            if (player2Id) successfulPlayers.push(player2Id);
+            if (player1Id) successfulPlayers.push({ playerId: player1Id, count });
+            if (player2Id) successfulPlayers.push({ playerId: player2Id, count });
         }
     }
 
     // Process single players
     for (const single of singles) {
         const playerId = single.id || single.playerId;
+        const count = single.completionCount || 1;
         if (single.result === 'success' && playerId) {
-            successfulPlayers.push(playerId);
+            successfulPlayers.push({ playerId, count });
         }
     }
 
     // Process each successful player
-    for (const playerId of successfulPlayers) {
+    for (const playerInfo of successfulPlayers) {
+        const { playerId, count } = playerInfo;
         const batch = writeBatch(db);
 
         // Get or create milestone progress document
@@ -804,8 +875,8 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
             }
         }
 
-        // Increment count
-        const newCount = currentCount + 1;
+        // Increment count by the number of completions
+        const newCount = currentCount + count;
 
         // Find new milestone achieved (if any)
         let newMilestoneIndex = previousMilestoneIndex;
@@ -851,9 +922,9 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
                 successRate
             );
 
-            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.count}× for ${exercise.name}, awarded ${pointsToAward} points`);
+            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.count}× for ${exercise.name}, awarded ${pointsToAward} points (completed ${count}× this session, total: ${newCount})`);
         } else {
-            console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].count} (no milestone reached yet)`);
+            console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].count} (completed ${count}× this session, no milestone reached yet)`);
         }
 
         await batch.commit();
