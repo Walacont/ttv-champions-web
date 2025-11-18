@@ -191,7 +191,7 @@ function renderPlannedExercises() {
 
     plannedExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
-        div.className = 'flex items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50';
+        div.className = 'flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50';
 
         let badges = '';
         if (exercise.tieredPoints) {
@@ -201,20 +201,20 @@ function renderPlannedExercises() {
         // Check if pairings are already set for this exercise
         const hasPairings = exercisePairings.planned[index] !== undefined && exercisePairings.planned[index] !== null;
         const pairingStatus = hasPairings
-            ? '<span class="text-xs text-green-600">✓ Paarungen gesetzt</span>'
-            : '<span class="text-xs text-orange-600">⚠ Paarungen fehlen</span>';
+            ? '<span class="text-xs text-green-600 whitespace-nowrap">✓ Paarungen gesetzt</span>'
+            : '<span class="text-xs text-orange-600 whitespace-nowrap">⚠ Paarungen fehlen</span>';
 
         div.innerHTML = `
-            <span class="flex-1 text-sm text-gray-700">
+            <span class="flex-1 text-sm text-gray-700 break-words">
                 📋 ${exercise.name}
                 ${badges}
             </span>
-            <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-gray-500 whitespace-nowrap">+${exercise.points} Pkt</span>
                 ${pairingStatus}
                 <button
                     type="button"
-                    class="text-xs px-2 py-1 rounded ${hasPairings ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
+                    class="text-xs px-2 py-1 rounded whitespace-nowrap ${hasPairings ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
                     onclick="window.openPairingForPlannedExercise(${index})"
                 >
                     ${hasPairings ? '✏️ Bearbeiten' : '👥 Partner wählen'}
@@ -250,7 +250,7 @@ function renderSpontaneousExercises() {
 
     spontaneousExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
-        div.className = 'flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded';
+        div.className = 'flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-green-50 border border-green-200 rounded';
 
         let badges = '';
         if (exercise.tieredPoints) {
@@ -260,20 +260,20 @@ function renderSpontaneousExercises() {
         // Check if pairings are already set for this exercise
         const hasPairings = exercisePairings.spontaneous[index] !== undefined && exercisePairings.spontaneous[index] !== null;
         const pairingStatus = hasPairings
-            ? '<span class="text-xs text-green-600">✓ Paarungen gesetzt</span>'
-            : '<span class="text-xs text-orange-600">⚠ Paarungen fehlen</span>';
+            ? '<span class="text-xs text-green-600 whitespace-nowrap">✓ Paarungen gesetzt</span>'
+            : '<span class="text-xs text-orange-600 whitespace-nowrap">⚠ Paarungen fehlen</span>';
 
         div.innerHTML = `
-            <span class="flex-1 text-sm text-gray-700">
+            <span class="flex-1 text-sm text-gray-700 break-words">
                 ⚡ ${exercise.name}
                 ${badges}
             </span>
-            <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-500">+${exercise.points} Pkt</span>
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-gray-500 whitespace-nowrap">+${exercise.points} Pkt</span>
                 ${pairingStatus}
                 <button
                     type="button"
-                    class="text-xs px-2 py-1 rounded ${hasPairings ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
+                    class="text-xs px-2 py-1 rounded whitespace-nowrap ${hasPairings ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}"
                     onclick="window.openPairingForSpontaneousExercise(${index})"
                 >
                     ${hasPairings ? '✏️ Bearbeiten' : '👥 Partner wählen'}

@@ -942,6 +942,95 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
             exercisesList.innerHTML = html;
         }
 
+        // Render completed exercises if training is completed
+        const completedSection = document.getElementById('training-info-completed-section');
+        const completedExercisesList = document.getElementById('training-info-completed-exercises');
+
+        if (session.completed && session.completedExercises && session.completedExercises.length > 0) {
+            completedSection.classList.remove('hidden');
+            let html = '';
+
+            session.completedExercises.forEach((exercise, index) => {
+                const isPlanned = session.plannedExercises?.some(ex => ex.exerciseId === exercise.exerciseId);
+                const badge = isPlanned
+                    ? '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2">📋 Geplant</span>'
+                    : '<span class="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded ml-2">⚡ Spontan</span>';
+
+                html += `
+                    <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-gray-500 font-medium mr-3">${index + 1}.</span>
+                            <span class="text-sm font-medium text-gray-900">${exercise.name}</span>
+                            ${badge}
+                        </div>
+                        <span class="text-xs text-gray-600 font-semibold">+${exercise.points} Pkt</span>
+                    </div>
+                `;
+            });
+            completedExercisesList.innerHTML = html;
+        } else {
+            completedSection.classList.add('hidden');
+        }
+
+        // Render single players if training is completed and has single player data
+        const singlePlayersSection = document.getElementById('training-info-single-players-section');
+        const singlePlayersList = document.getElementById('training-info-single-players-list');
+
+        if (session.completed && session.completedExercises && session.completedExercises.length > 0) {
+            // Collect all single players from all exercises
+            const allSinglePlayers = [];
+
+            for (const exercise of session.completedExercises) {
+                if (exercise.pairingData && exercise.pairingData.singlePlayers && exercise.pairingData.singlePlayers.length > 0) {
+                    for (const single of exercise.pairingData.singlePlayers) {
+                        try {
+                            // Load player data
+                            const playerDoc = await getDoc(doc(db, 'users', single.playerId));
+                            if (playerDoc.exists()) {
+                                const playerData = playerDoc.data();
+                                allSinglePlayers.push({
+                                    name: `${playerData.firstName} ${playerData.lastName}`,
+                                    exercise: single.customExercise ? single.customExercise.name : exercise.name,
+                                    points: single.customExercise ? single.customExercise.points : exercise.points,
+                                    result: single.result
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Error loading player data:', error);
+                        }
+                    }
+                }
+            }
+
+            if (allSinglePlayers.length > 0) {
+                singlePlayersSection.classList.remove('hidden');
+                let html = '';
+
+                allSinglePlayers.forEach((player, index) => {
+                    const resultBadge = player.result === 'success'
+                        ? '<span class="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded ml-2">✓ Geschafft</span>'
+                        : '<span class="text-xs bg-red-100 text-red-800 px-1.5 py-0.5 rounded ml-2">✗ Nicht geschafft</span>';
+
+                    html += `
+                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-900">👤 ${player.name}</span>
+                                ${resultBadge}
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1">
+                                📝 Übung: ${player.exercise} <span class="text-gray-500">(+${player.points} Pkt)</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                singlePlayersList.innerHTML = html;
+            } else {
+                singlePlayersSection.classList.add('hidden');
+            }
+        } else {
+            singlePlayersSection.classList.add('hidden');
+        }
+
         // Show modal
         const modal = document.getElementById('training-info-modal');
         modal.classList.remove('hidden');
