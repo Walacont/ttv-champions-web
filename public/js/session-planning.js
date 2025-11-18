@@ -231,10 +231,23 @@ function renderExerciseSelectionGrid(searchTerm = '') {
             selectionIndicator = '<div class="absolute top-2 left-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"><i class="fas fa-check"></i></div>';
         }
 
+        // Image or placeholder
+        let imageHtml = '';
+        if (exercise.imageUrl) {
+            imageHtml = `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-40 object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                         <div class="w-full h-40 bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center" style="display: none;">
+                             <i class="fas fa-table-tennis text-indigo-400 text-5xl"></i>
+                         </div>`;
+        } else {
+            imageHtml = `<div class="w-full h-40 bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
+                             <i class="fas fa-table-tennis text-indigo-400 text-5xl"></i>
+                         </div>`;
+        }
+
         card.innerHTML = `
             ${selectionIndicator}
             ${systemBadges}
-            <img src="${exercise.imageUrl || '/images/placeholder.png'}" alt="${exercise.title}" class="w-full h-40 object-cover">
+            ${imageHtml}
             <div class="p-3">
                 <h4 class="font-semibold text-gray-900 text-sm mb-1">${exercise.title}</h4>
                 <div class="flex justify-between items-center text-xs text-gray-600">
