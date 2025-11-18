@@ -444,6 +444,8 @@ function renderFormedPairs() {
             const selectedMilestone = pair.milestoneIndex ?? 0;
 
             console.log('[Render Pairs] Showing milestone dropdown with', milestones.length, 'milestones');
+            console.log('[Render Pairs] First milestone:', milestones[0]);
+            console.log('[Render Pairs] All milestones:', milestones);
 
             milestoneSelect = `
                 <div class="mt-3 pt-3 border-t border-gray-300">
