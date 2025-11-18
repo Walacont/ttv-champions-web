@@ -430,22 +430,9 @@ function renderFormedPairs() {
         const showMilestoneSelect = isMilestoneExercise && (pair.result === 'both_success' || pair.result === 'one_success');
         let milestoneSelect = '';
 
-        console.log('[Render Pairs] Pair:', index, {
-            result: pair.result,
-            isMilestoneExercise,
-            showMilestoneSelect,
-            hasTieredPoints: !!currentExercise?.tieredPoints,
-            hasMilestones: !!currentExercise?.tieredPoints?.milestones,
-            milestones: currentExercise?.tieredPoints?.milestones
-        });
-
         if (showMilestoneSelect && currentExercise.tieredPoints?.milestones) {
-            const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.count - b.count);
+            const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.completions - b.completions);
             const selectedMilestone = pair.milestoneIndex ?? 0;
-
-            console.log('[Render Pairs] Showing milestone dropdown with', milestones.length, 'milestones');
-            console.log('[Render Pairs] First milestone:', milestones[0]);
-            console.log('[Render Pairs] All milestones:', milestones);
 
             milestoneSelect = `
                 <div class="mt-3 pt-3 border-t border-gray-300">
@@ -457,7 +444,7 @@ function renderFormedPairs() {
                         ${milestones.map((milestone, mIndex) => {
                             const cumulativePoints = milestones.slice(0, mIndex + 1).reduce((sum, m) => sum + m.points, 0);
                             return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
-                                ${milestone.count}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
+                                ${milestone.completions}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
                             </option>`;
                         }).join('')}
                     </select>
@@ -549,7 +536,7 @@ function renderSinglePlayers() {
             const exerciseMilestones = player.customExercise?.tieredPoints?.milestones || currentExercise?.tieredPoints?.milestones;
 
             if (exerciseMilestones && exerciseMilestones.length > 0) {
-                const milestones = exerciseMilestones.sort((a, b) => a.count - b.count);
+                const milestones = exerciseMilestones.sort((a, b) => a.completions - b.completions);
                 const selectedMilestone = player.milestoneIndex ?? 0;
 
                 milestoneSelect = `
@@ -562,7 +549,7 @@ function renderSinglePlayers() {
                             ${milestones.map((milestone, mIndex) => {
                                 const cumulativePoints = milestones.slice(0, mIndex + 1).reduce((sum, m) => sum + m.points, 0);
                                 return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
-                                    ${milestone.count}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
+                                    ${milestone.completions}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
                                 </option>`;
                             }).join('')}
                         </select>
@@ -742,8 +729,8 @@ async function confirmPairingAndDistributePoints() {
 
             // For milestone exercises, calculate completionCount from selected milestone
             if (currentExercise?.tieredPoints?.milestones && pair.milestoneIndex !== undefined) {
-                const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.count - b.count);
-                data.completionCount = milestones[pair.milestoneIndex]?.count || 1;
+                const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.completions - b.completions);
+                data.completionCount = milestones[pair.milestoneIndex]?.completions || 1;
                 data.milestoneIndex = pair.milestoneIndex;
             } else {
                 data.completionCount = 1;
@@ -761,8 +748,8 @@ async function confirmPairingAndDistributePoints() {
             // For milestone exercises, calculate completionCount from selected milestone
             const exerciseMilestones = sp.customExercise?.tieredPoints?.milestones || currentExercise?.tieredPoints?.milestones;
             if (exerciseMilestones && sp.milestoneIndex !== undefined) {
-                const milestones = exerciseMilestones.sort((a, b) => a.count - b.count);
-                data.completionCount = milestones[sp.milestoneIndex]?.count || 1;
+                const milestones = exerciseMilestones.sort((a, b) => a.completions - b.completions);
+                data.completionCount = milestones[sp.milestoneIndex]?.completions || 1;
                 data.milestoneIndex = sp.milestoneIndex;
             } else {
                 data.completionCount = 1;
@@ -884,8 +871,8 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         return;
     }
 
-    // Sort milestones by count (ascending)
-    const sortedMilestones = [...milestones].sort((a, b) => a.count - b.count);
+    // Sort milestones by completions (ascending)
+    const sortedMilestones = [...milestones].sort((a, b) => a.completions - b.completions);
 
     // Get current season key
     const currentSeasonKey = await getCurrentSeasonKey();
@@ -947,7 +934,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         let pointsToAward = 0;
 
         for (let i = previousMilestoneIndex + 1; i < sortedMilestones.length; i++) {
-            if (newCount >= sortedMilestones[i].count) {
+            if (newCount >= sortedMilestones[i].completions) {
                 newMilestoneIndex = i;
                 // Award incremental points (difference from previous milestone)
                 if (i === 0) {
@@ -972,7 +959,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         // Award points if milestone reached
         if (pointsToAward > 0) {
             const milestoneInfo = sortedMilestones[newMilestoneIndex];
-            const milestoneName = `${exercise.name} (Meilenstein ${milestoneInfo.count}×)`;
+            const milestoneName = `${exercise.name} (Meilenstein ${milestoneInfo.completions}×)`;
 
             // Apply points multiplier for partial success (e.g., 50% for one_success)
             const finalPoints = Math.floor(pointsToAward * pointsMultiplier);
@@ -988,9 +975,9 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
                 successRate
             );
 
-            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.count}× for ${exercise.name}, awarded ${finalPoints} points (${successRate}, completed ${count}× this session, total: ${newCount})`);
+            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.completions}× for ${exercise.name}, awarded ${finalPoints} points (${successRate}, completed ${count}× this session, total: ${newCount})`);
         } else {
-            console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].count} (completed ${count}× this session, no milestone reached yet)`);
+            console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].completions} (completed ${count}× this session, no milestone reached yet)`);
         }
 
         await batch.commit();
