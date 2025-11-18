@@ -8,6 +8,7 @@ import {
     collection,
     doc,
     getDoc,
+    setDoc,
     writeBatch,
     serverTimestamp,
     increment
@@ -731,6 +732,151 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
 
     await batch.commit();
     console.log(`[Exercise Pairing] Distributed points for ${pairs.length} pairs and ${singles.length} single players`);
+}
+
+/**
+ * Distribute milestone points for tiered exercises
+ * @param {Array} pairs - Array of paired players with results
+ * @param {Array} singles - Array of single players with results
+ * @param {Object} exercise - Exercise object with tieredPoints data
+ * @param {Object} sessionData - Session data
+ */
+export async function distributeMilestonePoints(pairs, singles, exercise, sessionData) {
+    const date = sessionData.date;
+    const subgroupId = sessionData.subgroupId;
+
+    // Get subgroup name
+    const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
+    const subgroupName = subgroupDoc.exists() ? subgroupDoc.data().name : subgroupId;
+
+    // Get milestones from exercise
+    const milestones = exercise.tieredPoints?.milestones || [];
+    if (milestones.length === 0) {
+        console.warn('[Milestone Points] No milestones found for exercise:', exercise.name);
+        return;
+    }
+
+    // Sort milestones by count (ascending)
+    const sortedMilestones = [...milestones].sort((a, b) => a.count - b.count);
+
+    // Get current season key
+    const currentSeasonKey = await getCurrentSeasonKey();
+
+    // Collect all players who completed successfully
+    const successfulPlayers = [];
+
+    // Process pairs
+    for (const pair of pairs) {
+        const player1Id = pair.player1?.id || pair.player1Id;
+        const player2Id = pair.player2?.id || pair.player2Id;
+
+        if (pair.result === 'both_success') {
+            if (player1Id) successfulPlayers.push(player1Id);
+            if (player2Id) successfulPlayers.push(player2Id);
+        }
+    }
+
+    // Process single players
+    for (const single of singles) {
+        const playerId = single.id || single.playerId;
+        if (single.result === 'success' && playerId) {
+            successfulPlayers.push(playerId);
+        }
+    }
+
+    // Process each successful player
+    for (const playerId of successfulPlayers) {
+        const batch = writeBatch(db);
+
+        // Get or create milestone progress document
+        const milestoneRef = doc(db, `users/${playerId}/exerciseMilestones`, exercise.exerciseId);
+        const milestoneDoc = await getDoc(milestoneRef);
+
+        let currentCount = 0;
+        let previousMilestoneIndex = -1;
+
+        if (milestoneDoc.exists()) {
+            const data = milestoneDoc.data();
+            // Only use progress from current season
+            if (data.lastSeasonUpdated === currentSeasonKey) {
+                currentCount = data.currentCount || 0;
+                previousMilestoneIndex = data.lastMilestoneIndex ?? -1;
+            }
+        }
+
+        // Increment count
+        const newCount = currentCount + 1;
+
+        // Find new milestone achieved (if any)
+        let newMilestoneIndex = previousMilestoneIndex;
+        let pointsToAward = 0;
+
+        for (let i = previousMilestoneIndex + 1; i < sortedMilestones.length; i++) {
+            if (newCount >= sortedMilestones[i].count) {
+                newMilestoneIndex = i;
+                // Award incremental points (difference from previous milestone)
+                if (i === 0) {
+                    pointsToAward += sortedMilestones[i].points;
+                } else {
+                    pointsToAward += sortedMilestones[i].points - sortedMilestones[i - 1].points;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Update milestone progress
+        await setDoc(milestoneRef, {
+            currentCount: newCount,
+            lastMilestoneIndex: newMilestoneIndex,
+            lastSeasonUpdated: currentSeasonKey,
+            exerciseName: exercise.name,
+            lastUpdated: serverTimestamp()
+        });
+
+        // Award points if milestone reached
+        if (pointsToAward > 0) {
+            const milestoneInfo = sortedMilestones[newMilestoneIndex];
+            const successRate = '100%'; // Milestone completion is always 100%
+            const milestoneName = `${exercise.name} (Meilenstein ${milestoneInfo.count}×)`;
+
+            await awardPointsToPlayer(
+                batch,
+                playerId,
+                pointsToAward,
+                milestoneName,
+                date,
+                subgroupId,
+                subgroupName,
+                successRate
+            );
+
+            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.count}× for ${exercise.name}, awarded ${pointsToAward} points`);
+        } else {
+            console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].count} (no milestone reached yet)`);
+        }
+
+        await batch.commit();
+    }
+
+    console.log(`[Milestone Points] Processed milestones for ${successfulPlayers.length} successful players`);
+}
+
+/**
+ * Get current season key
+ * @returns {string} Season key in format "YYYY-MM-DD"
+ */
+async function getCurrentSeasonKey() {
+    try {
+        const settingsDoc = await getDoc(doc(db, 'settings', 'currentSeason'));
+        if (settingsDoc.exists()) {
+            const data = settingsDoc.data();
+            return data.startDate || new Date().toISOString().split('T')[0];
+        }
+    } catch (error) {
+        console.error('[Season] Error getting current season:', error);
+    }
+    return new Date().toISOString().split('T')[0];
 }
 
 /**

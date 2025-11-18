@@ -18,7 +18,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
-import { initializePartnerPairing, openPartnerPairingModal, distributeExercisePoints } from './partner-pairing.js';
+import { initializePartnerPairing, openPartnerPairingModal, distributeExercisePoints, distributeMilestonePoints } from './partner-pairing.js';
 
 let db = null;
 let currentUserData = null;
@@ -407,8 +407,37 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
         const { exercise, pairingData } = item;
 
         if (exercise.tieredPoints) {
-            // TODO: Milestone exercises (not yet implemented)
-            console.warn('[Training Completion] Milestone exercises not yet implemented:', exercise);
+            // Milestone exercises - need to load full exercise data from database
+            console.log('[Training Completion] Processing milestone exercise:', exercise.name);
+
+            try {
+                // Load full exercise data to get milestone details
+                const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
+                if (!exerciseDoc.exists()) {
+                    console.error('[Training Completion] Exercise not found:', exercise.exerciseId);
+                    continue;
+                }
+
+                const fullExerciseData = exerciseDoc.data();
+                const exerciseWithMilestones = {
+                    ...exercise,
+                    tieredPoints: fullExerciseData.tieredPoints
+                };
+
+                // Distribute milestone points
+                if (pairingData && (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)) {
+                    await distributeMilestonePoints(
+                        pairingData.pairs || [],
+                        pairingData.singlePlayers || [],
+                        exerciseWithMilestones,
+                        currentSessionData
+                    );
+                } else {
+                    console.warn('[Training Completion] No pairing data for milestone exercise:', exercise);
+                }
+            } catch (error) {
+                console.error('[Training Completion] Error processing milestone exercise:', error);
+            }
             continue;
         }
 
