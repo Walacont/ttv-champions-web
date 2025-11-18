@@ -747,12 +747,14 @@
     <!-- Training Day Details Modal -->
     <div id="training-day-modal" class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 pt-4 sm:pt-4">
         <div class="relative mx-auto border w-full max-w-md shadow-lg rounded-md bg-white max-h-[85vh] sm:max-h-[90vh] flex flex-col">
+            <!-- Floating Close Button -->
+            <button id="close-training-day-modal" class="absolute top-3 right-3 z-10 bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg transition-colors">
+                <svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+
             <!-- Fixed Header -->
-            <div class="flex justify-between items-center p-4 sm:p-6 pb-3 sm:pb-4 border-b bg-white rounded-t-md flex-shrink-0">
-                <h3 id="training-day-modal-title" class="text-lg sm:text-xl leading-6 font-medium text-gray-900">Training</h3>
-                <button id="close-training-day-modal" class="text-gray-400 hover:text-gray-600 flex-shrink-0 ml-2">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+            <div class="p-4 sm:p-6 pb-3 sm:pb-4 border-b bg-white rounded-t-md flex-shrink-0">
+                <h3 id="training-day-modal-title" class="text-lg sm:text-xl leading-6 font-medium text-gray-900 pr-10">Training</h3>
             </div>
             <!-- Scrollable Content -->
             <div id="training-day-modal-content" class="space-y-3 p-4 sm:p-6 pt-3 sm:pt-4 overflow-y-auto flex-1">
