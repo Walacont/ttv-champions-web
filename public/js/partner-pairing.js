@@ -312,20 +312,19 @@ window.selectDifferentExerciseForSinglePlayer = function() {
     let exerciseSelected = false;
 
     // Open exercise selection modal with callback
-    // NOTE: The callback receives a single exercise object, NOT an array
+    // NOTE: The callback receives already formatted exercise objects: {exerciseId, name, points, tieredPoints}
     openExerciseSelectionModal((exercise) => {
         console.log('[Exercise Pairing] Modal callback triggered with exercise:', exercise);
 
         if (exercise) {
-            exerciseSelected = true;
-            console.log('[Exercise Pairing] Selected exercise:', exercise.title, 'Points:', exercise.points);
+            console.log('[Exercise Pairing] Selected exercise:', exercise.name, 'Points:', exercise.points);
 
-            // Convert exercise to the format we need
+            // Exercise is already in the correct format from toggleExerciseSelection
             const customExercise = {
-                exerciseId: exercise.id,
-                name: exercise.title,
+                exerciseId: exercise.exerciseId,
+                name: exercise.name,
                 points: exercise.points || 0,
-                tieredPoints: exercise.tieredPoints?.enabled || false
+                tieredPoints: exercise.tieredPoints || false
             };
 
             // Add player to single players with custom exercise
@@ -336,6 +335,7 @@ window.selectDifferentExerciseForSinglePlayer = function() {
             });
 
             console.log('[Exercise Pairing] Single players after adding:', singlePlayers.length);
+            console.log('[Exercise Pairing] Custom exercise:', customExercise);
 
             // Remove from selected players
             const index = selectedPlayers.indexOf(playerToAdd);
