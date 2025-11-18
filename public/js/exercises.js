@@ -225,9 +225,6 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
         : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
 
-    // Generate progress circle SVG
-    const progressCircle = generateProgressCircle(progressPercent);
-
     // Image or subtle placeholder
     const imageHtml = exercise.imageUrl
         ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">`
@@ -241,7 +238,6 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
            </div>`;
 
     card.innerHTML = `
-        ${progressCircle}
         ${imageHtml}
         <div class="p-4 flex flex-col flex-grow">
             <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
@@ -717,73 +713,20 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
 
         // Display milestones if container exists
         if (milestonesContainer) {
-            // Show player progress for players
-            let progressHtml = '';
-            if (exerciseContext.userRole === 'player') {
-                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
-                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
-
-                progressHtml = `
-                    <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="text-lg">📈</span>
-                            <span class="font-bold text-gray-800">Deine beste Leistung</span>
-                        </div>
-                        <p class="text-base text-gray-700 mb-2">
-                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
-                        </p>
-                        ${nextMilestone ? `
-                            <p class="text-sm text-gray-600">
-                                Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
-                            </p>
-                        ` : `
-                            <p class="text-sm text-green-600 font-semibold">
-                                ✓ Alle Meilensteine erreicht!
-                            </p>
-                        `}
-                    </div>
-                `;
-            }
-
             const milestonesHtml = tieredPointsData.milestones
                 .sort((a, b) => a.count - b.count)
                 .map((milestone, index) => {
                     const isFirst = index === 0;
                     const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
 
-                    // Determine milestone status for players
+                    // Determine milestone status
                     let bgColor, borderColor, iconColor, textColor, statusIcon;
-                    if (exerciseContext.userRole === 'player') {
-                        if (currentCount >= milestone.count) {
-                            // Achieved
-                            bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
-                            borderColor = 'border-green-300';
-                            iconColor = 'text-green-600';
-                            textColor = 'text-green-700';
-                            statusIcon = '✓';
-                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
-                            // Next achievable
-                            bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
-                            borderColor = 'border-orange-300';
-                            iconColor = 'text-orange-600';
-                            textColor = 'text-orange-700';
-                            statusIcon = '🎯';
-                        } else {
-                            // Future
-                            bgColor = 'bg-gradient-to-r from-gray-50 to-slate-50';
-                            borderColor = 'border-gray-300';
-                            iconColor = 'text-gray-500';
-                            textColor = 'text-gray-600';
-                            statusIcon = '⚪';
-                        }
-                    } else {
-                        // Default for coach/admin
-                        bgColor = 'bg-gradient-to-r from-indigo-50 to-purple-50';
-                        borderColor = 'border-indigo-100';
-                        iconColor = 'text-indigo-600';
-                        textColor = 'text-gray-800';
-                        statusIcon = '🎯';
-                    }
+                    // Default styling (same for all users - no progress indicators for players)
+                    bgColor = 'bg-gradient-to-r from-indigo-50 to-purple-50';
+                    borderColor = 'border-indigo-100';
+                    iconColor = 'text-indigo-600';
+                    textColor = 'text-gray-800';
+                    statusIcon = '🎯';
 
                     return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
                         <div class="flex items-center gap-3">
@@ -804,7 +747,6 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                         <span class="text-2xl">📊</span>
                         <span>Meilensteine</span>
                     </h4>
-                    ${progressHtml}
                     ${milestonesHtml}
                 </div>`;
             milestonesContainer.classList.remove('hidden');
