@@ -948,22 +948,65 @@ window.showTrainingInfo = async function(sessionId, dateStr) {
 
         if (session.completed && session.completedExercises && session.completedExercises.length > 0) {
             completedSection.classList.remove('hidden');
-            let html = '';
 
-            session.completedExercises.forEach((exercise, index) => {
+            // Collect all exercises including single player custom exercises
+            const allExercises = [];
+
+            // Add main completed exercises
+            for (const exercise of session.completedExercises) {
                 const isPlanned = session.plannedExercises?.some(ex => ex.exerciseId === exercise.exerciseId);
-                const badge = isPlanned
-                    ? '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2">📋 Geplant</span>'
-                    : '<span class="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded ml-2">⚡ Spontan</span>';
+                allExercises.push({
+                    name: exercise.name,
+                    points: exercise.points,
+                    type: isPlanned ? 'planned' : 'spontaneous',
+                    isSinglePlayer: false
+                });
+
+                // Check for single players with custom exercises in this exercise
+                if (exercise.pairingData && exercise.pairingData.singlePlayers && exercise.pairingData.singlePlayers.length > 0) {
+                    for (const single of exercise.pairingData.singlePlayers) {
+                        if (single.customExercise) {
+                            try {
+                                // Load player data
+                                const playerDoc = await getDoc(doc(db, 'users', single.playerId));
+                                if (playerDoc.exists()) {
+                                    const playerData = playerDoc.data();
+                                    allExercises.push({
+                                        name: single.customExercise.name,
+                                        points: single.customExercise.points,
+                                        type: 'single',
+                                        isSinglePlayer: true,
+                                        playerName: `${playerData.firstName} ${playerData.lastName}`
+                                    });
+                                }
+                            } catch (error) {
+                                console.error('Error loading player data for custom exercise:', error);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Render all exercises
+            let html = '';
+            allExercises.forEach((exercise, index) => {
+                let badge = '';
+                if (exercise.type === 'planned') {
+                    badge = '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2">📋 Geplant</span>';
+                } else if (exercise.type === 'spontaneous') {
+                    badge = '<span class="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded ml-2">⚡ Spontan</span>';
+                } else if (exercise.type === 'single') {
+                    badge = `<span class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded ml-2">👤 Alleine (${exercise.playerName})</span>`;
+                }
 
                 html += `
                     <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
-                        <div class="flex items-center">
+                        <div class="flex items-center flex-wrap">
                             <span class="text-gray-500 font-medium mr-3">${index + 1}.</span>
                             <span class="text-sm font-medium text-gray-900">${exercise.name}</span>
                             ${badge}
                         </div>
-                        <span class="text-xs text-gray-600 font-semibold">+${exercise.points} Pkt</span>
+                        <span class="text-xs text-gray-600 font-semibold whitespace-nowrap ml-2">+${exercise.points} Pkt</span>
                     </div>
                 `;
             });
