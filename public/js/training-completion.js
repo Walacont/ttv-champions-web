@@ -528,11 +528,28 @@ window.openPairingForPlannedExercise = async function(index) {
     }
 
     try {
+        // Load full exercise data from database if it's a milestone exercise
+        let fullExercise = exercise;
+        if (exercise.tieredPoints) {
+            console.log('[Training Completion] Loading full exercise data for milestone exercise:', exercise.exerciseId);
+            const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
+            if (exerciseDoc.exists()) {
+                const exerciseData = exerciseDoc.data();
+                fullExercise = {
+                    ...exercise,
+                    tieredPoints: exerciseData.tieredPoints // Get full milestone details
+                };
+                console.log('[Training Completion] Loaded full exercise with milestones:', fullExercise.tieredPoints);
+            } else {
+                console.warn('[Training Completion] Exercise not found in database:', exercise.exerciseId);
+            }
+        }
+
         // Get existing pairings if editing
         const existingPairings = exercisePairings.planned[index];
 
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData, existingPairings);
+        const pairingData = await openPartnerPairingModal(fullExercise, presentPlayerIds, currentSessionData, existingPairings);
 
         // Store the pairing data
         exercisePairings.planned[index] = pairingData;
@@ -559,11 +576,28 @@ window.openPairingForSpontaneousExercise = async function(index) {
     }
 
     try {
+        // Load full exercise data from database if it's a milestone exercise
+        let fullExercise = exercise;
+        if (exercise.tieredPoints) {
+            console.log('[Training Completion] Loading full exercise data for milestone exercise:', exercise.exerciseId);
+            const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
+            if (exerciseDoc.exists()) {
+                const exerciseData = exerciseDoc.data();
+                fullExercise = {
+                    ...exercise,
+                    tieredPoints: exerciseData.tieredPoints // Get full milestone details
+                };
+                console.log('[Training Completion] Loaded full exercise with milestones:', fullExercise.tieredPoints);
+            } else {
+                console.warn('[Training Completion] Exercise not found in database:', exercise.exerciseId);
+            }
+        }
+
         // Get existing pairings if editing
         const existingPairings = exercisePairings.spontaneous[index];
 
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(exercise, presentPlayerIds, currentSessionData, existingPairings);
+        const pairingData = await openPartnerPairingModal(fullExercise, presentPlayerIds, currentSessionData, existingPairings);
 
         // Store the pairing data
         exercisePairings.spontaneous[index] = pairingData;
