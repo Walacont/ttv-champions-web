@@ -362,7 +362,8 @@ async function handleCompletionSubmit(e) {
             completedExercises: exercisesWithPairings.map(item => ({
                 exerciseId: item.exercise.exerciseId,
                 name: item.exercise.name,
-                points: item.exercise.points
+                points: item.exercise.points,
+                pairingData: item.pairingData // Include pairing data for single players
             }))
         });
 
