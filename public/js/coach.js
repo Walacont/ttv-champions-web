@@ -357,6 +357,13 @@ async function initializeCoachPage(userData) {
     });
 
     // Form Submissions
+    // Initialize description editor for exercise creation BEFORE registering event handlers
+    descriptionEditor = setupDescriptionEditor({
+        textAreaId: 'exercise-description-form',
+        toggleContainerId: 'description-toggle-container-coach',
+        tableEditorContainerId: 'description-table-editor-coach'
+    });
+
     document.getElementById('add-offline-player-form').addEventListener('submit', (e) => handleAddOfflinePlayer(e, db, userData));
     document.getElementById('points-form').addEventListener('submit', (e) => handlePointsFormSubmit(e, db, userData, handleReasonChange));
     document.getElementById('create-challenge-form').addEventListener('submit', (e) => handleCreateChallenge(e, db, userData));
@@ -369,13 +376,6 @@ async function initializeCoachPage(userData) {
         } else {
             await handleMatchSave(e, db, userData, clubPlayers);
         }
-    });
-
-    // Initialize description editor for exercise creation
-    descriptionEditor = setupDescriptionEditor({
-        textAreaId: 'exercise-description-form',
-        toggleContainerId: 'description-toggle-container-coach',
-        tableEditorContainerId: 'description-table-editor-coach'
     });
 
     // Setup exercise points auto-calculation (based on level + difficulty)
