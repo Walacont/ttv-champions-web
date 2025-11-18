@@ -426,20 +426,32 @@ function renderFormedPairs() {
         const div = document.createElement('div');
         div.className = 'p-4 bg-gray-50 border border-gray-200 rounded-lg';
 
-        // Milestone count input (only for milestone exercises and successful results)
-        const showCountInput = isMilestoneExercise && pair.result === 'both_success';
-        const countInput = showCountInput ? `
-            <div class="mt-3 pt-3 border-t border-gray-300">
-                <label class="block text-xs font-medium text-gray-700 mb-1">📊 Wie oft erfolgreich abgeschlossen?</label>
-                <input
-                    type="number"
-                    min="1"
-                    value="${pair.completionCount || 1}"
-                    onchange="window.setPairCompletionCount(${index}, parseInt(this.value))"
-                    class="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                > × geschafft
-            </div>
-        ` : '';
+        // Milestone selection (for milestone exercises and successful results)
+        const showMilestoneSelect = isMilestoneExercise && (pair.result === 'both_success' || pair.result === 'one_success');
+        let milestoneSelect = '';
+
+        if (showMilestoneSelect && currentExercise.tieredPoints?.milestones) {
+            const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.count - b.count);
+            const selectedMilestone = pair.milestoneIndex ?? 0;
+
+            milestoneSelect = `
+                <div class="mt-3 pt-3 border-t border-gray-300">
+                    <label class="block text-xs font-medium text-gray-700 mb-2">📊 Erreichter Meilenstein:</label>
+                    <select
+                        onchange="window.setPairMilestone(${index}, parseInt(this.value))"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                        ${milestones.map((milestone, mIndex) => {
+                            const cumulativePoints = milestones.slice(0, mIndex + 1).reduce((sum, m) => sum + m.points, 0);
+                            return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
+                                ${milestone.count}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
+                            </option>`;
+                        }).join('')}
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Wähle den höchsten erreichten Meilenstein aus</p>
+                </div>
+            `;
+        }
 
         div.innerHTML = `
             <div class="flex items-center justify-between mb-3">
@@ -464,7 +476,7 @@ function renderFormedPairs() {
                     ✗ Nicht geschafft (0%)
                 </button>
             </div>
-            ${countInput}
+            ${milestoneSelect}
         `;
         container.appendChild(div);
     });
@@ -518,20 +530,34 @@ function renderSinglePlayers() {
         // Determine if this specific player's exercise is a milestone
         const playerExerciseMilestone = player.customExercise?.tieredPoints || currentExercise?.tieredPoints;
 
-        // Milestone count input (only for milestone exercises and successful results)
-        const showCountInput = playerExerciseMilestone && player.result === 'success';
-        const countInput = showCountInput ? `
-            <div class="mt-3 pt-3 border-t border-yellow-300">
-                <label class="block text-xs font-medium text-gray-700 mb-1">📊 Wie oft erfolgreich abgeschlossen?</label>
-                <input
-                    type="number"
-                    min="1"
-                    value="${player.completionCount || 1}"
-                    onchange="window.setSinglePlayerCompletionCount(${index}, parseInt(this.value))"
-                    class="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
-                > × geschafft
-            </div>
-        ` : '';
+        // Get milestones for this player's exercise
+        let milestoneSelect = '';
+        if (playerExerciseMilestone && player.result === 'success') {
+            const exerciseMilestones = player.customExercise?.tieredPoints?.milestones || currentExercise?.tieredPoints?.milestones;
+
+            if (exerciseMilestones && exerciseMilestones.length > 0) {
+                const milestones = exerciseMilestones.sort((a, b) => a.count - b.count);
+                const selectedMilestone = player.milestoneIndex ?? 0;
+
+                milestoneSelect = `
+                    <div class="mt-3 pt-3 border-t border-yellow-300">
+                        <label class="block text-xs font-medium text-gray-700 mb-2">📊 Erreichter Meilenstein:</label>
+                        <select
+                            onchange="window.setSinglePlayerMilestone(${index}, parseInt(this.value))"
+                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            ${milestones.map((milestone, mIndex) => {
+                                const cumulativePoints = milestones.slice(0, mIndex + 1).reduce((sum, m) => sum + m.points, 0);
+                                return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
+                                    ${milestone.count}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
+                                </option>`;
+                            }).join('')}
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Wähle den höchsten erreichten Meilenstein aus</p>
+                    </div>
+                `;
+            }
+        }
 
         div.innerHTML = `
             <div class="flex items-center justify-between mb-3">
@@ -556,7 +582,7 @@ function renderSinglePlayers() {
                     ✗ Nicht geschafft (0%)
                 </button>
             </div>
-            ${countInput}
+            ${milestoneSelect}
         `;
         container.appendChild(div);
     });
@@ -567,20 +593,18 @@ function renderSinglePlayers() {
  */
 window.setPairResult = function(index, result) {
     formedPairs[index].result = result;
-    // Initialize completion count to 1 when marking as success for milestone exercises
-    if (result === 'both_success' && currentExercise?.tieredPoints && !formedPairs[index].completionCount) {
-        formedPairs[index].completionCount = 1;
+    // Initialize milestone index to 0 (first milestone) when marking as success for milestone exercises
+    if ((result === 'both_success' || result === 'one_success') && currentExercise?.tieredPoints && formedPairs[index].milestoneIndex === undefined) {
+        formedPairs[index].milestoneIndex = 0;
     }
     renderFormedPairs();
 };
 
 /**
- * Set pair completion count (for milestone exercises)
+ * Set pair milestone (for milestone exercises)
  */
-window.setPairCompletionCount = function(index, count) {
-    if (count && count > 0) {
-        formedPairs[index].completionCount = count;
-    }
+window.setPairMilestone = function(index, milestoneIndex) {
+    formedPairs[index].milestoneIndex = milestoneIndex;
 };
 
 /**
@@ -600,21 +624,19 @@ window.removePair = function(index) {
  */
 window.setSinglePlayerResult = function(index, result) {
     singlePlayers[index].result = result;
-    // Initialize completion count to 1 when marking as success for milestone exercises
+    // Initialize milestone index to 0 (first milestone) when marking as success for milestone exercises
     const playerExerciseMilestone = singlePlayers[index].customExercise?.tieredPoints || currentExercise?.tieredPoints;
-    if (result === 'success' && playerExerciseMilestone && !singlePlayers[index].completionCount) {
-        singlePlayers[index].completionCount = 1;
+    if (result === 'success' && playerExerciseMilestone && singlePlayers[index].milestoneIndex === undefined) {
+        singlePlayers[index].milestoneIndex = 0;
     }
     renderSinglePlayers();
 };
 
 /**
- * Set single player completion count (for milestone exercises)
+ * Set single player milestone (for milestone exercises)
  */
-window.setSinglePlayerCompletionCount = function(index, count) {
-    if (count && count > 0) {
-        singlePlayers[index].completionCount = count;
-    }
+window.setSinglePlayerMilestone = function(index, milestoneIndex) {
+    singlePlayers[index].milestoneIndex = milestoneIndex;
 };
 
 /**
@@ -698,18 +720,43 @@ async function confirmPairingAndDistributePoints() {
 
     // Return pairing data without distributing points immediately
     const pairingData = {
-        pairs: formedPairs.map(pair => ({
-            player1Id: pair.player1.id,
-            player2Id: pair.player2.id,
-            result: pair.result,
-            completionCount: pair.completionCount || 1 // For milestone exercises
-        })),
-        singlePlayers: singlePlayers.map(sp => ({
-            playerId: sp.id,
-            result: sp.result,
-            customExercise: sp.customExercise || null, // Save custom exercise if exists
-            completionCount: sp.completionCount || 1 // For milestone exercises
-        })),
+        pairs: formedPairs.map(pair => {
+            const data = {
+                player1Id: pair.player1.id,
+                player2Id: pair.player2.id,
+                result: pair.result
+            };
+
+            // For milestone exercises, calculate completionCount from selected milestone
+            if (currentExercise?.tieredPoints?.milestones && pair.milestoneIndex !== undefined) {
+                const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.count - b.count);
+                data.completionCount = milestones[pair.milestoneIndex]?.count || 1;
+                data.milestoneIndex = pair.milestoneIndex;
+            } else {
+                data.completionCount = 1;
+            }
+
+            return data;
+        }),
+        singlePlayers: singlePlayers.map(sp => {
+            const data = {
+                playerId: sp.id,
+                result: sp.result,
+                customExercise: sp.customExercise || null
+            };
+
+            // For milestone exercises, calculate completionCount from selected milestone
+            const exerciseMilestones = sp.customExercise?.tieredPoints?.milestones || currentExercise?.tieredPoints?.milestones;
+            if (exerciseMilestones && sp.milestoneIndex !== undefined) {
+                const milestones = exerciseMilestones.sort((a, b) => a.count - b.count);
+                data.completionCount = milestones[sp.milestoneIndex]?.count || 1;
+                data.milestoneIndex = sp.milestoneIndex;
+            } else {
+                data.completionCount = 1;
+            }
+
+            return data;
+        }),
         exercise: currentExercise
     };
 
@@ -830,7 +877,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
     // Get current season key
     const currentSeasonKey = await getCurrentSeasonKey();
 
-    // Collect all players who completed successfully with their completion counts
+    // Collect all players who completed with their completion counts and success rate
     const successfulPlayers = [];
 
     // Process pairs
@@ -840,8 +887,12 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         const count = pair.completionCount || 1;
 
         if (pair.result === 'both_success') {
-            if (player1Id) successfulPlayers.push({ playerId: player1Id, count });
-            if (player2Id) successfulPlayers.push({ playerId: player2Id, count });
+            if (player1Id) successfulPlayers.push({ playerId: player1Id, count, pointsMultiplier: 1.0, successRate: '100%' });
+            if (player2Id) successfulPlayers.push({ playerId: player2Id, count, pointsMultiplier: 1.0, successRate: '100%' });
+        } else if (pair.result === 'one_success') {
+            // Both get progress, but only 50% of points
+            if (player1Id) successfulPlayers.push({ playerId: player1Id, count, pointsMultiplier: 0.5, successRate: '50%' });
+            if (player2Id) successfulPlayers.push({ playerId: player2Id, count, pointsMultiplier: 0.5, successRate: '50%' });
         }
     }
 
@@ -850,13 +901,13 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         const playerId = single.id || single.playerId;
         const count = single.completionCount || 1;
         if (single.result === 'success' && playerId) {
-            successfulPlayers.push({ playerId, count });
+            successfulPlayers.push({ playerId, count, pointsMultiplier: 1.0, successRate: '100%' });
         }
     }
 
     // Process each successful player
     for (const playerInfo of successfulPlayers) {
-        const { playerId, count } = playerInfo;
+        const { playerId, count, pointsMultiplier, successRate } = playerInfo;
         const batch = writeBatch(db);
 
         // Get or create milestone progress document
@@ -908,13 +959,15 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         // Award points if milestone reached
         if (pointsToAward > 0) {
             const milestoneInfo = sortedMilestones[newMilestoneIndex];
-            const successRate = '100%'; // Milestone completion is always 100%
             const milestoneName = `${exercise.name} (Meilenstein ${milestoneInfo.count}×)`;
+
+            // Apply points multiplier for partial success (e.g., 50% for one_success)
+            const finalPoints = Math.floor(pointsToAward * pointsMultiplier);
 
             await awardPointsToPlayer(
                 batch,
                 playerId,
-                pointsToAward,
+                finalPoints,
                 milestoneName,
                 date,
                 subgroupId,
@@ -922,7 +975,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
                 successRate
             );
 
-            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.count}× for ${exercise.name}, awarded ${pointsToAward} points (completed ${count}× this session, total: ${newCount})`);
+            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.count}× for ${exercise.name}, awarded ${finalPoints} points (${successRate}, completed ${count}× this session, total: ${newCount})`);
         } else {
             console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].count} (completed ${count}× this session, no milestone reached yet)`);
         }
