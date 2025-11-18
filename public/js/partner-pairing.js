@@ -430,22 +430,9 @@ function renderFormedPairs() {
         const showMilestoneSelect = isMilestoneExercise && (pair.result === 'both_success' || pair.result === 'one_success');
         let milestoneSelect = '';
 
-        console.log('[Render Pairs] Pair:', index, {
-            result: pair.result,
-            isMilestoneExercise,
-            showMilestoneSelect,
-            hasTieredPoints: !!currentExercise?.tieredPoints,
-            hasMilestones: !!currentExercise?.tieredPoints?.milestones,
-            milestones: currentExercise?.tieredPoints?.milestones
-        });
-
         if (showMilestoneSelect && currentExercise.tieredPoints?.milestones) {
             const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.completions - b.completions);
             const selectedMilestone = pair.milestoneIndex ?? 0;
-
-            console.log('[Render Pairs] Showing milestone dropdown with', milestones.length, 'milestones');
-            console.log('[Render Pairs] First milestone:', milestones[0]);
-            console.log('[Render Pairs] All milestones:', milestones);
 
             milestoneSelect = `
                 <div class="mt-3 pt-3 border-t border-gray-300">
