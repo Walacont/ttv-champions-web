@@ -308,15 +308,19 @@ window.selectDifferentExerciseForSinglePlayer = function() {
 
     console.log('[Exercise Pairing] Opening exercise modal for player:', playerToAdd.firstName, playerToAdd.lastName);
 
-    // Track if callback was called
-    let exerciseSelected = false;
+    // Track if player was already added (callback is called for EACH selected exercise)
+    let playerAlreadyAdded = false;
 
     // Open exercise selection modal with callback
-    // NOTE: The callback receives already formatted exercise objects: {exerciseId, name, points, tieredPoints}
+    // NOTE: The callback is called ONCE PER SELECTED EXERCISE (can be called multiple times!)
+    // We only want to use the FIRST exercise and add the player only ONCE
     openExerciseSelectionModal((exercise) => {
         console.log('[Exercise Pairing] Modal callback triggered with exercise:', exercise);
 
-        if (exercise) {
+        // Only process the first exercise, ignore subsequent calls
+        if (exercise && !playerAlreadyAdded) {
+            playerAlreadyAdded = true; // Mark as added to prevent duplicate additions
+
             console.log('[Exercise Pairing] Selected exercise:', exercise.name, 'Points:', exercise.points);
 
             // Exercise is already in the correct format from toggleExerciseSelection
@@ -351,6 +355,8 @@ window.selectDifferentExerciseForSinglePlayer = function() {
             checkSinglePlayers();
             updateConfirmButtonState();
             console.log('[Exercise Pairing] UI updated');
+        } else if (playerAlreadyAdded) {
+            console.log('[Exercise Pairing] Ignoring additional exercise callback - player already added');
         }
     });
 }
