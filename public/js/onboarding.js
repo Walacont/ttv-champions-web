@@ -37,6 +37,41 @@ let currentUser = null;
 let currentUserData = null; // Wir speichern die Daten aus Firestore hier
 let selectedFile = null;
 
+// Initialize date select fields
+function initializeDateSelects() {
+    const daySelect = document.getElementById('birthdate-day');
+    const monthSelect = document.getElementById('birthdate-month');
+    const yearSelect = document.getElementById('birthdate-year');
+
+    // Fill days (1-31)
+    for (let i = 1; i <= 31; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        daySelect.appendChild(option);
+    }
+
+    // Fill months (1-12)
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        monthSelect.appendChild(option);
+    }
+
+    // Fill years (1900 to current year)
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear; i >= 1900; i--) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        yearSelect.appendChild(option);
+    }
+}
+
+// Initialize the date selects when the page loads
+initializeDateSelects();
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         currentUser = user;
@@ -58,6 +93,16 @@ onAuthStateChanged(auth, async (user) => {
             // Fülle das Formular mit den Daten, die vom Coach/Admin angelegt wurden
             document.getElementById('firstName').value = currentUserData.firstName || '';
             document.getElementById('lastName').value = currentUserData.lastName || '';
+
+            // Fill birthdate selects if data exists
+            if (currentUserData.birthdate) {
+                const dateParts = currentUserData.birthdate.split('-');
+                if (dateParts.length === 3) {
+                    document.getElementById('birthdate-year').value = dateParts[0];
+                    document.getElementById('birthdate-month').value = parseInt(dateParts[1], 10);
+                    document.getElementById('birthdate-day').value = parseInt(dateParts[2], 10);
+                }
+            }
 
         } else {
             errorMessage.textContent = "Fehler: Dein Profil konnte nicht gefunden werden. Bitte starte den Prozess neu.";
@@ -99,11 +144,21 @@ onboardingForm.addEventListener('submit', async (e) => {
             const snapshot = await uploadBytes(storageRef, selectedFile);
             photoURL = await getDownloadURL(snapshot.ref);
         }
-        
+
+        // Combine the three date select values into YYYY-MM-DD format
+        const day = document.getElementById('birthdate-day').value;
+        const month = document.getElementById('birthdate-month').value;
+        const year = document.getElementById('birthdate-year').value;
+
+        // Pad day and month with leading zeros if needed
+        const paddedDay = day.padStart(2, '0');
+        const paddedMonth = month.padStart(2, '0');
+        const birthdate = `${year}-${paddedMonth}-${paddedDay}`;
+
         const dataToUpdate = {
             firstName: document.getElementById('firstName').value,
             lastName: document.getElementById('lastName').value,
-            birthdate: document.getElementById('birthdate').value,
+            birthdate: birthdate,
             gender: document.getElementById('gender').value,
             photoURL: photoURL,
             onboardingComplete: true, // Wichtig: Onboarding abschließen
