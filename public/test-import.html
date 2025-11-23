@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Import Test</title>
+</head>
+<body>
+    <h1>Import Test</h1>
+    <div id="result"></div>
+
+    <script type="module">
+        try {
+            const result = document.getElementById('result');
+            result.innerHTML = 'Importing...<br>';
+
+            // Test import
+            import { calculateHandicap, isValidSet, getSetWinner, escapeHtml, formatDateGerman } from './js/validation-utils.js';
+
+            result.innerHTML += 'Success! Functions imported:<br>';
+            result.innerHTML += '- calculateHandicap: ' + (typeof calculateHandicap) + '<br>';
+            result.innerHTML += '- isValidSet: ' + (typeof isValidSet) + '<br>';
+            result.innerHTML += '- getSetWinner: ' + (typeof getSetWinner) + '<br>';
+            result.innerHTML += '- escapeHtml: ' + (typeof escapeHtml) + '<br>';
+            result.innerHTML += '- formatDateGerman: ' + (typeof formatDateGerman) + '<br>';
+
+            // Test calculateHandicap
+            const player1 = { eloRating: 1000 };
+            const player2 = { eloRating: 1100 };
+            const handicap = calculateHandicap(player1, player2);
+            result.innerHTML += '<br>Test handicap calculation: ' + JSON.stringify(handicap);
+
+        } catch (error) {
+            document.getElementById('result').innerHTML = 'ERROR: ' + error.message + '<br><pre>' + error.stack + '</pre>';
+        }
+    </script>
+</body>
+</html>
