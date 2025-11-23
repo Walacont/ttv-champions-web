@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { collection, query, where, orderBy, limit, addDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, computed, watch } from 'vue'
+import { collection, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
@@ -8,11 +8,41 @@ import MatchRequestCard from '@/components/MatchRequestCard.vue'
 
 const userStore = useUserStore()
 
+// Match type toggle (singles/doubles)
+const matchType = ref('singles')
+
 // Form state
 const showRequestForm = ref(false)
 const selectedOpponent = ref('')
-const proposedDate = ref('')
+const selectedPartner = ref('')
+const selectedOpponent1 = ref('')
+const selectedOpponent2 = ref('')
+const matchMode = ref('best-of-5')
 const submitting = ref(false)
+const feedback = ref({ message: '', type: '' })
+
+// Set scores
+const sets = ref([
+  { playerA: '', playerB: '' },
+  { playerA: '', playerB: '' },
+  { playerA: '', playerB: '' }
+])
+
+// Match modes
+const matchModes = [
+  { id: 'single-set', label: '1 Satz', setsToWin: 1, maxSets: 1 },
+  { id: 'best-of-3', label: 'Best of 3', setsToWin: 2, maxSets: 3 },
+  { id: 'best-of-5', label: 'Best of 5', setsToWin: 3, maxSets: 5 },
+  { id: 'best-of-7', label: 'Best of 7', setsToWin: 4, maxSets: 7 },
+]
+
+const currentMode = computed(() => matchModes.find(m => m.id === matchMode.value) || matchModes[2])
+
+// Reset sets when mode changes
+watch(matchMode, () => {
+  const minSets = currentMode.value.setsToWin
+  sets.value = Array.from({ length: minSets }, () => ({ playerA: '', playerB: '' }))
+})
 
 // Club players
 const clubPlayersQuery = computed(() => {
@@ -26,12 +56,17 @@ const clubPlayersQuery = computed(() => {
 })
 const clubPlayers = useCollection(clubPlayersQuery)
 
+// Available opponents (excluding self and match-ready check)
 const availableOpponents = computed(() => {
   if (!clubPlayers.value) return []
-  return clubPlayers.value.filter(p => p.id !== userStore.userData?.id)
+  return clubPlayers.value.filter(p => {
+    if (p.id === userStore.userData?.id) return false
+    const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5
+    return isMatchReady
+  })
 })
 
-// Incoming requests
+// Incoming requests (singles)
 const incomingRequestsQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
@@ -43,7 +78,7 @@ const incomingRequestsQuery = computed(() => {
 })
 const incomingRequests = useCollection(incomingRequestsQuery)
 
-// Outgoing requests
+// Outgoing requests (singles)
 const outgoingRequestsQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
@@ -55,7 +90,18 @@ const outgoingRequestsQuery = computed(() => {
 })
 const outgoingRequests = useCollection(outgoingRequestsQuery)
 
-// Match history
+// Incoming doubles requests
+const incomingDoublesQuery = computed(() => {
+  if (!userStore.userData?.id) return null
+  return query(
+    collection(db, 'doublesMatchRequests'),
+    where('status', '==', 'pending_opponent'),
+    orderBy('createdAt', 'desc')
+  )
+})
+const incomingDoublesRequests = useCollection(incomingDoublesQuery)
+
+// Match history (singles)
 const matchHistoryQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
@@ -67,8 +113,72 @@ const matchHistoryQuery = computed(() => {
 })
 const matchHistory = useCollection(matchHistoryQuery)
 
-async function submitRequest() {
+// Doubles match history
+const doublesHistoryQuery = computed(() => {
+  if (!userStore.userData?.id) return null
+  return query(
+    collection(db, 'doublesMatches'),
+    where('playerIds', 'array-contains', userStore.userData.id),
+    orderBy('createdAt', 'desc'),
+    limit(10)
+  )
+})
+const doublesHistory = useCollection(doublesHistoryQuery)
+
+// Validate set scores
+function validateSets() {
+  const validSets = sets.value.filter(s => {
+    const a = parseInt(s.playerA) || 0
+    const b = parseInt(s.playerB) || 0
+    if (a === 0 && b === 0) return false
+
+    // Basic validation: winner needs 11+ and 2+ lead (or deuce at 10-10+)
+    const winner = a > b ? a : b
+    const loser = a > b ? b : a
+    if (winner < 11) return false
+    if (winner === 11 && loser > 9) return false
+    if (winner > 11 && (winner - loser) !== 2) return false
+    return true
+  })
+
+  if (validSets.length < currentMode.value.setsToWin) {
+    return { valid: false, error: `Mindestens ${currentMode.value.setsToWin} gültige Sätze benötigt` }
+  }
+
+  // Check winner
+  let playerAWins = 0
+  let playerBWins = 0
+  validSets.forEach(s => {
+    const a = parseInt(s.playerA) || 0
+    const b = parseInt(s.playerB) || 0
+    if (a > b) playerAWins++
+    else playerBWins++
+  })
+
+  if (playerAWins < currentMode.value.setsToWin && playerBWins < currentMode.value.setsToWin) {
+    return { valid: false, error: `Kein Spieler hat ${currentMode.value.setsToWin} Sätze gewonnen` }
+  }
+
+  return { valid: true, sets: validSets, winner: playerAWins >= currentMode.value.setsToWin ? 'A' : 'B' }
+}
+
+// Add a new set
+function addSet() {
+  if (sets.value.length < currentMode.value.maxSets) {
+    sets.value.push({ playerA: '', playerB: '' })
+  }
+}
+
+// Submit singles match request
+async function submitSinglesRequest() {
   if (!selectedOpponent.value || submitting.value) return
+
+  const validation = validateSets()
+  if (!validation.valid) {
+    feedback.value = { message: validation.error, type: 'error' }
+    return
+  }
+
   submitting.value = true
   const opponent = clubPlayers.value.find(p => p.id === selectedOpponent.value)
 
@@ -82,17 +192,99 @@ async function submitRequest() {
       opponentElo: opponent.eloRating || 1000,
       clubId: userStore.clubId,
       status: 'pending',
-      proposedDate: proposedDate.value ? new Date(proposedDate.value) : null,
+      sets: validation.sets,
+      matchMode: matchMode.value,
+      winner: validation.winner === 'A' ? 'requester' : 'opponent',
       createdAt: serverTimestamp()
     })
-    showRequestForm.value = false
-    selectedOpponent.value = ''
-    proposedDate.value = ''
+
+    feedback.value = { message: 'Anfrage gesendet! Der Gegner muss bestätigen.', type: 'success' }
+    resetForm()
   } catch (error) {
     console.error('Error creating match request:', error)
+    feedback.value = { message: 'Fehler beim Senden der Anfrage', type: 'error' }
   } finally {
     submitting.value = false
   }
+}
+
+// Submit doubles match request
+async function submitDoublesRequest() {
+  if (!selectedPartner.value || !selectedOpponent1.value || !selectedOpponent2.value || submitting.value) return
+
+  // Validate all players are different
+  const allIds = [userStore.userData.id, selectedPartner.value, selectedOpponent1.value, selectedOpponent2.value]
+  if (new Set(allIds).size !== 4) {
+    feedback.value = { message: 'Alle 4 Spieler müssen unterschiedlich sein!', type: 'error' }
+    return
+  }
+
+  const validation = validateSets()
+  if (!validation.valid) {
+    feedback.value = { message: validation.error, type: 'error' }
+    return
+  }
+
+  submitting.value = true
+
+  try {
+    const [partnerDoc, opp1Doc, opp2Doc] = await Promise.all([
+      getDoc(doc(db, 'users', selectedPartner.value)),
+      getDoc(doc(db, 'users', selectedOpponent1.value)),
+      getDoc(doc(db, 'users', selectedOpponent2.value))
+    ])
+
+    const partner = partnerDoc.data()
+    const opp1 = opp1Doc.data()
+    const opp2 = opp2Doc.data()
+
+    // Create pairing IDs (sorted)
+    const teamAPairingId = [userStore.userData.id, selectedPartner.value].sort().join('_')
+    const teamBPairingId = [selectedOpponent1.value, selectedOpponent2.value].sort().join('_')
+
+    await addDoc(collection(db, 'doublesMatchRequests'), {
+      teamA: {
+        player1Id: userStore.userData.id,
+        player2Id: selectedPartner.value,
+        player1Name: `${userStore.userData.firstName} ${userStore.userData.lastName}`,
+        player2Name: `${partner.firstName} ${partner.lastName}`,
+        pairingId: teamAPairingId
+      },
+      teamB: {
+        player1Id: selectedOpponent1.value,
+        player2Id: selectedOpponent2.value,
+        player1Name: `${opp1.firstName} ${opp1.lastName}`,
+        player2Name: `${opp2.firstName} ${opp2.lastName}`,
+        pairingId: teamBPairingId
+      },
+      winningTeam: validation.winner,
+      sets: validation.sets.map(s => ({ teamA: parseInt(s.playerA), teamB: parseInt(s.playerB) })),
+      matchMode: matchMode.value,
+      initiatedBy: userStore.userData.id,
+      status: 'pending_opponent',
+      clubId: userStore.clubId,
+      playerIds: allIds,
+      createdAt: serverTimestamp()
+    })
+
+    feedback.value = { message: 'Doppel-Anfrage gesendet! Ein Gegner muss bestätigen.', type: 'success' }
+    resetForm()
+  } catch (error) {
+    console.error('Error creating doubles request:', error)
+    feedback.value = { message: 'Fehler beim Senden der Doppel-Anfrage', type: 'error' }
+  } finally {
+    submitting.value = false
+  }
+}
+
+function resetForm() {
+  showRequestForm.value = false
+  selectedOpponent.value = ''
+  selectedPartner.value = ''
+  selectedOpponent1.value = ''
+  selectedOpponent2.value = ''
+  sets.value = Array.from({ length: currentMode.value.setsToWin }, () => ({ playerA: '', playerB: '' }))
+  setTimeout(() => { feedback.value = { message: '', type: '' } }, 3000)
 }
 
 function formatDate(timestamp) {
@@ -109,21 +301,53 @@ function didWin(match) {
 
 <template>
   <div class="space-y-6">
+    <!-- Match Type Toggle -->
+    <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+      <button
+        @click="matchType = 'singles'"
+        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
+        :class="matchType === 'singles' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'"
+      >
+        🏓 Einzel
+      </button>
+      <button
+        @click="matchType = 'doubles'"
+        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
+        :class="matchType === 'doubles' ? 'bg-white shadow text-green-600' : 'text-gray-600'"
+      >
+        🎾 Doppel
+      </button>
+    </div>
+
     <!-- New Match Button -->
     <div class="flex justify-end">
       <button
         @click="showRequestForm = !showRequestForm"
-        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+        class="px-4 py-2 text-white rounded-lg"
+        :class="matchType === 'singles' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'"
       >
-        {{ showRequestForm ? '✕ Abbrechen' : '+ Neues Match anfragen' }}
+        {{ showRequestForm ? '✕ Abbrechen' : `+ Neues ${matchType === 'singles' ? 'Einzel' : 'Doppel'} anfragen` }}
       </button>
+    </div>
+
+    <!-- Feedback Message -->
+    <div
+      v-if="feedback.message"
+      class="px-4 py-3 rounded"
+      :class="feedback.type === 'success' ? 'bg-green-100 border border-green-300 text-green-700' : 'bg-red-100 border border-red-300 text-red-700'"
+    >
+      {{ feedback.message }}
     </div>
 
     <!-- Request Form -->
     <div v-if="showRequestForm" class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Match anfragen</h3>
-      <form @submit.prevent="submitRequest" class="space-y-4">
-        <div>
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        {{ matchType === 'singles' ? 'Einzel-Match anfragen' : 'Doppel-Match anfragen' }}
+      </h3>
+
+      <form @submit.prevent="matchType === 'singles' ? submitSinglesRequest() : submitDoublesRequest()" class="space-y-4">
+        <!-- Singles: Opponent Selection -->
+        <div v-if="matchType === 'singles'">
           <label class="block text-sm font-medium text-gray-700 mb-1">Gegner</label>
           <select v-model="selectedOpponent" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
             <option value="">-- Gegner wählen --</option>
@@ -132,72 +356,191 @@ function didWin(match) {
             </option>
           </select>
         </div>
+
+        <!-- Doubles: Player Selections -->
+        <template v-if="matchType === 'doubles'">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Dein Partner</label>
+            <select v-model="selectedPartner" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+              <option value="">-- Partner wählen --</option>
+              <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
+                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Gegner 1</label>
+            <select v-model="selectedOpponent1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+              <option value="">-- Gegner 1 wählen --</option>
+              <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
+                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Gegner 2</label>
+            <select v-model="selectedOpponent2" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+              <option value="">-- Gegner 2 wählen --</option>
+              <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
+                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
+              </option>
+            </select>
+          </div>
+        </template>
+
+        <!-- Match Mode -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Datum (optional)</label>
-          <input v-model="proposedDate" type="datetime-local" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">Match-Modus</label>
+          <select v-model="matchMode" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+            <option v-for="mode in matchModes" :key="mode.id" :value="mode.id">
+              {{ mode.label }}
+            </option>
+          </select>
         </div>
-        <button type="submit" :disabled="!selectedOpponent || submitting" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+
+        <!-- Set Scores -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Satz-Ergebnisse</label>
+          <div v-for="(set, index) in sets" :key="index" class="flex items-center gap-3 mb-3">
+            <span class="text-sm font-medium text-gray-700 w-16">Satz {{ index + 1 }}:</span>
+            <input
+              v-model="set.playerA"
+              type="number"
+              min="0"
+              max="99"
+              placeholder="0"
+              class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+            />
+            <span class="text-gray-500">:</span>
+            <input
+              v-model="set.playerB"
+              type="number"
+              min="0"
+              max="99"
+              placeholder="0"
+              class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <button
+            v-if="sets.length < currentMode.maxSets"
+            type="button"
+            @click="addSet"
+            class="text-sm text-indigo-600 hover:text-indigo-800"
+          >
+            + Satz hinzufügen
+          </button>
+          <p class="text-xs text-gray-500 mt-2">
+            {{ matchType === 'singles' ? 'Du' : 'Dein Team' }} = links, {{ matchType === 'singles' ? 'Gegner' : 'Gegner-Team' }} = rechts
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          :disabled="submitting"
+          class="w-full py-3 text-white font-semibold rounded-lg disabled:opacity-50"
+          :class="matchType === 'singles' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'"
+        >
           {{ submitting ? 'Wird gesendet...' : 'Anfrage senden' }}
         </button>
       </form>
     </div>
 
-    <!-- Incoming Requests -->
-    <div class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3">
-        📬 Eingehende Anfragen
-        <span v-if="incomingRequests?.length" class="text-indigo-600">({{ incomingRequests.length }})</span>
-      </h3>
-      <div v-if="incomingRequests?.length" class="space-y-2">
-        <MatchRequestCard v-for="request in incomingRequests" :key="request.id" :request="request" type="incoming" />
+    <!-- Singles Content -->
+    <template v-if="matchType === 'singles'">
+      <!-- Incoming Requests -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">
+          📬 Eingehende Anfragen
+          <span v-if="incomingRequests?.length" class="text-indigo-600">({{ incomingRequests.length }})</span>
+        </h3>
+        <div v-if="incomingRequests?.length" class="space-y-2">
+          <MatchRequestCard v-for="request in incomingRequests" :key="request.id" :request="request" type="incoming" />
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Keine eingehenden Anfragen</p>
       </div>
-      <p v-else class="text-gray-500 text-center py-4">Keine eingehenden Anfragen</p>
-    </div>
 
-    <!-- Outgoing Requests -->
-    <div class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3">
-        📤 Gesendete Anfragen
-        <span v-if="outgoingRequests?.length" class="text-yellow-600">({{ outgoingRequests.length }})</span>
-      </h3>
-      <div v-if="outgoingRequests?.length" class="space-y-2">
-        <MatchRequestCard v-for="request in outgoingRequests" :key="request.id" :request="request" type="outgoing" />
+      <!-- Outgoing Requests -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">
+          📤 Gesendete Anfragen
+          <span v-if="outgoingRequests?.length" class="text-yellow-600">({{ outgoingRequests.length }})</span>
+        </h3>
+        <div v-if="outgoingRequests?.length" class="space-y-2">
+          <MatchRequestCard v-for="request in outgoingRequests" :key="request.id" :request="request" type="outgoing" />
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
       </div>
-      <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
-    </div>
 
-    <!-- Match History -->
-    <div class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3">📜 Match-Historie</h3>
-      <div v-if="matchHistory?.length" class="overflow-x-auto">
-        <table class="w-full">
-          <thead>
-            <tr class="text-left text-sm text-gray-500 border-b">
-              <th class="pb-2">Datum</th>
-              <th class="pb-2">Gegner</th>
-              <th class="pb-2">Ergebnis</th>
-              <th class="pb-2">Elo</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="match in matchHistory" :key="match.id" class="border-b border-gray-100">
-              <td class="py-3 text-sm">{{ formatDate(match.playedAt) }}</td>
-              <td class="py-3 font-medium">
-                {{ match.player1Id === userStore.userData?.id ? match.player2Name : match.player1Name }}
-              </td>
-              <td class="py-3">
-                <span class="px-2 py-1 rounded text-sm font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                  {{ didWin(match) ? 'Sieg' : 'Niederlage' }}
+      <!-- Match History -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">📜 Match-Historie (Einzel)</h3>
+        <div v-if="matchHistory?.length" class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="text-left text-sm text-gray-500 border-b">
+                <th class="pb-2">Datum</th>
+                <th class="pb-2">Gegner</th>
+                <th class="pb-2">Ergebnis</th>
+                <th class="pb-2">Elo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="match in matchHistory" :key="match.id" class="border-b border-gray-100">
+                <td class="py-3 text-sm">{{ formatDate(match.playedAt) }}</td>
+                <td class="py-3 font-medium">
+                  {{ match.player1Id === userStore.userData?.id ? match.player2Name : match.player1Name }}
+                </td>
+                <td class="py-3">
+                  <span class="px-2 py-1 rounded text-sm font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                    {{ didWin(match) ? 'Sieg' : 'Niederlage' }}
+                  </span>
+                </td>
+                <td class="py-3 text-sm" :class="(match.eloChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ (match.eloChange || 0) >= 0 ? '+' : '' }}{{ match.eloChange || 0 }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Noch keine Einzel-Matches gespielt</p>
+      </div>
+    </template>
+
+    <!-- Doubles Content -->
+    <template v-if="matchType === 'doubles'">
+      <!-- Doubles Match History -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">🎾 Doppel-Historie</h3>
+        <div v-if="doublesHistory?.length" class="space-y-3">
+          <div
+            v-for="match in doublesHistory"
+            :key="match.id"
+            class="p-4 rounded-lg bg-gradient-to-r from-green-50 to-teal-50 border border-green-200"
+          >
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-semibold text-gray-900">
+                  {{ match.teamA?.player1Name }} & {{ match.teamA?.player2Name }}
+                </p>
+                <p class="text-sm text-gray-600">vs</p>
+                <p class="font-semibold text-gray-900">
+                  {{ match.teamB?.player1Name }} & {{ match.teamB?.player2Name }}
+                </p>
+              </div>
+              <div class="text-right">
+                <span
+                  class="px-2 py-1 rounded text-sm font-medium"
+                  :class="match.winningTeam === 'A' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+                >
+                  {{ match.winningTeam === 'A' ? 'Team A gewinnt' : 'Team B gewinnt' }}
                 </span>
-              </td>
-              <td class="py-3 text-sm" :class="(match.eloChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                {{ (match.eloChange || 0) >= 0 ? '+' : '' }}{{ match.eloChange || 0 }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <p class="text-xs text-gray-500 mt-1">{{ formatDate(match.createdAt) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Noch keine Doppel-Matches gespielt</p>
       </div>
-      <p v-else class="text-gray-500 text-center py-4">Noch keine Matches gespielt</p>
-    </div>
+    </template>
   </div>
 </template>

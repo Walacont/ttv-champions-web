@@ -16,7 +16,41 @@ const types = [
   { id: 'season', label: 'Season', sublabel: '(Punkte)', icon: '⭐' },
   { id: 'skill', label: 'Skill', sublabel: '(Elo)', icon: '⚡' },
   { id: 'ranks', label: 'Ränge', sublabel: '(Level)', icon: '🏆' },
+  { id: 'doubles', label: 'Doppel', sublabel: '(Teams)', icon: '🎾' },
 ]
+
+// Rank definitions (matching original)
+const RANKS = [
+  { id: 0, name: 'Rekrut', emoji: '🔰', color: '#9CA3AF', minElo: 800, minXP: 0 },
+  { id: 1, name: 'Bronze', emoji: '🥉', color: '#CD7F32', minElo: 850, minXP: 50, requiresGrundlagen: true, grundlagenRequired: 5 },
+  { id: 2, name: 'Silber', emoji: '🥈', color: '#C0C0C0', minElo: 1000, minXP: 200 },
+  { id: 3, name: 'Gold', emoji: '🥇', color: '#FFD700', minElo: 1200, minXP: 500 },
+  { id: 4, name: 'Platin', emoji: '💎', color: '#E5E4E2', minElo: 1400, minXP: 1000 },
+  { id: 5, name: 'Champion', emoji: '👑', color: '#9333EA', minElo: 1600, minXP: 1800 },
+]
+
+// Calculate rank for a player
+function calculateRank(eloRating, xp, grundlagenCount = 0) {
+  const elo = eloRating ?? 800
+  const totalXP = xp || 0
+
+  for (let i = RANKS.length - 1; i >= 0; i--) {
+    const rank = RANKS[i]
+    const meetsBasicRequirements = elo >= rank.minElo && totalXP >= rank.minXP
+
+    if (rank.requiresGrundlagen) {
+      const required = rank.grundlagenRequired || 5
+      if (meetsBasicRequirements && grundlagenCount >= required) {
+        return rank
+      }
+    } else {
+      if (meetsBasicRequirements) {
+        return rank
+      }
+    }
+  }
+  return RANKS[0]
+}
 
 // Club players query
 const clubPlayersQuery = computed(() => {
@@ -44,12 +78,49 @@ const globalPlayersQuery = computed(() => {
 })
 const globalPlayers = useCollection(globalPlayersQuery)
 
+// Doubles pairings query
+const doublesPairingsQuery = computed(() => {
+  if (!userStore.clubId) return null
+  return query(
+    collection(db, 'doublesPairings'),
+    where('clubId', '==', userStore.clubId),
+    orderBy('eloRating', 'desc')
+  )
+})
+const doublesPairings = useCollection(doublesPairingsQuery)
+
 const players = computed(() => scope.value === 'club' ? clubPlayers.value : globalPlayers.value)
+
+// Group players by rank for Ranks view
+const playersByRank = computed(() => {
+  if (!clubPlayers.value) return []
+
+  const grouped = {}
+  RANKS.forEach(rank => {
+    grouped[rank.id] = []
+  })
+
+  clubPlayers.value.forEach(player => {
+    const rank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0)
+    grouped[rank.id].push({ ...player, rank })
+  })
+
+  // Return in reverse order (highest rank first)
+  return RANKS.slice().reverse().map(rank => ({
+    rank,
+    players: grouped[rank.id].sort((a, b) => (b.xp || 0) - (a.xp || 0))
+  })).filter(group => group.players.length > 0)
+})
 
 function getDisplayValue(player) {
   if (activeType.value === 'effort') return `${player.xp || 0} XP`
   if (activeType.value === 'season') return `${player.points || 0} Pkt`
-  return `${player.eloRating || 0} Elo`
+  return `${player.eloRating || 1000} Elo`
+}
+
+function getSecondaryValue(player) {
+  const rank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0)
+  return `${rank.emoji} ${rank.name}`
 }
 
 function getRankDisplay(index) {
@@ -62,6 +133,9 @@ function getRankDisplay(index) {
 function getInitials(player) {
   return (player.firstName?.[0] || '') + (player.lastName?.[0] || '')
 }
+
+// Check if toggle should be shown (not for ranks or doubles)
+const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType.value))
 </script>
 
 <template>
@@ -69,23 +143,25 @@ function getInitials(player) {
     <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
     <!-- Type Tabs -->
-    <div class="flex justify-center border-b border-gray-200 mb-4 overflow-x-auto">
-      <button
-        v-for="type in types"
-        :key="type.id"
-        @click="activeType = type.id"
-        class="px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap"
-        :class="activeType === type.id
-          ? 'border-indigo-600 text-indigo-600'
-          : 'border-transparent text-gray-600 hover:border-gray-300'"
-      >
-        <div>{{ type.icon }} {{ type.label }}</div>
-        <div class="text-xs text-gray-500 font-normal">{{ type.sublabel }}</div>
-      </button>
+    <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6">
+      <div class="flex justify-center min-w-max">
+        <button
+          v-for="type in types"
+          :key="type.id"
+          @click="activeType = type.id"
+          class="flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 transition-colors"
+          :class="activeType === type.id
+            ? 'border-indigo-600 text-indigo-600'
+            : 'border-transparent text-gray-600 hover:border-gray-300'"
+        >
+          <div>{{ type.icon }} {{ type.label }}</div>
+          <div class="text-xs text-gray-500 font-normal">{{ type.sublabel }}</div>
+        </button>
+      </div>
     </div>
 
-    <!-- Scope Toggle -->
-    <div v-if="activeType !== 'ranks'" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100 mb-6">
+    <!-- Scope Toggle (only for effort, season, skill) -->
+    <div v-if="showScopeToggle" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100 mb-6">
       <button
         @click="scope = 'club'"
         class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
@@ -102,8 +178,8 @@ function getInitials(player) {
       </button>
     </div>
 
-    <!-- Player List -->
-    <div class="space-y-2 max-h-96 overflow-y-auto">
+    <!-- Regular Player List (effort, season, skill) -->
+    <div v-if="['effort', 'season', 'skill'].includes(activeType)" class="space-y-2 max-h-96 overflow-y-auto">
       <div v-if="!players?.length" class="text-center py-8 text-gray-500">
         Keine Spieler gefunden.
       </div>
@@ -118,7 +194,7 @@ function getInitials(player) {
         <img
           :src="player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${getInitials(player)}`"
           :alt="player.firstName"
-          class="h-10 w-10 rounded-full object-cover mr-4"
+          class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4"
         />
         <div class="flex-grow">
           <p class="text-sm font-medium text-gray-900">{{ player.firstName }} {{ player.lastName }}</p>
@@ -126,6 +202,93 @@ function getInitials(player) {
         </div>
         <div class="text-right">
           <p class="text-sm font-bold text-gray-900">{{ getDisplayValue(player) }}</p>
+          <p class="text-xs text-gray-500">{{ getSecondaryValue(player) }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ranks View (grouped by rank) -->
+    <div v-if="activeType === 'ranks'" class="space-y-4 max-h-[500px] overflow-y-auto">
+      <div v-if="!playersByRank?.length" class="text-center py-8 text-gray-500">
+        Keine Spieler gefunden.
+      </div>
+
+      <div v-for="group in playersByRank" :key="group.rank.id" class="rank-section">
+        <!-- Rank Header -->
+        <div
+          class="flex items-center justify-between p-3 rounded-lg"
+          :style="{ backgroundColor: group.rank.color + '20', borderLeft: `4px solid ${group.rank.color}` }"
+        >
+          <div class="flex items-center space-x-2">
+            <span class="text-2xl">{{ group.rank.emoji }}</span>
+            <span class="font-bold text-lg" :style="{ color: group.rank.color }">{{ group.rank.name }}</span>
+          </div>
+          <span class="text-sm text-gray-600">{{ group.players.length }} Spieler</span>
+        </div>
+
+        <!-- Players in Rank -->
+        <div class="mt-2 space-y-1 pl-4">
+          <div
+            v-for="player in group.players"
+            :key="player.id"
+            class="flex items-center p-2 rounded"
+            :class="player.id === userStore.userData?.id ? 'bg-indigo-100 font-bold' : 'bg-gray-50'"
+          >
+            <img
+              :src="player.photoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${getInitials(player)}`"
+              :alt="player.firstName"
+              class="h-8 w-8 rounded-full object-cover mr-3"
+            />
+            <div class="flex-grow">
+              <p class="text-sm">{{ player.firstName }} {{ player.lastName }}</p>
+            </div>
+            <div class="text-xs text-gray-600">
+              {{ player.eloRating || 800 }} Elo | {{ player.xp || 0 }} XP
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Doubles View -->
+    <div v-if="activeType === 'doubles'" class="space-y-2 max-h-96 overflow-y-auto">
+      <div v-if="!doublesPairings?.length" class="text-center py-8 text-gray-500">
+        <div class="text-4xl mb-2">🎾</div>
+        <p class="font-medium">Noch keine Doppel-Paarungen</p>
+        <p class="text-sm mt-1">Paarungen werden erstellt, sobald Doppel-Matches gespielt werden.</p>
+      </div>
+
+      <div
+        v-for="(pairing, index) in doublesPairings"
+        :key="pairing.id"
+        class="flex items-center p-4 rounded-lg bg-gradient-to-r from-green-50 to-teal-50 border border-green-200"
+      >
+        <div class="w-10 text-center font-bold text-lg">{{ getRankDisplay(index) }}</div>
+        <div class="flex-grow">
+          <div class="flex items-center gap-2">
+            <div class="flex -space-x-2">
+              <img
+                :src="pairing.player1PhotoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${pairing.player1Initials || '??'}`"
+                class="h-8 w-8 rounded-full border-2 border-white object-cover"
+              />
+              <img
+                :src="pairing.player2PhotoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${pairing.player2Initials || '??'}`"
+                class="h-8 w-8 rounded-full border-2 border-white object-cover"
+              />
+            </div>
+            <div class="ml-2">
+              <p class="text-sm font-semibold text-gray-900">
+                {{ pairing.player1Name }} & {{ pairing.player2Name }}
+              </p>
+              <p class="text-xs text-gray-500">
+                {{ pairing.wins || 0 }} Siege • {{ pairing.losses || 0 }} Niederlagen
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-lg font-bold text-green-600">{{ pairing.eloRating || 800 }}</p>
+          <p class="text-xs text-gray-500">Doppel-Elo</p>
         </div>
       </div>
     </div>
