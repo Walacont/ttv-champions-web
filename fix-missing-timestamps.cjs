@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -17,9 +17,7 @@ async function fixMissingTimestamps() {
 
   try {
     // Check singles matches
-    const singlesSnapshot = await db.collection('matches')
-      .where('processed', '==', true)
-      .get();
+    const singlesSnapshot = await db.collection('matches').where('processed', '==', true).get();
 
     console.log(`Found ${singlesSnapshot.docs.length} processed singles matches`);
 
@@ -49,7 +47,8 @@ async function fixMissingTimestamps() {
     }
 
     // Check doubles matches
-    const doublesSnapshot = await db.collection('doublesMatches')
+    const doublesSnapshot = await db
+      .collection('doublesMatches')
       .where('processed', '==', true)
       .get();
 
@@ -81,7 +80,6 @@ async function fixMissingTimestamps() {
     }
 
     console.log(`\n🎉 Done! Fixed ${singlesFixed + doublesFixed} matches total`);
-
   } catch (error) {
     console.error('❌ Error:', error);
   }

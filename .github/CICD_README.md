@@ -6,10 +6,10 @@ Dieses Projekt verwendet **GitHub Actions** für automatisierte Tests und Deploy
 
 ### Workflows
 
-| Workflow | Datei | Trigger | Zweck |
-|----------|-------|---------|-------|
-| **Tests** | `test.yml` | Push/PR auf `main` | Führt alle Tests aus (Backend + Frontend) |
-| **Deploy** | `deploy.yml` | Push auf `main` (nur nach Tests) | Deployed zu Firebase |
+| Workflow   | Datei        | Trigger                          | Zweck                                     |
+| ---------- | ------------ | -------------------------------- | ----------------------------------------- |
+| **Tests**  | `test.yml`   | Push/PR auf `main`               | Führt alle Tests aus (Backend + Frontend) |
+| **Deploy** | `deploy.yml` | Push auf `main` (nur nach Tests) | Deployed zu Firebase                      |
 
 ---
 
@@ -113,6 +113,7 @@ git push
 Gehe zu: **Settings** → **Branches** → **Add branch protection rule**
 
 Für `main` Branch:
+
 - ✅ **Require a pull request before merging**
 - ✅ **Require status checks to pass before merging**
   - Wähle: `Backend Tests (Jest)`
@@ -180,6 +181,7 @@ Füge diese Badges in dein `README.md` ein:
 ### Problem: Tests schlagen fehl in CI, aber lokal funktionieren sie
 
 **Lösung:**
+
 - Prüfe Node.js-Version (sollte 20 sein)
 - Prüfe, ob `package-lock.json` committed ist
 - Führe lokal `npm ci` statt `npm install` aus
@@ -187,6 +189,7 @@ Füge diese Badges in dein `README.md` ein:
 ### Problem: Firebase Deployment schlägt fehl
 
 **Lösung:**
+
 - Prüfe, ob `FIREBASE_TOKEN` Secret korrekt gesetzt ist
 - Prüfe Firebase CLI Version: `firebase --version`
 - Token erneuern: `firebase login:ci`
@@ -194,6 +197,7 @@ Füge diese Badges in dein `README.md` ein:
 ### Problem: ESLint-Fehler blockieren Tests
 
 **Lösung:**
+
 - Lokale ESLint-Fehler beheben: `npm run lint --fix`
 - Oder temporär `continue-on-error: true` in Workflow setzen
 

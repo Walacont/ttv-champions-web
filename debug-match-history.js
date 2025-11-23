@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -26,7 +26,8 @@ async function debugMatchHistory() {
   try {
     // Check singles matches
     console.log('=== SINGLES MATCHES ===');
-    const singlesSnapshot = await db.collection('matches')
+    const singlesSnapshot = await db
+      .collection('matches')
       .where('clubId', '==', clubId)
       .limit(10)
       .get();
@@ -37,8 +38,12 @@ async function debugMatchHistory() {
       const data = doc.data();
       console.log(`Match ${index + 1} (${doc.id}):`);
       console.log(`  - processed: ${data.processed}`);
-      console.log(`  - timestamp: ${data.timestamp ? 'YES' : 'NO'} ${data.timestamp ? `(${data.timestamp.toDate()})` : ''}`);
-      console.log(`  - createdAt: ${data.createdAt ? 'YES' : 'NO'} ${data.createdAt ? `(${data.createdAt.toDate()})` : ''}`);
+      console.log(
+        `  - timestamp: ${data.timestamp ? 'YES' : 'NO'} ${data.timestamp ? `(${data.timestamp.toDate()})` : ''}`
+      );
+      console.log(
+        `  - createdAt: ${data.createdAt ? 'YES' : 'NO'} ${data.createdAt ? `(${data.createdAt.toDate()})` : ''}`
+      );
       console.log(`  - playerAId: ${data.playerAId}`);
       console.log(`  - playerBId: ${data.playerBId}`);
       console.log(`  - winnerId: ${data.winnerId}`);
@@ -47,7 +52,8 @@ async function debugMatchHistory() {
 
     // Check processed matches specifically
     console.log('=== PROCESSED SINGLES MATCHES ===');
-    const processedSnapshot = await db.collection('matches')
+    const processedSnapshot = await db
+      .collection('matches')
       .where('clubId', '==', clubId)
       .where('processed', '==', true)
       .limit(5)
@@ -58,14 +64,19 @@ async function debugMatchHistory() {
     processedSnapshot.docs.forEach((doc, index) => {
       const data = doc.data();
       console.log(`Processed Match ${index + 1} (${doc.id}):`);
-      console.log(`  - timestamp: ${data.timestamp ? 'YES ✅' : 'NO ❌'} ${data.timestamp ? `(${data.timestamp.toDate()})` : ''}`);
-      console.log(`  - createdAt: ${data.createdAt ? 'YES' : 'NO'} ${data.createdAt ? `(${data.createdAt.toDate()})` : ''}`);
+      console.log(
+        `  - timestamp: ${data.timestamp ? 'YES ✅' : 'NO ❌'} ${data.timestamp ? `(${data.timestamp.toDate()})` : ''}`
+      );
+      console.log(
+        `  - createdAt: ${data.createdAt ? 'YES' : 'NO'} ${data.createdAt ? `(${data.createdAt.toDate()})` : ''}`
+      );
       console.log('');
     });
 
     // Check doubles matches
     console.log('=== DOUBLES MATCHES ===');
-    const doublesSnapshot = await db.collection('doublesMatches')
+    const doublesSnapshot = await db
+      .collection('doublesMatches')
       .where('clubId', '==', clubId)
       .limit(5)
       .get();
@@ -76,11 +87,14 @@ async function debugMatchHistory() {
       const data = doc.data();
       console.log(`Doubles Match ${index + 1} (${doc.id}):`);
       console.log(`  - processed: ${data.processed}`);
-      console.log(`  - timestamp: ${data.timestamp ? 'YES' : 'NO'} ${data.timestamp ? `(${data.timestamp.toDate()})` : ''}`);
-      console.log(`  - createdAt: ${data.createdAt ? 'YES' : 'NO'} ${data.createdAt ? `(${data.createdAt.toDate()})` : ''}`);
+      console.log(
+        `  - timestamp: ${data.timestamp ? 'YES' : 'NO'} ${data.timestamp ? `(${data.timestamp.toDate()})` : ''}`
+      );
+      console.log(
+        `  - createdAt: ${data.createdAt ? 'YES' : 'NO'} ${data.createdAt ? `(${data.createdAt.toDate()})` : ''}`
+      );
       console.log('');
     });
-
   } catch (error) {
     console.error('❌ Error:', error);
   }

@@ -27,7 +27,10 @@ const { calculateElo, getHighestEloGate, applyEloGate } = require('./elo');
 const { processMatchResult, processApprovedMatchRequest } = require('./matchProcessor');
 
 // Import doubles processing functions
-const { processDoublesMatchResult, processApprovedDoublesMatchRequest } = require('./doublesProcessor');
+const {
+  processDoublesMatchResult,
+  processApprovedDoublesMatchRequest,
+} = require('./doublesProcessor');
 
 // Import invitation functions
 const { setCustomUserClaims, claimInvitationCode, claimInvitationToken } = require('./invitations');

@@ -9,6 +9,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `trainingSessions`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `date` - Ascending
 3. `cancelled` - Ascending
@@ -22,6 +23,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `trainingSessions`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `subgroupId` - Ascending
 3. `date` - Ascending
@@ -36,6 +38,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `trainingSessions`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `date` - Ascending
 3. `cancelled` - Ascending
@@ -50,6 +53,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `recurringTrainingTemplates`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `active` - Ascending
 3. `dayOfWeek` - Ascending
@@ -148,6 +152,7 @@ firebase deploy --only firestore:indexes
 ### Fehler: "The query requires an index"
 
 **Lösung**:
+
 1. Kopiere den Link aus der Browser-Konsole
 2. Öffne den Link in neuem Tab
 3. Firebase schlägt automatisch den Index vor
@@ -179,11 +184,13 @@ Warte 1-2 Minuten und lade die Seite neu.
 ## Warum werden Indices benötigt?
 
 Firebase Firestore benötigt **zusammengesetzte Indices** für Queries mit:
+
 - Mehreren WHERE-Klauseln auf verschiedenen Feldern
 - Kombination von WHERE und ORDER BY
 - Range-Queries (>=, <=) auf verschiedenen Feldern
 
 Unser Multi-Session System nutzt solche Queries für:
+
 - Laden von Sessions eines Monats (date range + clubId + cancelled)
 - Filtern nach Untergruppen
 - Sortieren nach Startzeit

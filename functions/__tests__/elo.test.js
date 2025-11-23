@@ -8,8 +8,8 @@
  * - Handicap: ±8 Elo fix
  */
 
-const {_testOnly} = require('../index');
-const {calculateElo, getHighestEloGate, applyEloGate, CONFIG} = _testOnly;
+const { _testOnly } = require('../index');
+const { calculateElo, getHighestEloGate, applyEloGate, CONFIG } = _testOnly;
 
 describe('ELO Calculation System', () => {
   describe('calculateElo()', () => {
@@ -17,8 +17,8 @@ describe('ELO Calculation System', () => {
       const result = calculateElo(800, 800, 32);
 
       expect(result.newWinnerElo).toBe(816); // Winner gains 16
-      expect(result.newLoserElo).toBe(784);  // Loser loses 16
-      expect(result.eloDelta).toBe(16);      // Delta is 16
+      expect(result.newLoserElo).toBe(784); // Loser loses 16
+      expect(result.eloDelta).toBe(16); // Delta is 16
     });
 
     test('should calculate Elo when higher rated player wins (1000 vs 800)', () => {
@@ -142,7 +142,7 @@ describe('ELO Calculation System', () => {
     });
 
     test('should handle edge cases at gate boundaries', () => {
-      expect(getHighestEloGate(849, 849)).toBe(0);   // Just below
+      expect(getHighestEloGate(849, 849)).toBe(0); // Just below
       expect(getHighestEloGate(850, 850)).toBe(850); // Exactly at gate
       expect(getHighestEloGate(851, 851)).toBe(850); // Just above
     });
@@ -224,7 +224,11 @@ describe('ELO Calculation System', () => {
       const winnerElo = 800;
       const loserElo = 800;
 
-      const {newWinnerElo, newLoserElo, eloDelta} = calculateElo(winnerElo, loserElo, CONFIG.ELO.K_FACTOR);
+      const { newWinnerElo, newLoserElo, eloDelta } = calculateElo(
+        winnerElo,
+        loserElo,
+        CONFIG.ELO.K_FACTOR
+      );
 
       // Apply gate protection for loser
       const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserElo);
@@ -241,21 +245,29 @@ describe('ELO Calculation System', () => {
       const winnerElo = 900;
       const loserElo = 900;
 
-      const {newWinnerElo, newLoserElo, eloDelta} = calculateElo(winnerElo, loserElo, CONFIG.ELO.K_FACTOR);
+      const { newWinnerElo, newLoserElo, eloDelta } = calculateElo(
+        winnerElo,
+        loserElo,
+        CONFIG.ELO.K_FACTOR
+      );
 
       // Loser should be protected at 900 gate
       const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserElo);
 
       expect(newWinnerElo).toBe(916);
-      expect(newLoserElo).toBe(884);        // Calculated loss
-      expect(protectedLoserElo).toBe(900);  // Protected by gate!
+      expect(newLoserElo).toBe(884); // Calculated loss
+      expect(protectedLoserElo).toBe(900); // Protected by gate!
     });
 
     test('Standard Match: 1000 vs 950 (winner at gate)', () => {
       const winnerElo = 1000;
       const loserElo = 950;
 
-      const {newWinnerElo, newLoserElo, eloDelta} = calculateElo(winnerElo, loserElo, CONFIG.ELO.K_FACTOR);
+      const { newWinnerElo, newLoserElo, eloDelta } = calculateElo(
+        winnerElo,
+        loserElo,
+        CONFIG.ELO.K_FACTOR
+      );
 
       const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserElo);
 
@@ -269,7 +281,7 @@ describe('ELO Calculation System', () => {
 
       // Handicap matches use fixed changes
       const newWinnerElo = winnerElo + CONFIG.ELO.HANDICAP_SEASON_POINTS; // +8
-      const newLoserElo = loserElo - CONFIG.ELO.HANDICAP_SEASON_POINTS;   // -8
+      const newLoserElo = loserElo - CONFIG.ELO.HANDICAP_SEASON_POINTS; // -8
 
       const protectedLoserElo = applyEloGate(newLoserElo, loserElo, loserElo);
 
@@ -281,10 +293,14 @@ describe('ELO Calculation System', () => {
     });
 
     test('Upset Victory: Lower rated player wins', () => {
-      const winnerElo = 800;  // Underdog
-      const loserElo = 1200;  // Favorite
+      const winnerElo = 800; // Underdog
+      const loserElo = 1200; // Favorite
 
-      const {newWinnerElo, newLoserElo, eloDelta} = calculateElo(winnerElo, loserElo, CONFIG.ELO.K_FACTOR);
+      const { newWinnerElo, newLoserElo, eloDelta } = calculateElo(
+        winnerElo,
+        loserElo,
+        CONFIG.ELO.K_FACTOR
+      );
 
       // Winner should gain a lot (upset bonus)
       expect(newWinnerElo).toBeGreaterThan(820);
@@ -303,10 +319,10 @@ describe('ELO Calculation System', () => {
       const highestElo = 1300;
       const loserElo = 1200;
 
-      const {newWinnerElo, newLoserElo} = calculateElo(currentElo, loserElo, CONFIG.ELO.K_FACTOR);
+      const { newWinnerElo, newLoserElo } = calculateElo(currentElo, loserElo, CONFIG.ELO.K_FACTOR);
 
       // If this player loses next match
-      const {newLoserElo: potentialNewElo} = calculateElo(1200, currentElo, CONFIG.ELO.K_FACTOR);
+      const { newLoserElo: potentialNewElo } = calculateElo(1200, currentElo, CONFIG.ELO.K_FACTOR);
 
       // Gate should protect at 1300
       const protectedElo = applyEloGate(potentialNewElo, currentElo, highestElo);
@@ -355,13 +371,13 @@ describe('ELO Calculation System', () => {
   describe('Season Points Calculation', () => {
     test('should calculate Season Points for various Elo deltas', () => {
       const testCases = [
-        {winnerElo: 800, loserElo: 800, expectedMin: 3, expectedMax: 4},   // ~16 Elo × 0.2 = 3
-        {winnerElo: 800, loserElo: 1000, expectedMin: 4, expectedMax: 6},  // ~24 Elo × 0.2 = 5
-        {winnerElo: 1000, loserElo: 800, expectedMin: 1, expectedMax: 2},  // ~8 Elo × 0.2 = 2
+        { winnerElo: 800, loserElo: 800, expectedMin: 3, expectedMax: 4 }, // ~16 Elo × 0.2 = 3
+        { winnerElo: 800, loserElo: 1000, expectedMin: 4, expectedMax: 6 }, // ~24 Elo × 0.2 = 5
+        { winnerElo: 1000, loserElo: 800, expectedMin: 1, expectedMax: 2 }, // ~8 Elo × 0.2 = 2
       ];
 
-      testCases.forEach(({winnerElo, loserElo, expectedMin, expectedMax}) => {
-        const {eloDelta} = calculateElo(winnerElo, loserElo, 32);
+      testCases.forEach(({ winnerElo, loserElo, expectedMin, expectedMax }) => {
+        const { eloDelta } = calculateElo(winnerElo, loserElo, 32);
         const seasonPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
 
         expect(seasonPoints).toBeGreaterThanOrEqual(expectedMin);

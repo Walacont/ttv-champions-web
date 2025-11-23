@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -21,7 +21,7 @@ async function findClubId() {
     // Check users collection
     console.log('Prüfe users...');
     const usersSnapshot = await db.collection('users').limit(10).get();
-    usersSnapshot.forEach(doc => {
+    usersSnapshot.forEach((doc) => {
       const data = doc.data();
       if (data.clubId) {
         clubIds.add(data.clubId);
@@ -31,7 +31,7 @@ async function findClubId() {
     // Check matches collection
     console.log('Prüfe matches...');
     const matchesSnapshot = await db.collection('matches').limit(10).get();
-    matchesSnapshot.forEach(doc => {
+    matchesSnapshot.forEach((doc) => {
       const data = doc.data();
       if (data.clubId) {
         clubIds.add(data.clubId);
@@ -41,7 +41,7 @@ async function findClubId() {
     // Check doublesMatches collection
     console.log('Prüfe doublesMatches...');
     const doublesSnapshot = await db.collection('doublesMatches').limit(10).get();
-    doublesSnapshot.forEach(doc => {
+    doublesSnapshot.forEach((doc) => {
       const data = doc.data();
       if (data.clubId) {
         clubIds.add(data.clubId);
@@ -55,7 +55,9 @@ async function findClubId() {
       console.log('Mögliche Gründe:');
       console.log('1. Noch keine Daten in der Datenbank');
       console.log('2. Feld heißt anders als "clubId"');
-      console.log('\nFühren Sie "node list-collections.js" aus, um die Datenbank-Struktur zu sehen.');
+      console.log(
+        '\nFühren Sie "node list-collections.js" aus, um die Datenbank-Struktur zu sehen.'
+      );
     } else {
       Array.from(clubIds).forEach((clubId, index) => {
         console.log(`${index + 1}. ${clubId}`);
@@ -70,7 +72,6 @@ async function findClubId() {
     }
 
     console.log('');
-
   } catch (error) {
     console.error('❌ Fehler:', error.message);
   }

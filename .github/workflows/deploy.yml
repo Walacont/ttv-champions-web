@@ -3,7 +3,7 @@ name: Deploy to Firebase
 # Trigger: Nur bei Push auf main NACH erfolgreichem Test
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   # ========================================================================
@@ -48,7 +48,7 @@ jobs:
   deploy:
     name: Deploy to Firebase
     runs-on: ubuntu-latest
-    needs: run-tests  # Wartet auf erfolgreiche Tests!
+    needs: run-tests # Wartet auf erfolgreiche Tests!
     if: success()
 
     steps:
