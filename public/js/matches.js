@@ -1,5 +1,6 @@
 import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { createSetScoreInput } from './player-matches.js';
+import { calculateHandicap } from './validation-utils.js';
 
 /**
  * Matches Module
@@ -67,37 +68,9 @@ export function initializeCoachSetScoreInput() {
     return coachSetScoreInput;
 }
 
-/**
- * Calculates handicap points based on ELO rating difference
- * @param {Object} playerA - First player object with eloRating
- * @param {Object} playerB - Second player object with eloRating
- * @returns {Object|null} Handicap object with player and points, or null if no handicap needed
- */
-export function calculateHandicap(playerA, playerB) {
-    const eloA = playerA.eloRating || 0;
-    const eloB = playerB.eloRating || 0;
-    const eloDiff = Math.abs(eloA - eloB);
-
-    if (eloDiff < 25) {
-        return null;
-    }
-
-    let handicapPoints = Math.round(eloDiff / 50);
-
-    if (handicapPoints > 10) {
-        handicapPoints = 10;
-    }
-
-    if (handicapPoints < 1) {
-        return null;
-    }
-
-    const weakerPlayer = eloA < eloB ? playerA : playerB;
-    return {
-        player: weakerPlayer,
-        points: handicapPoints
-    };
-}
+// Re-export calculateHandicap from validation-utils.js for backwards compatibility
+// (coach.js imports it from matches.js)
+export { calculateHandicap };
 
 /**
  * Sets the current session for pairings generation

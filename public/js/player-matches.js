@@ -12,6 +12,7 @@ import {
   getDocs,
   orderBy,
 } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { isValidSet, getSetWinner } from './validation-utils.js';
 
 /**
  * Player Matches Module
@@ -108,38 +109,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     });
   }
 
-  // Helper function to validate a set according to official table tennis rules
-  function isValidSet(scoreA, scoreB) {
-    const a = parseInt(scoreA) || 0;
-    const b = parseInt(scoreB) || 0;
-
-    // At least one side must have 11+ points
-    if (a < 11 && b < 11) return false;
-
-    // No winner (tie)
-    if (a === b) return false;
-
-    // Determine if we're in deuce territory (both >= 10)
-    if (a >= 10 && b >= 10) {
-      // Require exactly 2-point difference
-      return Math.abs(a - b) === 2;
-    }
-
-    // Below 10:10, just need 11+ on winning side and lead
-    return (a >= 11 && a > b) || (b >= 11 && b > a);
-  }
-
-  // Helper function to determine set winner (returns 'A', 'B', or null)
-  function getSetWinner(scoreA, scoreB) {
-    if (!isValidSet(scoreA, scoreB)) return null;
-
-    const a = parseInt(scoreA) || 0;
-    const b = parseInt(scoreB) || 0;
-
-    if (a > b) return 'A';
-    if (b > a) return 'B';
-    return null;
-  }
+  // isValidSet and getSetWinner are imported from validation-utils.js
 
   function handleSetInput(e) {
     const setIndex = parseInt(e.target.dataset.set);
