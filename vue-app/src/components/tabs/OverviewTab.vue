@@ -1,14 +1,15 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { collection, query, where, orderBy, limit } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
-import StatCard from '@/components/StatCard.vue'
-import RivalCard from '@/components/RivalCard.vue'
 import MatchRequestCard from '@/components/MatchRequestCard.vue'
 
 const userStore = useUserStore()
+
+// Season countdown
+const seasonCountdown = ref('Lädt...')
 
 // Pending match requests
 const pendingRequestsQuery = computed(() => {
@@ -18,7 +19,7 @@ const pendingRequestsQuery = computed(() => {
     where('opponentId', '==', userStore.userData.id),
     where('status', '==', 'pending'),
     orderBy('createdAt', 'desc'),
-    limit(5)
+    limit(10)
   )
 })
 const pendingRequests = useCollection(pendingRequestsQuery)
@@ -31,20 +32,27 @@ const clubPlayersQuery = computed(() => {
     where('clubId', '==', userStore.clubId),
     where('role', '==', 'player'),
     orderBy('eloRating', 'desc'),
-    limit(20)
+    limit(50)
   )
 })
 const clubPlayers = useCollection(clubPlayersQuery)
 
-// Rivals
-const rivals = computed(() => {
-  if (!clubPlayers.value || !userStore.userData) return []
+// Skill Rival (closest Elo above)
+const skillRival = computed(() => {
+  if (!clubPlayers.value || !userStore.userData) return null
   const myElo = userStore.userData.eloRating || 1000
   return clubPlayers.value
-    .filter(p => p.id !== userStore.userData.id)
-    .map(p => ({ ...p, eloDiff: Math.abs((p.eloRating || 1000) - myElo) }))
-    .sort((a, b) => a.eloDiff - b.eloDiff)
-    .slice(0, 3)
+    .filter(p => p.id !== userStore.userData.id && (p.eloRating || 1000) > myElo)
+    .sort((a, b) => (a.eloRating || 1000) - (b.eloRating || 1000))[0] || null
+})
+
+// Effort Rival (closest XP above)
+const effortRival = computed(() => {
+  if (!clubPlayers.value || !userStore.userData) return null
+  const myXp = userStore.userData.xp || 0
+  return clubPlayers.value
+    .filter(p => p.id !== userStore.userData.id && (p.xp || 0) > myXp)
+    .sort((a, b) => (a.xp || 0) - (b.xp || 0))[0] || null
 })
 
 // Challenges
@@ -54,63 +62,228 @@ const challengesQuery = computed(() => {
     collection(db, 'challenges'),
     where('clubId', '==', userStore.clubId),
     where('active', '==', true),
-    limit(3)
+    limit(6)
   )
 })
 const challenges = useCollection(challengesQuery)
+
+// Points history
+const pointsHistoryQuery = computed(() => {
+  if (!userStore.userData?.id) return null
+  return query(
+    collection(db, 'pointsHistory'),
+    where('userId', '==', userStore.userData.id),
+    orderBy('createdAt', 'desc'),
+    limit(10)
+  )
+})
+const pointsHistory = useCollection(pointsHistoryQuery)
+
+// Calculate season end (every 6 weeks)
+onMounted(() => {
+  updateSeasonCountdown()
+  setInterval(updateSeasonCountdown, 1000)
+})
+
+function updateSeasonCountdown() {
+  const startDate = new Date('2024-01-01')
+  const now = new Date()
+  const weeksSinceStart = Math.floor((now - startDate) / (7 * 24 * 60 * 60 * 1000))
+  const currentSeasonWeek = weeksSinceStart % 6
+  const weeksRemaining = 6 - currentSeasonWeek - 1
+  const daysIntoWeek = Math.floor((now - startDate) / (24 * 60 * 60 * 1000)) % 7
+  const daysRemaining = (weeksRemaining * 7) + (7 - daysIntoWeek)
+
+  if (daysRemaining <= 0) {
+    seasonCountdown.value = 'Saison endet bald!'
+  } else if (daysRemaining === 1) {
+    seasonCountdown.value = '1 Tag'
+  } else {
+    seasonCountdown.value = `${daysRemaining} Tage`
+  }
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return ''
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+}
 </script>
 
 <template>
-  <div class="space-y-6">
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <StatCard title="Elo Rating" :value="userStore.userData?.eloRating || 1000" icon="⚡" color="indigo" />
-      <StatCard title="XP" :value="userStore.userData?.xp || 0" icon="💪" color="green" />
-      <StatCard title="Season Punkte" :value="userStore.userData?.points || 0" icon="⭐" color="yellow" />
-      <StatCard title="Siege" :value="userStore.userData?.wins || 0" icon="🏆" color="purple" />
-    </div>
-
-    <!-- Pending Requests -->
-    <div v-if="pendingRequests?.length" class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3">
-        📬 Offene Anfragen ({{ pendingRequests.length }})
-      </h3>
-      <div class="space-y-2">
-        <MatchRequestCard
-          v-for="request in pendingRequests"
-          :key="request.id"
-          :request="request"
-          type="incoming"
-        />
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Info Banner -->
+    <div class="lg:col-span-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-4 rounded-lg">
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-indigo-800">Drei Systeme für deinen Fortschritt</p>
+          <p class="text-xs text-indigo-700 mt-1">
+            <strong class="text-purple-700">XP</strong> = Permanenter Fleiß für Rang-Aufstieg •
+            <strong class="text-blue-700">Elo</strong> = Wettkampf-Spielstärke •
+            <strong class="text-yellow-700">Saisonpunkte</strong> = Temporärer 6-Wochen-Wettbewerb
+          </p>
+        </div>
       </div>
     </div>
 
-    <!-- Rivals -->
-    <div v-if="rivals?.length" class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3">🎯 Deine Rivalen</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <RivalCard
-          v-for="rival in rivals"
-          :key="rival.id"
-          :player="rival"
-          :currentUserElo="userStore.userData?.eloRating || 1000"
-        />
+    <!-- Statistics -->
+    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-lg font-semibold text-gray-500 mb-4 text-center">Deine Statistiken</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- XP Card -->
+        <div class="text-center p-4 bg-purple-50 rounded-lg border-2 border-purple-200 relative group">
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <p class="text-sm font-semibold text-purple-800">💪 Erfahrung (XP)</p>
+            <span class="cursor-help text-purple-400 hover:text-purple-600" title="Permanente Punkte für Fleiß. Bestimmt deinen Rang.">ⓘ</span>
+          </div>
+          <p class="text-4xl font-bold text-purple-600 mb-2">{{ userStore.userData?.xp || 0 }}</p>
+          <p class="text-xs text-purple-700 font-medium">Für Rang-Aufstieg</p>
+        </div>
+        <!-- ELO Card -->
+        <div class="text-center p-4 bg-blue-50 rounded-lg border-2 border-blue-200 relative group">
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <p class="text-sm font-semibold text-blue-800">⚡ Spielstärke (Elo)</p>
+            <span class="cursor-help text-blue-400 hover:text-blue-600" title="Misst deine echte Spielstärke. Steigt bei Siegen, sinkt bei Niederlagen.">ⓘ</span>
+          </div>
+          <p class="text-4xl font-bold text-blue-600 mb-2">{{ userStore.userData?.eloRating || 1000 }}</p>
+          <p class="text-xs text-blue-700 font-medium">Wettkampf-Skill</p>
+        </div>
+        <!-- Season Points Card -->
+        <div class="text-center p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200 relative group">
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <p class="text-sm font-semibold text-yellow-800">🏆 Saisonpunkte</p>
+            <span class="cursor-help text-yellow-400 hover:text-yellow-600" title="Temporäre Punkte für den 6-Wochen-Wettbewerb. Werden am Saisonende zurückgesetzt.">ⓘ</span>
+          </div>
+          <p class="text-4xl font-bold text-yellow-600 mb-2">{{ userStore.userData?.points || 0 }}</p>
+          <p class="text-xs text-yellow-700 font-medium">Aktueller Wettbewerb</p>
+        </div>
       </div>
+    </div>
+
+    <!-- Season Countdown -->
+    <div class="lg:col-span-3 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 p-4 rounded-xl shadow-md">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="bg-yellow-400 p-3 rounded-full">
+            <svg class="w-6 h-6 text-yellow-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-yellow-900">⏳ Saison-Ende</h3>
+            <p class="text-xs text-yellow-700">Saison-Punkte werden zurückgesetzt</p>
+          </div>
+        </div>
+        <p class="text-2xl font-bold text-yellow-900">{{ seasonCountdown }}</p>
+      </div>
+    </div>
+
+    <!-- Match Requests -->
+    <div class="lg:col-span-3 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 p-6 rounded-xl shadow-md">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-indigo-800">🏓 Wettkampf-Anfragen</h2>
+        <span v-if="pendingRequests?.length" class="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+          {{ pendingRequests.length }}
+        </span>
+      </div>
+      <div class="space-y-3">
+        <template v-if="pendingRequests?.length">
+          <MatchRequestCard
+            v-for="request in pendingRequests"
+            :key="request.id"
+            :request="request"
+            type="incoming"
+          />
+        </template>
+        <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
+      </div>
+    </div>
+
+    <!-- Rank Widget -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Dein Rang</h2>
+      <div class="text-center">
+        <div class="text-4xl mb-2">🎖️</div>
+        <p class="text-lg font-bold text-gray-800">{{ userStore.userData?.rank || 'Rekrut' }}</p>
+        <p class="text-sm text-gray-500 mt-1">{{ userStore.userData?.xp || 0 }} XP</p>
+      </div>
+    </div>
+
+    <!-- Skill Rival -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-xl font-semibold mb-4">⚡ Skill-Rivale (Elo)</h2>
+      <div v-if="skillRival" class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+          {{ skillRival.firstName?.[0] }}{{ skillRival.lastName?.[0] }}
+        </div>
+        <div>
+          <p class="font-semibold text-gray-800">{{ skillRival.firstName }} {{ skillRival.lastName }}</p>
+          <p class="text-sm text-blue-600">{{ skillRival.eloRating || 1000 }} Elo</p>
+          <p class="text-xs text-gray-500">+{{ (skillRival.eloRating || 1000) - (userStore.userData?.eloRating || 1000) }} über dir</p>
+        </div>
+      </div>
+      <p v-else class="text-gray-500">Du bist die Nr. 1! 🏆</p>
+    </div>
+
+    <!-- Effort Rival -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-xl font-semibold mb-4">💪 Fleiß-Rivale (XP)</h2>
+      <div v-if="effortRival" class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold">
+          {{ effortRival.firstName?.[0] }}{{ effortRival.lastName?.[0] }}
+        </div>
+        <div>
+          <p class="font-semibold text-gray-800">{{ effortRival.firstName }} {{ effortRival.lastName }}</p>
+          <p class="text-sm text-purple-600">{{ effortRival.xp || 0 }} XP</p>
+          <p class="text-xs text-gray-500">+{{ (effortRival.xp || 0) - (userStore.userData?.xp || 0) }} über dir</p>
+        </div>
+      </div>
+      <p v-else class="text-gray-500">Du bist die Nr. 1! 🏆</p>
+    </div>
+
+    <!-- Points History -->
+    <div class="md:col-span-1 lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
+      <ul class="space-y-3 max-h-64 overflow-y-auto">
+        <template v-if="pointsHistory?.length">
+          <li v-for="entry in pointsHistory" :key="entry.id" class="flex justify-between items-center text-sm border-b pb-2">
+            <div>
+              <p class="font-medium text-gray-800">{{ entry.reason }}</p>
+              <p class="text-xs text-gray-500">{{ formatDate(entry.createdAt) }}</p>
+            </div>
+            <span class="font-bold" :class="entry.points > 0 ? 'text-green-600' : 'text-red-600'">
+              {{ entry.points > 0 ? '+' : '' }}{{ entry.points }}
+            </span>
+          </li>
+        </template>
+        <li v-else class="text-gray-500 text-center py-4">Noch keine Punkte-Historie</li>
+      </ul>
     </div>
 
     <!-- Challenges -->
-    <div v-if="challenges?.length" class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3">🎯 Aktive Challenges</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div
-          v-for="challenge in challenges"
-          :key="challenge.id"
-          class="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-lg border border-yellow-200"
-        >
-          <h4 class="font-semibold text-gray-900">{{ challenge.name }}</h4>
-          <p class="text-sm text-gray-600 mt-1">{{ challenge.description }}</p>
-          <div class="mt-2 text-xs text-yellow-700">+{{ challenge.xpReward || 0 }} XP</div>
-        </div>
+    <div class="md:col-span-2 lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Aktive Challenges</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template v-if="challenges?.length">
+          <div
+            v-for="challenge in challenges"
+            :key="challenge.id"
+            class="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 rounded-lg border border-yellow-200 cursor-pointer hover:shadow-md transition"
+          >
+            <h4 class="font-semibold text-gray-900">{{ challenge.name }}</h4>
+            <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ challenge.description }}</p>
+            <div class="mt-2 flex justify-between items-center">
+              <span class="text-xs text-yellow-700 font-medium">+{{ challenge.xpReward || 0 }} XP</span>
+              <span class="text-xs text-gray-500">{{ challenge.pointsReward || 0 }} Pkt</span>
+            </div>
+          </div>
+        </template>
+        <p v-else class="text-gray-500 col-span-3 text-center py-4">Keine aktiven Challenges</p>
       </div>
     </div>
   </div>
