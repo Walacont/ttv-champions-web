@@ -4,7 +4,7 @@ import { useUserStore } from '@/stores/user'
 const routes = [
   {
     path: '/',
-    redirect: '/leaderboard'
+    redirect: '/dashboard'
   },
   {
     path: '/leaderboard',
@@ -16,6 +16,12 @@ const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/views/DashboardView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/matches',
+    name: 'Matches',
+    component: () => import('@/views/MatchesView.vue'),
     meta: { requiresAuth: true }
   },
   {
