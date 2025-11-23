@@ -293,9 +293,9 @@ public/*.html                    - SPA-Enhancer-Script hinzugefügt
 
 ## 📝 Test-Ergebnisse
 
-**Getestet von**: ******\_******
-**Datum**: ******\_******
-**Browser**: ******\_******
+**Getestet von**: **\*\***\_**\*\***
+**Datum**: **\*\***\_**\*\***
+**Browser**: **\*\***\_**\*\***
 **Alle Tests bestanden**: ☐ Ja ☐ Nein
 
 ### Test-Statistik:
