@@ -301,8 +301,35 @@ function didWin(match) {
 
 <template>
   <div class="space-y-6">
-    <!-- Match Type Toggle -->
-    <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+    <!-- HERO: New Match CTA - Prominent at top -->
+    <div
+      v-if="!showRequestForm"
+      class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 rounded-xl shadow-lg text-white"
+    >
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-bold mb-1">Neues Match eintragen</h2>
+          <p class="text-indigo-100">Hast du gerade ein Match gespielt? Trage es hier ein!</p>
+        </div>
+        <div class="flex gap-3">
+          <button
+            @click="matchType = 'singles'; showRequestForm = true"
+            class="flex-1 md:flex-none px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-md"
+          >
+            🏓 Einzel anfragen
+          </button>
+          <button
+            @click="matchType = 'doubles'; showRequestForm = true"
+            class="flex-1 md:flex-none px-6 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-400 transition-colors shadow-md"
+          >
+            🎾 Doppel anfragen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Match Type Toggle (when form is open) -->
+    <div v-if="showRequestForm" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
       <button
         @click="matchType = 'singles'"
         class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
@@ -319,14 +346,13 @@ function didWin(match) {
       </button>
     </div>
 
-    <!-- New Match Button -->
-    <div class="flex justify-end">
+    <!-- Cancel Button (when form is open) -->
+    <div v-if="showRequestForm" class="flex justify-end">
       <button
-        @click="showRequestForm = !showRequestForm"
-        class="px-4 py-2 text-white rounded-lg"
-        :class="matchType === 'singles' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'"
+        @click="showRequestForm = false"
+        class="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"
       >
-        {{ showRequestForm ? '✕ Abbrechen' : `+ Neues ${matchType === 'singles' ? 'Einzel' : 'Doppel'} anfragen` }}
+        ✕ Abbrechen
       </button>
     </div>
 
