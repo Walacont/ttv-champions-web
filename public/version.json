@@ -1,5 +1,5 @@
 {
-  "version": "1.4.1",
-  "timestamp": "2025-01-01T00:00:00Z",
-  "message": "Neue Version verfügbar!"
+  "version": "1.4.2",
+  "timestamp": "2025-01-23T17:30:00Z",
+  "message": "Code-Duplikate entfernt und Prettier eingerichtet"
 }
