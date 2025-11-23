@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -35,7 +35,9 @@ async function listCollections() {
       if (count > 0) {
         console.log(`   └─ Beispiel Document ID: ${snapshot.docs[0].id}`);
         const data = snapshot.docs[0].data();
-        console.log(`   └─ Felder: ${Object.keys(data).slice(0, 5).join(', ')}${Object.keys(data).length > 5 ? '...' : ''}`);
+        console.log(
+          `   └─ Felder: ${Object.keys(data).slice(0, 5).join(', ')}${Object.keys(data).length > 5 ? '...' : ''}`
+        );
       }
       console.log('');
     }
@@ -53,7 +55,6 @@ async function listCollections() {
         console.log('');
       }
     });
-
   } catch (error) {
     console.error('❌ Fehler:', error.message);
   }

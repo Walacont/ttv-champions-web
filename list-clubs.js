@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -31,7 +31,6 @@ async function listClubs() {
     });
 
     console.log(`Gesamt: ${clubsSnapshot.size} Verein(e)\n`);
-
   } catch (error) {
     console.error('❌ Fehler:', error.message);
   }

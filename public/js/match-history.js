@@ -8,7 +8,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Match History Module
@@ -29,9 +29,9 @@ let matchHistoryUnsubscribe = null;
  * @returns {Function} Unsubscribe function to stop listening
  */
 export function loadMatchHistory(db, userData) {
-  const container = document.getElementById("match-history-list");
+  const container = document.getElementById('match-history-list');
   if (!container) {
-    console.error("Match history container not found");
+    console.error('Match history container not found');
     return;
   }
 
@@ -40,34 +40,35 @@ export function loadMatchHistory(db, userData) {
     matchHistoryUnsubscribe();
   }
 
-  container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
+  container.innerHTML =
+    '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
   // Query SINGLES matches for this club
-  const singlesMatchesRef = collection(db, "matches");
+  const singlesMatchesRef = collection(db, 'matches');
   const singlesQuery = query(
     singlesMatchesRef,
-    where("clubId", "==", userData.clubId),
-    where("processed", "==", true),
+    where('clubId', '==', userData.clubId),
+    where('processed', '==', true),
     limit(100)
   );
 
   // Query DOUBLES matches for this club
-  const doublesMatchesRef = collection(db, "doublesMatches");
+  const doublesMatchesRef = collection(db, 'doublesMatches');
   const doublesQuery = query(
     doublesMatchesRef,
-    where("clubId", "==", userData.clubId),
-    where("processed", "==", true),
+    where('clubId', '==', userData.clubId),
+    where('processed', '==', true),
     limit(100)
   );
 
   // Set up real-time listeners for BOTH singles and doubles
   const unsubscribeSingles = onSnapshot(
     singlesQuery,
-    async (singlesSnapshot) => {
+    async singlesSnapshot => {
       // Wait for doubles snapshot as well
       const unsubscribeDoubles = onSnapshot(
         doublesQuery,
-        async (doublesSnapshot) => {
+        async doublesSnapshot => {
           // Combine and filter singles matches
           const singlesMatches = singlesSnapshot.docs
             .map(doc => ({ id: doc.id, type: 'singles', ...doc.data() }))
@@ -99,7 +100,8 @@ export function loadMatchHistory(db, userData) {
           const allMatches = [...singlesMatches, ...doublesMatches].slice(0, 50);
 
           if (allMatches.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+            container.innerHTML =
+              '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
             return;
           }
 
@@ -118,8 +120,8 @@ export function loadMatchHistory(db, userData) {
           // Render matches with toggle button
           renderMatchesWithToggle(container, matchesWithDetails, userData);
         },
-        (error) => {
-          console.error("[Match History] Error loading doubles history");
+        error => {
+          console.error('[Match History] Error loading doubles history');
           container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie</p>`;
         }
       );
@@ -127,8 +129,8 @@ export function loadMatchHistory(db, userData) {
       // Store the doubles unsubscribe function
       matchHistoryUnsubscribe = unsubscribeDoubles;
     },
-    (error) => {
-      console.error("[Match History] Error loading singles history");
+    error => {
+      console.error('[Match History] Error loading singles history');
       container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>`;
     }
   );
@@ -156,42 +158,40 @@ async function enrichMatchData(db, match, userData) {
     // Handle DOUBLES matches differently
     if (match.type === 'doubles') {
       // Determine user's team and opponent team
-      const isTeamA = match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
+      const isTeamA =
+        match.teamA?.player1Id === userData.id || match.teamA?.player2Id === userData.id;
       const userTeam = isTeamA ? match.teamA : match.teamB;
       const opponentTeam = isTeamA ? match.teamB : match.teamA;
 
       // Get partner ID (the other player on user's team)
-      const partnerId = userTeam.player1Id === userData.id ? userTeam.player2Id : userTeam.player1Id;
+      const partnerId =
+        userTeam.player1Id === userData.id ? userTeam.player2Id : userTeam.player1Id;
 
       // Fetch all player names
       try {
         const [partnerDoc, opp1Doc, opp2Doc] = await Promise.all([
-          getDoc(doc(db, "users", partnerId)),
-          getDoc(doc(db, "users", opponentTeam.player1Id)),
-          getDoc(doc(db, "users", opponentTeam.player2Id))
+          getDoc(doc(db, 'users', partnerId)),
+          getDoc(doc(db, 'users', opponentTeam.player1Id)),
+          getDoc(doc(db, 'users', opponentTeam.player2Id)),
         ]);
 
         const partnerName = partnerDoc.exists()
           ? `${partnerDoc.data().firstName || ''} ${partnerDoc.data().lastName || ''}`.trim()
           : 'Unbekannt';
-        const opp1Name = opp1Doc.exists()
-          ? opp1Doc.data().firstName || 'Unbekannt'
-          : 'Unbekannt';
-        const opp2Name = opp2Doc.exists()
-          ? opp2Doc.data().firstName || 'Unbekannt'
-          : 'Unbekannt';
+        const opp1Name = opp1Doc.exists() ? opp1Doc.data().firstName || 'Unbekannt' : 'Unbekannt';
+        const opp2Name = opp2Doc.exists() ? opp2Doc.data().firstName || 'Unbekannt' : 'Unbekannt';
 
         enriched.partnerName = partnerName;
         enriched.opponentName = `${opp1Name} & ${opp2Name}`;
       } catch (error) {
-        console.warn("Could not fetch doubles player data:", error);
+        console.warn('Could not fetch doubles player data:', error);
         enriched.partnerName = 'Partner';
         enriched.opponentName = 'Gegner-Team';
       }
 
       // Determine if user's team won
-      enriched.isWinner = (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
-
+      enriched.isWinner =
+        (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
     } else {
       // Handle SINGLES matches
       // Determine opponent ID
@@ -207,10 +207,11 @@ async function enrichMatchData(db, match, userData) {
 
       // Get opponent data
       try {
-        const opponentDoc = await getDoc(doc(db, "users", opponentId));
+        const opponentDoc = await getDoc(doc(db, 'users', opponentId));
         if (opponentDoc.exists()) {
           const opponentData = opponentDoc.data();
-          enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
+          enriched.opponentName =
+            `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
         } else {
           enriched.opponentName = 'Unbekannt';
         }
@@ -218,7 +219,10 @@ async function enrichMatchData(db, match, userData) {
         // Failed to fetch opponent (probably from different club or deleted)
         // Only log if it's not a permission-denied error (which is expected for cross-club matches)
         if (opponentError.code !== 'permission-denied') {
-          console.warn("Could not fetch opponent data:", opponentError.code || opponentError.message);
+          console.warn(
+            'Could not fetch opponent data:',
+            opponentError.code || opponentError.message
+          );
         }
         enriched.opponentName = 'Gegner';
       }
@@ -231,10 +235,10 @@ async function enrichMatchData(db, match, userData) {
     let pointsGained = null;
 
     try {
-      const pointsHistoryRef = collection(db, "users", userData.id, "pointsHistory");
+      const pointsHistoryRef = collection(db, 'users', userData.id, 'pointsHistory');
       const historyQuery = query(
         pointsHistoryRef,
-        orderBy("timestamp", "desc"),
+        orderBy('timestamp', 'desc'),
         limit(200) // Get recent history to find this match
       );
 
@@ -251,11 +255,11 @@ async function enrichMatchData(db, match, userData) {
         const historyTime = historyData.timestamp?.toMillis() || 0;
 
         // Check if this history entry is from a match
-        const isMatchHistory = historyData.awardedBy === "System (Wettkampf)" ||
-                              (historyData.reason && (
-                                historyData.reason.includes("Sieg im") ||
-                                historyData.reason.includes("Niederlage im")
-                              ));
+        const isMatchHistory =
+          historyData.awardedBy === 'System (Wettkampf)' ||
+          (historyData.reason &&
+            (historyData.reason.includes('Sieg im') ||
+              historyData.reason.includes('Niederlage im')));
 
         // If timestamps are within 30 seconds and it's a match history, consider it a match
         if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
@@ -273,7 +277,7 @@ async function enrichMatchData(db, match, userData) {
         }
       }
     } catch (historyError) {
-      console.warn("Could not fetch points history:", historyError);
+      console.warn('Could not fetch points history:', historyError);
     }
 
     // If we couldn't find it in history, estimate from match data
@@ -289,17 +293,14 @@ async function enrichMatchData(db, match, userData) {
         }
       } else {
         // Fallback: use standard handicap values if match type is known
-        eloChange = match.handicapUsed ?
-          (match.winnerId === userData.id ? 8 : -8) :
-          null;
+        eloChange = match.handicapUsed ? (match.winnerId === userData.id ? 8 : -8) : null;
       }
     }
 
     enriched.eloChange = eloChange;
     enriched.pointsGained = pointsGained;
-
   } catch (error) {
-    console.error("Error enriching match data:", error);
+    console.error('Error enriching match data:', error);
     enriched.opponentName = 'Fehler';
     enriched.eloChange = null;
   }
@@ -326,7 +327,8 @@ function renderMatchesWithToggle(container, allMatches, userData) {
       toggleContainer.className = 'text-center mt-4';
 
       const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
+      toggleBtn.className =
+        'text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors';
 
       if (showingAll) {
         toggleBtn.innerHTML = '− Weniger anzeigen';
@@ -354,17 +356,21 @@ function renderMatchesWithToggle(container, allMatches, userData) {
  * @param {Object} userData - Current user data
  */
 function renderMatchHistory(container, matches, userData) {
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   matches.forEach(match => {
-    const matchDiv = document.createElement("div");
-    matchDiv.className = "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition";
+    const matchDiv = document.createElement('div');
+    matchDiv.className =
+      'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition';
 
-    const isWinner = match.isWinner !== undefined ? match.isWinner : (match.winnerId === userData.id);
+    const isWinner = match.isWinner !== undefined ? match.isWinner : match.winnerId === userData.id;
     const isDoubles = match.type === 'doubles';
 
-
-    const matchTime = match.timestamp?.toDate() || match.playedAt?.toDate() || match.createdAt?.toDate() || new Date();
+    const matchTime =
+      match.timestamp?.toDate() ||
+      match.playedAt?.toDate() ||
+      match.createdAt?.toDate() ||
+      new Date();
     const formattedTime = formatMatchTime(matchTime);
     const formattedDate = formatMatchDate(matchTime);
 
@@ -380,15 +386,15 @@ function renderMatchHistory(container, matches, userData) {
     const setsDisplay = formatSets(match.sets, isPlayerA);
 
     // ELO change display
-    const eloChangeDisplay = match.eloChange !== null
-      ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO`
-      : 'N/A';
+    const eloChangeDisplay =
+      match.eloChange !== null ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO` : 'N/A';
 
-    const eloChangeClass = match.eloChange > 0
-      ? 'text-green-600 font-semibold'
-      : match.eloChange < 0
-        ? 'text-red-600 font-semibold'
-        : 'text-gray-600';
+    const eloChangeClass =
+      match.eloChange > 0
+        ? 'text-green-600 font-semibold'
+        : match.eloChange < 0
+          ? 'text-red-600 font-semibold'
+          : 'text-gray-600';
 
     matchDiv.innerHTML = `
       <div class="flex items-start justify-between gap-4">
@@ -401,8 +407,9 @@ function renderMatchHistory(container, matches, userData) {
           </div>
 
           <div class="flex items-center gap-3 mb-2">
-            ${isDoubles
-              ? (isWinner
+            ${
+              isDoubles
+                ? isWinner
                   ? `<span class="text-2xl">🏆</span>
                      <div>
                        <p class="text-sm font-semibold text-green-700">
@@ -418,8 +425,8 @@ function renderMatchHistory(container, matches, userData) {
                          Niederlage mit ${match.partnerName}
                        </p>
                        <p class="text-xs text-gray-600 mt-0.5">gegen ${match.opponentName}</p>
-                     </div>`)
-              : (isWinner
+                     </div>`
+                : isWinner
                   ? `<span class="text-2xl">🏆</span>
                      <div>
                        <p class="text-sm font-semibold text-green-700">Sieg gegen ${match.opponentName}</p>
@@ -427,7 +434,7 @@ function renderMatchHistory(container, matches, userData) {
                   : `<span class="text-2xl">😔</span>
                      <div>
                        <p class="text-sm font-semibold text-red-700">Niederlage gegen ${match.opponentName}</p>
-                     </div>`)
+                     </div>`
             }
           </div>
 
@@ -461,20 +468,22 @@ function renderMatchHistory(container, matches, userData) {
 function formatSets(sets, isPlayerA) {
   if (!sets || sets.length === 0) return 'N/A';
 
-  return sets.map(set => {
-    // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
-    if (set.teamA !== undefined && set.teamB !== undefined) {
-      // Doubles match
-      const myScore = isPlayerA ? set.teamA : set.teamB;
-      const oppScore = isPlayerA ? set.teamB : set.teamA;
-      return `${myScore}:${oppScore}`;
-    } else {
-      // Singles match
-      const myScore = isPlayerA ? set.playerA : set.playerB;
-      const oppScore = isPlayerA ? set.playerB : set.playerA;
-      return `${myScore}:${oppScore}`;
-    }
-  }).join(', ');
+  return sets
+    .map(set => {
+      // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
+      if (set.teamA !== undefined && set.teamB !== undefined) {
+        // Doubles match
+        const myScore = isPlayerA ? set.teamA : set.teamB;
+        const oppScore = isPlayerA ? set.teamB : set.teamA;
+        return `${myScore}:${oppScore}`;
+      } else {
+        // Singles match
+        const myScore = isPlayerA ? set.playerA : set.playerB;
+        const oppScore = isPlayerA ? set.playerB : set.playerA;
+        return `${myScore}:${oppScore}`;
+      }
+    })
+    .join(', ');
 }
 
 /**
@@ -501,7 +510,11 @@ function formatMatchDate(date) {
   // Reset time parts for comparison
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+  const yesterdayOnly = new Date(
+    yesterday.getFullYear(),
+    yesterday.getMonth(),
+    yesterday.getDate()
+  );
 
   if (dateOnly.getTime() === todayOnly.getTime()) {
     return 'Heute';

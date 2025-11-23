@@ -8,12 +8,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import {
-  isValidSet,
-  getSetWinner,
-  validateMatch,
-  calculateHandicap,
-} from '../validation-utils.js';
+import { isValidSet, getSetWinner, validateMatch, calculateHandicap } from '../validation-utils.js';
 
 describe('Set Score Validation', () => {
   describe('isValidSet()', () => {
@@ -98,14 +93,14 @@ describe('Set Score Validation', () => {
       });
 
       test('should accept 12:10 but reject 12:11 in deuce', () => {
-        expect(isValidSet(12, 10)).toBe(true);  // 2-point lead
+        expect(isValidSet(12, 10)).toBe(true); // 2-point lead
         expect(isValidSet(12, 11)).toBe(false); // Only 1-point lead
       });
 
       test('should handle extended deuces correctly', () => {
-        expect(isValidSet(19, 17)).toBe(true);  // Valid deuce
+        expect(isValidSet(19, 17)).toBe(true); // Valid deuce
         expect(isValidSet(20, 19)).toBe(false); // Invalid (1-point lead)
-        expect(isValidSet(21, 19)).toBe(true);  // Valid deuce
+        expect(isValidSet(21, 19)).toBe(true); // Valid deuce
       });
     });
 
@@ -147,7 +142,7 @@ describe('Set Score Validation', () => {
     });
 
     test('should return null for invalid sets', () => {
-      expect(getSetWinner(10, 9)).toBe(null);  // Not enough points
+      expect(getSetWinner(10, 9)).toBe(null); // Not enough points
       expect(getSetWinner(11, 11)).toBe(null); // Tie
       expect(getSetWinner(12, 11)).toBe(null); // Invalid deuce
     });
@@ -234,9 +229,7 @@ describe('Match Validation', () => {
       });
 
       test('should reject match with 1 set', () => {
-        const sets = [
-          { playerA: 11, playerB: 9 },
-        ];
+        const sets = [{ playerA: 11, playerB: 9 }];
         const result = validateMatch(sets);
         expect(result.valid).toBe(false);
       });

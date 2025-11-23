@@ -3,7 +3,9 @@
 ## Branch: `claude/convert-to-spa-011CV5tesKKnwW8kh7jNmjSh`
 
 ## Überblick
+
 Diese Checkliste testet alle Funktionalitäten der Single Page Application, insbesondere die Fixes für:
+
 - ✅ Registrierungsflow mit Einladungscodes
 - ✅ Login und Post-Login Redirects
 - ✅ Navigation zwischen Seiten
@@ -16,6 +18,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🔐 1. Authentifizierung & Registrierung
 
 ### 1.1 Registrierung mit Einladungscode (KRITISCH)
+
 - [ ] Öffne `/index.html`
 - [ ] Gib einen gültigen Einladungscode ein
 - [ ] **Erwartung**: "Code erfolgreich validiert" Meldung
@@ -27,6 +30,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **Erwartung**: Erfolgreiche Registrierung und Weiterleitung zum Onboarding
 
 ### 1.2 Login-Flow
+
 - [ ] Auf `/index.html` mit E-Mail & Passwort einloggen
 - [ ] **Erwartung**: Nach Login erfolgt automatische Weiterleitung
   - Spieler → `/dashboard.html`
@@ -36,6 +40,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] Dashboard lädt vollständig mit allen Daten
 
 ### 1.3 Onboarding
+
 - [ ] Neuer Benutzer nach Registrierung
 - [ ] Onboarding-Formular ausfüllen (Name, Verein, etc.)
 - [ ] Formular absenden
@@ -48,6 +53,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🧭 2. SPA-Navigation
 
 ### 2.1 Navigation von Index/Dashboard zu anderen Seiten
+
 - [ ] Von Dashboard zu Settings navigieren
 - [ ] **Erwartung**: Settings-Seite lädt ohne vollständiges Page-Reload (SPA)
 - [ ] Von Dashboard zu FAQ navigieren
@@ -55,7 +61,9 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] Prüfe Browser-URL: ändert sich korrekt
 
 ### 2.2 Zurück-Navigation zu Dashboards (KRITISCH)
+
 **Als Spieler:**
+
 - [ ] Login als Spieler → auf `/dashboard.html`
 - [ ] Navigiere zu Settings
 - [ ] Klicke Browser-Zurück-Button oder Link zurück zu Dashboard
@@ -63,6 +71,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **NICHT**: Weiße leere Seite
 
 **Als Coach:**
+
 - [ ] Login als Coach → auf `/coach.html`
 - [ ] Navigiere zu FAQ
 - [ ] Klicke Browser-Zurück-Button zurück zu Coach-Dashboard
@@ -70,6 +79,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **NICHT**: Weiße leere Seite
 
 **Als Admin:**
+
 - [ ] Login als Admin → auf `/admin.html`
 - [ ] Navigiere zu Settings
 - [ ] Klicke Browser-Zurück-Button zurück zu Admin-Dashboard
@@ -77,6 +87,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **NICHT**: Weiße leere Seite
 
 ### 2.3 Navigation auf Index (nicht angemeldet)
+
 - [ ] Öffne `/index.html` (abgemeldet)
 - [ ] Navigiere zu FAQ
 - [ ] Klicke zurück zu Index
@@ -88,6 +99,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🔒 3. Logout-Sicherheit (KRITISCH - NEU GEFIXT!)
 
 ### 3.1 Logout als Spieler
+
 - [ ] Login als Spieler
 - [ ] Auf Dashboard navigiere zu verschiedenen Seiten (Settings, FAQ)
 - [ ] Klicke auf Logout-Button
@@ -99,6 +111,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **Erwartung**: Automatische Weiterleitung zu `/index.html`
 
 ### 3.2 Logout als Coach
+
 - [ ] Login als Coach
 - [ ] Navigiere zu Settings oder FAQ
 - [ ] Klicke auf Logout-Button
@@ -109,6 +122,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **Erwartung**: Automatische Weiterleitung zu `/index.html`
 
 ### 3.3 Logout als Admin
+
 - [ ] Login als Admin
 - [ ] Navigiere durch verschiedene Seiten
 - [ ] Klicke auf Logout-Button
@@ -118,6 +132,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **Erwartung**: Automatische Weiterleitung zu `/index.html`
 
 ### 3.4 Error-Logout-Button (Coach & Admin)
+
 - [ ] Teste auch die "error-logout-button" (falls Auth-Error auftritt)
 - [ ] **Erwartung**: Gleiche Sicherheit wie normaler Logout
 
@@ -126,6 +141,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🏆 4. Match-Funktionalität (Coach-View)
 
 ### 4.1 Winner-Anzeige für Best of 3 (KRITISCH - GEFIXT)
+
 - [ ] Login als Spieler A
 - [ ] Erstelle ein Match (Best of 3) mit Spieler B
 - [ ] Gib Ergebnis ein: z.B. 2:1 in Sätzen (Spieler A gewinnt)
@@ -136,6 +152,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **NICHT**: "Unbekannt"
 
 ### 4.2 Winner-Anzeige für Best of 5
+
 - [ ] Erstelle Best of 5 Match
 - [ ] Gib Ergebnis ein: z.B. 3:2 in Sätzen
 - [ ] Sende zur Freigabe
@@ -144,11 +161,13 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] **NICHT**: "Unbekannt"
 
 ### 4.3 Winner-Anzeige für Best of 7
+
 - [ ] Erstelle Best of 7 Match
 - [ ] Gib Ergebnis ein: z.B. 4:3 in Sätzen
 - [ ] **Erwartung**: Korrekter Gewinnername im Coach-View
 
 ### 4.4 Winner-Anzeige für Einzelsatz
+
 - [ ] Erstelle Einzelsatz-Match
 - [ ] Gib Ergebnis ein: z.B. 11:9
 - [ ] **Erwartung**: Korrekter Gewinnername im Coach-View
@@ -158,6 +177,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🎯 5. Rolle-spezifische Funktionalität
 
 ### 5.1 Spieler-Dashboard
+
 - [ ] Login als Spieler
 - [ ] Dashboard lädt mit Leaderboard
 - [ ] Match-Historie wird angezeigt
@@ -166,6 +186,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] Navigation zu allen Unterseiten funktioniert
 
 ### 5.2 Coach-Dashboard
+
 - [ ] Login als Coach
 - [ ] Spielerliste wird angezeigt
 - [ ] Match-Freigaben werden geladen
@@ -173,6 +194,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 - [ ] Übungen können verwaltet werden
 
 ### 5.3 Admin-Dashboard
+
 - [ ] Login als Admin
 - [ ] Coach-Einladungen können erstellt werden
 - [ ] Übungen können erstellt/bearbeitet werden
@@ -183,16 +205,19 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🐛 6. Browser-Kompatibilität
 
 ### 6.1 Chrome/Edge
+
 - [ ] Alle oben genannten Tests durchführen
 - [ ] Keine Console-Fehler
 - [ ] SPA-Navigation funktioniert flüssig
 
 ### 6.2 Firefox
+
 - [ ] Alle oben genannten Tests durchführen
 - [ ] Keine Console-Fehler
 - [ ] SPA-Navigation funktioniert
 
 ### 6.3 Safari (falls verfügbar)
+
 - [ ] Grundlegende Tests durchführen
 - [ ] SPA-Navigation funktioniert
 
@@ -201,6 +226,7 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## 🔍 7. Console-Überprüfung
 
 ### Während der Tests auf folgendes achten:
+
 - [ ] **KEINE** JavaScript-Fehler in der Console
 - [ ] **KEINE** 404-Fehler beim Laden von Ressourcen
 - [ ] **KEINE** Firebase-Authentifizierungsfehler
@@ -212,11 +238,13 @@ Diese Checkliste testet alle Funktionalitäten der Single Page Application, insb
 ## ✅ 8. Performance & UX
 
 ### 8.1 Page-Load-Performance
+
 - [ ] SPA-Navigation ist spürbar schneller als Full-Page-Reload
 - [ ] Keine merkliche Verzögerung bei Navigation zwischen Seiten
 - [ ] Dashboards laden nach Login in angemessener Zeit
 
 ### 8.2 User Experience
+
 - [ ] Keine Flicker/Blinken beim Seitenwechsel
 - [ ] Browser-URL aktualisiert sich korrekt
 - [ ] Zurück-Button funktioniert wie erwartet
@@ -239,6 +267,7 @@ Falls einer dieser Tests fehlschlägt, NICHT ins Main pushen:
 ## 📋 Code-Änderungen Zusammenfassung
 
 ### Dateien geändert:
+
 ```
 public/js/spa-enhancer.js        - Core SPA-Logik (Query-Parameter, noInterceptPages)
 public/js/register.js            - SPA-kompatible Initialisierung
@@ -253,6 +282,7 @@ public/*.html                    - SPA-Enhancer-Script hinzugefügt
 ```
 
 ### Wichtigste Fixes:
+
 1. **Query-Parameter-Preservation**: URLs behalten Parameter bei SPA-Navigation
 2. **Dashboard-Reload**: Role-Dashboards verwenden Full-Reload für korrekte State-Init
 3. **Logout-Sicherheit**: `window.location.replace()` + SPA-Cache-Clearing
@@ -263,18 +293,20 @@ public/*.html                    - SPA-Enhancer-Script hinzugefügt
 
 ## 📝 Test-Ergebnisse
 
-**Getestet von**: _____________
-**Datum**: _____________
-**Browser**: _____________
+**Getestet von**: ******\_******
+**Datum**: ******\_******
+**Browser**: ******\_******
 **Alle Tests bestanden**: ☐ Ja ☐ Nein
 
 ### Test-Statistik:
+
 - Anzahl Tests: 50+
 - Kritische Tests: 11
-- Erfolgreich: ____
-- Fehlgeschlagen: ____
+- Erfolgreich: \_\_\_\_
+- Fehlgeschlagen: \_\_\_\_
 
 **Notizen/Probleme**:
+
 ```
 (Hier eventuelle Probleme oder Anmerkungen eintragen)
 ```
@@ -291,6 +323,7 @@ firebase deploy --only hosting
 ```
 
 Kein Deployment von:
+
 - ❌ Firestore Rules (nicht geändert)
 - ❌ Cloud Functions (nicht geändert)
 

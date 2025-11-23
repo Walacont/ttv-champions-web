@@ -5,6 +5,7 @@
 Web Push Notifications für TTV Champions - Benachrichtigungen auch wenn der Browser geschlossen ist!
 
 **Features:**
+
 - ✅ Match-Genehmigungen
 - ✅ Neue Match-Anfragen
 - ✅ Training-Erinnerungen (täglich um 17:00)
@@ -21,6 +22,7 @@ Web Push Notifications für TTV Champions - Benachrichtigungen auch wenn der Bro
 **VAPID Keys** sind erforderlich für Web Push Notifications!
 
 1. **Öffne Firebase Console:**
+
    ```
    https://console.firebase.com
    ```
@@ -29,6 +31,7 @@ Web Push Notifications für TTV Champions - Benachrichtigungen auch wenn der Bro
    - Project: `ttv-champions-prod`
 
 3. **Navigiere zu Cloud Messaging:**
+
    ```
    Project Settings → Cloud Messaging → Web configuration
    ```
@@ -63,6 +66,7 @@ mkdir -p public/icons
 ```
 
 **Falls keine Icons:**
+
 - Notifications nutzen Browser-Standard-Icon
 - Funktioniert trotzdem!
 
@@ -80,6 +84,7 @@ firebase deploy --only functions
 ```
 
 **Wichtige Functions:**
+
 - `sendMatchApprovedNotification` - Bei Match-Genehmigung
 - `sendMatchRequestNotification` - Bei neuer Match-Anfrage
 - `sendRankUpNotification` - Bei Rang-Aufstieg
@@ -114,15 +119,15 @@ import { firebaseApp } from './firebase-init.js'; // Deine Firebase App
 import { db, auth } from './firebase-init.js';
 
 // Nach User-Login
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async user => {
   if (user) {
     // ... existing code ...
 
     // Init Push Notifications (zeigt Dialog nach 3 Sekunden)
     await initPushNotifications(firebaseApp, db, auth, {
-      autoPrompt: true,     // Automatisch fragen
-      promptDelay: 3000,    // Nach 3 Sekunden
-      showOnlyOnce: true    // Nur einmal pro Session
+      autoPrompt: true, // Automatisch fragen
+      promptDelay: 3000, // Nach 3 Sekunden
+      showOnlyOnce: true, // Nur einmal pro Session
     });
   }
 });
@@ -133,9 +138,7 @@ onAuthStateChanged(auth, async (user) => {
 In `settings.html` - Button hinzufügen:
 
 ```html
-<button id="enable-notifications-btn">
-  🔔 Benachrichtigungen aktivieren
-</button>
+<button id="enable-notifications-btn">🔔 Benachrichtigungen aktivieren</button>
 ```
 
 In `settings.js`:
@@ -208,34 +211,39 @@ Browser öffnet ttv-champions.de/dashboard.html
 ## 🎯 Notification Types
 
 ### 1. Match genehmigt
+
 ```javascript
 // Automatisch bei Match-Genehmigung
-Titel: "🏓 Match genehmigt!"
-Text: "Dein Match gegen [Name] wurde genehmigt."
+Titel: '🏓 Match genehmigt!';
+Text: 'Dein Match gegen [Name] wurde genehmigt.';
 ```
 
 ### 2. Neue Match-Anfrage
+
 ```javascript
 // Automatisch bei neuer Anfrage
-Titel: "🏓 Neue Match-Anfrage"
-Text: "[Name] möchte ein Match gegen dich spielen."
+Titel: '🏓 Neue Match-Anfrage';
+Text: '[Name] möchte ein Match gegen dich spielen.';
 ```
 
 ### 3. Rang-Aufstieg
+
 ```javascript
 // Automatisch bei Rang-Änderung
-Titel: "🎉 Silber erreicht!"
-Text: "Glückwunsch! Du bist zu Silber aufgestiegen!"
+Titel: '🎉 Silber erreicht!';
+Text: 'Glückwunsch! Du bist zu Silber aufgestiegen!';
 ```
 
 ### 4. Training-Erinnerung
+
 ```javascript
 // Täglich um 17:00 wenn Training morgen ist
-Titel: "🏓 Training morgen!"
-Text: "Erinnerung: Training morgen um 18:00 Uhr"
+Titel: '🏓 Training morgen!';
+Text: 'Erinnerung: Training morgen um 18:00 Uhr';
 ```
 
 ### 5. Test-Notification
+
 ```javascript
 // Manuell trigger via Cloud Function
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -257,12 +265,12 @@ await sendTest();
 import { updateNotificationPreferences } from './init-notifications.js';
 
 const preferences = {
-  matchApproved: true,      // Match-Genehmigungen
-  matchRequest: true,       // Neue Match-Anfragen
-  trainingReminder: true,   // Training-Erinnerungen
+  matchApproved: true, // Match-Genehmigungen
+  matchRequest: true, // Neue Match-Anfragen
+  trainingReminder: true, // Training-Erinnerungen
   challengeAvailable: false, // Neue Challenges (deaktiviert)
-  rankUp: true,             // Rang-Aufstiege
-  matchSuggestion: false    // Match-Vorschläge (deaktiviert)
+  rankUp: true, // Rang-Aufstiege
+  matchSuggestion: false, // Match-Vorschläge (deaktiviert)
 };
 
 await updateNotificationPreferences(preferences);
@@ -292,9 +300,10 @@ users/{userId} {
 ### Problem: "VAPID key not found"
 
 **Lösung:**
+
 ```javascript
 // In fcm-manager.js
-this.vapidKey = 'DEIN-RICHTIGER-VAPID-KEY';  // ← Hier einfügen!
+this.vapidKey = 'DEIN-RICHTIGER-VAPID-KEY'; // ← Hier einfügen!
 ```
 
 Hole den Key aus Firebase Console → Cloud Messaging → Web Push certificates
@@ -302,6 +311,7 @@ Hole den Key aus Firebase Console → Cloud Messaging → Web Push certificates
 ### Problem: Service Worker lädt nicht
 
 **Lösung:**
+
 ```bash
 # Check ob Datei existiert
 ls public/firebase-messaging-sw.js
@@ -316,12 +326,15 @@ https://deine-domain.de/firebase-messaging-sw.js
 **Debug-Schritte:**
 
 1. **Check Browser Console:**
+
    ```
    F12 → Console
    ```
+
    Suche nach `[FCM]` logs
 
 2. **Check FCM Token:**
+
    ```javascript
    // In Browser Console
    const userDoc = await db.collection('users').doc(auth.currentUser.uid).get();
@@ -330,6 +343,7 @@ https://deine-domain.de/firebase-messaging-sw.js
    ```
 
 3. **Test Manual Notification:**
+
    ```javascript
    import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -340,6 +354,7 @@ https://deine-domain.de/firebase-messaging-sw.js
    ```
 
 4. **Check Cloud Function Logs:**
+
    ```bash
    firebase functions:log
 
@@ -352,6 +367,7 @@ https://deine-domain.de/firebase-messaging-sw.js
 User hat im Browser Notifications blockiert.
 
 **Lösung:**
+
 ```
 Chrome: Einstellungen → Datenschutz → Website-Einstellungen → Benachrichtigungen
 Firefox: Einstellungen → Datenschutz → Berechtigungen → Benachrichtigungen
@@ -365,6 +381,7 @@ User muss Website zu "Erlaubt" ändern.
 iOS Safari unterstützt Web Push erst ab **iOS 16.4** (März 2023).
 
 **Check:**
+
 - iOS Version: Einstellungen → Allgemein → Info → Version
 - Muss mindestens 16.4 sein
 
@@ -372,15 +389,15 @@ iOS Safari unterstützt Web Push erst ab **iOS 16.4** (März 2023).
 
 ## 📊 Browser Support
 
-| Browser | Push Notifications | Marktanteil |
-|---------|-------------------|-------------|
-| Chrome (Desktop) | ✅ | ~65% |
-| Chrome (Android) | ✅ | ~65% |
-| Firefox | ✅ | ~3% |
-| Edge | ✅ | ~5% |
-| Safari (macOS) | ✅ | ~20% |
-| Safari (iOS) | ⚠️ Ab iOS 16.4 | ~20% |
-| Opera | ✅ | ~2% |
+| Browser          | Push Notifications | Marktanteil |
+| ---------------- | ------------------ | ----------- |
+| Chrome (Desktop) | ✅                 | ~65%        |
+| Chrome (Android) | ✅                 | ~65%        |
+| Firefox          | ✅                 | ~3%         |
+| Edge             | ✅                 | ~5%         |
+| Safari (macOS)   | ✅                 | ~20%        |
+| Safari (iOS)     | ⚠️ Ab iOS 16.4     | ~20%        |
+| Opera            | ✅                 | ~2%         |
 
 **Insgesamt: ~90%+ User können es nutzen!**
 
@@ -389,11 +406,13 @@ iOS Safari unterstützt Web Push erst ab **iOS 16.4** (März 2023).
 ## 💰 Kosten
 
 ### Firebase Cloud Messaging:
+
 ```
 ✅ KOSTENLOS bis 10 Millionen Messages/Monat
 ```
 
 **Für deine App:**
+
 - 100 User
 - 10 Notifications/Tag/User
 - = 1.000 Notifications/Tag
@@ -475,6 +494,7 @@ Vor dem Live-Gehen:
 ## 📝 Zusammenfassung
 
 **Du hast jetzt:**
+
 - ✅ Service Worker für Background Notifications
 - ✅ FCM Token Management
 - ✅ Schönen Permission Dialog
@@ -483,11 +503,13 @@ Vor dem Live-Gehen:
 - ✅ Test-Function zum Debuggen
 
 **Was noch fehlt:**
+
 - ⚠️ VAPID Key muss eingetragen werden!
 - ⚠️ Cloud Functions müssen deployed werden
 - ⚠️ Icons erstellen (optional)
 
 **Deployment:**
+
 ```bash
 # 1. VAPID Key eintragen (siehe Schritt 1)
 # 2. Functions deployen
@@ -504,6 +526,7 @@ firebase deploy --only hosting
 ## 📞 Support
 
 Bei Problemen:
+
 1. Check Troubleshooting Section oben
 2. Check Firebase Console → Functions → Logs
 3. Check Browser Console (F12)

@@ -1,14 +1,11 @@
 // ========================================================================
 // ===== IMPORTS =====
 // ========================================================================
-const {
-  onDocumentCreated,
-  onDocumentWritten,
-} = require("firebase-functions/v2/firestore");
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {logger} = require("firebase-functions");
-const admin = require("firebase-admin");
+const { onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { logger } = require('firebase-functions');
+const admin = require('firebase-admin');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -18,12 +15,12 @@ const db = admin.firestore();
 // ========================================================================
 const CONFIG = {
   COLLECTIONS: {
-    USERS: "users",
-    MATCHES: "matches",
-    MATCH_REQUESTS: "matchRequests",
-    INVITATION_TOKENS: "invitationTokens",
-    INVITATION_CODES: "invitationCodes",
-    POINTS_HISTORY: "pointsHistory",
+    USERS: 'users',
+    MATCHES: 'matches',
+    MATCH_REQUESTS: 'matchRequests',
+    INVITATION_TOKENS: 'invitationTokens',
+    INVITATION_CODES: 'invitationCodes',
+    POINTS_HISTORY: 'pointsHistory',
   },
   ELO: {
     DEFAULT_RATING: 800, // Start at 800 Elo (new system)
@@ -33,7 +30,7 @@ const CONFIG = {
     // Elo Gates: Once reached, Elo can never fall below these thresholds
     GATES: [850, 900, 1000, 1100, 1300, 1600],
   },
-  REGION: "europe-west3",
+  REGION: 'europe-west3',
 };
 
 // ========================================================================
@@ -87,7 +84,7 @@ function calculateElo(winnerElo, loserElo, kFactor = 32) {
   const newLoserElo = Math.round(loserElo + kFactor * (0 - expectedLoser));
   const eloDelta = Math.abs(newWinnerElo - winnerElo);
 
-  return {newWinnerElo, newLoserElo, eloDelta};
+  return { newWinnerElo, newLoserElo, eloDelta };
 }
 
 // Export functions for testing
@@ -106,12 +103,12 @@ exports.processMatchResult = onDocumentCreated(
     region: CONFIG.REGION,
     document: `${CONFIG.COLLECTIONS.MATCHES}/{matchId}`,
   },
-  async (event) => {
-    const {matchId} = event.params;
+  async event => {
+    const { matchId } = event.params;
     const snap = event.data;
 
     if (!snap) {
-      logger.error("❌ Keine Daten im Event-Snapshot gefunden.", {event});
+      logger.error('❌ Keine Daten im Event-Snapshot gefunden.', { event });
       return;
     }
 
@@ -121,7 +118,7 @@ exports.processMatchResult = onDocumentCreated(
       return;
     }
 
-    const {winnerId, loserId, handicapUsed} = matchData;
+    const { winnerId, loserId, handicapUsed } = matchData;
     if (!winnerId || !loserId) {
       logger.error(`❌ Ungültige Daten: Spieler-IDs in Match ${matchId} fehlen.`);
       return;
@@ -131,15 +128,10 @@ exports.processMatchResult = onDocumentCreated(
     const loserRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(loserId);
 
     try {
-      const [winnerDoc, loserDoc] = await Promise.all([
-        winnerRef.get(),
-        loserRef.get(),
-      ]);
+      const [winnerDoc, loserDoc] = await Promise.all([winnerRef.get(), loserRef.get()]);
 
       if (!winnerDoc.exists || !loserDoc.exists) {
-        throw new Error(
-          `Spieler nicht gefunden: winnerId=${winnerId}, loserId=${loserId}`
-        );
+        throw new Error(`Spieler nicht gefunden: winnerId=${winnerId}, loserId=${loserId}`);
       }
 
       const winnerData = winnerDoc.data();
@@ -147,7 +139,7 @@ exports.processMatchResult = onDocumentCreated(
 
       // *** HIER IST DIE KORREKTUR ***
       // Wir verwenden '??' (Nullish Coalescing Operator) statt '||' (Logisches ODER).
-      // '??' behandelt 0 als gültigen Wert und greift nur auf 0 zurück, 
+      // '??' behandelt 0 als gültigen Wert und greift nur auf 0 zurück,
       // wenn 'eloRating' null oder undefined ist.
       const winnerElo = winnerData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
       const loserElo = loserData.eloRating ?? CONFIG.ELO.DEFAULT_RATING;
@@ -164,12 +156,12 @@ exports.processMatchResult = onDocumentCreated(
       let loserEloChange;
       let seasonPointChange;
       let winnerXPGain = 0; // XP only for standard matches
-      let matchTypeReason = "Wettkampf";
+      let matchTypeReason = 'Wettkampf';
 
       if (handicapUsed) {
         // Handicap matches: Fixed Elo changes (+8/-8), no XP
         seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
-        matchTypeReason = "Handicap-Wettkampf";
+        matchTypeReason = 'Handicap-Wettkampf';
 
         // Fixed Elo changes for handicap matches
         newWinnerElo = winnerElo + CONFIG.ELO.HANDICAP_SEASON_POINTS; // +8
@@ -191,11 +183,11 @@ exports.processMatchResult = onDocumentCreated(
         );
       } else {
         // Standard matches: Calculate Elo dynamically and award XP
-        const {newWinnerElo: calculatedWinnerElo, newLoserElo: calculatedLoserElo, eloDelta} = calculateElo(
-          winnerElo,
-          loserElo,
-          CONFIG.ELO.K_FACTOR
-        );
+        const {
+          newWinnerElo: calculatedWinnerElo,
+          newLoserElo: calculatedLoserElo,
+          eloDelta,
+        } = calculateElo(winnerElo, loserElo, CONFIG.ELO.K_FACTOR);
         newWinnerElo = calculatedWinnerElo;
         newLoserElo = calculatedLoserElo;
 
@@ -249,44 +241,34 @@ exports.processMatchResult = onDocumentCreated(
       });
 
       // Create history entries
-      const winnerHistoryRef = winnerRef
-        .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
-        .doc();
+      const winnerHistoryRef = winnerRef.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
       batch.set(winnerHistoryRef, {
         points: seasonPointChange,
         xp: winnerXPGain, // XP only for standard matches, 0 for handicap
         eloChange: winnerEloChange,
-        reason: `Sieg im ${matchTypeReason} gegen ${
-          loserData.firstName || "Gegner"
-        }`,
+        reason: `Sieg im ${matchTypeReason} gegen ${loserData.firstName || 'Gegner'}`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Wettkampf)",
+        awardedBy: 'System (Wettkampf)',
       });
 
-      const loserHistoryRef = loserRef
-        .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
-        .doc();
+      const loserHistoryRef = loserRef.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
       batch.set(loserHistoryRef, {
         points: 0, // Losers don't lose points - only Elo
         xp: 0, // Loser doesn't gain XP
         eloChange: loserEloChange,
-        reason: `Niederlage im ${matchTypeReason} gegen ${
-          winnerData.firstName || "Gegner"
-        }`,
+        reason: `Niederlage im ${matchTypeReason} gegen ${winnerData.firstName || 'Gegner'}`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Wettkampf)",
+        awardedBy: 'System (Wettkampf)',
       });
 
       // Track XP in separate history for winner only (only for standard matches)
       if (winnerXPGain > 0) {
-        const winnerXPHistoryRef = winnerRef.collection("xpHistory").doc();
+        const winnerXPHistoryRef = winnerRef.collection('xpHistory').doc();
         batch.set(winnerXPHistoryRef, {
           xp: winnerXPGain,
-          reason: `Sieg im ${matchTypeReason} gegen ${
-            loserData.firstName || "Gegner"
-          }`,
+          reason: `Sieg im ${matchTypeReason} gegen ${loserData.firstName || 'Gegner'}`,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
-          awardedBy: "System (Wettkampf)",
+          awardedBy: 'System (Wettkampf)',
         });
       }
 
@@ -315,7 +297,7 @@ exports.processMatchResult = onDocumentCreated(
 // ========================================================================
 exports.cleanupInvitationTokens = onSchedule(
   {
-    schedule: "every 24 hours",
+    schedule: 'every 24 hours',
     region: CONFIG.REGION,
   },
   async () => {
@@ -327,21 +309,17 @@ exports.cleanupInvitationTokens = onSchedule(
 
     const oldTokensQuery = db
       .collection(CONFIG.COLLECTIONS.INVITATION_TOKENS)
-      .where(
-        "createdAt",
-        "<",
-        admin.firestore.Timestamp.fromDate(cutoffDate)
-      );
+      .where('createdAt', '<', admin.firestore.Timestamp.fromDate(cutoffDate));
 
     const snapshot = await oldTokensQuery.get();
 
     if (snapshot.empty) {
-      logger.info("Keine alten Tokens zum Löschen gefunden.");
+      logger.info('Keine alten Tokens zum Löschen gefunden.');
       return null;
     }
 
     const batch = db.batch();
-    snapshot.forEach((doc) => batch.delete(doc.ref));
+    snapshot.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
 
     logger.info(`🧹 ${snapshot.size} alte Invitation-Tokens gelöscht.`);
@@ -355,9 +333,9 @@ exports.cleanupInvitationTokens = onSchedule(
 exports.setCustomUserClaims = onDocumentWritten(
   {
     region: CONFIG.REGION,
-    document: "users/{userId}",
+    document: 'users/{userId}',
   },
-  async (event) => {
+  async event => {
     const userDocAfter = event.data.after.data();
     const userId = event.params.userId;
 
@@ -387,259 +365,143 @@ exports.setCustomUserClaims = onDocumentWritten(
 // ========================================================================
 // ===== FUNKTION 4: Claim Invitation Code (Code-basierte Registrierung) =====
 // ========================================================================
-exports.claimInvitationCode = onCall(
-  {region: CONFIG.REGION},
-  async (request) => {
-    // 1. Check if user is authenticated
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Du musst angemeldet sein, um einen Code einzulösen."
-      );
+exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request => {
+  // 1. Check if user is authenticated
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Du musst angemeldet sein, um einen Code einzulösen.');
+  }
+
+  const userId = request.auth.uid;
+  const { code, codeId } = request.data;
+
+  if (!code || !codeId) {
+    throw new HttpsError('invalid-argument', 'Code und Code-ID sind erforderlich.');
+  }
+
+  try {
+    // 2. Get code document
+    const codeRef = db.collection(CONFIG.COLLECTIONS.INVITATION_CODES).doc(codeId);
+    const codeDoc = await codeRef.get();
+
+    if (!codeDoc.exists) {
+      throw new HttpsError('not-found', 'Dieser Code existiert nicht.');
     }
 
-    const userId = request.auth.uid;
-    const {code, codeId} = request.data;
-
-    if (!code || !codeId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Code und Code-ID sind erforderlich."
-      );
-    }
-
-    try {
-      // 2. Get code document
-      const codeRef = db.collection(CONFIG.COLLECTIONS.INVITATION_CODES).doc(codeId);
-      const codeDoc = await codeRef.get();
-
-      if (!codeDoc.exists) {
-        throw new HttpsError("not-found", "Dieser Code existiert nicht.");
-      }
-
-      const codeData = codeDoc.data();
-      logger.info(`Code-Daten geladen: ${JSON.stringify({
+    const codeData = codeDoc.data();
+    logger.info(
+      `Code-Daten geladen: ${JSON.stringify({
         code: codeData.code,
         playerId: codeData.playerId || 'NICHT VORHANDEN',
         used: codeData.used,
         superseded: codeData.superseded,
         firstName: codeData.firstName,
-        lastName: codeData.lastName
-      })}`);
+        lastName: codeData.lastName,
+      })}`
+    );
 
-      // 3. Validate code
-      if (codeData.code !== code) {
-        throw new HttpsError("invalid-argument", "Code stimmt nicht überein.");
+    // 3. Validate code
+    if (codeData.code !== code) {
+      throw new HttpsError('invalid-argument', 'Code stimmt nicht überein.');
+    }
+
+    if (codeData.used) {
+      throw new HttpsError('already-exists', 'Dieser Code wurde bereits verwendet.');
+    }
+
+    if (codeData.superseded) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Dieser Code wurde durch einen neueren Code ersetzt und ist nicht mehr gültig.'
+      );
+    }
+
+    const now = admin.firestore.Timestamp.now();
+    if (codeData.expiresAt.toMillis() < now.toMillis()) {
+      throw new HttpsError('failed-precondition', 'Dieser Code ist abgelaufen.');
+    }
+
+    // 4. Check if user document already exists
+    const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      throw new HttpsError('already-exists', 'Ein Profil für diesen Benutzer existiert bereits.');
+    }
+
+    // 5. Check if this code is for an existing offline player (migration scenario)
+    if (codeData.playerId) {
+      logger.info(
+        `Code ${code} ist für existierenden Offline-Spieler ${codeData.playerId}. Starte Migration...`
+      );
+
+      const oldUserRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(codeData.playerId);
+      const oldUserDoc = await oldUserRef.get();
+
+      if (!oldUserDoc.exists) {
+        throw new HttpsError('not-found', 'Der verknüpfte Offline-Spieler wurde nicht gefunden.');
       }
 
-      if (codeData.used) {
-        throw new HttpsError("already-exists", "Dieser Code wurde bereits verwendet.");
-      }
+      const oldUserData = oldUserDoc.data();
 
-      if (codeData.superseded) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Dieser Code wurde durch einen neueren Code ersetzt und ist nicht mehr gültig."
-        );
-      }
-
-      const now = admin.firestore.Timestamp.now();
-      if (codeData.expiresAt.toMillis() < now.toMillis()) {
-        throw new HttpsError("failed-precondition", "Dieser Code ist abgelaufen.");
-      }
-
-      // 4. Check if user document already exists
-      const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
-      const userDoc = await userRef.get();
-
-      if (userDoc.exists) {
-        throw new HttpsError(
-          "already-exists",
-          "Ein Profil für diesen Benutzer existiert bereits."
-        );
-      }
-
-      // 5. Check if this code is for an existing offline player (migration scenario)
-      if (codeData.playerId) {
-        logger.info(`Code ${code} ist für existierenden Offline-Spieler ${codeData.playerId}. Starte Migration...`);
-
-        const oldUserRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(codeData.playerId);
-        const oldUserDoc = await oldUserRef.get();
-
-        if (!oldUserDoc.exists) {
-          throw new HttpsError(
-            "not-found",
-            "Der verknüpfte Offline-Spieler wurde nicht gefunden."
-          );
-        }
-
-        const oldUserData = oldUserDoc.data();
-
-        // Create new user document with auth UID, keeping all existing data
-        const migratedUserData = {
-          ...oldUserData,
-          email: request.auth.token.email || oldUserData.email || "",
-          onboardingComplete: false, // User needs to complete onboarding
-          isOffline: true, // Will be set to false after onboarding
-          migratedFrom: codeData.playerId, // Track migration for debugging
-          migratedAt: now,
-        };
-
-        await userRef.set(migratedUserData);
-        logger.info(`Migriertes User-Dokument für ${userId} erstellt (von ${codeData.playerId})`);
-
-        // Migrate subcollections
-        const subcollections = ["pointsHistory", "xpHistory", "attendance"];
-        for (const subcollectionName of subcollections) {
-          const oldSubcollectionRef = oldUserRef.collection(subcollectionName);
-          const snapshot = await oldSubcollectionRef.get();
-
-          if (!snapshot.empty) {
-            let batch = db.batch();
-            let batchCount = 0;
-
-            for (const doc of snapshot.docs) {
-              const newDocRef = userRef.collection(subcollectionName).doc(doc.id);
-              batch.set(newDocRef, doc.data());
-              batchCount++;
-
-              // Firestore batch limit is 500 operations
-              if (batchCount >= 500) {
-                await batch.commit();
-                batch = db.batch(); // Create new batch
-                batchCount = 0;
-              }
-            }
-
-            if (batchCount > 0) {
-              await batch.commit();
-            }
-
-            logger.info(`Migriert: ${snapshot.size} Dokumente aus ${subcollectionName}`);
-          }
-        }
-
-        // Delete old offline user document
-        await oldUserRef.delete();
-        logger.info(`Altes Offline-User-Dokument ${codeData.playerId} gelöscht`);
-      } else {
-        // 5b. Create NEW user document (not a migration)
-        logger.info(`⚠️ KEIN playerId im Code - erstelle NEUEN Spieler statt Migration!`);
-        logger.info(`Code enthält: firstName=${codeData.firstName}, lastName=${codeData.lastName}`);
-
-        const userData = {
-          email: request.auth.token.email || "",
-          firstName: codeData.firstName || "",
-          lastName: codeData.lastName || "",
-          clubId: codeData.clubId,
-          role: codeData.role || "player",
-          subgroupIds: codeData.subgroupIds || [],
-          points: 0,
-          xp: 0,
-          eloRating: CONFIG.ELO.DEFAULT_RATING,
-          highestElo: CONFIG.ELO.DEFAULT_RATING,
-          wins: 0,
-          losses: 0,
-          grundlagenCompleted: 0,
-          onboardingComplete: false,
-          isOffline: true, // User is offline until they complete onboarding
-          createdAt: now,
-          photoURL: "",
-        };
-
-        await userRef.set(userData);
-        logger.info(`Neues User-Dokument für ${userId} erstellt via Code ${code}`);
-      }
-
-      // 6. Mark code as used
-      await codeRef.update({
-        used: true,
-        usedBy: userId,
-        usedAt: now,
-      });
-
-      logger.info(`Code ${code} als verwendet markiert von User ${userId}`);
-
-      return {
-        success: true,
-        message: "Code erfolgreich eingelöst!",
+      // Create new user document with auth UID, keeping all existing data
+      const migratedUserData = {
+        ...oldUserData,
+        email: request.auth.token.email || oldUserData.email || '',
+        onboardingComplete: false, // User needs to complete onboarding
+        isOffline: true, // Will be set to false after onboarding
+        migratedFrom: codeData.playerId, // Track migration for debugging
+        migratedAt: now,
       };
-    } catch (error) {
-      logger.error(`Fehler beim Einlösen des Codes ${code}:`, error);
 
-      if (error instanceof HttpsError) {
-        throw error;
+      await userRef.set(migratedUserData);
+      logger.info(`Migriertes User-Dokument für ${userId} erstellt (von ${codeData.playerId})`);
+
+      // Migrate subcollections
+      const subcollections = ['pointsHistory', 'xpHistory', 'attendance'];
+      for (const subcollectionName of subcollections) {
+        const oldSubcollectionRef = oldUserRef.collection(subcollectionName);
+        const snapshot = await oldSubcollectionRef.get();
+
+        if (!snapshot.empty) {
+          let batch = db.batch();
+          let batchCount = 0;
+
+          for (const doc of snapshot.docs) {
+            const newDocRef = userRef.collection(subcollectionName).doc(doc.id);
+            batch.set(newDocRef, doc.data());
+            batchCount++;
+
+            // Firestore batch limit is 500 operations
+            if (batchCount >= 500) {
+              await batch.commit();
+              batch = db.batch(); // Create new batch
+              batchCount = 0;
+            }
+          }
+
+          if (batchCount > 0) {
+            await batch.commit();
+          }
+
+          logger.info(`Migriert: ${snapshot.size} Dokumente aus ${subcollectionName}`);
+        }
       }
 
-      throw new HttpsError(
-        "internal",
-        "Ein unerwarteter Fehler ist aufgetreten."
-      );
-    }
-  }
-);
+      // Delete old offline user document
+      await oldUserRef.delete();
+      logger.info(`Altes Offline-User-Dokument ${codeData.playerId} gelöscht`);
+    } else {
+      // 5b. Create NEW user document (not a migration)
+      logger.info(`⚠️ KEIN playerId im Code - erstelle NEUEN Spieler statt Migration!`);
+      logger.info(`Code enthält: firstName=${codeData.firstName}, lastName=${codeData.lastName}`);
 
-// ========================================================================
-// ===== FUNKTION 5: Claim Invitation Token (Email-basierte Registrierung) =====
-// ========================================================================
-exports.claimInvitationToken = onCall(
-  {region: CONFIG.REGION},
-  async (request) => {
-    // 1. Check if user is authenticated
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Du musst angemeldet sein, um einen Token einzulösen."
-      );
-    }
-
-    const userId = request.auth.uid;
-    const {tokenId} = request.data;
-
-    if (!tokenId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Token-ID ist erforderlich."
-      );
-    }
-
-    try {
-      // 2. Get token document
-      const tokenRef = db.collection(CONFIG.COLLECTIONS.INVITATION_TOKENS).doc(tokenId);
-      const tokenDoc = await tokenRef.get();
-
-      if (!tokenDoc.exists) {
-        throw new HttpsError("not-found", "Dieser Token existiert nicht.");
-      }
-
-      const tokenData = tokenDoc.data();
-
-      // 3. Validate token
-      if (tokenData.isUsed) {
-        throw new HttpsError("already-exists", "Dieser Token wurde bereits verwendet.");
-      }
-
-      // 4. Check if user document already exists
-      const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
-      const userDoc = await userRef.get();
-
-      if (userDoc.exists) {
-        throw new HttpsError(
-          "already-exists",
-          "Ein Profil für diesen Benutzer existiert bereits."
-        );
-      }
-
-      const now = admin.firestore.Timestamp.now();
-
-      // 5. Create user document with data from token
       const userData = {
-        email: request.auth.token.email || "",
-        firstName: tokenData.firstName || "",
-        lastName: tokenData.lastName || "",
-        clubId: tokenData.clubId,
-        role: tokenData.role || "player",
-        subgroupIds: tokenData.subgroupIds || [],
+        email: request.auth.token.email || '',
+        firstName: codeData.firstName || '',
+        lastName: codeData.lastName || '',
+        clubId: codeData.clubId,
+        role: codeData.role || 'player',
+        subgroupIds: codeData.subgroupIds || [],
         points: 0,
         xp: 0,
         eloRating: CONFIG.ELO.DEFAULT_RATING,
@@ -650,67 +512,152 @@ exports.claimInvitationToken = onCall(
         onboardingComplete: false,
         isOffline: true, // User is offline until they complete onboarding
         createdAt: now,
-        photoURL: "",
+        photoURL: '',
       };
 
       await userRef.set(userData);
-      logger.info(`User-Dokument für ${userId} erstellt via Token ${tokenId}`);
-
-      // 6. Mark token as used
-      await tokenRef.update({
-        isUsed: true,
-        usedBy: userId,
-        usedAt: now,
-      });
-
-      logger.info(`Token ${tokenId} als verwendet markiert von User ${userId}`);
-
-      return {
-        success: true,
-        message: "Token erfolgreich eingelöst!",
-      };
-    } catch (error) {
-      logger.error(`Fehler beim Einlösen des Tokens ${tokenId}:`, error);
-
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-
-      throw new HttpsError(
-        "internal",
-        "Ein unerwarteter Fehler ist aufgetreten."
-      );
+      logger.info(`Neues User-Dokument für ${userId} erstellt via Code ${code}`);
     }
+
+    // 6. Mark code as used
+    await codeRef.update({
+      used: true,
+      usedBy: userId,
+      usedAt: now,
+    });
+
+    logger.info(`Code ${code} als verwendet markiert von User ${userId}`);
+
+    return {
+      success: true,
+      message: 'Code erfolgreich eingelöst!',
+    };
+  } catch (error) {
+    logger.error(`Fehler beim Einlösen des Codes ${code}:`, error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
   }
-);
+});
+
+// ========================================================================
+// ===== FUNKTION 5: Claim Invitation Token (Email-basierte Registrierung) =====
+// ========================================================================
+exports.claimInvitationToken = onCall({ region: CONFIG.REGION }, async request => {
+  // 1. Check if user is authenticated
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Du musst angemeldet sein, um einen Token einzulösen.');
+  }
+
+  const userId = request.auth.uid;
+  const { tokenId } = request.data;
+
+  if (!tokenId) {
+    throw new HttpsError('invalid-argument', 'Token-ID ist erforderlich.');
+  }
+
+  try {
+    // 2. Get token document
+    const tokenRef = db.collection(CONFIG.COLLECTIONS.INVITATION_TOKENS).doc(tokenId);
+    const tokenDoc = await tokenRef.get();
+
+    if (!tokenDoc.exists) {
+      throw new HttpsError('not-found', 'Dieser Token existiert nicht.');
+    }
+
+    const tokenData = tokenDoc.data();
+
+    // 3. Validate token
+    if (tokenData.isUsed) {
+      throw new HttpsError('already-exists', 'Dieser Token wurde bereits verwendet.');
+    }
+
+    // 4. Check if user document already exists
+    const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+      throw new HttpsError('already-exists', 'Ein Profil für diesen Benutzer existiert bereits.');
+    }
+
+    const now = admin.firestore.Timestamp.now();
+
+    // 5. Create user document with data from token
+    const userData = {
+      email: request.auth.token.email || '',
+      firstName: tokenData.firstName || '',
+      lastName: tokenData.lastName || '',
+      clubId: tokenData.clubId,
+      role: tokenData.role || 'player',
+      subgroupIds: tokenData.subgroupIds || [],
+      points: 0,
+      xp: 0,
+      eloRating: CONFIG.ELO.DEFAULT_RATING,
+      highestElo: CONFIG.ELO.DEFAULT_RATING,
+      wins: 0,
+      losses: 0,
+      grundlagenCompleted: 0,
+      onboardingComplete: false,
+      isOffline: true, // User is offline until they complete onboarding
+      createdAt: now,
+      photoURL: '',
+    };
+
+    await userRef.set(userData);
+    logger.info(`User-Dokument für ${userId} erstellt via Token ${tokenId}`);
+
+    // 6. Mark token as used
+    await tokenRef.update({
+      isUsed: true,
+      usedBy: userId,
+      usedAt: now,
+    });
+
+    logger.info(`Token ${tokenId} als verwendet markiert von User ${userId}`);
+
+    return {
+      success: true,
+      message: 'Token erfolgreich eingelöst!',
+    };
+  } catch (error) {
+    logger.error(`Fehler beim Einlösen des Tokens ${tokenId}:`, error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+  }
+});
 
 // ========================================================================
 // ===== FUNKTION 6: Cleanup Expired Invitation Codes (Scheduled) =====
 // ========================================================================
 exports.cleanupExpiredInvitationCodes = onSchedule(
   {
-    schedule: "every 24 hours",
+    schedule: 'every 24 hours',
     region: CONFIG.REGION,
-    timeZone: "Europe/Berlin",
+    timeZone: 'Europe/Berlin',
   },
-  async (event) => {
+  async event => {
     const now = admin.firestore.Timestamp.now();
     const codesRef = db.collection(CONFIG.COLLECTIONS.INVITATION_CODES);
 
     try {
-      const expiredCodesSnapshot = await codesRef
-        .where("expiresAt", "<", now)
-        .get();
+      const expiredCodesSnapshot = await codesRef.where('expiresAt', '<', now).get();
 
       if (expiredCodesSnapshot.empty) {
-        logger.info("Keine abgelaufenen Einladungscodes gefunden.");
+        logger.info('Keine abgelaufenen Einladungscodes gefunden.');
         return null;
       }
 
       const batch = db.batch();
       let deleteCount = 0;
 
-      expiredCodesSnapshot.forEach((doc) => {
+      expiredCodesSnapshot.forEach(doc => {
         batch.delete(doc.ref);
         deleteCount++;
       });
@@ -718,10 +665,10 @@ exports.cleanupExpiredInvitationCodes = onSchedule(
       await batch.commit();
       logger.info(`${deleteCount} abgelaufene Einladungscodes gelöscht.`);
 
-      return {success: true, deletedCount: deleteCount};
+      return { success: true, deletedCount: deleteCount };
     } catch (error) {
-      logger.error("Fehler beim Bereinigen der Einladungscodes:", error);
-      return {success: false, error: error.message};
+      logger.error('Fehler beim Bereinigen der Einladungscodes:', error);
+      return { success: false, error: error.message };
     }
   }
 );
@@ -738,18 +685,18 @@ exports.processApprovedMatchRequest = onDocumentWritten(
     region: CONFIG.REGION,
     document: `${CONFIG.COLLECTIONS.MATCH_REQUESTS}/{requestId}`,
   },
-  async (event) => {
-    const {requestId} = event.params;
+  async event => {
+    const { requestId } = event.params;
     const beforeData = event.data.before?.data();
     const afterData = event.data.after?.data();
 
     // Only process if status changed to 'approved'
-    if (!afterData || afterData.status !== "approved") {
+    if (!afterData || afterData.status !== 'approved') {
       return null;
     }
 
     // Skip if already processed
-    if (beforeData && beforeData.status === "approved") {
+    if (beforeData && beforeData.status === 'approved') {
       logger.info(`ℹ️ Match request ${requestId} already processed.`);
       return null;
     }
@@ -789,26 +736,21 @@ exports.processApprovedMatchRequest = onDocumentWritten(
         clubId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         processed: false,
-        source: "player_request", // Mark as player-initiated
+        source: 'player_request', // Mark as player-initiated
       });
 
       // Update match request with processedMatchId
-      await db
-        .collection(CONFIG.COLLECTIONS.MATCH_REQUESTS)
-        .doc(requestId)
-        .update({
-          processedMatchId: matchRef.id,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      await db.collection(CONFIG.COLLECTIONS.MATCH_REQUESTS).doc(requestId).update({
+        processedMatchId: matchRef.id,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-      logger.info(
-        `✅ Match ${matchRef.id} created from request ${requestId}`
-      );
+      logger.info(`✅ Match ${matchRef.id} created from request ${requestId}`);
 
-      return {success: true, matchId: matchRef.id};
+      return { success: true, matchId: matchRef.id };
     } catch (error) {
       logger.error(`💥 Error processing match request ${requestId}:`, error);
-      return {success: false, error: error.message};
+      return { success: false, error: error.message };
     }
   }
 );
@@ -822,23 +764,23 @@ exports.processApprovedMatchRequest = onDocumentWritten(
  */
 exports.autoGenerateTrainingSessions = onSchedule(
   {
-    schedule: "0 0 * * *", // Every day at midnight UTC
-    timeZone: "Europe/Berlin",
+    schedule: '0 0 * * *', // Every day at midnight UTC
+    timeZone: 'Europe/Berlin',
     region: CONFIG.REGION,
   },
-  async (event) => {
-    logger.info("🔄 Starting auto-generation of training sessions...");
+  async event => {
+    logger.info('🔄 Starting auto-generation of training sessions...');
 
     try {
       // Get all active recurring training templates
       const templatesSnapshot = await db
-        .collection("recurringTrainingTemplates")
-        .where("active", "==", true)
+        .collection('recurringTrainingTemplates')
+        .where('active', '==', true)
         .get();
 
       if (templatesSnapshot.empty) {
-        logger.info("No active recurring templates found");
-        return {success: true, sessionsCreated: 0};
+        logger.info('No active recurring templates found');
+        return { success: true, sessionsCreated: 0 };
       }
 
       logger.info(`Found ${templatesSnapshot.size} active templates`);
@@ -849,10 +791,10 @@ exports.autoGenerateTrainingSessions = onSchedule(
       const endDate = new Date(today);
       endDate.setDate(endDate.getDate() + 14);
 
-      const formatDate = (date) => {
+      const formatDate = date => {
         const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       };
 
@@ -879,23 +821,21 @@ exports.autoGenerateTrainingSessions = onSchedule(
 
           // Check if session already exists
           const existingSession = await db
-            .collection("trainingSessions")
-            .where("clubId", "==", template.clubId)
-            .where("date", "==", dateStr)
-            .where("startTime", "==", template.startTime)
-            .where("subgroupId", "==", template.subgroupId)
+            .collection('trainingSessions')
+            .where('clubId', '==', template.clubId)
+            .where('date', '==', dateStr)
+            .where('startTime', '==', template.startTime)
+            .where('subgroupId', '==', template.subgroupId)
             .limit(1)
             .get();
 
           if (!existingSession.empty) {
-            logger.info(
-              `Session already exists: ${dateStr} ${template.startTime}`
-            );
+            logger.info(`Session already exists: ${dateStr} ${template.startTime}`);
             continue;
           }
 
           // Create new session
-          const sessionRef = db.collection("trainingSessions").doc();
+          const sessionRef = db.collection('trainingSessions').doc();
           batch.set(sessionRef, {
             date: dateStr,
             startTime: template.startTime,
@@ -905,7 +845,7 @@ exports.autoGenerateTrainingSessions = onSchedule(
             recurringTemplateId: templateDoc.id,
             cancelled: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            createdBy: "system",
+            createdBy: 'system',
           });
 
           totalCreated++;
@@ -929,10 +869,10 @@ exports.autoGenerateTrainingSessions = onSchedule(
       }
 
       logger.info(`✅ Auto-generation complete: ${totalCreated} sessions created`);
-      return {success: true, sessionsCreated: totalCreated};
+      return { success: true, sessionsCreated: totalCreated };
     } catch (error) {
-      logger.error("💥 Error auto-generating training sessions:", error);
-      return {success: false, error: error.message};
+      logger.error('💥 Error auto-generating training sessions:', error);
+      return { success: false, error: error.message };
     }
   }
 );
@@ -950,18 +890,16 @@ exports.migrateAttendanceToSessions = onCall(
     region: CONFIG.REGION,
     enforceAppCheck: false, // Set to true in production
   },
-  async (request) => {
-    logger.info("🔄 Starting attendance migration to sessions...");
+  async request => {
+    logger.info('🔄 Starting attendance migration to sessions...');
 
     try {
       // Get all attendance records without sessionId
-      const attendanceSnapshot = await db
-        .collection("attendance")
-        .get();
+      const attendanceSnapshot = await db.collection('attendance').get();
 
       if (attendanceSnapshot.empty) {
-        logger.info("No attendance records found");
-        return {success: true, migrated: 0, skipped: 0};
+        logger.info('No attendance records found');
+        return { success: true, migrated: 0, skipped: 0 };
       }
 
       logger.info(`Found ${attendanceSnapshot.size} attendance records`);
@@ -982,10 +920,10 @@ exports.migrateAttendanceToSessions = onCall(
 
         // Check if a session already exists for this date/subgroup/club
         const existingSessionQuery = await db
-          .collection("trainingSessions")
-          .where("clubId", "==", attendance.clubId)
-          .where("subgroupId", "==", attendance.subgroupId)
-          .where("date", "==", attendance.date)
+          .collection('trainingSessions')
+          .where('clubId', '==', attendance.clubId)
+          .where('subgroupId', '==', attendance.subgroupId)
+          .where('date', '==', attendance.date)
           .limit(1)
           .get();
 
@@ -997,19 +935,19 @@ exports.migrateAttendanceToSessions = onCall(
           logger.info(`Using existing session ${sessionId} for attendance ${attendanceDoc.id}`);
         } else {
           // Create a generic session (18:00-20:00 default time)
-          const sessionRef = db.collection("trainingSessions").doc();
+          const sessionRef = db.collection('trainingSessions').doc();
           sessionId = sessionRef.id;
 
           batch.set(sessionRef, {
             date: attendance.date,
-            startTime: "18:00", // Default time for migrated sessions
-            endTime: "20:00",
+            startTime: '18:00', // Default time for migrated sessions
+            endTime: '20:00',
             subgroupId: attendance.subgroupId,
             clubId: attendance.clubId,
             recurringTemplateId: null,
             cancelled: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            createdBy: "migration",
+            createdBy: 'migration',
           });
 
           batchCount++;
@@ -1045,8 +983,8 @@ exports.migrateAttendanceToSessions = onCall(
         total: attendanceSnapshot.size,
       };
     } catch (error) {
-      logger.error("💥 Error migrating attendance:", error);
-      throw new HttpsError("internal", error.message);
+      logger.error('💥 Error migrating attendance:', error);
+      throw new HttpsError('internal', error.message);
     }
   }
 );
@@ -1055,95 +993,92 @@ exports.migrateAttendanceToSessions = onCall(
  * Migrates existing doublesPairings documents to add player names
  * Call this once to fix old documents without names
  */
-exports.migrateDoublesPairingsNames = onCall(
-  {region: CONFIG.REGION},
-  async (request) => {
-    // Check if user is admin
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be authenticated");
-    }
-
-    const callerDoc = await db.collection("users").doc(request.auth.uid).get();
-    if (!callerDoc.exists || callerDoc.data().role !== "admin") {
-      throw new HttpsError("permission-denied", "Only admins can run migrations");
-    }
-
-    logger.info("🔄 Starting doublesPairings names migration...");
-
-    try {
-      const pairingsSnapshot = await db.collection("doublesPairings").get();
-
-      if (pairingsSnapshot.empty) {
-        logger.info("No doublesPairings found");
-        return {success: true, migrated: 0, skipped: 0};
-      }
-
-      logger.info(`Found ${pairingsSnapshot.size} doublesPairings`);
-
-      let migrated = 0;
-      let skipped = 0;
-      const batch = db.batch();
-      let batchCount = 0;
-
-      for (const pairingDoc of pairingsSnapshot.docs) {
-        const pairing = pairingDoc.data();
-
-        // Skip if already has names
-        if (pairing.player1Name && pairing.player2Name) {
-          skipped++;
-          continue;
-        }
-
-        // Fetch player data
-        const [player1Doc, player2Doc] = await Promise.all([
-          db.collection("users").doc(pairing.player1Id).get(),
-          db.collection("users").doc(pairing.player2Id).get(),
-        ]);
-
-        if (!player1Doc.exists || !player2Doc.exists) {
-          logger.warn(`⚠️ Players not found for pairing ${pairingDoc.id}`);
-          skipped++;
-          continue;
-        }
-
-        const player1Data = player1Doc.data();
-        const player2Data = player2Doc.data();
-
-        // Update pairing with player names
-        batch.update(pairingDoc.ref, {
-          player1Name: `${player1Data.firstName} ${player1Data.lastName}`,
-          player2Name: `${player2Data.firstName} ${player2Data.lastName}`,
-        });
-
-        batchCount++;
-        migrated++;
-
-        // Commit batch every 500 operations (Firestore limit)
-        if (batchCount >= 500) {
-          await batch.commit();
-          batchCount = 0;
-          logger.info(`Committed batch, ${migrated} pairings migrated so far`);
-        }
-      }
-
-      // Commit remaining operations
-      if (batchCount > 0) {
-        await batch.commit();
-      }
-
-      logger.info(`✅ Migration complete: ${migrated} migrated, ${skipped} skipped`);
-      return {
-        success: true,
-        migrated,
-        skipped,
-        total: pairingsSnapshot.size,
-      };
-    } catch (error) {
-      logger.error("💥 Error migrating doublesPairings:", error);
-      throw new HttpsError("internal", error.message);
-    }
+exports.migrateDoublesPairingsNames = onCall({ region: CONFIG.REGION }, async request => {
+  // Check if user is admin
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Must be authenticated');
   }
-);
+
+  const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data().role !== 'admin') {
+    throw new HttpsError('permission-denied', 'Only admins can run migrations');
+  }
+
+  logger.info('🔄 Starting doublesPairings names migration...');
+
+  try {
+    const pairingsSnapshot = await db.collection('doublesPairings').get();
+
+    if (pairingsSnapshot.empty) {
+      logger.info('No doublesPairings found');
+      return { success: true, migrated: 0, skipped: 0 };
+    }
+
+    logger.info(`Found ${pairingsSnapshot.size} doublesPairings`);
+
+    let migrated = 0;
+    let skipped = 0;
+    const batch = db.batch();
+    let batchCount = 0;
+
+    for (const pairingDoc of pairingsSnapshot.docs) {
+      const pairing = pairingDoc.data();
+
+      // Skip if already has names
+      if (pairing.player1Name && pairing.player2Name) {
+        skipped++;
+        continue;
+      }
+
+      // Fetch player data
+      const [player1Doc, player2Doc] = await Promise.all([
+        db.collection('users').doc(pairing.player1Id).get(),
+        db.collection('users').doc(pairing.player2Id).get(),
+      ]);
+
+      if (!player1Doc.exists || !player2Doc.exists) {
+        logger.warn(`⚠️ Players not found for pairing ${pairingDoc.id}`);
+        skipped++;
+        continue;
+      }
+
+      const player1Data = player1Doc.data();
+      const player2Data = player2Doc.data();
+
+      // Update pairing with player names
+      batch.update(pairingDoc.ref, {
+        player1Name: `${player1Data.firstName} ${player1Data.lastName}`,
+        player2Name: `${player2Data.firstName} ${player2Data.lastName}`,
+      });
+
+      batchCount++;
+      migrated++;
+
+      // Commit batch every 500 operations (Firestore limit)
+      if (batchCount >= 500) {
+        await batch.commit();
+        batchCount = 0;
+        logger.info(`Committed batch, ${migrated} pairings migrated so far`);
+      }
+    }
+
+    // Commit remaining operations
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    logger.info(`✅ Migration complete: ${migrated} migrated, ${skipped} skipped`);
+    return {
+      success: true,
+      migrated,
+      skipped,
+      total: pairingsSnapshot.size,
+    };
+  } catch (error) {
+    logger.error('💥 Error migrating doublesPairings:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});
 
 // ========================================================================
 // ===== SCHEDULED FUNCTION: Auto Season Reset (Every 6 Weeks) =====
@@ -1157,18 +1092,18 @@ exports.migrateDoublesPairingsNames = onCall(
 exports.autoSeasonReset = onSchedule(
   {
     // Run daily at 00:00 CET to check if 6 weeks have passed
-    schedule: "0 0 * * *", // Every day at midnight
-    timeZone: "Europe/Berlin",
+    schedule: '0 0 * * *', // Every day at midnight
+    timeZone: 'Europe/Berlin',
     region: CONFIG.REGION,
   },
-  async (event) => {
-    logger.info("🔄 Checking if 6-week season reset is needed...");
+  async event => {
+    logger.info('🔄 Checking if 6-week season reset is needed...');
 
     try {
       const now = admin.firestore.Timestamp.now();
 
       // Check last reset date from config document
-      const configRef = db.collection("config").doc("seasonReset");
+      const configRef = db.collection('config').doc('seasonReset');
       const configDoc = await configRef.get();
 
       const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000; // 6 weeks in milliseconds
@@ -1181,9 +1116,7 @@ exports.autoSeasonReset = onSchedule(
           const daysRemaining = Math.ceil(
             (sixWeeksInMs - timeSinceLastReset) / (24 * 60 * 60 * 1000)
           );
-          logger.info(
-            `Not yet time for season reset. ${daysRemaining} days remaining.`
-          );
+          logger.info(`Not yet time for season reset. ${daysRemaining} days remaining.`);
           return {
             success: true,
             message: `${daysRemaining} days until next reset`,
@@ -1192,16 +1125,14 @@ exports.autoSeasonReset = onSchedule(
         }
       }
 
-      logger.info(
-        "✅ 6 weeks have passed (or first run). Starting season reset..."
-      );
+      logger.info('✅ 6 weeks have passed (or first run). Starting season reset...');
 
       // Get all clubs
-      const clubsSnapshot = await db.collection("clubs").get();
+      const clubsSnapshot = await db.collection('clubs').get();
 
       if (clubsSnapshot.empty) {
-        logger.info("No clubs found");
-        return {success: true, clubsReset: 0};
+        logger.info('No clubs found');
+        return { success: true, clubsReset: 0 };
       }
 
       logger.info(`Found ${clubsSnapshot.size} clubs to process`);
@@ -1211,12 +1142,12 @@ exports.autoSeasonReset = onSchedule(
 
       // Define league structure (same as frontend)
       const LEAGUES = {
-        Bronze: {name: "Bronze", color: "#CD7F32", icon: "🥉"},
-        Silber: {name: "Silber", color: "#C0C0C0", icon: "🥈"},
-        Gold: {name: "Gold", color: "#FFD700", icon: "🥇"},
-        Platin: {name: "Platin", color: "#E5E4E2", icon: "💎"},
-        Diamant: {name: "Diamant", color: "#B9F2FF", icon: "💠"},
-        Champion: {name: "Champion", color: "#FF4500", icon: "👑"},
+        Bronze: { name: 'Bronze', color: '#CD7F32', icon: '🥉' },
+        Silber: { name: 'Silber', color: '#C0C0C0', icon: '🥈' },
+        Gold: { name: 'Gold', color: '#FFD700', icon: '🥇' },
+        Platin: { name: 'Platin', color: '#E5E4E2', icon: '💎' },
+        Diamant: { name: 'Diamant', color: '#B9F2FF', icon: '💠' },
+        Champion: { name: 'Champion', color: '#FF4500', icon: '👑' },
       };
       const PROMOTION_COUNT = 2; // Top 2 players get promoted
       const DEMOTION_COUNT = 2; // Bottom 2 players get demoted
@@ -1230,8 +1161,8 @@ exports.autoSeasonReset = onSchedule(
           // Get all players in this club
           const playersQuery = await db
             .collection(CONFIG.COLLECTIONS.USERS)
-            .where("clubId", "==", clubId)
-            .where("role", "==", "player")
+            .where('clubId', '==', clubId)
+            .where('role', '==', 'player')
             .get();
 
           if (playersQuery.empty) {
@@ -1239,7 +1170,7 @@ exports.autoSeasonReset = onSchedule(
             continue;
           }
 
-          const allPlayers = playersQuery.docs.map((doc) => ({
+          const allPlayers = playersQuery.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
           }));
@@ -1248,7 +1179,7 @@ exports.autoSeasonReset = onSchedule(
 
           // Group players by league
           const playersByLeague = allPlayers.reduce((acc, player) => {
-            const league = player.league || "Bronze";
+            const league = player.league || 'Bronze';
             if (!acc[league]) acc[league] = [];
             acc[league].push(player);
             return acc;
@@ -1260,16 +1191,12 @@ exports.autoSeasonReset = onSchedule(
 
           for (const leagueName in playersByLeague) {
             const playersInLeague = playersByLeague[leagueName];
-            const sortedPlayers = playersInLeague.sort(
-              (a, b) => (b.points || 0) - (a.points || 0)
-            );
+            const sortedPlayers = playersInLeague.sort((a, b) => (b.points || 0) - (a.points || 0));
             const totalPlayers = sortedPlayers.length;
 
             sortedPlayers.forEach((player, index) => {
               const rank = index + 1;
-              const playerRef = db
-                .collection(CONFIG.COLLECTIONS.USERS)
-                .doc(player.id);
+              const playerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(player.id);
               let newLeague = leagueName;
 
               // Promotion logic
@@ -1344,15 +1271,10 @@ exports.autoSeasonReset = onSchedule(
                 await completed.ref.delete();
               }
 
-              logger.info(
-                `✅ Reset milestones for player: ${player.firstName} ${player.lastName}`
-              );
+              logger.info(`✅ Reset milestones for player: ${player.firstName} ${player.lastName}`);
               totalPlayersReset++;
             } catch (subError) {
-              logger.error(
-                `Error resetting milestones for player ${player.id}:`,
-                subError
-              );
+              logger.error(`Error resetting milestones for player ${player.id}:`, subError);
             }
           }
 
@@ -1369,7 +1291,7 @@ exports.autoSeasonReset = onSchedule(
           lastResetDate: now,
           lastResetTimestamp: admin.firestore.FieldValue.serverTimestamp(),
         },
-        {merge: true}
+        { merge: true }
       );
 
       logger.info(
@@ -1379,13 +1301,11 @@ exports.autoSeasonReset = onSchedule(
         success: true,
         clubsReset: totalClubsReset,
         playersReset: totalPlayersReset,
-        nextResetDate: new Date(
-          now.toMillis() + sixWeeksInMs
-        ).toISOString(),
+        nextResetDate: new Date(now.toMillis() + sixWeeksInMs).toISOString(),
       };
     } catch (error) {
-      logger.error("💥 Error during automatic season reset:", error);
-      return {success: false, error: error.message};
+      logger.error('💥 Error during automatic season reset:', error);
+      return { success: false, error: error.message };
     }
   }
 );
@@ -1403,14 +1323,14 @@ exports.autoSeasonReset = onSchedule(
 exports.processDoublesMatchResult = onDocumentCreated(
   {
     region: CONFIG.REGION,
-    document: "doublesMatches/{matchId}",
+    document: 'doublesMatches/{matchId}',
   },
-  async (event) => {
-    const {matchId} = event.params;
+  async event => {
+    const { matchId } = event.params;
     const snap = event.data;
 
     if (!snap) {
-      logger.error("❌ Keine Daten im Event-Snapshot gefunden.", {event});
+      logger.error('❌ Keine Daten im Event-Snapshot gefunden.', { event });
       return;
     }
 
@@ -1420,22 +1340,20 @@ exports.processDoublesMatchResult = onDocumentCreated(
       return;
     }
 
-    const {teamA, teamB, winningTeam, handicapUsed} = matchData;
+    const { teamA, teamB, winningTeam, handicapUsed } = matchData;
     if (!teamA || !teamB || !winningTeam) {
       logger.error(`❌ Ungültige Daten: Teams in Doubles Match ${matchId} fehlen.`);
       return;
     }
 
     // Determine winning and losing teams
-    const winningPairingId = winningTeam === "A" ? teamA.pairingId : teamB.pairingId;
-    const losingPairingId = winningTeam === "A" ? teamB.pairingId : teamA.pairingId;
+    const winningPairingId = winningTeam === 'A' ? teamA.pairingId : teamB.pairingId;
+    const losingPairingId = winningTeam === 'A' ? teamB.pairingId : teamA.pairingId;
 
-    const winningPlayerIds = winningTeam === "A"
-      ? [teamA.player1Id, teamA.player2Id]
-      : [teamB.player1Id, teamB.player2Id];
-    const losingPlayerIds = winningTeam === "A"
-      ? [teamB.player1Id, teamB.player2Id]
-      : [teamA.player1Id, teamA.player2Id];
+    const winningPlayerIds =
+      winningTeam === 'A' ? [teamA.player1Id, teamA.player2Id] : [teamB.player1Id, teamB.player2Id];
+    const losingPlayerIds =
+      winningTeam === 'A' ? [teamB.player1Id, teamB.player2Id] : [teamA.player1Id, teamA.player2Id];
 
     try {
       // Fetch all 4 players
@@ -1447,7 +1365,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
       ]);
 
       if (!winner1Doc.exists || !winner2Doc.exists || !loser1Doc.exists || !loser2Doc.exists) {
-        throw new Error("Nicht alle Spieler gefunden");
+        throw new Error('Nicht alle Spieler gefunden');
       }
 
       const winner1Data = winner1Doc.data();
@@ -1465,12 +1383,14 @@ exports.processDoublesMatchResult = onDocumentCreated(
       const winningTeamElo = Math.round((winner1Elo + winner2Elo) / 2);
       const losingTeamElo = Math.round((loser1Elo + loser2Elo) / 2);
 
-      logger.info(`Doubles match ${matchId}: Team Elos - Winners: ${winningTeamElo}, Losers: ${losingTeamElo}`);
+      logger.info(
+        `Doubles match ${matchId}: Team Elos - Winners: ${winningTeamElo}, Losers: ${losingTeamElo}`
+      );
 
       let winner1NewElo, winner2NewElo, loser1NewElo, loser2NewElo;
       let seasonPointChange;
       let winnerXPGain = 0;
-      let matchTypeReason = "Doppel-Wettkampf";
+      let matchTypeReason = 'Doppel-Wettkampf';
 
       if (handicapUsed) {
         // Handicap matches: Fixed changes
@@ -1490,8 +1410,11 @@ exports.processDoublesMatchResult = onDocumentCreated(
         logger.info(`Handicap Doubles Match: Fixed ±${eloChangePerPlayer} Elo per player`);
       } else {
         // Standard matches: Calculate Elo dynamically based on team averages
-        const {newWinnerElo: calculatedWinningTeamElo, newLoserElo: calculatedLosingTeamElo, eloDelta} =
-          calculateElo(winningTeamElo, losingTeamElo, CONFIG.ELO.K_FACTOR);
+        const {
+          newWinnerElo: calculatedWinningTeamElo,
+          newLoserElo: calculatedLosingTeamElo,
+          eloDelta,
+        } = calculateElo(winningTeamElo, losingTeamElo, CONFIG.ELO.K_FACTOR);
 
         // Distribute Elo changes equally among team members
         const winningEloChange = calculatedWinningTeamElo - winningTeamElo;
@@ -1509,7 +1432,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
         // XP: Same as season points for doubles
         winnerXPGain = seasonPointChange;
 
-        logger.info(`Standard Doubles Match: Season points per player: ${seasonPointChange}, XP: ${winnerXPGain}`);
+        logger.info(
+          `Standard Doubles Match: Season points per player: ${seasonPointChange}, XP: ${winnerXPGain}`
+        );
       }
 
       // Apply Elo gates for losers (doubles Elo gates)
@@ -1520,8 +1445,14 @@ exports.processDoublesMatchResult = onDocumentCreated(
       loser2NewElo = applyEloGate(loser2NewElo, loser2Elo, loser2HighestDoublesElo);
 
       // Update highest doubles Elo if new records are set
-      const winner1HighestDoublesElo = Math.max(winner1NewElo, winner1Data.highestDoublesElo || winner1Elo);
-      const winner2HighestDoublesElo = Math.max(winner2NewElo, winner2Data.highestDoublesElo || winner2Elo);
+      const winner1HighestDoublesElo = Math.max(
+        winner1NewElo,
+        winner1Data.highestDoublesElo || winner1Elo
+      );
+      const winner2HighestDoublesElo = Math.max(
+        winner2NewElo,
+        winner2Data.highestDoublesElo || winner2Elo
+      );
       const loser1HighestDoublesEloNew = Math.max(loser1NewElo, loser1HighestDoublesElo);
       const loser2HighestDoublesEloNew = Math.max(loser2NewElo, loser2HighestDoublesElo);
 
@@ -1577,7 +1508,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
         eloChange: winner1NewElo - winner1Elo,
         reason: `Sieg im ${matchTypeReason} (Partner: ${winner2Data.firstName})`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Doppel)",
+        awardedBy: 'System (Doppel)',
         isPartner: true, // Flag to indicate this was a doubles match
       });
 
@@ -1588,7 +1519,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
         eloChange: winner2NewElo - winner2Elo,
         reason: `Sieg im ${matchTypeReason} (Partner: ${winner1Data.firstName})`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Doppel)",
+        awardedBy: 'System (Doppel)',
         isPartner: true,
       });
 
@@ -1600,7 +1531,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
         eloChange: loser1NewElo - loser1Elo,
         reason: `Niederlage im ${matchTypeReason} (Partner: ${loser2Data.firstName})`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Doppel)",
+        awardedBy: 'System (Doppel)',
         isPartner: true,
       });
 
@@ -1611,13 +1542,13 @@ exports.processDoublesMatchResult = onDocumentCreated(
         eloChange: loser2NewElo - loser2Elo,
         reason: `Niederlage im ${matchTypeReason} (Partner: ${loser1Data.firstName})`,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        awardedBy: "System (Doppel)",
+        awardedBy: 'System (Doppel)',
         isPartner: true,
       });
 
       // Update doublesPairings collection for both teams
-      const winningPairingRef = db.collection("doublesPairings").doc(winningPairingId);
-      const losingPairingRef = db.collection("doublesPairings").doc(losingPairingId);
+      const winningPairingRef = db.collection('doublesPairings').doc(winningPairingId);
+      const losingPairingRef = db.collection('doublesPairings').doc(losingPairingId);
 
       // Check if pairings exist, create if not
       const [winningPairingDoc, losingPairingDoc] = await Promise.all([
@@ -1722,20 +1653,20 @@ exports.processDoublesMatchResult = onDocumentCreated(
 exports.processApprovedDoublesMatchRequest = onDocumentWritten(
   {
     region: CONFIG.REGION,
-    document: "doublesMatchRequests/{requestId}",
+    document: 'doublesMatchRequests/{requestId}',
   },
-  async (event) => {
-    const {requestId} = event.params;
+  async event => {
+    const { requestId } = event.params;
     const beforeData = event.data.before?.data();
     const afterData = event.data.after?.data();
 
     // Only process if status changed to 'approved'
-    if (!afterData || afterData.status !== "approved") {
+    if (!afterData || afterData.status !== 'approved') {
       return null;
     }
 
     // Skip if already processed
-    if (beforeData && beforeData.status === "approved") {
+    if (beforeData && beforeData.status === 'approved') {
       logger.info(`ℹ️ Doubles match request ${requestId} already processed.`);
       return null;
     }
@@ -1763,7 +1694,7 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
       } = afterData;
 
       // Create doubles match document
-      const matchRef = await db.collection("doublesMatches").add({
+      const matchRef = await db.collection('doublesMatches').add({
         teamA,
         teamB,
         winningTeam,
@@ -1776,26 +1707,21 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
         clubId,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         processed: false,
-        source: "player_request",
+        source: 'player_request',
       });
 
       // Update request with processedMatchId
-      await db
-        .collection("doublesMatchRequests")
-        .doc(requestId)
-        .update({
-          processedMatchId: matchRef.id,
-          processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+      await db.collection('doublesMatchRequests').doc(requestId).update({
+        processedMatchId: matchRef.id,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-      logger.info(
-        `✅ Doubles match ${matchRef.id} created from request ${requestId}`
-      );
+      logger.info(`✅ Doubles match ${matchRef.id} created from request ${requestId}`);
 
-      return {success: true, matchId: matchRef.id};
+      return { success: true, matchId: matchRef.id };
     } catch (error) {
       logger.error(`💥 Error processing doubles match request ${requestId}:`, error);
-      return {success: false, error: error.message};
+      return { success: false, error: error.message };
     }
   }
 );
@@ -1804,7 +1730,7 @@ exports.processApprovedDoublesMatchRequest = onDocumentWritten(
 // ===== EMAIL NOTIFICATIONS =====
 // ========================================================================
 
-const nodemailer = require("nodemailer");
+const nodemailer = require('nodemailer');
 
 /**
  * Sends email notification to coaches when a doubles match request is pending
@@ -1813,9 +1739,9 @@ const nodemailer = require("nodemailer");
 exports.notifyCoachesDoublesRequest = onDocumentWritten(
   {
     region: CONFIG.REGION,
-    document: "doublesMatchRequests/{requestId}",
+    document: 'doublesMatchRequests/{requestId}',
   },
-  async (event) => {
+  async event => {
     try {
       const afterData = event.data?.after?.data();
       const beforeData = event.data?.before?.data();
@@ -1823,8 +1749,8 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
       // Only proceed if status changed to 'pending_coach'
       if (
         !afterData ||
-        afterData.status !== "pending_coach" ||
-        (beforeData && beforeData.status === "pending_coach")
+        afterData.status !== 'pending_coach' ||
+        (beforeData && beforeData.status === 'pending_coach')
       ) {
         return null;
       }
@@ -1835,9 +1761,9 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
 
       // Get all coaches in the club
       const coachesSnapshot = await db
-        .collection("users")
-        .where("clubId", "==", clubId)
-        .where("role", "in", ["coach", "admin"])
+        .collection('users')
+        .where('clubId', '==', clubId)
+        .where('role', 'in', ['coach', 'admin'])
         .get();
 
       if (coachesSnapshot.empty) {
@@ -1848,10 +1774,10 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
       // Fetch player names
       const [teamAPlayer1Doc, teamAPlayer2Doc, teamBPlayer1Doc, teamBPlayer2Doc] =
         await Promise.all([
-          db.collection("users").doc(afterData.teamA.player1Id).get(),
-          db.collection("users").doc(afterData.teamA.player2Id).get(),
-          db.collection("users").doc(afterData.teamB.player1Id).get(),
-          db.collection("users").doc(afterData.teamB.player2Id).get(),
+          db.collection('users').doc(afterData.teamA.player1Id).get(),
+          db.collection('users').doc(afterData.teamA.player2Id).get(),
+          db.collection('users').doc(afterData.teamB.player1Id).get(),
+          db.collection('users').doc(afterData.teamB.player2Id).get(),
         ]);
 
       const teamAPlayer1 = teamAPlayer1Doc.data();
@@ -1860,13 +1786,11 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
       const teamBPlayer2 = teamBPlayer2Doc.data();
 
       // Format team names
-      const teamANames = `${teamAPlayer1?.firstName || "?"} ${teamAPlayer1?.lastName || "?"} & ${teamAPlayer2?.firstName || "?"} ${teamAPlayer2?.lastName || "?"}`;
-      const teamBNames = `${teamBPlayer1?.firstName || "?"} ${teamBPlayer1?.lastName || "?"} & ${teamBPlayer2?.firstName || "?"} ${teamBPlayer2?.lastName || "?"}`;
+      const teamANames = `${teamAPlayer1?.firstName || '?'} ${teamAPlayer1?.lastName || '?'} & ${teamAPlayer2?.firstName || '?'} ${teamAPlayer2?.lastName || '?'}`;
+      const teamBNames = `${teamBPlayer1?.firstName || '?'} ${teamBPlayer1?.lastName || '?'} & ${teamBPlayer2?.firstName || '?'} ${teamBPlayer2?.lastName || '?'}`;
 
       // Format sets
-      const setsStr = afterData.sets
-        .map((s) => `${s.teamA}:${s.teamB}`)
-        .join(", ");
+      const setsStr = afterData.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ');
 
       // Note: Email sending requires SMTP configuration
       // This is a template - you need to configure your email service
@@ -1874,7 +1798,7 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
       // firebase functions:config:set gmail.email="your-email@gmail.com" gmail.password="your-app-password"
 
       const transporter = nodemailer.createTransporter({
-        service: "gmail",
+        service: 'gmail',
         auth: {
           user: process.env.GMAIL_EMAIL || functions.config().gmail?.email,
           pass: process.env.GMAIL_PASSWORD || functions.config().gmail?.password,
@@ -1882,7 +1806,7 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
       });
 
       // Send email to each coach
-      const emailPromises = coachesSnapshot.docs.map(async (coachDoc) => {
+      const emailPromises = coachesSnapshot.docs.map(async coachDoc => {
         const coach = coachDoc.data();
         if (!coach.email) {
           logger.warn(`⚠️ Coach ${coachDoc.id} has no email address`);
@@ -1892,11 +1816,11 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
         const mailOptions = {
           from: process.env.GMAIL_EMAIL || functions.config().gmail?.email,
           to: coach.email,
-          subject: "🎾 Neue Doppel-Match Anfrage wartet auf Genehmigung",
+          subject: '🎾 Neue Doppel-Match Anfrage wartet auf Genehmigung',
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #4f46e5;">Neue Doppel-Match Anfrage</h2>
-              <p>Hallo ${coach.firstName || "Coach"},</p>
+              <p>Hallo ${coach.firstName || 'Coach'},</p>
               <p>Es wartet eine neue Doppel-Match Anfrage auf deine Genehmigung:</p>
 
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -1918,24 +1842,24 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
         try {
           await transporter.sendMail(mailOptions);
           logger.info(`✅ Email sent to coach ${coach.email}`);
-          return {success: true, email: coach.email};
+          return { success: true, email: coach.email };
         } catch (error) {
           logger.error(`❌ Failed to send email to ${coach.email}:`, error);
-          return {success: false, email: coach.email, error: error.message};
+          return { success: false, email: coach.email, error: error.message };
         }
       });
 
       const results = await Promise.all(emailPromises);
-      const successCount = results.filter((r) => r?.success).length;
+      const successCount = results.filter(r => r?.success).length;
 
       logger.info(
         `📧 Email notification complete: ${successCount}/${coachesSnapshot.size} coaches notified`
       );
 
-      return {success: true, notified: successCount};
+      return { success: true, notified: successCount };
     } catch (error) {
-      logger.error("💥 Error in notifyCoachesDoublesRequest:", error);
-      return {success: false, error: error.message};
+      logger.error('💥 Error in notifyCoachesDoublesRequest:', error);
+      return { success: false, error: error.message };
     }
   }
 );
@@ -1995,15 +1919,15 @@ async function sendPushNotification(userId, title, body, data = {}) {
       },
       data: {
         ...data,
-        url: data.url || "/dashboard.html",
+        url: data.url || '/dashboard.html',
       },
       webpush: {
         fcmOptions: {
-          link: data.url || "/dashboard.html",
+          link: data.url || '/dashboard.html',
         },
         notification: {
-          icon: "/icons/icon-192x192.png",
-          badge: "/icons/badge-72x72.png",
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
           vibrate: [200, 100, 200],
           requireInteraction: false,
         },
@@ -2017,8 +1941,10 @@ async function sendPushNotification(userId, title, body, data = {}) {
     logger.error(`Error sending push notification to ${userId}:`, error);
 
     // If token is invalid, clear it from Firestore
-    if (error.code === "messaging/invalid-registration-token" ||
-        error.code === "messaging/registration-token-not-registered") {
+    if (
+      error.code === 'messaging/invalid-registration-token' ||
+      error.code === 'messaging/registration-token-not-registered'
+    ) {
       await db.collection(CONFIG.COLLECTIONS.USERS).doc(userId).update({
         fcmToken: null,
         notificationsEnabled: false,
@@ -2035,19 +1961,19 @@ async function sendPushNotification(userId, title, body, data = {}) {
  */
 exports.sendMatchApprovedNotification = onDocumentWritten(
   {
-    document: "matches/{matchId}",
+    document: 'matches/{matchId}',
     region: CONFIG.REGION,
   },
-  async (event) => {
+  async event => {
     const beforeData = event.data.before.exists ? event.data.before.data() : null;
     const afterData = event.data.after.exists ? event.data.after.data() : null;
 
     // Check if status changed to approved
-    if (!afterData || afterData.status !== "approved") {
+    if (!afterData || afterData.status !== 'approved') {
       return null;
     }
 
-    if (beforeData && beforeData.status === "approved") {
+    if (beforeData && beforeData.status === 'approved') {
       return null; // Already approved
     }
 
@@ -2057,29 +1983,29 @@ exports.sendMatchApprovedNotification = onDocumentWritten(
     const playerADoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(afterData.playerA).get();
     const playerBDoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(afterData.playerB).get();
 
-    const playerAName = playerADoc.exists ? playerADoc.data().firstName : "Spieler";
-    const playerBName = playerBDoc.exists ? playerBDoc.data().firstName : "Gegner";
+    const playerAName = playerADoc.exists ? playerADoc.data().firstName : 'Spieler';
+    const playerBName = playerBDoc.exists ? playerBDoc.data().firstName : 'Gegner';
 
     // Send notification to both players
     const promises = [
       sendPushNotification(
         afterData.playerA,
-        "🏓 Match genehmigt!",
+        '🏓 Match genehmigt!',
         `Dein Match gegen ${playerBName} wurde genehmigt.`,
         {
-          type: "matchApproved",
+          type: 'matchApproved',
           matchId: event.params.matchId,
-          url: "/dashboard.html",
+          url: '/dashboard.html',
         }
       ),
       sendPushNotification(
         afterData.playerB,
-        "🏓 Match genehmigt!",
+        '🏓 Match genehmigt!',
         `Dein Match gegen ${playerAName} wurde genehmigt.`,
         {
-          type: "matchApproved",
+          type: 'matchApproved',
           matchId: event.params.matchId,
-          url: "/dashboard.html",
+          url: '/dashboard.html',
         }
       ),
     ];
@@ -2095,27 +2021,27 @@ exports.sendMatchApprovedNotification = onDocumentWritten(
  */
 exports.sendMatchRequestNotification = onDocumentCreated(
   {
-    document: "matchRequests/{requestId}",
+    document: 'matchRequests/{requestId}',
     region: CONFIG.REGION,
   },
-  async (event) => {
+  async event => {
     const data = event.data.data();
 
     logger.info(`Match request ${event.params.requestId} created, sending notification...`);
 
     // Get requester name
     const requesterDoc = await db.collection(CONFIG.COLLECTIONS.USERS).doc(data.requester).get();
-    const requesterName = requesterDoc.exists ? requesterDoc.data().firstName : "Jemand";
+    const requesterName = requesterDoc.exists ? requesterDoc.data().firstName : 'Jemand';
 
     // Send notification to playerB
     await sendPushNotification(
       data.playerB,
-      "🏓 Neue Match-Anfrage",
+      '🏓 Neue Match-Anfrage',
       `${requesterName} möchte ein Match gegen dich spielen.`,
       {
-        type: "matchRequest",
+        type: 'matchRequest',
         requestId: event.params.requestId,
-        url: "/dashboard.html",
+        url: '/dashboard.html',
       }
     );
 
@@ -2128,23 +2054,23 @@ exports.sendMatchRequestNotification = onDocumentCreated(
  */
 exports.sendRankUpNotification = onDocumentWritten(
   {
-    document: "users/{userId}",
+    document: 'users/{userId}',
     region: CONFIG.REGION,
   },
-  async (event) => {
+  async event => {
     const beforeData = event.data.before.exists ? event.data.before.data() : null;
     const afterData = event.data.after.exists ? event.data.after.data() : null;
 
     if (!beforeData || !afterData) return null;
 
     // Check if rank changed
-    const oldRank = beforeData.rank || "Bronze";
-    const newRank = afterData.rank || "Bronze";
+    const oldRank = beforeData.rank || 'Bronze';
+    const newRank = afterData.rank || 'Bronze';
 
     if (oldRank === newRank) return null;
 
     // Define rank hierarchy
-    const ranks = ["Bronze", "Silber", "Gold", "Platin", "Diamant", "Meister", "Legende"];
+    const ranks = ['Bronze', 'Silber', 'Gold', 'Platin', 'Diamant', 'Meister', 'Legende'];
     const oldIndex = ranks.indexOf(oldRank);
     const newIndex = ranks.indexOf(newRank);
 
@@ -2159,9 +2085,9 @@ exports.sendRankUpNotification = onDocumentWritten(
       `🎉 ${newRank} erreicht!`,
       `Glückwunsch! Du bist zu ${newRank} aufgestiegen!`,
       {
-        type: "rankUp",
+        type: 'rankUp',
         rank: newRank,
-        url: "/dashboard.html",
+        url: '/dashboard.html',
       }
     );
 
@@ -2175,12 +2101,12 @@ exports.sendRankUpNotification = onDocumentWritten(
  */
 exports.sendTrainingReminders = onSchedule(
   {
-    schedule: "0 17 * * *", // Every day at 17:00
-    timeZone: "Europe/Berlin",
+    schedule: '0 17 * * *', // Every day at 17:00
+    timeZone: 'Europe/Berlin',
     region: CONFIG.REGION,
   },
-  async (event) => {
-    logger.info("Running training reminders...");
+  async event => {
+    logger.info('Running training reminders...');
 
     try {
       // Get today's date (start of day)
@@ -2192,13 +2118,14 @@ exports.sendTrainingReminders = onSchedule(
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       // Find all trainings for tomorrow
-      const trainingsSnapshot = await db.collection("trainings")
-        .where("date", ">=", admin.firestore.Timestamp.fromDate(today))
-        .where("date", "<", admin.firestore.Timestamp.fromDate(tomorrow))
+      const trainingsSnapshot = await db
+        .collection('trainings')
+        .where('date', '>=', admin.firestore.Timestamp.fromDate(today))
+        .where('date', '<', admin.firestore.Timestamp.fromDate(tomorrow))
         .get();
 
       if (trainingsSnapshot.empty) {
-        logger.info("No trainings tomorrow");
+        logger.info('No trainings tomorrow');
         return null;
       }
 
@@ -2211,23 +2138,24 @@ exports.sendTrainingReminders = onSchedule(
         const training = trainingDoc.data();
 
         // Get all users in this club
-        const usersSnapshot = await db.collection(CONFIG.COLLECTIONS.USERS)
-          .where("clubId", "==", training.clubId)
-          .where("role", "==", "player")
+        const usersSnapshot = await db
+          .collection(CONFIG.COLLECTIONS.USERS)
+          .where('clubId', '==', training.clubId)
+          .where('role', '==', 'player')
           .get();
 
         for (const userDoc of usersSnapshot.docs) {
-          const time = training.time || "18:00";
+          const time = training.time || '18:00';
 
           promises.push(
             sendPushNotification(
               userDoc.id,
-              "🏓 Training morgen!",
+              '🏓 Training morgen!',
               `Erinnerung: Training morgen um ${time} Uhr`,
               {
-                type: "trainingReminder",
+                type: 'trainingReminder',
                 trainingId: trainingDoc.id,
-                url: "/dashboard.html",
+                url: '/dashboard.html',
               }
             )
           );
@@ -2235,13 +2163,13 @@ exports.sendTrainingReminders = onSchedule(
       }
 
       const results = await Promise.allSettled(promises);
-      const successCount = results.filter((r) => r.status === "fulfilled" && r.value === true).length;
+      const successCount = results.filter(r => r.status === 'fulfilled' && r.value === true).length;
 
       logger.info(`Training reminders sent: ${successCount}/${promises.length}`);
 
       return null;
     } catch (error) {
-      logger.error("Error sending training reminders:", error);
+      logger.error('Error sending training reminders:', error);
       return null;
     }
   }
@@ -2250,25 +2178,22 @@ exports.sendTrainingReminders = onSchedule(
 // ========================================================================
 // ===== TEST FUNCTION: Send Test Notification =====
 // ========================================================================
-exports.sendTestNotification = onCall(
-  {region: CONFIG.REGION},
-  async (request) => {
-    const userId = request.auth?.uid;
+exports.sendTestNotification = onCall({ region: CONFIG.REGION }, async request => {
+  const userId = request.auth?.uid;
 
-    if (!userId) {
-      throw new HttpsError("unauthenticated", "User must be authenticated");
-    }
-
-    await sendPushNotification(
-      userId,
-      "🧪 Test-Benachrichtigung",
-      "Dies ist eine Test-Benachrichtigung von TTV Champions!",
-      {
-        type: "test",
-        url: "/dashboard.html",
-      }
-    );
-
-    return {success: true, message: "Test notification sent"};
+  if (!userId) {
+    throw new HttpsError('unauthenticated', 'User must be authenticated');
   }
-);
+
+  await sendPushNotification(
+    userId,
+    '🧪 Test-Benachrichtigung',
+    'Dies ist eine Test-Benachrichtigung von TTV Champions!',
+    {
+      type: 'test',
+      url: '/dashboard.html',
+    }
+  );
+
+  return { success: true, message: 'Test notification sent' };
+});

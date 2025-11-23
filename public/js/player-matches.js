@@ -11,7 +11,8 @@ import {
   onSnapshot,
   getDocs,
   orderBy,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { isValidSet, getSetWinner, calculateHandicap } from './validation-utils.js';
 
 /**
  * Player Matches Module
@@ -30,13 +31,13 @@ import {
  * @returns {Object} Object with getSets() and validate() methods
  */
 export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   const sets = existingSets.length > 0 ? [...existingSets] : [];
 
   // Determine min/max sets and winning sets based on mode
   let minSets, maxSets, setsToWin;
-  switch(mode) {
+  switch (mode) {
     case 'single-set':
       minSets = 1;
       maxSets = 1;
@@ -65,15 +66,15 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
   // Ensure at least minSets
   while (sets.length < minSets) {
-    sets.push({ playerA: "", playerB: "" });
+    sets.push({ playerA: '', playerB: '' });
   }
 
   function renderSets() {
-    container.innerHTML = "";
+    container.innerHTML = '';
 
     sets.forEach((set, index) => {
-      const setDiv = document.createElement("div");
-      setDiv.className = "flex items-center gap-3 mb-3";
+      const setDiv = document.createElement('div');
+      setDiv.className = 'flex items-center gap-3 mb-3';
       setDiv.innerHTML = `
         <label class="text-sm font-medium text-gray-700 w-16">Satz ${index + 1}:</label>
         <input
@@ -102,43 +103,10 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     });
 
     // Add event listeners for auto-adding 4th and 5th set
-    const inputs = container.querySelectorAll("input");
-    inputs.forEach((input) => {
-      input.addEventListener("input", handleSetInput);
+    const inputs = container.querySelectorAll('input');
+    inputs.forEach(input => {
+      input.addEventListener('input', handleSetInput);
     });
-  }
-
-  // Helper function to validate a set according to official table tennis rules
-  function isValidSet(scoreA, scoreB) {
-    const a = parseInt(scoreA) || 0;
-    const b = parseInt(scoreB) || 0;
-
-    // At least one side must have 11+ points
-    if (a < 11 && b < 11) return false;
-
-    // No winner (tie)
-    if (a === b) return false;
-
-    // Determine if we're in deuce territory (both >= 10)
-    if (a >= 10 && b >= 10) {
-      // Require exactly 2-point difference
-      return Math.abs(a - b) === 2;
-    }
-
-    // Below 10:10, just need 11+ on winning side and lead
-    return (a >= 11 && a > b) || (b >= 11 && b > a);
-  }
-
-  // Helper function to determine set winner (returns 'A', 'B', or null)
-  function getSetWinner(scoreA, scoreB) {
-    if (!isValidSet(scoreA, scoreB)) return null;
-
-    const a = parseInt(scoreA) || 0;
-    const b = parseInt(scoreB) || 0;
-
-    if (a > b) return 'A';
-    if (b > a) return 'B';
-    return null;
   }
 
   function handleSetInput(e) {
@@ -192,14 +160,14 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
       // Add fields if needed
       if (sets.length < fieldsNeeded) {
-        sets.push({ playerA: "", playerB: "" });
+        sets.push({ playerA: '', playerB: '' });
         renderSets();
       }
     }
   }
 
   function getSets() {
-    return sets.filter(set => set.playerA !== "" && set.playerB !== "");
+    return sets.filter(set => set.playerA !== '' && set.playerB !== '');
   }
 
   function validate() {
@@ -218,15 +186,24 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
       if (!isValidSet(scoreA, scoreB)) {
         // Provide specific error message based on the issue
         if (scoreA < 11 && scoreB < 11) {
-          return { valid: false, error: `Satz ${i + 1}: Mindestens eine Seite muss 11 Punkte haben.` };
+          return {
+            valid: false,
+            error: `Satz ${i + 1}: Mindestens eine Seite muss 11 Punkte haben.`,
+          };
         }
         if (scoreA === scoreB) {
           return { valid: false, error: `Satz ${i + 1}: Unentschieden ist nicht erlaubt.` };
         }
         if (scoreA >= 10 && scoreB >= 10 && Math.abs(scoreA - scoreB) !== 2) {
-          return { valid: false, error: `Satz ${i + 1}: Ab 10:10 muss eine Seite 2 Punkte Vorsprung haben (z.B. 12:10, 14:12).` };
+          return {
+            valid: false,
+            error: `Satz ${i + 1}: Ab 10:10 muss eine Seite 2 Punkte Vorsprung haben (z.B. 12:10, 14:12).`,
+          };
         }
-        return { valid: false, error: `Satz ${i + 1}: Ungültiges Satzergebnis (${scoreA}:${scoreB}).` };
+        return {
+          valid: false,
+          error: `Satz ${i + 1}: Ungültiges Satzergebnis (${scoreA}:${scoreB}).`,
+        };
       }
     }
 
@@ -234,7 +211,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     let playerAWins = 0;
     let playerBWins = 0;
 
-    filledSets.forEach((set) => {
+    filledSets.forEach(set => {
       const winner = getSetWinner(set.playerA, set.playerB);
       if (winner === 'A') playerAWins++;
       if (winner === 'B') playerBWins++;
@@ -242,9 +219,10 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
     // Check if someone won (setsToWin sets)
     if (playerAWins < setsToWin && playerBWins < setsToWin) {
-      const errorMsg = mode === 'single-set'
-        ? "Der Satz muss ausgefüllt sein."
-        : `Ein Spieler muss ${setsToWin} Sätze gewinnen.`;
+      const errorMsg =
+        mode === 'single-set'
+          ? 'Der Satz muss ausgefüllt sein.'
+          : `Ein Spieler muss ${setsToWin} Sätze gewinnen.`;
       return { valid: false, error: errorMsg };
     }
 
@@ -253,20 +231,20 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
       // Valid match result
       return {
         valid: true,
-        winnerId: playerAWins === setsToWin ? "A" : "B",
+        winnerId: playerAWins === setsToWin ? 'A' : 'B',
         playerAWins,
         playerBWins,
       };
     }
 
-    return { valid: false, error: "Ungültiges Spielergebnis." };
+    return { valid: false, error: 'Ungültiges Spielergebnis.' };
   }
 
   function reset() {
     // Reset to minimum 3 sets with empty values
     sets.length = 0;
     for (let i = 0; i < minSets; i++) {
-      sets.push({ playerA: "", playerB: "" });
+      sets.push({ playerA: '', playerB: '' });
     }
     renderSets();
   }
@@ -291,9 +269,9 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
   function clearHandicap(player) {
     sets.forEach((set, index) => {
       if (player === 'A') {
-        sets[index].playerA = "";
+        sets[index].playerA = '';
       } else if (player === 'B') {
-        sets[index].playerB = "";
+        sets[index].playerB = '';
       }
     });
     renderSets();
@@ -323,50 +301,49 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
  */
 export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   // Updated to use new two-section layout: pending (to respond) and history (completed)
-  const pendingRequestsList = document.getElementById("pending-result-requests-list");
-  const historyRequestsList = document.getElementById("history-result-requests-list");
+  const pendingRequestsList = document.getElementById('pending-result-requests-list');
+  const historyRequestsList = document.getElementById('history-result-requests-list');
 
   // If neither container exists, nothing to do
   if (!pendingRequestsList && !historyRequestsList) {
     return;
   }
 
-
   // Query for requests created by me (playerA)
   const myRequestsQuery = query(
-    collection(db, "matchRequests"),
-    where("playerAId", "==", userData.id),
-    orderBy("createdAt", "desc")
+    collection(db, 'matchRequests'),
+    where('playerAId', '==', userData.id),
+    orderBy('createdAt', 'desc')
   );
 
   // Query for requests sent to me (playerB) - still pending
   const incomingRequestsQuery = query(
-    collection(db, "matchRequests"),
-    where("playerBId", "==", userData.id),
-    where("status", "==", "pending_player"),
-    orderBy("createdAt", "desc")
+    collection(db, 'matchRequests'),
+    where('playerBId', '==', userData.id),
+    where('status', '==', 'pending_player'),
+    orderBy('createdAt', 'desc')
   );
 
   // Query for requests I processed as playerB - no longer pending_player
   const processedRequestsQuery = query(
-    collection(db, "matchRequests"),
-    where("playerBId", "==", userData.id),
-    orderBy("createdAt", "desc")
+    collection(db, 'matchRequests'),
+    where('playerBId', '==', userData.id),
+    orderBy('createdAt', 'desc')
   );
 
   // DOUBLES QUERIES
   // Query for doubles requests created by me (initiatedBy)
   const myDoublesRequestsQuery = query(
-    collection(db, "doublesMatchRequests"),
-    where("initiatedBy", "==", userData.id),
-    orderBy("createdAt", "desc")
+    collection(db, 'doublesMatchRequests'),
+    where('initiatedBy', '==', userData.id),
+    orderBy('createdAt', 'desc')
   );
 
   // Query for all doubles requests in my club (we'll filter client-side for involvement)
   const doublesInvolvedQuery = query(
-    collection(db, "doublesMatchRequests"),
-    where("clubId", "==", userData.clubId),
-    orderBy("createdAt", "desc")
+    collection(db, 'doublesMatchRequests'),
+    where('clubId', '==', userData.clubId),
+    orderBy('createdAt', 'desc')
   );
 
   // Store all requests for combined rendering
@@ -383,29 +360,31 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       // Pending SINGLES:
       // - Incoming requests that need my response
       // - My sent requests that are still pending (waiting for opponent or coach)
-      const pendingMyRequests = myRequests.filter(r =>
-        r.status === "pending_player" || r.status === "pending_coach"
+      const pendingMyRequests = myRequests.filter(
+        r => r.status === 'pending_player' || r.status === 'pending_coach'
       );
 
       // Pending DOUBLES:
       // - My created doubles requests that are still pending
-      const pendingMyDoublesRequests = myDoublesRequests.filter(r =>
-        r.status === "pending_opponent" || r.status === "pending_coach"
-      ).map(r => ({ ...r, matchType: 'doubles' }));
+      const pendingMyDoublesRequests = myDoublesRequests
+        .filter(r => r.status === 'pending_opponent' || r.status === 'pending_coach')
+        .map(r => ({ ...r, matchType: 'doubles' }));
 
       // - Doubles requests where I need to confirm (I'm in teamB and status is pending_opponent)
-      const pendingDoublesIncoming = doublesInvolvedRequests.filter(r => {
-        const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
-        const isInitiator = r.initiatedBy === userData.id;
-        // Show if: I'm in TeamB AND status is pending_opponent AND I'm not the initiator
-        return isInTeamB && r.status === "pending_opponent" && !isInitiator;
-      }).map(r => ({ ...r, matchType: 'doubles' }));
+      const pendingDoublesIncoming = doublesInvolvedRequests
+        .filter(r => {
+          const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
+          const isInitiator = r.initiatedBy === userData.id;
+          // Show if: I'm in TeamB AND status is pending_opponent AND I'm not the initiator
+          return isInTeamB && r.status === 'pending_opponent' && !isInitiator;
+        })
+        .map(r => ({ ...r, matchType: 'doubles' }));
 
       const pendingRequests = [
         ...incomingRequests,
         ...pendingMyRequests,
         ...pendingMyDoublesRequests,
-        ...pendingDoublesIncoming
+        ...pendingDoublesIncoming,
       ].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
@@ -415,34 +394,40 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
       // History SINGLES:
       // - My created requests: only approved/rejected (pending_coach stays in "Ausstehend")
       // - Requests I responded to: approved/rejected/pending_coach (I'm done with them)
-      const completedMyRequests = myRequests.filter(r =>
-        r.status === "approved" || r.status === "rejected"
+      const completedMyRequests = myRequests.filter(
+        r => r.status === 'approved' || r.status === 'rejected'
       );
-      const completedProcessedRequests = processedRequests.filter(r =>
-        r.status === "approved" || r.status === "rejected" || r.status === "pending_coach"
+      const completedProcessedRequests = processedRequests.filter(
+        r => r.status === 'approved' || r.status === 'rejected' || r.status === 'pending_coach'
       );
 
       // History DOUBLES:
       // - My created doubles requests: only approved/rejected
-      const completedMyDoublesRequests = myDoublesRequests.filter(r =>
-        r.status === "approved" || r.status === "rejected"
-      ).map(r => ({ ...r, matchType: 'doubles' }));
+      const completedMyDoublesRequests = myDoublesRequests
+        .filter(r => r.status === 'approved' || r.status === 'rejected')
+        .map(r => ({ ...r, matchType: 'doubles' }));
 
       // - Doubles requests I'm involved in (as partner or opponent): approved/rejected/pending_coach
-      const completedDoublesInvolved = doublesInvolvedRequests.filter(r => {
-        const isInTeamA = r.teamA.player1Id === userData.id || r.teamA.player2Id === userData.id;
-        const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
-        const isInvolved = isInTeamA || isInTeamB;
-        const isInitiator = r.initiatedBy === userData.id;
-        // Only show if: involved AND NOT initiator AND completed/pending_coach
-        return isInvolved && !isInitiator && (r.status === "approved" || r.status === "rejected" || r.status === "pending_coach");
-      }).map(r => ({ ...r, matchType: 'doubles' }));
+      const completedDoublesInvolved = doublesInvolvedRequests
+        .filter(r => {
+          const isInTeamA = r.teamA.player1Id === userData.id || r.teamA.player2Id === userData.id;
+          const isInTeamB = r.teamB.player1Id === userData.id || r.teamB.player2Id === userData.id;
+          const isInvolved = isInTeamA || isInTeamB;
+          const isInitiator = r.initiatedBy === userData.id;
+          // Only show if: involved AND NOT initiator AND completed/pending_coach
+          return (
+            isInvolved &&
+            !isInitiator &&
+            (r.status === 'approved' || r.status === 'rejected' || r.status === 'pending_coach')
+          );
+        })
+        .map(r => ({ ...r, matchType: 'doubles' }));
 
       const historyRequests = [
         ...completedMyRequests,
         ...completedProcessedRequests,
         ...completedMyDoublesRequests,
-        ...completedDoublesInvolved
+        ...completedDoublesInvolved,
       ].sort((a, b) => {
         const aTime = a.createdAt?.toMillis?.() || 0;
         const bTime = b.createdAt?.toMillis?.() || 0;
@@ -459,7 +444,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   };
 
   // Listen to my requests
-  const myRequestsUnsubscribe = onSnapshot(myRequestsQuery, async (snapshot) => {
+  const myRequestsUnsubscribe = onSnapshot(myRequestsQuery, async snapshot => {
     myRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
@@ -469,7 +454,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   });
 
   // Listen to incoming requests (pending_player)
-  const incomingRequestsUnsubscribe = onSnapshot(incomingRequestsQuery, async (snapshot) => {
+  const incomingRequestsUnsubscribe = onSnapshot(incomingRequestsQuery, async snapshot => {
     incomingRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
@@ -479,12 +464,12 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   });
 
   // Listen to processed requests (playerB, not pending_player)
-  const processedRequestsUnsubscribe = onSnapshot(processedRequestsQuery, async (snapshot) => {
+  const processedRequestsUnsubscribe = onSnapshot(processedRequestsQuery, async snapshot => {
     processedRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
       // Only include requests that are NOT pending_player (i.e., already processed)
-      if (data.status !== "pending_player") {
+      if (data.status !== 'pending_player') {
         processedRequests.push({ id: docSnap.id, ...data });
       }
     }
@@ -492,7 +477,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   });
 
   // Listen to my doubles requests
-  const myDoublesUnsubscribe = onSnapshot(myDoublesRequestsQuery, async (snapshot) => {
+  const myDoublesUnsubscribe = onSnapshot(myDoublesRequestsQuery, async snapshot => {
     myDoublesRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
@@ -502,7 +487,7 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
   });
 
   // Listen to doubles requests I'm involved in
-  const doublesInvolvedUnsubscribe = onSnapshot(doublesInvolvedQuery, async (snapshot) => {
+  const doublesInvolvedUnsubscribe = onSnapshot(doublesInvolvedQuery, async snapshot => {
     doublesInvolvedRequests = [];
     for (const docSnap of snapshot.docs) {
       const data = docSnap.data();
@@ -526,16 +511,17 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
 let showAllMyRequests = false; // State for showing all or limited
 
 async function renderMyRequests(requests, userData, db) {
-  const container = document.getElementById("my-result-requests-list");
+  const container = document.getElementById('my-result-requests-list');
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    container.innerHTML =
+      '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllMyRequests = false;
     return;
   }
 
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   // Determine how many to show
   const maxInitial = 3;
@@ -546,7 +532,7 @@ async function renderMyRequests(requests, userData, db) {
     const playerBData = {
       id: request.playerBId,
       firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
-      lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+      lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : '',
     };
     const card = createMyRequestCard(request, playerBData, userData, db);
     container.appendChild(card);
@@ -554,16 +540,16 @@ async function renderMyRequests(requests, userData, db) {
 
   // Add "Show more" / "Show less" button if needed
   if (requests.length > maxInitial) {
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "text-center mt-4";
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'text-center mt-4';
 
-    const button = document.createElement("button");
-    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    const button = document.createElement('button');
+    button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
     button.innerHTML = showAllMyRequests
       ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
       : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
 
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       showAllMyRequests = !showAllMyRequests;
       renderMyRequests(requests, userData, db);
     });
@@ -579,16 +565,17 @@ async function renderMyRequests(requests, userData, db) {
 let showAllIncomingRequests = false; // State for showing all or limited
 
 async function renderIncomingRequests(requests, userData, db) {
-  const container = document.getElementById("incoming-result-requests-list");
+  const container = document.getElementById('incoming-result-requests-list');
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    container.innerHTML =
+      '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllIncomingRequests = false;
     return;
   }
 
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   // Determine how many to show
   const maxInitial = 3;
@@ -599,7 +586,7 @@ async function renderIncomingRequests(requests, userData, db) {
     const playerAData = {
       id: request.playerAId,
       firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
-      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : '',
     };
     const card = createIncomingRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
@@ -607,16 +594,16 @@ async function renderIncomingRequests(requests, userData, db) {
 
   // Add "Show more" / "Show less" button if needed
   if (requests.length > maxInitial) {
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "text-center mt-4";
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'text-center mt-4';
 
-    const button = document.createElement("button");
-    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    const button = document.createElement('button');
+    button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
     button.innerHTML = showAllIncomingRequests
       ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
       : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
 
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       showAllIncomingRequests = !showAllIncomingRequests;
       renderIncomingRequests(requests, userData, db);
     });
@@ -632,16 +619,17 @@ async function renderIncomingRequests(requests, userData, db) {
 let showAllProcessedRequests = false; // State for showing all or limited
 
 async function renderProcessedRequests(requests, userData, db) {
-  const container = document.getElementById("processed-result-requests-list");
+  const container = document.getElementById('processed-result-requests-list');
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    container.innerHTML =
+      '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllProcessedRequests = false;
     return;
   }
 
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   // Determine how many to show
   const maxInitial = 3;
@@ -652,7 +640,7 @@ async function renderProcessedRequests(requests, userData, db) {
     const playerAData = {
       id: request.playerAId,
       firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
-      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+      lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : '',
     };
     const card = createProcessedRequestCard(request, playerAData, userData, db);
     container.appendChild(card);
@@ -660,16 +648,16 @@ async function renderProcessedRequests(requests, userData, db) {
 
   // Add "Show more" / "Show less" button if needed
   if (requests.length > maxInitial) {
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "text-center mt-4";
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'text-center mt-4';
 
-    const button = document.createElement("button");
-    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    const button = document.createElement('button');
+    button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
     button.innerHTML = showAllProcessedRequests
       ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
       : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
 
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       showAllProcessedRequests = !showAllProcessedRequests;
       renderProcessedRequests(requests, userData, db);
     });
@@ -683,8 +671,8 @@ async function renderProcessedRequests(requests, userData, db) {
  * Creates a card for my requests
  */
 function createMyRequestCard(request, playerB, userData, db) {
-  const div = document.createElement("div");
-  div.className = "bg-white border border-gray-200 rounded-lg p-4 shadow-sm";
+  const div = document.createElement('div');
+  div.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
   const setsDisplay = formatSetsDisplay(request.sets);
   const winner = getWinner(request.sets, userData, playerB, request.matchMode);
@@ -695,7 +683,7 @@ function createMyRequestCard(request, playerB, userData, db) {
     <div class="mb-2">
       <div class="flex justify-between items-center mb-2">
         <p class="font-semibold text-gray-800">
-          ${userData.firstName} vs ${playerB?.firstName || "Unbekannt"}
+          ${userData.firstName} vs ${playerB?.firstName || 'Unbekannt'}
         </p>
         ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
       </div>
@@ -703,14 +691,16 @@ function createMyRequestCard(request, playerB, userData, db) {
         <div class="flex-1">
           <p class="text-sm text-gray-600">${setsDisplay}</p>
           <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
-          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ''}
         </div>
         ${statusBadge}
       </div>
     </div>
     <div class="flex gap-2 mt-3">
-      ${(request.status === "pending_player" || request.status === "pending_coach") && (!request.approvals?.playerB?.status || request.approvals?.playerB?.status === null)
-        ? `
+      ${
+        (request.status === 'pending_player' || request.status === 'pending_coach') &&
+        (!request.approvals?.playerB?.status || request.approvals?.playerB?.status === null)
+          ? `
         <button class="edit-request-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-edit"></i> Bearbeiten
         </button>
@@ -718,21 +708,21 @@ function createMyRequestCard(request, playerB, userData, db) {
           <i class="fas fa-trash"></i> Zurückziehen
         </button>
         `
-        : ""
+          : ''
       }
     </div>
   `;
 
   // Event listeners
-  const editBtn = div.querySelector(".edit-request-btn");
-  const deleteBtn = div.querySelector(".delete-request-btn");
+  const editBtn = div.querySelector('.edit-request-btn');
+  const deleteBtn = div.querySelector('.delete-request-btn');
 
   if (editBtn) {
-    editBtn.addEventListener("click", () => openEditRequestModal(request, userData, db));
+    editBtn.addEventListener('click', () => openEditRequestModal(request, userData, db));
   }
 
   if (deleteBtn) {
-    deleteBtn.addEventListener("click", () => deleteMatchRequest(request.id, db));
+    deleteBtn.addEventListener('click', () => deleteMatchRequest(request.id, db));
   }
 
   return div;
@@ -742,8 +732,8 @@ function createMyRequestCard(request, playerB, userData, db) {
  * Creates a card for incoming requests
  */
 function createIncomingRequestCard(request, playerA, userData, db) {
-  const div = document.createElement("div");
-  div.className = "bg-white border border-indigo-200 rounded-lg p-4 shadow-md";
+  const div = document.createElement('div');
+  div.className = 'bg-white border border-indigo-200 rounded-lg p-4 shadow-md';
 
   const setsDisplay = formatSetsDisplay(request.sets);
   const winner = getWinner(request.sets, playerA, userData, request.matchMode);
@@ -753,13 +743,13 @@ function createIncomingRequestCard(request, playerA, userData, db) {
     <div class="mb-3">
       <div class="flex justify-between items-start mb-2">
         <p class="font-semibold text-gray-800">
-          ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
+          ${playerA?.firstName || 'Unbekannt'} vs ${userData.firstName}
         </p>
         ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
       </div>
       <p class="text-sm text-gray-600">${setsDisplay}</p>
       <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
-      ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+      ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ''}
     </div>
     <div class="flex gap-2">
       <button class="approve-request-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
@@ -772,15 +762,15 @@ function createIncomingRequestCard(request, playerA, userData, db) {
   `;
 
   // Event listeners
-  const approveBtn = div.querySelector(".approve-request-btn");
-  const rejectBtn = div.querySelector(".reject-request-btn");
+  const approveBtn = div.querySelector('.approve-request-btn');
+  const rejectBtn = div.querySelector('.reject-request-btn');
 
   if (approveBtn) {
-    approveBtn.addEventListener("click", () => approveMatchRequest(request.id, db, "playerB"));
+    approveBtn.addEventListener('click', () => approveMatchRequest(request.id, db, 'playerB'));
   }
 
   if (rejectBtn) {
-    rejectBtn.addEventListener("click", () => rejectMatchRequest(request.id, db, "playerB"));
+    rejectBtn.addEventListener('click', () => rejectMatchRequest(request.id, db, 'playerB'));
   }
 
   return div;
@@ -790,14 +780,14 @@ function createIncomingRequestCard(request, playerA, userData, db) {
  * Creates a card for processed requests (read-only)
  */
 function createProcessedRequestCard(request, playerA, userData, db) {
-  const div = document.createElement("div");
+  const div = document.createElement('div');
 
   // Different styling based on status
-  let borderColor = "border-gray-200";
-  if (request.status === "approved" || request.status === "pending_coach") {
-    borderColor = "border-green-200 bg-green-50";
-  } else if (request.status === "rejected") {
-    borderColor = "border-red-200 bg-red-50";
+  let borderColor = 'border-gray-200';
+  if (request.status === 'approved' || request.status === 'pending_coach') {
+    borderColor = 'border-green-200 bg-green-50';
+  } else if (request.status === 'rejected') {
+    borderColor = 'border-red-200 bg-red-50';
   }
 
   div.className = `bg-white border ${borderColor} rounded-lg p-4 shadow-sm`;
@@ -811,7 +801,7 @@ function createProcessedRequestCard(request, playerA, userData, db) {
     <div class="mb-3">
       <div class="flex justify-between items-center mb-2">
         <p class="font-semibold text-gray-800">
-          ${playerA?.firstName || "Unbekannt"} vs ${userData.firstName}
+          ${playerA?.firstName || 'Unbekannt'} vs ${userData.firstName}
         </p>
         ${timeAgo ? `<span class="text-xs text-gray-500"><i class="far fa-clock mr-1"></i>${timeAgo}</span>` : ''}
       </div>
@@ -819,7 +809,7 @@ function createProcessedRequestCard(request, playerA, userData, db) {
         <div class="flex-1">
           <p class="text-sm text-gray-600">${setsDisplay}</p>
           <p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>
-          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ''}
         </div>
         ${statusBadge}
       </div>
@@ -834,86 +824,101 @@ function createProcessedRequestCard(request, playerA, userData, db) {
  * Gets status badge for processed requests
  */
 function getProcessedStatusBadge(status, approvals) {
-  if (status === "pending_coach") {
+  if (status === 'pending_coach') {
     return '<span class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">⏳ Wartet auf Coach</span>';
   }
 
-  if (status === "approved") {
-    const coachName = approvals?.coach?.coachName || "Coach";
+  if (status === 'approved') {
+    const coachName = approvals?.coach?.coachName || 'Coach';
     return `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Genehmigt von ${coachName}</span>`;
   }
 
-  if (status === "rejected") {
-    if (approvals?.playerB?.status === "rejected") {
+  if (status === 'rejected') {
+    if (approvals?.playerB?.status === 'rejected') {
       return '<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von dir abgelehnt</span>';
     } else {
-      const coachName = approvals?.coach?.coachName || "Coach";
+      const coachName = approvals?.coach?.coachName || 'Coach';
       return `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Abgelehnt von ${coachName}</span>`;
     }
   }
 
-  return "";
+  return '';
 }
 
 /**
  * Gets status description text
  */
 function getStatusDescription(status, approvals) {
-  if (status === "pending_coach") {
+  if (status === 'pending_coach') {
     return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Du hast diese Anfrage akzeptiert. Wartet jetzt auf Coach-Genehmigung.</p>';
   }
 
-  if (status === "approved") {
-    const coachName = approvals?.coach?.coachName || "Coach";
+  if (status === 'approved') {
+    const coachName = approvals?.coach?.coachName || 'Coach';
     return `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde von ${coachName} genehmigt und das Match wurde erstellt.</p>`;
   }
 
-  if (status === "rejected") {
-    if (approvals?.playerB?.status === "rejected") {
+  if (status === 'rejected') {
+    if (approvals?.playerB?.status === 'rejected') {
       return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Du hast diese Anfrage abgelehnt.</p>';
     } else {
-      const coachName = approvals?.coach?.coachName || "Coach";
+      const coachName = approvals?.coach?.coachName || 'Coach';
       return `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Anfrage wurde von ${coachName} abgelehnt.</p>`;
     }
   }
 
-  return "";
+  return '';
 }
 
 /**
  * Creates a card for doubles requests in history
  */
 function createDoublesHistoryCard(request, playersData, userData, db) {
-  const div = document.createElement("div");
+  const div = document.createElement('div');
 
   // Determine status styling
-  let borderColor = "border-gray-200";
-  let bgColor = "bg-white";
+  let borderColor = 'border-gray-200';
+  let bgColor = 'bg-white';
 
-  if (request.status === "pending_coach") {
-    borderColor = "border-blue-200";
-    bgColor = "bg-blue-50";
-  } else if (request.status === "approved") {
-    borderColor = "border-green-200";
-    bgColor = "bg-green-50";
-  } else if (request.status === "rejected") {
-    borderColor = "border-red-200";
-    bgColor = "bg-red-50";
+  if (request.status === 'pending_coach') {
+    borderColor = 'border-blue-200';
+    bgColor = 'bg-blue-50';
+  } else if (request.status === 'approved') {
+    borderColor = 'border-green-200';
+    bgColor = 'bg-green-50';
+  } else if (request.status === 'rejected') {
+    borderColor = 'border-red-200';
+    bgColor = 'bg-red-50';
   }
 
   div.className = `${bgColor} border ${borderColor} rounded-lg p-4 shadow-sm`;
 
   // Format player names
-  const teamAPlayer1Name = playersData.teamAPlayer1 ? `${playersData.teamAPlayer1.firstName}` : "Unbekannt";
-  const teamAPlayer2Name = playersData.teamAPlayer2 ? `${playersData.teamAPlayer2.firstName}` : "Unbekannt";
-  const teamBPlayer1Name = playersData.teamBPlayer1 ? `${playersData.teamBPlayer1.firstName}` : "Unbekannt";
-  const teamBPlayer2Name = playersData.teamBPlayer2 ? `${playersData.teamBPlayer2.firstName}` : "Unbekannt";
+  const teamAPlayer1Name = playersData.teamAPlayer1
+    ? `${playersData.teamAPlayer1.firstName}`
+    : 'Unbekannt';
+  const teamAPlayer2Name = playersData.teamAPlayer2
+    ? `${playersData.teamAPlayer2.firstName}`
+    : 'Unbekannt';
+  const teamBPlayer1Name = playersData.teamBPlayer1
+    ? `${playersData.teamBPlayer1.firstName}`
+    : 'Unbekannt';
+  const teamBPlayer2Name = playersData.teamBPlayer2
+    ? `${playersData.teamBPlayer2.firstName}`
+    : 'Unbekannt';
 
   // Format sets display (doubles sets use teamA/teamB)
   const setsDisplay = formatDoublesSetDisplay(request.sets);
 
   // Get winner
-  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name, request.matchMode);
+  const winner = getDoublesWinner(
+    request.sets,
+    teamAPlayer1Name,
+    teamAPlayer2Name,
+    teamBPlayer1Name,
+    teamBPlayer2Name,
+    request.matchMode
+  );
 
   // Format timestamp
   const timeAgo = formatTimestamp(request.createdAt);
@@ -940,7 +945,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
         <div class="flex-1">
           <p class="text-sm text-gray-600">${setsDisplay}</p>
           ${winner ? `<p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>` : ''}
-          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+          ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ''}
         </div>
         ${statusBadge}
       </div>
@@ -956,46 +961,66 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
  * Creates a card for pending doubles requests
  */
 function createPendingDoublesCard(request, playersData, userData, db) {
-  const div = document.createElement("div");
+  const div = document.createElement('div');
 
   // Check if current user needs to respond (is in TeamB and status is pending_opponent)
-  const isInTeamB = request.teamB.player1Id === userData.id || request.teamB.player2Id === userData.id;
-  const needsMyResponse = isInTeamB && request.status === "pending_opponent" && request.initiatedBy !== userData.id;
+  const isInTeamB =
+    request.teamB.player1Id === userData.id || request.teamB.player2Id === userData.id;
+  const needsMyResponse =
+    isInTeamB && request.status === 'pending_opponent' && request.initiatedBy !== userData.id;
 
   // Check if current user is the initiator
   const isMyRequest = request.initiatedBy === userData.id;
 
   // Determine status styling
-  let borderColor = needsMyResponse ? "border-indigo-200" : "border-yellow-200";
-  let bgColor = needsMyResponse ? "bg-white" : "bg-yellow-50";
+  let borderColor = needsMyResponse ? 'border-indigo-200' : 'border-yellow-200';
+  let bgColor = needsMyResponse ? 'bg-white' : 'bg-yellow-50';
 
   div.className = `${bgColor} border ${borderColor} rounded-lg p-4 shadow-md`;
 
   // Format player names
-  const teamAPlayer1Name = playersData.teamAPlayer1 ? `${playersData.teamAPlayer1.firstName}` : "Unbekannt";
-  const teamAPlayer2Name = playersData.teamAPlayer2 ? `${playersData.teamAPlayer2.firstName}` : "Unbekannt";
-  const teamBPlayer1Name = playersData.teamBPlayer1 ? `${playersData.teamBPlayer1.firstName}` : "Unbekannt";
-  const teamBPlayer2Name = playersData.teamBPlayer2 ? `${playersData.teamBPlayer2.firstName}` : "Unbekannt";
+  const teamAPlayer1Name = playersData.teamAPlayer1
+    ? `${playersData.teamAPlayer1.firstName}`
+    : 'Unbekannt';
+  const teamAPlayer2Name = playersData.teamAPlayer2
+    ? `${playersData.teamAPlayer2.firstName}`
+    : 'Unbekannt';
+  const teamBPlayer1Name = playersData.teamBPlayer1
+    ? `${playersData.teamBPlayer1.firstName}`
+    : 'Unbekannt';
+  const teamBPlayer2Name = playersData.teamBPlayer2
+    ? `${playersData.teamBPlayer2.firstName}`
+    : 'Unbekannt';
 
   // Format sets display
   const setsDisplay = formatDoublesSetDisplay(request.sets);
 
   // Get winner
-  const winner = getDoublesWinner(request.sets, teamAPlayer1Name, teamAPlayer2Name, teamBPlayer1Name, teamBPlayer2Name, request.matchMode);
+  const winner = getDoublesWinner(
+    request.sets,
+    teamAPlayer1Name,
+    teamAPlayer2Name,
+    teamBPlayer1Name,
+    teamBPlayer2Name,
+    request.matchMode
+  );
 
   // Format timestamp
   const timeAgo = formatTimestamp(request.createdAt);
 
   // Status message
-  let statusMessage = "";
-  if (request.status === "pending_opponent") {
+  let statusMessage = '';
+  if (request.status === 'pending_opponent') {
     if (needsMyResponse) {
-      statusMessage = '<p class="text-xs text-indigo-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Bitte bestätige oder lehne diese Doppel-Anfrage ab.</p>';
+      statusMessage =
+        '<p class="text-xs text-indigo-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Bitte bestätige oder lehne diese Doppel-Anfrage ab.</p>';
     } else {
-      statusMessage = '<p class="text-xs text-yellow-700 mt-2"><i class="fas fa-clock mr-1"></i> Wartet auf Bestätigung des Gegner-Teams.</p>';
+      statusMessage =
+        '<p class="text-xs text-yellow-700 mt-2"><i class="fas fa-clock mr-1"></i> Wartet auf Bestätigung des Gegner-Teams.</p>';
     }
-  } else if (request.status === "pending_coach") {
-    statusMessage = '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-hourglass-half mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
+  } else if (request.status === 'pending_coach') {
+    statusMessage =
+      '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-hourglass-half mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
   }
 
   // Build HTML
@@ -1015,10 +1040,12 @@ function createPendingDoublesCard(request, playersData, userData, db) {
 
       <p class="text-sm text-gray-600">${setsDisplay}</p>
       ${winner ? `<p class="text-sm font-medium text-indigo-700 mt-1">Gewinner: ${winner}</p>` : ''}
-      ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ""}
+      ${request.handicapUsed ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' : ''}
       ${statusMessage}
     </div>
-    ${needsMyResponse ? `
+    ${
+      needsMyResponse
+        ? `
       <div class="flex gap-2">
         <button class="approve-doubles-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-check"></i> Akzeptieren
@@ -1027,45 +1054,57 @@ function createPendingDoublesCard(request, playersData, userData, db) {
           <i class="fas fa-times"></i> Ablehnen
         </button>
       </div>
-    ` : ''}
-    ${isMyRequest && request.status === "pending_opponent" ? `
+    `
+        : ''
+    }
+    ${
+      isMyRequest && request.status === 'pending_opponent'
+        ? `
       <div class="flex gap-2 mt-3">
         <button class="delete-doubles-request-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md transition" data-request-id="${request.id}">
           <i class="fas fa-trash"></i> Zurückziehen
         </button>
       </div>
-    ` : ''}
+    `
+        : ''
+    }
   `;
 
   // Add event listeners for buttons if they exist
   if (needsMyResponse) {
-    const approveBtn = div.querySelector(".approve-doubles-btn");
-    const rejectBtn = div.querySelector(".reject-doubles-btn");
+    const approveBtn = div.querySelector('.approve-doubles-btn');
+    const rejectBtn = div.querySelector('.reject-doubles-btn');
 
     if (approveBtn) {
-      approveBtn.addEventListener("click", async () => {
+      approveBtn.addEventListener('click', async () => {
         const { confirmDoublesMatchRequest } = await import('./doubles-matches.js');
         try {
           await confirmDoublesMatchRequest(request.id, userData.id, db);
-          showFeedback("Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.", "success");
+          showFeedback('Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.', 'success');
         } catch (error) {
-          console.error("Error confirming doubles request:", error);
-          showFeedback(`Fehler: ${error.message}`, "error");
+          console.error('Error confirming doubles request:', error);
+          showFeedback(`Fehler: ${error.message}`, 'error');
         }
       });
     }
 
     if (rejectBtn) {
-      rejectBtn.addEventListener("click", async () => {
+      rejectBtn.addEventListener('click', async () => {
         const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
-        const reason = prompt("Grund für Ablehnung (optional):");
-        if (reason !== null) { // null means user cancelled
+        const reason = prompt('Grund für Ablehnung (optional):');
+        if (reason !== null) {
+          // null means user cancelled
           try {
-            await rejectDoublesMatchRequest(request.id, reason || "Kein Grund angegeben", db, userData);
-            showFeedback("Doppel-Match abgelehnt.", "success");
+            await rejectDoublesMatchRequest(
+              request.id,
+              reason || 'Kein Grund angegeben',
+              db,
+              userData
+            );
+            showFeedback('Doppel-Match abgelehnt.', 'success');
           } catch (error) {
-            console.error("Error rejecting doubles request:", error);
-            showFeedback(`Fehler: ${error.message}`, "error");
+            console.error('Error rejecting doubles request:', error);
+            showFeedback(`Fehler: ${error.message}`, 'error');
           }
         }
       });
@@ -1073,10 +1112,10 @@ function createPendingDoublesCard(request, playersData, userData, db) {
   }
 
   // Add event listener for delete button if it exists
-  if (isMyRequest && request.status === "pending_opponent") {
-    const deleteBtn = div.querySelector(".delete-doubles-request-btn");
+  if (isMyRequest && request.status === 'pending_opponent') {
+    const deleteBtn = div.querySelector('.delete-doubles-request-btn');
     if (deleteBtn) {
-      deleteBtn.addEventListener("click", () => deleteDoublesMatchRequest(request.id, db));
+      deleteBtn.addEventListener('click', () => deleteDoublesMatchRequest(request.id, db));
     }
   }
 
@@ -1087,11 +1126,11 @@ function createPendingDoublesCard(request, playersData, userData, db) {
  * Formats doubles sets display (teamA/teamB format)
  */
 function formatDoublesSetDisplay(sets) {
-  if (!sets || sets.length === 0) return "Kein Ergebnis";
+  if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
-  const setsStr = sets.map((s) => `${s.teamA}:${s.teamB}`).join(", ");
-  const winsA = sets.filter((s) => s.teamA > s.teamB && s.teamA >= 11).length;
-  const winsB = sets.filter((s) => s.teamB > s.teamA && s.teamB >= 11).length;
+  const setsStr = sets.map(s => `${s.teamA}:${s.teamB}`).join(', ');
+  const winsA = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
+  const winsB = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
   return `${winsA}:${winsB} (${setsStr})`;
 }
@@ -1108,12 +1147,12 @@ function formatDoublesSetDisplay(sets) {
 function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'best-of-5') {
   if (!sets || sets.length === 0) return null;
 
-  const winsA = sets.filter((s) => s.teamA > s.teamB && s.teamA >= 11).length;
-  const winsB = sets.filter((s) => s.teamB > s.teamA && s.teamB >= 11).length;
+  const winsA = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
+  const winsB = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
   // Determine required wins based on match mode
   let setsToWin;
-  switch(matchMode) {
+  switch (matchMode) {
     case 'single-set':
       setsToWin = 1;
       break;
@@ -1139,53 +1178,53 @@ function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'bes
  * Gets status badge for doubles requests
  */
 function getDoublesStatusBadge(status) {
-  if (status === "pending_opponent") {
+  if (status === 'pending_opponent') {
     return '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Wartet auf Gegner</span>';
   }
 
-  if (status === "pending_coach") {
+  if (status === 'pending_coach') {
     return '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">⏳ Wartet auf Coach</span>';
   }
 
-  if (status === "approved") {
+  if (status === 'approved') {
     return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Genehmigt</span>';
   }
 
-  if (status === "rejected") {
+  if (status === 'rejected') {
     return '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">✗ Abgelehnt</span>';
   }
 
-  return "";
+  return '';
 }
 
 /**
  * Gets status description for doubles requests
  */
 function getDoublesStatusDescription(status) {
-  if (status === "pending_coach") {
+  if (status === 'pending_coach') {
     return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
   }
 
-  if (status === "approved") {
+  if (status === 'approved') {
     return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde genehmigt und das Match wurde erstellt.</p>';
   }
 
-  if (status === "rejected") {
+  if (status === 'rejected') {
     return '<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> Diese Doppel-Anfrage wurde abgelehnt.</p>';
   }
 
-  return "";
+  return '';
 }
 
 /**
  * Formats sets display
  */
 function formatSetsDisplay(sets) {
-  if (!sets || sets.length === 0) return "Kein Ergebnis";
+  if (!sets || sets.length === 0) return 'Kein Ergebnis';
 
-  const setsStr = sets.map((s) => `${s.playerA}:${s.playerB}`).join(", ");
-  const winsA = sets.filter((s) => s.playerA > s.playerB && s.playerA >= 11).length;
-  const winsB = sets.filter((s) => s.playerB > s.playerA && s.playerB >= 11).length;
+  const setsStr = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+  const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
+  const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
 
   return `${winsA}:${winsB} (${setsStr})`;
 }
@@ -1198,14 +1237,14 @@ function formatSetsDisplay(sets) {
  * @param {String} matchMode - Optional match mode (single-set, best-of-3, best-of-5, best-of-7)
  */
 function getWinner(sets, playerA, playerB, matchMode = 'best-of-5') {
-  if (!sets || sets.length === 0) return "Unbekannt";
+  if (!sets || sets.length === 0) return 'Unbekannt';
 
-  const winsA = sets.filter((s) => s.playerA > s.playerB && s.playerA >= 11).length;
-  const winsB = sets.filter((s) => s.playerB > s.playerA && s.playerB >= 11).length;
+  const winsA = sets.filter(s => s.playerA > s.playerB && s.playerA >= 11).length;
+  const winsB = sets.filter(s => s.playerB > s.playerA && s.playerB >= 11).length;
 
   // Determine required wins based on match mode
   let setsToWin;
-  switch(matchMode) {
+  switch (matchMode) {
     case 'single-set':
       setsToWin = 1;
       break;
@@ -1222,35 +1261,35 @@ function getWinner(sets, playerA, playerB, matchMode = 'best-of-5') {
       setsToWin = 3;
   }
 
-  if (winsA >= setsToWin) return playerA?.firstName || "Spieler A";
-  if (winsB >= setsToWin) return playerB?.firstName || "Spieler B";
-  return "Unbekannt";
+  if (winsA >= setsToWin) return playerA?.firstName || 'Spieler A';
+  if (winsB >= setsToWin) return playerB?.firstName || 'Spieler B';
+  return 'Unbekannt';
 }
 
 /**
  * Gets status badge HTML
  */
 function getStatusBadge(status, approvals) {
-  if (status === "pending_player") {
-    if (approvals?.playerB?.status === "approved") {
+  if (status === 'pending_player') {
+    if (approvals?.playerB?.status === 'approved') {
       return '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Wartet auf Coach</span>';
     }
     return '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">Wartet auf Gegner</span>';
   }
 
-  if (status === "pending_coach") {
+  if (status === 'pending_coach') {
     return '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Wartet auf Coach</span>';
   }
 
-  if (status === "approved") {
+  if (status === 'approved') {
     return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Genehmigt</span>';
   }
 
-  if (status === "rejected") {
+  if (status === 'rejected') {
     return '<span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">✗ Abgelehnt</span>';
   }
 
-  return "";
+  return '';
 }
 
 /**
@@ -1258,31 +1297,31 @@ function getStatusBadge(status, approvals) {
  */
 async function approveMatchRequest(requestId, db, role) {
   try {
-    const requestRef = doc(db, "matchRequests", requestId);
+    const requestRef = doc(db, 'matchRequests', requestId);
     const updateData = {};
 
-    if (role === "playerB") {
-      updateData["approvals.playerB"] = {
-        status: "approved",
+    if (role === 'playerB') {
+      updateData['approvals.playerB'] = {
+        status: 'approved',
         timestamp: serverTimestamp(),
       };
-      updateData.status = "pending_coach"; // Move to coach approval
-    } else if (role === "coach") {
-      updateData["approvals.coach"] = {
-        status: "approved",
+      updateData.status = 'pending_coach'; // Move to coach approval
+    } else if (role === 'coach') {
+      updateData['approvals.coach'] = {
+        status: 'approved',
         timestamp: serverTimestamp(),
       };
-      updateData.status = "approved"; // Final approval
+      updateData.status = 'approved'; // Final approval
     }
 
     updateData.updatedAt = serverTimestamp();
 
     await updateDoc(requestRef, updateData);
 
-    showFeedback("Anfrage akzeptiert!", "success");
+    showFeedback('Anfrage akzeptiert!', 'success');
   } catch (error) {
-    console.error("Error approving request:", error);
-    showFeedback("Fehler beim Akzeptieren der Anfrage.", "error");
+    console.error('Error approving request:', error);
+    showFeedback('Fehler beim Akzeptieren der Anfrage.', 'error');
   }
 }
 
@@ -1291,31 +1330,31 @@ async function approveMatchRequest(requestId, db, role) {
  */
 async function rejectMatchRequest(requestId, db, role) {
   try {
-    const requestRef = doc(db, "matchRequests", requestId);
+    const requestRef = doc(db, 'matchRequests', requestId);
     const updateData = {};
 
-    if (role === "playerB") {
-      updateData["approvals.playerB"] = {
-        status: "rejected",
+    if (role === 'playerB') {
+      updateData['approvals.playerB'] = {
+        status: 'rejected',
         timestamp: serverTimestamp(),
       };
-    } else if (role === "coach") {
-      updateData["approvals.coach"] = {
-        status: "rejected",
+    } else if (role === 'coach') {
+      updateData['approvals.coach'] = {
+        status: 'rejected',
         timestamp: serverTimestamp(),
       };
     }
 
-    updateData.status = "rejected";
+    updateData.status = 'rejected';
     updateData.rejectedBy = role;
     updateData.updatedAt = serverTimestamp();
 
     await updateDoc(requestRef, updateData);
 
-    showFeedback("Anfrage abgelehnt.", "success");
+    showFeedback('Anfrage abgelehnt.', 'success');
   } catch (error) {
-    console.error("Error rejecting request:", error);
-    showFeedback("Fehler beim Ablehnen der Anfrage.", "error");
+    console.error('Error rejecting request:', error);
+    showFeedback('Fehler beim Ablehnen der Anfrage.', 'error');
   }
 }
 
@@ -1323,14 +1362,14 @@ async function rejectMatchRequest(requestId, db, role) {
  * Deletes a match request
  */
 async function deleteMatchRequest(requestId, db) {
-  if (!confirm("Möchtest du diese Anfrage wirklich löschen?")) return;
+  if (!confirm('Möchtest du diese Anfrage wirklich löschen?')) return;
 
   try {
-    await deleteDoc(doc(db, "matchRequests", requestId));
-    showFeedback("Anfrage gelöscht.", "success");
+    await deleteDoc(doc(db, 'matchRequests', requestId));
+    showFeedback('Anfrage gelöscht.', 'success');
   } catch (error) {
-    console.error("Error deleting request:", error);
-    showFeedback("Fehler beim Löschen der Anfrage.", "error");
+    console.error('Error deleting request:', error);
+    showFeedback('Fehler beim Löschen der Anfrage.', 'error');
   }
 }
 
@@ -1338,14 +1377,14 @@ async function deleteMatchRequest(requestId, db) {
  * Deletes a doubles match request
  */
 async function deleteDoublesMatchRequest(requestId, db) {
-  if (!confirm("Möchtest du diese Doppel-Anfrage wirklich zurückziehen?")) return;
+  if (!confirm('Möchtest du diese Doppel-Anfrage wirklich zurückziehen?')) return;
 
   try {
-    await deleteDoc(doc(db, "doublesMatchRequests", requestId));
-    showFeedback("Doppel-Anfrage zurückgezogen.", "success");
+    await deleteDoc(doc(db, 'doublesMatchRequests', requestId));
+    showFeedback('Doppel-Anfrage zurückgezogen.', 'success');
   } catch (error) {
-    console.error("Error deleting doubles request:", error);
-    showFeedback("Fehler beim Zurückziehen der Doppel-Anfrage.", "error");
+    console.error('Error deleting doubles request:', error);
+    showFeedback('Fehler beim Zurückziehen der Doppel-Anfrage.', 'error');
   }
 }
 
@@ -1354,14 +1393,14 @@ async function deleteDoublesMatchRequest(requestId, db) {
  */
 function openEditRequestModal(request, userData, db) {
   // TODO: Implement edit modal if needed
-  showFeedback("Bearbeiten-Funktion wird bald verfügbar sein.", "info");
+  showFeedback('Bearbeiten-Funktion wird bald verfügbar sein.', 'info');
 }
 
 /**
  * Formats timestamp for display
  */
 function formatTimestamp(timestamp) {
-  if (!timestamp) return "";
+  if (!timestamp) return '';
 
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   const now = new Date();
@@ -1372,7 +1411,7 @@ function formatTimestamp(timestamp) {
 
   // Less than 1 hour ago
   if (diffMins < 60) {
-    if (diffMins < 1) return "gerade eben";
+    if (diffMins < 1) return 'gerade eben';
     return `vor ${diffMins} Min.`;
   }
 
@@ -1392,7 +1431,7 @@ function formatTimestamp(timestamp) {
     month: '2-digit',
     year: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   }).format(date);
 }
 
@@ -1401,13 +1440,13 @@ function formatTimestamp(timestamp) {
  */
 async function getUserData(userId, db) {
   try {
-    const userDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", userId)));
+    const userDoc = await getDocs(query(collection(db, 'users'), where('__name__', '==', userId)));
     if (!userDoc.empty) {
       return { id: userDoc.docs[0].id, ...userDoc.docs[0].data() };
     }
     return null;
   } catch (error) {
-    console.error("Error fetching user:", error);
+    console.error('Error fetching user:', error);
     return null;
   }
 }
@@ -1416,22 +1455,22 @@ async function getUserData(userId, db) {
  * Updates match request badge count
  */
 function updateMatchRequestBadge(count) {
-  const badge = document.getElementById("match-request-badge");
+  const badge = document.getElementById('match-request-badge');
   if (!badge) return;
 
   if (count > 0) {
     badge.textContent = count;
-    badge.classList.remove("hidden");
+    badge.classList.remove('hidden');
   } else {
-    badge.classList.add("hidden");
+    badge.classList.add('hidden');
   }
 }
 
 /**
  * Shows feedback message
  */
-function showFeedback(message, type = "success") {
-  const feedbackEl = document.getElementById("match-request-feedback");
+function showFeedback(message, type = 'success') {
+  const feedbackEl = document.getElementById('match-request-feedback');
   if (!feedbackEl) {
     alert(message);
     return;
@@ -1439,17 +1478,17 @@ function showFeedback(message, type = "success") {
 
   feedbackEl.textContent = message;
   feedbackEl.className = `mt-3 p-3 rounded-md text-sm font-medium ${
-    type === "success"
-      ? "bg-green-100 text-green-800"
-      : type === "error"
-      ? "bg-red-100 text-red-800"
-      : "bg-blue-100 text-blue-800"
+    type === 'success'
+      ? 'bg-green-100 text-green-800'
+      : type === 'error'
+        ? 'bg-red-100 text-red-800'
+        : 'bg-blue-100 text-blue-800'
   }`;
 
-  feedbackEl.classList.remove("hidden");
+  feedbackEl.classList.remove('hidden');
 
   setTimeout(() => {
-    feedbackEl.classList.add("hidden");
+    feedbackEl.classList.add('hidden');
   }, 3000);
 }
 
@@ -1457,15 +1496,15 @@ function showFeedback(message, type = "success") {
  * Initializes the match request form
  */
 export function initializeMatchRequestForm(userData, db, clubPlayers) {
-  const form = document.getElementById("match-request-form");
+  const form = document.getElementById('match-request-form');
   if (!form) return;
 
-  const opponentSelect = document.getElementById("opponent-select");
-  const handicapToggle = document.getElementById("match-handicap-toggle");
-  const handicapInfo = document.getElementById("match-handicap-info");
-  const setScoreContainer = document.getElementById("set-score-container");
-  const matchModeSelect = document.getElementById("match-mode-select");
-  const setScoreLabel = document.getElementById("set-score-label");
+  const opponentSelect = document.getElementById('opponent-select');
+  const handicapToggle = document.getElementById('match-handicap-toggle');
+  const handicapInfo = document.getElementById('match-handicap-info');
+  const setScoreContainer = document.getElementById('set-score-container');
+  const matchModeSelect = document.getElementById('match-mode-select');
+  const setScoreLabel = document.getElementById('set-score-label');
 
   // Create a map of player IDs to player data for easy lookup
   const playersMap = new Map();
@@ -1479,8 +1518,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
   // If player hasn't completed Grundlagen, show warning and disable form
   if (!isMatchReady) {
-    const warningDiv = document.createElement("div");
-    warningDiv.className = "bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4";
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4';
     warningDiv.innerHTML = `
       <div class="flex">
         <div class="flex-shrink-0">
@@ -1513,13 +1552,13 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   // Populate opponent dropdown (only match-ready players)
   opponentSelect.innerHTML = '<option value="">Gegner wählen...</option>';
   clubPlayers
-    .filter((p) => {
+    .filter(p => {
       // Filter: not self, is player role, and has completed Grundlagen
       const playerGrundlagen = p.grundlagenCompleted || 0;
-      return p.id !== userData.id && p.role === "player" && playerGrundlagen >= 5;
+      return p.id !== userData.id && p.role === 'player' && playerGrundlagen >= 5;
     })
-    .forEach((player) => {
-      const option = document.createElement("option");
+    .forEach(player => {
+      const option = document.createElement('option');
       option.value = player.id;
       option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 0)})`;
       option.dataset.elo = player.eloRating || 0;
@@ -1533,7 +1572,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   // Function to update label text based on mode
   function updateSetScoreLabel(mode) {
     if (!setScoreLabel) return;
-    switch(mode) {
+    switch (mode) {
       case 'single-set':
         setScoreLabel.textContent = 'Spielergebnis eingeben (1 Satz)';
         break;
@@ -1573,45 +1612,46 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   let currentHandicapData = null;
 
   // Handicap calculation
-  opponentSelect.addEventListener("change", () => {
+  opponentSelect.addEventListener('change', () => {
     const selectedOption = opponentSelect.selectedOptions[0];
     if (!selectedOption || !selectedOption.value) {
-      handicapInfo.classList.add("hidden");
+      handicapInfo.classList.add('hidden');
       currentHandicapData = null;
       return;
     }
 
     const opponentElo = parseFloat(selectedOption.dataset.elo) || 0;
     const myElo = userData.eloRating || 0;
-    const eloDiff = Math.abs(myElo - opponentElo);
 
-    if (eloDiff >= 25) {
-      const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
-      const weakerPlayer = myElo < opponentElo ? "Du" : selectedOption.textContent.split(" (")[0];
-      const weakerPlayerSide = myElo < opponentElo ? "A" : "B"; // A = me, B = opponent
+    const handicapResult = calculateHandicap({ eloRating: myElo }, { eloRating: opponentElo });
+
+    if (handicapResult) {
+      const handicapPoints = handicapResult.points;
+      const weakerPlayer = myElo < opponentElo ? 'Du' : selectedOption.textContent.split(' (')[0];
+      const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B'; // A = me, B = opponent
 
       // Store handicap data
       currentHandicapData = {
         player: weakerPlayerSide,
-        points: handicapPoints
+        points: handicapPoints,
       };
 
-      document.getElementById("match-handicap-text").textContent =
+      document.getElementById('match-handicap-text').textContent =
         `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
-      handicapInfo.classList.remove("hidden");
+      handicapInfo.classList.remove('hidden');
 
       // Apply handicap if toggle is checked
       if (handicapToggle && handicapToggle.checked) {
         setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
       }
     } else {
-      handicapInfo.classList.add("hidden");
+      handicapInfo.classList.add('hidden');
       currentHandicapData = null;
     }
   });
 
   // Handicap toggle event listener
-  handicapToggle.addEventListener("change", () => {
+  handicapToggle.addEventListener('change', () => {
     if (!currentHandicapData) return;
 
     if (handicapToggle.checked) {
@@ -1627,12 +1667,14 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
   window.playerSetScoreInput = setScoreInput;
 
   // Form submission
-  form.addEventListener("submit", async (e) => {
+  form.addEventListener('submit', async e => {
     // IMPORTANT: Prevent default IMMEDIATELY to avoid page reload
     e.preventDefault();
 
     // Check if this is a doubles match request
-    const matchType = window.getCurrentPlayerMatchType ? window.getCurrentPlayerMatchType() : 'singles';
+    const matchType = window.getCurrentPlayerMatchType
+      ? window.getCurrentPlayerMatchType()
+      : 'singles';
 
     if (matchType === 'doubles') {
       // Handle doubles match request
@@ -1647,30 +1689,32 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const handicapUsed = handicapToggle.checked;
 
     if (!opponentId) {
-      showFeedback("Bitte wähle einen Gegner aus.", "error");
+      showFeedback('Bitte wähle einen Gegner aus.', 'error');
       return;
     }
 
     const validation = setScoreInput.validate();
     if (!validation.valid) {
-      showFeedback(validation.error, "error");
+      showFeedback(validation.error, 'error');
       return;
     }
 
     const sets = setScoreInput.getSets();
-    const winnerId = validation.winnerId === "A" ? userData.id : opponentId;
-    const loserId = validation.winnerId === "A" ? opponentId : userData.id;
+    const winnerId = validation.winnerId === 'A' ? userData.id : opponentId;
+    const loserId = validation.winnerId === 'A' ? opponentId : userData.id;
 
     // Get opponent data from the map
     const opponentData = playersMap.get(opponentId);
 
     try {
-      await addDoc(collection(db, "matchRequests"), {
-        status: "pending_player",
+      await addDoc(collection(db, 'matchRequests'), {
+        status: 'pending_player',
         playerAId: userData.id,
         playerBId: opponentId,
         playerAName: `${userData.firstName} ${userData.lastName}`,
-        playerBName: opponentData ? `${opponentData.firstName} ${opponentData.lastName}` : 'Unbekannt',
+        playerBName: opponentData
+          ? `${opponentData.firstName} ${opponentData.lastName}`
+          : 'Unbekannt',
         winnerId,
         loserId,
         handicapUsed,
@@ -1686,7 +1730,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         requestedBy: userData.id,
       });
 
-      showFeedback("Anfrage erfolgreich erstellt! Warte auf Bestätigung.", "success");
+      showFeedback('Anfrage erfolgreich erstellt! Warte auf Bestätigung.', 'success');
       form.reset();
 
       // Reset match mode dropdown to default (form.reset() sets it to the selected value in HTML)
@@ -1702,10 +1746,10 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
       // Update global reference for doubles-player-ui
       window.playerSetScoreInput = setScoreInput;
 
-      handicapInfo.classList.add("hidden");
+      handicapInfo.classList.add('hidden');
     } catch (error) {
-      console.error("Error creating match request:", error);
-      showFeedback("Fehler beim Erstellen der Anfrage.", "error");
+      console.error('Error creating match request:', error);
+      showFeedback('Fehler beim Erstellen der Anfrage.', 'error');
     }
   });
 }
@@ -1716,16 +1760,17 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 let showAllPendingRequests = false;
 
 async function renderPendingRequests(requests, userData, db) {
-  const container = document.getElementById("pending-result-requests-list");
+  const container = document.getElementById('pending-result-requests-list');
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    container.innerHTML =
+      '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllPendingRequests = false;
     return;
   }
 
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   const maxInitial = 3;
   const requestsToShow = showAllPendingRequests ? requests : requests.slice(0, maxInitial);
@@ -1738,24 +1783,40 @@ async function renderPendingRequests(requests, userData, db) {
       const playersData = {
         teamAPlayer1: {
           id: request.teamA.player1Id,
-          firstName: request.teamA.player1Name ? request.teamA.player1Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamA.player1Name ? request.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+          firstName: request.teamA.player1Name
+            ? request.teamA.player1Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamA.player1Name
+            ? request.teamA.player1Name.split(' ').slice(1).join(' ')
+            : '',
         },
         teamAPlayer2: {
           id: request.teamA.player2Id,
-          firstName: request.teamA.player2Name ? request.teamA.player2Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamA.player2Name ? request.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+          firstName: request.teamA.player2Name
+            ? request.teamA.player2Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamA.player2Name
+            ? request.teamA.player2Name.split(' ').slice(1).join(' ')
+            : '',
         },
         teamBPlayer1: {
           id: request.teamB.player1Id,
-          firstName: request.teamB.player1Name ? request.teamB.player1Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamB.player1Name ? request.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+          firstName: request.teamB.player1Name
+            ? request.teamB.player1Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamB.player1Name
+            ? request.teamB.player1Name.split(' ').slice(1).join(' ')
+            : '',
         },
         teamBPlayer2: {
           id: request.teamB.player2Id,
-          firstName: request.teamB.player2Name ? request.teamB.player2Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
-        }
+          firstName: request.teamB.player2Name
+            ? request.teamB.player2Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamB.player2Name
+            ? request.teamB.player2Name.split(' ').slice(1).join(' ')
+            : '',
+        },
       };
 
       card = createPendingDoublesCard(request, playersData, userData, db);
@@ -1766,7 +1827,7 @@ async function renderPendingRequests(requests, userData, db) {
         const playerAData = {
           id: request.playerAId,
           firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
-          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : '',
         };
         card = createIncomingRequestCard(request, playerAData, userData, db);
       } else {
@@ -1774,7 +1835,7 @@ async function renderPendingRequests(requests, userData, db) {
         const playerBData = {
           id: request.playerBId,
           firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
-          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : '',
         };
         card = createMyRequestCard(request, playerBData, userData, db);
       }
@@ -1784,16 +1845,16 @@ async function renderPendingRequests(requests, userData, db) {
   }
 
   if (requests.length > maxInitial) {
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "text-center mt-4";
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'text-center mt-4';
 
-    const button = document.createElement("button");
-    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    const button = document.createElement('button');
+    button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
     button.innerHTML = showAllPendingRequests
       ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
       : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
 
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       showAllPendingRequests = !showAllPendingRequests;
       renderPendingRequests(requests, userData, db);
     });
@@ -1809,16 +1870,17 @@ async function renderPendingRequests(requests, userData, db) {
 let showAllHistoryRequests = false;
 
 async function renderHistoryRequests(requests, userData, db) {
-  const container = document.getElementById("history-result-requests-list");
+  const container = document.getElementById('history-result-requests-list');
   if (!container) return;
 
   if (requests.length === 0) {
-    container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
+    container.innerHTML =
+      '<p class="text-gray-400 text-center py-4 text-sm">Keine Ergebnis-Anfragen</p>';
     showAllHistoryRequests = false;
     return;
   }
 
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   const maxInitial = 3;
   const requestsToShow = showAllHistoryRequests ? requests : requests.slice(0, maxInitial);
@@ -1831,24 +1893,40 @@ async function renderHistoryRequests(requests, userData, db) {
       const playersData = {
         teamAPlayer1: {
           id: request.teamA.player1Id,
-          firstName: request.teamA.player1Name ? request.teamA.player1Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamA.player1Name ? request.teamA.player1Name.split(' ').slice(1).join(' ') : ''
+          firstName: request.teamA.player1Name
+            ? request.teamA.player1Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamA.player1Name
+            ? request.teamA.player1Name.split(' ').slice(1).join(' ')
+            : '',
         },
         teamAPlayer2: {
           id: request.teamA.player2Id,
-          firstName: request.teamA.player2Name ? request.teamA.player2Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamA.player2Name ? request.teamA.player2Name.split(' ').slice(1).join(' ') : ''
+          firstName: request.teamA.player2Name
+            ? request.teamA.player2Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamA.player2Name
+            ? request.teamA.player2Name.split(' ').slice(1).join(' ')
+            : '',
         },
         teamBPlayer1: {
           id: request.teamB.player1Id,
-          firstName: request.teamB.player1Name ? request.teamB.player1Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamB.player1Name ? request.teamB.player1Name.split(' ').slice(1).join(' ') : ''
+          firstName: request.teamB.player1Name
+            ? request.teamB.player1Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamB.player1Name
+            ? request.teamB.player1Name.split(' ').slice(1).join(' ')
+            : '',
         },
         teamBPlayer2: {
           id: request.teamB.player2Id,
-          firstName: request.teamB.player2Name ? request.teamB.player2Name.split(' ')[0] : 'Unbekannt',
-          lastName: request.teamB.player2Name ? request.teamB.player2Name.split(' ').slice(1).join(' ') : ''
-        }
+          firstName: request.teamB.player2Name
+            ? request.teamB.player2Name.split(' ')[0]
+            : 'Unbekannt',
+          lastName: request.teamB.player2Name
+            ? request.teamB.player2Name.split(' ').slice(1).join(' ')
+            : '',
+        },
       };
 
       card = createDoublesHistoryCard(request, playersData, userData, db);
@@ -1859,7 +1937,7 @@ async function renderHistoryRequests(requests, userData, db) {
         const playerBData = {
           id: request.playerBId,
           firstName: request.playerBName ? request.playerBName.split(' ')[0] : 'Unbekannt',
-          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : ''
+          lastName: request.playerBName ? request.playerBName.split(' ').slice(1).join(' ') : '',
         };
         card = createMyRequestCard(request, playerBData, userData, db);
       } else {
@@ -1867,7 +1945,7 @@ async function renderHistoryRequests(requests, userData, db) {
         const playerAData = {
           id: request.playerAId,
           firstName: request.playerAName ? request.playerAName.split(' ')[0] : 'Unbekannt',
-          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : ''
+          lastName: request.playerAName ? request.playerAName.split(' ').slice(1).join(' ') : '',
         };
         card = createProcessedRequestCard(request, playerAData, userData, db);
       }
@@ -1876,16 +1954,16 @@ async function renderHistoryRequests(requests, userData, db) {
   }
 
   if (requests.length > maxInitial) {
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "text-center mt-4";
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'text-center mt-4';
 
-    const button = document.createElement("button");
-    button.className = "text-indigo-600 hover:text-indigo-800 font-medium text-sm transition";
+    const button = document.createElement('button');
+    button.className = 'text-indigo-600 hover:text-indigo-800 font-medium text-sm transition';
     button.innerHTML = showAllHistoryRequests
       ? '<i class="fas fa-chevron-up mr-2"></i>Weniger anzeigen'
       : `<i class="fas fa-chevron-down mr-2"></i>Mehr anzeigen (${requests.length - maxInitial} weitere)`;
 
-    button.addEventListener("click", () => {
+    button.addEventListener('click', () => {
       showAllHistoryRequests = !showAllHistoryRequests;
       renderHistoryRequests(requests, userData, db);
     });
@@ -1922,8 +2000,8 @@ export async function loadCombinedPendingRequests(userData, db) {
   );
 
   // Listen to both query types
-  const unsubscribe1 = onSnapshot(singlesQuery, async (singlesSnapshot) => {
-    const unsubscribe2 = onSnapshot(doublesQuery, async (doublesSnapshot) => {
+  const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
+    const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
       const allRequests = [];
 
       // Process singles requests
@@ -1932,14 +2010,14 @@ export async function loadCombinedPendingRequests(userData, db) {
         const playerAData = {
           id: data.playerAId,
           firstName: data.playerAName ? data.playerAName.split(' ')[0] : 'Unbekannt',
-          lastName: data.playerAName ? data.playerAName.split(' ').slice(1).join(' ') : ''
+          lastName: data.playerAName ? data.playerAName.split(' ').slice(1).join(' ') : '',
         };
 
         allRequests.push({
           id: docSnap.id,
           type: 'singles',
           ...data,
-          playerAData
+          playerAData,
         });
       }
 
@@ -1948,31 +2026,39 @@ export async function loadCombinedPendingRequests(userData, db) {
       for (const docSnap of doublesSnapshot.docs) {
         const data = docSnap.data();
 
-          allRequests.push({
-            id: docSnap.id,
-            type: 'doubles',
-            ...data,
-            teamAPlayer1: {
-              id: data.teamA.player1Id,
-              firstName: data.teamA.player1Name ? data.teamA.player1Name.split(' ')[0] : 'Unbekannt',
-              lastName: data.teamA.player1Name ? data.teamA.player1Name.split(' ').slice(1).join(' ') : ''
-            },
-            teamAPlayer2: {
-              id: data.teamA.player2Id,
-              firstName: data.teamA.player2Name ? data.teamA.player2Name.split(' ')[0] : 'Unbekannt',
-              lastName: data.teamA.player2Name ? data.teamA.player2Name.split(' ').slice(1).join(' ') : ''
-            },
-            teamBPlayer1: {
-              id: data.teamB.player1Id,
-              firstName: data.teamB.player1Name ? data.teamB.player1Name.split(' ')[0] : 'Unbekannt',
-              lastName: data.teamB.player1Name ? data.teamB.player1Name.split(' ').slice(1).join(' ') : ''
-            },
-            teamBPlayer2: {
-              id: data.teamB.player2Id,
-              firstName: data.teamB.player2Name ? data.teamB.player2Name.split(' ')[0] : 'Unbekannt',
-              lastName: data.teamB.player2Name ? data.teamB.player2Name.split(' ').slice(1).join(' ') : ''
-            }
-          });
+        allRequests.push({
+          id: docSnap.id,
+          type: 'doubles',
+          ...data,
+          teamAPlayer1: {
+            id: data.teamA.player1Id,
+            firstName: data.teamA.player1Name ? data.teamA.player1Name.split(' ')[0] : 'Unbekannt',
+            lastName: data.teamA.player1Name
+              ? data.teamA.player1Name.split(' ').slice(1).join(' ')
+              : '',
+          },
+          teamAPlayer2: {
+            id: data.teamA.player2Id,
+            firstName: data.teamA.player2Name ? data.teamA.player2Name.split(' ')[0] : 'Unbekannt',
+            lastName: data.teamA.player2Name
+              ? data.teamA.player2Name.split(' ').slice(1).join(' ')
+              : '',
+          },
+          teamBPlayer1: {
+            id: data.teamB.player1Id,
+            firstName: data.teamB.player1Name ? data.teamB.player1Name.split(' ')[0] : 'Unbekannt',
+            lastName: data.teamB.player1Name
+              ? data.teamB.player1Name.split(' ').slice(1).join(' ')
+              : '',
+          },
+          teamBPlayer2: {
+            id: data.teamB.player2Id,
+            firstName: data.teamB.player2Name ? data.teamB.player2Name.split(' ')[0] : 'Unbekannt',
+            lastName: data.teamB.player2Name
+              ? data.teamB.player2Name.split(' ').slice(1).join(' ')
+              : '',
+          },
+        });
       }
 
       // Sort by createdAt
@@ -1983,7 +2069,8 @@ export async function loadCombinedPendingRequests(userData, db) {
       });
 
       if (allRequests.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Anfragen</p>';
+        container.innerHTML =
+          '<p class="text-gray-400 text-center py-4 text-sm">Keine Anfragen</p>';
         return;
       }
 
@@ -2004,9 +2091,11 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
     const card = document.createElement('div');
     card.className = 'border border-gray-200 rounded-lg p-4 bg-gray-50';
 
-    const createdDate = request.createdAt?.toDate ?
-      request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
-      'Unbekannt';
+    const createdDate = request.createdAt?.toDate
+      ? request.createdAt
+          .toDate()
+          .toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : 'Unbekannt';
 
     if (request.type === 'doubles') {
       // Doubles request
@@ -2020,9 +2109,10 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
       const winsB = request.sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
       const setsDisplay = `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
 
-      const winnerTeamName = request.winningTeam === 'A'
-        ? `${teamAName1} & ${teamAName2}`
-        : `${teamBName1} & ${teamBName2}`;
+      const winnerTeamName =
+        request.winningTeam === 'A'
+          ? `${teamAName1} & ${teamAName2}`
+          : `${teamBName1} & ${teamBName2}`;
 
       card.innerHTML = `
         <div class="flex justify-between items-start mb-3">
@@ -2089,14 +2179,18 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
         if (reason === null) return;
         try {
           const { rejectDoublesMatchRequest } = await import('./doubles-matches.js');
-          await rejectDoublesMatchRequest(request.id, reason || 'Abgelehnt vom Gegner', db, userData);
+          await rejectDoublesMatchRequest(
+            request.id,
+            reason || 'Abgelehnt vom Gegner',
+            db,
+            userData
+          );
           alert('Doppel-Match abgelehnt.');
         } catch (error) {
           console.error('Error rejecting doubles request:', error);
           alert('Fehler beim Ablehnen: ' + error.message);
         }
       });
-
     } else {
       // Singles request
       const playerAName = request.playerAData?.firstName || 'Unbekannt';

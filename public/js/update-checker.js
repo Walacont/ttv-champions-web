@@ -13,76 +13,77 @@ const CHECK_INTERVAL = 5 * 60 * 1000;
  * Initialize update checker
  */
 async function initializeUpdateChecker() {
-    try {
-        // Get current version
-        const response = await fetch('/version.json?' + Date.now());
-        const versionData = await response.json();
-        currentVersion = versionData.version;
+  try {
+    // Get current version
+    const response = await fetch('/version.json?' + Date.now());
+    const versionData = await response.json();
+    currentVersion = versionData.version;
 
-        // Store in localStorage for comparison
-        const storedVersion = localStorage.getItem('app_version');
-        if (!storedVersion) {
-            localStorage.setItem('app_version', currentVersion);
-        } else if (storedVersion === currentVersion) {
-            // If versions match, update timestamp to current version
-            // This ensures we're in sync after a reload
-            localStorage.setItem('app_version', currentVersion);
-        }
-
-        // Start periodic check
-        startUpdateCheck();
-    } catch (error) {
-        // Silent fail - update check is not critical
+    // Store in localStorage for comparison
+    const storedVersion = localStorage.getItem('app_version');
+    if (!storedVersion) {
+      localStorage.setItem('app_version', currentVersion);
+    } else if (storedVersion === currentVersion) {
+      // If versions match, update timestamp to current version
+      // This ensures we're in sync after a reload
+      localStorage.setItem('app_version', currentVersion);
     }
+
+    // Start periodic check
+    startUpdateCheck();
+  } catch (error) {
+    // Silent fail - update check is not critical
+  }
 }
 
 /**
  * Start periodic version check
  */
 function startUpdateCheck() {
-    // Check immediately after 1 minute
-    setTimeout(checkForUpdates, 60000);
+  // Check immediately after 1 minute
+  setTimeout(checkForUpdates, 60000);
 
-    // Then check every 5 minutes
-    updateCheckInterval = setInterval(checkForUpdates, CHECK_INTERVAL);
+  // Then check every 5 minutes
+  updateCheckInterval = setInterval(checkForUpdates, CHECK_INTERVAL);
 }
 
 /**
  * Check if new version is available
  */
 async function checkForUpdates() {
-    try {
-        const response = await fetch('/version.json?' + Date.now());
-        const versionData = await response.json();
-        const latestVersion = versionData.version;
-        const storedVersion = localStorage.getItem('app_version');
+  try {
+    const response = await fetch('/version.json?' + Date.now());
+    const versionData = await response.json();
+    const latestVersion = versionData.version;
+    const storedVersion = localStorage.getItem('app_version');
 
-        // Compare versions
-        if (storedVersion && latestVersion !== storedVersion) {
-            showUpdateBanner(versionData.message || 'Eine neue Version ist verfügbar!');
-            // Stop checking once update is detected
-            if (updateCheckInterval) {
-                clearInterval(updateCheckInterval);
-            }
-        }
-    } catch (error) {
-        // Silent fail
+    // Compare versions
+    if (storedVersion && latestVersion !== storedVersion) {
+      showUpdateBanner(versionData.message || 'Eine neue Version ist verfügbar!');
+      // Stop checking once update is detected
+      if (updateCheckInterval) {
+        clearInterval(updateCheckInterval);
+      }
     }
+  } catch (error) {
+    // Silent fail
+  }
 }
 
 /**
  * Show update notification banner
  */
 function showUpdateBanner(message) {
-    // Check if banner already exists
-    if (document.getElementById('update-banner')) {
-        return;
-    }
+  // Check if banner already exists
+  if (document.getElementById('update-banner')) {
+    return;
+  }
 
-    const banner = document.createElement('div');
-    banner.id = 'update-banner';
-    banner.className = 'fixed top-0 left-0 right-0 bg-indigo-600 text-white py-3 px-4 shadow-lg z-50 animate-slide-down';
-    banner.innerHTML = `
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.className =
+    'fixed top-0 left-0 right-0 bg-indigo-600 text-white py-3 px-4 shadow-lg z-50 animate-slide-down';
+  banner.innerHTML = `
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,9 +105,9 @@ function showUpdateBanner(message) {
         </div>
     `;
 
-    // Add CSS for animation
-    const style = document.createElement('style');
-    style.textContent = `
+  // Add CSS for animation
+  const style = document.createElement('style');
+  style.textContent = `
         @keyframes slide-down {
             from {
                 transform: translateY(-100%);
@@ -121,60 +122,63 @@ function showUpdateBanner(message) {
             animation: slide-down 0.3s ease-out;
         }
     `;
-    document.head.appendChild(style);
+  document.head.appendChild(style);
 
-    document.body.prepend(banner);
+  document.body.prepend(banner);
 
-    // Add event listeners
-    document.getElementById('update-reload-btn').addEventListener('click', async () => {
-        // Update stored version BEFORE reload to prevent banner from showing again
-        try {
-            const response = await fetch('/version.json?' + Date.now());
-            const versionData = await response.json();
-            localStorage.setItem('app_version', versionData.version);
-        } catch (error) {
-            // If fetch fails, still reload
-        }
+  // Add event listeners
+  document.getElementById('update-reload-btn').addEventListener('click', async () => {
+    // Update stored version BEFORE reload to prevent banner from showing again
+    try {
+      const response = await fetch('/version.json?' + Date.now());
+      const versionData = await response.json();
+      localStorage.setItem('app_version', versionData.version);
+    } catch (error) {
+      // If fetch fails, still reload
+    }
 
-        // Clear cache and reload
-        if ('caches' in window) {
-            caches.keys().then(names => {
-                names.forEach(name => caches.delete(name));
-            }).then(() => {
-                location.reload(true);
-            });
-        } else {
-            location.reload(true);
-        }
-    });
+    // Clear cache and reload
+    if ('caches' in window) {
+      caches
+        .keys()
+        .then(names => {
+          names.forEach(name => caches.delete(name));
+        })
+        .then(() => {
+          location.reload(true);
+        });
+    } else {
+      location.reload(true);
+    }
+  });
 
-    document.getElementById('update-dismiss-btn').addEventListener('click', async () => {
-        // Update stored version to prevent banner from showing again
-        try {
-            const response = await fetch('/version.json?' + Date.now());
-            const versionData = await response.json();
-            localStorage.setItem('app_version', versionData.version);
-        } catch (error) {
-            // Silent fail
-        }
-        banner.remove();
-    });
+  document.getElementById('update-dismiss-btn').addEventListener('click', async () => {
+    // Update stored version to prevent banner from showing again
+    try {
+      const response = await fetch('/version.json?' + Date.now());
+      const versionData = await response.json();
+      localStorage.setItem('app_version', versionData.version);
+    } catch (error) {
+      // Silent fail
+    }
+    banner.remove();
+  });
 }
 
 /**
  * Update version after successful reload
  */
 function updateStoredVersion() {
-    if (currentVersion) {
-        localStorage.setItem('app_version', currentVersion);
-    }
+  if (currentVersion) {
+    localStorage.setItem('app_version', currentVersion);
+  }
 }
 
 // Initialize on page load
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeUpdateChecker);
+  document.addEventListener('DOMContentLoaded', initializeUpdateChecker);
 } else {
-    initializeUpdateChecker();
+  initializeUpdateChecker();
 }
 
 // Update stored version on successful load

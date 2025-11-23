@@ -5,7 +5,8 @@ import {
   onSnapshot,
   getDocs,
   getDoc,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { calculateHandicap } from './validation-utils.js';
 
 /**
  * Match Suggestions Module
@@ -27,33 +28,33 @@ import {
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
   try {
     // Filter eligible players
-    const eligiblePlayers = allPlayers.filter((p) => {
+    const eligiblePlayers = allPlayers.filter(p => {
       const isNotSelf = p.id !== userData.id;
       const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
-      const isPlayer = p.role === "player";
+      const isPlayer = p.role === 'player';
       return isNotSelf && isMatchReady && isPlayer;
     });
 
     // Get all matches involving the current user
     // Query both new format (with playerIds array) and old format (playerAId/playerBId)
     const matchesWithPlayerIds = query(
-      collection(db, "matches"),
-      where("playerIds", "array-contains", userData.id)
+      collection(db, 'matches'),
+      where('playerIds', 'array-contains', userData.id)
     );
     const matchesAsPlayerA = query(
-      collection(db, "matches"),
-      where("playerAId", "==", userData.id)
+      collection(db, 'matches'),
+      where('playerAId', '==', userData.id)
     );
     const matchesAsPlayerB = query(
-      collection(db, "matches"),
-      where("playerBId", "==", userData.id)
+      collection(db, 'matches'),
+      where('playerBId', '==', userData.id)
     );
 
     // Execute all queries
     const [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3] = await Promise.all([
       getDocs(matchesWithPlayerIds),
       getDocs(matchesAsPlayerA),
-      getDocs(matchesAsPlayerB)
+      getDocs(matchesAsPlayerB),
     ]);
 
     // Combine results and deduplicate by document ID
@@ -66,7 +67,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
 
     // Build opponent history
     const opponentHistory = {};
-    allMatchDocs.forEach((doc) => {
+    allMatchDocs.forEach(doc => {
       const match = doc.data();
       const opponentId = match.playerAId === userData.id ? match.playerBId : match.playerAId;
 
@@ -80,7 +81,11 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
       opponentHistory[opponentId].matchCount++;
 
       const matchDate = match.playedAt?.toDate?.() || match.createdAt?.toDate?.();
-      if (matchDate && (!opponentHistory[opponentId].lastMatchDate || matchDate > opponentHistory[opponentId].lastMatchDate)) {
+      if (
+        matchDate &&
+        (!opponentHistory[opponentId].lastMatchDate ||
+          matchDate > opponentHistory[opponentId].lastMatchDate)
+      ) {
         opponentHistory[opponentId].lastMatchDate = matchDate;
       }
     });
@@ -88,7 +93,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
     // Calculate priority score for each eligible player
     const now = new Date();
 
-    const suggestions = eligiblePlayers.map((player) => {
+    const suggestions = eligiblePlayers.map(player => {
       const history = opponentHistory[player.id] || { matchCount: 0, lastMatchDate: null };
       const playerElo = player.eloRating || 1000;
       const myElo = userData.eloRating || 1000;
@@ -135,7 +140,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
       return randomSuggestions.slice(0, 4);
     }
   } catch (error) {
-    console.error("Error calculating match suggestions:", error);
+    console.error('Error calculating match suggestions:', error);
     return [];
   }
 }
@@ -151,8 +156,13 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  * @param {String} subgroupFilter - Filter by subgroup ('club', 'global', or subgroup ID)
  */
-export async function loadMatchSuggestions(userData, db, unsubscribes = [], subgroupFilter = 'club') {
-  const container = document.getElementById("match-suggestions-list");
+export async function loadMatchSuggestions(
+  userData,
+  db,
+  unsubscribes = [],
+  subgroupFilter = 'club'
+) {
+  const container = document.getElementById('match-suggestions-list');
   if (!container) return;
 
   // Check if player has completed Grundlagen requirement
@@ -182,7 +192,8 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
     return; // Exit early
   }
 
-  container.innerHTML = '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
+  container.innerHTML =
+    '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
 
   console.log('[Match Suggestions] Loading with filter:', subgroupFilter);
 
@@ -213,16 +224,19 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
     // Get all players based on filter (club only)
     let playersQuery;
     playersQuery = query(
-      collection(db, "users"),
-      where("clubId", "==", userData.clubId),
-      where("role", "==", "player")
+      collection(db, 'users'),
+      where('clubId', '==', userData.clubId),
+      where('role', '==', 'player')
     );
 
     const snapshot = await getDocs(playersQuery);
-    let allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    let allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     console.log('[Match Suggestions] Players before filter:', allPlayers.length);
-    console.log('[Match Suggestions] Sample player subgroups:', allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs })));
+    console.log(
+      '[Match Suggestions] Sample player subgroups:',
+      allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs }))
+    );
 
     // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
     // Note: Players can be in multiple subgroups, so we check if the array includes the filter
@@ -237,14 +251,15 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
       const suggestions = await calculateMatchSuggestions(userData, allPlayers, db);
 
       if (suggestions.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine Vorschläge verfügbar</p>';
+        container.innerHTML =
+          '<p class="text-gray-500 text-center py-4">Keine Vorschläge verfügbar</p>';
         return;
       }
 
-      container.innerHTML = "";
+      container.innerHTML = '';
 
       // Render all suggestions (3-4 players)
-      suggestions.forEach((player) => {
+      suggestions.forEach(player => {
         const card = createSuggestionCard(player, userData, db);
         container.appendChild(card);
       });
@@ -256,17 +271,11 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
     // Listen for changes to matches collection to update suggestions in real-time
     // Set up listeners for both new format (playerIds) and old format (playerAId/playerBId)
     const matchesQueryNew = query(
-      collection(db, "matches"),
-      where("playerIds", "array-contains", userData.id)
+      collection(db, 'matches'),
+      where('playerIds', 'array-contains', userData.id)
     );
-    const matchesQueryA = query(
-      collection(db, "matches"),
-      where("playerAId", "==", userData.id)
-    );
-    const matchesQueryB = query(
-      collection(db, "matches"),
-      where("playerBId", "==", userData.id)
-    );
+    const matchesQueryA = query(collection(db, 'matches'), where('playerAId', '==', userData.id));
+    const matchesQueryB = query(collection(db, 'matches'), where('playerBId', '==', userData.id));
 
     const unsubscribe1 = onSnapshot(matchesQueryNew, async () => {
       await renderSuggestions();
@@ -281,10 +290,10 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
     if (unsubscribes) {
       unsubscribes.push(unsubscribe1, unsubscribe2, unsubscribe3);
     }
-
   } catch (error) {
-    console.error("Error loading match suggestions:", error);
-    container.innerHTML = '<p class="text-red-500 text-center py-4">Fehler beim Laden der Vorschläge</p>';
+    console.error('Error loading match suggestions:', error);
+    container.innerHTML =
+      '<p class="text-red-500 text-center py-4">Fehler beim Laden der Vorschläge</p>';
   }
 }
 
@@ -292,23 +301,24 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
  * Creates a suggestion card (view only, no actions)
  */
 function createSuggestionCard(player, userData, db) {
-  const div = document.createElement("div");
-  div.className = "bg-white border border-indigo-200 rounded-md p-2 shadow-sm";
+  const div = document.createElement('div');
+  div.className = 'bg-white border border-indigo-200 rounded-md p-2 shadow-sm';
 
   const myElo = userData.eloRating || 1000;
   const playerElo = player.eloRating || 1000;
   const eloDiff = Math.abs(myElo - playerElo);
   const neverPlayed = player.history.matchCount === 0;
   const lastPlayedStr = player.history.lastMatchDate
-    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short" }).format(player.history.lastMatchDate)
+    ? new Intl.DateTimeFormat('de-DE', { dateStyle: 'short' }).format(player.history.lastMatchDate)
     : null;
 
-  // Calculate handicap (same logic as in player-matches.js)
+  // Calculate handicap
   let handicapHTML = '';
-  if (eloDiff >= 25) {
-    const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
+  const handicapResult = calculateHandicap({ eloRating: myElo }, { eloRating: playerElo });
+  if (handicapResult) {
+    const handicapPoints = handicapResult.points;
     const weakerPlayerIsMe = myElo < playerElo;
-    const weakerPlayerName = weakerPlayerIsMe ? "Du" : player.firstName;
+    const weakerPlayerName = weakerPlayerIsMe ? 'Du' : player.firstName;
 
     handicapHTML = `
       <div class="text-xs text-blue-600 mt-1">
@@ -327,9 +337,10 @@ function createSuggestionCard(player, userData, db) {
     </div>
 
     <div class="text-xs text-gray-600">
-      ${neverPlayed
-        ? '<span class="text-purple-700 font-medium"><i class="fas fa-star mr-1"></i>Noch nie gespielt</span>'
-        : `${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'}${lastPlayedStr ? `, zuletzt ${lastPlayedStr}` : ''}`
+      ${
+        neverPlayed
+          ? '<span class="text-purple-700 font-medium"><i class="fas fa-star mr-1"></i>Noch nie gespielt</span>'
+          : `${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'}${lastPlayedStr ? `, zuletzt ${lastPlayedStr}` : ''}`
       }
     </div>
     ${handicapHTML}

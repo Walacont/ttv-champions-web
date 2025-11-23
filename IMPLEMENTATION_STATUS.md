@@ -4,30 +4,32 @@
 
 ### Phase 1 + Phase 2a (Teilweise)
 
-| Feature | Status | Details |
-|---------|--------|---------|
-| **1. ELO-System** | ✅ Fertig | Start bei 800, neue Gates (850, 900, 1000, 1100, 1300, 1600), Season Points = Elo×0.2 |
-| **2. Rang-System** | ✅ Fertig | 6 Ränge, schnellere Progression (Rekrut 0-49 XP, Bronze 50-199 XP, etc.) |
-| **3. Strafsystem** | ✅ Fertig | Leicht (-10 Pkt, -5 XP), Mittel (-20 Pkt, -10 XP), Schwer (-30 Pkt, -20 XP) |
-| **4. Wettkampf-Sperre** | ✅ Fertig | Rekruten müssen 5 Grundlagen absolvieren, UI + Firestore Rules |
-| **5. Anwesenheit + Streaks** | ✅ Fertig | 3/5/6 Punkte je nach Streak (1-2x / 3-4x / 5+x) |
-| **6. Migrations-Script** | ✅ Fertig | `migrate-elo-to-800.js` für bestehende Benutzer |
+| Feature                      | Status    | Details                                                                               |
+| ---------------------------- | --------- | ------------------------------------------------------------------------------------- |
+| **1. ELO-System**            | ✅ Fertig | Start bei 800, neue Gates (850, 900, 1000, 1100, 1300, 1600), Season Points = Elo×0.2 |
+| **2. Rang-System**           | ✅ Fertig | 6 Ränge, schnellere Progression (Rekrut 0-49 XP, Bronze 50-199 XP, etc.)              |
+| **3. Strafsystem**           | ✅ Fertig | Leicht (-10 Pkt, -5 XP), Mittel (-20 Pkt, -10 XP), Schwer (-30 Pkt, -20 XP)           |
+| **4. Wettkampf-Sperre**      | ✅ Fertig | Rekruten müssen 5 Grundlagen absolvieren, UI + Firestore Rules                        |
+| **5. Anwesenheit + Streaks** | ✅ Fertig | 3/5/6 Punkte je nach Streak (1-2x / 3-4x / 5+x)                                       |
+| **6. Migrations-Script**     | ✅ Fertig | `migrate-elo-to-800.js` für bestehende Benutzer                                       |
 
 ---
 
 ## 📋 **PHASE 2b - STATUS**
 
 ### ✅ Abgeschlossen (Essential Features)
-| Feature | Status | Beschreibung |
-|---------|--------|--------------|
+
+| Feature                       | Status    | Beschreibung                                                                                                     |
+| ----------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------- |
 | **Übungen mit Schwierigkeit** | ✅ Fertig | Level (Grundlagen/Standard/Fortgeschritten) + Difficulty (Easy/Normal/Hard) → Auto-Punktberechnung (5-18 Punkte) |
-| **UI-Verbesserungen** | ✅ Fertig | Klare Trennung ELO / XP / Saison-Punkte im Dashboard & Profil mit Tooltips und Info-Banner |
-| **Challenge-Punktbereiche** | ✅ Fertig | UI-Hinweise für empfohlene Punktzahlen (Daily 8-20, Weekly 20-50, Monthly 40-100) |
+| **UI-Verbesserungen**         | ✅ Fertig | Klare Trennung ELO / XP / Saison-Punkte im Dashboard & Profil mit Tooltips und Info-Banner                       |
+| **Challenge-Punktbereiche**   | ✅ Fertig | UI-Hinweise für empfohlene Punktzahlen (Daily 8-20, Weekly 20-50, Monthly 40-100)                                |
 
 ### ⏳ Optional (Advanced Features)
-| Feature | Geschätzter Aufwand | Beschreibung |
-|---------|---------------------|--------------|
-| **Saison-System** | ~6-8h | 6-Wochen-Zyklen, Liga-Auf-/Abstieg, Season Points Reset (kann später implementiert werden) |
+
+| Feature           | Geschätzter Aufwand | Beschreibung                                                                               |
+| ----------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| **Saison-System** | ~6-8h               | 6-Wochen-Zyklen, Liga-Auf-/Abstieg, Season Points Reset (kann später implementiert werden) |
 
 ---
 
@@ -74,6 +76,7 @@ node scripts/migrate-elo-to-800.js
 ```
 
 **Output:**
+
 ```
 🚀 Starting ELO migration...
 📝 New system: All users start at 800 ELO (instead of 0)
@@ -119,27 +122,28 @@ firebase deploy --only hosting
 
 ### Rang-Progression
 
-| Rang | Vorher (Trainings) | Nachher (Trainings) | Verbesserung |
-|------|-------------------|---------------------|--------------|
-| Rekrut → Bronze | 15-20 | 6-10 | ⚡ **2x schneller!** |
-| Bronze → Silber | 35-45 | 20-30 | ⚡ **40% schneller!** |
+| Rang            | Vorher (Trainings) | Nachher (Trainings) | Verbesserung          |
+| --------------- | ------------------ | ------------------- | --------------------- |
+| Rekrut → Bronze | 15-20              | 6-10                | ⚡ **2x schneller!**  |
+| Bronze → Silber | 35-45              | 20-30               | ⚡ **40% schneller!** |
 
 ### Anwesenheitspunkte
 
 | Streak | Vorher | Nachher | Änderung |
-|--------|--------|---------|----------|
-| 1-2x | 10 | 3 | -70% |
-| 3-4x | 15 | 5 | -67% |
-| 5+x | 20 | 6 | -70% |
+| ------ | ------ | ------- | -------- |
+| 1-2x   | 10     | 3       | -70%     |
+| 3-4x   | 15     | 5       | -67%     |
+| 5+x    | 20     | 6       | -70%     |
 
 **Warum die Reduktion?**
+
 - ⚖️ **Balance:** Anwesenheit war dominant (50%+ der Punkte)
 - 🎯 **Neue Balance:** Anwesenheit ≈ 15-20%, Übungen ≈ 40-50%, Matches ≈ 20-30%
 
 ### Strafen
 
-| Typ | Vorher | Nachher |
-|-----|--------|---------|
+| Typ    | Vorher  | Nachher              |
+| ------ | ------- | -------------------- |
 | Leicht | -Punkte | ⚡ **-Punkte & -XP** |
 | Mittel | -Punkte | ⚡ **-Punkte & -XP** |
 | Schwer | -Punkte | ⚡ **-Punkte & -XP** |
@@ -169,11 +173,12 @@ firebase deploy --only hosting
 ### Deployment-Empfehlung
 
 **✅ Bereit für Deployment!**
+
 - Phase 1 + 2a komplett implementiert und getestet
 - Phase 2b (Essential Features) ebenfalls fertig:
-  * Übungen mit Schwierigkeitsgraden
-  * UI-Verbesserungen für ELO/XP/Season-Trennung
-  * Challenge-Punktempfehlungen
+  - Übungen mit Schwierigkeitsgraden
+  - UI-Verbesserungen für ELO/XP/Season-Trennung
+  - Challenge-Punktempfehlungen
 - Saison-System (optional) kann später nachgeliefert werden
 
 ---
@@ -181,6 +186,7 @@ firebase deploy --only hosting
 ## 📁 **Geänderte Dateien**
 
 ### Phase 1 + 2a
+
 ```
 functions/index.js                 # ELO-Konfiguration
 public/js/ranks.js                # Rang-Definitionen
@@ -195,6 +201,7 @@ scripts/README.md                 # Doku (NEU)
 ```
 
 ### Phase 2b (NEU)
+
 ```
 public/js/exercises.js            # Schwierigkeitsgrade + Auto-Punktberechnung
 public/js/challenges.js           # Punktbereichs-Empfehlungen
@@ -209,6 +216,7 @@ IMPLEMENTATION_STATUS.md          # Diese Datei (aktualisiert)
 ## 🎯 **NEXT STEPS**
 
 ### Deployment (BEREIT!)
+
 ```bash
 # 1. Migration ausführen (einmalig)
 node scripts/migrate-elo-to-800.js
@@ -218,7 +226,9 @@ firebase deploy
 ```
 
 ### Optional: Saison-System
+
 Kann später implementiert werden (~6-8h Arbeit):
+
 1. Saison-Management (6-Wochen-Zyklen)
 2. Liga-Auf-/Abstieg-Logik
 3. Automatischer Season Points Reset

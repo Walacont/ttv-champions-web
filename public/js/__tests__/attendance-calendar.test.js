@@ -79,7 +79,7 @@ function formatDateGerman(dateString) {
   return date.toLocaleDateString('de-DE', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   });
 }
 
@@ -397,9 +397,7 @@ describe('Real-World Attendance Scenarios', () => {
     expect(result1.reason).toContain('🔥 5x Streak!');
 
     // Second training (streak 5 → 6 points → 3 half-points)
-    const attendanceRecords2 = [
-      { date: '2025-01-20', sessionId: 'session-A' },
-    ];
+    const attendanceRecords2 = [{ date: '2025-01-20', sessionId: 'session-A' }];
     const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-20', 'session-B');
     const result2 = calculateAttendancePoints(5, isSecond2, '2025-01-20', 'Leistungstraining');
 
@@ -414,9 +412,7 @@ describe('Real-World Attendance Scenarios', () => {
     expect(result1.points).toBe(3);
 
     // Second training
-    const attendanceRecords2 = [
-      { date: '2025-01-25', sessionId: 'session-1' },
-    ];
+    const attendanceRecords2 = [{ date: '2025-01-25', sessionId: 'session-1' }];
     const isSecond2 = isSecondTrainingToday(attendanceRecords2, '2025-01-25', 'session-2');
     const result2 = calculateAttendancePoints(1, isSecond2, '2025-01-25', 'Training 2');
     expect(result2.points).toBe(2); // Half of 3 = 1.5 → 2

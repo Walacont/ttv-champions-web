@@ -26,13 +26,14 @@ Das System besteht aus 3 Teilen:
 
 ```json
 {
-  "version": "1.0.1",  // ← Erhöhe diese Nummer
-  "timestamp": "2024-01-15T10:30:00Z",  // ← Aktualisiere auf jetzt
-  "message": "Neue Funktionen verfügbar!"  // ← Optional: Eigene Nachricht
+  "version": "1.0.1", // ← Erhöhe diese Nummer
+  "timestamp": "2024-01-15T10:30:00Z", // ← Aktualisiere auf jetzt
+  "message": "Neue Funktionen verfügbar!" // ← Optional: Eigene Nachricht
 }
 ```
 
 **Versionsschema:**
+
 - `1.0.0` → `1.0.1` = Bugfixes
 - `1.0.0` → `1.1.0` = Neue Features
 - `1.0.0` → `2.0.0` = Große Änderungen
@@ -84,6 +85,7 @@ echo "Version updated: $CURRENT → $NEW"
 ```
 
 Dann vor jedem Deploy einfach:
+
 ```bash
 ./update-version.sh
 firebase deploy

@@ -4,60 +4,60 @@
  */
 
 class NotificationPermissionDialog {
-    constructor() {
-        this.dialog = null;
-        this.onAccept = null;
-        this.onDecline = null;
+  constructor() {
+    this.dialog = null;
+    this.onAccept = null;
+    this.onDecline = null;
+  }
+
+  /**
+   * Show the permission dialog
+   * @param {Object} options - Dialog options
+   * @param {Function} options.onAccept - Callback when user accepts
+   * @param {Function} options.onDecline - Callback when user declines
+   */
+  show(options = {}) {
+    this.onAccept = options.onAccept || (() => {});
+    this.onDecline = options.onDecline || (() => {});
+
+    // Create dialog if it doesn't exist
+    if (!this.dialog) {
+      this.createDialog();
     }
 
-    /**
-     * Show the permission dialog
-     * @param {Object} options - Dialog options
-     * @param {Function} options.onAccept - Callback when user accepts
-     * @param {Function} options.onDecline - Callback when user declines
-     */
-    show(options = {}) {
-        this.onAccept = options.onAccept || (() => {});
-        this.onDecline = options.onDecline || (() => {});
+    // Show dialog
+    this.dialog.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 
-        // Create dialog if it doesn't exist
-        if (!this.dialog) {
-            this.createDialog();
-        }
+    // Animate in
+    requestAnimationFrame(() => {
+      this.dialog.classList.add('dialog-visible');
+    });
+  }
 
-        // Show dialog
-        this.dialog.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
+  /**
+   * Hide the dialog
+   */
+  hide() {
+    if (!this.dialog) return;
 
-        // Animate in
-        requestAnimationFrame(() => {
-            this.dialog.classList.add('dialog-visible');
-        });
-    }
+    this.dialog.classList.remove('dialog-visible');
 
-    /**
-     * Hide the dialog
-     */
-    hide() {
-        if (!this.dialog) return;
+    setTimeout(() => {
+      this.dialog.classList.add('hidden');
+      document.body.style.overflow = '';
+    }, 300);
+  }
 
-        this.dialog.classList.remove('dialog-visible');
+  /**
+   * Create dialog HTML
+   */
+  createDialog() {
+    this.dialog = document.createElement('div');
+    this.dialog.id = 'notification-permission-dialog';
+    this.dialog.className = 'notification-permission-dialog hidden';
 
-        setTimeout(() => {
-            this.dialog.classList.add('hidden');
-            document.body.style.overflow = '';
-        }, 300);
-    }
-
-    /**
-     * Create dialog HTML
-     */
-    createDialog() {
-        this.dialog = document.createElement('div');
-        this.dialog.id = 'notification-permission-dialog';
-        this.dialog.className = 'notification-permission-dialog hidden';
-
-        this.dialog.innerHTML = `
+    this.dialog.innerHTML = `
             <div class="dialog-overlay"></div>
             <div class="dialog-content">
                 <div class="dialog-icon">
@@ -119,44 +119,44 @@ class NotificationPermissionDialog {
             </div>
         `;
 
-        // Add event listeners
-        const acceptBtn = this.dialog.querySelector('#notification-accept-btn');
-        const declineBtn = this.dialog.querySelector('#notification-decline-btn');
+    // Add event listeners
+    const acceptBtn = this.dialog.querySelector('#notification-accept-btn');
+    const declineBtn = this.dialog.querySelector('#notification-decline-btn');
 
-        acceptBtn.addEventListener('click', () => {
-            this.hide();
-            this.onAccept();
-        });
+    acceptBtn.addEventListener('click', () => {
+      this.hide();
+      this.onAccept();
+    });
 
-        declineBtn.addEventListener('click', () => {
-            this.hide();
-            this.onDecline();
-        });
+    declineBtn.addEventListener('click', () => {
+      this.hide();
+      this.onDecline();
+    });
 
-        // Close on overlay click
-        const overlay = this.dialog.querySelector('.dialog-overlay');
-        overlay.addEventListener('click', () => {
-            this.hide();
-            this.onDecline();
-        });
+    // Close on overlay click
+    const overlay = this.dialog.querySelector('.dialog-overlay');
+    overlay.addEventListener('click', () => {
+      this.hide();
+      this.onDecline();
+    });
 
-        document.body.appendChild(this.dialog);
+    document.body.appendChild(this.dialog);
+  }
+
+  /**
+   * Remove dialog from DOM
+   */
+  destroy() {
+    if (this.dialog && this.dialog.parentElement) {
+      this.dialog.parentElement.removeChild(this.dialog);
+      this.dialog = null;
     }
-
-    /**
-     * Remove dialog from DOM
-     */
-    destroy() {
-        if (this.dialog && this.dialog.parentElement) {
-            this.dialog.parentElement.removeChild(this.dialog);
-            this.dialog = null;
-        }
-    }
+  }
 }
 
 // Global instance
 if (!window.notificationPermissionDialog) {
-    window.notificationPermissionDialog = new NotificationPermissionDialog();
+  window.notificationPermissionDialog = new NotificationPermissionDialog();
 }
 
 export default NotificationPermissionDialog;

@@ -7,7 +7,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -55,7 +55,9 @@ async function findClubId() {
       console.log('Mögliche Gründe:');
       console.log('1. Noch keine Daten in der Datenbank');
       console.log('2. Feld heißt anders als "clubId"');
-      console.log('\nFühren Sie "node list-collections.js" aus, um die Datenbank-Struktur zu sehen.');
+      console.log(
+        '\nFühren Sie "node list-collections.js" aus, um die Datenbank-Struktur zu sehen.'
+      );
     } else {
       Array.from(clubIds).forEach((clubId, index) => {
         console.log(`${index + 1}. ${clubId}`);
@@ -70,7 +72,6 @@ async function findClubId() {
     }
 
     console.log('');
-
   } catch (error) {
     console.error('❌ Fehler:', error.message);
   }

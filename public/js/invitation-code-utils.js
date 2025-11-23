@@ -15,9 +15,9 @@ const CODE_VALIDITY_DAYS = 7;
  * @returns {string} Code im Format "TTV-XXX-YYY"
  */
 export function generateInvitationCode() {
-    const segment1 = generateRandomSegment(CODE_SEGMENT_LENGTH);
-    const segment2 = generateRandomSegment(CODE_SEGMENT_LENGTH);
-    return `${CODE_PREFIX}-${segment1}-${segment2}`;
+  const segment1 = generateRandomSegment(CODE_SEGMENT_LENGTH);
+  const segment2 = generateRandomSegment(CODE_SEGMENT_LENGTH);
+  return `${CODE_PREFIX}-${segment1}-${segment2}`;
 }
 
 /**
@@ -26,12 +26,12 @@ export function generateInvitationCode() {
  * @returns {string} Zufälliges Segment
  */
 function generateRandomSegment(length) {
-    let segment = '';
-    for (let i = 0; i < length; i++) {
-        const randomIndex = Math.floor(Math.random() * ALLOWED_CHARS.length);
-        segment += ALLOWED_CHARS[randomIndex];
-    }
-    return segment;
+  let segment = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * ALLOWED_CHARS.length);
+    segment += ALLOWED_CHARS[randomIndex];
+  }
+  return segment;
 }
 
 /**
@@ -40,11 +40,11 @@ function generateRandomSegment(length) {
  * @returns {boolean} true wenn gültig
  */
 export function validateCodeFormat(code) {
-    if (!code) return false;
+  if (!code) return false;
 
-    // Format: TTV-XXX-YYY
-    const regex = /^TTV-[2-9A-HJ-NP-Z]{3}-[2-9A-HJ-NP-Z]{3}$/;
-    return regex.test(code.toUpperCase());
+  // Format: TTV-XXX-YYY
+  const regex = /^TTV-[2-9A-HJ-NP-Z]{3}-[2-9A-HJ-NP-Z]{3}$/;
+  return regex.test(code.toUpperCase());
 }
 
 /**
@@ -53,15 +53,15 @@ export function validateCodeFormat(code) {
  * @returns {string} Formatierter Code
  */
 export function formatCode(code) {
-    // Entfernt alle Nicht-Alphanumerischen Zeichen
-    const cleaned = code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  // Entfernt alle Nicht-Alphanumerischen Zeichen
+  const cleaned = code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
-    // TTV + 6 Zeichen = 9 Zeichen total
-    if (cleaned.length === 9 && cleaned.startsWith('TTV')) {
-        return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 9)}`;
-    }
+  // TTV + 6 Zeichen = 9 Zeichen total
+  if (cleaned.length === 9 && cleaned.startsWith('TTV')) {
+    return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 9)}`;
+  }
 
-    return code;
+  return code;
 }
 
 /**
@@ -69,9 +69,9 @@ export function formatCode(code) {
  * @returns {Date} Ablaufdatum
  */
 export function getExpirationDate() {
-    const date = new Date();
-    date.setDate(date.getDate() + CODE_VALIDITY_DAYS);
-    return date;
+  const date = new Date();
+  date.setDate(date.getDate() + CODE_VALIDITY_DAYS);
+  return date;
 }
 
 /**
@@ -80,10 +80,10 @@ export function getExpirationDate() {
  * @returns {boolean} true wenn abgelaufen
  */
 export function isCodeExpired(expiresAt) {
-    if (!expiresAt) return true;
+  if (!expiresAt) return true;
 
-    const expirationDate = expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt);
-    return new Date() > expirationDate;
+  const expirationDate = expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt);
+  return new Date() > expirationDate;
 }
 
 /**
@@ -92,14 +92,14 @@ export function isCodeExpired(expiresAt) {
  * @returns {number} Verbleibende Tage
  */
 export function getRemainingDays(expiresAt) {
-    if (!expiresAt) return 0;
+  if (!expiresAt) return 0;
 
-    const expirationDate = expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt);
-    const now = new Date();
-    const diffTime = expirationDate - now;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const expirationDate = expiresAt.toDate ? expiresAt.toDate() : new Date(expiresAt);
+  const now = new Date();
+  const diffTime = expirationDate - now;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    return Math.max(0, diffDays);
+  return Math.max(0, diffDays);
 }
 
 /**
@@ -109,12 +109,12 @@ export function getRemainingDays(expiresAt) {
  * @returns {string} WhatsApp-URL
  */
 export function createWhatsAppShareUrl(code, firstName = '') {
-    const baseUrl = window.location.origin;
-    const message = firstName
-        ? `Hallo ${firstName}! Hier ist dein TTV Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`
-        : `Hier ist dein TTV Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`;
+  const baseUrl = window.location.origin;
+  const message = firstName
+    ? `Hallo ${firstName}! Hier ist dein TTV Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`
+    : `Hier ist dein TTV Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`;
 
-    return `https://wa.me/?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
 
 /**
@@ -123,18 +123,18 @@ export function createWhatsAppShareUrl(code, firstName = '') {
  * @returns {Promise<boolean>} true wenn erfolgreich
  */
 export async function copyToClipboard(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-        return true;
-    } catch (err) {
-        console.error('Fehler beim Kopieren:', err);
-        return false;
-    }
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (err) {
+    console.error('Fehler beim Kopieren:', err);
+    return false;
+  }
 }
 
 export const CODE_CONFIG = {
-    PREFIX: CODE_PREFIX,
-    VALIDITY_DAYS: CODE_VALIDITY_DAYS,
-    FORMAT: 'TTV-XXX-YYY',
-    ALLOWED_CHARS: ALLOWED_CHARS
+  PREFIX: CODE_PREFIX,
+  VALIDITY_DAYS: CODE_VALIDITY_DAYS,
+  FORMAT: 'TTV-XXX-YYY',
+  ALLOWED_CHARS: ALLOWED_CHARS,
 };

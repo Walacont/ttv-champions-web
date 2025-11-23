@@ -8,7 +8,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Coach Match History Module
@@ -38,14 +38,15 @@ export function populateMatchHistoryPlayerDropdown(clubPlayers, db) {
   });
 
   // Add event listener for when player is selected
-  select.addEventListener('change', (e) => {
+  select.addEventListener('change', e => {
     const playerId = e.target.value;
     if (playerId) {
       loadCoachMatchHistory(playerId, db);
     } else {
-      const container = document.getElementById("coach-match-history-list");
+      const container = document.getElementById('coach-match-history-list');
       if (container) {
-        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Wähle einen Spieler aus...</p>';
+        container.innerHTML =
+          '<p class="text-gray-400 text-center py-4 text-sm">Wähle einen Spieler aus...</p>';
       }
     }
   });
@@ -65,9 +66,9 @@ let coachMatchHistoryUnsubscribe = null;
  * @returns {Function} Unsubscribe function to stop listening
  */
 export async function loadCoachMatchHistory(playerId, db) {
-  const container = document.getElementById("coach-match-history-list");
+  const container = document.getElementById('coach-match-history-list');
   if (!container) {
-    console.error("Coach match history container not found");
+    console.error('Coach match history container not found');
     return;
   }
 
@@ -76,49 +77,60 @@ export async function loadCoachMatchHistory(playerId, db) {
     coachMatchHistoryUnsubscribe();
   }
 
-  container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
+  container.innerHTML =
+    '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
   try {
     // Get player data first
-    const playerDoc = await getDoc(doc(db, "users", playerId));
+    const playerDoc = await getDoc(doc(db, 'users', playerId));
     if (!playerDoc.exists()) {
-      container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Spieler nicht gefunden</p>';
+      container.innerHTML =
+        '<p class="text-red-500 text-center py-4 text-sm">Spieler nicht gefunden</p>';
       return;
     }
 
     const playerData = playerDoc.data();
     const playerName = `${playerData.firstName || ''} ${playerData.lastName || ''}`.trim();
 
-    console.log("[Coach Match History] 🔄 Setting up real-time listener for:", playerName, "clubId:", playerData.clubId);
+    console.log(
+      '[Coach Match History] 🔄 Setting up real-time listener for:',
+      playerName,
+      'clubId:',
+      playerData.clubId
+    );
 
     // Query SINGLES matches for this club
-    const singlesMatchesRef = collection(db, "matches");
+    const singlesMatchesRef = collection(db, 'matches');
     const singlesQuery = query(
       singlesMatchesRef,
-      where("clubId", "==", playerData.clubId),
-      where("processed", "==", true),
+      where('clubId', '==', playerData.clubId),
+      where('processed', '==', true),
       limit(100)
     );
 
     // Query DOUBLES matches for this club
-    const doublesMatchesRef = collection(db, "doublesMatches");
+    const doublesMatchesRef = collection(db, 'doublesMatches');
     const doublesQuery = query(
       doublesMatchesRef,
-      where("clubId", "==", playerData.clubId),
-      where("processed", "==", true),
+      where('clubId', '==', playerData.clubId),
+      where('processed', '==', true),
       limit(100)
     );
 
     // Set up real-time listeners for BOTH singles and doubles
     const unsubscribeSingles = onSnapshot(
       singlesQuery,
-      async (singlesSnapshot) => {
+      async singlesSnapshot => {
         const unsubscribeDoubles = onSnapshot(
           doublesQuery,
-          async (doublesSnapshot) => {
-            console.log("[Coach Match History] 📥 Real-time update received:",
-              singlesSnapshot.docs.length, "singles,",
-              doublesSnapshot.docs.length, "doubles");
+          async doublesSnapshot => {
+            console.log(
+              '[Coach Match History] 📥 Real-time update received:',
+              singlesSnapshot.docs.length,
+              'singles,',
+              doublesSnapshot.docs.length,
+              'doubles'
+            );
 
             // Filter singles matches where player is involved
             const singlesMatches = singlesSnapshot.docs
@@ -148,9 +160,13 @@ export async function loadCoachMatchHistory(playerId, db) {
             // Combine all matches
             const allMatches = [...singlesMatches, ...doublesMatches].slice(0, 50);
 
-            console.log("[Coach Match History] Player matches found:",
-              singlesMatches.length, "singles,",
-              doublesMatches.length, "doubles");
+            console.log(
+              '[Coach Match History] Player matches found:',
+              singlesMatches.length,
+              'singles,',
+              doublesMatches.length,
+              'doubles'
+            );
 
             if (allMatches.length === 0) {
               container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe für ${playerName} gefunden</p>`;
@@ -172,18 +188,20 @@ export async function loadCoachMatchHistory(playerId, db) {
             // Render matches
             renderCoachMatchHistory(container, matchesWithDetails, playerName);
           },
-          (error) => {
-            console.error("[Coach Match History] ❌ Doubles listener error:", error);
-            container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie</p>';
+          error => {
+            console.error('[Coach Match History] ❌ Doubles listener error:', error);
+            container.innerHTML =
+              '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie</p>';
           }
         );
 
         // Store the doubles unsubscribe function
         coachMatchHistoryUnsubscribe = unsubscribeDoubles;
       },
-      (error) => {
-        console.error("[Coach Match History] ❌ Singles listener error:", error);
-        container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>';
+      error => {
+        console.error('[Coach Match History] ❌ Singles listener error:', error);
+        container.innerHTML =
+          '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>';
       }
     );
 
@@ -194,10 +212,10 @@ export async function loadCoachMatchHistory(playerId, db) {
       }
       unsubscribeSingles();
     };
-
   } catch (error) {
-    console.error("Error loading coach match history:", error);
-    container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie</p>';
+    console.error('Error loading coach match history:', error);
+    container.innerHTML =
+      '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Historie</p>';
   }
 }
 
@@ -226,45 +244,42 @@ async function enrichCoachMatchData(db, match, playerId, playerData) {
       // Fetch all player names
       try {
         const [partnerDoc, opp1Doc, opp2Doc] = await Promise.all([
-          getDoc(doc(db, "users", partnerId)),
-          getDoc(doc(db, "users", opponentTeam.player1Id)),
-          getDoc(doc(db, "users", opponentTeam.player2Id))
+          getDoc(doc(db, 'users', partnerId)),
+          getDoc(doc(db, 'users', opponentTeam.player1Id)),
+          getDoc(doc(db, 'users', opponentTeam.player2Id)),
         ]);
 
         const partnerName = partnerDoc.exists()
           ? `${partnerDoc.data().firstName || ''} ${partnerDoc.data().lastName || ''}`.trim()
           : 'Unbekannt';
-        const opp1Name = opp1Doc.exists()
-          ? opp1Doc.data().firstName || 'Unbekannt'
-          : 'Unbekannt';
-        const opp2Name = opp2Doc.exists()
-          ? opp2Doc.data().firstName || 'Unbekannt'
-          : 'Unbekannt';
+        const opp1Name = opp1Doc.exists() ? opp1Doc.data().firstName || 'Unbekannt' : 'Unbekannt';
+        const opp2Name = opp2Doc.exists() ? opp2Doc.data().firstName || 'Unbekannt' : 'Unbekannt';
 
         enriched.partnerName = partnerName;
         enriched.opponentName = `${opp1Name} & ${opp2Name}`;
       } catch (error) {
-        console.warn("Could not fetch doubles player data:", error);
+        console.warn('Could not fetch doubles player data:', error);
         enriched.partnerName = 'Partner';
         enriched.opponentName = 'Gegner-Team';
       }
 
       // Determine if user's team won
-      enriched.isWinner = (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
+      enriched.isWinner =
+        (isTeamA && match.winningTeam === 'A') || (!isTeamA && match.winningTeam === 'B');
 
       // For doubles, isPlayerA means isTeamA (for set formatting)
       enriched.isPlayerA = isTeamA;
-
     } else {
       // Handle SINGLES matches
       // Determine opponent ID
       const opponentId = match.winnerId === playerId ? match.loserId : match.winnerId;
 
       // Get opponent data
-      const opponentDoc = await getDoc(doc(db, "users", opponentId));
+      const opponentDoc = await getDoc(doc(db, 'users', opponentId));
       if (opponentDoc.exists()) {
         const opponentData = opponentDoc.data();
-        enriched.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
+        enriched.opponentName =
+          `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt';
       } else {
         enriched.opponentName = 'Unbekannt';
       }
@@ -281,12 +296,8 @@ async function enrichCoachMatchData(db, match, playerId, playerData) {
     let pointsGained = null;
 
     try {
-      const pointsHistoryRef = collection(db, "users", playerId, "pointsHistory");
-      const historyQuery = query(
-        pointsHistoryRef,
-        orderBy("timestamp", "desc"),
-        limit(200)
-      );
+      const pointsHistoryRef = collection(db, 'users', playerId, 'pointsHistory');
+      const historyQuery = query(pointsHistoryRef, orderBy('timestamp', 'desc'), limit(200));
 
       const historySnapshot = await getDocs(historyQuery);
       const matchTime = match.timestamp?.toMillis() || match.playedAt?.toMillis() || 0;
@@ -296,11 +307,11 @@ async function enrichCoachMatchData(db, match, playerId, playerData) {
         const historyData = historyDoc.data();
         const historyTime = historyData.timestamp?.toMillis() || 0;
 
-        const isMatchHistory = historyData.awardedBy === "System (Wettkampf)" ||
-                              (historyData.reason && (
-                                historyData.reason.includes("Sieg im") ||
-                                historyData.reason.includes("Niederlage im")
-                              ));
+        const isMatchHistory =
+          historyData.awardedBy === 'System (Wettkampf)' ||
+          (historyData.reason &&
+            (historyData.reason.includes('Sieg im') ||
+              historyData.reason.includes('Niederlage im')));
 
         if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
           if (historyData.reason && historyData.reason.includes(opponentName.split(' ')[0])) {
@@ -315,7 +326,7 @@ async function enrichCoachMatchData(db, match, playerId, playerData) {
         }
       }
     } catch (historyError) {
-      console.warn("Could not fetch points history:", historyError);
+      console.warn('Could not fetch points history:', historyError);
     }
 
     // If we couldn't find it in history, estimate from match data
@@ -329,17 +340,14 @@ async function enrichCoachMatchData(db, match, playerId, playerData) {
           pointsGained = 0;
         }
       } else {
-        eloChange = match.handicapUsed ?
-          (enriched.isWinner ? 8 : -8) :
-          null;
+        eloChange = match.handicapUsed ? (enriched.isWinner ? 8 : -8) : null;
       }
     }
 
     enriched.eloChange = eloChange;
     enriched.pointsGained = pointsGained;
-
   } catch (error) {
-    console.error("Error enriching coach match data:", error);
+    console.error('Error enriching coach match data:', error);
     enriched.opponentName = 'Fehler';
     enriched.eloChange = null;
     enriched.pointsGained = 0;
@@ -355,15 +363,20 @@ async function enrichCoachMatchData(db, match, playerId, playerData) {
  * @param {string} playerName - Name of the player whose history is being viewed
  */
 function renderCoachMatchHistory(container, matches, playerName) {
-  container.innerHTML = "";
+  container.innerHTML = '';
 
   matches.forEach(match => {
-    const matchDiv = document.createElement("div");
-    matchDiv.className = "bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition";
+    const matchDiv = document.createElement('div');
+    matchDiv.className =
+      'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition';
 
     const isDoubles = match.type === 'doubles';
 
-    const matchTime = match.timestamp?.toDate() || match.playedAt?.toDate() || match.createdAt?.toDate() || new Date();
+    const matchTime =
+      match.timestamp?.toDate() ||
+      match.playedAt?.toDate() ||
+      match.createdAt?.toDate() ||
+      new Date();
     const formattedTime = formatMatchTime(matchTime);
     const formattedDate = formatMatchDate(matchTime);
 
@@ -371,15 +384,15 @@ function renderCoachMatchHistory(container, matches, playerName) {
     const setsDisplay = formatCoachSets(match.sets, match.isPlayerA, isDoubles);
 
     // ELO change display
-    const eloChangeDisplay = match.eloChange !== null
-      ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO`
-      : 'N/A';
+    const eloChangeDisplay =
+      match.eloChange !== null ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO` : 'N/A';
 
-    const eloChangeClass = match.eloChange > 0
-      ? 'text-green-600 font-semibold'
-      : match.eloChange < 0
-        ? 'text-red-600 font-semibold'
-        : 'text-gray-600';
+    const eloChangeClass =
+      match.eloChange > 0
+        ? 'text-green-600 font-semibold'
+        : match.eloChange < 0
+          ? 'text-red-600 font-semibold'
+          : 'text-gray-600';
 
     matchDiv.innerHTML = `
       <div class="flex items-start justify-between gap-4">
@@ -392,8 +405,9 @@ function renderCoachMatchHistory(container, matches, playerName) {
           </div>
 
           <div class="flex items-center gap-3 mb-2">
-            ${isDoubles
-              ? (match.isWinner
+            ${
+              isDoubles
+                ? match.isWinner
                   ? `<span class="text-2xl">🏆</span>
                      <div>
                        <p class="text-sm font-semibold text-green-700">
@@ -409,8 +423,8 @@ function renderCoachMatchHistory(container, matches, playerName) {
                          Niederlage mit ${match.partnerName}
                        </p>
                        <p class="text-xs text-gray-600 mt-0.5">gegen ${match.opponentName}</p>
-                     </div>`)
-              : (match.isWinner
+                     </div>`
+                : match.isWinner
                   ? `<span class="text-2xl">🏆</span>
                      <div>
                        <p class="text-sm font-semibold text-green-700">Sieg gegen ${match.opponentName}</p>
@@ -418,7 +432,7 @@ function renderCoachMatchHistory(container, matches, playerName) {
                   : `<span class="text-2xl">😔</span>
                      <div>
                        <p class="text-sm font-semibold text-red-700">Niederlage gegen ${match.opponentName}</p>
-                     </div>`)
+                     </div>`
             }
           </div>
 
@@ -453,20 +467,22 @@ function renderCoachMatchHistory(container, matches, playerName) {
 function formatCoachSets(sets, isPlayerA, isDoubles) {
   if (!sets || sets.length === 0) return 'N/A';
 
-  return sets.map(set => {
-    // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
-    if (isDoubles || (set.teamA !== undefined && set.teamB !== undefined)) {
-      // Doubles match
-      const myScore = isPlayerA ? set.teamA : set.teamB;
-      const oppScore = isPlayerA ? set.teamB : set.teamA;
-      return `${myScore}:${oppScore}`;
-    } else {
-      // Singles match
-      const myScore = isPlayerA ? set.playerA : set.playerB;
-      const oppScore = isPlayerA ? set.playerB : set.playerA;
-      return `${myScore}:${oppScore}`;
-    }
-  }).join(', ');
+  return sets
+    .map(set => {
+      // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
+      if (isDoubles || (set.teamA !== undefined && set.teamB !== undefined)) {
+        // Doubles match
+        const myScore = isPlayerA ? set.teamA : set.teamB;
+        const oppScore = isPlayerA ? set.teamB : set.teamA;
+        return `${myScore}:${oppScore}`;
+      } else {
+        // Singles match
+        const myScore = isPlayerA ? set.playerA : set.playerB;
+        const oppScore = isPlayerA ? set.playerB : set.playerA;
+        return `${myScore}:${oppScore}`;
+      }
+    })
+    .join(', ');
 }
 
 /**
@@ -493,7 +509,11 @@ function formatMatchDate(date) {
   // Reset time parts for comparison
   const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+  const yesterdayOnly = new Date(
+    yesterday.getFullYear(),
+    yesterday.getMonth(),
+    yesterday.getDate()
+  );
 
   if (dateOnly.getTime() === todayOnly.getTime()) {
     return 'Heute';

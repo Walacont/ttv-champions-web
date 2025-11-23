@@ -5,91 +5,91 @@
  */
 
 import {
-    doc,
-    getDoc,
-    setDoc,
-    serverTimestamp
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 // Widget definitions with metadata
 const WIDGETS = [
-    {
-        id: 'info-banner',
-        name: '📚 Info-Banner',
-        description: 'Erklärt die drei Systeme: XP, Elo und Saisonpunkte',
-        default: true,
-        essential: true // Cannot be disabled
-    },
-    {
-        id: 'statistics',
-        name: '📊 Deine Statistiken',
-        description: 'Zeigt XP, Elo und Saisonpunkte übersichtlich an',
-        default: true,
-        essential: false
-    },
-    {
-        id: 'season-countdown',
-        name: '⏳ Saison-Countdown',
-        description: 'Zeit bis zum Ende der aktuellen Saison',
-        default: true,
-        essential: false
-    },
-    {
-        id: 'match-requests',
-        name: '🏓 Wettkampf-Anfragen',
-        description: 'Ausstehende und eingegangene Match-Anfragen',
-        default: true,
-        essential: true // Cannot be disabled - required for match system
-    },
-    {
-        id: 'supercompensation',
-        name: '💪 Trainings-Balance',
-        description: 'Superkompensations-Analyse für optimales Training',
-        default: false,
-        essential: false
-    },
-    {
-        id: 'training-stats',
-        name: '📈 Trainings-Statistiken',
-        description: 'Heatmap und Monatsvergleich deiner Trainings',
-        default: false,
-        essential: false
-    },
-    {
-        id: 'rank',
-        name: '🏆 Dein Rang',
-        description: 'Deine aktuelle Rangstufe und Fortschritt',
-        default: true,
-        essential: false
-    },
-    {
-        id: 'skill-rival',
-        name: '⚡ Skill-Rivale',
-        description: 'Dein nächster Gegner in der Elo-Rangliste',
-        default: true,
-        essential: false
-    },
-    {
-        id: 'effort-rival',
-        name: '💪 Fleiß-Rivale',
-        description: 'Dein nächster Konkurrent in der XP-Rangliste',
-        default: true,
-        essential: false
-    },
-    {
-        id: 'points-history',
-        name: '📜 Punkte-Historie',
-        description: 'Deine letzten Punkteänderungen im Überblick',
-        default: true,
-        essential: false
-    },
-    {
-        id: 'challenges',
-        name: '🎯 Aktive Challenges',
-        description: 'Deine aktuellen Herausforderungen',
-        default: true,
-        essential: false
-    }
+  {
+    id: 'info-banner',
+    name: '📚 Info-Banner',
+    description: 'Erklärt die drei Systeme: XP, Elo und Saisonpunkte',
+    default: true,
+    essential: true, // Cannot be disabled
+  },
+  {
+    id: 'statistics',
+    name: '📊 Deine Statistiken',
+    description: 'Zeigt XP, Elo und Saisonpunkte übersichtlich an',
+    default: true,
+    essential: false,
+  },
+  {
+    id: 'season-countdown',
+    name: '⏳ Saison-Countdown',
+    description: 'Zeit bis zum Ende der aktuellen Saison',
+    default: true,
+    essential: false,
+  },
+  {
+    id: 'match-requests',
+    name: '🏓 Wettkampf-Anfragen',
+    description: 'Ausstehende und eingegangene Match-Anfragen',
+    default: true,
+    essential: true, // Cannot be disabled - required for match system
+  },
+  {
+    id: 'supercompensation',
+    name: '💪 Trainings-Balance',
+    description: 'Superkompensations-Analyse für optimales Training',
+    default: false,
+    essential: false,
+  },
+  {
+    id: 'training-stats',
+    name: '📈 Trainings-Statistiken',
+    description: 'Heatmap und Monatsvergleich deiner Trainings',
+    default: false,
+    essential: false,
+  },
+  {
+    id: 'rank',
+    name: '🏆 Dein Rang',
+    description: 'Deine aktuelle Rangstufe und Fortschritt',
+    default: true,
+    essential: false,
+  },
+  {
+    id: 'skill-rival',
+    name: '⚡ Skill-Rivale',
+    description: 'Dein nächster Gegner in der Elo-Rangliste',
+    default: true,
+    essential: false,
+  },
+  {
+    id: 'effort-rival',
+    name: '💪 Fleiß-Rivale',
+    description: 'Dein nächster Konkurrent in der XP-Rangliste',
+    default: true,
+    essential: false,
+  },
+  {
+    id: 'points-history',
+    name: '📜 Punkte-Historie',
+    description: 'Deine letzten Punkteänderungen im Überblick',
+    default: true,
+    essential: false,
+  },
+  {
+    id: 'challenges',
+    name: '🎯 Aktive Challenges',
+    description: 'Deine aktuellen Herausforderungen',
+    default: true,
+    essential: false,
+  },
 ];
 
 let currentSettings = {};
@@ -103,21 +103,23 @@ let currentUserId = null;
  * @param {string} userId - Current user ID
  */
 export function initializeWidgetSystem(firestoreInstance, userId) {
-    db = firestoreInstance;
-    currentUserId = userId;
+  db = firestoreInstance;
+  currentUserId = userId;
 
-    // Use default settings immediately (non-blocking)
-    currentSettings = getDefaultSettings();
-    applyWidgetSettings();
+  // Use default settings immediately (non-blocking)
+  currentSettings = getDefaultSettings();
+  applyWidgetSettings();
 
-    // Setup event listeners
-    setupWidgetControls();
+  // Setup event listeners
+  setupWidgetControls();
 
-    // Load user's saved settings in background (non-blocking)
-    loadWidgetSettings().then(() => {
-        applyWidgetSettings();
-    }).catch(error => {
-        // Use defaults if loading fails
+  // Load user's saved settings in background (non-blocking)
+  loadWidgetSettings()
+    .then(() => {
+      applyWidgetSettings();
+    })
+    .catch(error => {
+      // Use defaults if loading fails
     });
 }
 
@@ -125,19 +127,19 @@ export function initializeWidgetSystem(firestoreInstance, userId) {
  * Load widget settings from Firestore
  */
 async function loadWidgetSettings() {
-    try {
-        const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
-        const settingsDoc = await getDoc(settingsRef);
+  try {
+    const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
+    const settingsDoc = await getDoc(settingsRef);
 
-        if (settingsDoc.exists()) {
-            currentSettings = settingsDoc.data().widgets || {};
-        } else {
-            // Use default settings
-            currentSettings = getDefaultSettings();
-        }
-    } catch (error) {
-        currentSettings = getDefaultSettings();
+    if (settingsDoc.exists()) {
+      currentSettings = settingsDoc.data().widgets || {};
+    } else {
+      // Use default settings
+      currentSettings = getDefaultSettings();
     }
+  } catch (error) {
+    currentSettings = getDefaultSettings();
+  }
 }
 
 /**
@@ -145,11 +147,11 @@ async function loadWidgetSettings() {
  * @returns {Object} Default settings object
  */
 function getDefaultSettings() {
-    const settings = {};
-    WIDGETS.forEach(widget => {
-        settings[widget.id] = widget.default;
-    });
-    return settings;
+  const settings = {};
+  WIDGETS.forEach(widget => {
+    settings[widget.id] = widget.default;
+  });
+  return settings;
 }
 
 /**
@@ -157,85 +159,86 @@ function getDefaultSettings() {
  * @param {Object} settings - Settings object to save
  */
 async function saveWidgetSettings(settings) {
-    try {
-        const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
-        await setDoc(settingsRef, {
-            widgets: settings,
-            updatedAt: serverTimestamp()
-        });
-        return true;
-    } catch (error) {
-        return false;
-    }
+  try {
+    const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
+    await setDoc(settingsRef, {
+      widgets: settings,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 /**
  * Apply widget settings to the dashboard (show/hide widgets)
  */
 function applyWidgetSettings() {
-    const widgets = document.querySelectorAll('.dashboard-widget');
+  const widgets = document.querySelectorAll('.dashboard-widget');
 
-    widgets.forEach(widget => {
-        const widgetId = widget.getAttribute('data-widget-id');
-        const isVisible = currentSettings[widgetId] !== false; // Default to visible if not set
+  widgets.forEach(widget => {
+    const widgetId = widget.getAttribute('data-widget-id');
+    const isVisible = currentSettings[widgetId] !== false; // Default to visible if not set
 
-        if (isVisible) {
-            widget.classList.remove('hidden');
-        } else {
-            widget.classList.add('hidden');
-        }
-    });
+    if (isVisible) {
+      widget.classList.remove('hidden');
+    } else {
+      widget.classList.add('hidden');
+    }
+  });
 }
 
 /**
  * Setup event listeners for widget controls
  */
 function setupWidgetControls() {
-    // Open modal button
-    const editButton = document.getElementById('edit-dashboard-button');
-    if (editButton) {
-        editButton.addEventListener('click', openWidgetSettingsModal);
-    }
+  // Open modal button
+  const editButton = document.getElementById('edit-dashboard-button');
+  if (editButton) {
+    editButton.addEventListener('click', openWidgetSettingsModal);
+  }
 
-    // Close modal buttons
-    const closeButton = document.getElementById('close-widget-settings-modal');
-    const cancelButton = document.getElementById('cancel-widget-settings-button');
-    if (closeButton) closeButton.addEventListener('click', closeWidgetSettingsModal);
-    if (cancelButton) cancelButton.addEventListener('click', closeWidgetSettingsModal);
+  // Close modal buttons
+  const closeButton = document.getElementById('close-widget-settings-modal');
+  const cancelButton = document.getElementById('cancel-widget-settings-button');
+  if (closeButton) closeButton.addEventListener('click', closeWidgetSettingsModal);
+  if (cancelButton) cancelButton.addEventListener('click', closeWidgetSettingsModal);
 
-    // Save button
-    const saveButton = document.getElementById('save-widget-settings-button');
-    if (saveButton) {
-        saveButton.addEventListener('click', saveWidgetSettingsFromModal);
-    }
+  // Save button
+  const saveButton = document.getElementById('save-widget-settings-button');
+  if (saveButton) {
+    saveButton.addEventListener('click', saveWidgetSettingsFromModal);
+  }
 
-    // Reset button
-    const resetButton = document.getElementById('reset-widgets-button');
-    if (resetButton) {
-        resetButton.addEventListener('click', resetWidgetSettings);
-    }
+  // Reset button
+  const resetButton = document.getElementById('reset-widgets-button');
+  if (resetButton) {
+    resetButton.addEventListener('click', resetWidgetSettings);
+  }
 }
 
 /**
  * Open widget settings modal
  */
 function openWidgetSettingsModal() {
-    console.log('[Widget System] Opening settings modal');
+  console.log('[Widget System] Opening settings modal');
 
-    const modal = document.getElementById('widget-settings-modal');
-    const listContainer = document.getElementById('widget-settings-list');
+  const modal = document.getElementById('widget-settings-modal');
+  const listContainer = document.getElementById('widget-settings-list');
 
-    // Clear previous content
-    listContainer.innerHTML = '';
+  // Clear previous content
+  listContainer.innerHTML = '';
 
-    // Generate widget toggles
-    WIDGETS.forEach(widget => {
-        const isEnabled = currentSettings[widget.id] !== false;
-        const isEssential = widget.essential;
+  // Generate widget toggles
+  WIDGETS.forEach(widget => {
+    const isEnabled = currentSettings[widget.id] !== false;
+    const isEssential = widget.essential;
 
-        const widgetItem = document.createElement('div');
-        widgetItem.className = 'flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors';
-        widgetItem.innerHTML = `
+    const widgetItem = document.createElement('div');
+    widgetItem.className =
+      'flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors';
+    widgetItem.innerHTML = `
             <div class="flex-1">
                 <div class="flex items-center gap-2">
                     <span class="text-lg">${widget.name}</span>
@@ -252,107 +255,107 @@ function openWidgetSettingsModal() {
                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
             </label>
         `;
-        listContainer.appendChild(widgetItem);
-    });
+    listContainer.appendChild(widgetItem);
+  });
 
-    // Show modal
-    modal.classList.remove('hidden');
+  // Show modal
+  modal.classList.remove('hidden');
 }
 
 /**
  * Close widget settings modal
  */
 function closeWidgetSettingsModal() {
-    const modal = document.getElementById('widget-settings-modal');
-    modal.classList.add('hidden');
+  const modal = document.getElementById('widget-settings-modal');
+  modal.classList.add('hidden');
 
-    // Clear feedback
-    const feedback = document.getElementById('widget-settings-feedback');
-    feedback.classList.add('hidden');
-    feedback.textContent = '';
+  // Clear feedback
+  const feedback = document.getElementById('widget-settings-feedback');
+  feedback.classList.add('hidden');
+  feedback.textContent = '';
 }
 
 /**
  * Save widget settings from modal
  */
 async function saveWidgetSettingsFromModal() {
-    console.log('[Widget System] Saving settings from modal');
+  console.log('[Widget System] Saving settings from modal');
 
-    const feedback = document.getElementById('widget-settings-feedback');
-    feedback.classList.remove('hidden');
-    feedback.className = 'mt-4 text-center text-sm font-medium text-gray-600';
-    feedback.textContent = 'Speichere Einstellungen...';
+  const feedback = document.getElementById('widget-settings-feedback');
+  feedback.classList.remove('hidden');
+  feedback.className = 'mt-4 text-center text-sm font-medium text-gray-600';
+  feedback.textContent = 'Speichere Einstellungen...';
 
-    // Collect settings from checkboxes
-    const toggles = document.querySelectorAll('.widget-toggle');
-    const newSettings = {};
+  // Collect settings from checkboxes
+  const toggles = document.querySelectorAll('.widget-toggle');
+  const newSettings = {};
 
-    toggles.forEach(toggle => {
-        const widgetId = toggle.getAttribute('data-widget-id');
-        newSettings[widgetId] = toggle.checked;
-    });
+  toggles.forEach(toggle => {
+    const widgetId = toggle.getAttribute('data-widget-id');
+    newSettings[widgetId] = toggle.checked;
+  });
 
-    // Save to Firestore
-    const success = await saveWidgetSettings(newSettings);
+  // Save to Firestore
+  const success = await saveWidgetSettings(newSettings);
 
-    if (success) {
-        // Update current settings
-        currentSettings = newSettings;
+  if (success) {
+    // Update current settings
+    currentSettings = newSettings;
 
-        // Apply to dashboard
-        applyWidgetSettings();
+    // Apply to dashboard
+    applyWidgetSettings();
 
-        // Show success message
-        feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
-        feedback.textContent = '✓ Einstellungen gespeichert!';
+    // Show success message
+    feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
+    feedback.textContent = '✓ Einstellungen gespeichert!';
 
-        // Close modal after delay
-        setTimeout(() => {
-            closeWidgetSettingsModal();
-        }, 1500);
-    } else {
-        // Show error message
-        feedback.className = 'mt-4 text-center text-sm font-medium text-red-600';
-        feedback.textContent = '✗ Fehler beim Speichern. Bitte versuche es erneut.';
-    }
+    // Close modal after delay
+    setTimeout(() => {
+      closeWidgetSettingsModal();
+    }, 1500);
+  } else {
+    // Show error message
+    feedback.className = 'mt-4 text-center text-sm font-medium text-red-600';
+    feedback.textContent = '✗ Fehler beim Speichern. Bitte versuche es erneut.';
+  }
 }
 
 /**
  * Reset widget settings to defaults
  */
 async function resetWidgetSettings() {
-    if (!confirm('Möchtest du alle Widgets auf die Standardeinstellungen zurücksetzen?')) {
-        return;
-    }
+  if (!confirm('Möchtest du alle Widgets auf die Standardeinstellungen zurücksetzen?')) {
+    return;
+  }
 
-    console.log('[Widget System] Resetting to default settings');
+  console.log('[Widget System] Resetting to default settings');
 
-    const defaultSettings = getDefaultSettings();
+  const defaultSettings = getDefaultSettings();
 
-    // Save defaults to Firestore
-    const success = await saveWidgetSettings(defaultSettings);
+  // Save defaults to Firestore
+  const success = await saveWidgetSettings(defaultSettings);
 
-    if (success) {
-        // Update current settings
-        currentSettings = defaultSettings;
+  if (success) {
+    // Update current settings
+    currentSettings = defaultSettings;
 
-        // Apply to dashboard
-        applyWidgetSettings();
+    // Apply to dashboard
+    applyWidgetSettings();
 
-        // Refresh modal
-        closeWidgetSettingsModal();
-        openWidgetSettingsModal();
+    // Refresh modal
+    closeWidgetSettingsModal();
+    openWidgetSettingsModal();
 
-        // Show feedback
-        const feedback = document.getElementById('widget-settings-feedback');
-        feedback.classList.remove('hidden');
-        feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
-        feedback.textContent = '✓ Auf Standard zurückgesetzt!';
+    // Show feedback
+    const feedback = document.getElementById('widget-settings-feedback');
+    feedback.classList.remove('hidden');
+    feedback.className = 'mt-4 text-center text-sm font-medium text-green-600';
+    feedback.textContent = '✓ Auf Standard zurückgesetzt!';
 
-        setTimeout(() => {
-            feedback.classList.add('hidden');
-        }, 3000);
-    }
+    setTimeout(() => {
+      feedback.classList.add('hidden');
+    }, 3000);
+  }
 }
 
 /**
@@ -360,7 +363,7 @@ async function resetWidgetSettings() {
  * @returns {Object} Current settings
  */
 export function getCurrentWidgetSettings() {
-    return { ...currentSettings };
+  return { ...currentSettings };
 }
 
 /**
@@ -369,5 +372,5 @@ export function getCurrentWidgetSettings() {
  * @returns {boolean} True if visible
  */
 export function isWidgetVisible(widgetId) {
-    return currentSettings[widgetId] !== false;
+  return currentSettings[widgetId] !== false;
 }

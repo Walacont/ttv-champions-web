@@ -72,15 +72,24 @@ export function validateMatch(sets) {
     if (!isValidSet(scoreA, scoreB)) {
       // Provide specific error message based on the issue
       if (scoreA < 11 && scoreB < 11) {
-        return { valid: false, error: `Satz ${i + 1}: Mindestens eine Seite muss 11 Punkte haben.` };
+        return {
+          valid: false,
+          error: `Satz ${i + 1}: Mindestens eine Seite muss 11 Punkte haben.`,
+        };
       }
       if (scoreA === scoreB) {
         return { valid: false, error: `Satz ${i + 1}: Unentschieden ist nicht erlaubt.` };
       }
       if (scoreA >= 10 && scoreB >= 10 && Math.abs(scoreA - scoreB) !== 2) {
-        return { valid: false, error: `Satz ${i + 1}: Ab 10:10 muss eine Seite 2 Punkte Vorsprung haben (z.B. 12:10, 14:12).` };
+        return {
+          valid: false,
+          error: `Satz ${i + 1}: Ab 10:10 muss eine Seite 2 Punkte Vorsprung haben (z.B. 12:10, 14:12).`,
+        };
       }
-      return { valid: false, error: `Satz ${i + 1}: Ungültiges Satzergebnis (${scoreA}:${scoreB}).` };
+      return {
+        valid: false,
+        error: `Satz ${i + 1}: Ungültiges Satzergebnis (${scoreA}:${scoreB}).`,
+      };
     }
   }
 
@@ -88,7 +97,7 @@ export function validateMatch(sets) {
   let playerAWins = 0;
   let playerBWins = 0;
 
-  sets.forEach((set) => {
+  sets.forEach(set => {
     const winner = getSetWinner(set.playerA, set.playerB);
     if (winner === 'A') playerAWins++;
     if (winner === 'B') playerBWins++;
@@ -96,7 +105,7 @@ export function validateMatch(sets) {
 
   // Check if someone won (3 sets)
   if (playerAWins < 3 && playerBWins < 3) {
-    return { valid: false, error: "Ein Spieler muss 3 Sätze gewinnen." };
+    return { valid: false, error: 'Ein Spieler muss 3 Sätze gewinnen.' };
   }
 
   // Determine winner
@@ -137,6 +146,60 @@ export function calculateHandicap(playerA, playerB) {
   const weakerPlayer = eloA < eloB ? playerA : playerB;
   return {
     player: weakerPlayer,
-    points: handicapPoints
+    points: handicapPoints,
   };
+}
+
+// ========================================================================
+// ===== UI HELPER FUNCTIONS =====
+// ========================================================================
+
+/**
+ * Escapes HTML special characters to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+export function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Formats a date string from YYYY-MM-DD to DD.MM.YYYY (German format)
+ * @param {string} dateStr - Date string in YYYY-MM-DD format
+ * @returns {string} Date string in DD.MM.YYYY format
+ */
+export function formatDateGerman(dateStr) {
+  const [year, month, day] = dateStr.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+/**
+ * Opens a modal by clicking a button and waits for animation
+ * @param {string} buttonSelector - CSS selector for the button to click
+ * @param {string} modalSelector - CSS selector for the modal (unused but kept for compatibility)
+ * @returns {Promise<void>} Promise that resolves after modal animation
+ */
+export function openModal(buttonSelector, modalSelector) {
+  return new Promise(resolve => {
+    const button = document.querySelector(buttonSelector);
+    if (button) {
+      button.click();
+      setTimeout(resolve, 400);
+    } else {
+      resolve();
+    }
+  });
+}
+
+/**
+ * Closes a modal by clicking the close button
+ * @param {string} closeButtonSelector - CSS selector for the close button
+ */
+export function closeModal(closeButtonSelector) {
+  const closeButton = document.querySelector(closeButtonSelector);
+  if (closeButton) {
+    closeButton.click();
+  }
 }

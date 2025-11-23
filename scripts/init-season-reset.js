@@ -17,7 +17,7 @@ try {
   const serviceAccount = require(serviceAccountPath);
 
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
   });
 
   console.log('✅ Firebase Admin initialized');
@@ -51,15 +51,18 @@ async function initSeasonReset() {
 
       const readline = require('readline').createInterface({
         input: process.stdin,
-        output: process.stdout
+        output: process.stdout,
       });
 
-      readline.question('\nDo you want to reset the season NOW? (yes/no): ', async (answer) => {
+      readline.question('\nDo you want to reset the season NOW? (yes/no): ', async answer => {
         if (answer.toLowerCase() === 'yes') {
-          await configRef.set({
-            lastResetDate: admin.firestore.Timestamp.now(),
-            lastResetTimestamp: admin.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
+          await configRef.set(
+            {
+              lastResetDate: admin.firestore.Timestamp.now(),
+              lastResetTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
 
           console.log('✅ Season reset date updated to NOW!');
           console.log(`   Next reset will be in 6 weeks`);
@@ -78,7 +81,7 @@ async function initSeasonReset() {
 
     await configRef.set({
       lastResetDate: admin.firestore.Timestamp.now(),
-      lastResetTimestamp: admin.firestore.FieldValue.serverTimestamp()
+      lastResetTimestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log('✅ Season reset config created successfully!');

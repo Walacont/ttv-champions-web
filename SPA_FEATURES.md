@@ -64,21 +64,20 @@ loader.close();
 
 ```javascript
 async function saveMatch(matchData) {
-    const loader = window.notifications.loading('Speichere Match...');
+  const loader = window.notifications.loading('Speichere Match...');
 
-    try {
-        // Firebase Firestore Speichern
-        await addDoc(collection(db, 'matches'), matchData);
+  try {
+    // Firebase Firestore Speichern
+    await addDoc(collection(db, 'matches'), matchData);
 
-        loader.success('Match erfolgreich gespeichert!');
+    loader.success('Match erfolgreich gespeichert!');
 
-        // Formular zurücksetzen
-        resetForm();
-
-    } catch (error) {
-        console.error('Error:', error);
-        loader.error('Fehler: ' + error.message);
-    }
+    // Formular zurücksetzen
+    resetForm();
+  } catch (error) {
+    console.error('Error:', error);
+    loader.error('Fehler: ' + error.message);
+  }
 }
 ```
 
@@ -99,20 +98,19 @@ window.notifications.success('Match erfolgreich erstellt!');
 ```javascript
 // Match genehmigen
 async function approveMatch(matchId) {
-    const loader = window.notifications.loading('Genehmige Match...');
+  const loader = window.notifications.loading('Genehmige Match...');
 
-    try {
-        await updateDoc(doc(db, 'matchRequests', matchId), {
-            status: 'approved',
-            approvedBy: currentUserData.id,
-            approvedAt: new Date()
-        });
+  try {
+    await updateDoc(doc(db, 'matchRequests', matchId), {
+      status: 'approved',
+      approvedBy: currentUserData.id,
+      approvedAt: new Date(),
+    });
 
-        loader.success('Match erfolgreich genehmigt!');
-
-    } catch (error) {
-        loader.error('Fehler beim Genehmigen: ' + error.message);
-    }
+    loader.success('Match erfolgreich genehmigt!');
+  } catch (error) {
+    loader.error('Fehler beim Genehmigen: ' + error.message);
+  }
 }
 ```
 
@@ -131,26 +129,26 @@ Wenn du die Animationen ändern möchtest, bearbeite `/css/spa-enhancements.css`
 ```css
 /* Schnellere Transitions */
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(5px);  /* Weniger Bewegung */
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(5px); /* Weniger Bewegung */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Oder Slide-Animation */
 @keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateX(100px);  /* Von rechts */
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateX(100px); /* Von rechts */
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 ```
 
@@ -158,14 +156,14 @@ Wenn du die Animationen ändern möchtest, bearbeite `/css/spa-enhancements.css`
 
 ```javascript
 // Reagiere auf Seiten-Navigation
-window.spaEnhancer.on('navigationStart', (data) => {
-    console.log('Navigation startet zu:', data.url);
-    // Hier eigene Exit-Animation starten
+window.spaEnhancer.on('navigationStart', data => {
+  console.log('Navigation startet zu:', data.url);
+  // Hier eigene Exit-Animation starten
 });
 
-window.spaEnhancer.on('navigationEnd', (data) => {
-    console.log('Navigation beendet:', data.url);
-    // Hier eigene Enter-Animation starten
+window.spaEnhancer.on('navigationEnd', data => {
+  console.log('Navigation beendet:', data.url);
+  // Hier eigene Enter-Animation starten
 });
 ```
 
@@ -194,20 +192,19 @@ window.spaEnhancer.hideLoader();
 
 ```javascript
 async function loadLeaderboard() {
-    window.spaEnhancer.showLoader();
+  window.spaEnhancer.showLoader();
 
-    try {
-        const snapshot = await getDocs(collection(db, 'users'));
-        const players = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+  try {
+    const snapshot = await getDocs(collection(db, 'users'));
+    const players = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
 
-        renderLeaderboard(players);
-
-    } catch (error) {
-        console.error('Error loading leaderboard:', error);
-        window.notifications.error('Fehler beim Laden der Rangliste');
-    } finally {
-        window.spaEnhancer.hideLoader();
-    }
+    renderLeaderboard(players);
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+    window.notifications.error('Fehler beim Laden der Rangliste');
+  } finally {
+    window.spaEnhancer.hideLoader();
+  }
 }
 ```
 
@@ -222,19 +219,19 @@ async function loadLeaderboard() {
 ```javascript
 // Finde diese Funktion:
 async function submitMatchRequest() {
-    // ... bestehender Code ...
+  // ... bestehender Code ...
 
-    try {
-        await addDoc(collection(db, 'matchRequests'), matchData);
+  try {
+    await addDoc(collection(db, 'matchRequests'), matchData);
 
-        // NEU: Toast statt alert()
-        window.notifications.success('Match-Anfrage erfolgreich gesendet!');
+    // NEU: Toast statt alert()
+    window.notifications.success('Match-Anfrage erfolgreich gesendet!');
 
-        resetForm();
-    } catch (error) {
-        // NEU: Error-Toast
-        window.notifications.error('Fehler: ' + error.message);
-    }
+    resetForm();
+  } catch (error) {
+    // NEU: Error-Toast
+    window.notifications.error('Fehler: ' + error.message);
+  }
 }
 ```
 
@@ -245,17 +242,16 @@ async function submitMatchRequest() {
 ```javascript
 // Finde die approveMatch Funktion
 export async function approveMatch(matchId, coachId, coachName) {
-    const loader = window.notifications.loading('Genehmige Match...');
+  const loader = window.notifications.loading('Genehmige Match...');
 
-    try {
-        // ... bestehender Firestore-Code ...
+  try {
+    // ... bestehender Firestore-Code ...
 
-        loader.success(`Match von ${coachName} genehmigt!`);
-
-    } catch (error) {
-        loader.error('Fehler beim Genehmigen');
-        console.error(error);
-    }
+    loader.success(`Match von ${coachName} genehmigt!`);
+  } catch (error) {
+    loader.error('Fehler beim Genehmigen');
+    console.error(error);
+  }
 }
 ```
 
@@ -266,19 +262,18 @@ export async function approveMatch(matchId, coachId, coachName) {
 ```javascript
 // Finde die updateProfile Funktion
 async function updateProfile() {
-    const loader = window.notifications.loading('Speichere Profil...');
+  const loader = window.notifications.loading('Speichere Profil...');
 
-    try {
-        await updateDoc(doc(db, 'users', user.uid), {
-            firstName: document.getElementById('first-name').value,
-            lastName: document.getElementById('last-name').value
-        });
+  try {
+    await updateDoc(doc(db, 'users', user.uid), {
+      firstName: document.getElementById('first-name').value,
+      lastName: document.getElementById('last-name').value,
+    });
 
-        loader.success('Profil erfolgreich aktualisiert!');
-
-    } catch (error) {
-        loader.error('Fehler beim Speichern: ' + error.message);
-    }
+    loader.success('Profil erfolgreich aktualisiert!');
+  } catch (error) {
+    loader.error('Fehler beim Speichern: ' + error.message);
+  }
 }
 ```
 
@@ -288,16 +283,15 @@ async function updateProfile() {
 
 ```javascript
 async function inviteCoach(email) {
-    const loader = window.notifications.loading('Sende Einladung...');
+  const loader = window.notifications.loading('Sende Einladung...');
 
-    try {
-        // ... Einladungs-Code ...
+  try {
+    // ... Einladungs-Code ...
 
-        loader.success(`Einladung an ${email} gesendet!`);
-
-    } catch (error) {
-        loader.error('Fehler beim Senden der Einladung');
-    }
+    loader.success(`Einladung an ${email} gesendet!`);
+  } catch (error) {
+    loader.error('Fehler beim Senden der Einladung');
+  }
 }
 ```
 
@@ -310,13 +304,13 @@ async function inviteCoach(email) {
 ```javascript
 // Reagiere auf Page Loads
 window.spaEnhancer.on('loadStart', () => {
-    console.log('Seite lädt...');
-    // z.B. Analytics tracking
+  console.log('Seite lädt...');
+  // z.B. Analytics tracking
 });
 
 window.spaEnhancer.on('loadEnd', () => {
-    console.log('Seite geladen!');
-    // z.B. GA pageview event
+  console.log('Seite geladen!');
+  // z.B. GA pageview event
 });
 ```
 
@@ -341,6 +335,7 @@ window.spaEnhancer.clearCache();
 ## 📱 Mobile-Optimierung
 
 Die Toasts sind bereits mobile-responsive! Auf kleinen Bildschirmen:
+
 - Toasts passen sich der Breite an
 - Seitliche Margins werden kleiner
 - Schriftgröße bleibt lesbar
@@ -356,16 +351,16 @@ Die Toasts sind bereits mobile-responsive! Auf kleinen Bildschirmen:
 ```css
 /* Erfolgs-Toast grüner machen */
 .toast-success {
-    border-left-color: #059669;  /* Dunkleres Grün */
+  border-left-color: #059669; /* Dunkleres Grün */
 }
 
 .toast-success .toast-icon {
-    color: #059669;
+  color: #059669;
 }
 
 /* Error-Toast orangener statt rot */
 .toast-error {
-    border-left-color: #f59e0b;
+  border-left-color: #f59e0b;
 }
 ```
 
@@ -373,7 +368,7 @@ Die Toasts sind bereits mobile-responsive! Auf kleinen Bildschirmen:
 
 ```css
 .spa-loading-bar {
-    background: linear-gradient(90deg, #4f46e5, #7c3aed); /* Lila statt Blau */
+  background: linear-gradient(90deg, #4f46e5, #7c3aed); /* Lila statt Blau */
 }
 ```
 
@@ -384,7 +379,7 @@ Die Toasts sind bereits mobile-responsive! Auf kleinen Bildschirmen:
 #app-content,
 #main-content,
 .page-content {
-    animation: fadeIn 0.15s ease-in-out; /* Statt 0.3s */
+  animation: fadeIn 0.15s ease-in-out; /* Statt 0.3s */
 }
 ```
 
@@ -399,10 +394,10 @@ Die CSS enthält bereits `prefers-reduced-motion` Support:
 ```css
 /* Automatisch weniger Animationen für User, die das bevorzugen */
 @media (prefers-reduced-motion: reduce) {
-    * {
-        animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
-    }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 ```
 
@@ -411,8 +406,8 @@ Die CSS enthält bereits `prefers-reduced-motion` Support:
 ```javascript
 // Beim Dashboard-Load: Prefetch Settings
 if (window.spaEnhancer) {
-    window.spaEnhancer.prefetch('/settings.html');
-    window.spaEnhancer.prefetch('/faq.html');
+  window.spaEnhancer.prefetch('/settings.html');
+  window.spaEnhancer.prefetch('/faq.html');
 }
 ```
 
@@ -420,19 +415,17 @@ if (window.spaEnhancer) {
 
 ```javascript
 async function loadMatchHistory() {
-    // Zeige Loading
-    const loader = window.notifications.loading('Lade Historie...');
+  // Zeige Loading
+  const loader = window.notifications.loading('Lade Historie...');
 
-    // Lade nur die ersten 20 Matches
-    const recentMatches = await getDocs(
-        query(collection(db, 'matches'), limit(20))
-    );
+  // Lade nur die ersten 20 Matches
+  const recentMatches = await getDocs(query(collection(db, 'matches'), limit(20)));
 
-    renderMatches(recentMatches.docs);
-    loader.close();
+  renderMatches(recentMatches.docs);
+  loader.close();
 
-    // Lade Rest im Hintergrund
-    loadRemainingMatches();
+  // Lade Rest im Hintergrund
+  loadRemainingMatches();
 }
 ```
 
@@ -443,19 +436,21 @@ async function loadMatchHistory() {
 ### Problem: Toasts erscheinen nicht
 
 **Lösung:**
+
 ```javascript
 // Prüfe ob NotificationManager geladen ist
 console.log(window.notifications); // Sollte Object sein
 
 // Manuell initialisieren wenn nötig
 if (!window.notifications) {
-    import('/js/notifications.js');
+  import('/js/notifications.js');
 }
 ```
 
 ### Problem: Loading-Bar erscheint nicht
 
 **Lösung:**
+
 ```javascript
 // Prüfe ob SPA Enhancer geladen ist
 console.log(window.spaEnhancer); // Sollte Object sein
@@ -468,12 +463,13 @@ console.log(link); // Sollte <link> element sein
 ### Problem: Animationen ruckeln
 
 **Lösung:**
+
 ```css
 /* Füge Hardware-Acceleration hinzu */
 .toast,
 #main-content {
-    transform: translateZ(0);
-    will-change: transform, opacity;
+  transform: translateZ(0);
+  will-change: transform, opacity;
 }
 ```
 
@@ -492,14 +488,16 @@ const loader = window.notifications.loading('Lade...');
 
 // Schließe Loading-Toasts immer
 try {
-    await operation();
-    loader.success('Fertig!');
+  await operation();
+  loader.success('Fertig!');
 } catch (error) {
-    loader.error('Fehler!');
+  loader.error('Fehler!');
 }
 
 // Benutze sinnvolle Nachrichten
-window.notifications.error('Match konnte nicht gespeichert werden. Bitte überprüfe deine Internet-Verbindung.');
+window.notifications.error(
+  'Match konnte nicht gespeichert werden. Bitte überprüfe deine Internet-Verbindung.'
+);
 ```
 
 ### ❌ DON'T:
@@ -507,7 +505,7 @@ window.notifications.error('Match konnte nicht gespeichert werden. Bitte überpr
 ```javascript
 // Nicht zu viele Toasts gleichzeitig
 for (let i = 0; i < 100; i++) {
-    window.notifications.success('Match ' + i); // ❌ NICHT!
+  window.notifications.success('Match ' + i); // ❌ NICHT!
 }
 
 // Nicht alert() verwenden (benutze Toasts)
@@ -519,7 +517,9 @@ await operation();
 // ❌ loader.close() vergessen!
 
 // Nicht zu lange Nachrichten
-window.notifications.success('Dies ist eine sehr lange Nachricht die viel zu viel Text enthält und niemand liest das ganz durch und es sieht auch nicht gut aus'); // ❌
+window.notifications.success(
+  'Dies ist eine sehr lange Nachricht die viel zu viel Text enthält und niemand liest das ganz durch und es sieht auch nicht gut aus'
+); // ❌
 ```
 
 ---
@@ -528,36 +528,36 @@ window.notifications.success('Dies ist eine sehr lange Nachricht die viel zu vie
 
 ```javascript
 // Tracke Page-Views
-window.spaEnhancer.on('navigationEnd', (data) => {
-    // Google Analytics
-    if (window.gtag) {
-        gtag('event', 'page_view', {
-            page_path: data.url
-        });
-    }
+window.spaEnhancer.on('navigationEnd', data => {
+  // Google Analytics
+  if (window.gtag) {
+    gtag('event', 'page_view', {
+      page_path: data.url,
+    });
+  }
 
-    // Oder Firebase Analytics
-    if (window.analytics) {
-        logEvent(analytics, 'page_view', {
-            page_path: data.url
-        });
-    }
+  // Oder Firebase Analytics
+  if (window.analytics) {
+    logEvent(analytics, 'page_view', {
+      page_path: data.url,
+    });
+  }
 });
 
 // Tracke Notifications
 function trackNotification(type, message) {
-    if (window.gtag) {
-        gtag('event', 'notification_shown', {
-            notification_type: type,
-            message: message
-        });
-    }
+  if (window.gtag) {
+    gtag('event', 'notification_shown', {
+      notification_type: type,
+      message: message,
+    });
+  }
 }
 
 // Eigene Notification-Funktion mit Tracking
 function showSuccessWithTracking(message) {
-    window.notifications.success(message);
-    trackNotification('success', message);
+  window.notifications.success(message);
+  trackNotification('success', message);
 }
 ```
 
@@ -570,20 +570,20 @@ Die CSS enthält bereits Styles für einen Offline-Indicator:
 ```javascript
 // Zeige Offline-Nachricht
 window.addEventListener('offline', () => {
-    const indicator = document.createElement('div');
-    indicator.className = 'offline-indicator';
-    indicator.textContent = '⚠️ Keine Internet-Verbindung';
-    indicator.id = 'offline-indicator';
-    document.body.appendChild(indicator);
+  const indicator = document.createElement('div');
+  indicator.className = 'offline-indicator';
+  indicator.textContent = '⚠️ Keine Internet-Verbindung';
+  indicator.id = 'offline-indicator';
+  document.body.appendChild(indicator);
 });
 
 window.addEventListener('online', () => {
-    const indicator = document.getElementById('offline-indicator');
-    if (indicator) {
-        indicator.className = 'offline-indicator online';
-        indicator.textContent = '✓ Verbindung wiederhergestellt';
-        setTimeout(() => indicator.remove(), 3000);
-    }
+  const indicator = document.getElementById('offline-indicator');
+  if (indicator) {
+    indicator.className = 'offline-indicator online';
+    indicator.textContent = '✓ Verbindung wiederhergestellt';
+    setTimeout(() => indicator.remove(), 3000);
+  }
 });
 ```
 
@@ -592,6 +592,7 @@ window.addEventListener('online', () => {
 ## 📝 Zusammenfassung
 
 **Was du jetzt hast:**
+
 - ✅ Professionelles Toast-System
 - ✅ Smooth Page Transitions
 - ✅ Schöner Loading-Indicator
@@ -599,6 +600,7 @@ window.addEventListener('online', () => {
 - ✅ Einfach zu benutzen
 
 **Wie du es benutzt:**
+
 ```javascript
 // Einfach:
 window.notifications.success('Fertig!');
@@ -610,11 +612,12 @@ loader.success('Fertig!');
 
 // Advanced:
 window.spaEnhancer.on('navigationEnd', () => {
-    // Custom logic
+  // Custom logic
 });
 ```
 
 **Nächste Schritte:**
+
 1. Ersetze alle `alert()` calls mit Toasts
 2. Füge Loading-Toasts zu längeren Operationen hinzu
 3. Teste auf Mobile

@@ -16,10 +16,11 @@ export function initializeExerciseMilestones() {
   const addBtn = document.getElementById('add-exercise-milestone-btn');
 
   // Points container (different IDs for admin vs coach)
-  const pointsContainer = document.getElementById('exercise-points-container-admin') ||
-                          document.getElementById('exercise-standard-points-container');
-  const pointsInput = document.getElementById('exercise-points') ||
-                      document.getElementById('exercise-points-form');
+  const pointsContainer =
+    document.getElementById('exercise-points-container-admin') ||
+    document.getElementById('exercise-standard-points-container');
+  const pointsInput =
+    document.getElementById('exercise-points') || document.getElementById('exercise-points-form');
 
   if (!toggle || !container || !addBtn) return;
 
@@ -371,19 +372,21 @@ export function initializeExercisePartnerSystemCoach() {
  * @returns {Object|null} Partner settings object or null if disabled
  */
 export function getExercisePartnerSettings() {
-  const toggle = document.getElementById('exercise-partner-system-toggle') ||
-                 document.getElementById('exercise-partner-system-toggle-coach');
+  const toggle =
+    document.getElementById('exercise-partner-system-toggle') ||
+    document.getElementById('exercise-partner-system-toggle-coach');
 
   if (!toggle || !toggle.checked) return null;
 
-  const percentageInput = document.getElementById('exercise-partner-percentage') ||
-                          document.getElementById('exercise-partner-percentage-coach');
+  const percentageInput =
+    document.getElementById('exercise-partner-percentage') ||
+    document.getElementById('exercise-partner-percentage-coach');
 
   const percentage = percentageInput ? parseInt(percentageInput.value) : 50;
 
   return {
     enabled: true,
-    partnerPercentage: Math.max(0, Math.min(100, percentage)) // Clamp between 0-100
+    partnerPercentage: Math.max(0, Math.min(100, percentage)), // Clamp between 0-100
   };
 }
 
@@ -392,8 +395,9 @@ export function getExercisePartnerSettings() {
  * @returns {boolean}
  */
 export function isExercisePartnerSystemEnabled() {
-  const toggle = document.getElementById('exercise-partner-system-toggle') ||
-                 document.getElementById('exercise-partner-system-toggle-coach');
+  const toggle =
+    document.getElementById('exercise-partner-system-toggle') ||
+    document.getElementById('exercise-partner-system-toggle-coach');
   return toggle ? toggle.checked : false;
 }
 
@@ -435,7 +439,7 @@ export function getChallengePartnerSettings() {
 
   return {
     enabled: true,
-    partnerPercentage: Math.max(0, Math.min(100, percentage)) // Clamp between 0-100
+    partnerPercentage: Math.max(0, Math.min(100, percentage)), // Clamp between 0-100
   };
 }
 
