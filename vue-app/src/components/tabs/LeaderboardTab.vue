@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { collection, query, where, orderBy } from 'firebase/firestore'
+import { ref, computed, onMounted } from 'vue'
+import { collection, query, where, orderBy, doc, getDoc, setDoc } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
@@ -11,13 +11,64 @@ const userStore = useUserStore()
 const activeType = ref('effort')
 const scope = ref('club')
 
-const types = [
+// Leaderboard preferences (which tabs to show)
+const showSettings = ref(false)
+const leaderboardPrefs = ref({
+  effort: true,
+  season: true,
+  skill: true,
+  ranks: true,
+  doubles: true
+})
+
+// All available types
+const allTypes = [
   { id: 'effort', label: 'Fleiß', sublabel: '(XP)', icon: '💪' },
   { id: 'season', label: 'Season', sublabel: '(Punkte)', icon: '⭐' },
   { id: 'skill', label: 'Skill', sublabel: '(Elo)', icon: '⚡' },
   { id: 'ranks', label: 'Ränge', sublabel: '(Level)', icon: '🏆' },
   { id: 'doubles', label: 'Doppel', sublabel: '(Teams)', icon: '🎾' },
 ]
+
+// Filtered types based on preferences
+const types = computed(() => allTypes.filter(t => leaderboardPrefs.value[t.id]))
+
+// Load preferences on mount
+onMounted(async () => {
+  await loadLeaderboardPrefs()
+})
+
+async function loadLeaderboardPrefs() {
+  if (!userStore.userData?.id) return
+  try {
+    const prefsRef = doc(db, 'users', userStore.userData.id, 'preferences', 'leaderboard')
+    const prefsDoc = await getDoc(prefsRef)
+    if (prefsDoc.exists()) {
+      leaderboardPrefs.value = { ...leaderboardPrefs.value, ...prefsDoc.data() }
+    }
+  } catch (e) {
+    console.error('Error loading leaderboard prefs:', e)
+  }
+}
+
+async function saveLeaderboardPrefs() {
+  if (!userStore.userData?.id) return
+  try {
+    const prefsRef = doc(db, 'users', userStore.userData.id, 'preferences', 'leaderboard')
+    await setDoc(prefsRef, leaderboardPrefs.value)
+
+    // If current tab is hidden, switch to first visible
+    if (!leaderboardPrefs.value[activeType.value]) {
+      const firstVisible = allTypes.find(t => leaderboardPrefs.value[t.id])
+      if (firstVisible) activeType.value = firstVisible.id
+    }
+  } catch (e) {
+    console.error('Error saving leaderboard prefs:', e)
+  }
+}
+
+// Count of enabled leaderboards
+const enabledCount = computed(() => Object.values(leaderboardPrefs.value).filter(v => v).length)
 
 // Rank definitions (matching original)
 const RANKS = [
@@ -139,8 +190,50 @@ const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType
 </script>
 
 <template>
-  <div class="bg-white p-6 rounded-xl shadow-md">
-    <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
+  <div class="space-y-4">
+    <!-- Settings Section (Collapsible) -->
+    <div class="bg-white rounded-xl shadow-md border border-gray-200">
+      <button
+        @click="showSettings = !showSettings"
+        class="w-full p-4 flex justify-between items-center text-left hover:bg-gray-50 transition rounded-xl"
+      >
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800">⚙️ Ranglisten-Einstellungen</h2>
+          <p class="text-xs text-gray-600">Passe an, welche Ranglisten angezeigt werden ({{ enabledCount }}/5 aktiv)</p>
+        </div>
+        <svg
+          :class="showSettings ? 'rotate-180' : ''"
+          class="w-5 h-5 text-gray-600 transition-transform"
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <div v-if="showSettings" class="px-4 pb-4">
+        <div class="space-y-2">
+          <label
+            v-for="type in allTypes"
+            :key="type.id"
+            class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
+          >
+            <input
+              type="checkbox"
+              v-model="leaderboardPrefs[type.id]"
+              @change="saveLeaderboardPrefs"
+              :disabled="enabledCount <= 1 && leaderboardPrefs[type.id]"
+              class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <span class="text-gray-700">{{ type.icon }} {{ type.label }} {{ type.sublabel }}</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">Die Einstellungen werden automatisch gespeichert. Mindestens eine Rangliste muss aktiv sein.</p>
+      </div>
+    </div>
+
+    <!-- Main Leaderboard Card -->
+    <div class="bg-white p-6 rounded-xl shadow-md">
+      <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
     <!-- Type Tabs -->
     <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6">
@@ -291,6 +384,7 @@ const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType
           <p class="text-xs text-gray-500">Doppel-Elo</p>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </template>

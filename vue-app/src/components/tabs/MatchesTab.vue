@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { collection, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore'
+import { ref, computed, watch, onMounted } from 'vue'
+import { collection, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
@@ -10,6 +10,112 @@ const userStore = useUserStore()
 
 // Match type toggle (singles/doubles)
 const matchType = ref('singles')
+
+// Match Suggestions
+const matchSuggestions = ref([])
+const loadingSuggestions = ref(true)
+
+// Check if player is match-ready (has 5+ Grundlagen)
+const isMatchReady = computed(() => {
+  return (userStore.userData?.grundlagenCompleted || 0) >= 5
+})
+
+// Load match suggestions on mount
+onMounted(async () => {
+  await calculateMatchSuggestions()
+})
+
+async function calculateMatchSuggestions() {
+  if (!userStore.userData?.id || !isMatchReady.value) {
+    loadingSuggestions.value = false
+    return
+  }
+
+  try {
+    loadingSuggestions.value = true
+
+    // Get all club players
+    const playersQuery = query(
+      collection(db, 'users'),
+      where('clubId', '==', userStore.clubId),
+      where('role', '==', 'player')
+    )
+    const playersSnapshot = await getDocs(playersQuery)
+    const allPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+    // Filter eligible players
+    const eligiblePlayers = allPlayers.filter(p => {
+      const isNotSelf = p.id !== userStore.userData.id
+      const isMatchReadyPlayer = (p.grundlagenCompleted || 0) >= 5
+      return isNotSelf && isMatchReadyPlayer
+    })
+
+    // Get user's match history
+    const matchesQuery = query(
+      collection(db, 'matches'),
+      where('playerIds', 'array-contains', userStore.userData.id)
+    )
+    const matchesSnapshot = await getDocs(matchesQuery)
+
+    // Build opponent history
+    const opponentHistory = {}
+    matchesSnapshot.docs.forEach(doc => {
+      const match = doc.data()
+      const opponentId = match.player1Id === userStore.userData.id ? match.player2Id : match.player1Id
+      if (!opponentHistory[opponentId]) {
+        opponentHistory[opponentId] = { matchCount: 0, lastMatchDate: null }
+      }
+      opponentHistory[opponentId].matchCount++
+      const matchDate = match.playedAt?.toDate?.() || match.createdAt?.toDate?.()
+      if (matchDate && (!opponentHistory[opponentId].lastMatchDate || matchDate > opponentHistory[opponentId].lastMatchDate)) {
+        opponentHistory[opponentId].lastMatchDate = matchDate
+      }
+    })
+
+    // Calculate suggestions with priority scores
+    const myElo = userStore.userData.eloRating || 1000
+    const suggestions = eligiblePlayers.map(player => {
+      const history = opponentHistory[player.id] || { matchCount: 0, lastMatchDate: null }
+      const playerElo = player.eloRating || 1000
+      const eloDiff = Math.abs(myElo - playerElo)
+
+      let score = 100
+      if (history.matchCount === 0) {
+        score += 50 // Never played = highest priority
+      } else {
+        score -= history.matchCount * 5
+      }
+
+      if (history.lastMatchDate) {
+        const daysSinceLastMatch = (new Date() - history.lastMatchDate) / (1000 * 60 * 60 * 24)
+        score += Math.min(daysSinceLastMatch / 7, 30)
+      }
+
+      return { ...player, suggestionScore: score, history, eloDiff }
+    })
+
+    // Sort and take top 4
+    suggestions.sort((a, b) => b.suggestionScore - a.suggestionScore)
+    const neverPlayedPlayers = suggestions.filter(s => s.history.matchCount === 0)
+
+    if (neverPlayedPlayers.length > 0) {
+      matchSuggestions.value = neverPlayedPlayers.slice(0, 4)
+    } else {
+      matchSuggestions.value = suggestions.slice(0, 4)
+    }
+  } catch (error) {
+    console.error('Error calculating match suggestions:', error)
+    matchSuggestions.value = []
+  } finally {
+    loadingSuggestions.value = false
+  }
+}
+
+function selectSuggestion(player) {
+  selectedOpponent.value = player.id
+  matchType.value = 'singles'
+  showRequestForm.value = true
+}
 
 // Form state
 const showRequestForm = ref(false)
@@ -297,6 +403,22 @@ function didWin(match) {
   const isPlayer1 = match.player1Id === userStore.userData?.id
   return isPlayer1 ? match.winner === 1 : match.winner === 2
 }
+
+function formatLastPlayed(date) {
+  if (!date) return ''
+  const d = date instanceof Date ? date : date.toDate?.() || new Date(date)
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+}
+
+function getHandicapInfo(player) {
+  const myElo = userStore.userData?.eloRating || 1000
+  const playerElo = player.eloRating || 1000
+  const eloDiff = Math.abs(myElo - playerElo)
+  const handicapPoints = Math.min(Math.round(eloDiff / 50), 10)
+  const weakerPlayerIsMe = myElo < playerElo
+  const weakerPlayerName = weakerPlayerIsMe ? 'Du' : player.firstName
+  return `${weakerPlayerName} ${handicapPoints} Punkt${handicapPoints === 1 ? '' : 'e'}/Satz`
+}
 </script>
 
 <template>
@@ -354,6 +476,71 @@ function didWin(match) {
       >
         ✕ Abbrechen
       </button>
+    </div>
+
+    <!-- Match Suggestions (only when form is not shown) -->
+    <div v-if="!showRequestForm && matchType === 'singles'" class="bg-white p-6 rounded-xl shadow-md">
+      <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+        <span class="text-xl">💡</span>
+        Gegner-Vorschläge
+      </h3>
+
+      <!-- Not match-ready warning -->
+      <div v-if="!isMatchReady" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+        <div class="flex items-start">
+          <span class="text-xl mr-3">🔒</span>
+          <div>
+            <p class="font-medium text-yellow-800">Match-Vorschläge gesperrt!</p>
+            <p class="text-sm text-yellow-700 mt-1">
+              Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren.<br>
+              Fortschritt: <strong>{{ userStore.userData?.grundlagenCompleted || 0 }}/5</strong> abgeschlossen.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div v-else-if="loadingSuggestions" class="text-center py-4 text-gray-500">
+        Lade Vorschläge...
+      </div>
+
+      <!-- No suggestions -->
+      <div v-else-if="!matchSuggestions.length" class="text-center py-4 text-gray-500">
+        Keine Vorschläge verfügbar
+      </div>
+
+      <!-- Suggestions list -->
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div
+          v-for="player in matchSuggestions"
+          :key="player.id"
+          @click="selectSuggestion(player)"
+          class="bg-gray-50 border border-indigo-200 rounded-lg p-3 cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 transition"
+        >
+          <div class="flex justify-between items-start">
+            <div>
+              <p class="font-semibold text-gray-800">{{ player.firstName }} {{ player.lastName }}</p>
+              <p class="text-sm text-gray-600">Elo: {{ Math.round(player.eloRating || 1000) }}</p>
+            </div>
+            <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+              {{ player.eloDiff > 0 ? `±${Math.round(player.eloDiff)}` : '≈' }}
+            </span>
+          </div>
+          <div class="text-xs text-gray-600 mt-2">
+            <span v-if="player.history.matchCount === 0" class="text-purple-700 font-medium">
+              ⭐ Noch nie gespielt
+            </span>
+            <span v-else>
+              {{ player.history.matchCount }} Match{{ player.history.matchCount === 1 ? '' : 'es' }}
+              <span v-if="player.history.lastMatchDate">, zuletzt {{ formatLastPlayed(player.history.lastMatchDate) }}</span>
+            </span>
+          </div>
+          <!-- Handicap info -->
+          <div v-if="player.eloDiff >= 25" class="text-xs text-blue-600 mt-1">
+            ⚖️ Handicap: {{ getHandicapInfo(player) }}
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Feedback Message -->
