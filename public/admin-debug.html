@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Debug Tool - TTV Champions</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-top: 0; }
+    h2 { color: #666; font-size: 18px; margin-top: 0; }
+    button {
+      background: #4F46E5;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover { background: #4338CA; }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .danger { background: #DC2626; }
+    .danger:hover { background: #B91C1C; }
+    .success { background: #059669; }
+    .success:hover { background: #047857; }
+    .log {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin-bottom: 8px;
+      padding: 4px;
+      border-left: 3px solid #ccc;
+      padding-left: 8px;
+    }
+    .log-entry.success { border-color: #059669; color: #047857; }
+    .log-entry.error { border-color: #DC2626; color: #B91C1C; }
+    .log-entry.info { border-color: #3B82F6; color: #2563EB; }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .warning {
+      background: #FEF3C7;
+      border-left: 4px solid #F59E0B;
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 4px;
+    }
+    .info-box {
+      background: #DBEAFE;
+      border-left: 4px solid #3B82F6;
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔧 Admin Debug Tool</h1>
+    <p style="color: #666;">Tools zur manuellen Verarbeitung von Doppel-Matches</p>
+
+    <div class="warning">
+      <strong>⚠️ Warnung:</strong> Diese Tools sind nur für Admins und Coaches. Verwende sie nur, wenn die automatischen Cloud Functions nicht funktionieren.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Status Check</h2>
+    <button onclick="checkStatus()">Status überprüfen</button>
+    <div id="statusLog" class="log" style="display: none;"></div>
+  </div>
+
+  <div class="card">
+    <h2>🔄 Alle unverarbeiteten Doppel-Matches verarbeiten</h2>
+    <div class="info-box">
+      Diese Funktion findet alle approved Doppel-Matches, die noch nicht verarbeitet wurden, und verarbeitet sie (Elo-Update, Punkte-Historie, Paarungsstatistiken).
+    </div>
+    <button onclick="processAllUnprocessed()" id="processAllBtn">Alle verarbeiten</button>
+    <div id="processAllLog" class="log" style="display: none;"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎯 Einzelne Anfrage verarbeiten</h2>
+    <div class="info-box">
+      Verarbeite eine spezifische Doppel-Anfrage anhand ihrer ID. Die ID findest du in Firestore unter doublesMatchRequests.
+    </div>
+    <input type="text" id="requestId" placeholder="Request ID (z.B. abc123xyz456)">
+    <button onclick="processSingleRequest()" id="processSingleBtn">Einzelne verarbeiten</button>
+    <div id="processSingleLog" class="log" style="display: none;"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDb1q8AHJdW13t5cE_HG1ooYZSyhXVPxSE",
+      authDomain: "ttv-champions.firebaseapp.com",
+      projectId: "ttv-champions",
+      storageBucket: "ttv-champions.firebasestorage.app",
+      messagingSenderId: "819024951732",
+      appId: "1:819024951732:web:f5c04b4b67d947c43db8e1",
+      measurementId: "G-LYRDQC34P3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const functions = getFunctions(app, 'europe-west1');
+
+    let currentUser = null;
+    let isAdmin = false;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          isAdmin = userData.role === 'admin' || userData.role === 'coach';
+          if (!isAdmin) {
+            alert('⛔ Zugriff verweigert: Du musst Admin oder Coach sein!');
+            window.location.href = '/';
+          }
+        }
+      } else {
+        alert('⛔ Bitte melde dich zuerst an!');
+        window.location.href = '/';
+      }
+    });
+
+    function addLog(containerId, message, type = 'info') {
+      const logContainer = document.getElementById(containerId);
+      logContainer.style.display = 'block';
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const timestamp = new Date().toLocaleTimeString('de-DE');
+      entry.textContent = `[${timestamp}] ${message}`;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function clearLog(containerId) {
+      const logContainer = document.getElementById(containerId);
+      logContainer.innerHTML = '';
+    }
+
+    window.checkStatus = async function() {
+      if (!currentUser || !isAdmin) {
+        alert('⛔ Zugriff verweigert!');
+        return;
+      }
+
+      clearLog('statusLog');
+      addLog('statusLog', '🔍 Überprüfe Status...', 'info');
+
+      try {
+        // Check for unprocessed doublesMatches
+        const doublesMatchesQuery = query(
+          collection(db, 'doublesMatches'),
+          where('processed', '==', false)
+        );
+        const unprocessedMatches = await getDocs(doublesMatchesQuery);
+        addLog('statusLog', `📊 Unverarbeitete doublesMatches: ${unprocessedMatches.size}`, unprocessedMatches.size > 0 ? 'error' : 'success');
+
+        // Check for approved doublesMatchRequests without processedMatchId
+        const requestsQuery = query(
+          collection(db, 'doublesMatchRequests'),
+          where('status', '==', 'approved')
+        );
+        const approvedRequests = await getDocs(requestsQuery);
+        const unprocessedRequests = approvedRequests.docs.filter(doc => !doc.data().processedMatchId);
+        addLog('statusLog', `📋 Approved Requests ohne processedMatchId: ${unprocessedRequests.length}`, unprocessedRequests.length > 0 ? 'error' : 'success');
+
+        if (unprocessedRequests.length > 0) {
+          addLog('statusLog', '📝 IDs der unverarbeiteten Requests:', 'info');
+          unprocessedRequests.forEach(doc => {
+            addLog('statusLog', `  - ${doc.id}`, 'info');
+          });
+        }
+
+        if (unprocessedMatches.size === 0 && unprocessedRequests.length === 0) {
+          addLog('statusLog', '✅ Alles OK! Keine unverarbeiteten Matches gefunden.', 'success');
+        } else {
+          addLog('statusLog', '⚠️ Es gibt unverarbeitete Matches. Verwende die Buttons unten, um sie zu verarbeiten.', 'error');
+        }
+      } catch (error) {
+        addLog('statusLog', `❌ Fehler: ${error.message}`, 'error');
+        console.error(error);
+      }
+    };
+
+    window.processAllUnprocessed = async function() {
+      if (!currentUser || !isAdmin) {
+        alert('⛔ Zugriff verweigert!');
+        return;
+      }
+
+      if (!confirm('Möchtest du wirklich ALLE unverarbeiteten Doppel-Matches verarbeiten?')) {
+        return;
+      }
+
+      const btn = document.getElementById('processAllBtn');
+      btn.disabled = true;
+      clearLog('processAllLog');
+      addLog('processAllLog', '🚀 Starte Verarbeitung...', 'info');
+
+      try {
+        const processUnprocessedDoublesMatches = httpsCallable(functions, 'processUnprocessedDoublesMatches');
+        addLog('processAllLog', '⏳ Rufe Cloud Function auf...', 'info');
+
+        const result = await processUnprocessedDoublesMatches();
+
+        addLog('processAllLog', `✅ Verarbeitung abgeschlossen!`, 'success');
+        addLog('processAllLog', `📊 Ergebnis: ${result.data.processed} von ${result.data.total} Matches verarbeitet`, 'success');
+
+        if (result.data.errors && result.data.errors.length > 0) {
+          addLog('processAllLog', `⚠️ ${result.data.errors.length} Fehler aufgetreten:`, 'error');
+          result.data.errors.forEach(err => {
+            addLog('processAllLog', `  - ${err}`, 'error');
+          });
+        }
+
+        if (result.data.processed > 0) {
+          addLog('processAllLog', '🎉 Bitte aktualisiere die Seite, um die Änderungen zu sehen.', 'success');
+        }
+      } catch (error) {
+        addLog('processAllLog', `❌ Fehler: ${error.message}`, 'error');
+        console.error('Error:', error);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    window.processSingleRequest = async function() {
+      if (!currentUser || !isAdmin) {
+        alert('⛔ Zugriff verweigert!');
+        return;
+      }
+
+      const requestId = document.getElementById('requestId').value.trim();
+      if (!requestId) {
+        alert('⚠️ Bitte gib eine Request ID ein!');
+        return;
+      }
+
+      const btn = document.getElementById('processSingleBtn');
+      btn.disabled = true;
+      clearLog('processSingleLog');
+      addLog('processSingleLog', `🎯 Verarbeite Request ${requestId}...`, 'info');
+
+      try {
+        const manualProcessDoublesRequest = httpsCallable(functions, 'manualProcessDoublesRequest');
+        addLog('processSingleLog', '⏳ Rufe Cloud Function auf...', 'info');
+
+        const result = await manualProcessDoublesRequest({ requestId });
+
+        addLog('processSingleLog', `✅ Request erfolgreich verarbeitet!`, 'success');
+        addLog('processSingleLog', `📄 Match ID: ${result.data.matchId}`, 'success');
+        addLog('processSingleLog', `📊 ${result.data.processed} Spieler verarbeitet`, 'success');
+        addLog('processSingleLog', '🎉 Bitte aktualisiere die Seite, um die Änderungen zu sehen.', 'success');
+      } catch (error) {
+        addLog('processSingleLog', `❌ Fehler: ${error.message}`, 'error');
+        console.error('Error:', error);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    // Expose functions globally
+    window.addLog = addLog;
+    window.clearLog = clearLog;
+  </script>
+</body>
+</html>
