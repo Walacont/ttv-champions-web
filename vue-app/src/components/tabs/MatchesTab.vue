@@ -1576,11 +1576,16 @@ function getHandicapInfo(player) {
           >
             <div class="flex items-center justify-between">
               <div>
-                <p class="font-semibold text-gray-900 text-sm mb-1">
-                  <span class="text-indigo-700">{{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}</span>
-                  <span class="text-gray-500 mx-2">vs</span>
-                  <span class="text-orange-700">{{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}</span>
-                </p>
+                <div class="space-y-1 mb-2">
+                  <p class="text-sm">
+                    <span class="font-semibold text-indigo-700">Gegner:</span>
+                    <span class="text-gray-900">{{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}</span>
+                  </p>
+                  <p class="text-sm">
+                    <span class="font-semibold text-orange-700">Dein Team:</span>
+                    <span class="text-gray-900">{{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}</span>
+                  </p>
+                </div>
                 <p class="text-xs text-gray-500">{{ formatDate(request.createdAt) }}</p>
                 <!-- Set scores -->
                 <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
@@ -1625,12 +1630,17 @@ function getHandicapInfo(player) {
                   </span>
                 </div>
                 <div>
-                  <p class="font-medium text-gray-900 text-sm">
-                    <span class="text-indigo-700">{{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}</span>
-                    <span class="text-gray-500 text-xs mx-1">vs</span>
-                    <span class="text-orange-700">{{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}</span>
-                  </p>
-                  <p class="text-xs text-gray-500">
+                  <div class="space-y-0.5">
+                    <p class="text-sm">
+                      <span class="font-semibold text-indigo-700">Gegner:</span>
+                      <span class="text-gray-900">{{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}</span>
+                    </p>
+                    <p class="text-sm">
+                      <span class="font-semibold text-orange-700">Dein Team:</span>
+                      <span class="text-gray-900">{{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}</span>
+                    </p>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">
                     {{ formatDate(request.createdAt) }}
                   </p>
                 </div>
