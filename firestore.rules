@@ -50,6 +50,9 @@ service cloud.firestore {
       // Users can read their own data
       allow read: if isOwner(userId);
 
+      // Players can read all other players (for global leaderboard)
+      allow read: if isAuthenticated() && resource.data.role == 'player';
+
       // Players can read other players in their club (for leaderboard, rivals, etc.)
       allow read: if isAuthenticated() &&
         resource.data.role == 'player' &&
