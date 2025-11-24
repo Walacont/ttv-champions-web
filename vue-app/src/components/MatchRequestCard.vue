@@ -62,12 +62,12 @@ function formatDate(timestamp) {
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
           <span class="text-indigo-600 font-medium">
-            {{ type === 'incoming' ? request.requesterName?.[0] : request.opponentName?.[0] }}
+            {{ type === 'incoming' ? (request.playerAName || request.requesterName)?.[0] : (request.playerBName || request.opponentName)?.[0] }}
           </span>
         </div>
         <div>
           <p class="font-medium text-gray-900">
-            {{ type === 'incoming' ? request.requesterName : request.opponentName }}
+            {{ type === 'incoming' ? (request.playerAName || request.requesterName) : (request.playerBName || request.opponentName) }}
           </p>
           <p class="text-xs text-gray-500">
             {{ formatDate(request.createdAt) }}
@@ -118,14 +118,14 @@ function formatDate(timestamp) {
       <div class="mt-1 text-sm">
         <span
           class="px-2 py-0.5 rounded text-xs font-medium"
-          :class="request.winner === 'requester' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+          :class="(request.winner === 'requester' || request.winnerId === request.playerAId) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
         >
           {{ type === 'incoming'
-            ? (request.winner === 'requester' ? 'Absender gewinnt' : 'Du gewinnst')
-            : (request.winner === 'requester' ? 'Du gewinnst' : 'Gegner gewinnt')
+            ? ((request.winner === 'requester' || request.winnerId === request.playerAId) ? 'Absender gewinnt' : 'Du gewinnst')
+            : ((request.winner === 'requester' || request.winnerId === request.playerAId) ? 'Du gewinnst' : 'Gegner gewinnt')
           }}
         </span>
-        <span class="text-gray-500 ml-2">{{ request.matchMode }}</span>
+        <span class="text-gray-500 ml-2">{{ request.matchMode || request.mode }}</span>
       </div>
     </div>
   </div>

@@ -180,29 +180,35 @@ const availableOpponents = computed(() => {
   })
 })
 
-// Incoming requests (singles)
-const incomingRequestsQuery = computed(() => {
-  if (!userStore.userData?.id) return null
+// All match requests for the club (to avoid index issues)
+const allMatchRequestsQuery = computed(() => {
+  if (!userStore.clubId) return null
   return query(
     collection(db, 'matchRequests'),
-    where('opponentId', '==', userStore.userData.id),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
+    where('clubId', '==', userStore.clubId),
+    orderBy('createdAt', 'desc'),
+    limit(100)
   )
 })
-const incomingRequests = useCollection(incomingRequestsQuery)
+const allMatchRequests = useCollection(allMatchRequestsQuery)
 
-// Outgoing requests (singles)
-const outgoingRequestsQuery = computed(() => {
-  if (!userStore.userData?.id) return null
-  return query(
-    collection(db, 'matchRequests'),
-    where('requesterId', '==', userStore.userData.id),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc')
+// Incoming requests (singles) - requests where I am playerB and need to respond
+const incomingRequests = computed(() => {
+  if (!allMatchRequests.value || !userStore.userData?.id) return []
+  return allMatchRequests.value.filter(r =>
+    r.playerBId === userStore.userData.id &&
+    r.status === 'pending_player'
   )
 })
-const outgoingRequests = useCollection(outgoingRequestsQuery)
+
+// Outgoing requests (singles) - requests I created that are still pending
+const outgoingRequests = computed(() => {
+  if (!allMatchRequests.value || !userStore.userData?.id) return []
+  return allMatchRequests.value.filter(r =>
+    r.playerAId === userStore.userData.id &&
+    (r.status === 'pending_player' || r.status === 'pending_coach')
+  )
+})
 
 // Incoming doubles requests
 const incomingDoublesQuery = computed(() => {
@@ -427,20 +433,30 @@ async function submitSinglesRequest() {
   submitting.value = true
   const opponent = clubPlayers.value.find(p => p.id === selectedOpponent.value)
 
+  // Determine winner and loser IDs
+  const winnerId = validation.winner === 'A' ? userStore.userData.id : selectedOpponent.value
+  const loserId = validation.winner === 'A' ? selectedOpponent.value : userStore.userData.id
+
   try {
     await addDoc(collection(db, 'matchRequests'), {
-      requesterId: userStore.userData.id,
-      requesterName: `${userStore.userData.firstName} ${userStore.userData.lastName}`,
-      requesterElo: userStore.userData.eloRating || 1000,
-      opponentId: selectedOpponent.value,
-      opponentName: `${opponent.firstName} ${opponent.lastName}`,
-      opponentElo: opponent.eloRating || 1000,
-      clubId: userStore.clubId,
-      status: 'pending',
-      sets: validation.sets,
+      status: 'pending_player',
+      playerAId: userStore.userData.id,
+      playerBId: selectedOpponent.value,
+      playerAName: `${userStore.userData.firstName} ${userStore.userData.lastName}`,
+      playerBName: `${opponent.firstName} ${opponent.lastName}`,
+      winnerId,
+      loserId,
+      handicapUsed: false,
       matchMode: matchMode.value,
-      winner: validation.winner === 'A' ? 'requester' : 'opponent',
-      createdAt: serverTimestamp()
+      clubId: userStore.clubId,
+      sets: validation.sets.map(s => ({ playerA: parseInt(s.playerA), playerB: parseInt(s.playerB) })),
+      approvals: {
+        playerB: { status: null, timestamp: null },
+        coach: { status: null, timestamp: null }
+      },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      requestedBy: userStore.userData.id
     })
 
     feedback.value = { message: 'Anfrage gesendet! Der Gegner muss bestätigen.', type: 'success' }
