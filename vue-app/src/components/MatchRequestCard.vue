@@ -14,9 +14,14 @@ const emit = defineEmits(['accepted', 'rejected'])
 
 async function acceptRequest() {
   try {
+    // When playerB accepts, status changes to pending_coach
     await updateDoc(doc(db, 'matchRequests', props.request.id), {
-      status: 'accepted',
-      respondedAt: serverTimestamp()
+      status: 'pending_coach',
+      'approvals.playerB': {
+        status: 'approved',
+        timestamp: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
     })
     emit('accepted', props.request)
   } catch (error) {
@@ -28,12 +33,26 @@ async function rejectRequest() {
   try {
     await updateDoc(doc(db, 'matchRequests', props.request.id), {
       status: 'rejected',
-      respondedAt: serverTimestamp()
+      'approvals.playerB': {
+        status: 'rejected',
+        timestamp: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
     })
     emit('rejected', props.request)
   } catch (error) {
     console.error('Error rejecting request:', error)
   }
+}
+
+// Get status label for display
+function getStatusLabel() {
+  if (props.request.status === 'pending_player') {
+    return 'Wartet auf Spieler'
+  } else if (props.request.status === 'pending_coach') {
+    return 'Wartet auf Coach'
+  }
+  return 'Ausstehend'
 }
 
 async function cancelRequest() {
@@ -92,10 +111,14 @@ function formatDate(timestamp) {
           </button>
         </template>
         <template v-else>
-          <span class="text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded-md">
-            Ausstehend
+          <span
+            class="text-sm px-3 py-1 rounded-md"
+            :class="request.status === 'pending_coach' ? 'text-purple-600 bg-purple-50' : 'text-yellow-600 bg-yellow-50'"
+          >
+            {{ getStatusLabel() }}
           </span>
           <button
+            v-if="request.status === 'pending_player'"
             @click="cancelRequest"
             class="px-3 py-1 text-gray-500 text-sm hover:text-red-600"
           >

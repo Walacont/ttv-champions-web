@@ -188,6 +188,8 @@ const availableOpponents = computed(() => {
 const myRequests = ref([])
 const incomingRequestsData = ref([])
 const processedRequestsData = ref([])
+const showAllRequests = ref(false)
+const INITIAL_REQUESTS_SHOWN = 4
 let requestUnsubscribes = []
 
 // Load match requests on mount
@@ -262,10 +264,10 @@ const pendingRequests = computed(() => {
   })
 })
 
-// Computed: History requests (Anfragen-Historie)
+// Computed: All History requests (Anfragen-Historie)
 // - My completed requests (approved/rejected)
 // - Requests I responded to (approved/rejected/pending_coach)
-const historyRequests = computed(() => {
+const allHistoryRequests = computed(() => {
   const history = []
 
   // My completed requests
@@ -288,6 +290,22 @@ const historyRequests = computed(() => {
     return bTime - aTime
   })
 })
+
+// Computed with show more/less
+const historyRequests = computed(() => {
+  if (showAllRequests.value) {
+    return allHistoryRequests.value
+  }
+  return allHistoryRequests.value.slice(0, INITIAL_REQUESTS_SHOWN)
+})
+
+// Toggle and counts for request history
+const totalRequestsCount = computed(() => allHistoryRequests.value.length)
+const hasMoreRequests = computed(() => totalRequestsCount.value > INITIAL_REQUESTS_SHOWN)
+
+function toggleShowAllRequests() {
+  showAllRequests.value = !showAllRequests.value
+}
 
 // Helper to check if I'm the requester (playerA)
 function isMyRequest(request) {
@@ -974,7 +992,7 @@ function getHandicapInfo(player) {
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">
           📋 Anfragen-Historie
-          <span v-if="historyRequests?.length" class="text-gray-500">({{ historyRequests.length }})</span>
+          <span v-if="totalRequestsCount" class="text-gray-500">({{ totalRequestsCount }})</span>
         </h3>
         <div v-if="historyRequests?.length" class="space-y-2">
           <div
@@ -1016,6 +1034,18 @@ function getHandicapInfo(player) {
             <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
               Sätze: {{ request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') }}
             </div>
+          </div>
+          <!-- Toggle Button -->
+          <div v-if="hasMoreRequests" class="text-center mt-4">
+            <button
+              @click="toggleShowAllRequests"
+              class="text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors"
+            >
+              {{ showAllRequests
+                ? '− Weniger anzeigen'
+                : `+ ${totalRequestsCount - INITIAL_REQUESTS_SHOWN} weitere Anfragen anzeigen`
+              }}
+            </button>
           </div>
         </div>
         <p v-else class="text-gray-500 text-center py-4">Keine Anfragen-Historie</p>
