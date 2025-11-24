@@ -126,18 +126,46 @@ const challengesQuery = computed(() => {
     collection(db, 'challenges'),
     where('clubId', '==', userStore.clubId),
     where('isActive', '==', true),
-    limit(6)
+    limit(20)
   )
 })
-const challenges = useCollection(challengesQuery)
+const allChallenges = useCollection(challengesQuery)
 
-// Points history - subcollection under user
+// Filter out expired challenges (like the original implementation)
+const challenges = computed(() => {
+  if (!allChallenges.value) return []
+  const now = new Date()
+  return allChallenges.value.filter(challenge => {
+    const expiresAt = calculateExpiry(challenge.createdAt, challenge.type)
+    return expiresAt > now
+  })
+})
+
+// Calculate expiry date based on challenge type (from original implementation)
+function calculateExpiry(createdAt, type) {
+  if (!createdAt || !createdAt.toDate) return new Date()
+  const startDate = createdAt.toDate()
+  const expiryDate = new Date(startDate)
+  switch (type) {
+    case 'daily':
+      expiryDate.setDate(startDate.getDate() + 1)
+      break
+    case 'weekly':
+      expiryDate.setDate(startDate.getDate() + 7)
+      break
+    case 'monthly':
+      expiryDate.setMonth(startDate.getMonth() + 1)
+      break
+  }
+  return expiryDate
+}
+
+// Points history - subcollection under user (no limit to show full history like original)
 const pointsHistoryQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
     collection(db, 'users', userStore.userData.id, 'pointsHistory'),
-    orderBy('timestamp', 'desc'),
-    limit(10)
+    orderBy('timestamp', 'desc')
   )
 })
 const pointsHistory = useCollection(pointsHistoryQuery)
