@@ -207,29 +207,73 @@ const incomingDoublesQuery = computed(() => {
 })
 const incomingDoublesRequests = useCollection(incomingDoublesQuery)
 
-// Match history (singles)
-const matchHistoryQuery = computed(() => {
-  if (!userStore.userData?.id) return null
+// Match history (singles) - load all club matches to avoid index requirement
+const allMatchesQuery = computed(() => {
+  if (!userStore.clubId) return null
   return query(
     collection(db, 'matches'),
-    where('playerIds', 'array-contains', userStore.userData.id),
-    orderBy('playedAt', 'desc'),
-    limit(10)
+    where('clubId', '==', userStore.clubId),
+    where('processed', '==', true),
+    limit(100)
   )
 })
-const matchHistory = useCollection(matchHistoryQuery)
+const allMatches = useCollection(allMatchesQuery)
 
-// Doubles match history
-const doublesHistoryQuery = computed(() => {
-  if (!userStore.userData?.id) return null
+// Filter and sort matches for current user (client-side to avoid index)
+const matchHistory = computed(() => {
+  if (!allMatches.value || !userStore.userData?.id) return []
+
+  return allMatches.value
+    .filter(match => {
+      // Check if user is involved in this match
+      return (
+        match.player1Id === userStore.userData.id ||
+        match.player2Id === userStore.userData.id ||
+        (match.playerIds && match.playerIds.includes(userStore.userData.id))
+      )
+    })
+    .sort((a, b) => {
+      const timeA = a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
+      const timeB = b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
+      return timeB - timeA
+    })
+    .slice(0, 10)
+})
+
+// Doubles match history - load all club doubles to avoid index requirement
+const allDoublesQuery = computed(() => {
+  if (!userStore.clubId) return null
   return query(
     collection(db, 'doublesMatches'),
-    where('playerIds', 'array-contains', userStore.userData.id),
-    orderBy('createdAt', 'desc'),
-    limit(10)
+    where('clubId', '==', userStore.clubId),
+    where('processed', '==', true),
+    limit(100)
   )
 })
-const doublesHistory = useCollection(doublesHistoryQuery)
+const allDoubles = useCollection(allDoublesQuery)
+
+// Filter and sort doubles for current user (client-side to avoid index)
+const doublesHistory = computed(() => {
+  if (!allDoubles.value || !userStore.userData?.id) return []
+
+  return allDoubles.value
+    .filter(match => {
+      // Check if user is in any team
+      return (
+        match.teamA?.player1Id === userStore.userData.id ||
+        match.teamA?.player2Id === userStore.userData.id ||
+        match.teamB?.player1Id === userStore.userData.id ||
+        match.teamB?.player2Id === userStore.userData.id ||
+        (match.playerIds && match.playerIds.includes(userStore.userData.id))
+      )
+    })
+    .sort((a, b) => {
+      const timeA = a.createdAt?.toMillis?.() || a.timestamp?.toMillis?.() || 0
+      const timeB = b.createdAt?.toMillis?.() || b.timestamp?.toMillis?.() || 0
+      return timeB - timeA
+    })
+    .slice(0, 10)
+})
 
 // Validate set scores
 function validateSets() {
@@ -438,13 +482,13 @@ function getHandicapInfo(player) {
             @click="matchType = 'singles'; showRequestForm = true"
             class="flex-1 md:flex-none px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-md"
           >
-            🏓 Einzel anfragen
+            Einzel anfragen
           </button>
           <button
             @click="matchType = 'doubles'; showRequestForm = true"
-            class="flex-1 md:flex-none px-6 py-3 bg-green-500 text-white font-bold rounded-lg hover:bg-green-400 transition-colors shadow-md"
+            class="flex-1 md:flex-none px-6 py-3 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 transition-colors shadow-md"
           >
-            🎾 Doppel anfragen
+            Doppel anfragen
           </button>
         </div>
       </div>
@@ -457,14 +501,14 @@ function getHandicapInfo(player) {
         class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
         :class="matchType === 'singles' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'"
       >
-        🏓 Einzel
+        Einzel
       </button>
       <button
         @click="matchType = 'doubles'"
         class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
-        :class="matchType === 'doubles' ? 'bg-white shadow text-green-600' : 'text-gray-600'"
+        :class="matchType === 'doubles' ? 'bg-white shadow text-purple-600' : 'text-gray-600'"
       >
-        🎾 Doppel
+        Doppel
       </button>
     </div>
 
@@ -651,7 +695,7 @@ function getHandicapInfo(player) {
           type="submit"
           :disabled="submitting"
           class="w-full py-3 text-white font-semibold rounded-lg disabled:opacity-50"
-          :class="matchType === 'singles' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-green-600 hover:bg-green-700'"
+          :class="matchType === 'singles' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-purple-600 hover:bg-purple-700'"
         >
           {{ submitting ? 'Wird gesendet...' : 'Anfrage senden' }}
         </button>
@@ -728,7 +772,7 @@ function getHandicapInfo(player) {
           <div
             v-for="match in doublesHistory"
             :key="match.id"
-            class="p-4 rounded-lg bg-gradient-to-r from-green-50 to-teal-50 border border-green-200"
+            class="p-4 rounded-lg bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200"
           >
             <div class="flex justify-between items-start">
               <div>
