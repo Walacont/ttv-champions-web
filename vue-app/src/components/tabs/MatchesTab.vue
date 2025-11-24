@@ -361,6 +361,13 @@ const availableOpponents = computed(() => {
   })
 })
 
+// Check if player has online access
+function hasOnlineAccess(playerId) {
+  if (!clubPlayers.value) return false
+  const player = clubPlayers.value.find(p => p.id === playerId)
+  return player?.hasOnlineAccess === true || player?.isOnline === true
+}
+
 // === MATCH REQUESTS ===
 // Store for all request data
 const myRequests = ref([])
@@ -793,6 +800,18 @@ async function submitDoublesRequest() {
     return
   }
 
+  // Check if at least one opponent has online access
+  const opponent1HasAccess = hasOnlineAccess(selectedOpponent1.value)
+  const opponent2HasAccess = hasOnlineAccess(selectedOpponent2.value)
+
+  if (!opponent1HasAccess && !opponent2HasAccess) {
+    feedback.value = {
+      message: 'Mindestens einer der Gegner muss Online-Zugriff haben, um die Anfrage bestätigen zu können!',
+      type: 'error'
+    }
+    return
+  }
+
   const validation = validateSets()
   if (!validation.valid) {
     feedback.value = { message: validation.error, type: 'error' }
@@ -1110,22 +1129,37 @@ function getHandicapInfo(player) {
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Gegner 1</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Gegner 1
+              <span class="text-xs text-gray-500 ml-1">(min. 1 muss online sein)</span>
+            </label>
             <select v-model="selectedOpponent1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
               <option value="">-- Gegner 1 wählen --</option>
               <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
-                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
+                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo){{ hasOnlineAccess(player.id) ? ' 🟢' : ' ⚫' }}
               </option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Gegner 2</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Gegner 2
+              <span class="text-xs text-gray-500 ml-1">(min. 1 muss online sein)</span>
+            </label>
             <select v-model="selectedOpponent2" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
               <option value="">-- Gegner 2 wählen --</option>
               <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
-                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
+                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo){{ hasOnlineAccess(player.id) ? ' 🟢' : ' ⚫' }}
               </option>
             </select>
+          </div>
+          <!-- Online access warning -->
+          <div v-if="selectedOpponent1 && selectedOpponent2 && !hasOnlineAccess(selectedOpponent1) && !hasOnlineAccess(selectedOpponent2)" class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+            <div class="flex items-center gap-2">
+              <span class="text-yellow-600">⚠️</span>
+              <p class="text-sm text-yellow-800">
+                Keiner der Gegner hat Online-Zugriff. Mindestens einer muss online sein, um die Anfrage zu bestätigen!
+              </p>
+            </div>
           </div>
         </template>
 
