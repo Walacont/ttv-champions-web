@@ -213,7 +213,6 @@ const allMatchesQuery = computed(() => {
   return query(
     collection(db, 'matches'),
     where('clubId', '==', userStore.clubId),
-    where('processed', '==', true),
     limit(100)
   )
 })
@@ -225,16 +224,18 @@ const matchHistory = computed(() => {
 
   return allMatches.value
     .filter(match => {
-      // Check if user is involved in this match
+      // Check if user is involved in this match (using winnerId/loserId from original)
       return (
-        match.player1Id === userStore.userData.id ||
-        match.player2Id === userStore.userData.id ||
+        match.winnerId === userStore.userData.id ||
+        match.loserId === userStore.userData.id ||
+        match.playerAId === userStore.userData.id ||
+        match.playerBId === userStore.userData.id ||
         (match.playerIds && match.playerIds.includes(userStore.userData.id))
       )
     })
     .sort((a, b) => {
-      const timeA = a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
-      const timeB = b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
+      const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
+      const timeB = b.timestamp?.toMillis?.() || b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
       return timeB - timeA
     })
     .slice(0, 10)
@@ -246,7 +247,6 @@ const allDoublesQuery = computed(() => {
   return query(
     collection(db, 'doublesMatches'),
     where('clubId', '==', userStore.clubId),
-    where('processed', '==', true),
     limit(100)
   )
 })
@@ -268,8 +268,8 @@ const doublesHistory = computed(() => {
       )
     })
     .sort((a, b) => {
-      const timeA = a.createdAt?.toMillis?.() || a.timestamp?.toMillis?.() || 0
-      const timeB = b.createdAt?.toMillis?.() || b.timestamp?.toMillis?.() || 0
+      const timeA = a.timestamp?.toMillis?.() || a.createdAt?.toMillis?.() || 0
+      const timeB = b.timestamp?.toMillis?.() || b.createdAt?.toMillis?.() || 0
       return timeB - timeA
     })
     .slice(0, 10)
@@ -444,8 +444,25 @@ function formatDate(timestamp) {
 }
 
 function didWin(match) {
-  const isPlayer1 = match.player1Id === userStore.userData?.id
-  return isPlayer1 ? match.winner === 1 : match.winner === 2
+  // Check if user is the winner (using winnerId from original schema)
+  return match.winnerId === userStore.userData?.id
+}
+
+function getOpponentName(match) {
+  // Determine opponent based on whether user is winner or loser
+  if (match.winnerId === userStore.userData?.id) {
+    // User won, opponent is the loser
+    return match.loserName || 'Unbekannt'
+  } else {
+    // User lost, opponent is the winner
+    return match.winnerName || 'Unbekannt'
+  }
+}
+
+function getEloChange(match) {
+  // Note: In original, this is fetched from pointsHistory
+  // For now, return from match if available, otherwise 0
+  return match.eloChange || match.playerAEloChange || match.playerBEloChange || 0
 }
 
 function formatLastPlayed(date) {
@@ -743,17 +760,17 @@ function getHandicapInfo(player) {
             </thead>
             <tbody>
               <tr v-for="match in matchHistory" :key="match.id" class="border-b border-gray-100">
-                <td class="py-3 text-sm">{{ formatDate(match.playedAt) }}</td>
+                <td class="py-3 text-sm">{{ formatDate(match.timestamp || match.playedAt || match.createdAt) }}</td>
                 <td class="py-3 font-medium">
-                  {{ match.player1Id === userStore.userData?.id ? match.player2Name : match.player1Name }}
+                  {{ getOpponentName(match) }}
                 </td>
                 <td class="py-3">
                   <span class="px-2 py-1 rounded text-sm font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
                     {{ didWin(match) ? 'Sieg' : 'Niederlage' }}
                   </span>
                 </td>
-                <td class="py-3 text-sm" :class="(match.eloChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'">
-                  {{ (match.eloChange || 0) >= 0 ? '+' : '' }}{{ match.eloChange || 0 }}
+                <td class="py-3 text-sm" :class="getEloChange(match) >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ getEloChange(match) >= 0 ? '+' : '' }}{{ getEloChange(match) }}
                 </td>
               </tr>
             </tbody>
