@@ -578,6 +578,202 @@ const migrateDoublesPairingsNames = onCall({ region: CONFIG.REGION }, async (req
   }
 });
 
+/**
+ * Migrate Doubles Matches Points History (callable)
+ * Creates pointsHistory entries for all processed doubles matches
+ * that don't already have history entries
+ */
+const migrateDoublesMatchesPointsHistory = onCall(
+  {
+    region: CONFIG.REGION,
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!callerDoc.exists || !['admin', 'coach'].includes(callerDoc.data().role)) {
+      throw new HttpsError('permission-denied', 'Only admins and coaches can run migrations');
+    }
+
+    logger.info('🔄 Starting doubles matches points history migration...');
+
+    try {
+      // Get all processed doubles matches
+      const matchesSnapshot = await db
+        .collection('doublesMatches')
+        .where('processed', '==', true)
+        .get();
+
+      if (matchesSnapshot.empty) {
+        logger.info('No processed doubles matches found');
+        return { success: true, migrated: 0, skipped: 0 };
+      }
+
+      logger.info(`Found ${matchesSnapshot.size} processed doubles matches`);
+
+      let migrated = 0;
+      let skipped = 0;
+      let errors = 0;
+
+      for (const matchDoc of matchesSnapshot.docs) {
+        const matchData = matchDoc.data();
+        const matchId = matchDoc.id;
+
+        const { teamA, teamB, winningTeam, handicapUsed } = matchData;
+
+        if (!teamA || !teamB || !winningTeam) {
+          logger.warn(`⚠️ Invalid match data for ${matchId}`);
+          skipped++;
+          continue;
+        }
+
+        const winningPlayerIds =
+          winningTeam === 'A'
+            ? [teamA.player1Id, teamA.player2Id]
+            : [teamB.player1Id, teamB.player2Id];
+        const losingPlayerIds =
+          winningTeam === 'A'
+            ? [teamB.player1Id, teamB.player2Id]
+            : [teamA.player1Id, teamA.player2Id];
+
+        const allPlayerIds = [...winningPlayerIds, ...losingPlayerIds];
+
+        // Check if any player already has a history entry for this match
+        let alreadyMigrated = false;
+        for (const playerId of allPlayerIds) {
+          const existingHistory = await db
+            .collection('users')
+            .doc(playerId)
+            .collection('pointsHistory')
+            .where('matchId', '==', matchId)
+            .limit(1)
+            .get();
+
+          if (!existingHistory.empty) {
+            alreadyMigrated = true;
+            break;
+          }
+        }
+
+        if (alreadyMigrated) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          // Get all player documents
+          const [winner1Doc, winner2Doc, loser1Doc, loser2Doc] = await Promise.all([
+            db.collection('users').doc(winningPlayerIds[0]).get(),
+            db.collection('users').doc(winningPlayerIds[1]).get(),
+            db.collection('users').doc(losingPlayerIds[0]).get(),
+            db.collection('users').doc(losingPlayerIds[1]).get(),
+          ]);
+
+          if (!winner1Doc.exists || !winner2Doc.exists || !loser1Doc.exists || !loser2Doc.exists) {
+            logger.warn(`⚠️ Not all players found for match ${matchId}`);
+            skipped++;
+            continue;
+          }
+
+          const winner1Data = winner1Doc.data();
+          const winner2Data = winner2Doc.data();
+          const loser1Data = loser1Doc.data();
+          const loser2Data = loser2Doc.data();
+
+          // Calculate points (similar to doublesProcessor logic)
+          const seasonPointChange = matchData.pointsExchanged || (handicapUsed ? 4 : 3);
+          const winnerXPGain = handicapUsed ? 0 : seasonPointChange;
+          const matchTypeReason = handicapUsed ? 'Doppel-Wettkampf (Handicap)' : 'Doppel-Wettkampf';
+
+          // Use match timestamp or current time
+          const timestamp = matchData.timestamp || matchData.createdAt || admin.firestore.FieldValue.serverTimestamp();
+
+          const batch = db.batch();
+
+          // Create history entries for winners
+          const winner1HistoryRef = winner1Doc.ref.collection('pointsHistory').doc();
+          batch.set(winner1HistoryRef, {
+            points: seasonPointChange,
+            xp: winnerXPGain,
+            eloChange: 0, // We don't have the original elo change, set to 0
+            reason: `Sieg im ${matchTypeReason} (Partner: ${winner2Data.firstName})`,
+            timestamp: timestamp,
+            awardedBy: 'System (Doppel-Migration)',
+            isPartner: true,
+            matchId: matchId,
+            migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          const winner2HistoryRef = winner2Doc.ref.collection('pointsHistory').doc();
+          batch.set(winner2HistoryRef, {
+            points: seasonPointChange,
+            xp: winnerXPGain,
+            eloChange: 0,
+            reason: `Sieg im ${matchTypeReason} (Partner: ${winner1Data.firstName})`,
+            timestamp: timestamp,
+            awardedBy: 'System (Doppel-Migration)',
+            isPartner: true,
+            matchId: matchId,
+            migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          // Create history entries for losers
+          const loser1HistoryRef = loser1Doc.ref.collection('pointsHistory').doc();
+          batch.set(loser1HistoryRef, {
+            points: 0,
+            xp: 0,
+            eloChange: 0,
+            reason: `Niederlage im ${matchTypeReason} (Partner: ${loser2Data.firstName})`,
+            timestamp: timestamp,
+            awardedBy: 'System (Doppel-Migration)',
+            isPartner: true,
+            matchId: matchId,
+            migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          const loser2HistoryRef = loser2Doc.ref.collection('pointsHistory').doc();
+          batch.set(loser2HistoryRef, {
+            points: 0,
+            xp: 0,
+            eloChange: 0,
+            reason: `Niederlage im ${matchTypeReason} (Partner: ${loser1Data.firstName})`,
+            timestamp: timestamp,
+            awardedBy: 'System (Doppel-Migration)',
+            isPartner: true,
+            matchId: matchId,
+            migratedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
+          await batch.commit();
+          migrated++;
+
+          logger.info(`✅ Migrated points history for match ${matchId}`);
+        } catch (matchError) {
+          logger.error(`💥 Error migrating match ${matchId}:`, matchError);
+          errors++;
+        }
+      }
+
+      logger.info(
+        `✅ Migration complete: ${migrated} matches migrated, ${skipped} skipped, ${errors} errors`
+      );
+      return {
+        success: true,
+        migrated,
+        skipped,
+        errors,
+        total: matchesSnapshot.size,
+      };
+    } catch (error) {
+      logger.error('💥 Error migrating doubles matches points history:', error);
+      throw new HttpsError('internal', error.message);
+    }
+  }
+);
+
 module.exports = {
   cleanupInvitationTokens,
   cleanupExpiredInvitationCodes,
@@ -585,4 +781,5 @@ module.exports = {
   autoSeasonReset,
   migrateAttendanceToSessions,
   migrateDoublesPairingsNames,
+  migrateDoublesMatchesPointsHistory,
 };

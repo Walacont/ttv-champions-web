@@ -194,6 +194,7 @@ const processDoublesMatchResult = onDocumentCreated(
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         awardedBy: 'System (Doppel)',
         isPartner: true,
+        matchId: matchId,
       });
 
       const winner2HistoryRef = winner2Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
@@ -205,6 +206,7 @@ const processDoublesMatchResult = onDocumentCreated(
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         awardedBy: 'System (Doppel)',
         isPartner: true,
+        matchId: matchId,
       });
 
       const loser1HistoryRef = loser1Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
@@ -216,6 +218,7 @@ const processDoublesMatchResult = onDocumentCreated(
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         awardedBy: 'System (Doppel)',
         isPartner: true,
+        matchId: matchId,
       });
 
       const loser2HistoryRef = loser2Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
@@ -227,6 +230,7 @@ const processDoublesMatchResult = onDocumentCreated(
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         awardedBy: 'System (Doppel)',
         isPartner: true,
+        matchId: matchId,
       });
 
       // Update doublesPairings collection

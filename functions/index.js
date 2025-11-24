@@ -43,6 +43,7 @@ const {
   autoSeasonReset,
   migrateAttendanceToSessions,
   migrateDoublesPairingsNames,
+  migrateDoublesMatchesPointsHistory,
 } = require('./scheduled');
 
 // Import notification functions
@@ -81,6 +82,7 @@ exports.autoSeasonReset = autoSeasonReset;
 // Migration Functions
 exports.migrateAttendanceToSessions = migrateAttendanceToSessions;
 exports.migrateDoublesPairingsNames = migrateDoublesPairingsNames;
+exports.migrateDoublesMatchesPointsHistory = migrateDoublesMatchesPointsHistory;
 
 // Notifications
 exports.notifyCoachesDoublesRequest = notifyCoachesDoublesRequest;
