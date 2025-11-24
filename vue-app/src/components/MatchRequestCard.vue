@@ -14,9 +14,14 @@ const emit = defineEmits(['accepted', 'rejected'])
 
 async function acceptRequest() {
   try {
+    // When playerB accepts, status changes to pending_coach
     await updateDoc(doc(db, 'matchRequests', props.request.id), {
-      status: 'accepted',
-      respondedAt: serverTimestamp()
+      status: 'pending_coach',
+      'approvals.playerB': {
+        status: 'approved',
+        timestamp: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
     })
     emit('accepted', props.request)
   } catch (error) {
@@ -28,12 +33,26 @@ async function rejectRequest() {
   try {
     await updateDoc(doc(db, 'matchRequests', props.request.id), {
       status: 'rejected',
-      respondedAt: serverTimestamp()
+      'approvals.playerB': {
+        status: 'rejected',
+        timestamp: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
     })
     emit('rejected', props.request)
   } catch (error) {
     console.error('Error rejecting request:', error)
   }
+}
+
+// Get status label for display
+function getStatusLabel() {
+  if (props.request.status === 'pending_player') {
+    return 'Wartet auf Spieler'
+  } else if (props.request.status === 'pending_coach') {
+    return 'Wartet auf Coach'
+  }
+  return 'Ausstehend'
 }
 
 async function cancelRequest() {
@@ -62,12 +81,12 @@ function formatDate(timestamp) {
       <div class="flex items-center space-x-3">
         <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
           <span class="text-indigo-600 font-medium">
-            {{ type === 'incoming' ? request.requesterName?.[0] : request.opponentName?.[0] }}
+            {{ type === 'incoming' ? (request.playerAName || request.requesterName)?.[0] : (request.playerBName || request.opponentName)?.[0] }}
           </span>
         </div>
         <div>
           <p class="font-medium text-gray-900">
-            {{ type === 'incoming' ? request.requesterName : request.opponentName }}
+            {{ type === 'incoming' ? (request.playerAName || request.requesterName) : (request.playerBName || request.opponentName) }}
           </p>
           <p class="text-xs text-gray-500">
             {{ formatDate(request.createdAt) }}
@@ -92,10 +111,14 @@ function formatDate(timestamp) {
           </button>
         </template>
         <template v-else>
-          <span class="text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded-md">
-            Ausstehend
+          <span
+            class="text-sm px-3 py-1 rounded-md"
+            :class="request.status === 'pending_coach' ? 'text-purple-600 bg-purple-50' : 'text-yellow-600 bg-yellow-50'"
+          >
+            {{ getStatusLabel() }}
           </span>
           <button
+            v-if="request.status === 'pending_player'"
             @click="cancelRequest"
             class="px-3 py-1 text-gray-500 text-sm hover:text-red-600"
           >
@@ -106,8 +129,27 @@ function formatDate(timestamp) {
     </div>
 
     <!-- Match Details -->
-    <div v-if="request.proposedDate" class="mt-2 text-sm text-gray-600">
-      📅 Vorgeschlagen: {{ formatDate(request.proposedDate) }}
+    <div class="mt-3 pt-3 border-t border-gray-200">
+      <!-- Set scores -->
+      <div v-if="request.sets?.length" class="flex items-center gap-2 text-sm">
+        <span class="text-gray-600">Sätze:</span>
+        <span class="font-mono font-medium text-gray-800">
+          {{ request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') }}
+        </span>
+      </div>
+      <!-- Winner info -->
+      <div class="mt-1 text-sm">
+        <span
+          class="px-2 py-0.5 rounded text-xs font-medium"
+          :class="(request.winner === 'requester' || request.winnerId === request.playerAId) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+        >
+          {{ type === 'incoming'
+            ? ((request.winner === 'requester' || request.winnerId === request.playerAId) ? 'Absender gewinnt' : 'Du gewinnst')
+            : ((request.winner === 'requester' || request.winnerId === request.playerAId) ? 'Du gewinnst' : 'Gegner gewinnt')
+          }}
+        </span>
+        <span class="text-gray-500 ml-2">{{ request.matchMode || request.mode }}</span>
+      </div>
     </div>
   </div>
 </template>
