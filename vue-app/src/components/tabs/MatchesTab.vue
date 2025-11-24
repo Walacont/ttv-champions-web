@@ -137,6 +137,7 @@ const selectedOpponent2 = ref('')
 const matchMode = ref('best-of-5')
 const submitting = ref(false)
 const feedback = ref({ message: '', type: '' })
+const useHandicap = ref(false)
 
 // Set scores
 const sets = ref([
@@ -155,10 +156,97 @@ const matchModes = [
 
 const currentMode = computed(() => matchModes.find(m => m.id === matchMode.value) || matchModes[2])
 
+// Handicap calculation based on selected opponent
+const handicapInfo = computed(() => {
+  if (!selectedOpponent.value || !userStore.userData) return null
+
+  const opponent = clubPlayers.value?.find(p => p.id === selectedOpponent.value)
+  if (!opponent) return null
+
+  const myElo = userStore.userData.eloRating || 1000
+  const opponentElo = opponent.eloRating || 1000
+  const eloDiff = Math.abs(myElo - opponentElo)
+
+  if (eloDiff < 25) return null
+
+  const handicapPoints = Math.min(Math.round(eloDiff / 50), 10)
+  const weakerPlayer = myElo < opponentElo ? 'Du' : `${opponent.firstName}`
+  const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B'
+
+  return {
+    points: handicapPoints,
+    weakerPlayer,
+    weakerPlayerSide,
+    text: `${weakerPlayer} startet mit ${handicapPoints} Punkt${handicapPoints === 1 ? '' : 'en'} Vorsprung pro Satz.`
+  }
+})
+
 // Reset sets when mode changes
 watch(matchMode, () => {
   const minSets = currentMode.value.setsToWin
   sets.value = Array.from({ length: minSets }, () => ({ playerA: '', playerB: '' }))
+  useHandicap.value = false
+})
+
+// Auto-add set fields based on current score
+function handleSetInput() {
+  const mode = currentMode.value
+  if (mode.id === 'single-set') return
+
+  // Count wins (lenient check - just need 11+ and be ahead)
+  let playerAWins = 0
+  let playerBWins = 0
+
+  for (const set of sets.value) {
+    const a = parseInt(set.playerA) || 0
+    const b = parseInt(set.playerB) || 0
+    if (a > b && a >= 11) playerAWins++
+    if (b > a && b >= 11) playerBWins++
+  }
+
+  // Only auto-add if no one has won yet
+  if (playerAWins >= mode.setsToWin || playerBWins >= mode.setsToWin) return
+  if (sets.value.length >= mode.maxSets) return
+
+  // Calculate fields needed: totalSetsPlayed + (setsToWin - maxWins)
+  const totalSetsPlayed = playerAWins + playerBWins
+  const maxWins = Math.max(playerAWins, playerBWins)
+  const fieldsNeeded = totalSetsPlayed + (mode.setsToWin - maxWins)
+
+  // Add fields if needed
+  while (sets.value.length < fieldsNeeded && sets.value.length < mode.maxSets) {
+    sets.value.push({ playerA: '', playerB: '' })
+  }
+}
+
+// Apply handicap to set scores
+function applyHandicap() {
+  if (!handicapInfo.value || !useHandicap.value) return
+
+  const { weakerPlayerSide, points } = handicapInfo.value
+  sets.value.forEach((set, index) => {
+    if (weakerPlayerSide === 'A') {
+      const currentA = parseInt(set.playerA) || 0
+      if (currentA < points) {
+        sets.value[index].playerA = points.toString()
+      }
+    } else {
+      const currentB = parseInt(set.playerB) || 0
+      if (currentB < points) {
+        sets.value[index].playerB = points.toString()
+      }
+    }
+  })
+}
+
+// Watch handicap toggle
+watch(useHandicap, (newVal) => {
+  if (newVal) {
+    applyHandicap()
+  } else {
+    // Reset scores when turning off handicap
+    sets.value = sets.value.map(() => ({ playerA: '', playerB: '' }))
+  }
 })
 
 // Club players
@@ -563,7 +651,9 @@ async function submitSinglesRequest() {
       playerBName: `${opponent.firstName} ${opponent.lastName}`,
       winnerId,
       loserId,
-      handicapUsed: false,
+      handicapUsed: useHandicap.value,
+      handicapPoints: useHandicap.value && handicapInfo.value ? handicapInfo.value.points : 0,
+      handicapPlayer: useHandicap.value && handicapInfo.value ? handicapInfo.value.weakerPlayerSide : null,
       matchMode: matchMode.value,
       clubId: userStore.clubId,
       sets: validation.sets.map(s => ({ playerA: parseInt(s.playerA), playerB: parseInt(s.playerB) })),
@@ -879,6 +969,27 @@ function getHandicapInfo(player) {
               {{ player.firstName }} {{ player.lastName }} ({{ player.eloRating || 1000 }} Elo)
             </option>
           </select>
+
+          <!-- Handicap Suggestion -->
+          <div v-if="handicapInfo" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-blue-600 text-lg">⚖️</span>
+                <div>
+                  <p class="text-sm font-medium text-blue-800">Handicap-Vorschlag</p>
+                  <p class="text-xs text-blue-600">{{ handicapInfo.text }}</p>
+                </div>
+              </div>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="useHandicap"
+                  class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span class="text-sm font-medium text-blue-700">Anwenden</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <!-- Doubles: Player Selections -->
@@ -933,6 +1044,7 @@ function getHandicapInfo(player) {
               min="0"
               max="99"
               placeholder="0"
+              @input="handleSetInput"
               class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
             />
             <span class="text-gray-500">:</span>
@@ -942,6 +1054,7 @@ function getHandicapInfo(player) {
               min="0"
               max="99"
               placeholder="0"
+              @input="handleSetInput"
               class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
             />
           </div>
