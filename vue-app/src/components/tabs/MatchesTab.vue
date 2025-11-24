@@ -1013,6 +1013,8 @@ async function submitDoublesRequest() {
         pairingId: teamBPairingId
       },
       winningTeam: validation.winner,
+      winningPairingId: validation.winner === 'A' ? teamAPairingId : teamBPairingId,
+      losingPairingId: validation.winner === 'A' ? teamBPairingId : teamAPairingId,
       sets: validation.sets.map(s => ({ teamA: parseInt(s.playerA), teamB: parseInt(s.playerB) })),
       matchMode: matchMode.value,
       initiatedBy: userStore.userData.id,
