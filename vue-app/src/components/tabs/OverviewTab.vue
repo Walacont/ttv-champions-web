@@ -136,7 +136,7 @@ const pointsHistoryQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
     collection(db, 'users', userStore.userData.id, 'pointsHistory'),
-    orderBy('createdAt', 'desc'),
+    orderBy('timestamp', 'desc'),
     limit(10)
   )
 })
@@ -327,7 +327,7 @@ function formatDate(timestamp) {
             <li v-for="entry in pointsHistory" :key="entry.id" class="flex justify-between items-center text-sm border-b pb-2">
               <div>
                 <p class="font-medium text-gray-800">{{ entry.reason }}</p>
-                <p class="text-xs text-gray-500">{{ formatDate(entry.createdAt) }}</p>
+                <p class="text-xs text-gray-500">{{ formatDate(entry.timestamp) }}</p>
               </div>
               <span class="font-bold" :class="entry.points > 0 ? 'text-green-600' : 'text-red-600'">
                 {{ entry.points > 0 ? '+' : '' }}{{ entry.points }}
