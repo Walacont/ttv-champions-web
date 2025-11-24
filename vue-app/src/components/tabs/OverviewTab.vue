@@ -402,7 +402,7 @@ function formatDate(timestamp) {
     <!-- Widget Settings Modal -->
     <div
       v-if="showWidgetSettings"
-      class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 overflow-y-auto p-4"
+      class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto p-4"
       @click.self="showWidgetSettings = false"
     >
       <div class="relative mx-auto w-full max-w-2xl bg-white rounded-md shadow-lg border">
