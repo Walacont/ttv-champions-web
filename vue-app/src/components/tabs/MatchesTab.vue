@@ -28,6 +28,11 @@ onMounted(async () => {
   await loadMatchRequests()
 })
 
+// Watch for subgroup filter changes and reload suggestions
+watch(() => userStore.currentSubgroupFilter, async () => {
+  await calculateMatchSuggestions()
+})
+
 // Cleanup on unmount
 onUnmounted(() => {
   if (matchHistoryUnsubscribe) {
@@ -53,7 +58,13 @@ async function calculateMatchSuggestions() {
       where('role', '==', 'player')
     )
     const playersSnapshot = await getDocs(playersQuery)
-    const allPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    let allPlayers = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+    // Apply subgroup filter if not 'club' or 'global'
+    const subgroupFilter = userStore.currentSubgroupFilter
+    if (subgroupFilter && subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+      allPlayers = allPlayers.filter(player => (player.subgroupIDs || []).includes(subgroupFilter))
+    }
 
     // Filter eligible players
     const eligiblePlayers = allPlayers.filter(p => {
@@ -353,7 +364,16 @@ const clubPlayers = useCollection(clubPlayersQuery)
 // Available opponents (excluding self and match-ready check)
 const availableOpponents = computed(() => {
   if (!clubPlayers.value) return []
-  return clubPlayers.value.filter(p => {
+
+  let filteredPlayers = clubPlayers.value
+
+  // Apply subgroup filter if not 'club' or 'global'
+  const subgroupFilter = userStore.currentSubgroupFilter
+  if (subgroupFilter && subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+    filteredPlayers = filteredPlayers.filter(player => (player.subgroupIDs || []).includes(subgroupFilter))
+  }
+
+  return filteredPlayers.filter(p => {
     if (p.id === userStore.userData?.id) return false
     const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5
     return isMatchReady
