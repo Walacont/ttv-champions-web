@@ -391,6 +391,22 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         return;
     }
 
+    // Calculate handicap information if used
+    let handicapPoints = 0;
+    let handicapPlayer = null;
+    if (handicapUsed) {
+        const playerA = clubPlayers.find(p => p.id === playerAId);
+        const playerB = clubPlayers.find(p => p.id === playerBId);
+        if (playerA && playerB) {
+            const handicapInfo = calculateHandicap(playerA, playerB);
+            if (handicapInfo) {
+                handicapPoints = handicapInfo.points;
+                // Determine if weaker player is A or B
+                handicapPlayer = handicapInfo.player.id === playerAId ? 'A' : 'B';
+            }
+        }
+    }
+
     // Validate set scores
     if (!coachSetScoreInput) {
         feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
@@ -424,6 +440,8 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
             winnerId,
             loserId,
             handicapUsed: handicapUsed,
+            handicapPoints: handicapPoints,
+            handicapPlayer: handicapPlayer,
             matchMode: matchMode,
             sets: sets,
             reportedBy: currentUserData.id,
