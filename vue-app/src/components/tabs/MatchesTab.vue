@@ -362,10 +362,12 @@ const availableOpponents = computed(() => {
 })
 
 // Check if player has online access
+// isOffline: true = no online access (not registered)
+// isOffline: false or missing = has online access (registered)
 function hasOnlineAccess(playerId) {
   if (!clubPlayers.value) return false
   const player = clubPlayers.value.find(p => p.id === playerId)
-  return player?.hasOnlineAccess === true || player?.isOnline === true
+  return player?.isOffline !== true
 }
 
 // === MATCH REQUESTS ===
