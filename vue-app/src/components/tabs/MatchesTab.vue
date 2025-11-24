@@ -186,7 +186,6 @@ const allMatchRequestsQuery = computed(() => {
   return query(
     collection(db, 'matchRequests'),
     where('clubId', '==', userStore.clubId),
-    orderBy('createdAt', 'desc'),
     limit(100)
   )
 })
@@ -195,19 +194,31 @@ const allMatchRequests = useCollection(allMatchRequestsQuery)
 // Incoming requests (singles) - requests where I am playerB and need to respond
 const incomingRequests = computed(() => {
   if (!allMatchRequests.value || !userStore.userData?.id) return []
-  return allMatchRequests.value.filter(r =>
-    r.playerBId === userStore.userData.id &&
-    r.status === 'pending_player'
-  )
+  return allMatchRequests.value
+    .filter(r =>
+      r.playerBId === userStore.userData.id &&
+      r.status === 'pending_player'
+    )
+    .sort((a, b) => {
+      const timeA = a.createdAt?.toMillis?.() || 0
+      const timeB = b.createdAt?.toMillis?.() || 0
+      return timeB - timeA
+    })
 })
 
 // Outgoing requests (singles) - requests I created that are still pending
 const outgoingRequests = computed(() => {
   if (!allMatchRequests.value || !userStore.userData?.id) return []
-  return allMatchRequests.value.filter(r =>
-    r.playerAId === userStore.userData.id &&
-    (r.status === 'pending_player' || r.status === 'pending_coach')
-  )
+  return allMatchRequests.value
+    .filter(r =>
+      r.playerAId === userStore.userData.id &&
+      (r.status === 'pending_player' || r.status === 'pending_coach')
+    )
+    .sort((a, b) => {
+      const timeA = a.createdAt?.toMillis?.() || 0
+      const timeB = b.createdAt?.toMillis?.() || 0
+      return timeB - timeA
+    })
 })
 
 // Incoming doubles requests
@@ -224,6 +235,8 @@ const incomingDoublesRequests = useCollection(incomingDoublesQuery)
 // Match history (singles) - enriched with opponent names and elo changes
 const enrichedMatchHistory = ref([])
 const loadingHistory = ref(true)
+const showAllHistory = ref(false)
+const INITIAL_MATCHES_SHOWN = 4
 let matchHistoryUnsubscribe = null
 
 // Load and enrich match history
@@ -339,8 +352,21 @@ async function enrichMatchData(match, userId) {
   return enriched
 }
 
-// Computed for template compatibility
-const matchHistory = computed(() => enrichedMatchHistory.value)
+// Computed for template compatibility - with show more/less
+const matchHistory = computed(() => {
+  if (showAllHistory.value) {
+    return enrichedMatchHistory.value
+  }
+  return enrichedMatchHistory.value.slice(0, INITIAL_MATCHES_SHOWN)
+})
+
+// Total matches count for toggle button
+const totalMatchesCount = computed(() => enrichedMatchHistory.value.length)
+const hasMoreMatches = computed(() => totalMatchesCount.value > INITIAL_MATCHES_SHOWN)
+
+function toggleShowAllHistory() {
+  showAllHistory.value = !showAllHistory.value
+}
 
 // Doubles match history - load all club doubles to avoid index requirement
 const allDoublesQuery = computed(() => {
@@ -915,6 +941,18 @@ function getHandicapInfo(player) {
               </tr>
             </tbody>
           </table>
+          <!-- Toggle Button -->
+          <div v-if="hasMoreMatches" class="text-center mt-4">
+            <button
+              @click="toggleShowAllHistory"
+              class="text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors"
+            >
+              {{ showAllHistory
+                ? '− Weniger anzeigen'
+                : `+ ${totalMatchesCount - INITIAL_MATCHES_SHOWN} weitere Wettkämpfe anzeigen`
+              }}
+            </button>
+          </div>
         </div>
         <p v-else class="text-gray-500 text-center py-4">Noch keine Einzel-Matches gespielt</p>
       </div>
