@@ -138,7 +138,25 @@ const doublesPairingsQuery = computed(() => {
     orderBy('matchesWon', 'desc')
   )
 })
-const doublesPairings = useCollection(doublesPairingsQuery)
+const rawDoublesPairings = useCollection(doublesPairingsQuery)
+
+// Enrich pairings with photo URLs from club players
+const doublesPairings = computed(() => {
+  if (!rawDoublesPairings.value || !clubPlayers.value) return rawDoublesPairings.value
+
+  return rawDoublesPairings.value.map(pairing => {
+    const player1 = clubPlayers.value.find(p => p.id === pairing.player1Id)
+    const player2 = clubPlayers.value.find(p => p.id === pairing.player2Id)
+
+    return {
+      ...pairing,
+      player1PhotoURL: player1?.photoURL || null,
+      player2PhotoURL: player2?.photoURL || null,
+      player1Initials: player1 ? (player1.firstName?.[0] || '') + (player1.lastName?.[0] || '') : '??',
+      player2Initials: player2 ? (player2.firstName?.[0] || '') + (player2.lastName?.[0] || '') : '??'
+    }
+  })
+})
 
 const players = computed(() => scope.value === 'club' ? clubPlayers.value : globalPlayers.value)
 
