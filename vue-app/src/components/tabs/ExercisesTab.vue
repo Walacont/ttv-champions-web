@@ -13,6 +13,7 @@ const searchQuery = ref('')
 const showFilters = ref(false)
 const selectedExercise = ref(null)
 const playerProgress = ref({})
+const showAbbreviations = ref(false)
 
 // Exercises query (all active exercises)
 const exercisesQuery = computed(() => {
@@ -409,6 +410,42 @@ function getDifficultyColor(difficulty) {
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Abkürzungen Legende -->
+          <div class="mb-4 border-t border-gray-200 pt-3">
+            <button
+              @click="showAbbreviations = !showAbbreviations"
+              class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 font-medium"
+            >
+              <svg
+                class="w-4 h-4 transform transition-transform"
+                :class="showAbbreviations ? 'rotate-180' : ''"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+              📖 {{ showAbbreviations ? 'Abkürzungen ausblenden' : 'Abkürzungen anzeigen' }}
+            </button>
+            <div v-show="showAbbreviations" class="mt-3 bg-gray-50 rounded-lg p-3">
+              <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                <div><span class="font-semibold">VH</span> = Vorhand</div>
+                <div><span class="font-semibold">RH</span> = Rückhand</div>
+                <div><span class="font-semibold">T</span> = Topspin</div>
+                <div><span class="font-semibold">K</span> = Konter</div>
+                <div><span class="font-semibold">B</span> = Block</div>
+                <div><span class="font-semibold">S</span> = Smash</div>
+                <div><span class="font-semibold">F</span> = Flip</div>
+                <div><span class="font-semibold">SCH</span> = Schupf</div>
+                <div><span class="font-semibold">U</span> = Unterschnitt - Abwehr</div>
+                <div><span class="font-semibold">A</span> = Aufschlag</div>
+                <div><span class="font-semibold">OS</span> = Oberschnitt</div>
+                <div><span class="font-semibold">US</span> = Unterschnitt</div>
+                <div><span class="font-semibold">SS</span> = Seitenschnitt</div>
+              </div>
             </div>
           </div>
 
