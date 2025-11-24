@@ -126,11 +126,9 @@ async function calculateMatchSuggestions() {
 function selectSuggestion(player) {
   selectedOpponent.value = player.id
   matchType.value = 'singles'
-  showRequestForm.value = true
 }
 
 // Form state
-const showRequestForm = ref(false)
 const selectedOpponent = ref('')
 const selectedPartner = ref('')
 const selectedOpponent1 = ref('')
@@ -1035,7 +1033,6 @@ async function submitDoublesRequest() {
 }
 
 function resetForm() {
-  showRequestForm.value = false
   selectedOpponent.value = ''
   selectedPartner.value = ''
   selectedOpponent1.value = ''
@@ -1114,7 +1111,7 @@ function getHandicapInfo(player) {
 <template>
   <div class="space-y-6">
     <!-- Match Suggestions (collapsible) -->
-    <div v-if="!showRequestForm && matchType === 'singles'" class="bg-white rounded-xl shadow-md overflow-hidden">
+    <div v-if="matchType === 'singles'" class="bg-white rounded-xl shadow-md overflow-hidden">
       <!-- Header - clickable to toggle -->
       <button
         @click="showSuggestions = !showSuggestions"
@@ -1190,7 +1187,7 @@ function getHandicapInfo(player) {
     </div>
 
     <!-- Match Type Toggle -->
-    <div v-if="!showRequestForm" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+    <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
       <button
         @click="matchType = 'singles'"
         class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
@@ -1204,47 +1201,6 @@ function getHandicapInfo(player) {
         :class="matchType === 'doubles' ? 'bg-white shadow text-purple-600' : 'text-gray-600'"
       >
         Doppel
-      </button>
-    </div>
-
-    <!-- New Match Button -->
-    <div v-if="!showRequestForm" class="flex justify-center">
-      <button
-        @click="showRequestForm = true"
-        class="w-full md:w-auto px-8 py-3 font-semibold rounded-lg shadow-md transition-colors"
-        :class="matchType === 'singles'
-          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-          : 'bg-purple-600 hover:bg-purple-700 text-white'"
-      >
-        {{ matchType === 'singles' ? '+ Neues Einzel-Match eintragen' : '+ Neues Doppel-Match eintragen' }}
-      </button>
-    </div>
-
-    <!-- Match Type Toggle (when form is open) -->
-    <div v-if="showRequestForm" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
-      <button
-        @click="matchType = 'singles'"
-        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
-        :class="matchType === 'singles' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'"
-      >
-        Einzel
-      </button>
-      <button
-        @click="matchType = 'doubles'"
-        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
-        :class="matchType === 'doubles' ? 'bg-white shadow text-purple-600' : 'text-gray-600'"
-      >
-        Doppel
-      </button>
-    </div>
-
-    <!-- Cancel Button (when form is open) -->
-    <div v-if="showRequestForm" class="flex justify-end">
-      <button
-        @click="showRequestForm = false"
-        class="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"
-      >
-        ✕ Abbrechen
       </button>
     </div>
 
@@ -1258,7 +1214,7 @@ function getHandicapInfo(player) {
     </div>
 
     <!-- Request Form -->
-    <div v-if="showRequestForm" class="bg-white p-6 rounded-xl shadow-md">
+    <div class="bg-white p-6 rounded-xl shadow-md">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">
         {{ matchType === 'singles' ? 'Einzel-Match anfragen' : 'Doppel-Match anfragen' }}
       </h3>
