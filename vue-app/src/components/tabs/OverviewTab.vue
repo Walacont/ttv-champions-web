@@ -193,6 +193,76 @@ function formatDate(timestamp) {
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
 }
+
+// Rank system (from original ranks.js)
+const RANKS = {
+  REKRUT: { id: 0, name: 'Rekrut', emoji: '🔰', color: '#9CA3AF', minElo: 800, minXP: 0, description: 'Willkommen! Absolviere 5 Grundlagen-Übungen.', requiresGrundlagen: false },
+  BRONZE: { id: 1, name: 'Bronze', emoji: '🥉', color: '#CD7F32', minElo: 850, minXP: 50, description: 'Du hast die Grundlagen gemeistert!', requiresGrundlagen: true, grundlagenRequired: 5 },
+  SILBER: { id: 2, name: 'Silber', emoji: '🥈', color: '#C0C0C0', minElo: 1000, minXP: 200, description: 'Du bist auf dem besten Weg!', requiresGrundlagen: false },
+  GOLD: { id: 3, name: 'Gold', emoji: '🥇', color: '#FFD700', minElo: 1200, minXP: 500, description: 'Ein echter Champion!', requiresGrundlagen: false },
+  PLATIN: { id: 4, name: 'Platin', emoji: '💎', color: '#E5E4E2', minElo: 1400, minXP: 1000, description: 'Du gehörst zur Elite!', requiresGrundlagen: false },
+  CHAMPION: { id: 5, name: 'Champion', emoji: '👑', color: '#9333EA', minElo: 1600, minXP: 1800, description: 'Der höchste Rang - du bist ein Vereinsmeister!', requiresGrundlagen: false }
+}
+
+const RANK_ORDER = [RANKS.REKRUT, RANKS.BRONZE, RANKS.SILBER, RANKS.GOLD, RANKS.PLATIN, RANKS.CHAMPION]
+
+function calculateRank(eloRating, xp, grundlagenCount = 0) {
+  const elo = eloRating ?? 800
+  const totalXP = xp || 0
+
+  for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
+    const rank = RANK_ORDER[i]
+    const meetsBasicRequirements = elo >= rank.minElo && totalXP >= rank.minXP
+
+    if (rank.requiresGrundlagen) {
+      const required = rank.grundlagenRequired || 5
+      if (meetsBasicRequirements && grundlagenCount >= required) return rank
+    } else {
+      if (meetsBasicRequirements) return rank
+    }
+  }
+  return RANKS.REKRUT
+}
+
+function getRankProgress(eloRating, xp, grundlagenCount = 0) {
+  const currentRank = calculateRank(eloRating, xp, grundlagenCount)
+  const currentIndex = RANK_ORDER.findIndex(r => r.id === currentRank.id)
+
+  if (currentIndex === RANK_ORDER.length - 1) {
+    return { currentRank, nextRank: null, eloProgress: 100, xpProgress: 100, eloNeeded: 0, xpNeeded: 0, grundlagenNeeded: 0, grundlagenProgress: 100, isMaxRank: true }
+  }
+
+  const nextRank = RANK_ORDER[currentIndex + 1]
+  const elo = eloRating || 0
+  const totalXP = xp || 0
+
+  const eloNeeded = Math.max(0, nextRank.minElo - elo)
+  const xpNeeded = Math.max(0, nextRank.minXP - totalXP)
+  const grundlagenRequired = nextRank.grundlagenRequired || 5
+  const grundlagenNeeded = nextRank.requiresGrundlagen ? Math.max(0, grundlagenRequired - grundlagenCount) : 0
+
+  const eloProgress = nextRank.minElo === 0 ? (elo > 0 ? 100 : 0) : Math.min(100, (elo / nextRank.minElo) * 100)
+  const xpProgress = nextRank.minXP === 0 ? (totalXP > 0 ? 100 : 0) : Math.min(100, (totalXP / nextRank.minXP) * 100)
+  const grundlagenProgress = nextRank.requiresGrundlagen ? Math.min(100, (grundlagenCount / grundlagenRequired) * 100) : 100
+
+  return {
+    currentRank, nextRank,
+    eloProgress: Math.round(eloProgress),
+    xpProgress: Math.round(xpProgress),
+    grundlagenProgress: Math.round(grundlagenProgress),
+    eloNeeded, xpNeeded, grundlagenNeeded,
+    isMaxRank: false
+  }
+}
+
+const rankProgress = computed(() => {
+  if (!userStore.userData) return null
+  return getRankProgress(
+    userStore.userData.eloRating || 800,
+    userStore.userData.xp || 0,
+    userStore.userData.grundlagenCompleted || 0
+  )
+})
 </script>
 
 <template>
@@ -308,10 +378,76 @@ function formatDate(timestamp) {
       <!-- Rank Widget -->
       <div v-if="isWidgetVisible('rank')" class="bg-white p-6 rounded-xl shadow-md">
         <h2 class="text-xl font-semibold mb-4">Dein Rang</h2>
-        <div class="text-center">
-          <div class="text-4xl mb-2">🎖️</div>
-          <p class="text-lg font-bold text-gray-800">{{ userStore.userData?.rank || 'Rekrut' }}</p>
-          <p class="text-sm text-gray-500 mt-1">{{ userStore.userData?.xp || 0 }} XP</p>
+        <div v-if="rankProgress">
+          <!-- Current Rank Badge -->
+          <div class="flex items-center justify-center space-x-2 mb-2">
+            <span class="text-4xl">{{ rankProgress.currentRank.emoji }}</span>
+            <div>
+              <p class="font-bold text-xl" :style="{ color: rankProgress.currentRank.color }">
+                {{ rankProgress.currentRank.name }}
+              </p>
+              <p class="text-xs text-gray-500">{{ rankProgress.currentRank.description }}</p>
+            </div>
+          </div>
+
+          <!-- Progress to Next Rank -->
+          <div v-if="!rankProgress.isMaxRank" class="mt-3 text-sm">
+            <p class="text-gray-600 font-medium mb-2">
+              Fortschritt zu {{ rankProgress.nextRank.emoji }} {{ rankProgress.nextRank.name }}:
+            </p>
+
+            <!-- Elo Progress Bar (only if required) -->
+            <div v-if="rankProgress.nextRank.minElo > 0" class="mb-2">
+              <div class="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Elo: {{ userStore.userData?.eloRating || 0 }}/{{ rankProgress.nextRank.minElo }}</span>
+                <span>{{ rankProgress.eloProgress }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full transition-all" :style="{ width: rankProgress.eloProgress + '%' }"></div>
+              </div>
+              <p v-if="rankProgress.eloNeeded > 0" class="text-xs text-gray-500 mt-1">
+                Noch {{ rankProgress.eloNeeded }} Elo benötigt
+              </p>
+              <p v-else class="text-xs text-green-600 mt-1">✓ Elo-Anforderung erfüllt</p>
+            </div>
+
+            <!-- XP Progress Bar -->
+            <div class="mb-2">
+              <div class="flex justify-between text-xs text-gray-600 mb-1">
+                <span>XP: {{ userStore.userData?.xp || 0 }}/{{ rankProgress.nextRank.minXP }}</span>
+                <span>{{ rankProgress.xpProgress }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-purple-600 h-2 rounded-full transition-all" :style="{ width: rankProgress.xpProgress + '%' }"></div>
+              </div>
+              <p v-if="rankProgress.xpNeeded > 0" class="text-xs text-gray-500 mt-1">
+                Noch {{ rankProgress.xpNeeded }} XP benötigt
+              </p>
+              <p v-else class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>
+            </div>
+
+            <!-- Grundlagen Progress Bar (only if required) -->
+            <div v-if="rankProgress.nextRank.requiresGrundlagen">
+              <div class="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Grundlagen-Übungen: {{ userStore.userData?.grundlagenCompleted || 0 }}/{{ rankProgress.nextRank.grundlagenRequired || 5 }}</span>
+                <span>{{ rankProgress.grundlagenProgress }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-green-600 h-2 rounded-full transition-all" :style="{ width: rankProgress.grundlagenProgress + '%' }"></div>
+              </div>
+              <p v-if="rankProgress.grundlagenNeeded > 0" class="text-xs text-gray-500 mt-1">
+                Noch {{ rankProgress.grundlagenNeeded }} Übung{{ rankProgress.grundlagenNeeded > 1 ? 'en' : '' }} bis du Wettkämpfe spielen kannst
+              </p>
+              <p v-else class="text-xs text-green-600 mt-1">
+                ✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!
+              </p>
+            </div>
+          </div>
+
+          <!-- Max Rank Message -->
+          <p v-else class="text-sm text-green-600 font-medium mt-2">
+            🏆 Höchster Rang erreicht!
+          </p>
         </div>
       </div>
 
