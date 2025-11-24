@@ -310,7 +310,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { db, storage } from '@/firebase'
+import { db, storage } from '@/config/firebase'
 import { doc, updateDoc, setDoc, getDoc } from 'firebase/firestore'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import {
