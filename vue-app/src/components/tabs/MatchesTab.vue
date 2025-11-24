@@ -1528,9 +1528,12 @@ function getHandicapInfo(player) {
                       </span>
                       <span class="text-sm font-medium text-gray-800">{{ formatSets(match) }}</span>
                     </div>
-                    <div v-if="match.handicapUsed && match.handicapPoints" class="flex items-center gap-1 text-xs text-blue-600">
+                    <div v-if="match.handicapUsed" class="flex items-center gap-1 text-xs text-blue-600">
                       <span>⚖️</span>
-                      <span>Handicap: {{ match.handicapPoints }}P für {{ match.handicapPlayer === 'A' ? (isPlayerA(match) ? 'Dich' : getOpponentName(match)) : (isPlayerA(match) ? getOpponentName(match) : 'Dich') }}</span>
+                      <span v-if="match.handicapPoints && match.handicapPlayer">
+                        Handicap: {{ match.handicapPoints }}P für {{ match.handicapPlayer === 'A' ? (isPlayerA(match) ? 'Dich' : getOpponentName(match)) : (isPlayerA(match) ? getOpponentName(match) : 'Dich') }}
+                      </span>
+                      <span v-else>Handicap verwendet</span>
                     </div>
                   </div>
                 </td>
