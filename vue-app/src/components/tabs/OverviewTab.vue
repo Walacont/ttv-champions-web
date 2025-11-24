@@ -140,13 +140,14 @@ onUnmounted(() => {
   if (doublesUnsubscribe) doublesUnsubscribe()
 })
 
-// Filter doubles to only show where I'm in teamB and not the initiator
+// Filter doubles to only show where I'm in teamB and not the initiator AND I haven't confirmed yet
 const pendingDoubles = computed(() => {
   if (!allPendingDoubles.value || !userStore.userData?.id) return []
   return allPendingDoubles.value.filter(r => {
     const isInTeamB = r.teamB?.player1Id === userStore.userData.id || r.teamB?.player2Id === userStore.userData.id
     const isInitiator = r.initiatedBy === userStore.userData.id
-    return isInTeamB && !isInitiator
+    const hasConfirmed = r.confirmations?.[userStore.userData.id]?.status === 'confirmed'
+    return isInTeamB && !isInitiator && !hasConfirmed
   })
 })
 
