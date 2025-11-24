@@ -14,6 +14,7 @@ const matchType = ref('singles')
 // Match Suggestions
 const matchSuggestions = ref([])
 const loadingSuggestions = ref(true)
+const showSuggestions = ref(false)
 
 // Check if player is match-ready (has 5+ Grundlagen)
 const isMatchReady = computed(() => {
@@ -1112,23 +1113,83 @@ function getHandicapInfo(player) {
 
 <template>
   <div class="space-y-6">
-    <!-- New Match Button - Simple design like original -->
-    <div
-      v-if="!showRequestForm"
-      class="flex justify-center"
-    >
+    <!-- Match Suggestions (collapsible) -->
+    <div v-if="!showRequestForm && matchType === 'singles'" class="bg-white rounded-xl shadow-md overflow-hidden">
+      <!-- Header - clickable to toggle -->
       <button
-        @click="showRequestForm = true"
-        class="w-full md:w-auto px-8 py-3 font-semibold rounded-lg shadow-md transition-colors"
-        :class="matchType === 'singles'
-          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-          : 'bg-purple-600 hover:bg-purple-700 text-white'"
+        @click="showSuggestions = !showSuggestions"
+        class="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
       >
-        {{ matchType === 'singles' ? '+ Neues Einzel-Match eintragen' : '+ Neues Doppel-Match eintragen' }}
+        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <span class="text-xl">💡</span>
+          Gegner-Vorschläge
+          <span v-if="matchSuggestions.length > 0" class="text-sm text-gray-500 font-normal">({{ matchSuggestions.length }})</span>
+        </h3>
+        <span class="text-gray-400 text-xl">{{ showSuggestions ? '−' : '+' }}</span>
       </button>
+
+      <!-- Collapsible Content -->
+      <div v-show="showSuggestions" class="px-6 pb-6">
+        <!-- Not match-ready warning -->
+        <div v-if="!isMatchReady" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+          <div class="flex items-start">
+            <span class="text-xl mr-3">🔒</span>
+            <div>
+              <p class="font-medium text-yellow-800">Match-Vorschläge gesperrt!</p>
+              <p class="text-sm text-yellow-700 mt-1">
+                Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren.<br>
+                Fortschritt: <strong>{{ userStore.userData?.grundlagenCompleted || 0 }}/5</strong> abgeschlossen.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading state -->
+        <div v-else-if="loadingSuggestions" class="text-center py-4 text-gray-500">
+          Lade Vorschläge...
+        </div>
+
+        <!-- No suggestions -->
+        <div v-else-if="!matchSuggestions.length" class="text-center py-4 text-gray-500">
+          Keine Vorschläge verfügbar
+        </div>
+
+        <!-- Suggestions list -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div
+            v-for="player in matchSuggestions"
+            :key="player.id"
+            @click="selectSuggestion(player)"
+            class="bg-gray-50 border border-indigo-200 rounded-lg p-3 cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 transition"
+          >
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-semibold text-gray-800">{{ player.firstName }} {{ player.lastName }}</p>
+                <p class="text-sm text-gray-600">Elo: {{ Math.round(player.eloRating || 1000) }}</p>
+              </div>
+              <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
+                {{ player.eloDiff > 0 ? `±${Math.round(player.eloDiff)}` : '≈' }}
+              </span>
+            </div>
+            <div class="text-xs text-gray-600 mt-2">
+              <span v-if="player.history.matchCount === 0" class="text-purple-700 font-medium">
+                ⭐ Noch nie gespielt
+              </span>
+              <span v-else>
+                {{ player.history.matchCount }} Match{{ player.history.matchCount === 1 ? '' : 'es' }}
+                <span v-if="player.history.lastMatchDate">, zuletzt {{ formatLastPlayed(player.history.lastMatchDate) }}</span>
+              </span>
+            </div>
+            <!-- Handicap info -->
+            <div v-if="player.eloDiff >= 25" class="text-xs text-blue-600 mt-1">
+              ⚖️ Handicap: {{ getHandicapInfo(player) }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Match Type Toggle (always visible when not requesting) -->
+    <!-- Match Type Toggle -->
     <div v-if="!showRequestForm" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
       <button
         @click="matchType = 'singles'"
@@ -1143,6 +1204,19 @@ function getHandicapInfo(player) {
         :class="matchType === 'doubles' ? 'bg-white shadow text-purple-600' : 'text-gray-600'"
       >
         Doppel
+      </button>
+    </div>
+
+    <!-- New Match Button -->
+    <div v-if="!showRequestForm" class="flex justify-center">
+      <button
+        @click="showRequestForm = true"
+        class="w-full md:w-auto px-8 py-3 font-semibold rounded-lg shadow-md transition-colors"
+        :class="matchType === 'singles'
+          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+          : 'bg-purple-600 hover:bg-purple-700 text-white'"
+      >
+        {{ matchType === 'singles' ? '+ Neues Einzel-Match eintragen' : '+ Neues Doppel-Match eintragen' }}
       </button>
     </div>
 
@@ -1172,71 +1246,6 @@ function getHandicapInfo(player) {
       >
         ✕ Abbrechen
       </button>
-    </div>
-
-    <!-- Match Suggestions (only when form is not shown) -->
-    <div v-if="!showRequestForm && matchType === 'singles'" class="bg-white p-6 rounded-xl shadow-md">
-      <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-        <span class="text-xl">💡</span>
-        Gegner-Vorschläge
-      </h3>
-
-      <!-- Not match-ready warning -->
-      <div v-if="!isMatchReady" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-        <div class="flex items-start">
-          <span class="text-xl mr-3">🔒</span>
-          <div>
-            <p class="font-medium text-yellow-800">Match-Vorschläge gesperrt!</p>
-            <p class="text-sm text-yellow-700 mt-1">
-              Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren.<br>
-              Fortschritt: <strong>{{ userStore.userData?.grundlagenCompleted || 0 }}/5</strong> abgeschlossen.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loading state -->
-      <div v-else-if="loadingSuggestions" class="text-center py-4 text-gray-500">
-        Lade Vorschläge...
-      </div>
-
-      <!-- No suggestions -->
-      <div v-else-if="!matchSuggestions.length" class="text-center py-4 text-gray-500">
-        Keine Vorschläge verfügbar
-      </div>
-
-      <!-- Suggestions list -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div
-          v-for="player in matchSuggestions"
-          :key="player.id"
-          @click="selectSuggestion(player)"
-          class="bg-gray-50 border border-indigo-200 rounded-lg p-3 cursor-pointer hover:bg-indigo-50 hover:border-indigo-400 transition"
-        >
-          <div class="flex justify-between items-start">
-            <div>
-              <p class="font-semibold text-gray-800">{{ player.firstName }} {{ player.lastName }}</p>
-              <p class="text-sm text-gray-600">Elo: {{ Math.round(player.eloRating || 1000) }}</p>
-            </div>
-            <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">
-              {{ player.eloDiff > 0 ? `±${Math.round(player.eloDiff)}` : '≈' }}
-            </span>
-          </div>
-          <div class="text-xs text-gray-600 mt-2">
-            <span v-if="player.history.matchCount === 0" class="text-purple-700 font-medium">
-              ⭐ Noch nie gespielt
-            </span>
-            <span v-else>
-              {{ player.history.matchCount }} Match{{ player.history.matchCount === 1 ? '' : 'es' }}
-              <span v-if="player.history.lastMatchDate">, zuletzt {{ formatLastPlayed(player.history.lastMatchDate) }}</span>
-            </span>
-          </div>
-          <!-- Handicap info -->
-          <div v-if="player.eloDiff >= 25" class="text-xs text-blue-600 mt-1">
-            ⚖️ Handicap: {{ getHandicapInfo(player) }}
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Feedback Message -->
