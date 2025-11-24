@@ -125,18 +125,17 @@ const challengesQuery = computed(() => {
   return query(
     collection(db, 'challenges'),
     where('clubId', '==', userStore.clubId),
-    where('active', '==', true),
+    where('isActive', '==', true),
     limit(6)
   )
 })
 const challenges = useCollection(challengesQuery)
 
-// Points history
+// Points history - subcollection under user
 const pointsHistoryQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
-    collection(db, 'pointsHistory'),
-    where('userId', '==', userStore.userData.id),
+    collection(db, 'users', userStore.userData.id, 'pointsHistory'),
     orderBy('createdAt', 'desc'),
     limit(10)
   )
