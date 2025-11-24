@@ -16,7 +16,7 @@ async function login() {
 
   try {
     await signInWithEmailAndPassword(auth, email.value, password.value)
-    router.push('/leaderboard')
+    router.push('/dashboard')
   } catch (err) {
     error.value = 'Login fehlgeschlagen. Bitte überprüfe deine Zugangsdaten.'
   } finally {
