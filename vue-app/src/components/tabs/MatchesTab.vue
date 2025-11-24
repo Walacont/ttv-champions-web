@@ -241,12 +241,14 @@ const matchHistory = computed(() => {
     .slice(0, 10)
 })
 
-// Enriched match history with opponent names
+// Enriched match history with opponent names and elo changes
 const enrichedMatchHistory = ref([])
+const showAllHistory = ref(false)
+const INITIAL_MATCHES_SHOWN = 4
 
-// Fetch opponent names when match history changes
+// Fetch opponent names and elo changes when match history changes
 watchEffect(async () => {
-  if (!matchHistory.value?.length) {
+  if (!matchHistory.value?.length || !userStore.userData?.id) {
     enrichedMatchHistory.value = []
     return
   }
@@ -254,11 +256,10 @@ watchEffect(async () => {
   const enriched = await Promise.all(
     matchHistory.value.map(async (match) => {
       const enrichedMatch = { ...match }
+      const userId = userStore.userData.id
 
       // Determine opponent ID
-      const opponentId = match.winnerId === userStore.userData?.id
-        ? match.loserId
-        : match.winnerId
+      const opponentId = match.winnerId === userId ? match.loserId : match.winnerId
 
       // Fetch opponent name
       if (opponentId) {
@@ -278,12 +279,62 @@ watchEffect(async () => {
         enrichedMatch.opponentName = 'Unbekannt'
       }
 
+      // Fetch elo change from pointsHistory
+      try {
+        const historyQuery = query(
+          collection(db, 'users', userId, 'pointsHistory'),
+          orderBy('timestamp', 'desc'),
+          limit(200)
+        )
+        const historySnapshot = await getDocs(historyQuery)
+        const matchTime = match.timestamp?.toMillis?.() || match.playedAt?.toMillis?.() || match.createdAt?.toMillis?.() || 0
+
+        for (const historyDoc of historySnapshot.docs) {
+          const historyData = historyDoc.data()
+          const historyTime = historyData.timestamp?.toMillis?.() || 0
+
+          // Check if this is a match history entry
+          const isMatchHistory = historyData.awardedBy === 'System (Wettkampf)' ||
+            (historyData.reason && (
+              historyData.reason.includes('Sieg im') ||
+              historyData.reason.includes('Niederlage im')
+            ))
+
+          // Match by timestamp proximity (within 30 seconds)
+          if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
+            enrichedMatch.eloChange = historyData.eloChange || 0
+            enrichedMatch.pointsGained = historyData.points || 0
+            break
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch points history for match:', error)
+      }
+
+      // Determine if user won
+      enrichedMatch.isWinner = match.winnerId === userId
+
       return enrichedMatch
     })
   )
 
   enrichedMatchHistory.value = enriched
 })
+
+// Display history (with show more/less toggle)
+const displayedMatchHistory = computed(() => {
+  if (showAllHistory.value) {
+    return enrichedMatchHistory.value
+  }
+  return enrichedMatchHistory.value.slice(0, INITIAL_MATCHES_SHOWN)
+})
+
+const totalMatchesCount = computed(() => enrichedMatchHistory.value.length)
+const hasMoreMatches = computed(() => totalMatchesCount.value > INITIAL_MATCHES_SHOWN)
+
+function toggleShowAllHistory() {
+  showAllHistory.value = !showAllHistory.value
+}
 
 // Doubles match history - load all club doubles to avoid index requirement
 const allDoublesQuery = computed(() => {
@@ -498,9 +549,10 @@ function getOpponentName(match) {
 }
 
 function getEloChange(match) {
-  // Note: In original, this is fetched from pointsHistory
-  // For now, return from match if available, otherwise 0
-  return match.eloChange || match.playerAEloChange || match.playerBEloChange || 0
+  // Use enriched eloChange from pointsHistory if available
+  if (match.eloChange !== undefined) return match.eloChange
+  // Fallback to 0 if not enriched
+  return 0
 }
 
 function getMatchScore(match) {
@@ -824,7 +876,7 @@ function getHandicapInfo(player) {
       <!-- Match History -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">📜 Match-Historie (Einzel)</h3>
-        <div v-if="enrichedMatchHistory?.length" class="overflow-x-auto">
+        <div v-if="displayedMatchHistory?.length" class="overflow-x-auto">
           <table class="w-full">
             <thead>
               <tr class="text-left text-sm text-gray-500 border-b">
@@ -835,7 +887,7 @@ function getHandicapInfo(player) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="match in enrichedMatchHistory" :key="match.id" class="border-b border-gray-100">
+              <tr v-for="match in displayedMatchHistory" :key="match.id" class="border-b border-gray-100">
                 <td class="py-3 text-sm">{{ formatDate(match.timestamp || match.playedAt || match.createdAt) }}</td>
                 <td class="py-3 font-medium">
                   {{ getOpponentName(match) }}
@@ -851,6 +903,18 @@ function getHandicapInfo(player) {
               </tr>
             </tbody>
           </table>
+          <!-- Toggle Button -->
+          <div v-if="hasMoreMatches" class="text-center mt-4">
+            <button
+              @click="toggleShowAllHistory"
+              class="text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors"
+            >
+              {{ showAllHistory
+                ? '− Weniger anzeigen'
+                : `+ ${totalMatchesCount - INITIAL_MATCHES_SHOWN} weitere Wettkämpfe anzeigen`
+              }}
+            </button>
+          </div>
         </div>
         <p v-else class="text-gray-500 text-center py-4">Noch keine Einzel-Matches gespielt</p>
       </div>
