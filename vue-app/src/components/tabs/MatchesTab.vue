@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { collection, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { collection, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, getDocs, onSnapshot } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
@@ -20,9 +20,17 @@ const isMatchReady = computed(() => {
   return (userStore.userData?.grundlagenCompleted || 0) >= 5
 })
 
-// Load match suggestions on mount
+// Load match suggestions and history on mount
 onMounted(async () => {
   await calculateMatchSuggestions()
+  await loadMatchHistory()
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (matchHistoryUnsubscribe) {
+    matchHistoryUnsubscribe()
+  }
 })
 
 async function calculateMatchSuggestions() {
@@ -207,39 +215,126 @@ const incomingDoublesQuery = computed(() => {
 })
 const incomingDoublesRequests = useCollection(incomingDoublesQuery)
 
-// Match history (singles) - load all club matches to avoid index requirement
-const allMatchesQuery = computed(() => {
-  if (!userStore.clubId) return null
-  return query(
+// Match history (singles) - enriched with opponent names and elo changes
+const enrichedMatchHistory = ref([])
+const loadingHistory = ref(true)
+let matchHistoryUnsubscribe = null
+
+// Load and enrich match history
+async function loadMatchHistory() {
+  if (!userStore.clubId || !userStore.userData?.id) {
+    loadingHistory.value = false
+    return
+  }
+
+  loadingHistory.value = true
+
+  const matchesQuery = query(
     collection(db, 'matches'),
     where('clubId', '==', userStore.clubId),
+    where('processed', '==', true),
     limit(100)
   )
-})
-const allMatches = useCollection(allMatchesQuery)
 
-// Filter and sort matches for current user (client-side to avoid index)
-const matchHistory = computed(() => {
-  if (!allMatches.value || !userStore.userData?.id) return []
+  matchHistoryUnsubscribe = onSnapshot(matchesQuery, async (snapshot) => {
+    const userId = userStore.userData.id
 
-  return allMatches.value
-    .filter(match => {
-      // Check if user is involved in this match (using winnerId/loserId from original)
-      return (
-        match.winnerId === userStore.userData.id ||
-        match.loserId === userStore.userData.id ||
-        match.playerAId === userStore.userData.id ||
-        match.playerBId === userStore.userData.id ||
-        (match.playerIds && match.playerIds.includes(userStore.userData.id))
-      )
-    })
-    .sort((a, b) => {
-      const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
-      const timeB = b.timestamp?.toMillis?.() || b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
-      return timeB - timeA
-    })
-    .slice(0, 10)
-})
+    // Filter matches for current user
+    const userMatches = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(match => {
+        return (
+          match.winnerId === userId ||
+          match.loserId === userId ||
+          match.playerAId === userId ||
+          match.playerBId === userId ||
+          (match.playerIds && match.playerIds.includes(userId))
+        )
+      })
+      .sort((a, b) => {
+        const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
+        const timeB = b.timestamp?.toMillis?.() || b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
+        return timeB - timeA
+      })
+      .slice(0, 20)
+
+    // Enrich each match with opponent name and elo change
+    const enrichedMatches = await Promise.all(
+      userMatches.map(match => enrichMatchData(match, userId))
+    )
+
+    enrichedMatchHistory.value = enrichedMatches
+    loadingHistory.value = false
+  }, (error) => {
+    console.error('Error loading match history:', error)
+    loadingHistory.value = false
+  })
+}
+
+// Enrich match with opponent name and elo change
+async function enrichMatchData(match, userId) {
+  const enriched = { ...match }
+
+  // Determine opponent ID
+  const opponentId = match.winnerId === userId ? match.loserId : match.winnerId
+
+  // Fetch opponent name
+  if (opponentId) {
+    try {
+      const opponentDoc = await getDoc(doc(db, 'users', opponentId))
+      if (opponentDoc.exists()) {
+        const data = opponentDoc.data()
+        enriched.opponentName = `${data.firstName || ''} ${data.lastName || ''}`.trim() || 'Unbekannt'
+      } else {
+        enriched.opponentName = 'Unbekannt'
+      }
+    } catch (error) {
+      enriched.opponentName = 'Gegner'
+    }
+  } else {
+    enriched.opponentName = 'Unbekannt'
+  }
+
+  // Fetch elo change from pointsHistory
+  try {
+    const historyQuery = query(
+      collection(db, 'users', userId, 'pointsHistory'),
+      orderBy('timestamp', 'desc'),
+      limit(200)
+    )
+    const historySnapshot = await getDocs(historyQuery)
+    const matchTime = match.timestamp?.toMillis?.() || match.playedAt?.toMillis?.() || 0
+
+    for (const historyDoc of historySnapshot.docs) {
+      const historyData = historyDoc.data()
+      const historyTime = historyData.timestamp?.toMillis?.() || 0
+
+      // Check if this is a match history entry
+      const isMatchHistory = historyData.awardedBy === 'System (Wettkampf)' ||
+        (historyData.reason && (
+          historyData.reason.includes('Sieg im') ||
+          historyData.reason.includes('Niederlage im')
+        ))
+
+      // Match by timestamp proximity (within 30 seconds)
+      if (isMatchHistory && Math.abs(historyTime - matchTime) < 30000) {
+        enriched.eloChange = historyData.eloChange || 0
+        enriched.pointsGained = historyData.points || 0
+        break
+      }
+    }
+  } catch (error) {
+    console.warn('Could not fetch points history for match:', error)
+  }
+
+  // Determine if user won
+  enriched.isWinner = match.winnerId === userId
+
+  return enriched
+}
+
+// Computed for template compatibility
+const matchHistory = computed(() => enrichedMatchHistory.value)
 
 // Doubles match history - load all club doubles to avoid index requirement
 const allDoublesQuery = computed(() => {
@@ -444,7 +539,8 @@ function formatDate(timestamp) {
 }
 
 function didWin(match) {
-  // Check if user is the winner (using winnerId from original schema)
+  // Use enriched isWinner if available, otherwise fallback
+  if (match.isWinner !== undefined) return match.isWinner
   return match.winnerId === userStore.userData?.id
 }
 
@@ -454,22 +550,9 @@ function isPlayerA(match) {
 }
 
 function getOpponentName(match) {
-  // Try multiple field name patterns from original schema
-  const userId = userStore.userData?.id
-
-  // If user is playerA, opponent is playerB and vice versa
-  if (match.playerAId === userId) {
-    return match.playerBName || match.loserName || 'Unbekannt'
-  } else if (match.playerBId === userId) {
-    return match.playerAName || match.winnerName || 'Unbekannt'
-  }
-
-  // Fallback: use winner/loser names
-  if (match.winnerId === userId) {
-    return match.loserName || 'Unbekannt'
-  } else {
-    return match.winnerName || 'Unbekannt'
-  }
+  // Use enriched opponentName if available
+  if (match.opponentName) return match.opponentName
+  return 'Unbekannt'
 }
 
 function formatSets(match) {
@@ -492,21 +575,11 @@ function formatSets(match) {
 }
 
 function getEloChange(match) {
-  // Get Elo change for current user
-  const userId = userStore.userData?.id
+  // Use enriched eloChange if available
+  if (match.eloChange !== undefined) return match.eloChange
 
-  if (match.playerAId === userId) {
-    return match.playerAEloChange || match.eloChange || 0
-  } else if (match.playerBId === userId) {
-    return match.playerBEloChange || (match.eloChange ? -match.eloChange : 0) || 0
-  }
-
-  // Fallback: use eloChange with sign based on win/loss
-  if (match.winnerId === userId) {
-    return Math.abs(match.eloChange || 0)
-  } else {
-    return -(Math.abs(match.eloChange || 0))
-  }
+  // Fallback: return 0 if not enriched
+  return 0
 }
 
 function formatLastPlayed(date) {
@@ -792,7 +865,11 @@ function getHandicapInfo(player) {
       <!-- Match History -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">📜 Match-Historie (Einzel)</h3>
-        <div v-if="matchHistory?.length" class="overflow-x-auto">
+        <!-- Loading state -->
+        <div v-if="loadingHistory" class="text-center py-4 text-gray-500">
+          Lade Match-Historie...
+        </div>
+        <div v-else-if="matchHistory?.length" class="overflow-x-auto">
           <table class="w-full">
             <thead>
               <tr class="text-left text-sm text-gray-500 border-b">

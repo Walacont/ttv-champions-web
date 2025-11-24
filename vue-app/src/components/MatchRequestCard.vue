@@ -106,8 +106,27 @@ function formatDate(timestamp) {
     </div>
 
     <!-- Match Details -->
-    <div v-if="request.proposedDate" class="mt-2 text-sm text-gray-600">
-      📅 Vorgeschlagen: {{ formatDate(request.proposedDate) }}
+    <div class="mt-3 pt-3 border-t border-gray-200">
+      <!-- Set scores -->
+      <div v-if="request.sets?.length" class="flex items-center gap-2 text-sm">
+        <span class="text-gray-600">Sätze:</span>
+        <span class="font-mono font-medium text-gray-800">
+          {{ request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') }}
+        </span>
+      </div>
+      <!-- Winner info -->
+      <div class="mt-1 text-sm">
+        <span
+          class="px-2 py-0.5 rounded text-xs font-medium"
+          :class="request.winner === 'requester' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+        >
+          {{ type === 'incoming'
+            ? (request.winner === 'requester' ? 'Absender gewinnt' : 'Du gewinnst')
+            : (request.winner === 'requester' ? 'Du gewinnst' : 'Gegner gewinnt')
+          }}
+        </span>
+        <span class="text-gray-500 ml-2">{{ request.matchMode }}</span>
+      </div>
     </div>
   </div>
 </template>
