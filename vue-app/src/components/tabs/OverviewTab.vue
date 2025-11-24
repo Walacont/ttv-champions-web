@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { collection, query, where, orderBy, limit, doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, query, where, orderBy, limit, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
@@ -75,18 +75,80 @@ function isWidgetVisible(id) {
 // Season countdown
 const seasonCountdown = ref('Lädt...')
 
-// Pending match requests
-const pendingRequestsQuery = computed(() => {
+// Pending SINGLES match requests (where I'm playerB and need to respond)
+const pendingSinglesQuery = computed(() => {
   if (!userStore.userData?.id) return null
   return query(
     collection(db, 'matchRequests'),
-    where('opponentId', '==', userStore.userData.id),
-    where('status', '==', 'pending'),
-    orderBy('createdAt', 'desc'),
-    limit(10)
+    where('playerBId', '==', userStore.userData.id),
+    where('status', '==', 'pending_player')
   )
 })
-const pendingRequests = useCollection(pendingRequestsQuery)
+const pendingSingles = useCollection(pendingSinglesQuery)
+
+// Pending DOUBLES match requests (where I'm in teamB and need to respond)
+const pendingDoublesQuery = computed(() => {
+  if (!userStore.clubId) return null
+  return query(
+    collection(db, 'doublesMatchRequests'),
+    where('clubId', '==', userStore.clubId),
+    where('status', '==', 'pending_opponent')
+  )
+})
+const allPendingDoubles = useCollection(pendingDoublesQuery)
+
+// Filter doubles to only show where I'm in teamB and not the initiator
+const pendingDoubles = computed(() => {
+  if (!allPendingDoubles.value || !userStore.userData?.id) return []
+  return allPendingDoubles.value.filter(r => {
+    const isInTeamB = r.teamB?.player1Id === userStore.userData.id || r.teamB?.player2Id === userStore.userData.id
+    const isInitiator = r.initiatedBy === userStore.userData.id
+    return isInTeamB && !isInitiator
+  })
+})
+
+// Combined pending requests for display
+const pendingRequests = computed(() => {
+  const singles = (pendingSingles.value || []).map(r => ({ ...r, matchType: 'singles' }))
+  const doubles = (pendingDoubles.value || []).map(r => ({ ...r, matchType: 'doubles' }))
+  return [...singles, ...doubles].sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0
+    const bTime = b.createdAt?.toMillis?.() || 0
+    return bTime - aTime
+  })
+})
+
+// Handle doubles request confirmation
+async function confirmDoublesRequest(request) {
+  try {
+    await updateDoc(doc(db, 'doublesMatchRequests', request.id), {
+      status: 'pending_coach',
+      [`confirmations.${userStore.userData.id}`]: {
+        status: 'confirmed',
+        timestamp: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
+    })
+  } catch (error) {
+    console.error('Error confirming doubles request:', error)
+  }
+}
+
+// Handle doubles request rejection
+async function rejectDoublesRequest(request) {
+  try {
+    await updateDoc(doc(db, 'doublesMatchRequests', request.id), {
+      status: 'rejected',
+      [`confirmations.${userStore.userData.id}`]: {
+        status: 'rejected',
+        timestamp: serverTimestamp()
+      },
+      updatedAt: serverTimestamp()
+    })
+  } catch (error) {
+    console.error('Error rejecting doubles request:', error)
+  }
+}
 
 // Players query based on current subgroup filter
 const playersQuery = computed(() => {
@@ -392,12 +454,45 @@ const rankProgress = computed(() => {
         </div>
         <div class="space-y-3">
           <template v-if="pendingRequests?.length">
-            <MatchRequestCard
-              v-for="request in pendingRequests"
-              :key="request.id"
-              :request="request"
-              type="incoming"
-            />
+            <template v-for="request in pendingRequests" :key="request.id">
+              <!-- Singles Request -->
+              <MatchRequestCard
+                v-if="request.matchType === 'singles'"
+                :request="request"
+                type="incoming"
+              />
+              <!-- Doubles Request -->
+              <div v-else class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium">Doppel</span>
+                    <p class="font-medium text-gray-900 mt-1">
+                      {{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}
+                    </p>
+                    <p class="text-sm text-gray-600">
+                      vs {{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}
+                    </p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button
+                      @click="confirmDoublesRequest(request)"
+                      class="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
+                    >
+                      Annehmen
+                    </button>
+                    <button
+                      @click="rejectDoublesRequest(request)"
+                      class="px-3 py-1 bg-red-100 text-red-600 text-sm rounded-md hover:bg-red-200"
+                    >
+                      Ablehnen
+                    </button>
+                  </div>
+                </div>
+                <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
+                  Sätze: {{ request.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ') }}
+                </div>
+              </div>
+            </template>
           </template>
           <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
         </div>
