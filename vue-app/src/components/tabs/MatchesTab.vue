@@ -1112,31 +1112,20 @@ function getHandicapInfo(player) {
 
 <template>
   <div class="space-y-6">
-    <!-- HERO: New Match CTA - Prominent at top -->
+    <!-- New Match Button - Simple design like original -->
     <div
       v-if="!showRequestForm"
-      class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 rounded-xl shadow-lg text-white"
+      class="flex justify-center"
     >
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-bold mb-1">Neues Match eintragen</h2>
-          <p class="text-indigo-100">Hast du gerade ein Match gespielt? Trage es hier ein!</p>
-        </div>
-        <div class="flex gap-3">
-          <button
-            @click="matchType = 'singles'; showRequestForm = true"
-            class="flex-1 md:flex-none px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-md"
-          >
-            Einzel anfragen
-          </button>
-          <button
-            @click="matchType = 'doubles'; showRequestForm = true"
-            class="flex-1 md:flex-none px-6 py-3 bg-purple-500 text-white font-bold rounded-lg hover:bg-purple-400 transition-colors shadow-md"
-          >
-            Doppel anfragen
-          </button>
-        </div>
-      </div>
+      <button
+        @click="showRequestForm = true"
+        class="w-full md:w-auto px-8 py-3 font-semibold rounded-lg shadow-md transition-colors"
+        :class="matchType === 'singles'
+          ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+          : 'bg-purple-600 hover:bg-purple-700 text-white'"
+      >
+        {{ matchType === 'singles' ? '+ Neues Einzel-Match eintragen' : '+ Neues Doppel-Match eintragen' }}
+      </button>
     </div>
 
     <!-- Match Type Toggle (always visible when not requesting) -->
