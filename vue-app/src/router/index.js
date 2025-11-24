@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { watch } from 'vue'
 
 const routes = [
   {
@@ -47,11 +48,28 @@ const router = createRouter({
   routes
 })
 
-// Navigation guard
-router.beforeEach((to, from, next) => {
+// Navigation guard - wait for auth state to be determined
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
 
-  if (to.meta.requiresAuth && !userStore.isAuthenticated && !userStore.loading) {
+  // If still loading, wait for auth state to be determined
+  if (userStore.loading) {
+    await new Promise((resolve) => {
+      const unwatch = watch(
+        () => userStore.loading,
+        (loading) => {
+          if (!loading) {
+            unwatch()
+            resolve()
+          }
+        },
+        { immediate: true }
+      )
+    })
+  }
+
+  // Now check authentication
+  if (to.meta.requiresAuth && !userStore.isAuthenticated) {
     next('/login')
   } else {
     next()
