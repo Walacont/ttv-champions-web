@@ -352,6 +352,9 @@ service cloud.firestore {
       // Players can read matches in their club
       allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
 
+      // Coaches/admins can read all matches in their club (including for status checks)
+      allow read: if isCoachOrAdmin();
+
       // Coaches can create matches in their club
       allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
 
@@ -372,6 +375,9 @@ service cloud.firestore {
         resource.data.teamB.player2Id == request.auth.uid ||
         (isCoachOrAdmin() && isSameClub(resource.data.clubId))
       );
+
+      // Coaches/admins can read all requests (including for status checks)
+      allow read: if isCoachOrAdmin();
 
       // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)
       // All 4 players must be match-ready (5+ grundlagen completed)
