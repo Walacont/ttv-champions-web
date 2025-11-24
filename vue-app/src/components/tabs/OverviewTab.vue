@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { collection, query, where, orderBy, limit, doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { collection, query, where, orderBy, limit, doc, getDoc, setDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
@@ -76,26 +76,69 @@ function isWidgetVisible(id) {
 const seasonCountdown = ref('Lädt...')
 
 // Pending SINGLES match requests (where I'm playerB and need to respond)
-const pendingSinglesQuery = computed(() => {
-  if (!userStore.userData?.id) return null
-  return query(
-    collection(db, 'matchRequests'),
-    where('playerBId', '==', userStore.userData.id),
-    where('status', '==', 'pending_player')
-  )
-})
-const pendingSingles = useCollection(pendingSinglesQuery)
+const pendingSingles = ref([])
+let singlesUnsubscribe = null
 
 // Pending DOUBLES match requests (where I'm in teamB and need to respond)
-const pendingDoublesQuery = computed(() => {
-  if (!userStore.clubId) return null
-  return query(
-    collection(db, 'doublesMatchRequests'),
-    where('clubId', '==', userStore.clubId),
-    where('status', '==', 'pending_opponent')
-  )
+const allPendingDoubles = ref([])
+let doublesUnsubscribe = null
+
+// Watch for user changes and set up listeners
+watch(() => userStore.userData?.id, (userId) => {
+  // Clean up old listener
+  if (singlesUnsubscribe) {
+    singlesUnsubscribe()
+    singlesUnsubscribe = null
+  }
+
+  if (userId) {
+    const q = query(
+      collection(db, 'matchRequests'),
+      where('playerBId', '==', userId),
+      where('status', '==', 'pending_player')
+    )
+
+    singlesUnsubscribe = onSnapshot(q, (snapshot) => {
+      pendingSingles.value = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    })
+  } else {
+    pendingSingles.value = []
+  }
+}, { immediate: true })
+
+watch(() => userStore.clubId, (clubId) => {
+  // Clean up old listener
+  if (doublesUnsubscribe) {
+    doublesUnsubscribe()
+    doublesUnsubscribe = null
+  }
+
+  if (clubId) {
+    const q = query(
+      collection(db, 'doublesMatchRequests'),
+      where('clubId', '==', clubId),
+      where('status', '==', 'pending_opponent')
+    )
+
+    doublesUnsubscribe = onSnapshot(q, (snapshot) => {
+      allPendingDoubles.value = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    })
+  } else {
+    allPendingDoubles.value = []
+  }
+}, { immediate: true })
+
+// Clean up listeners on unmount
+onUnmounted(() => {
+  if (singlesUnsubscribe) singlesUnsubscribe()
+  if (doublesUnsubscribe) doublesUnsubscribe()
 })
-const allPendingDoubles = useCollection(pendingDoublesQuery)
 
 // Filter doubles to only show where I'm in teamB and not the initiator
 const pendingDoubles = computed(() => {
