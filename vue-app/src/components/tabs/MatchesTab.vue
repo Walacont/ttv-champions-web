@@ -1240,6 +1240,17 @@ function getHandicapInfo(player) {
             <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
               Sätze: {{ request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') }}
             </div>
+            <!-- Handicap info -->
+            <div v-if="request.handicapUsed && request.handicapPoints" class="mt-2 flex items-center gap-2 text-sm">
+              <span class="text-blue-600">⚖️</span>
+              <span class="text-blue-700 font-medium">
+                Handicap: {{ request.handicapPoints }} Punkt{{ request.handicapPoints === 1 ? '' : 'e' }} für
+                {{ request.handicapPlayer === 'A'
+                  ? (isMyRequest(request) ? 'Dich' : request.playerAName)
+                  : (isMyRequest(request) ? request.playerBName : 'Dich')
+                }}
+              </span>
+            </div>
           </div>
           <!-- Toggle Button -->
           <div v-if="hasMoreRequests" class="text-center mt-4">
@@ -1281,11 +1292,17 @@ function getHandicapInfo(player) {
                   {{ getOpponentName(match) }}
                 </td>
                 <td class="py-3">
-                  <div class="flex items-center gap-2">
-                    <span class="px-2 py-1 rounded text-xs font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                      {{ didWin(match) ? 'S' : 'N' }}
-                    </span>
-                    <span class="text-sm font-medium text-gray-800">{{ formatSets(match) }}</span>
+                  <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-2">
+                      <span class="px-2 py-1 rounded text-xs font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                        {{ didWin(match) ? 'S' : 'N' }}
+                      </span>
+                      <span class="text-sm font-medium text-gray-800">{{ formatSets(match) }}</span>
+                    </div>
+                    <div v-if="match.handicapUsed && match.handicapPoints" class="flex items-center gap-1 text-xs text-blue-600">
+                      <span>⚖️</span>
+                      <span>Handicap: {{ match.handicapPoints }}P für {{ match.handicapPlayer === 'A' ? (isPlayerA(match) ? 'Dich' : getOpponentName(match)) : (isPlayerA(match) ? getOpponentName(match) : 'Dich') }}</span>
+                    </div>
                   </div>
                 </td>
                 <td class="py-3 text-sm" :class="getEloChange(match) >= 0 ? 'text-green-600' : 'text-red-600'">

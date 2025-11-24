@@ -137,6 +137,17 @@ function formatDate(timestamp) {
           {{ request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') }}
         </span>
       </div>
+      <!-- Handicap info -->
+      <div v-if="request.handicapUsed && request.handicapPoints" class="mt-2 flex items-center gap-2 text-sm">
+        <span class="text-blue-600">⚖️</span>
+        <span class="text-blue-700 font-medium">
+          Handicap: {{ request.handicapPoints }} Punkt{{ request.handicapPoints === 1 ? '' : 'e' }} für
+          {{ request.handicapPlayer === 'A'
+            ? (type === 'incoming' ? 'Absender' : 'Dich')
+            : (type === 'incoming' ? 'Dich' : 'Gegner')
+          }}
+        </span>
+      </div>
       <!-- Winner info -->
       <div class="mt-1 text-sm">
         <span
