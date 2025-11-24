@@ -140,14 +140,13 @@ onUnmounted(() => {
   if (doublesUnsubscribe) doublesUnsubscribe()
 })
 
-// Filter doubles to only show where I'm in teamB and not the initiator AND I haven't confirmed yet
+// Filter doubles to only show where I'm in teamB and not the initiator
 const pendingDoubles = computed(() => {
   if (!allPendingDoubles.value || !userStore.userData?.id) return []
   return allPendingDoubles.value.filter(r => {
     const isInTeamB = r.teamB?.player1Id === userStore.userData.id || r.teamB?.player2Id === userStore.userData.id
     const isInitiator = r.initiatedBy === userStore.userData.id
-    const hasConfirmed = r.confirmations?.[userStore.userData.id]?.status === 'confirmed'
-    return isInTeamB && !isInitiator && !hasConfirmed
+    return isInTeamB && !isInitiator
   })
 })
 
@@ -166,18 +165,10 @@ const pendingRequests = computed(() => {
 async function confirmDoublesRequest(request) {
   try {
     const myId = userStore.userData.id
-    const otherOpponentId = request.teamB.player1Id === myId
-      ? request.teamB.player2Id
-      : request.teamB.player1Id
 
-    // Check if the other opponent has already confirmed
-    const otherOpponentConfirmed = request.confirmations?.[otherOpponentId]?.status === 'confirmed'
-
-    // If both opponents confirm, change status to pending_coach
-    const newStatus = otherOpponentConfirmed ? 'pending_coach' : 'pending_opponent'
-
+    // One opponent confirmation is enough -> change to pending_coach
     await updateDoc(doc(db, 'doublesMatchRequests', request.id), {
-      status: newStatus,
+      status: 'pending_coach',
       [`confirmations.${myId}`]: {
         status: 'confirmed',
         timestamp: serverTimestamp()
@@ -528,25 +519,15 @@ const rankProgress = computed(() => {
                     <p class="text-sm text-gray-600">
                       vs {{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}
                     </p>
-                    <!-- Show if partner already confirmed -->
-                    <p v-if="request.confirmations?.[request.teamB.player1Id === userStore.userData.id ? request.teamB.player2Id : request.teamB.player1Id]?.status === 'confirmed'"
-                       class="text-xs text-green-600 mt-1">
-                      ✓ Dein Partner hat bereits zugestimmt
-                    </p>
                   </div>
                   <div class="flex space-x-2">
                     <button
-                      v-if="!request.confirmations?.[userStore.userData.id]"
                       @click="confirmDoublesRequest(request)"
                       class="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
                     >
                       Annehmen
                     </button>
-                    <span v-else class="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-md">
-                      ✓ Angenommen
-                    </span>
                     <button
-                      v-if="!request.confirmations?.[userStore.userData.id]"
                       @click="rejectDoublesRequest(request)"
                       class="px-3 py-1 bg-red-100 text-red-600 text-sm rounded-md hover:bg-red-200"
                     >
