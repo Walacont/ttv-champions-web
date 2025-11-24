@@ -129,13 +129,13 @@ const globalPlayersQuery = computed(() => {
 })
 const globalPlayers = useCollection(globalPlayersQuery)
 
-// Doubles pairings query
+// Doubles pairings query (matching original implementation)
 const doublesPairingsQuery = computed(() => {
   if (!userStore.clubId) return null
   return query(
     collection(db, 'doublesPairings'),
     where('clubId', '==', userStore.clubId),
-    orderBy('eloRating', 'desc')
+    orderBy('matchesWon', 'desc')
   )
 })
 const doublesPairings = useCollection(doublesPairingsQuery)
@@ -374,13 +374,13 @@ const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType
                 {{ pairing.player1Name }} & {{ pairing.player2Name }}
               </p>
               <p class="text-xs text-gray-500">
-                {{ pairing.wins || 0 }} Siege • {{ pairing.losses || 0 }} Niederlagen
+                {{ pairing.matchesWon || 0 }} Siege • {{ pairing.matchesLost || 0 }} Niederlagen
               </p>
             </div>
           </div>
         </div>
         <div class="text-right">
-          <p class="text-lg font-bold text-green-600">{{ pairing.eloRating || 800 }}</p>
+          <p class="text-lg font-bold text-green-600">{{ Math.round(pairing.currentEloRating || 800) }}</p>
           <p class="text-xs text-gray-500">Doppel-Elo</p>
         </div>
       </div>
