@@ -663,19 +663,29 @@ const doublesHistory = computed(() => {
 
   const filtered = allDoubles.value
     .filter(match => {
-      // Only show processed/approved matches
-      if (match.status !== 'approved' && match.processed !== true) {
-        return false
+      // Backwards compatible: Show if status is approved OR processed is true OR neither field exists (old format)
+      const hasStatusField = 'status' in match
+      const hasProcessedField = 'processed' in match
+
+      if (hasStatusField || hasProcessedField) {
+        // New format: check status/processed
+        if (match.status !== 'approved' && match.processed !== true) {
+          return false
+        }
       }
+      // Old format without status/processed fields: show it (backwards compatible)
 
       // Check if user is in any team
-      return (
+      // Try playerIds first (new format), then fallback to checking team objects (old format)
+      const userInPlayerIds = match.playerIds && match.playerIds.includes(userStore.userData.id)
+      const userInTeams = (
         match.teamA?.player1Id === userStore.userData.id ||
         match.teamA?.player2Id === userStore.userData.id ||
         match.teamB?.player1Id === userStore.userData.id ||
-        match.teamB?.player2Id === userStore.userData.id ||
-        (match.playerIds && match.playerIds.includes(userStore.userData.id))
+        match.teamB?.player2Id === userStore.userData.id
       )
+
+      return userInPlayerIds || userInTeams
     })
     .sort((a, b) => {
       const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
