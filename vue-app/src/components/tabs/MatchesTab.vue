@@ -459,14 +459,11 @@ async function loadMatchRequests() {
   requestUnsubscribes = [unsub1, unsub2, unsub3, unsub4, unsub5]
 }
 
-// Computed: Pending requests (Ausstehend)
-// - Incoming requests that need my response
-// - My sent requests that are still pending (waiting for opponent or coach)
-const pendingRequests = computed(() => {
+// Computed: SINGLES Pending requests only
+const singlesPendingRequests = computed(() => {
   if (!userStore.userData?.id) return []
 
   const pending = []
-  const userId = userStore.userData.id
 
   // SINGLES: Incoming requests (I'm playerB, need to respond)
   pending.push(...incomingRequestsData.value)
@@ -476,6 +473,21 @@ const pendingRequests = computed(() => {
     r.status === 'pending_player' || r.status === 'pending_coach'
   )
   pending.push(...myPending)
+
+  // Sort by createdAt descending
+  return pending.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0
+    const bTime = b.createdAt?.toMillis?.() || 0
+    return bTime - aTime
+  })
+})
+
+// Computed: DOUBLES Pending requests only
+const doublesPendingRequests = computed(() => {
+  if (!userStore.userData?.id) return []
+
+  const pending = []
+  const userId = userStore.userData.id
 
   // DOUBLES: My created doubles requests that are still pending
   const pendingMyDoubles = myDoublesRequests.value.filter(r =>
@@ -499,14 +511,16 @@ const pendingRequests = computed(() => {
   })
 })
 
-// Computed: All History requests (Anfragen-Historie)
-// - My completed requests (approved/rejected)
-// - Requests I responded to (approved/rejected/pending_coach)
-const allHistoryRequests = computed(() => {
+// Computed: Combined Pending requests (for backwards compatibility)
+const pendingRequests = computed(() => {
+  return [...singlesPendingRequests.value, ...doublesPendingRequests.value]
+})
+
+// Computed: SINGLES History requests only
+const singlesHistoryRequests = computed(() => {
   if (!userStore.userData?.id) return []
 
   const history = []
-  const userId = userStore.userData.id
 
   // SINGLES: My completed requests
   const myCompleted = myRequests.value.filter(r =>
@@ -519,6 +533,22 @@ const allHistoryRequests = computed(() => {
     r.status === 'approved' || r.status === 'rejected' || r.status === 'pending_coach'
   )
   history.push(...processed)
+
+  // Sort by createdAt descending and dedupe
+  const uniqueHistory = [...new Map(history.map(r => [r.id, r])).values()]
+  return uniqueHistory.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0
+    const bTime = b.createdAt?.toMillis?.() || 0
+    return bTime - aTime
+  })
+})
+
+// Computed: DOUBLES History requests only
+const doublesHistoryRequests = computed(() => {
+  if (!userStore.userData?.id) return []
+
+  const history = []
+  const userId = userStore.userData.id
 
   // DOUBLES: My created doubles requests (approved/rejected only)
   const completedMyDoubles = myDoublesRequests.value.filter(r =>
@@ -543,6 +573,11 @@ const allHistoryRequests = computed(() => {
     const bTime = b.createdAt?.toMillis?.() || 0
     return bTime - aTime
   })
+})
+
+// Computed: All History requests (Combined - for backwards compatibility)
+const allHistoryRequests = computed(() => {
+  return [...singlesHistoryRequests.value, ...doublesHistoryRequests.value]
 })
 
 // Computed with show more/less
@@ -1104,6 +1139,24 @@ function getHandicapInfo(player) {
       </div>
     </div>
 
+    <!-- Match Type Toggle (always visible when not requesting) -->
+    <div v-if="!showRequestForm" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+      <button
+        @click="matchType = 'singles'"
+        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
+        :class="matchType === 'singles' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'"
+      >
+        Einzel
+      </button>
+      <button
+        @click="matchType = 'doubles'"
+        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
+        :class="matchType === 'doubles' ? 'bg-white shadow text-purple-600' : 'text-gray-600'"
+      >
+        Doppel
+      </button>
+    </div>
+
     <!-- Match Type Toggle (when form is open) -->
     <div v-if="showRequestForm" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
       <button
@@ -1357,29 +1410,29 @@ function getHandicapInfo(player) {
       <!-- Pending Requests (Ausstehend) -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">
-          ⏳ Ausstehende Anfragen
-          <span v-if="pendingRequests?.length" class="text-yellow-600">({{ pendingRequests.length }})</span>
+          ⏳ Ausstehende Einzel-Anfragen
+          <span v-if="singlesPendingRequests?.length" class="text-yellow-600">({{ singlesPendingRequests.length }})</span>
         </h3>
-        <div v-if="pendingRequests?.length" class="space-y-2">
+        <div v-if="singlesPendingRequests?.length" class="space-y-2">
           <MatchRequestCard
-            v-for="request in pendingRequests"
+            v-for="request in singlesPendingRequests"
             :key="request.id"
             :request="request"
             :type="isMyRequest(request) ? 'outgoing' : 'incoming'"
           />
         </div>
-        <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
+        <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Einzel-Anfragen</p>
       </div>
 
       <!-- Request History (Anfragen-Historie) -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">
-          📋 Anfragen-Historie
-          <span v-if="totalRequestsCount" class="text-gray-500">({{ totalRequestsCount }})</span>
+          📋 Einzel Anfragen-Historie
+          <span v-if="singlesHistoryRequests?.length" class="text-gray-500">({{ singlesHistoryRequests.length }})</span>
         </h3>
-        <div v-if="historyRequests?.length" class="space-y-2">
+        <div v-if="singlesHistoryRequests?.length" class="space-y-2">
           <div
-            v-for="request in historyRequests"
+            v-for="request in singlesHistoryRequests.slice(0, showAllRequests ? undefined : INITIAL_REQUESTS_SHOWN)"
             :key="request.id"
             class="bg-gray-50 p-4 rounded-lg border border-gray-200"
           >
@@ -1430,19 +1483,19 @@ function getHandicapInfo(player) {
             </div>
           </div>
           <!-- Toggle Button -->
-          <div v-if="hasMoreRequests" class="text-center mt-4">
+          <div v-if="singlesHistoryRequests.length > INITIAL_REQUESTS_SHOWN" class="text-center mt-4">
             <button
               @click="toggleShowAllRequests"
               class="text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors"
             >
               {{ showAllRequests
                 ? '− Weniger anzeigen'
-                : `+ ${totalRequestsCount - INITIAL_REQUESTS_SHOWN} weitere Anfragen anzeigen`
+                : `+ ${singlesHistoryRequests.length - INITIAL_REQUESTS_SHOWN} weitere Anfragen anzeigen`
               }}
             </button>
           </div>
         </div>
-        <p v-else class="text-gray-500 text-center py-4">Keine Anfragen-Historie</p>
+        <p v-else class="text-gray-500 text-center py-4">Keine Einzel Anfragen-Historie</p>
       </div>
 
       <!-- Match History -->
@@ -1507,6 +1560,113 @@ function getHandicapInfo(player) {
 
     <!-- Doubles Content -->
     <template v-if="matchType === 'doubles'">
+      <!-- Pending Doubles Requests (Ausstehend) -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">
+          ⏳ Ausstehende Doppel-Anfragen
+          <span v-if="doublesPendingRequests?.length" class="text-yellow-600">({{ doublesPendingRequests.length }})</span>
+        </h3>
+        <div v-if="doublesPendingRequests?.length" class="space-y-2">
+          <div
+            v-for="request in doublesPendingRequests"
+            :key="request.id"
+            class="bg-purple-50 p-4 rounded-lg border border-purple-200"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="font-semibold text-gray-900 text-sm mb-1">
+                  <span class="text-indigo-700">{{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}</span>
+                  <span class="text-gray-500 mx-2">vs</span>
+                  <span class="text-orange-700">{{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}</span>
+                </p>
+                <p class="text-xs text-gray-500">{{ formatDate(request.createdAt) }}</p>
+                <!-- Set scores -->
+                <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
+                  Sätze: {{ request.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ') }}
+                </div>
+              </div>
+              <div class="text-right">
+                <span
+                  class="px-2 py-1 rounded text-xs font-medium"
+                  :class="{
+                    'bg-yellow-100 text-yellow-700': request.status === 'pending_opponent',
+                    'bg-orange-100 text-orange-700': request.status === 'pending_coach'
+                  }"
+                >
+                  {{ request.status === 'pending_opponent' ? 'Wartet auf Gegner' : 'Wartet auf Coach' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Doppel-Anfragen</p>
+      </div>
+
+      <!-- Doubles Request History (Anfragen-Historie) -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">
+          📋 Doppel Anfragen-Historie
+          <span v-if="doublesHistoryRequests?.length" class="text-gray-500">({{ doublesHistoryRequests.length }})</span>
+        </h3>
+        <div v-if="doublesHistoryRequests?.length" class="space-y-2">
+          <div
+            v-for="request in doublesHistoryRequests.slice(0, showAllRequests ? undefined : INITIAL_REQUESTS_SHOWN)"
+            :key="request.id"
+            class="bg-purple-50 p-4 rounded-lg border border-purple-200"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                  :class="request.status === 'approved' ? 'bg-green-100' : request.status === 'rejected' ? 'bg-red-100' : 'bg-yellow-100'">
+                  <span :class="request.status === 'approved' ? 'text-green-600' : request.status === 'rejected' ? 'text-red-600' : 'text-yellow-600'">
+                    {{ request.status === 'approved' ? '✓' : request.status === 'rejected' ? '✕' : '⏳' }}
+                  </span>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 text-sm">
+                    <span class="text-indigo-700">{{ request.teamA?.player1Name }} & {{ request.teamA?.player2Name }}</span>
+                    <span class="text-gray-500 text-xs mx-1">vs</span>
+                    <span class="text-orange-700">{{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}</span>
+                  </p>
+                  <p class="text-xs text-gray-500">
+                    {{ formatDate(request.createdAt) }}
+                  </p>
+                </div>
+              </div>
+              <div class="text-right">
+                <span
+                  class="px-2 py-1 rounded text-xs font-medium"
+                  :class="{
+                    'bg-green-100 text-green-700': request.status === 'approved',
+                    'bg-red-100 text-red-700': request.status === 'rejected',
+                    'bg-yellow-100 text-yellow-700': request.status === 'pending_coach'
+                  }"
+                >
+                  {{ request.status === 'approved' ? 'Bestätigt' : request.status === 'rejected' ? 'Abgelehnt' : 'Wartet auf Coach' }}
+                </span>
+              </div>
+            </div>
+            <!-- Set scores -->
+            <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
+              Sätze: {{ request.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ') }}
+            </div>
+          </div>
+          <!-- Toggle Button -->
+          <div v-if="doublesHistoryRequests.length > INITIAL_REQUESTS_SHOWN" class="text-center mt-4">
+            <button
+              @click="toggleShowAllRequests"
+              class="text-sm text-purple-600 hover:text-purple-800 font-medium px-4 py-2 rounded-md hover:bg-purple-50 transition-colors"
+            >
+              {{ showAllRequests
+                ? '− Weniger anzeigen'
+                : `+ ${doublesHistoryRequests.length - INITIAL_REQUESTS_SHOWN} weitere Anfragen anzeigen`
+              }}
+            </button>
+          </div>
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Keine Doppel Anfragen-Historie</p>
+      </div>
+
       <!-- Doubles Match History -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <div class="flex justify-between items-center mb-3">
