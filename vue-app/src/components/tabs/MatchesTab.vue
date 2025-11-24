@@ -74,17 +74,40 @@ async function calculateMatchSuggestions() {
     })
 
     // Get user's match history
-    const matchesQuery = query(
+    // Query both new format (with playerIds array) and old format (playerAId/playerBId)
+    const matchesWithPlayerIds = query(
       collection(db, 'matches'),
       where('playerIds', 'array-contains', userStore.userData.id)
     )
-    const matchesSnapshot = await getDocs(matchesQuery)
+    const matchesAsPlayerA = query(
+      collection(db, 'matches'),
+      where('playerAId', '==', userStore.userData.id)
+    )
+    const matchesAsPlayerB = query(
+      collection(db, 'matches'),
+      where('playerBId', '==', userStore.userData.id)
+    )
+
+    // Execute all queries in parallel
+    const [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3] = await Promise.all([
+      getDocs(matchesWithPlayerIds),
+      getDocs(matchesAsPlayerA),
+      getDocs(matchesAsPlayerB)
+    ])
+
+    // Combine results and deduplicate by document ID
+    const allMatchDocs = new Map()
+    ;[matchesSnapshot1, matchesSnapshot2, matchesSnapshot3].forEach(snapshot => {
+      snapshot.forEach(doc => {
+        allMatchDocs.set(doc.id, doc)
+      })
+    })
 
     // Build opponent history
     const opponentHistory = {}
-    matchesSnapshot.docs.forEach(doc => {
+    allMatchDocs.forEach((doc) => {
       const match = doc.data()
-      const opponentId = match.player1Id === userStore.userData.id ? match.player2Id : match.player1Id
+      const opponentId = match.playerAId === userStore.userData.id ? match.playerBId : match.playerAId
       if (!opponentHistory[opponentId]) {
         opponentHistory[opponentId] = { matchCount: 0, lastMatchDate: null }
       }
