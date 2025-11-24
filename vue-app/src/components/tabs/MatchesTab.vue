@@ -652,8 +652,13 @@ const allDoubles = useCollection(allDoublesQuery)
 const doublesHistory = computed(() => {
   if (!allDoubles.value || !userStore.userData?.id) return []
 
-  return allDoubles.value
+  const filtered = allDoubles.value
     .filter(match => {
+      // Only show processed/approved matches
+      if (match.status !== 'approved' && match.processed !== true) {
+        return false
+      }
+
       // Check if user is in any team
       return (
         match.teamA?.player1Id === userStore.userData.id ||
@@ -664,11 +669,21 @@ const doublesHistory = computed(() => {
       )
     })
     .sort((a, b) => {
-      const timeA = a.timestamp?.toMillis?.() || a.createdAt?.toMillis?.() || 0
-      const timeB = b.timestamp?.toMillis?.() || b.createdAt?.toMillis?.() || 0
+      const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
+      const timeB = b.timestamp?.toMillis?.() || b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
       return timeB - timeA
     })
     .slice(0, 10)
+
+  // Debug output
+  console.log('Doubles history:', {
+    allDoublesCount: allDoubles.value?.length || 0,
+    filteredCount: filtered.length,
+    userId: userStore.userData?.id,
+    sample: filtered[0] || 'No matches'
+  })
+
+  return filtered
 })
 
 // Validate set scores
@@ -1332,7 +1347,12 @@ function getHandicapInfo(player) {
     <template v-if="matchType === 'doubles'">
       <!-- Doubles Match History -->
       <div class="bg-white p-6 rounded-xl shadow-md">
-        <h3 class="text-lg font-semibold text-gray-900 mb-3">🎾 Doppel-Historie</h3>
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-lg font-semibold text-gray-900">🎾 Doppel-Historie</h3>
+          <span v-if="allDoubles?.length" class="text-sm text-gray-500">
+            ({{ doublesHistory?.length || 0 }} von {{ allDoubles.length }})
+          </span>
+        </div>
         <div v-if="doublesHistory?.length" class="space-y-3">
           <div
             v-for="match in doublesHistory"
@@ -1342,11 +1362,14 @@ function getHandicapInfo(player) {
             <div class="flex justify-between items-start">
               <div>
                 <p class="font-semibold text-gray-900">
-                  {{ match.teamA?.player1Name }} & {{ match.teamA?.player2Name }}
+                  {{ match.teamA?.player1Name || 'Spieler 1' }} & {{ match.teamA?.player2Name || 'Spieler 2' }}
                 </p>
                 <p class="text-sm text-gray-600">vs</p>
                 <p class="font-semibold text-gray-900">
-                  {{ match.teamB?.player1Name }} & {{ match.teamB?.player2Name }}
+                  {{ match.teamB?.player1Name || 'Spieler 3' }} & {{ match.teamB?.player2Name || 'Spieler 4' }}
+                </p>
+                <p v-if="!match.teamA?.player1Name" class="text-xs text-red-500 mt-1">
+                  ⚠️ Namen fehlen - Match-ID: {{ match.id }}
                 </p>
               </div>
               <div class="text-right">
@@ -1359,12 +1382,17 @@ function getHandicapInfo(player) {
                 <p class="text-sm font-medium text-gray-800 mt-1">
                   {{ match.sets?.map(s => `${s.teamA}:${s.teamB}`).join(', ') || 'N/A' }}
                 </p>
-                <p class="text-xs text-gray-500 mt-1">{{ formatDate(match.createdAt) }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ formatDate(match.timestamp || match.playedAt || match.createdAt) }}</p>
               </div>
             </div>
           </div>
         </div>
-        <p v-else class="text-gray-500 text-center py-4">Noch keine Doppel-Matches gespielt</p>
+        <div v-else class="text-center py-8">
+          <p class="text-gray-500 mb-2">Noch keine genehmigten Doppel-Matches</p>
+          <p class="text-xs text-gray-400">
+            Alle Doppel-Matches: {{ allDoubles?.length || 0 }}
+          </p>
+        </div>
       </div>
     </template>
   </div>
