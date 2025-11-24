@@ -176,6 +176,19 @@ function getDifficultyColor(difficulty) {
   }
   return colors[difficulty] || 'bg-gray-100 text-gray-700'
 }
+
+function getNextMilestone(exercise) {
+  if (!exercise?.tieredPoints?.milestones) return null
+  const currentCount = playerProgress.value?.currentCount || 0
+  return exercise.tieredPoints.milestones.find(m => m.count > currentCount)
+}
+
+function getMilestoneDisplayPoints(exercise, milestone, index) {
+  if (!exercise?.tieredPoints?.milestones) return milestone.points
+  if (index === 0) return milestone.points
+  const previousPoints = exercise.tieredPoints.milestones[index - 1]?.points || 0
+  return milestone.points - previousPoints
+}
 </script>
 
 <template>
@@ -462,9 +475,18 @@ function getDifficultyColor(difficulty) {
                 <span class="text-lg">📈</span>
                 <span class="font-bold text-gray-800">Deine beste Leistung</span>
               </div>
-              <p class="text-base text-gray-700">
+              <p class="text-base text-gray-700 mb-2">
                 Persönlicher Rekord:
                 <span class="font-bold text-blue-600">{{ playerProgress.currentCount || 0 }} Wiederholungen</span>
+              </p>
+              <p
+                v-if="getNextMilestone(selectedExercise)"
+                class="text-sm text-gray-600"
+              >
+                Noch <span class="font-semibold text-orange-600">{{ getNextMilestone(selectedExercise).count - (playerProgress.currentCount || 0) }} Wiederholungen</span> bis zum nächsten Meilenstein
+              </p>
+              <p v-else class="text-sm text-green-600 font-semibold">
+                ✓ Alle Meilensteine erreicht!
               </p>
             </div>
 
@@ -488,7 +510,10 @@ function getDifficultyColor(difficulty) {
                 </div>
                 <div class="text-right">
                   <div class="text-xl font-bold" :class="(playerProgress.currentCount || 0) >= milestone.count ? 'text-green-600' : 'text-gray-600'">
-                    {{ milestone.points }} P.
+                    {{ index === 0 ? '' : '+' }}{{ getMilestoneDisplayPoints(selectedExercise, milestone, index) }} P.
+                  </div>
+                  <div class="text-xs text-gray-500 font-medium">
+                    Gesamt: {{ milestone.points }} P.
                   </div>
                 </div>
               </div>
