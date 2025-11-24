@@ -1299,38 +1299,55 @@ function getHandicapInfo(player) {
 
         <!-- Doubles: Player Selections -->
         <template v-if="matchType === 'doubles'">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Dein Partner</label>
-            <select v-model="selectedPartner" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-              <option value="">-- Partner wählen --</option>
-              <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
-                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Gegner 1
-              <span class="text-xs text-gray-500 ml-1">(min. 1 muss online sein)</span>
-            </label>
-            <select v-model="selectedOpponent1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-              <option value="">-- Gegner 1 wählen --</option>
-              <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
-                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo){{ hasOnlineAccess(player.id) ? ' 🟢' : ' ⚫' }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Gegner 2
-              <span class="text-xs text-gray-500 ml-1">(min. 1 muss online sein)</span>
-            </label>
-            <select v-model="selectedOpponent2" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-              <option value="">-- Gegner 2 wählen --</option>
-              <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
-                {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo){{ hasOnlineAccess(player.id) ? ' 🟢' : ' ⚫' }}
-              </option>
-            </select>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Dein Team -->
+            <div class="border-2 border-green-100 rounded-lg p-4 bg-green-50">
+              <h3 class="text-md font-semibold text-green-800 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                </svg>
+                Dein Team
+              </h3>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Partner wählen</label>
+                <select v-model="selectedPartner" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                  <option value="">Partner wählen...</option>
+                  <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
+                    {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo)
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Gegnerisches Team -->
+            <div class="border-2 border-orange-100 rounded-lg p-4 bg-orange-50">
+              <h3 class="text-md font-semibold text-orange-800 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                </svg>
+                Gegnerisches Team
+              </h3>
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Gegner 1</label>
+                  <select v-model="selectedOpponent1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="">Gegner 1 wählen...</option>
+                    <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
+                      {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo){{ hasOnlineAccess(player.id) ? ' 🟢' : ' ⚫' }}
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Gegner 2</label>
+                  <select v-model="selectedOpponent2" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="">Gegner 2 wählen...</option>
+                    <option v-for="player in availableOpponents" :key="player.id" :value="player.id">
+                      {{ player.firstName }} {{ player.lastName }} ({{ Math.round(player.doublesEloRating || 800) }} Doppel-Elo){{ hasOnlineAccess(player.id) ? ' 🟢' : ' ⚫' }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- Online access warning -->
           <div v-if="selectedOpponent1 && selectedOpponent2 && !hasOnlineAccess(selectedOpponent1) && !hasOnlineAccess(selectedOpponent2)" class="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
