@@ -180,7 +180,7 @@ function getDifficultyColor(difficulty) {
 function getNextMilestone(exercise) {
   if (!exercise?.tieredPoints?.milestones) return null
   const currentCount = playerProgress.value?.currentCount || 0
-  return exercise.tieredPoints.milestones.find(m => m.count > currentCount)
+  return exercise.tieredPoints.milestones.find(m => m.completions > currentCount)
 }
 
 function getMilestoneDisplayPoints(exercise, milestone, index) {
@@ -483,7 +483,7 @@ function getMilestoneDisplayPoints(exercise, milestone, index) {
                 v-if="getNextMilestone(selectedExercise)"
                 class="text-sm text-gray-600"
               >
-                Noch <span class="font-semibold text-orange-600">{{ getNextMilestone(selectedExercise).count - (playerProgress.currentCount || 0) }} Wiederholungen</span> bis zum nächsten Meilenstein
+                Noch <span class="font-semibold text-orange-600">{{ getNextMilestone(selectedExercise).completions - (playerProgress.currentCount || 0) }} Wiederholungen</span> bis zum nächsten Meilenstein
               </p>
               <p v-else class="text-sm text-green-600 font-semibold">
                 ✓ Alle Meilensteine erreicht!
@@ -493,23 +493,23 @@ function getMilestoneDisplayPoints(exercise, milestone, index) {
             <!-- Milestone List -->
             <div class="space-y-2">
               <div
-                v-for="(milestone, index) in (selectedExercise.tieredPoints.milestones || []).sort((a, b) => a.count - b.count)"
+                v-for="(milestone, index) in (selectedExercise.tieredPoints.milestones || []).sort((a, b) => a.completions - b.completions)"
                 :key="index"
                 class="flex justify-between items-center py-3 px-4 rounded-lg border"
-                :class="(playerProgress.currentCount || 0) >= (milestone.count || 0)
+                :class="(playerProgress.currentCount || 0) >= (milestone.completions || 0)
                   ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
                   : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-300'"
               >
                 <div class="flex items-center gap-3">
                   <span class="text-2xl">
-                    {{ (playerProgress.currentCount || 0) >= (milestone.count || 0) ? '✓' : '🎯' }}
+                    {{ (playerProgress.currentCount || 0) >= (milestone.completions || 0) ? '✓' : '🎯' }}
                   </span>
-                  <span class="text-base font-semibold" :class="(playerProgress.currentCount || 0) >= (milestone.count || 0) ? 'text-green-700' : 'text-gray-700'">
-                    {{ milestone.count || 0 }} Wiederholungen
+                  <span class="text-base font-semibold" :class="(playerProgress.currentCount || 0) >= (milestone.completions || 0) ? 'text-green-700' : 'text-gray-700'">
+                    {{ milestone.completions || 0 }} Wiederholungen
                   </span>
                 </div>
                 <div class="text-right">
-                  <div class="text-xl font-bold" :class="(playerProgress.currentCount || 0) >= milestone.count ? 'text-green-600' : 'text-gray-600'">
+                  <div class="text-xl font-bold" :class="(playerProgress.currentCount || 0) >= milestone.completions ? 'text-green-600' : 'text-gray-600'">
                     {{ index === 0 ? '' : '+' }}{{ getMilestoneDisplayPoints(selectedExercise, milestone, index) }} P.
                   </div>
                   <div class="text-xs text-gray-500 font-medium">
