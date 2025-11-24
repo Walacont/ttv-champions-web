@@ -402,23 +402,29 @@ function formatDate(timestamp) {
     <!-- Widget Settings Modal -->
     <div
       v-if="showWidgetSettings"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 overflow-y-auto p-4"
       @click.self="showWidgetSettings = false"
     >
-      <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div class="relative mx-auto w-full max-w-2xl bg-white rounded-md shadow-lg border">
         <div class="p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-900">Dashboard anpassen</h2>
-            <button @click="showWidgetSettings = false" class="text-gray-400 hover:text-gray-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <!-- Header -->
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <h3 class="text-2xl leading-6 font-bold text-gray-900">Startseite anpassen</h3>
+              <p class="text-sm text-gray-600 mt-1">Wähle aus, welche Widgets auf deiner Startseite angezeigt werden sollen</p>
+            </div>
+            <button
+              @click="showWidgetSettings = false"
+              class="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+            >
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
 
-          <p class="text-sm text-gray-600 mb-4">Wähle aus, welche Widgets auf deiner Übersichtsseite angezeigt werden sollen.</p>
-
-          <div class="space-y-3">
+          <!-- Scrollable Widget List -->
+          <div class="space-y-3 max-h-96 overflow-y-auto mb-6">
             <div
               v-for="widget in WIDGETS"
               :key="widget.id"
@@ -443,19 +449,28 @@ function formatDate(timestamp) {
             </div>
           </div>
 
-          <div class="mt-6 flex gap-3">
+          <!-- Fixed Footer with Buttons -->
+          <div class="flex justify-between items-center pt-4 border-t">
             <button
               @click="resetWidgetSettings"
-              class="flex-1 px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium"
+              class="text-gray-600 hover:text-gray-800 font-medium text-sm transition-colors"
             >
-              Zurücksetzen
+              <i class="fas fa-undo mr-1"></i> Auf Standard zurücksetzen
             </button>
-            <button
-              @click="saveWidgetSettings"
-              class="flex-1 px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium"
-            >
-              Speichern
-            </button>
+            <div class="flex gap-3">
+              <button
+                @click="showWidgetSettings = false"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-6 rounded-lg transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                @click="saveWidgetSettings"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors shadow-md"
+              >
+                <i class="fas fa-save mr-2"></i> Speichern
+              </button>
+            </div>
           </div>
         </div>
       </div>
