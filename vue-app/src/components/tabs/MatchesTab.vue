@@ -188,34 +188,124 @@ watch(matchMode, () => {
   useHandicap.value = false
 })
 
-// Auto-add set fields based on current score
+// Validation errors for each set
+const setErrors = ref([])
+
+// Validate a single set according to table tennis rules
+function isValidSet(a, b) {
+  if (a === 0 && b === 0) return { valid: false, complete: false, error: null }
+
+  const winner = Math.max(a, b)
+  const loser = Math.min(a, b)
+
+  // Winner must have at least 11 points
+  if (winner < 11) {
+    return { valid: false, complete: false, error: null }
+  }
+
+  // Normal win: 11 points with at least 2 point lead (loser max 9)
+  if (winner === 11 && loser <= 9) {
+    return { valid: true, complete: true, error: null }
+  }
+
+  // Deuce rule: if loser has 10+, winner needs exactly 2 more
+  if (loser >= 10) {
+    if (winner - loser === 2) {
+      return { valid: true, complete: true, error: null }
+    } else if (winner - loser < 2) {
+      return { valid: false, complete: false, error: null }
+    } else {
+      // More than 2 difference with loser >= 10 is invalid (e.g., 15:10)
+      return { valid: false, complete: true, error: `Bei ${loser}+ muss der Unterschied genau 2 sein` }
+    }
+  }
+
+  // Winner has 11+ but loser is 10 exactly - invalid (11:10, 12:10 etc)
+  if (winner >= 11 && loser === 10 && winner - loser !== 2) {
+    return { valid: false, complete: true, error: 'Ab 10:10 muss der Unterschied 2 Punkte sein' }
+  }
+
+  // Winner has 12+ with loser < 10 is invalid
+  if (winner > 11 && loser < 10) {
+    return { valid: false, complete: true, error: 'Satz endet bei 11 Punkten' }
+  }
+
+  return { valid: false, complete: false, error: null }
+}
+
+// Auto-add/remove set fields based on current score
 function handleSetInput() {
   const mode = currentMode.value
-  if (mode.id === 'single-set') return
 
-  // Count wins (lenient check - just need 11+ and be ahead)
+  // Validate each set and count wins
   let playerAWins = 0
   let playerBWins = 0
+  const errors = []
 
+  for (let i = 0; i < sets.value.length; i++) {
+    const set = sets.value[i]
+    const a = parseInt(set.playerA) || 0
+    const b = parseInt(set.playerB) || 0
+    const validation = isValidSet(a, b)
+
+    errors[i] = validation.error
+
+    if (validation.valid && validation.complete) {
+      if (a > b) playerAWins++
+      else playerBWins++
+    }
+  }
+
+  setErrors.value = errors
+
+  // Single set mode - no dynamic fields
+  if (mode.id === 'single-set') return
+
+  // Check if match is already decided
+  const matchDecided = playerAWins >= mode.setsToWin || playerBWins >= mode.setsToWin
+
+  // Calculate how many valid/complete sets we have
+  let completeSets = 0
   for (const set of sets.value) {
     const a = parseInt(set.playerA) || 0
     const b = parseInt(set.playerB) || 0
-    if (a > b && a >= 11) playerAWins++
-    if (b > a && b >= 11) playerBWins++
+    const validation = isValidSet(a, b)
+    if (validation.complete) completeSets++
   }
 
-  // Only auto-add if no one has won yet
-  if (playerAWins >= mode.setsToWin || playerBWins >= mode.setsToWin) return
-  if (sets.value.length >= mode.maxSets) return
+  if (matchDecided) {
+    // Remove empty trailing sets if match is decided
+    while (sets.value.length > completeSets && sets.value.length > mode.setsToWin) {
+      const lastSet = sets.value[sets.value.length - 1]
+      const a = parseInt(lastSet.playerA) || 0
+      const b = parseInt(lastSet.playerB) || 0
+      if (a === 0 && b === 0) {
+        sets.value.pop()
+      } else {
+        break
+      }
+    }
+  } else {
+    // Calculate fields needed
+    const remainingSetsNeeded = mode.setsToWin - Math.max(playerAWins, playerBWins)
+    const fieldsNeeded = completeSets + remainingSetsNeeded
 
-  // Calculate fields needed: totalSetsPlayed + (setsToWin - maxWins)
-  const totalSetsPlayed = playerAWins + playerBWins
-  const maxWins = Math.max(playerAWins, playerBWins)
-  const fieldsNeeded = totalSetsPlayed + (mode.setsToWin - maxWins)
+    // Add fields if needed
+    while (sets.value.length < fieldsNeeded && sets.value.length < mode.maxSets) {
+      sets.value.push({ playerA: '', playerB: '' })
+    }
 
-  // Add fields if needed
-  while (sets.value.length < fieldsNeeded && sets.value.length < mode.maxSets) {
-    sets.value.push({ playerA: '', playerB: '' })
+    // Remove trailing empty sets if we have too many
+    while (sets.value.length > fieldsNeeded && sets.value.length > mode.setsToWin) {
+      const lastSet = sets.value[sets.value.length - 1]
+      const a = parseInt(lastSet.playerA) || 0
+      const b = parseInt(lastSet.playerB) || 0
+      if (a === 0 && b === 0) {
+        sets.value.pop()
+      } else {
+        break
+      }
+    }
   }
 }
 
@@ -583,19 +673,27 @@ const doublesHistory = computed(() => {
 
 // Validate set scores
 function validateSets() {
-  const validSets = sets.value.filter(s => {
+  const validSets = []
+  let hasErrors = false
+
+  for (let i = 0; i < sets.value.length; i++) {
+    const s = sets.value[i]
     const a = parseInt(s.playerA) || 0
     const b = parseInt(s.playerB) || 0
-    if (a === 0 && b === 0) return false
+    const validation = isValidSet(a, b)
 
-    // Basic validation: winner needs 11+ and 2+ lead (or deuce at 10-10+)
-    const winner = a > b ? a : b
-    const loser = a > b ? b : a
-    if (winner < 11) return false
-    if (winner === 11 && loser > 9) return false
-    if (winner > 11 && (winner - loser) !== 2) return false
-    return true
-  })
+    if (validation.error) {
+      hasErrors = true
+    }
+
+    if (validation.valid && validation.complete) {
+      validSets.push(s)
+    }
+  }
+
+  if (hasErrors) {
+    return { valid: false, error: 'Bitte korrigiere die ungültigen Sätze' }
+  }
 
   if (validSets.length < currentMode.value.setsToWin) {
     return { valid: false, error: `Mindestens ${currentMode.value.setsToWin} gültige Sätze benötigt` }
@@ -616,13 +714,6 @@ function validateSets() {
   }
 
   return { valid: true, sets: validSets, winner: playerAWins >= currentMode.value.setsToWin ? 'A' : 'B' }
-}
-
-// Add a new set
-function addSet() {
-  if (sets.value.length < currentMode.value.maxSets) {
-    sets.value.push({ playerA: '', playerB: '' })
-  }
 }
 
 // Submit singles match request
@@ -1036,38 +1127,40 @@ function getHandicapInfo(player) {
         <!-- Set Scores -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Satz-Ergebnisse</label>
-          <div v-for="(set, index) in sets" :key="index" class="flex items-center gap-3 mb-3">
-            <span class="text-sm font-medium text-gray-700 w-16">Satz {{ index + 1 }}:</span>
-            <input
-              v-model="set.playerA"
-              type="number"
-              min="0"
-              max="99"
-              placeholder="0"
-              @input="handleSetInput"
-              class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-            />
-            <span class="text-gray-500">:</span>
-            <input
-              v-model="set.playerB"
-              type="number"
-              min="0"
-              max="99"
-              placeholder="0"
-              @input="handleSetInput"
-              class="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-            />
+          <div v-for="(set, index) in sets" :key="index" class="mb-3">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-medium text-gray-700 w-16">Satz {{ index + 1 }}:</span>
+              <input
+                v-model="set.playerA"
+                type="number"
+                min="0"
+                max="99"
+                placeholder="0"
+                @input="handleSetInput"
+                class="w-20 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                :class="setErrors[index] ? 'border-red-500 bg-red-50' : 'border-gray-300'"
+              />
+              <span class="text-gray-500">:</span>
+              <input
+                v-model="set.playerB"
+                type="number"
+                min="0"
+                max="99"
+                placeholder="0"
+                @input="handleSetInput"
+                class="w-20 px-3 py-2 border rounded-md focus:ring-2 focus:ring-indigo-500"
+                :class="setErrors[index] ? 'border-red-500 bg-red-50' : 'border-gray-300'"
+              />
+            </div>
+            <p v-if="setErrors[index]" class="text-xs text-red-600 mt-1 ml-16">
+              {{ setErrors[index] }}
+            </p>
           </div>
-          <button
-            v-if="sets.length < currentMode.maxSets"
-            type="button"
-            @click="addSet"
-            class="text-sm text-indigo-600 hover:text-indigo-800"
-          >
-            + Satz hinzufügen
-          </button>
           <p class="text-xs text-gray-500 mt-2">
             {{ matchType === 'singles' ? 'Du' : 'Dein Team' }} = links, {{ matchType === 'singles' ? 'Gegner' : 'Gegner-Team' }} = rechts
+          </p>
+          <p class="text-xs text-gray-400 mt-1">
+            Tischtennis-Regeln: Satz bis 11, ab 10:10 muss der Unterschied 2 Punkte sein
           </p>
         </div>
 
