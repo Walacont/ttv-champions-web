@@ -364,17 +364,8 @@ service cloud.firestore {
 
     // Doubles Match Requests collection (Player-initiated doubles matches)
     match /doublesMatchRequests/{requestId} {
-      // Players can read all pending requests in their club (to see opponent confirmations)
-      // Once approved/rejected, only involved players and coaches can read
-      allow read: if isAuthenticated() && (
-        (isSameClub(resource.data.clubId) && resource.data.status in ['pending_opponent', 'pending_coach']) ||
-        resource.data.initiatedBy == request.auth.uid ||
-        resource.data.teamA.player1Id == request.auth.uid ||
-        resource.data.teamA.player2Id == request.auth.uid ||
-        resource.data.teamB.player1Id == request.auth.uid ||
-        resource.data.teamB.player2Id == request.auth.uid ||
-        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
-      );
+      // Players can read all requests in their club (for queries)
+      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
 
       // Coaches/admins can read all requests (including for status checks)
       allow read: if isCoachOrAdmin();
