@@ -448,21 +448,65 @@ function didWin(match) {
   return match.winnerId === userStore.userData?.id
 }
 
+function isPlayerA(match) {
+  // Check if current user is playerA
+  return match.playerAId === userStore.userData?.id
+}
+
 function getOpponentName(match) {
-  // Determine opponent based on whether user is winner or loser
-  if (match.winnerId === userStore.userData?.id) {
-    // User won, opponent is the loser
+  // Try multiple field name patterns from original schema
+  const userId = userStore.userData?.id
+
+  // If user is playerA, opponent is playerB and vice versa
+  if (match.playerAId === userId) {
+    return match.playerBName || match.loserName || 'Unbekannt'
+  } else if (match.playerBId === userId) {
+    return match.playerAName || match.winnerName || 'Unbekannt'
+  }
+
+  // Fallback: use winner/loser names
+  if (match.winnerId === userId) {
     return match.loserName || 'Unbekannt'
   } else {
-    // User lost, opponent is the winner
     return match.winnerName || 'Unbekannt'
   }
 }
 
+function formatSets(match) {
+  if (!match.sets || match.sets.length === 0) return 'N/A'
+
+  const userIsPlayerA = isPlayerA(match)
+
+  return match.sets.map(set => {
+    // Check if it's doubles format (teamA/teamB) or singles (playerA/playerB)
+    if (set.teamA !== undefined && set.teamB !== undefined) {
+      const myScore = userIsPlayerA ? set.teamA : set.teamB
+      const oppScore = userIsPlayerA ? set.teamB : set.teamA
+      return `${myScore}:${oppScore}`
+    } else {
+      const myScore = userIsPlayerA ? set.playerA : set.playerB
+      const oppScore = userIsPlayerA ? set.playerB : set.playerA
+      return `${myScore}:${oppScore}`
+    }
+  }).join(', ')
+}
+
 function getEloChange(match) {
-  // Note: In original, this is fetched from pointsHistory
-  // For now, return from match if available, otherwise 0
-  return match.eloChange || match.playerAEloChange || match.playerBEloChange || 0
+  // Get Elo change for current user
+  const userId = userStore.userData?.id
+
+  if (match.playerAId === userId) {
+    return match.playerAEloChange || match.eloChange || 0
+  } else if (match.playerBId === userId) {
+    return match.playerBEloChange || (match.eloChange ? -match.eloChange : 0) || 0
+  }
+
+  // Fallback: use eloChange with sign based on win/loss
+  if (match.winnerId === userId) {
+    return Math.abs(match.eloChange || 0)
+  } else {
+    return -(Math.abs(match.eloChange || 0))
+  }
 }
 
 function formatLastPlayed(date) {
@@ -754,7 +798,7 @@ function getHandicapInfo(player) {
               <tr class="text-left text-sm text-gray-500 border-b">
                 <th class="pb-2">Datum</th>
                 <th class="pb-2">Gegner</th>
-                <th class="pb-2">Ergebnis</th>
+                <th class="pb-2">Sätze</th>
                 <th class="pb-2">Elo</th>
               </tr>
             </thead>
@@ -765,9 +809,12 @@ function getHandicapInfo(player) {
                   {{ getOpponentName(match) }}
                 </td>
                 <td class="py-3">
-                  <span class="px-2 py-1 rounded text-sm font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                    {{ didWin(match) ? 'Sieg' : 'Niederlage' }}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-1 rounded text-xs font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+                      {{ didWin(match) ? 'S' : 'N' }}
+                    </span>
+                    <span class="text-sm font-medium text-gray-800">{{ formatSets(match) }}</span>
+                  </div>
                 </td>
                 <td class="py-3 text-sm" :class="getEloChange(match) >= 0 ? 'text-green-600' : 'text-red-600'">
                   {{ getEloChange(match) >= 0 ? '+' : '' }}{{ getEloChange(match) }}
@@ -806,8 +853,11 @@ function getHandicapInfo(player) {
                   class="px-2 py-1 rounded text-sm font-medium"
                   :class="match.winningTeam === 'A' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
                 >
-                  {{ match.winningTeam === 'A' ? 'Team A gewinnt' : 'Team B gewinnt' }}
+                  {{ match.winningTeam === 'A' ? 'Team A' : 'Team B' }}
                 </span>
+                <p class="text-sm font-medium text-gray-800 mt-1">
+                  {{ match.sets?.map(s => `${s.teamA}:${s.teamB}`).join(', ') || 'N/A' }}
+                </p>
                 <p class="text-xs text-gray-500 mt-1">{{ formatDate(match.createdAt) }}</p>
               </div>
             </div>
