@@ -37,6 +37,12 @@ const routes = [
     component: () => import('@/views/FAQView.vue')
   },
   {
+    path: '/admin-debug',
+    name: 'AdminDebug',
+    component: () => import('@/views/AdminDebugView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue')
