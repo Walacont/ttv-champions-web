@@ -378,6 +378,8 @@ const processApprovedDoublesMatchRequest = onDocumentWritten(
         sets: sets || [],
         reportedBy: initiatedBy,
         clubId,
+        playerIds: [teamA.player1Id, teamA.player2Id, teamB.player1Id, teamB.player2Id],
+        status: 'approved',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         processed: false,
         source: 'player_request',
