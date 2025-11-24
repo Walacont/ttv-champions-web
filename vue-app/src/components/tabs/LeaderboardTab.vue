@@ -392,7 +392,8 @@ const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType
                 {{ pairing.player1Name }} & {{ pairing.player2Name }}
               </p>
               <p class="text-xs text-gray-500">
-                {{ pairing.matchesWon || 0 }} Siege • {{ pairing.matchesLost || 0 }} Niederlagen
+                {{ pairing.matchesWon || 0 }} Siege • {{ pairing.matchesLost || 0 }} Niederlagen •
+                {{ pairing.matchesPlayed > 0 ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1) : 0 }}% Siegrate
               </p>
             </div>
           </div>
