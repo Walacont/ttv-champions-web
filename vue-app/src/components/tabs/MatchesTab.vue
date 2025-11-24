@@ -379,11 +379,16 @@ const showAllRequests = ref(false)
 const INITIAL_REQUESTS_SHOWN = 4
 let requestUnsubscribes = []
 
+// Doubles request data
+const myDoublesRequests = ref([])
+const doublesInvolvedRequests = ref([])
+
 // Load match requests on mount
 async function loadMatchRequests() {
-  if (!userStore.userData?.id) return
+  if (!userStore.userData?.id || !userStore.clubId) return
 
   const userId = userStore.userData.id
+  const clubId = userStore.clubId
 
   // Query 1: Requests I created (playerA)
   const myRequestsQuery = query(
@@ -402,6 +407,18 @@ async function loadMatchRequests() {
   const processedQuery = query(
     collection(db, 'matchRequests'),
     where('playerBId', '==', userId)
+  )
+
+  // Query 4: Doubles requests I initiated
+  const myDoublesQuery = query(
+    collection(db, 'doublesMatchRequests'),
+    where('initiatedBy', '==', userId)
+  )
+
+  // Query 5: All doubles requests in my club (to filter for involvement)
+  const doublesInvolvedQuery = query(
+    collection(db, 'doublesMatchRequests'),
+    where('clubId', '==', clubId)
   )
 
   // Listen to my requests
@@ -425,23 +442,54 @@ async function loadMatchRequests() {
     console.error('Error loading processed requests:', error)
   })
 
-  requestUnsubscribes = [unsub1, unsub2, unsub3]
+  // Listen to my doubles requests
+  const unsub4 = onSnapshot(myDoublesQuery, (snapshot) => {
+    myDoublesRequests.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  }, (error) => {
+    console.error('Error loading my doubles requests:', error)
+  })
+
+  // Listen to doubles requests I'm involved in
+  const unsub5 = onSnapshot(doublesInvolvedQuery, (snapshot) => {
+    doublesInvolvedRequests.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  }, (error) => {
+    console.error('Error loading involved doubles requests:', error)
+  })
+
+  requestUnsubscribes = [unsub1, unsub2, unsub3, unsub4, unsub5]
 }
 
 // Computed: Pending requests (Ausstehend)
 // - Incoming requests that need my response
 // - My sent requests that are still pending (waiting for opponent or coach)
 const pendingRequests = computed(() => {
-  const pending = []
+  if (!userStore.userData?.id) return []
 
-  // Incoming requests (I'm playerB, need to respond)
+  const pending = []
+  const userId = userStore.userData.id
+
+  // SINGLES: Incoming requests (I'm playerB, need to respond)
   pending.push(...incomingRequestsData.value)
 
-  // My requests that are still pending
+  // SINGLES: My requests that are still pending
   const myPending = myRequests.value.filter(r =>
     r.status === 'pending_player' || r.status === 'pending_coach'
   )
   pending.push(...myPending)
+
+  // DOUBLES: My created doubles requests that are still pending
+  const pendingMyDoubles = myDoublesRequests.value.filter(r =>
+    r.status === 'pending_opponent' || r.status === 'pending_coach'
+  ).map(r => ({ ...r, matchType: 'doubles' }))
+  pending.push(...pendingMyDoubles)
+
+  // DOUBLES: Requests where I need to confirm (I'm in teamB and status is pending_opponent)
+  const pendingDoublesIncoming = doublesInvolvedRequests.value.filter(r => {
+    const isInTeamB = r.teamB?.player1Id === userId || r.teamB?.player2Id === userId
+    const isInitiator = r.initiatedBy === userId
+    return isInTeamB && r.status === 'pending_opponent' && !isInitiator
+  }).map(r => ({ ...r, matchType: 'doubles' }))
+  pending.push(...pendingDoublesIncoming)
 
   // Sort by createdAt descending
   return pending.sort((a, b) => {
@@ -455,19 +503,38 @@ const pendingRequests = computed(() => {
 // - My completed requests (approved/rejected)
 // - Requests I responded to (approved/rejected/pending_coach)
 const allHistoryRequests = computed(() => {
-  const history = []
+  if (!userStore.userData?.id) return []
 
-  // My completed requests
+  const history = []
+  const userId = userStore.userData.id
+
+  // SINGLES: My completed requests
   const myCompleted = myRequests.value.filter(r =>
     r.status === 'approved' || r.status === 'rejected'
   )
   history.push(...myCompleted)
 
-  // Requests I processed (approved/rejected/pending_coach)
+  // SINGLES: Requests I processed (approved/rejected/pending_coach)
   const processed = processedRequestsData.value.filter(r =>
     r.status === 'approved' || r.status === 'rejected' || r.status === 'pending_coach'
   )
   history.push(...processed)
+
+  // DOUBLES: My created doubles requests (approved/rejected only)
+  const completedMyDoubles = myDoublesRequests.value.filter(r =>
+    r.status === 'approved' || r.status === 'rejected'
+  ).map(r => ({ ...r, matchType: 'doubles' }))
+  history.push(...completedMyDoubles)
+
+  // DOUBLES: Requests I'm involved in (but not initiator): approved/rejected/pending_coach
+  const completedDoublesInvolved = doublesInvolvedRequests.value.filter(r => {
+    const isInTeamA = r.teamA?.player1Id === userId || r.teamA?.player2Id === userId
+    const isInTeamB = r.teamB?.player1Id === userId || r.teamB?.player2Id === userId
+    const isInvolved = isInTeamA || isInTeamB
+    const isInitiator = r.initiatedBy === userId
+    return isInvolved && !isInitiator && (r.status === 'approved' || r.status === 'rejected' || r.status === 'pending_coach')
+  }).map(r => ({ ...r, matchType: 'doubles' }))
+  history.push(...completedDoublesInvolved)
 
   // Sort by createdAt descending and dedupe
   const uniqueHistory = [...new Map(history.map(r => [r.id, r])).values()]
@@ -499,16 +566,8 @@ function isMyRequest(request) {
   return request.playerAId === userStore.userData?.id
 }
 
-// Incoming doubles requests
-const incomingDoublesQuery = computed(() => {
-  if (!userStore.userData?.id) return null
-  return query(
-    collection(db, 'doublesMatchRequests'),
-    where('status', '==', 'pending_opponent'),
-    orderBy('createdAt', 'desc')
-  )
-})
-const incomingDoublesRequests = useCollection(incomingDoublesQuery)
+// NOTE: Doubles requests are now loaded in loadMatchRequests() function above
+// Old incomingDoublesQuery removed - now using manual onSnapshot in loadMatchRequests()
 
 // Match history (singles) - enriched with opponent names and elo changes
 const enrichedMatchHistory = ref([])
