@@ -324,14 +324,24 @@ function formatDate(timestamp) {
         <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
         <ul class="space-y-3 max-h-64 overflow-y-auto">
           <template v-if="pointsHistory?.length">
-            <li v-for="entry in pointsHistory" :key="entry.id" class="flex justify-between items-center text-sm border-b pb-2">
-              <div>
+            <li v-for="entry in pointsHistory" :key="entry.id" class="flex justify-between items-start text-sm border-b pb-2">
+              <div class="flex-1">
                 <p class="font-medium text-gray-800">{{ entry.reason }}</p>
                 <p class="text-xs text-gray-500">{{ formatDate(entry.timestamp) }}</p>
               </div>
-              <span class="font-bold" :class="entry.points > 0 ? 'text-green-600' : 'text-red-600'">
-                {{ entry.points > 0 ? '+' : '' }}{{ entry.points }}
-              </span>
+              <div class="text-right">
+                <span class="font-bold" :class="entry.points >= 0 ? 'text-green-600' : 'text-red-600'">
+                  {{ entry.points >= 0 ? '+' : '' }}{{ entry.points }} Pkt
+                </span>
+                <div class="text-xs text-gray-500 mt-1">
+                  <span v-if="entry.xp !== undefined && entry.xp !== 0" :class="entry.xp >= 0 ? 'text-purple-600' : 'text-red-600'">
+                    {{ entry.xp >= 0 ? '+' : '' }}{{ entry.xp }} XP
+                  </span>
+                  <span v-if="entry.eloChange !== undefined && entry.eloChange !== 0" class="ml-1" :class="entry.eloChange >= 0 ? 'text-blue-600' : 'text-red-600'">
+                    • {{ entry.eloChange >= 0 ? '+' : '' }}{{ entry.eloChange }} Elo
+                  </span>
+                </div>
+              </div>
             </li>
           </template>
           <li v-else class="text-gray-500 text-center py-4">Noch keine Punkte-Historie</li>
