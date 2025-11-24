@@ -393,10 +393,14 @@ service cloud.firestore {
         atLeastOneOpponentIsOnline(request.resource.data.teamB.player1Id, request.resource.data.teamB.player2Id);
 
       // Opponents can update (approve/reject) if they are one of the opponents and status is pending_opponent
+      // They can change status to pending_coach if both opponents have confirmed
       allow update: if isAuthenticated() &&
         (resource.data.teamB.player1Id == request.auth.uid ||
          resource.data.teamB.player2Id == request.auth.uid) &&
-        resource.data.status == 'pending_opponent';
+        resource.data.status == 'pending_opponent' &&
+        (request.resource.data.status == 'pending_opponent' ||
+         request.resource.data.status == 'pending_coach' ||
+         request.resource.data.status == 'rejected');
 
       // Coach can update (approve/reject) if pending_coach and same club
       allow update: if isCoachOrAdmin() &&

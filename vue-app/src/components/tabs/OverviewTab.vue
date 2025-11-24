@@ -121,9 +121,20 @@ const pendingRequests = computed(() => {
 // Handle doubles request confirmation
 async function confirmDoublesRequest(request) {
   try {
+    const myId = userStore.userData.id
+    const otherOpponentId = request.teamB.player1Id === myId
+      ? request.teamB.player2Id
+      : request.teamB.player1Id
+
+    // Check if the other opponent has already confirmed
+    const otherOpponentConfirmed = request.confirmations?.[otherOpponentId]?.status === 'confirmed'
+
+    // If both opponents confirm, change status to pending_coach
+    const newStatus = otherOpponentConfirmed ? 'pending_coach' : 'pending_opponent'
+
     await updateDoc(doc(db, 'doublesMatchRequests', request.id), {
-      status: 'pending_coach',
-      [`confirmations.${userStore.userData.id}`]: {
+      status: newStatus,
+      [`confirmations.${myId}`]: {
         status: 'confirmed',
         timestamp: serverTimestamp()
       },
@@ -131,6 +142,7 @@ async function confirmDoublesRequest(request) {
     })
   } catch (error) {
     console.error('Error confirming doubles request:', error)
+    alert('Fehler beim Annehmen der Anfrage: ' + error.message)
   }
 }
 
@@ -472,15 +484,25 @@ const rankProgress = computed(() => {
                     <p class="text-sm text-gray-600">
                       vs {{ request.teamB?.player1Name }} & {{ request.teamB?.player2Name }}
                     </p>
+                    <!-- Show if partner already confirmed -->
+                    <p v-if="request.confirmations?.[request.teamB.player1Id === userStore.userData.id ? request.teamB.player2Id : request.teamB.player1Id]?.status === 'confirmed'"
+                       class="text-xs text-green-600 mt-1">
+                      ✓ Dein Partner hat bereits zugestimmt
+                    </p>
                   </div>
                   <div class="flex space-x-2">
                     <button
+                      v-if="!request.confirmations?.[userStore.userData.id]"
                       @click="confirmDoublesRequest(request)"
                       class="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700"
                     >
                       Annehmen
                     </button>
+                    <span v-else class="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-md">
+                      ✓ Angenommen
+                    </span>
                     <button
+                      v-if="!request.confirmations?.[userStore.userData.id]"
                       @click="rejectDoublesRequest(request)"
                       class="px-3 py-1 bg-red-100 text-red-600 text-sm rounded-md hover:bg-red-200"
                     >
