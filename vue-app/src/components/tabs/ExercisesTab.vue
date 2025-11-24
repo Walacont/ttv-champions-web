@@ -115,9 +115,29 @@ function getProgressClass(progress) {
   return 'text-yellow-500'
 }
 
+// Parse description content if it's a string
+function parseDescriptionContent(exercise) {
+  if (!exercise.descriptionContent) {
+    return { type: 'text', text: exercise.description || '' }
+  }
+
+  if (typeof exercise.descriptionContent === 'string') {
+    try {
+      return JSON.parse(exercise.descriptionContent)
+    } catch (e) {
+      return { type: 'text', text: exercise.description || '' }
+    }
+  }
+
+  return exercise.descriptionContent
+}
+
 // Open exercise modal
 function openExercise(exercise) {
-  selectedExercise.value = exercise
+  selectedExercise.value = {
+    ...exercise,
+    parsedDescription: parseDescriptionContent(exercise)
+  }
 
   // Load milestone progress
   if (exercise.tieredPoints?.enabled && userStore.userData?.id) {
@@ -316,13 +336,14 @@ function getDifficultyColor(difficulty) {
     <!-- Exercise Detail Modal -->
     <div
       v-if="selectedExercise"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      class="fixed inset-0 flex items-center justify-center z-50 p-4"
+      style="background-color: rgba(0, 0, 0, 0.5);"
       @click.self="closeExercise"
     >
       <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <!-- Header Image -->
-        <div v-if="selectedExercise.imageUrl" class="w-full h-48 overflow-hidden">
-          <img :src="selectedExercise.imageUrl" :alt="selectedExercise.title" class="w-full h-full object-cover"/>
+        <div v-if="selectedExercise.imageUrl" class="w-full overflow-hidden">
+          <img :src="selectedExercise.imageUrl" :alt="selectedExercise.title" class="w-full object-contain max-h-96"/>
         </div>
 
         <div class="p-6">
@@ -358,17 +379,17 @@ function getDifficultyColor(difficulty) {
           <!-- Description -->
           <div class="prose prose-sm max-w-none mb-6">
             <!-- Text Description -->
-            <div v-if="!selectedExercise.descriptionContent || selectedExercise.descriptionContent.type === 'text'">
-              <p class="text-gray-700 whitespace-pre-wrap">{{ selectedExercise.description }}</p>
+            <div v-if="!selectedExercise.parsedDescription || selectedExercise.parsedDescription.type === 'text'">
+              <p class="text-gray-700 whitespace-pre-wrap">{{ selectedExercise.parsedDescription?.text || selectedExercise.description }}</p>
             </div>
 
             <!-- Table Description -->
-            <div v-else-if="selectedExercise.descriptionContent?.type === 'table' && selectedExercise.descriptionContent?.tableData">
+            <div v-else-if="selectedExercise.parsedDescription?.type === 'table' && selectedExercise.parsedDescription?.tableData">
               <table class="border-collapse w-full my-3">
                 <thead>
                   <tr>
                     <th
-                      v-for="(header, idx) in selectedExercise.descriptionContent.tableData.headers"
+                      v-for="(header, idx) in selectedExercise.parsedDescription.tableData.headers"
                       :key="idx"
                       class="border border-gray-400 bg-gray-100 px-3 py-2 font-semibold text-left"
                     >
@@ -377,7 +398,7 @@ function getDifficultyColor(difficulty) {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(row, rowIdx) in selectedExercise.descriptionContent.tableData.rows" :key="rowIdx">
+                  <tr v-for="(row, rowIdx) in selectedExercise.parsedDescription.tableData.rows" :key="rowIdx">
                     <td
                       v-for="(cell, cellIdx) in row"
                       :key="cellIdx"
