@@ -725,37 +725,82 @@ export async function loadCoachProcessedRequests(userData, db) {
     const container = document.getElementById('coach-processed-requests-list');
     if (!container) return;
 
-    // Query for all requests that are no longer pending_coach
-    const requestsQuery = query(
+    // Query for SINGLES processed requests
+    const singlesQuery = query(
         collection(db, 'matchRequests'),
         where('clubId', '==', userData.clubId),
         orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(requestsQuery, async (snapshot) => {
-        const requests = [];
-        for (const docSnap of snapshot.docs) {
-            const data = docSnap.data();
+    // Query for DOUBLES processed requests
+    const doublesQuery = query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', userData.clubId),
+        orderBy('createdAt', 'desc')
+    );
 
-            // Only include requests that coach has processed (approved or rejected)
-            if (data.status === 'approved' || data.status === 'rejected') {
-                // Fetch player names
-                const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
-                const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
+    // Listen to both singles and doubles processed requests
+    const unsubscribe1 = onSnapshot(singlesQuery, async (singlesSnapshot) => {
+        const unsubscribe2 = onSnapshot(doublesQuery, async (doublesSnapshot) => {
+            const allRequests = [];
 
-                requests.push({
-                    id: docSnap.id,
-                    ...data,
-                    playerAData: playerADoc.exists() ? playerADoc.data() : null,
-                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null
-                });
+            // Process singles requests
+            for (const docSnap of singlesSnapshot.docs) {
+                const data = docSnap.data();
+
+                // Only include requests that coach has processed (approved or rejected)
+                if (data.status === 'approved' || data.status === 'rejected') {
+                    // Fetch player names
+                    const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+                    const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
+
+                    allRequests.push({
+                        id: docSnap.id,
+                        type: 'singles',
+                        ...data,
+                        playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                        playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+                    });
+                }
             }
-        }
 
-        renderCoachProcessedCards(requests, db);
+            // Process doubles requests
+            for (const docSnap of doublesSnapshot.docs) {
+                const data = docSnap.data();
+
+                // Only include requests that coach has processed (approved or rejected)
+                if (data.status === 'approved' || data.status === 'rejected') {
+                    const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                        getDoc(doc(db, 'users', data.teamA.player1Id)),
+                        getDoc(doc(db, 'users', data.teamA.player2Id)),
+                        getDoc(doc(db, 'users', data.teamB.player1Id)),
+                        getDoc(doc(db, 'users', data.teamB.player2Id))
+                    ]);
+
+                    allRequests.push({
+                        id: docSnap.id,
+                        type: 'doubles',
+                        ...data,
+                        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+                    });
+                }
+            }
+
+            // Sort by createdAt
+            allRequests.sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return bTime - aTime;
+            });
+
+            renderCoachProcessedCards(allRequests, db);
+        });
     });
 
-    return unsubscribe;
+    return unsubscribe1;
 }
 
 /**
@@ -793,11 +838,6 @@ function renderCoachProcessedCards(requests, db) {
 
         card.className = `bg-white border ${borderColor} rounded-lg p-4 shadow-sm`;
 
-        const playerAName = request.playerAData?.firstName || 'Unbekannt';
-        const playerBName = request.playerBData?.firstName || 'Unbekannt';
-        const setsDisplay = formatSetsForCoach(request.sets);
-        const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
-
         const createdDate = request.createdAt?.toDate ?
             request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
             'Unbekannt';
@@ -813,16 +853,56 @@ function renderCoachProcessedCards(requests, db) {
             `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> ${coachName} hat diese Anfrage genehmigt. Das Match wurde erstellt und verarbeitet.</p>` :
             `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> ${coachName} hat diese Anfrage abgelehnt.</p>`;
 
+        let matchTypeTag, playersDisplay, setsDisplay, winnerDisplay;
+
+        if (request.type === 'doubles') {
+            // Doubles match
+            matchTypeTag = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-users mr-1"></i>Doppel</span>';
+
+            const teamAName1 = request.teamAPlayer1?.firstName || '?';
+            const teamAName2 = request.teamAPlayer2?.firstName || '?';
+            const teamBName1 = request.teamBPlayer1?.firstName || '?';
+            const teamBName2 = request.teamBPlayer2?.firstName || '?';
+
+            playersDisplay = `
+                <span class="text-indigo-700">${teamAName1} & ${teamAName2}</span>
+                <span class="text-gray-500 mx-2">vs</span>
+                <span class="text-indigo-700">${teamBName1} & ${teamBName2}</span>
+            `;
+
+            const setsStr = request.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ');
+            const winsA = request.sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
+            const winsB = request.sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
+            setsDisplay = `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
+
+            const winnerTeamName = request.winningTeam === 'A'
+                ? `${teamAName1} & ${teamAName2}`
+                : `${teamBName1} & ${teamBName2}`;
+            winnerDisplay = `<i class="fas fa-trophy mr-1"></i> Gewinner: ${winnerTeamName}`;
+        } else {
+            // Singles match
+            matchTypeTag = '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-user mr-1"></i>Einzel</span>';
+
+            const playerAName = request.playerAData?.firstName || 'Unbekannt';
+            const playerBName = request.playerBData?.firstName || 'Unbekannt';
+
+            playersDisplay = `${playerAName} <span class="text-gray-500">vs</span> ${playerBName}`;
+            setsDisplay = formatSetsForCoach(request.sets);
+            const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
+            winnerDisplay = `<i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}`;
+        }
+
         card.innerHTML = `
             <div class="mb-3">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
+                        <div class="mb-2">${matchTypeTag}</div>
                         <p class="font-semibold text-gray-800">
-                            ${playerAName} <span class="text-gray-500">vs</span> ${playerBName}
+                            ${playersDisplay}
                         </p>
                         <p class="text-sm text-gray-600 mt-1">${setsDisplay}</p>
                         <p class="text-sm font-medium text-indigo-700 mt-1">
-                            <i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}
+                            ${winnerDisplay}
                         </p>
                         ${request.handicapUsed ?
                             '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' :
