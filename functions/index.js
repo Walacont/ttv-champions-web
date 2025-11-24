@@ -30,6 +30,8 @@ const { processMatchResult, processApprovedMatchRequest } = require('./matchProc
 const {
   processDoublesMatchResult,
   processApprovedDoublesMatchRequest,
+  manualProcessDoublesRequest,
+  processUnprocessedDoublesMatches,
 } = require('./doublesProcessor');
 
 // Import invitation functions
@@ -67,6 +69,8 @@ exports.processApprovedMatchRequest = processApprovedMatchRequest;
 // Doubles Match Processing
 exports.processDoublesMatchResult = processDoublesMatchResult;
 exports.processApprovedDoublesMatchRequest = processApprovedDoublesMatchRequest;
+exports.manualProcessDoublesRequest = manualProcessDoublesRequest;
+exports.processUnprocessedDoublesMatches = processUnprocessedDoublesMatches;
 
 // User/Invitation Management
 exports.setCustomUserClaims = setCustomUserClaims;

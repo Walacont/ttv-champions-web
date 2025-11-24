@@ -4,6 +4,7 @@
  */
 
 const { onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions');
 const admin = require('firebase-admin');
 const { CONFIG } = require('./config');
@@ -404,7 +405,366 @@ const processApprovedDoublesMatchRequest = onDocumentWritten(
   }
 );
 
+/**
+ * Manual processing of approved doubles match requests (callable)
+ * Can be used to process requests that got stuck
+ */
+const manualProcessDoublesRequest = onCall(
+  {
+    region: CONFIG.REGION,
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!callerDoc.exists || !['admin', 'coach'].includes(callerDoc.data().role)) {
+      throw new HttpsError('permission-denied', 'Only admins and coaches can manually process matches');
+    }
+
+    const { requestId } = request.data;
+    if (!requestId) {
+      throw new HttpsError('invalid-argument', 'requestId is required');
+    }
+
+    logger.info(`🔧 Manual processing of doubles request ${requestId}`);
+
+    try {
+      const requestDoc = await db.collection('doublesMatchRequests').doc(requestId).get();
+
+      if (!requestDoc.exists) {
+        throw new HttpsError('not-found', 'Request not found');
+      }
+
+      const requestData = requestDoc.data();
+
+      if (requestData.status !== 'approved') {
+        throw new HttpsError('failed-precondition', `Request status is ${requestData.status}, not approved`);
+      }
+
+      if (requestData.processedMatchId) {
+        logger.info(`ℹ️ Request already has processedMatchId: ${requestData.processedMatchId}`);
+        return { success: true, matchId: requestData.processedMatchId, alreadyProcessed: true };
+      }
+
+      const {
+        teamA,
+        teamB,
+        winningTeam,
+        winningPairingId,
+        losingPairingId,
+        handicapUsed,
+        clubId,
+        sets,
+        initiatedBy,
+        matchMode,
+      } = requestData;
+
+      // Create the match document
+      const matchRef = await db.collection('doublesMatches').add({
+        teamA,
+        teamB,
+        winningTeam,
+        winningPairingId,
+        losingPairingId,
+        handicapUsed: handicapUsed || false,
+        matchMode: matchMode || 'best-of-5',
+        sets: sets || [],
+        reportedBy: initiatedBy,
+        clubId,
+        playerIds: [teamA.player1Id, teamA.player2Id, teamB.player1Id, teamB.player2Id],
+        status: 'approved',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        processed: false,
+        source: 'player_request_manual',
+      });
+
+      // Update the request with processedMatchId
+      await db.collection('doublesMatchRequests').doc(requestId).update({
+        processedMatchId: matchRef.id,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        manuallyProcessed: true,
+      });
+
+      logger.info(`✅ Manually created doubles match ${matchRef.id} from request ${requestId}`);
+
+      return { success: true, matchId: matchRef.id };
+    } catch (error) {
+      logger.error(`💥 Error manually processing doubles request ${requestId}:`, error);
+      throw new HttpsError('internal', error.message);
+    }
+  }
+);
+
+/**
+ * Process all unprocessed doubles matches (callable)
+ * Useful for fixing stuck matches
+ */
+const processUnprocessedDoublesMatches = onCall(
+  {
+    region: CONFIG.REGION,
+    enforceAppCheck: false,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be authenticated');
+    }
+
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (!callerDoc.exists || !['admin', 'coach'].includes(callerDoc.data().role)) {
+      throw new HttpsError('permission-denied', 'Only admins and coaches can process matches');
+    }
+
+    logger.info('🔧 Processing all unprocessed doubles matches...');
+
+    try {
+      const unprocessedMatches = await db
+        .collection('doublesMatches')
+        .where('processed', '==', false)
+        .get();
+
+      if (unprocessedMatches.empty) {
+        logger.info('No unprocessed doubles matches found');
+        return { success: true, processed: 0 };
+      }
+
+      logger.info(`Found ${unprocessedMatches.size} unprocessed doubles matches`);
+
+      let processed = 0;
+      let errors = 0;
+
+      for (const matchDoc of unprocessedMatches.docs) {
+        try {
+          const matchId = matchDoc.id;
+          const matchData = matchDoc.data();
+
+          logger.info(`Processing match ${matchId}...`);
+
+          const { teamA, teamB, winningTeam, handicapUsed } = matchData;
+
+          if (!teamA || !teamB || !winningTeam) {
+            logger.error(`Invalid match data for ${matchId}`);
+            errors++;
+            continue;
+          }
+
+          const winningPairingId = winningTeam === 'A' ? teamA.pairingId : teamB.pairingId;
+          const losingPairingId = winningTeam === 'A' ? teamB.pairingId : teamA.pairingId;
+
+          const winningPlayerIds =
+            winningTeam === 'A'
+              ? [teamA.player1Id, teamA.player2Id]
+              : [teamB.player1Id, teamB.player2Id];
+          const losingPlayerIds =
+            winningTeam === 'A'
+              ? [teamB.player1Id, teamB.player2Id]
+              : [teamA.player1Id, teamA.player2Id];
+
+          // Get all player documents
+          const [winner1Doc, winner2Doc, loser1Doc, loser2Doc] = await Promise.all([
+            db.collection('users').doc(winningPlayerIds[0]).get(),
+            db.collection('users').doc(winningPlayerIds[1]).get(),
+            db.collection('users').doc(losingPlayerIds[0]).get(),
+            db.collection('users').doc(losingPlayerIds[1]).get(),
+          ]);
+
+          if (!winner1Doc.exists || !winner2Doc.exists || !loser1Doc.exists || !loser2Doc.exists) {
+            logger.error(`Not all players found for match ${matchId}`);
+            errors++;
+            continue;
+          }
+
+          const winner1Data = winner1Doc.data();
+          const winner2Data = winner2Doc.data();
+          const loser1Data = loser1Doc.data();
+          const loser2Data = loser2Doc.data();
+
+          // Get current Elo ratings
+          const winner1Elo = winner1Data.doublesEloRating || 800;
+          const winner2Elo = winner2Data.doublesEloRating || 800;
+          const loser1Elo = loser1Data.doublesEloRating || 800;
+          const loser2Elo = loser2Data.doublesEloRating || 800;
+
+          const winningTeamElo = Math.round((winner1Elo + winner2Elo) / 2);
+          const losingTeamElo = Math.round((loser1Elo + loser2Elo) / 2);
+
+          // Calculate Elo changes
+          const { winnerChange, loserChange } = calculateElo(
+            winningTeamElo,
+            losingTeamElo,
+            handicapUsed
+          );
+
+          // Apply gates
+          const winner1NewElo = applyEloGate(winner1Elo + winnerChange);
+          const winner2NewElo = applyEloGate(winner2Elo + winnerChange);
+          const loser1NewElo = applyEloGate(loser1Elo + loserChange);
+          const loser2NewElo = applyEloGate(loser2Elo + loserChange);
+
+          // Calculate points
+          const seasonPointChange = handicapUsed ? 4 : 3;
+          const winnerXPGain = handicapUsed ? 0 : seasonPointChange;
+          const matchTypeReason = handicapUsed ? 'Doppel-Wettkampf (Handicap)' : 'Doppel-Wettkampf';
+
+          const batch = db.batch();
+
+          // Update winners
+          batch.update(winner1Doc.ref, {
+            doublesEloRating: winner1NewElo,
+            seasonPoints: admin.firestore.FieldValue.increment(seasonPointChange),
+            xp: admin.firestore.FieldValue.increment(winnerXPGain),
+          });
+
+          batch.update(winner2Doc.ref, {
+            doublesEloRating: winner2NewElo,
+            seasonPoints: admin.firestore.FieldValue.increment(seasonPointChange),
+            xp: admin.firestore.FieldValue.increment(winnerXPGain),
+          });
+
+          // Update losers
+          batch.update(loser1Doc.ref, {
+            doublesEloRating: loser1NewElo,
+          });
+
+          batch.update(loser2Doc.ref, {
+            doublesEloRating: loser2NewElo,
+          });
+
+          // Create history entries
+          const winner1HistoryRef = winner1Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
+          batch.set(winner1HistoryRef, {
+            points: seasonPointChange,
+            xp: winnerXPGain,
+            eloChange: winner1NewElo - winner1Elo,
+            reason: `Sieg im ${matchTypeReason} (Partner: ${winner2Data.firstName})`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            awardedBy: 'System (Doppel-Manual)',
+            isPartner: true,
+            matchId: matchId,
+          });
+
+          const winner2HistoryRef = winner2Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
+          batch.set(winner2HistoryRef, {
+            points: seasonPointChange,
+            xp: winnerXPGain,
+            eloChange: winner2NewElo - winner2Elo,
+            reason: `Sieg im ${matchTypeReason} (Partner: ${winner1Data.firstName})`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            awardedBy: 'System (Doppel-Manual)',
+            isPartner: true,
+            matchId: matchId,
+          });
+
+          const loser1HistoryRef = loser1Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
+          batch.set(loser1HistoryRef, {
+            points: 0,
+            xp: 0,
+            eloChange: loser1NewElo - loser1Elo,
+            reason: `Niederlage im ${matchTypeReason} (Partner: ${loser2Data.firstName})`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            awardedBy: 'System (Doppel-Manual)',
+            isPartner: true,
+            matchId: matchId,
+          });
+
+          const loser2HistoryRef = loser2Doc.ref.collection(CONFIG.COLLECTIONS.POINTS_HISTORY).doc();
+          batch.set(loser2HistoryRef, {
+            points: 0,
+            xp: 0,
+            eloChange: loser2NewElo - loser2Elo,
+            reason: `Niederlage im ${matchTypeReason} (Partner: ${loser1Data.firstName})`,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            awardedBy: 'System (Doppel-Manual)',
+            isPartner: true,
+            matchId: matchId,
+          });
+
+          // Update pairing stats
+          const winningPairingRef = db.collection('doublesPairings').doc(winningPairingId);
+          const losingPairingRef = db.collection('doublesPairings').doc(losingPairingId);
+
+          const [winningPairingDoc, losingPairingDoc] = await Promise.all([
+            winningPairingRef.get(),
+            losingPairingRef.get(),
+          ]);
+
+          if (!winningPairingDoc.exists) {
+            batch.set(winningPairingRef, {
+              player1Id: winningPlayerIds[0],
+              player2Id: winningPlayerIds[1],
+              player1Name: winner1Data.firstName,
+              player2Name: winner2Data.firstName,
+              currentEloRating: winningTeamElo + winnerChange,
+              matchesPlayed: 1,
+              matchesWon: 1,
+              matchesLost: 0,
+              clubId: matchData.clubId,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          } else {
+            batch.update(winningPairingRef, {
+              matchesPlayed: admin.firestore.FieldValue.increment(1),
+              matchesWon: admin.firestore.FieldValue.increment(1),
+              currentEloRating: winningTeamElo + winnerChange,
+            });
+          }
+
+          if (!losingPairingDoc.exists) {
+            batch.set(losingPairingRef, {
+              player1Id: losingPlayerIds[0],
+              player2Id: losingPlayerIds[1],
+              player1Name: loser1Data.firstName,
+              player2Name: loser2Data.firstName,
+              currentEloRating: losingTeamElo + loserChange,
+              matchesPlayed: 1,
+              matchesWon: 0,
+              matchesLost: 1,
+              clubId: matchData.clubId,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          } else {
+            batch.update(losingPairingRef, {
+              matchesPlayed: admin.firestore.FieldValue.increment(1),
+              matchesLost: admin.firestore.FieldValue.increment(1),
+              currentEloRating: losingTeamElo + loserChange,
+            });
+          }
+
+          // Mark match as processed
+          batch.update(matchDoc.ref, {
+            processed: true,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+            manuallyProcessed: true,
+          });
+
+          await batch.commit();
+          processed++;
+          logger.info(`✅ Successfully processed match ${matchId}`);
+        } catch (matchError) {
+          logger.error(`Error processing match:`, matchError);
+          errors++;
+        }
+      }
+
+      logger.info(`✅ Processing complete: ${processed} processed, ${errors} errors`);
+      return {
+        success: true,
+        processed,
+        errors,
+        total: unprocessedMatches.size,
+      };
+    } catch (error) {
+      logger.error('💥 Error processing unprocessed matches:', error);
+      throw new HttpsError('internal', error.message);
+    }
+  }
+);
+
 module.exports = {
   processDoublesMatchResult,
   processApprovedDoublesMatchRequest,
+  manualProcessDoublesRequest,
+  processUnprocessedDoublesMatches,
 };
