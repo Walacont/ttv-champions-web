@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, watchEffect } from 'vue'
 import { collection, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
@@ -241,6 +241,50 @@ const matchHistory = computed(() => {
     .slice(0, 10)
 })
 
+// Enriched match history with opponent names
+const enrichedMatchHistory = ref([])
+
+// Fetch opponent names when match history changes
+watchEffect(async () => {
+  if (!matchHistory.value?.length) {
+    enrichedMatchHistory.value = []
+    return
+  }
+
+  const enriched = await Promise.all(
+    matchHistory.value.map(async (match) => {
+      const enrichedMatch = { ...match }
+
+      // Determine opponent ID
+      const opponentId = match.winnerId === userStore.userData?.id
+        ? match.loserId
+        : match.winnerId
+
+      // Fetch opponent name
+      if (opponentId) {
+        try {
+          const opponentDoc = await getDoc(doc(db, 'users', opponentId))
+          if (opponentDoc.exists()) {
+            const opponentData = opponentDoc.data()
+            enrichedMatch.opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim() || 'Unbekannt'
+          } else {
+            enrichedMatch.opponentName = 'Unbekannt'
+          }
+        } catch (error) {
+          console.warn('Could not fetch opponent:', error)
+          enrichedMatch.opponentName = 'Gegner'
+        }
+      } else {
+        enrichedMatch.opponentName = 'Unbekannt'
+      }
+
+      return enrichedMatch
+    })
+  )
+
+  enrichedMatchHistory.value = enriched
+})
+
 // Doubles match history - load all club doubles to avoid index requirement
 const allDoublesQuery = computed(() => {
   if (!userStore.clubId) return null
@@ -449,20 +493,52 @@ function didWin(match) {
 }
 
 function getOpponentName(match) {
-  // Determine opponent based on whether user is winner or loser
-  if (match.winnerId === userStore.userData?.id) {
-    // User won, opponent is the loser
-    return match.loserName || 'Unbekannt'
-  } else {
-    // User lost, opponent is the winner
-    return match.winnerName || 'Unbekannt'
-  }
+  // Use enriched opponent name
+  return match.opponentName || 'Unbekannt'
 }
 
 function getEloChange(match) {
   // Note: In original, this is fetched from pointsHistory
   // For now, return from match if available, otherwise 0
   return match.eloChange || match.playerAEloChange || match.playerBEloChange || 0
+}
+
+function getMatchScore(match) {
+  // Format set scores (e.g., "11:9, 11:7, 11:5" or "3:1")
+  if (!match.sets || !Array.isArray(match.sets)) {
+    return didWin(match) ? 'Sieg' : 'Niederlage'
+  }
+
+  const isWinner = match.winnerId === userStore.userData?.id
+
+  // Determine which player's scores to show first (winner on left)
+  const formatSet = (set) => {
+    // Check if set has playerA/playerB format or winner/loser format
+    if ('playerA' in set && 'playerB' in set) {
+      // Need to determine which is user
+      const isPlayerA = match.playerAId === userStore.userData?.id
+      const userScore = isPlayerA ? set.playerA : set.playerB
+      const oppScore = isPlayerA ? set.playerB : set.playerA
+      return `${userScore}:${oppScore}`
+    } else if ('winner' in set && 'loser' in set) {
+      return isWinner ? `${set.winner}:${set.loser}` : `${set.loser}:${set.winner}`
+    } else {
+      // Generic format - assume first is user if winner
+      const scores = Object.values(set).filter(v => typeof v === 'number')
+      if (scores.length >= 2) {
+        return isWinner ? `${scores[0]}:${scores[1]}` : `${scores[1]}:${scores[0]}`
+      }
+    }
+    return ''
+  }
+
+  const formattedSets = match.sets.map(formatSet).filter(s => s !== '')
+
+  if (formattedSets.length === 0) {
+    return didWin(match) ? 'Sieg' : 'Niederlage'
+  }
+
+  return formattedSets.join(', ')
 }
 
 function formatLastPlayed(date) {
@@ -748,7 +824,7 @@ function getHandicapInfo(player) {
       <!-- Match History -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">📜 Match-Historie (Einzel)</h3>
-        <div v-if="matchHistory?.length" class="overflow-x-auto">
+        <div v-if="enrichedMatchHistory?.length" class="overflow-x-auto">
           <table class="w-full">
             <thead>
               <tr class="text-left text-sm text-gray-500 border-b">
@@ -759,14 +835,14 @@ function getHandicapInfo(player) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="match in matchHistory" :key="match.id" class="border-b border-gray-100">
+              <tr v-for="match in enrichedMatchHistory" :key="match.id" class="border-b border-gray-100">
                 <td class="py-3 text-sm">{{ formatDate(match.timestamp || match.playedAt || match.createdAt) }}</td>
                 <td class="py-3 font-medium">
                   {{ getOpponentName(match) }}
                 </td>
                 <td class="py-3">
                   <span class="px-2 py-1 rounded text-sm font-medium" :class="didWin(match) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                    {{ didWin(match) ? 'Sieg' : 'Niederlage' }}
+                    {{ getMatchScore(match) }}
                   </span>
                 </td>
                 <td class="py-3 text-sm" :class="getEloChange(match) >= 0 ? 'text-green-600' : 'text-red-600'">
