@@ -843,6 +843,32 @@ async function submitDoublesRequest() {
     const opp1 = opp1Doc.data()
     const opp2 = opp2Doc.data()
 
+    // Debug: Log all player data
+    console.log('Creating doubles request:', {
+      currentUser: {
+        id: userStore.userData.id,
+        clubId: userStore.userData.clubId,
+        grundlagen: userStore.userData.grundlagenCompleted
+      },
+      partner: {
+        id: selectedPartner.value,
+        clubId: partner?.clubId,
+        grundlagen: partner?.grundlagenCompleted
+      },
+      opponent1: {
+        id: selectedOpponent1.value,
+        clubId: opp1?.clubId,
+        grundlagen: opp1?.grundlagenCompleted,
+        isOffline: opp1?.isOffline
+      },
+      opponent2: {
+        id: selectedOpponent2.value,
+        clubId: opp2?.clubId,
+        grundlagen: opp2?.grundlagenCompleted,
+        isOffline: opp2?.isOffline
+      }
+    })
+
     // Create pairing IDs (sorted)
     const teamAPairingId = [userStore.userData.id, selectedPartner.value].sort().join('_')
     const teamBPairingId = [selectedOpponent1.value, selectedOpponent2.value].sort().join('_')
