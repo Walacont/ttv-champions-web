@@ -357,7 +357,38 @@ function getDifficultyColor(difficulty) {
 
           <!-- Description -->
           <div class="prose prose-sm max-w-none mb-6">
-            <p class="text-gray-700 whitespace-pre-wrap">{{ selectedExercise.description }}</p>
+            <!-- Text Description -->
+            <div v-if="!selectedExercise.descriptionContent || selectedExercise.descriptionContent.type === 'text'">
+              <p class="text-gray-700 whitespace-pre-wrap">{{ selectedExercise.description }}</p>
+            </div>
+
+            <!-- Table Description -->
+            <div v-else-if="selectedExercise.descriptionContent?.type === 'table' && selectedExercise.descriptionContent?.tableData">
+              <table class="border-collapse w-full my-3">
+                <thead>
+                  <tr>
+                    <th
+                      v-for="(header, idx) in selectedExercise.descriptionContent.tableData.headers"
+                      :key="idx"
+                      class="border border-gray-400 bg-gray-100 px-3 py-2 font-semibold text-left"
+                    >
+                      {{ header }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(row, rowIdx) in selectedExercise.descriptionContent.tableData.rows" :key="rowIdx">
+                    <td
+                      v-for="(cell, cellIdx) in row"
+                      :key="cellIdx"
+                      class="border border-gray-300 px-3 py-2"
+                    >
+                      {{ cell }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <!-- Milestones -->
