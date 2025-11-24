@@ -10,6 +10,7 @@ export const useUserStore = defineStore('user', () => {
   const userData = ref(null)
   const loading = ref(true)
   const error = ref(null)
+  const currentSubgroupFilter = ref('club') // 'club', 'global', or subgroup ID
 
   // Getters
   const isAuthenticated = computed(() => !!user.value)
@@ -62,12 +63,18 @@ export const useUserStore = defineStore('user', () => {
     return auth.signOut()
   }
 
+  function setSubgroupFilter(filter) {
+    currentSubgroupFilter.value = filter
+    console.log('[Vue] Subgroup filter changed to:', filter)
+  }
+
   return {
     // State
     user,
     userData,
     loading,
     error,
+    currentSubgroupFilter,
     // Getters
     isAuthenticated,
     isPlayer,
@@ -76,6 +83,7 @@ export const useUserStore = defineStore('user', () => {
     clubId,
     // Actions
     init,
-    logout
+    logout,
+    setSubgroupFilter
   }
 })

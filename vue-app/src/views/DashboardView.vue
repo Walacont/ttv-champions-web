@@ -2,6 +2,9 @@
 import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 
+// Components
+import SubgroupFilter from '@/components/SubgroupFilter.vue'
+
 // Tab Components
 import OverviewTab from '@/components/tabs/OverviewTab.vue'
 import LeaderboardTab from '@/components/tabs/LeaderboardTab.vue'
@@ -46,6 +49,9 @@ const tabs = [
         </button>
       </div>
     </div>
+
+    <!-- Subgroup Filter -->
+    <SubgroupFilter />
 
     <!-- Tab Navigation -->
     <div class="border-b border-gray-200">

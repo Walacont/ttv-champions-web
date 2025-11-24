@@ -7,9 +7,8 @@ import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 
-// Leaderboard type and scope
+// Leaderboard type
 const activeType = ref('effort')
-const scope = ref('club')
 
 // Leaderboard preferences (which tabs to show)
 const showSettings = ref(false)
@@ -140,11 +139,27 @@ const doublesPairingsQuery = computed(() => {
 })
 const rawDoublesPairings = useCollection(doublesPairingsQuery)
 
-// Enrich pairings with photo URLs from club players
+// Enrich pairings with photo URLs from club players and filter by subgroup
 const doublesPairings = computed(() => {
   if (!rawDoublesPairings.value || !clubPlayers.value) return rawDoublesPairings.value
 
-  return rawDoublesPairings.value.map(pairing => {
+  const filter = userStore.currentSubgroupFilter
+
+  let filteredPairings = rawDoublesPairings.value
+
+  // Filter by subgroup if a specific subgroup is selected
+  if (filter !== 'club' && filter !== 'global') {
+    filteredPairings = rawDoublesPairings.value.filter(pairing => {
+      const player1 = clubPlayers.value.find(p => p.id === pairing.player1Id)
+      const player2 = clubPlayers.value.find(p => p.id === pairing.player2Id)
+      const player1Subgroups = player1?.subgroupIDs || []
+      const player2Subgroups = player2?.subgroupIDs || []
+      // Both players must be in the selected subgroup
+      return player1Subgroups.includes(filter) && player2Subgroups.includes(filter)
+    })
+  }
+
+  return filteredPairings.map(pairing => {
     const player1 = clubPlayers.value.find(p => p.id === pairing.player1Id)
     const player2 = clubPlayers.value.find(p => p.id === pairing.player2Id)
 
@@ -158,18 +173,36 @@ const doublesPairings = computed(() => {
   })
 })
 
-const players = computed(() => scope.value === 'club' ? clubPlayers.value : globalPlayers.value)
+// Filter players based on current subgroup filter
+const players = computed(() => {
+  const filter = userStore.currentSubgroupFilter
 
-// Group players by rank for Ranks view
+  if (filter === 'global') {
+    return globalPlayers.value
+  } else if (filter === 'club') {
+    return clubPlayers.value
+  } else {
+    // Specific subgroup - filter club players
+    if (!clubPlayers.value) return []
+    return clubPlayers.value.filter(player => {
+      const playerSubgroups = player.subgroupIDs || []
+      return playerSubgroups.includes(filter)
+    })
+  }
+})
+
+// Group players by rank for Ranks view (uses filtered players)
 const playersByRank = computed(() => {
-  if (!clubPlayers.value) return []
+  // Use the filtered players based on current subgroup filter
+  const filteredPlayers = players.value
+  if (!filteredPlayers) return []
 
   const grouped = {}
   RANKS.forEach(rank => {
     grouped[rank.id] = []
   })
 
-  clubPlayers.value.forEach(player => {
+  filteredPlayers.forEach(player => {
     const rank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0)
     grouped[rank.id].push({ ...player, rank })
   })
@@ -202,9 +235,6 @@ function getRankDisplay(index) {
 function getInitials(player) {
   return (player.firstName?.[0] || '') + (player.lastName?.[0] || '')
 }
-
-// Check if toggle should be shown (not for ranks or doubles)
-const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType.value))
 </script>
 
 <template>
@@ -271,24 +301,6 @@ const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType
       </div>
     </div>
 
-    <!-- Scope Toggle (only for effort, season, skill) -->
-    <div v-if="showScopeToggle" class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100 mb-6">
-      <button
-        @click="scope = 'club'"
-        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
-        :class="scope === 'club' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'"
-      >
-        🏠 Mein Verein
-      </button>
-      <button
-        @click="scope = 'global'"
-        class="flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors"
-        :class="scope === 'global' ? 'bg-white shadow text-indigo-600' : 'text-gray-600'"
-      >
-        🌍 Global
-      </button>
-    </div>
-
     <!-- Regular Player List (effort, season, skill) -->
     <div v-if="['effort', 'season', 'skill'].includes(activeType)" class="space-y-2 max-h-96 overflow-y-auto">
       <div v-if="!players?.length" class="text-center py-8 text-gray-500">
@@ -309,7 +321,7 @@ const showScopeToggle = computed(() => !['ranks', 'doubles'].includes(activeType
         />
         <div class="flex-grow">
           <p class="text-sm font-medium text-gray-900">{{ player.firstName }} {{ player.lastName }}</p>
-          <p v-if="scope === 'global'" class="text-xs text-gray-400">{{ player.clubId || 'Kein Verein' }}</p>
+          <p v-if="userStore.currentSubgroupFilter === 'global'" class="text-xs text-gray-400">{{ player.clubId || 'Kein Verein' }}</p>
         </div>
         <div class="text-right">
           <p class="text-sm font-bold text-gray-900">{{ getDisplayValue(player) }}</p>

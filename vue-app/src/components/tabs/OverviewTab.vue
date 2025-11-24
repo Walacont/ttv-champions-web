@@ -88,35 +88,63 @@ const pendingRequestsQuery = computed(() => {
 })
 const pendingRequests = useCollection(pendingRequestsQuery)
 
-// Club players for rivals
-const clubPlayersQuery = computed(() => {
-  if (!userStore.clubId) return null
-  return query(
-    collection(db, 'users'),
-    where('clubId', '==', userStore.clubId),
-    where('role', '==', 'player'),
-    orderBy('eloRating', 'desc'),
-    limit(50)
-  )
-})
-const clubPlayers = useCollection(clubPlayersQuery)
+// Players query based on current subgroup filter
+const playersQuery = computed(() => {
+  const filter = userStore.currentSubgroupFilter
 
-// Skill Rival (closest Elo above)
+  if (filter === 'club') {
+    // Show all players in club
+    return query(
+      collection(db, 'users'),
+      where('clubId', '==', userStore.clubId),
+      where('role', '==', 'player')
+    )
+  } else if (filter === 'global') {
+    // Show all players globally
+    return query(
+      collection(db, 'users'),
+      where('role', '==', 'player')
+    )
+  } else {
+    // Show players in specific subgroup
+    return query(
+      collection(db, 'users'),
+      where('clubId', '==', userStore.clubId),
+      where('role', '==', 'player'),
+      where('subgroupIDs', 'array-contains', filter)
+    )
+  }
+})
+const filteredPlayers = useCollection(playersQuery)
+
+// Skill Rival (closest Elo above, from filtered players)
 const skillRival = computed(() => {
-  if (!clubPlayers.value || !userStore.userData) return null
+  if (!filteredPlayers.value || !userStore.userData) return null
   const myElo = userStore.userData.eloRating || 1000
-  return clubPlayers.value
-    .filter(p => p.id !== userStore.userData.id && (p.eloRating || 1000) > myElo)
-    .sort((a, b) => (a.eloRating || 1000) - (b.eloRating || 1000))[0] || null
+
+  // Sort by Elo and find first player above current user
+  const skillRanking = [...filteredPlayers.value].sort((a, b) => (b.eloRating || 0) - (a.eloRating || 0))
+  const myIndex = skillRanking.findIndex(p => p.id === userStore.userData.id)
+
+  if (myIndex > 0) {
+    return skillRanking[myIndex - 1]
+  }
+  return null
 })
 
-// Effort Rival (closest XP above)
+// Effort Rival (closest XP above, from filtered players)
 const effortRival = computed(() => {
-  if (!clubPlayers.value || !userStore.userData) return null
+  if (!filteredPlayers.value || !userStore.userData) return null
   const myXp = userStore.userData.xp || 0
-  return clubPlayers.value
-    .filter(p => p.id !== userStore.userData.id && (p.xp || 0) > myXp)
-    .sort((a, b) => (a.xp || 0) - (b.xp || 0))[0] || null
+
+  // Sort by XP and find first player above current user
+  const effortRanking = [...filteredPlayers.value].sort((a, b) => (b.xp || 0) - (a.xp || 0))
+  const myIndex = effortRanking.findIndex(p => p.id === userStore.userData.id)
+
+  if (myIndex > 0) {
+    return effortRanking[myIndex - 1]
+  }
+  return null
 })
 
 // Challenges
