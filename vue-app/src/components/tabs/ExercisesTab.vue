@@ -156,7 +156,7 @@ function getPointsDisplay(exercise) {
   if (hasMilestones) {
     return `Bis zu ${exercise.points} P.`
   }
-  return `+${exercise.points} P.`
+  return `${exercise.points} P.`
 }
 
 function getDifficultyLabel(difficulty) {
