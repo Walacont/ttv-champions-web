@@ -20,10 +20,11 @@ const isMatchReady = computed(() => {
   return (userStore.userData?.grundlagenCompleted || 0) >= 5
 })
 
-// Load match suggestions and history on mount
+// Load match suggestions, history and requests on mount
 onMounted(async () => {
   await calculateMatchSuggestions()
   await loadMatchHistory()
+  await loadMatchRequests()
 })
 
 // Cleanup on unmount
@@ -31,6 +32,8 @@ onUnmounted(() => {
   if (matchHistoryUnsubscribe) {
     matchHistoryUnsubscribe()
   }
+  // Cleanup request listeners
+  requestUnsubscribes.forEach(unsub => unsub())
 })
 
 async function calculateMatchSuggestions() {
@@ -180,46 +183,116 @@ const availableOpponents = computed(() => {
   })
 })
 
-// All match requests for the club (to avoid index issues)
-const allMatchRequestsQuery = computed(() => {
-  if (!userStore.clubId) return null
-  return query(
+// === MATCH REQUESTS ===
+// Store for all request data
+const myRequests = ref([])
+const incomingRequestsData = ref([])
+const processedRequestsData = ref([])
+let requestUnsubscribes = []
+
+// Load match requests on mount
+async function loadMatchRequests() {
+  if (!userStore.userData?.id) return
+
+  const userId = userStore.userData.id
+
+  // Query 1: Requests I created (playerA)
+  const myRequestsQuery = query(
     collection(db, 'matchRequests'),
-    where('clubId', '==', userStore.clubId),
-    limit(100)
+    where('playerAId', '==', userId)
   )
-})
-const allMatchRequests = useCollection(allMatchRequestsQuery)
 
-// Incoming requests (singles) - requests where I am playerB and need to respond
-const incomingRequests = computed(() => {
-  if (!allMatchRequests.value || !userStore.userData?.id) return []
-  return allMatchRequests.value
-    .filter(r =>
-      r.playerBId === userStore.userData.id &&
-      r.status === 'pending_player'
-    )
-    .sort((a, b) => {
-      const timeA = a.createdAt?.toMillis?.() || 0
-      const timeB = b.createdAt?.toMillis?.() || 0
-      return timeB - timeA
-    })
+  // Query 2: Incoming requests where I need to respond (playerB, pending_player)
+  const incomingQuery = query(
+    collection(db, 'matchRequests'),
+    where('playerBId', '==', userId),
+    where('status', '==', 'pending_player')
+  )
+
+  // Query 3: Requests I processed as playerB
+  const processedQuery = query(
+    collection(db, 'matchRequests'),
+    where('playerBId', '==', userId)
+  )
+
+  // Listen to my requests
+  const unsub1 = onSnapshot(myRequestsQuery, (snapshot) => {
+    myRequests.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  }, (error) => {
+    console.error('Error loading my requests:', error)
+  })
+
+  // Listen to incoming requests
+  const unsub2 = onSnapshot(incomingQuery, (snapshot) => {
+    incomingRequestsData.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  }, (error) => {
+    console.error('Error loading incoming requests:', error)
+  })
+
+  // Listen to processed requests
+  const unsub3 = onSnapshot(processedQuery, (snapshot) => {
+    processedRequestsData.value = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  }, (error) => {
+    console.error('Error loading processed requests:', error)
+  })
+
+  requestUnsubscribes = [unsub1, unsub2, unsub3]
+}
+
+// Computed: Pending requests (Ausstehend)
+// - Incoming requests that need my response
+// - My sent requests that are still pending (waiting for opponent or coach)
+const pendingRequests = computed(() => {
+  const pending = []
+
+  // Incoming requests (I'm playerB, need to respond)
+  pending.push(...incomingRequestsData.value)
+
+  // My requests that are still pending
+  const myPending = myRequests.value.filter(r =>
+    r.status === 'pending_player' || r.status === 'pending_coach'
+  )
+  pending.push(...myPending)
+
+  // Sort by createdAt descending
+  return pending.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0
+    const bTime = b.createdAt?.toMillis?.() || 0
+    return bTime - aTime
+  })
 })
 
-// Outgoing requests (singles) - requests I created that are still pending
-const outgoingRequests = computed(() => {
-  if (!allMatchRequests.value || !userStore.userData?.id) return []
-  return allMatchRequests.value
-    .filter(r =>
-      r.playerAId === userStore.userData.id &&
-      (r.status === 'pending_player' || r.status === 'pending_coach')
-    )
-    .sort((a, b) => {
-      const timeA = a.createdAt?.toMillis?.() || 0
-      const timeB = b.createdAt?.toMillis?.() || 0
-      return timeB - timeA
-    })
+// Computed: History requests (Anfragen-Historie)
+// - My completed requests (approved/rejected)
+// - Requests I responded to (approved/rejected/pending_coach)
+const historyRequests = computed(() => {
+  const history = []
+
+  // My completed requests
+  const myCompleted = myRequests.value.filter(r =>
+    r.status === 'approved' || r.status === 'rejected'
+  )
+  history.push(...myCompleted)
+
+  // Requests I processed (approved/rejected/pending_coach)
+  const processed = processedRequestsData.value.filter(r =>
+    r.status === 'approved' || r.status === 'rejected' || r.status === 'pending_coach'
+  )
+  history.push(...processed)
+
+  // Sort by createdAt descending and dedupe
+  const uniqueHistory = [...new Map(history.map(r => [r.id, r])).values()]
+  return uniqueHistory.sort((a, b) => {
+    const aTime = a.createdAt?.toMillis?.() || 0
+    const bTime = b.createdAt?.toMillis?.() || 0
+    return bTime - aTime
+  })
 })
+
+// Helper to check if I'm the requester (playerA)
+function isMyRequest(request) {
+  return request.playerAId === userStore.userData?.id
+}
 
 // Incoming doubles requests
 const incomingDoublesQuery = computed(() => {
@@ -880,28 +953,72 @@ function getHandicapInfo(player) {
 
     <!-- Singles Content -->
     <template v-if="matchType === 'singles'">
-      <!-- Incoming Requests -->
+      <!-- Pending Requests (Ausstehend) -->
       <div class="bg-white p-6 rounded-xl shadow-md">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">
-          📬 Eingehende Anfragen
-          <span v-if="incomingRequests?.length" class="text-indigo-600">({{ incomingRequests.length }})</span>
+          ⏳ Ausstehende Anfragen
+          <span v-if="pendingRequests?.length" class="text-yellow-600">({{ pendingRequests.length }})</span>
         </h3>
-        <div v-if="incomingRequests?.length" class="space-y-2">
-          <MatchRequestCard v-for="request in incomingRequests" :key="request.id" :request="request" type="incoming" />
-        </div>
-        <p v-else class="text-gray-500 text-center py-4">Keine eingehenden Anfragen</p>
-      </div>
-
-      <!-- Outgoing Requests -->
-      <div class="bg-white p-6 rounded-xl shadow-md">
-        <h3 class="text-lg font-semibold text-gray-900 mb-3">
-          📤 Gesendete Anfragen
-          <span v-if="outgoingRequests?.length" class="text-yellow-600">({{ outgoingRequests.length }})</span>
-        </h3>
-        <div v-if="outgoingRequests?.length" class="space-y-2">
-          <MatchRequestCard v-for="request in outgoingRequests" :key="request.id" :request="request" type="outgoing" />
+        <div v-if="pendingRequests?.length" class="space-y-2">
+          <MatchRequestCard
+            v-for="request in pendingRequests"
+            :key="request.id"
+            :request="request"
+            :type="isMyRequest(request) ? 'outgoing' : 'incoming'"
+          />
         </div>
         <p v-else class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>
+      </div>
+
+      <!-- Request History (Anfragen-Historie) -->
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">
+          📋 Anfragen-Historie
+          <span v-if="historyRequests?.length" class="text-gray-500">({{ historyRequests.length }})</span>
+        </h3>
+        <div v-if="historyRequests?.length" class="space-y-2">
+          <div
+            v-for="request in historyRequests"
+            :key="request.id"
+            class="bg-gray-50 p-4 rounded-lg border border-gray-200"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                  :class="request.status === 'approved' ? 'bg-green-100' : request.status === 'rejected' ? 'bg-red-100' : 'bg-yellow-100'">
+                  <span :class="request.status === 'approved' ? 'text-green-600' : request.status === 'rejected' ? 'text-red-600' : 'text-yellow-600'">
+                    {{ request.status === 'approved' ? '✓' : request.status === 'rejected' ? '✕' : '⏳' }}
+                  </span>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900">
+                    {{ isMyRequest(request) ? request.playerBName : request.playerAName }}
+                  </p>
+                  <p class="text-xs text-gray-500">
+                    {{ formatDate(request.createdAt) }}
+                  </p>
+                </div>
+              </div>
+              <div class="text-right">
+                <span
+                  class="px-2 py-1 rounded text-xs font-medium"
+                  :class="{
+                    'bg-green-100 text-green-700': request.status === 'approved',
+                    'bg-red-100 text-red-700': request.status === 'rejected',
+                    'bg-yellow-100 text-yellow-700': request.status === 'pending_coach'
+                  }"
+                >
+                  {{ request.status === 'approved' ? 'Bestätigt' : request.status === 'rejected' ? 'Abgelehnt' : 'Wartet auf Coach' }}
+                </span>
+              </div>
+            </div>
+            <!-- Set scores -->
+            <div v-if="request.sets?.length" class="mt-2 text-sm text-gray-600">
+              Sätze: {{ request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ') }}
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-gray-500 text-center py-4">Keine Anfragen-Historie</p>
       </div>
 
       <!-- Match History -->
