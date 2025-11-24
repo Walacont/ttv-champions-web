@@ -26,8 +26,9 @@ const WIDGETS = [
 // Initialize widget settings
 onMounted(async () => {
   await loadWidgetSettings()
+  await fetchSeasonEndDate()
   updateSeasonCountdown()
-  setInterval(updateSeasonCountdown, 1000)
+  countdownInterval = setInterval(updateSeasonCountdown, 1000)
 })
 
 async function loadWidgetSettings() {
@@ -74,6 +75,8 @@ function isWidgetVisible(id) {
 
 // Season countdown
 const seasonCountdown = ref('Lädt...')
+const seasonEndDate = ref(null)
+let countdownInterval = null
 
 // Pending SINGLES match requests (where I'm playerB and need to respond)
 const pendingSingles = ref([])
@@ -138,6 +141,7 @@ watch(() => userStore.clubId, (clubId) => {
 onUnmounted(() => {
   if (singlesUnsubscribe) singlesUnsubscribe()
   if (doublesUnsubscribe) doublesUnsubscribe()
+  if (countdownInterval) clearInterval(countdownInterval)
 })
 
 // Filter doubles to only show where I'm in teamB and not the initiator
@@ -307,21 +311,52 @@ const pointsHistoryQuery = computed(() => {
 })
 const pointsHistory = useCollection(pointsHistoryQuery)
 
-function updateSeasonCountdown() {
-  const startDate = new Date('2024-01-01')
-  const now = new Date()
-  const weeksSinceStart = Math.floor((now - startDate) / (7 * 24 * 60 * 60 * 1000))
-  const currentSeasonWeek = weeksSinceStart % 6
-  const weeksRemaining = 6 - currentSeasonWeek - 1
-  const daysIntoWeek = Math.floor((now - startDate) / (24 * 60 * 60 * 1000)) % 7
-  const daysRemaining = (weeksRemaining * 7) + (7 - daysIntoWeek)
+// Fetch season end date from Firestore
+async function fetchSeasonEndDate() {
+  try {
+    const configRef = doc(db, 'config', 'seasonReset')
+    const configDoc = await getDoc(configRef)
 
-  if (daysRemaining <= 0) {
+    if (configDoc.exists()) {
+      const data = configDoc.data()
+      const lastResetDate = data.lastResetDate.toDate()
+      const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000
+      seasonEndDate.value = new Date(lastResetDate.getTime() + sixWeeksInMs)
+    } else {
+      // Fallback: Calculate based on current date
+      const now = new Date()
+      seasonEndDate.value = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000))
+    }
+  } catch (error) {
+    console.error('Error fetching season end date:', error)
+    // Fallback
+    const now = new Date()
+    seasonEndDate.value = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000))
+  }
+}
+
+function updateSeasonCountdown() {
+  if (!seasonEndDate.value) {
+    seasonCountdown.value = 'Lädt...'
+    return
+  }
+
+  const now = new Date()
+  const diff = seasonEndDate.value - now
+
+  if (diff <= 0) {
     seasonCountdown.value = 'Saison endet bald!'
-  } else if (daysRemaining === 1) {
-    seasonCountdown.value = '1 Tag'
   } else {
-    seasonCountdown.value = `${daysRemaining} Tage`
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+
+    if (days === 0 && hours > 0) {
+      seasonCountdown.value = `${hours} Stunde${hours > 1 ? 'n' : ''}`
+    } else if (days === 1) {
+      seasonCountdown.value = '1 Tag'
+    } else {
+      seasonCountdown.value = `${days} Tage`
+    }
   }
 }
 
