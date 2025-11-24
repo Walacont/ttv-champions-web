@@ -657,26 +657,38 @@ const allDoublesQuery = computed(() => {
 })
 const allDoubles = useCollection(allDoublesQuery)
 
+// Also load approved doubles requests (backwards compatibility for old coach UI)
+const allDoublesRequestsQuery = computed(() => {
+  if (!userStore.clubId) return null
+  return query(
+    collection(db, 'doublesMatchRequests'),
+    where('clubId', '==', userStore.clubId),
+    where('status', '==', 'approved'),
+    limit(100)
+  )
+})
+const allDoublesRequests = useCollection(allDoublesRequestsQuery)
+
 // Filter and sort doubles for current user (client-side to avoid index)
 const doublesHistory = computed(() => {
-  if (!allDoubles.value || !userStore.userData?.id) return []
+  if (!userStore.userData?.id) return []
 
-  const filtered = allDoubles.value
-    .filter(match => {
-      // Backwards compatible: Show if status is approved OR processed is true OR neither field exists (old format)
+  const matches = allDoubles.value || []
+  const requests = allDoublesRequests.value || []
+
+  // Combine matches and approved requests
+  const combined = [
+    ...matches.filter(match => {
+      // Filter matches (new format from Functions)
       const hasStatusField = 'status' in match
       const hasProcessedField = 'processed' in match
 
       if (hasStatusField || hasProcessedField) {
-        // New format: check status/processed
         if (match.status !== 'approved' && match.processed !== true) {
           return false
         }
       }
-      // Old format without status/processed fields: show it (backwards compatible)
 
-      // Check if user is in any team
-      // Try playerIds first (new format), then fallback to checking team objects (old format)
       const userInPlayerIds = match.playerIds && match.playerIds.includes(userStore.userData.id)
       const userInTeams = (
         match.teamA?.player1Id === userStore.userData.id ||
@@ -686,17 +698,36 @@ const doublesHistory = computed(() => {
       )
 
       return userInPlayerIds || userInTeams
+    }),
+    ...requests.filter(request => {
+      // Filter approved requests (old format from Coach UI)
+      // Check if request was already converted to match
+      if (request.processedMatchId) return false
+
+      const userInTeams = (
+        request.teamA?.player1Id === userStore.userData.id ||
+        request.teamA?.player2Id === userStore.userData.id ||
+        request.teamB?.player1Id === userStore.userData.id ||
+        request.teamB?.player2Id === userStore.userData.id
+      )
+
+      return userInTeams
     })
+  ]
+
+  const filtered = combined
     .sort((a, b) => {
-      const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
-      const timeB = b.timestamp?.toMillis?.() || b.playedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
+      const timeA = a.timestamp?.toMillis?.() || a.playedAt?.toMillis?.() || a.approvedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0
+      const timeB = b.timestamp?.toMillis?.() || b.playedAt?.toMillis?.() || b.approvedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0
       return timeB - timeA
     })
     .slice(0, 10)
 
   // Debug output
   console.log('Doubles history:', {
-    allDoublesCount: allDoubles.value?.length || 0,
+    matchesCount: matches.length,
+    requestsCount: requests.length,
+    combinedCount: combined.length,
     filteredCount: filtered.length,
     userId: userStore.userData?.id,
     sample: filtered[0] || 'No matches'
@@ -1421,8 +1452,8 @@ function getHandicapInfo(player) {
       <div class="bg-white p-6 rounded-xl shadow-md">
         <div class="flex justify-between items-center mb-3">
           <h3 class="text-lg font-semibold text-gray-900">🎾 Doppel-Historie</h3>
-          <span v-if="allDoubles?.length" class="text-sm text-gray-500">
-            ({{ doublesHistory?.length || 0 }} von {{ allDoubles.length }})
+          <span v-if="(allDoubles?.length || 0) + (allDoublesRequests?.length || 0) > 0" class="text-sm text-gray-500">
+            ({{ doublesHistory?.length || 0 }} von {{ (allDoubles?.length || 0) + (allDoublesRequests?.length || 0) }})
           </span>
         </div>
         <div v-if="doublesHistory?.length" class="space-y-3">
@@ -1462,7 +1493,7 @@ function getHandicapInfo(player) {
         <div v-else class="text-center py-8">
           <p class="text-gray-500 mb-2">Noch keine genehmigten Doppel-Matches</p>
           <p class="text-xs text-gray-400">
-            Alle Doppel-Matches: {{ allDoubles?.length || 0 }}
+            Matches: {{ allDoubles?.length || 0 }} | Genehmigte Anfragen: {{ allDoublesRequests?.length || 0 }}
           </p>
         </div>
       </div>
