@@ -308,16 +308,58 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         orderBy('matchesWon', 'desc')
     );
 
-    const listener = onSnapshot(pairingsQuery, (snapshot) => {
-        const pairings = snapshot.docs.map(docSnap => {
+    const listener = onSnapshot(pairingsQuery, async (snapshot) => {
+        const pairings = [];
+
+        // Fetch player data for each pairing
+        for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
-            return {
+
+            // Try to fetch player data for profile pictures
+            let player1Data = null;
+            let player2Data = null;
+
+            try {
+                if (data.player1Id) {
+                    const p1Doc = await getDoc(doc(db, 'users', data.player1Id));
+                    if (p1Doc.exists()) {
+                        player1Data = p1Doc.data();
+                    }
+                }
+            } catch (error) {
+                // Silently handle permission errors
+                if (error.code !== 'permission-denied') {
+                    console.warn('Could not fetch player1 data:', error);
+                }
+            }
+
+            try {
+                if (data.player2Id) {
+                    const p2Doc = await getDoc(doc(db, 'users', data.player2Id));
+                    if (p2Doc.exists()) {
+                        player2Data = p2Doc.data();
+                    }
+                }
+            } catch (error) {
+                // Silently handle permission errors
+                if (error.code !== 'permission-denied') {
+                    console.warn('Could not fetch player2 data:', error);
+                }
+            }
+
+            pairings.push({
                 id: docSnap.id,
                 player1Name: data.player1Name || 'Unbekannt',
                 player2Name: data.player2Name || 'Unbekannt',
+                player1PhotoURL: player1Data?.photoURL || null,
+                player2PhotoURL: player2Data?.photoURL || null,
+                player1FirstName: player1Data?.firstName || data.player1Name?.split(' ')[0] || 'U',
+                player1LastName: player1Data?.lastName || data.player1Name?.split(' ')[1] || 'N',
+                player2FirstName: player2Data?.firstName || data.player2Name?.split(' ')[0] || 'U',
+                player2LastName: player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N',
                 ...data
-            };
-        });
+            });
+        }
 
         // Render the leaderboard with updated data
         renderDoublesLeaderboard(pairings, container);
@@ -346,7 +388,6 @@ export function renderDoublesLeaderboard(pairings, container) {
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Rang</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Team</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Matches</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siege</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Niederlagen</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siegrate</th>
@@ -362,15 +403,33 @@ export function renderDoublesLeaderboard(pairings, container) {
             ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1)
             : 0;
 
+        // Generate initials for player 1
+        const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
+        const p1Avatar = pairing.player1PhotoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${p1Initials}`;
+
+        // Generate initials for player 2
+        const p2Initials = `${pairing.player2FirstName?.[0] || 'U'}${pairing.player2LastName?.[0] || 'N'}`;
+        const p2Avatar = pairing.player2PhotoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
+
         html += `
             <tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm font-bold text-gray-900">#${rank}</td>
-                <td class="px-4 py-3 text-sm">
-                    <span class="font-semibold text-indigo-700">${pairing.player1Name}</span>
-                    <span class="text-gray-400 mx-1">&</span>
-                    <span class="font-semibold text-indigo-700">${pairing.player2Name}</span>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <div class="flex -space-x-2">
+                            <img src="${p1Avatar}" alt="${pairing.player1Name}"
+                                 class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                 title="${pairing.player1Name}">
+                            <img src="${p2Avatar}" alt="${pairing.player2Name}"
+                                 class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                 title="${pairing.player2Name}">
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-indigo-700 text-sm">${pairing.player1Name}</span>
+                            <span class="font-semibold text-indigo-700 text-sm">${pairing.player2Name}</span>
+                        </div>
+                    </div>
                 </td>
-                <td class="px-4 py-3 text-sm text-center">${pairing.matchesPlayed}</td>
                 <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
                 <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
                 <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
