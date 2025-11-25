@@ -158,15 +158,29 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             sessionsPerDate.set(session.date, count + 1);
         });
 
-        // Map each date to a color: only highlight dates with multiple sessions
-        const dateColorMap = new Map();
-        const highlightColor = 'FFFFEB99'; // Light yellow/amber for dates with multiple trainings
+        // Color palette for dates with multiple trainings
+        const multiSessionColors = [
+            'FFFFEB99', // Light yellow
+            'FFB3E5FC', // Light blue
+            'FFC8E6C9', // Light green
+            'FFFFCCBC', // Light orange
+        ];
 
+        // Map each date to a color: only dates with multiple sessions get colors
+        const dateColorMap = new Map();
+        const datesWithMultipleSessions = [...new Set(sessions.map(s => s.date))].filter(
+            date => sessionsPerDate.get(date) > 1
+        );
+
+        // Assign different colors to different multi-session dates
+        datesWithMultipleSessions.forEach((date, index) => {
+            dateColorMap.set(date, multiSessionColors[index % multiSessionColors.length]);
+        });
+
+        // Single-session dates get no color
         sessions.forEach(session => {
-            if (sessionsPerDate.get(session.date) > 1) {
-                dateColorMap.set(session.date, highlightColor);
-            } else {
-                dateColorMap.set(session.date, null); // No special color for single trainings
+            if (sessionsPerDate.get(session.date) === 1) {
+                dateColorMap.set(session.date, null);
             }
         });
 
@@ -247,12 +261,30 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
 
         excelData.push(countRow);
 
+        // Add empty row for spacing
+        excelData.push([]);
+
+        // Add legend
+        excelData.push(['Legende:']);
+        excelData.push(['X', '= Anwesend']);
+        excelData.push(['(leer)', '= Nicht anwesend']);
+        if (datesWithMultipleSessions.length > 0) {
+            excelData.push([
+                'Farbige Spalten',
+                '= Mehrere Trainings am selben Tag (gleiche Farbe = gleicher Tag)',
+            ]);
+        }
+
         console.log(`[Export] Generated ${excelData.length} rows for Excel (matrix format)`);
 
         // Create Excel workbook using ExcelJS
         const workbook = new ExcelJS.Workbook();
         const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
         const worksheet = workbook.addWorksheet(monthName);
+
+        // Calculate where legend starts (after count row + 1 empty row)
+        const countRowIndex = playersList.length + 2; // +2 for the two header rows
+        const legendStartIndex = countRowIndex + 2; // +1 for count row, +1 for empty row
 
         // Add rows to worksheet
         excelData.forEach((rowData, rowIndex) => {
@@ -283,10 +315,17 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                 });
             }
 
-            // Style the "Anzahl" row (last row)
-            if (rowIndex === excelData.length - 1) {
+            // Style the "Anzahl" row
+            if (rowIndex === countRowIndex) {
                 row.eachCell(cell => {
                     cell.font = { bold: true };
+                });
+            }
+
+            // Style legend header ("Legende:")
+            if (rowIndex === legendStartIndex) {
+                row.eachCell(cell => {
+                    cell.font = { bold: true, size: 12 };
                 });
             }
         });
