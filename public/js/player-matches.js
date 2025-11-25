@@ -1562,6 +1562,9 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
       setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
       updateSetScoreLabel(currentMode);
 
+      // Update global reference for doubles to use
+      window.playerSetScoreInput = setScoreInput;
+
       // Reapply handicap if it was active
       if (currentHandicapData && handicapToggle && handicapToggle.checked) {
         setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);

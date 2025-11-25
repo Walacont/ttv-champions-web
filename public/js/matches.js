@@ -61,6 +61,11 @@ export function initializeCoachSetScoreInput() {
             // Recreate the set score input with new mode
             coachSetScoreInput = createSetScoreInput(container, [], newMode);
             updateSetScoreLabel(newMode);
+
+            // Update doubles reference if doubles-coach-ui is loaded
+            if (window.setDoublesSetScoreInput) {
+                window.setDoublesSetScoreInput(coachSetScoreInput);
+            }
         });
     }
 

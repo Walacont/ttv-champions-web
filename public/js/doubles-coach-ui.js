@@ -292,3 +292,6 @@ export function getCurrentMatchType() {
 export function setDoublesSetScoreInput(inputInstance) {
     doublesSetScoreInput = inputInstance;
 }
+
+// Make setDoublesSetScoreInput available globally so matches.js can call it
+window.setDoublesSetScoreInput = setDoublesSetScoreInput;
