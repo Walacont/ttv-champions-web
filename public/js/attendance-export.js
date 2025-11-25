@@ -230,9 +230,9 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                 const attendance = attendanceRecords.get(attendanceKey);
                 const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
 
-                // Add X if present, empty if not
+                // Add checkbox: ☑ if present, ☐ if not
                 const isPresent = presentPlayerIds.includes(player.id);
-                row.push(isPresent ? 'X' : '');
+                row.push(isPresent ? '☑' : '☐');
 
                 if (isPresent) {
                     playerTotal++;
@@ -266,8 +266,8 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
 
         // Add legend
         excelData.push(['Legende:']);
-        excelData.push(['X', '= Anwesend']);
-        excelData.push(['(leer)', '= Nicht anwesend']);
+        excelData.push(['☑', '= Anwesend']);
+        excelData.push(['☐', '= Nicht anwesend']);
         if (datesWithMultipleSessions.length > 0) {
             excelData.push([
                 'Farbige Spalten',
