@@ -152,8 +152,8 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         const excelData = [];
 
         // Build header rows
-        const headerRow1 = ['Nachname', 'Vorname']; // First header row
-        const headerRow2 = ['', '']; // Second header row (for time)
+        const headerRow1 = ['Nachname', 'Vorname']; // First header row (dates)
+        const headerRow2 = ['', '']; // Second header row (group + time)
 
         // Add date columns
         for (const session of sessions) {
@@ -163,9 +163,15 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                 month: '2-digit',
                 year: 'numeric',
             });
+            const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
+
             headerRow1.push(formattedDate);
-            headerRow2.push(`${session.startTime}-${session.endTime}`);
+            headerRow2.push(`${subgroupName} (${session.startTime}-${session.endTime})`);
         }
+
+        // Add "Gesamt" column header
+        headerRow1.push('Gesamt');
+        headerRow2.push('');
 
         excelData.push(headerRow1);
         excelData.push(headerRow2);
@@ -173,6 +179,7 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Add player rows
         for (const player of playersList) {
             const row = [player.lastName || '', player.firstName || ''];
+            let playerTotal = 0; // Count attendance for this player
 
             // Check attendance for each session
             for (const session of sessions) {
@@ -191,11 +198,35 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                 const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
 
                 // Add X if present, empty if not
-                row.push(presentPlayerIds.includes(player.id) ? 'X' : '');
+                const isPresent = presentPlayerIds.includes(player.id);
+                row.push(isPresent ? 'X' : '');
+
+                if (isPresent) {
+                    playerTotal++;
+                }
             }
+
+            // Add total for this player
+            row.push(playerTotal);
 
             excelData.push(row);
         }
+
+        // Add bottom row with counts per session
+        const countRow = ['Anzahl', ''];
+        for (const session of sessions) {
+            const attendanceKey = `${session.date}_${session.id}`;
+            const attendance = attendanceRecords.get(attendanceKey);
+            const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
+
+            // Count how many players from our list were present
+            const count = playersList.filter(p => presentPlayerIds.includes(p.id)).length;
+            countRow.push(count);
+        }
+        // Empty cell for the "Gesamt" column in the count row
+        countRow.push('');
+
+        excelData.push(countRow);
 
         console.log(`[Export] Generated ${excelData.length} rows for Excel (matrix format)`);
 
@@ -210,8 +241,10 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         ];
         // Add width for each date column
         for (let i = 0; i < sessions.length; i++) {
-            colWidths.push({ wch: 12 }); // Date columns
+            colWidths.push({ wch: 20 }); // Date columns (wider for group name + time)
         }
+        // Add width for "Gesamt" column
+        colWidths.push({ wch: 10 }); // Gesamt column
         ws['!cols'] = colWidths;
 
         // Add worksheet to workbook
