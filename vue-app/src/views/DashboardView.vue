@@ -29,7 +29,8 @@ const tabs = [
 
 async function handleLogout() {
   await userStore.logout()
-  router.push('/')
+  // Redirect to original index.html landing page
+  window.location.href = '/index.html'
 }
 </script>
 

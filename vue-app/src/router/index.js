@@ -5,8 +5,7 @@ import { watch } from 'vue'
 const routes = [
   {
     path: '/',
-    name: 'Landing',
-    component: () => import('@/views/LandingView.vue')
+    redirect: '/dashboard'
   },
   {
     path: '/leaderboard',
@@ -77,10 +76,7 @@ router.beforeEach(async (to, from, next) => {
 
   // Now check authentication
   if (to.meta.requiresAuth && !userStore.isAuthenticated) {
-    next('/')
-  } else if (to.path === '/' && userStore.isAuthenticated) {
-    // If already authenticated and going to landing, redirect to dashboard
-    next('/dashboard')
+    next('/login')
   } else {
     next()
   }
