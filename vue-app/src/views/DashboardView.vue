@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { useRouter } from 'vue-router'
 
 // Components
 import SubgroupFilter from '@/components/SubgroupFilter.vue'
@@ -13,6 +14,7 @@ import ExercisesTab from '@/components/tabs/ExercisesTab.vue'
 import AttendanceTab from '@/components/tabs/AttendanceTab.vue'
 
 const userStore = useUserStore()
+const router = useRouter()
 
 // Active tab
 const activeTab = ref('overview')
@@ -24,6 +26,11 @@ const tabs = [
   { id: 'exercises', label: 'Übungskatalog', icon: '📚' },
   { id: 'attendance', label: 'Anwesenheit', icon: '📅' },
 ]
+
+async function handleLogout() {
+  await userStore.logout()
+  router.push('/')
+}
 </script>
 
 <template>
@@ -42,7 +49,7 @@ const tabs = [
           </svg>
         </router-link>
         <button
-          @click="userStore.logout()"
+          @click="handleLogout"
           class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 text-sm rounded-lg"
         >
           Logout
