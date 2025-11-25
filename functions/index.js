@@ -1843,18 +1843,27 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
             // Format sets
             const setsStr = afterData.sets.map(s => `${s.teamA}:${s.teamB}`).join(', ');
 
-            // Note: Email sending requires SMTP configuration
-            // This is a template - you need to configure your email service
-            // For production, set up Firebase environment config:
-            // firebase functions:config:set gmail.email="your-email@gmail.com" gmail.password="your-app-password"
-
-            const transporter = nodemailer.createTransporter({
-                service: 'gmail',
+            // Configure SMTP transport (flexible, not Gmail-specific)
+            // Uses same configuration as singles match notifications
+            const smtpConfig = {
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                secure: process.env.SMTP_SECURE === 'true',
                 auth: {
-                    user: process.env.GMAIL_EMAIL || functions.config().gmail?.email,
-                    pass: process.env.GMAIL_PASSWORD || functions.config().gmail?.password,
+                    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+                    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
                 },
-            });
+            };
+
+            // Check if SMTP is configured
+            if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+                logger.warn(
+                    '⚠️ SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS environment variables.'
+                );
+                return null;
+            }
+
+            const transporter = nodemailer.createTransporter(smtpConfig);
 
             // Send email to each coach
             const emailPromises = coachesSnapshot.docs.map(async coachDoc => {
@@ -1865,7 +1874,7 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
                 }
 
                 const mailOptions = {
-                    from: process.env.GMAIL_EMAIL || functions.config().gmail?.email,
+                    from: `"TTV Champions" <${smtpConfig.auth.user}>`,
                     to: coach.email,
                     subject: '🎾 Neue Doppel-Match Anfrage wartet auf Genehmigung',
                     html: `
@@ -1879,9 +1888,15 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
                 <p style="margin: 5px 0;"><strong>Team B:</strong> ${teamBNames}</p>
                 <p style="margin: 5px 0;"><strong>Ergebnis:</strong> ${setsStr}</p>
                 <p style="margin: 5px 0;"><strong>Gewinner:</strong> Team ${afterData.winningTeam}</p>
+                ${afterData.handicapUsed ? '<p style="margin: 5px 0; color: #f59e0b;"><strong>⚖️ Handicap verwendet</strong></p>' : ''}
               </div>
 
-              <p>Bitte logge dich in die TTV Champions App ein um die Anfrage zu genehmigen oder abzulehnen.</p>
+              <p>Bitte logge dich in die TTV Champions App ein, um die Anfrage zu genehmigen oder abzulehnen.</p>
+
+              <a href="${process.env.APP_URL || 'https://ttv-champions.web.app'}/coach.html"
+                 style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px;">
+                Zur App
+              </a>
 
               <p style="margin-top: 30px; color: #6b7280; font-size: 12px;">
                 Diese E-Mail wurde automatisch generiert. Bitte nicht antworten.
