@@ -128,21 +128,34 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             );
         }
 
-        // Build Excel data structure
+        // Group players by subgroup to get all relevant players
+        const allRelevantPlayers = new Set();
+        for (const session of sessions) {
+            const sessionPlayers = filteredPlayers.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(session.subgroupId)
+            );
+            sessionPlayers.forEach(p => allRelevantPlayers.add(p.id));
+        }
+
+        // Get unique list of players who participated in any session
+        const playersList = filteredPlayers
+            .filter(p => allRelevantPlayers.has(p.id))
+            .sort((a, b) => {
+                const lastNameCompare = (a.lastName || '').localeCompare(b.lastName || '');
+                if (lastNameCompare !== 0) return lastNameCompare;
+                return (a.firstName || '').localeCompare(b.firstName || '');
+            });
+
+        console.log(`[Export] Found ${playersList.length} unique players across all sessions`);
+
+        // Build Excel data structure in matrix format
         const excelData = [];
 
-        // Add header row
-        excelData.push([
-            'Datum',
-            'Wochentag',
-            'Uhrzeit',
-            'Gruppe',
-            'Spieler',
-            'Anwesend',
-            'Punkte erhalten',
-        ]);
+        // Build header rows
+        const headerRow1 = ['Nachname', 'Vorname']; // First header row
+        const headerRow2 = ['', '']; // Second header row (for time)
 
-        // Process each session
+        // Add date columns
         for (const session of sessions) {
             const sessionDate = new Date(session.date + 'T12:00:00');
             const formattedDate = sessionDate.toLocaleDateString('de-DE', {
@@ -150,59 +163,56 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                 month: '2-digit',
                 year: 'numeric',
             });
-            const weekday = sessionDate.toLocaleDateString('de-DE', { weekday: 'long' });
-            const timeRange = `${session.startTime}-${session.endTime}`;
-            const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
-
-            // Get attendance for this session
-            const attendanceKey = `${session.date}_${session.id}`;
-            const attendance = attendanceRecords.get(attendanceKey);
-            const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
-
-            // Filter players for this session's subgroup
-            const sessionPlayers = filteredPlayers.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(session.subgroupId)
-            );
-
-            // Add row for each player
-            for (const player of sessionPlayers) {
-                const isPresent = presentPlayerIds.includes(player.id);
-                const playerName = `${player.firstName} ${player.lastName}`;
-
-                // Calculate points (simplified - actual calculation is more complex)
-                let points = '';
-                if (isPresent) {
-                    points = '3-6'; // Base points range depending on streak
-                }
-
-                excelData.push([
-                    formattedDate,
-                    weekday,
-                    timeRange,
-                    subgroupName,
-                    playerName,
-                    isPresent ? 'Ja' : 'Nein',
-                    points,
-                ]);
-            }
+            headerRow1.push(formattedDate);
+            headerRow2.push(`${session.startTime}-${session.endTime}`);
         }
 
-        console.log(`[Export] Generated ${excelData.length} rows for Excel`);
+        excelData.push(headerRow1);
+        excelData.push(headerRow2);
+
+        // Add player rows
+        for (const player of playersList) {
+            const row = [player.lastName || '', player.firstName || ''];
+
+            // Check attendance for each session
+            for (const session of sessions) {
+                // Check if player is in this session's subgroup
+                const isInSubgroup =
+                    player.subgroupIDs && player.subgroupIDs.includes(session.subgroupId);
+
+                if (!isInSubgroup) {
+                    row.push(''); // Not in this subgroup
+                    continue;
+                }
+
+                // Get attendance for this session
+                const attendanceKey = `${session.date}_${session.id}`;
+                const attendance = attendanceRecords.get(attendanceKey);
+                const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
+
+                // Add X if present, empty if not
+                row.push(presentPlayerIds.includes(player.id) ? 'X' : '');
+            }
+
+            excelData.push(row);
+        }
+
+        console.log(`[Export] Generated ${excelData.length} rows for Excel (matrix format)`);
 
         // Create Excel workbook using SheetJS
         const wb = window.XLSX.utils.book_new();
         const ws = window.XLSX.utils.aoa_to_sheet(excelData);
 
         // Set column widths
-        ws['!cols'] = [
-            { wch: 12 }, // Datum
-            { wch: 12 }, // Wochentag
-            { wch: 12 }, // Uhrzeit
-            { wch: 15 }, // Gruppe
-            { wch: 20 }, // Spieler
-            { wch: 10 }, // Anwesend
-            { wch: 15 }, // Punkte
+        const colWidths = [
+            { wch: 15 }, // Nachname
+            { wch: 15 }, // Vorname
         ];
+        // Add width for each date column
+        for (let i = 0; i < sessions.length; i++) {
+            colWidths.push({ wch: 12 }); // Date columns
+        }
+        ws['!cols'] = colWidths;
 
         // Add worksheet to workbook
         const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
