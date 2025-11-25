@@ -90,8 +90,8 @@ import {
     setupExerciseMilestones,
 } from './exercises.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
+import { calculateHandicap } from './validation-utils.js';
 import {
-    calculateHandicap,
     handleGeneratePairings,
     renderPairingsInModal,
     updatePairingsButtonState,
