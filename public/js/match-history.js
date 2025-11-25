@@ -201,7 +201,10 @@ async function enrichMatchData(db, match, userData) {
         enriched.partnerName = partnerName;
         enriched.opponentName = `${opp1Name} & ${opp2Name}`;
       } catch (error) {
-        console.warn("Could not fetch doubles player data:", error);
+        // Only log non-permission errors (permission-denied is expected for offline players)
+        if (error.code !== 'permission-denied') {
+          console.warn("Could not fetch doubles player data:", error);
+        }
         enriched.partnerName = 'Partner';
         enriched.opponentName = 'Gegner-Team';
       }
