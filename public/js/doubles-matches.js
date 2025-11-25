@@ -397,8 +397,10 @@ export function renderDoublesLeaderboard(pairings, container) {
         return;
     }
 
+    // Desktop: Table view, Mobile: Card view
     let html = `
-        <div class="overflow-x-auto">
+        <!-- Desktop Table View (hidden on mobile) -->
+        <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full bg-white border border-gray-200 rounded-lg">
                 <thead class="bg-gray-100">
                     <tr>
@@ -432,6 +434,7 @@ export function renderDoublesLeaderboard(pairings, container) {
             pairing.player2PhotoURL ||
             `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
 
+        // Desktop Table Row
         html += `
             <tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm font-bold text-gray-900">#${rank}</td>
@@ -462,6 +465,77 @@ export function renderDoublesLeaderboard(pairings, container) {
     html += `
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Card View (shown only on mobile) -->
+        <div class="md:hidden space-y-3">
+    `;
+
+    // Mobile Cards
+    pairings.forEach((pairing, index) => {
+        const rank = index + 1;
+        const winRate =
+            pairing.matchesPlayed > 0
+                ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1)
+                : 0;
+
+        // Generate initials and avatars
+        const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
+        const p1Avatar =
+            pairing.player1PhotoURL ||
+            `https://placehold.co/32x32/e2e8f0/64748b?text=${p1Initials}`;
+
+        const p2Initials = `${pairing.player2FirstName?.[0] || 'U'}${pairing.player2LastName?.[0] || 'N'}`;
+        const p2Avatar =
+            pairing.player2PhotoURL ||
+            `https://placehold.co/32x32/e2e8f0/64748b?text=${p2Initials}`;
+
+        const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+
+        html += `
+            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                <!-- Rank Badge -->
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-lg font-bold text-gray-900">${rankDisplay}</span>
+                    <span class="text-sm font-bold text-indigo-600">${Math.round(pairing.currentEloRating)} Elo</span>
+                </div>
+
+                <!-- Team Players -->
+                <div class="mb-3">
+                    <!-- Player 1 -->
+                    <div class="flex items-center gap-2 mb-2">
+                        <img src="${p1Avatar}" alt="${pairing.player1Name}"
+                             class="h-8 w-8 rounded-full object-cover border-2 border-indigo-200 shadow-sm flex-shrink-0">
+                        <span class="font-semibold text-indigo-700 text-sm">${pairing.player1Name}</span>
+                    </div>
+                    <!-- Player 2 -->
+                    <div class="flex items-center gap-2">
+                        <img src="${p2Avatar}" alt="${pairing.player2Name}"
+                             class="h-8 w-8 rounded-full object-cover border-2 border-indigo-200 shadow-sm flex-shrink-0">
+                        <span class="font-semibold text-indigo-700 text-sm">${pairing.player2Name}</span>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-3 gap-2 text-center pt-3 border-t border-gray-200">
+                    <div>
+                        <div class="text-xs text-gray-500">Siege</div>
+                        <div class="text-sm font-bold text-green-600">${pairing.matchesWon}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500">Niederlagen</div>
+                        <div class="text-sm font-bold text-red-600">${pairing.matchesLost}</div>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-500">Siegrate</div>
+                        <div class="text-sm font-bold text-gray-900">${winRate}%</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
         </div>
     `;
 
