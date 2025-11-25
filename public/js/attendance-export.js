@@ -249,60 +249,68 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
 
         console.log(`[Export] Generated ${excelData.length} rows for Excel (matrix format)`);
 
-        // Create Excel workbook using SheetJS
-        const wb = window.XLSX.utils.book_new();
-        const ws = window.XLSX.utils.aoa_to_sheet(excelData);
+        // Create Excel workbook using ExcelJS
+        const workbook = new ExcelJS.Workbook();
+        const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+        const worksheet = workbook.addWorksheet(monthName);
 
-        // Apply colors to header cells based on date
-        // Column letters: C onwards (A=Nachname, B=Vorname, C=first date)
-        const startCol = 2; // Column C (0-indexed: A=0, B=1, C=2)
-        sessions.forEach((session, sessionIndex) => {
-            const colIndex = startCol + sessionIndex;
-            const colLetter = window.XLSX.utils.encode_col(colIndex);
-            const color = dateColorMap.get(session.date);
+        // Add rows to worksheet
+        excelData.forEach((rowData, rowIndex) => {
+            const row = worksheet.addRow(rowData);
 
-            // Apply color to both header rows (row 1 and row 2)
-            const cell1 = `${colLetter}1`;
-            const cell2 = `${colLetter}2`;
+            // Style header rows (first two rows)
+            if (rowIndex === 0 || rowIndex === 1) {
+                row.eachCell((cell, colNumber) => {
+                    // Apply color to date columns (column 3 onwards, before "Gesamt")
+                    if (colNumber > 2 && colNumber <= sessions.length + 2) {
+                        const sessionIndex = colNumber - 3; // 0-indexed session
+                        const session = sessions[sessionIndex];
+                        const color = dateColorMap.get(session.date);
 
-            if (!ws[cell1]) ws[cell1] = { t: 's', v: '' };
-            if (!ws[cell2]) ws[cell2] = { t: 's', v: '' };
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: color },
+                        };
+                    }
 
-            // Set background color (fill)
-            ws[cell1].s = {
-                fill: { fgColor: { rgb: color } },
-                font: { bold: true },
-                alignment: { horizontal: 'center', vertical: 'center' },
-            };
-            ws[cell2].s = {
-                fill: { fgColor: { rgb: color } },
-                font: { bold: true },
-                alignment: { horizontal: 'center', vertical: 'center' },
-            };
+                    // Make all header cells bold and centered
+                    cell.font = { bold: true };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+            }
+
+            // Style the "Anzahl" row (last row)
+            if (rowIndex === excelData.length - 1) {
+                row.eachCell(cell => {
+                    cell.font = { bold: true };
+                });
+            }
         });
 
         // Set column widths
-        const colWidths = [
-            { wch: 15 }, // Nachname
-            { wch: 15 }, // Vorname
+        worksheet.columns = [
+            { width: 15 }, // Nachname
+            { width: 15 }, // Vorname
+            ...Array(sessions.length).fill({ width: 20 }), // Date columns
+            { width: 10 }, // Gesamt
         ];
-        // Add width for each date column
-        for (let i = 0; i < sessions.length; i++) {
-            colWidths.push({ wch: 20 }); // Date columns (wider for group name + time)
-        }
-        // Add width for "Gesamt" column
-        colWidths.push({ wch: 10 }); // Gesamt column
-        ws['!cols'] = colWidths;
-
-        // Add worksheet to workbook
-        const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-        window.XLSX.utils.book_append_sheet(wb, ws, monthName);
 
         // Generate filename
         const filename = `Anwesenheit_${year}_${String(month + 1).padStart(2, '0')}.xlsx`;
 
         // Download the file
-        window.XLSX.writeFile(wb, filename);
+        workbook.xlsx.writeBuffer().then(buffer => {
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        });
 
         console.log(`[Export] ✓ Excel file downloaded: ${filename}`);
 
@@ -425,21 +433,44 @@ export async function exportAttendanceSummary(db, clubId, date, subgroupFilter =
         // Sort by attendance count (descending)
         summaryData.slice(1).sort((a, b) => b[1] - a[1]);
 
-        // Create Excel workbook
-        const wb = window.XLSX.utils.book_new();
-        const ws = window.XLSX.utils.aoa_to_sheet(summaryData);
+        // Create Excel workbook using ExcelJS
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Zusammenfassung');
 
-        ws['!cols'] = [
-            { wch: 25 }, // Spieler
-            { wch: 20 }, // Trainingsteilnahmen
-            { wch: 18 }, // Anwesenheitsrate
+        // Add rows
+        summaryData.forEach((rowData, rowIndex) => {
+            const row = worksheet.addRow(rowData);
+
+            // Style header row
+            if (rowIndex === 0) {
+                row.eachCell(cell => {
+                    cell.font = { bold: true };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+            }
+        });
+
+        // Set column widths
+        worksheet.columns = [
+            { width: 25 }, // Spieler
+            { width: 20 }, // Trainingsteilnahmen
+            { width: 18 }, // Anwesenheitsrate
         ];
 
-        const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
-        window.XLSX.utils.book_append_sheet(wb, ws, 'Zusammenfassung');
-
         const filename = `Anwesenheit_Zusammenfassung_${year}_${String(month + 1).padStart(2, '0')}.xlsx`;
-        window.XLSX.writeFile(wb, filename);
+
+        // Download the file
+        workbook.xlsx.writeBuffer().then(buffer => {
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        });
 
         console.log(`[Export Summary] ✓ Excel file downloaded: ${filename}`);
 
