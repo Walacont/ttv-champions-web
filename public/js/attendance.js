@@ -787,6 +787,18 @@ export async function openAttendanceModalForSession(
                   ...attendanceSnapshot.docs[0].data(),
               };
 
+        // Load coaches for the club
+        const coachesQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'coach')
+        );
+        const coachesSnapshot = await getDocs(coachesQuery);
+        const coaches = coachesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
         const modal = document.getElementById('attendance-modal');
         document.getElementById('attendance-modal-date').textContent =
             `${new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - ${sessionData.startTime}-${sessionData.endTime}`;
@@ -804,6 +816,21 @@ export async function openAttendanceModalForSession(
             document.getElementById('attendance-form').appendChild(sessionIdInput);
         }
         sessionIdInput.value = sessionId;
+
+        // Populate coach dropdown
+        const coachSelect = document.getElementById('attendance-coach-select');
+        coachSelect.innerHTML = '<option value="">Trainer auswählen...</option>';
+        coaches.forEach(coach => {
+            const option = document.createElement('option');
+            option.value = coach.id;
+            option.textContent = `${coach.firstName} ${coach.lastName}`;
+            coachSelect.appendChild(option);
+        });
+
+        // Set selected coach if attendance data exists
+        if (attendanceData && attendanceData.coachId) {
+            coachSelect.value = attendanceData.coachId;
+        }
 
         const playerListContainer = document.getElementById('attendance-player-list');
 
@@ -956,6 +983,10 @@ export async function handleAttendanceSave(
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
+    // Get selected coach
+    const coachSelect = document.getElementById('attendance-coach-select');
+    const coachId = coachSelect ? coachSelect.value : null;
+
     // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
     // We need to distinguish between different training sessions on the same day
     let previouslyPresentIdsOnThisDay = [];
@@ -1009,18 +1040,21 @@ export async function handleAttendanceSave(
             // If no entry exists and no players present, we don't need to do anything
         } else {
             // Update/create attendance document for this session
-            batch.set(
-                attendanceRef,
-                {
-                    date,
-                    clubId: currentUserData.clubId,
-                    subgroupId, // CHANGED: Use subgroupId from session
-                    sessionId, // NEW: Add sessionId
-                    presentPlayerIds,
-                    updatedAt: serverTimestamp(),
-                },
-                { merge: true }
-            );
+            const attendanceData = {
+                date,
+                clubId: currentUserData.clubId,
+                subgroupId, // CHANGED: Use subgroupId from session
+                sessionId, // NEW: Add sessionId
+                presentPlayerIds,
+                updatedAt: serverTimestamp(),
+            };
+
+            // Add coach if selected
+            if (coachId) {
+                attendanceData.coachId = coachId;
+            }
+
+            batch.set(attendanceRef, attendanceData, { merge: true });
         }
 
         // Process EVERY player in the club and update their subgroup-specific streak and points

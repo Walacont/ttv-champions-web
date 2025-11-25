@@ -118,6 +118,19 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             ...doc.data(),
         }));
 
+        // Load all coaches for name mapping
+        const coachesQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'coach')
+        );
+        const coachesSnapshot = await getDocs(coachesQuery);
+        const coachesMap = new Map();
+        coachesSnapshot.forEach(doc => {
+            const data = doc.data();
+            coachesMap.set(doc.id, `${data.firstName} ${data.lastName}`);
+        });
+
         console.log(`[Export] Loaded ${players.length} players`);
 
         // Filter players by subgroup if needed
@@ -187,6 +200,7 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Build header rows
         const headerRow1 = ['Nachname', 'Vorname']; // First header row (dates)
         const headerRow2 = ['', '']; // Second header row (group + time)
+        const headerRow3 = ['', '']; // Third header row (coach name)
 
         // Add date columns
         for (const session of sessions) {
@@ -198,16 +212,26 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             });
             const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
 
+            // Get attendance for this session to find coach
+            const attendanceKey = `${session.date}_${session.id}`;
+            const attendance = attendanceRecords.get(attendanceKey);
+            const coachName = attendance && attendance.coachId
+                ? coachesMap.get(attendance.coachId) || 'Unbekannt'
+                : '';
+
             headerRow1.push(formattedDate);
             headerRow2.push(`${subgroupName} (${session.startTime}-${session.endTime})`);
+            headerRow3.push(coachName ? `Trainer: ${coachName}` : '');
         }
 
         // Add "Gesamt" column header
         headerRow1.push('Gesamt');
         headerRow2.push('');
+        headerRow3.push('');
 
         excelData.push(headerRow1);
         excelData.push(headerRow2);
+        excelData.push(headerRow3);
 
         // Add player rows
         for (const player of playersList) {
@@ -283,15 +307,15 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         const worksheet = workbook.addWorksheet(monthName);
 
         // Calculate where legend starts (after count row + 1 empty row)
-        const countRowIndex = playersList.length + 2; // +2 for the two header rows
+        const countRowIndex = playersList.length + 3; // +3 for the three header rows
         const legendStartIndex = countRowIndex + 2; // +1 for count row, +1 for empty row
 
         // Add rows to worksheet
         excelData.forEach((rowData, rowIndex) => {
             const row = worksheet.addRow(rowData);
 
-            // Style header rows (first two rows)
-            if (rowIndex === 0 || rowIndex === 1) {
+            // Style header rows (first three rows)
+            if (rowIndex === 0 || rowIndex === 1 || rowIndex === 2) {
                 row.eachCell((cell, colNumber) => {
                     // Apply color to date columns (column 3 onwards, before "Gesamt")
                     if (colNumber > 2 && colNumber <= sessions.length + 2) {
