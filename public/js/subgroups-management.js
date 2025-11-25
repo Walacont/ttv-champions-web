@@ -1,4 +1,17 @@
-import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    doc,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    onSnapshot,
+    query,
+    where,
+    getDocs,
+    orderBy,
+    serverTimestamp,
+    writeBatch,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Subgroups Management Module
@@ -21,26 +34,29 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
         orderBy('createdAt', 'asc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        subgroupsListContainer.innerHTML = '';
+    const unsubscribe = onSnapshot(
+        q,
+        snapshot => {
+            subgroupsListContainer.innerHTML = '';
 
-        if (snapshot.empty) {
-            subgroupsListContainer.innerHTML = `
+            if (snapshot.empty) {
+                subgroupsListContainer.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
                     <p>Noch keine Untergruppen vorhanden.</p>
                     <p class="text-sm mt-2">Erstelle eine neue Untergruppe, um loszulegen.</p>
                 </div>
             `;
-            return;
-        }
+                return;
+            }
 
-        snapshot.forEach(doc => {
-            const subgroup = { id: doc.id, ...doc.data() };
-            const isDefault = subgroup.isDefault || false;
+            snapshot.forEach(doc => {
+                const subgroup = { id: doc.id, ...doc.data() };
+                const isDefault = subgroup.isDefault || false;
 
-            const card = document.createElement('div');
-            card.className = 'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
-            card.innerHTML = `
+                const card = document.createElement('div');
+                card.className =
+                    'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
+                card.innerHTML = `
                 <div class="p-4">
                     <div class="flex justify-between items-start">
                         <div class="flex-1">
@@ -70,7 +86,9 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
                             >
                                 Bearbeiten
                             </button>
-                            ${!isDefault ? `
+                            ${
+                                !isDefault
+                                    ? `
                                 <button
                                     data-id="${subgroup.id}"
                                     data-name="${subgroup.name}"
@@ -78,7 +96,9 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
                                 >
                                     Löschen
                                 </button>
-                            ` : '<span class="text-xs text-gray-400 px-3 py-1">Standard kann nicht gelöscht werden</span>'}
+                            `
+                                    : '<span class="text-xs text-gray-400 px-3 py-1">Standard kann nicht gelöscht werden</span>'
+                            }
                         </div>
                     </div>
                 </div>
@@ -100,17 +120,19 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
                 </div>
             `;
 
-            subgroupsListContainer.appendChild(card);
-        });
-    }, (error) => {
-        console.error("Error loading subgroups:", error);
-        subgroupsListContainer.innerHTML = `
+                subgroupsListContainer.appendChild(card);
+            });
+        },
+        error => {
+            console.error('Error loading subgroups:', error);
+            subgroupsListContainer.innerHTML = `
             <div class="text-center py-8 text-red-500">
                 <p>Fehler beim Laden der Untergruppen</p>
                 <p class="text-sm mt-2">${error.message}</p>
             </div>
         `;
-    });
+        }
+    );
 
     setUnsubscribe(unsubscribe);
 }
@@ -150,7 +172,7 @@ export async function handleCreateSubgroup(e, db, clubId) {
             name: name,
             color: color,
             createdAt: serverTimestamp(),
-            isDefault: false
+            isDefault: false,
         });
 
         if (feedbackEl) {
@@ -163,9 +185,8 @@ export async function handleCreateSubgroup(e, db, clubId) {
         setTimeout(() => {
             if (feedbackEl) feedbackEl.textContent = '';
         }, 2000);
-
     } catch (error) {
-        console.error("Error creating subgroup:", error);
+        console.error('Error creating subgroup:', error);
         if (feedbackEl) {
             feedbackEl.textContent = `Fehler: ${error.message}`;
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
@@ -247,7 +268,7 @@ export async function handleEditSubgroupSubmit(e, db) {
         await updateDoc(subgroupRef, {
             name: newName,
             color: newColor,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         });
 
         if (feedbackEl) {
@@ -258,9 +279,8 @@ export async function handleEditSubgroupSubmit(e, db) {
         setTimeout(() => {
             closeEditSubgroupModal();
         }, 1000);
-
     } catch (error) {
-        console.error("Error updating subgroup:", error);
+        console.error('Error updating subgroup:', error);
         if (feedbackEl) {
             feedbackEl.textContent = `Fehler: ${error.message}`;
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
@@ -314,9 +334,8 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, db, clubId)
         }
 
         alert('Untergruppe erfolgreich gelöscht!');
-
     } catch (error) {
-        console.error("Error deleting subgroup:", error);
+        console.error('Error deleting subgroup:', error);
         alert(`Fehler beim Löschen: ${error.message}`);
     }
 }
@@ -338,30 +357,34 @@ export function loadSubgroupsForDropdown(clubId, db, selectId, includeAll = fals
         orderBy('createdAt', 'asc')
     );
 
-    onSnapshot(q, (snapshot) => {
-        select.innerHTML = '';
+    onSnapshot(
+        q,
+        snapshot => {
+            select.innerHTML = '';
 
-        if (includeAll) {
-            const allOption = document.createElement('option');
-            allOption.value = 'all';
-            allOption.textContent = 'Alle (Gesamtverein)';
-            select.appendChild(allOption);
+            if (includeAll) {
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'Alle (Gesamtverein)';
+                select.appendChild(allOption);
+            }
+
+            snapshot.forEach(doc => {
+                const subgroup = doc.data();
+                const option = document.createElement('option');
+                option.value = doc.id;
+                option.textContent = subgroup.name;
+                select.appendChild(option);
+            });
+
+            // Trigger change event to update dependent UI
+            select.dispatchEvent(new Event('change'));
+        },
+        error => {
+            console.error('Error loading subgroups for dropdown:', error);
+            select.innerHTML = '<option value="">Fehler beim Laden</option>';
         }
-
-        snapshot.forEach(doc => {
-            const subgroup = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = subgroup.name;
-            select.appendChild(option);
-        });
-
-        // Trigger change event to update dependent UI
-        select.dispatchEvent(new Event('change'));
-    }, (error) => {
-        console.error("Error loading subgroups for dropdown:", error);
-        select.innerHTML = '<option value="">Fehler beim Laden</option>';
-    });
+    );
 }
 
 /**
@@ -402,7 +425,8 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, db) {
         const playersSnapshot = await getDocs(playersQuery);
 
         if (playersSnapshot.empty) {
-            container.innerHTML = '<p class="text-sm text-gray-500">Keine Spieler im Verein gefunden.</p>';
+            container.innerHTML =
+                '<p class="text-sm text-gray-500">Keine Spieler im Verein gefunden.</p>';
             return;
         }
 
@@ -413,7 +437,8 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, db) {
             const isInSubgroup = (player.subgroupIDs || []).includes(subgroupId);
 
             const checkboxItem = document.createElement('label');
-            checkboxItem.className = 'flex items-center gap-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors';
+            checkboxItem.className =
+                'flex items-center gap-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors';
             checkboxItem.innerHTML = `
                 <input
                     type="checkbox"
@@ -429,9 +454,8 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, db) {
 
             container.appendChild(checkboxItem);
         });
-
     } catch (error) {
-        console.error("Error loading player checkboxes:", error);
+        console.error('Error loading player checkboxes:', error);
         container.innerHTML = `<p class="text-sm text-red-500">Fehler beim Laden: ${error.message}</p>`;
     }
 }
@@ -452,10 +476,7 @@ export async function savePlayerAssignments(subgroupId, clubId, db) {
         let changesCount = 0;
 
         // Get all players to check current assignments
-        const playersQuery = query(
-            collection(db, 'users'),
-            where('clubId', '==', clubId)
-        );
+        const playersQuery = query(collection(db, 'users'), where('clubId', '==', clubId));
         const playersSnapshot = await getDocs(playersQuery);
         const playersMap = new Map();
         playersSnapshot.forEach(doc => {
@@ -496,9 +517,8 @@ export async function savePlayerAssignments(subgroupId, clubId, db) {
 
         await batch.commit();
         alert(`${changesCount} Spieler erfolgreich zugewiesen/entfernt!`);
-
     } catch (error) {
-        console.error("Error saving player assignments:", error);
+        console.error('Error saving player assignments:', error);
         alert(`Fehler beim Speichern: ${error.message}`);
     }
 }

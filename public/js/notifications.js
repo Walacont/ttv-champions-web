@@ -36,7 +36,7 @@ class NotificationManager {
             success: '✓',
             error: '✕',
             warning: '⚠',
-            info: 'ℹ'
+            info: 'ℹ',
         };
 
         toast.innerHTML = `
@@ -123,14 +123,14 @@ class NotificationManager {
             close: () => {
                 this.hide(toast);
             },
-            success: (message) => {
+            success: message => {
                 this.hide(toast);
                 this.success(message);
             },
-            error: (message) => {
+            error: message => {
                 this.hide(toast);
                 this.error(message);
-            }
+            },
         };
     }
 }

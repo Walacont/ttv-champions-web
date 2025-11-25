@@ -3,7 +3,16 @@
  * Verwaltet Code-Generierung, Anzeige und WhatsApp-Sharing
  */
 
-import { collection, addDoc, query, where, getDocs, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    addDoc,
+    query,
+    where,
+    getDocs,
+    deleteDoc,
+    doc,
+    serverTimestamp,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
     generateInvitationCode,
     getExpirationDate,
@@ -11,7 +20,7 @@ import {
     isCodeExpired,
     createWhatsAppShareUrl,
     copyToClipboard,
-    CODE_CONFIG
+    CODE_CONFIG,
 } from './invitation-code-utils.js';
 
 let db;
@@ -50,12 +59,18 @@ function setupEventListeners() {
 
     // Code-Aktionen
     document.getElementById('copy-code-button')?.addEventListener('click', handleCopyCode);
-    document.getElementById('whatsapp-share-button')?.addEventListener('click', handleWhatsAppShare);
+    document
+        .getElementById('whatsapp-share-button')
+        ?.addEventListener('click', handleWhatsAppShare);
     document.getElementById('create-another-code-button')?.addEventListener('click', resetCodeForm);
 
     // Code-Verwaltung Modal
-    document.getElementById('manage-invitation-codes-button')?.addEventListener('click', openCodesManagementModal);
-    document.getElementById('close-invitation-codes-modal-button')?.addEventListener('click', closeCodesManagementModal);
+    document
+        .getElementById('manage-invitation-codes-button')
+        ?.addEventListener('click', openCodesManagementModal);
+    document
+        .getElementById('close-invitation-codes-modal-button')
+        ?.addEventListener('click', closeCodesManagementModal);
 }
 
 /**
@@ -97,12 +112,16 @@ export function loadSubgroupsForCodeForm(subgroups) {
         return;
     }
 
-    container.innerHTML = subgroups.map(subgroup => `
+    container.innerHTML = subgroups
+        .map(
+            subgroup => `
         <label class="flex items-center space-x-2 text-sm cursor-pointer">
             <input type="checkbox" value="${subgroup.id}" class="code-subgroup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
             <span>${subgroup.name}</span>
         </label>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 /**
@@ -153,7 +172,7 @@ async function handleCodeGeneration(e) {
             usedAt: null,
             firstName,
             lastName,
-            subgroupIds
+            subgroupIds,
         };
 
         await addDoc(collection(db, 'invitationCodes'), codeData);
@@ -162,7 +181,6 @@ async function handleCodeGeneration(e) {
         lastGeneratedCode = code;
         lastGeneratedFirstName = firstName;
         displayGeneratedCode(code);
-
     } catch (error) {
         console.error('Fehler beim Generieren des Codes:', error);
         alert('Fehler beim Generieren des Codes: ' + error.message);
@@ -173,10 +191,7 @@ async function handleCodeGeneration(e) {
  * Prüft ob ein Code bereits existiert
  */
 async function checkCodeExists(code) {
-    const q = query(
-        collection(db, 'invitationCodes'),
-        where('code', '==', code)
-    );
+    const q = query(collection(db, 'invitationCodes'), where('code', '==', code));
     const snapshot = await getDocs(q);
     return !snapshot.empty;
 }
@@ -272,10 +287,7 @@ async function loadInvitationCodes() {
     container.innerHTML = '<p class="text-center text-gray-500">Lade Codes...</p>';
 
     try {
-        const q = query(
-            collection(db, 'invitationCodes'),
-            where('clubId', '==', currentClubId)
-        );
+        const q = query(collection(db, 'invitationCodes'), where('clubId', '==', currentClubId));
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
@@ -310,9 +322,10 @@ async function loadInvitationCodes() {
 
         // Event Listeners für Delete-Buttons
         codes.forEach(code => {
-            document.getElementById(`delete-code-${code.id}`)?.addEventListener('click', () => deleteInvitationCode(code.id));
+            document
+                .getElementById(`delete-code-${code.id}`)
+                ?.addEventListener('click', () => deleteInvitationCode(code.id));
         });
-
     } catch (error) {
         console.error('Fehler beim Laden der Codes:', error);
         container.innerHTML = '<p class="text-center text-red-600">Fehler beim Laden der Codes</p>';
@@ -367,16 +380,24 @@ function renderCodeItem(codeData) {
                     <p class="text-xs text-gray-500 mt-1">
                         Erstellt: ${formatDate(codeData.createdAt)}
                     </p>
-                    ${codeData.used ? `
+                    ${
+                        codeData.used
+                            ? `
                         <p class="text-xs text-gray-500">
                             Verwendet: ${formatDate(codeData.usedAt)}
                         </p>
-                    ` : ''}
-                    ${codeData.superseded ? `
+                    `
+                            : ''
+                    }
+                    ${
+                        codeData.superseded
+                            ? `
                         <p class="text-xs text-orange-600 mt-1">
                             <i class="fas fa-info-circle mr-1"></i>Durch neueren Code ersetzt am ${formatDate(codeData.supersededAt)}
                         </p>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
                 <button id="delete-code-${codeData.id}" class="text-red-600 hover:text-red-800 transition">
                     <i class="fas fa-trash"></i>
@@ -412,6 +433,6 @@ function formatDate(timestamp) {
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
     });
 }

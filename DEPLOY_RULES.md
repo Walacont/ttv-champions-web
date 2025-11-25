@@ -5,6 +5,7 @@ Die Firestore Security Rules müssen deployed werden, damit die App funktioniert
 ## 🚨 WICHTIG: Rules MÜSSEN deployed werden!
 
 Ohne Deployment der Rules erhalten alle Benutzer (Spieler & Coaches) Permission-Fehler:
+
 - ❌ "Missing or insufficient permissions"
 - ❌ Spieler sehen nur sich selbst in der Rangliste (nicht andere Spieler)
 - ❌ Spieler können keine Rivalen-Daten sehen
@@ -43,16 +44,19 @@ firebase use
 ### Schritt 4: Rules deployen
 
 **Variante A: Mit Script**
+
 ```bash
 ./deploy-rules.sh
 ```
 
 **Variante B: Manuell**
+
 ```bash
 firebase deploy --only firestore:rules
 ```
 
 **Variante C: Mit npx (ohne Installation)**
+
 ```bash
 npx firebase-tools deploy --only firestore:rules
 ```
@@ -92,6 +96,7 @@ Wenn Firebase CLI nicht verfügbar ist, kannst du die Rules manuell über die We
 ### Schritt 4: Verifizieren
 
 Nach dem Deployment solltest du sehen:
+
 ```
 ✓ Rules deployed successfully
 Last deployed: [aktuelles Datum]
@@ -110,6 +115,7 @@ Nach dem Deployment:
 ### Erwartetes Ergebnis:
 
 **Keine** dieser Fehler sollten mehr auftreten:
+
 - ❌ `Missing or insufficient permissions`
 - ❌ `permission-denied`
 - ❌ `Error loading subgroup`
@@ -122,11 +128,13 @@ Nach dem Deployment:
 ### Problem: "Firebase CLI not found"
 
 **Lösung 1**: CLI installieren
+
 ```bash
 npm install -g firebase-tools
 ```
 
 **Lösung 2**: npx verwenden
+
 ```bash
 npx firebase-tools deploy --only firestore:rules
 ```
@@ -138,6 +146,7 @@ npx firebase-tools deploy --only firestore:rules
 ### Problem: "Not authorized"
 
 **Lösung**: Bei Firebase einloggen
+
 ```bash
 firebase login
 ```
@@ -147,6 +156,7 @@ firebase login
 ### Problem: Fehler bleiben nach Deployment
 
 **Lösung**:
+
 1. Browser-Cache leeren (Hard Refresh: Ctrl+Shift+R)
 2. Browser DevTools → Application → Clear Storage
 3. Neu einloggen
@@ -159,39 +169,49 @@ firebase login
 Die folgenden Security Rules wurden hinzugefügt/aktualisiert:
 
 ### 1. **Users Collection** - KRITISCH für Rangliste & Rivalen
+
 ```javascript
 // NEU: Spieler können andere Spieler im gleichen Club lesen
 allow read: if isAuthenticated() &&
   resource.data.role == 'player' &&
   isSameClub(resource.data.clubId);
 ```
+
 **Warum wichtig?**: Spieler müssen andere Spieler sehen können für:
+
 - Rangliste (Leaderboard)
 - Rivalen (wer ist vor mir?)
 - Vergleich von Punkten/Elo/XP
 
 ### 2. **Attendance Collection** - Vereinfacht
+
 ```javascript
 // NEU: Alle authentifizierten User können Attendance lesen
 allow read: if isAuthenticated();
 ```
+
 **Warum wichtig?**: Kalender muss Anwesenheitsdaten anzeigen können
 
 ### 3. **Subgroups Collection** - Vereinfacht
+
 ```javascript
 // NEU: Alle authentifizierten User können Subgroups lesen
 allow read: if isAuthenticated();
 ```
+
 **Warum wichtig?**: Dropdown-Filter für Untergruppen muss funktionieren
 
 ### 4. **Matches Collection** - Vereinfacht
+
 ```javascript
 // NEU: Alle authentifizierten User können Matches lesen
 allow read: if isAuthenticated();
 ```
+
 **Warum wichtig?**: Ergebnisse müssen sichtbar sein
 
 ### 5. **completedChallenges Subcollection** - Neue Subcollection
+
 ```javascript
 match /completedChallenges/{challengeId} {
   // Spieler können ihre eigenen completed challenges lesen/schreiben
@@ -201,10 +221,13 @@ match /completedChallenges/{challengeId} {
   allow read: if isCoachOrAdmin();
 }
 ```
+
 **Warum wichtig?**: Spieler müssen tracken können, welche Challenges sie bereits abgeschlossen haben.
 
 ### ⚠️ Sicherheitshinweis
+
 Die vereinfachten Read-Permissions sind sicher, weil:
+
 - Client-Code filtert bereits nach `clubId` in allen Queries
 - Nur **Read**-Zugriff wurde vereinfacht
 - **Write**-Zugriff bleibt weiterhin auf Coaches beschränkt
@@ -215,6 +238,7 @@ Die vereinfachten Read-Permissions sind sicher, weil:
 ## 🚀 Quick Start
 
 **Schnellster Weg:**
+
 ```bash
 # Mit Firebase CLI
 firebase deploy --only firestore:rules

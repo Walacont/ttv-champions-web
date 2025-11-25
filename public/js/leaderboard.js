@@ -1,4 +1,12 @@
-import { collection, query, where, orderBy, onSnapshot, getDocs, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    query,
+    where,
+    orderBy,
+    onSnapshot,
+    getDocs,
+    limit,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
 
@@ -13,7 +21,7 @@ let showFullLeaderboards = {
     effortClub: false,
     effortGlobal: false,
     seasonClub: false,
-    seasonGlobal: false
+    seasonGlobal: false,
 };
 
 /**
@@ -68,12 +76,16 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                 </div>
             </div>
 
-            ${showToggle ? `
+            ${
+                showToggle
+                    ? `
                 <div id="scope-toggle-container" class="mt-4 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
                     <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
                     <button id="toggle-global" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Global</button>
                 </div>
-            ` : ''}
+            `
+                    : ''
+            }
 
             <div id="content-skill" class="leaderboard-tab-content hidden">
                 <div id="skill-club-container">
@@ -81,13 +93,17 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                         <p class="text-center text-gray-500 py-8">Lade Skill-Rangliste...</p>
                     </div>
                 </div>
-                ${showToggle ? `
+                ${
+                    showToggle
+                        ? `
                     <div id="skill-global-container" class="hidden">
                         <div id="skill-list-global" class="mt-6 space-y-2">
                             <p class="text-center text-gray-500 py-8">Lade globale Skill-Rangliste...</p>
                         </div>
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
 
             <div id="content-effort" class="leaderboard-tab-content hidden">
@@ -96,13 +112,17 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                         <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
                     </div>
                 </div>
-                ${showToggle ? `
+                ${
+                    showToggle
+                        ? `
                     <div id="effort-global-container" class="hidden">
                         <div id="effort-list-global" class="mt-6 space-y-2">
                             <p class="text-center text-gray-500 py-8">Lade globale Fleiß-Rangliste...</p>
                         </div>
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
 
             <div id="content-season" class="leaderboard-tab-content hidden">
@@ -111,13 +131,17 @@ export function renderLeaderboardHTML(containerId, options = {}) {
                         <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
                     </div>
                 </div>
-                ${showToggle ? `
+                ${
+                    showToggle
+                        ? `
                     <div id="season-global-container" class="hidden">
                         <div id="season-list-global" class="mt-6 space-y-2">
                             <p class="text-center text-gray-500 py-8">Lade globale Season-Rangliste...</p>
                         </div>
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
 
             <div id="content-ranks" class="leaderboard-tab-content hidden">
@@ -137,10 +161,22 @@ export function renderLeaderboardHTML(containerId, options = {}) {
 
 // --- Leaderboard Constants (deprecated for new rank system) ---
 export const LEAGUES = {
-    'Bronze': { color: 'text-orange-500', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>'},
-    'Silver': { color: 'text-gray-400', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'},
-    'Gold': { color: 'text-yellow-500', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>'},
-    'Diamond': { color: 'text-blue-400', icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01"></path>'}
+    Bronze: {
+        color: 'text-orange-500',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+    },
+    Silver: {
+        color: 'text-gray-400',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>',
+    },
+    Gold: {
+        color: 'text-yellow-500',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>',
+    },
+    Diamond: {
+        color: 'text-blue-400',
+        icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01"></path>',
+    },
 };
 
 export const PROMOTION_COUNT = 4;
@@ -161,11 +197,13 @@ export function setupLeaderboardTabs() {
 
     if (!tabSkillBtn || !tabEffortBtn || !tabSeasonBtn || !tabRanksBtn || !tabDoublesBtn) return;
 
-    const switchTab = (tabName) => {
+    const switchTab = tabName => {
         currentActiveTab = tabName;
 
         // Hide all tab contents
-        document.querySelectorAll('.leaderboard-tab-content').forEach(el => el.classList.add('hidden'));
+        document
+            .querySelectorAll('.leaderboard-tab-content')
+            .forEach(el => el.classList.add('hidden'));
 
         // Remove active state from all tabs
         document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
@@ -213,7 +251,7 @@ export function setupLeaderboardToggle() {
 
     if (!toggleClubBtn || !toggleGlobalBtn) return;
 
-    const switchScope = (scope) => {
+    const switchScope = scope => {
         const tab = currentActiveTab;
 
         if (scope === 'club') {
@@ -270,7 +308,8 @@ function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
         loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes);
     } catch (error) {
         console.error('Error loading doubles leaderboard:', error);
-        listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Doppel-Rangliste.</p>';
+        listEl.innerHTML =
+            '<p class="text-center text-red-500 py-8">Fehler beim Laden der Doppel-Rangliste.</p>';
     }
 }
 
@@ -285,13 +324,13 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
     if (!listEl) return;
 
     const q = query(
-        collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
-        orderBy("eloRating", "desc")
+        collection(db, 'users'),
+        where('clubId', '==', userData.clubId),
+        where('role', '==', 'player'),
+        orderBy('eloRating', 'desc')
     );
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
             return;
@@ -301,8 +340,8 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(p =>
-                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            players = players.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
 
@@ -312,17 +351,25 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
         }
 
         listEl.innerHTML = '';
-        const playersToShow = showFullLeaderboards.skillClub ? players : players.slice(0, DEFAULT_LIMIT);
+        const playersToShow = showFullLeaderboards.skillClub
+            ? players
+            : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
             renderSkillRow(player, index, userData.id, listEl);
         });
 
         // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
-            renderShowMoreButton(listEl, 'skillClub', players.length, () => {
-                showFullLeaderboards.skillClub = !showFullLeaderboards.skillClub;
-                loadSkillLeaderboard(userData, db, null);
-            }, showFullLeaderboards.skillClub);
+            renderShowMoreButton(
+                listEl,
+                'skillClub',
+                players.length,
+                () => {
+                    showFullLeaderboards.skillClub = !showFullLeaderboards.skillClub;
+                    loadSkillLeaderboard(userData, db, null);
+                },
+                showFullLeaderboards.skillClub
+            );
         }
     });
 
@@ -340,13 +387,13 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
     if (!listEl) return;
 
     const q = query(
-        collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
-        orderBy("xp", "desc")
+        collection(db, 'users'),
+        where('clubId', '==', userData.clubId),
+        where('role', '==', 'player'),
+        orderBy('xp', 'desc')
     );
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
             return;
@@ -356,8 +403,8 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(p =>
-                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            players = players.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
 
@@ -367,17 +414,25 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
         }
 
         listEl.innerHTML = '';
-        const playersToShow = showFullLeaderboards.effortClub ? players : players.slice(0, DEFAULT_LIMIT);
+        const playersToShow = showFullLeaderboards.effortClub
+            ? players
+            : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
             renderEffortRow(player, index, userData.id, listEl);
         });
 
         // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
-            renderShowMoreButton(listEl, 'effortClub', players.length, () => {
-                showFullLeaderboards.effortClub = !showFullLeaderboards.effortClub;
-                loadEffortLeaderboard(userData, db, null);
-            }, showFullLeaderboards.effortClub);
+            renderShowMoreButton(
+                listEl,
+                'effortClub',
+                players.length,
+                () => {
+                    showFullLeaderboards.effortClub = !showFullLeaderboards.effortClub;
+                    loadEffortLeaderboard(userData, db, null);
+                },
+                showFullLeaderboards.effortClub
+            );
         }
     });
 
@@ -395,13 +450,13 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
     if (!listEl) return;
 
     const q = query(
-        collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player"),
-        orderBy("points", "desc")
+        collection(db, 'users'),
+        where('clubId', '==', userData.clubId),
+        where('role', '==', 'player'),
+        orderBy('points', 'desc')
     );
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
             return;
@@ -411,8 +466,8 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(p =>
-                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            players = players.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
 
@@ -422,17 +477,25 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
         }
 
         listEl.innerHTML = '';
-        const playersToShow = showFullLeaderboards.seasonClub ? players : players.slice(0, DEFAULT_LIMIT);
+        const playersToShow = showFullLeaderboards.seasonClub
+            ? players
+            : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
             renderSeasonRow(player, index, userData.id, listEl);
         });
 
         // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
-            renderShowMoreButton(listEl, 'seasonClub', players.length, () => {
-                showFullLeaderboards.seasonClub = !showFullLeaderboards.seasonClub;
-                loadSeasonLeaderboard(userData, db, null);
-            }, showFullLeaderboards.seasonClub);
+            renderShowMoreButton(
+                listEl,
+                'seasonClub',
+                players.length,
+                () => {
+                    showFullLeaderboards.seasonClub = !showFullLeaderboards.seasonClub;
+                    loadSeasonLeaderboard(userData, db, null);
+                },
+                showFullLeaderboards.seasonClub
+            );
         }
     });
 
@@ -450,12 +513,12 @@ function loadRanksView(userData, db, unsubscribes) {
     if (!listEl) return;
 
     const q = query(
-        collection(db, "users"),
-        where("clubId", "==", userData.clubId),
-        where("role", "==", "player")
+        collection(db, 'users'),
+        where('clubId', '==', userData.clubId),
+        where('role', '==', 'player')
     );
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler im Verein.</div>`;
             return;
@@ -465,8 +528,8 @@ function loadRanksView(userData, db, unsubscribes) {
 
         // Filter by subgroup if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(p =>
-                p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+            players = players.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
 
@@ -500,12 +563,16 @@ function loadRanksView(userData, db, unsubscribes) {
                     <span class="text-sm text-gray-600">${playersInRank.length} Spieler</span>
                 </div>
                 <div class="mt-2 space-y-1 pl-4">
-                    ${playersInRank.map((player, idx) => {
-                        const isCurrentUser = player.id === userData.id;
-                        const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-                        const avatarSrc = player.photoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+                    ${playersInRank
+                        .map((player, idx) => {
+                            const isCurrentUser = player.id === userData.id;
+                            const initials =
+                                (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+                            const avatarSrc =
+                                player.photoURL ||
+                                `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
 
-                        return `
+                            return `
                             <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
                                 <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3">
                                 <div class="flex-grow">
@@ -516,7 +583,8 @@ function loadRanksView(userData, db, unsubscribes) {
                                 </div>
                             </div>
                         `;
-                    }).join('')}
+                        })
+                        .join('')}
                 </div>
             `;
             listEl.appendChild(rankSection);
@@ -546,12 +614,12 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
     if (!listEl) return;
 
     const q = query(
-        collection(db, "users"),
-        where("role", "==", "player"),
-        orderBy("eloRating", "desc")
+        collection(db, 'users'),
+        where('role', '==', 'player'),
+        orderBy('eloRating', 'desc')
     );
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>`;
             return;
@@ -559,17 +627,25 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
 
         const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         listEl.innerHTML = '';
-        const playersToShow = showFullLeaderboards.skillGlobal ? players : players.slice(0, DEFAULT_LIMIT);
+        const playersToShow = showFullLeaderboards.skillGlobal
+            ? players
+            : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
             renderSkillRow(player, index, userData.id, listEl, true);
         });
 
         // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
-            renderShowMoreButton(listEl, 'skillGlobal', players.length, () => {
-                showFullLeaderboards.skillGlobal = !showFullLeaderboards.skillGlobal;
-                loadGlobalSkillLeaderboard(userData, db, null);
-            }, showFullLeaderboards.skillGlobal);
+            renderShowMoreButton(
+                listEl,
+                'skillGlobal',
+                players.length,
+                () => {
+                    showFullLeaderboards.skillGlobal = !showFullLeaderboards.skillGlobal;
+                    loadGlobalSkillLeaderboard(userData, db, null);
+                },
+                showFullLeaderboards.skillGlobal
+            );
         }
     });
 
@@ -583,13 +659,9 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-global');
     if (!listEl) return;
 
-    const q = query(
-        collection(db, "users"),
-        where("role", "==", "player"),
-        orderBy("xp", "desc")
-    );
+    const q = query(collection(db, 'users'), where('role', '==', 'player'), orderBy('xp', 'desc'));
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>`;
             return;
@@ -597,17 +669,25 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
 
         const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         listEl.innerHTML = '';
-        const playersToShow = showFullLeaderboards.effortGlobal ? players : players.slice(0, DEFAULT_LIMIT);
+        const playersToShow = showFullLeaderboards.effortGlobal
+            ? players
+            : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
             renderEffortRow(player, index, userData.id, listEl, true);
         });
 
         // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
-            renderShowMoreButton(listEl, 'effortGlobal', players.length, () => {
-                showFullLeaderboards.effortGlobal = !showFullLeaderboards.effortGlobal;
-                loadGlobalEffortLeaderboard(userData, db, null);
-            }, showFullLeaderboards.effortGlobal);
+            renderShowMoreButton(
+                listEl,
+                'effortGlobal',
+                players.length,
+                () => {
+                    showFullLeaderboards.effortGlobal = !showFullLeaderboards.effortGlobal;
+                    loadGlobalEffortLeaderboard(userData, db, null);
+                },
+                showFullLeaderboards.effortGlobal
+            );
         }
     });
 
@@ -622,12 +702,12 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     if (!listEl) return;
 
     const q = query(
-        collection(db, "users"),
-        where("role", "==", "player"),
-        orderBy("points", "desc")
+        collection(db, 'users'),
+        where('role', '==', 'player'),
+        orderBy('points', 'desc')
     );
 
-    const listener = onSnapshot(q, (snapshot) => {
+    const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>`;
             return;
@@ -635,17 +715,25 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
 
         const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         listEl.innerHTML = '';
-        const playersToShow = showFullLeaderboards.seasonGlobal ? players : players.slice(0, DEFAULT_LIMIT);
+        const playersToShow = showFullLeaderboards.seasonGlobal
+            ? players
+            : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
             renderSeasonRow(player, index, userData.id, listEl, true);
         });
 
         // Add "Show more/less" button if needed
         if (players.length > DEFAULT_LIMIT) {
-            renderShowMoreButton(listEl, 'seasonGlobal', players.length, () => {
-                showFullLeaderboards.seasonGlobal = !showFullLeaderboards.seasonGlobal;
-                loadGlobalSeasonLeaderboard(userData, db, null);
-            }, showFullLeaderboards.seasonGlobal);
+            renderShowMoreButton(
+                listEl,
+                'seasonGlobal',
+                players.length,
+                () => {
+                    showFullLeaderboards.seasonGlobal = !showFullLeaderboards.seasonGlobal;
+                    loadGlobalSeasonLeaderboard(userData, db, null);
+                },
+                showFullLeaderboards.seasonGlobal
+            );
         }
     });
 
@@ -657,7 +745,9 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
  * Use the new 3-tab leaderboard system instead.
  */
 export function loadLeaderboardForCoach(clubId, leagueToShow, db, unsubscribeCallback) {
-    console.warn('loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.');
+    console.warn(
+        'loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.'
+    );
 }
 
 /**
@@ -700,10 +790,13 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
 
     const playerDiv = document.createElement('div');
-    const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+    const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-    const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
+    const avatarSrc =
+        player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+    const clubInfo = isGlobal
+        ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>`
+        : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
@@ -730,10 +823,13 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
 
     const playerDiv = document.createElement('div');
-    const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+    const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-    const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
+    const avatarSrc =
+        player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+    const clubInfo = isGlobal
+        ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>`
+        : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
@@ -760,10 +856,13 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
 
     const playerDiv = document.createElement('div');
-    const rankDisplay = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : rank));
+    const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
     const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-    const clubInfo = isGlobal ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>` : '';
+    const avatarSrc =
+        player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+    const clubInfo = isGlobal
+        ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>`
+        : '';
 
     playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
     playerDiv.innerHTML = `
@@ -785,6 +884,13 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
  * @deprecated This function is deprecated and will be removed in future versions.
  * Use renderSkillRow or renderEffortRow instead.
  */
-export function renderPlayerRow(player, index, currentUserId = null, container, totalPlayers = 0, isGlobal = false) {
+export function renderPlayerRow(
+    player,
+    index,
+    currentUserId = null,
+    container,
+    totalPlayers = 0,
+    isGlobal = false
+) {
     console.warn('renderPlayerRow is deprecated. Use renderSkillRow or renderEffortRow instead.');
 }

@@ -1,4 +1,12 @@
-import { collection, getDocs, getDoc, onSnapshot, query, where, doc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    getDocs,
+    getDoc,
+    onSnapshot,
+    query,
+    where,
+    doc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateRank, getRankProgress, formatRank } from './ranks.js';
 
 /**
@@ -15,11 +23,18 @@ import { calculateRank, getRankProgress, formatRank } from './ranks.js';
  * @param {Function} loadChallengesCallback - Callback to load challenges
  * @param {Function} loadPointsHistoryCallback - Callback to load points history
  */
-export function loadOverviewData(userData, db, unsubscribes, loadRivalDataCallback, loadChallengesCallback, loadPointsHistoryCallback) {
+export function loadOverviewData(
+    userData,
+    db,
+    unsubscribes,
+    loadRivalDataCallback,
+    loadChallengesCallback,
+    loadPointsHistoryCallback
+) {
     // ⚠️ WICHTIG: Wir setzen KEINEN Listener für das User-Dokument hier auf,
     // da das bereits in dashboard.js passiert!
     // Wir zeigen nur die initialen Werte an:
-    
+
     const playerPointsEl = document.getElementById('player-points');
     const playerXpEl = document.getElementById('player-xp');
     const playerEloEl = document.getElementById('player-elo');
@@ -60,7 +75,17 @@ export function updateRankDisplay(userData) {
     const grundlagenCount = userData.grundlagenCompleted || 0;
 
     const progress = getRankProgress(userData.eloRating, userData.xp, grundlagenCount);
-    const { currentRank, nextRank, eloProgress, xpProgress, eloNeeded, xpNeeded, grundlagenNeeded, grundlagenProgress, isMaxRank } = progress;
+    const {
+        currentRank,
+        nextRank,
+        eloProgress,
+        xpProgress,
+        eloNeeded,
+        xpNeeded,
+        grundlagenNeeded,
+        grundlagenProgress,
+        isMaxRank,
+    } = progress;
 
     // Update rank badge
     rankInfoEl.innerHTML = `
@@ -71,11 +96,15 @@ export function updateRankDisplay(userData) {
                 <p class="text-xs text-gray-500">${currentRank.description}</p>
             </div>
         </div>
-        ${!isMaxRank ? `
+        ${
+            !isMaxRank
+                ? `
             <div class="mt-3 text-sm">
                 <p class="text-gray-600 font-medium mb-2">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
 
-                ${nextRank.minElo > 0 ? `
+                ${
+                    nextRank.minElo > 0
+                        ? `
                 <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
                         <span>Elo: ${userData.eloRating || 0}/${nextRank.minElo}</span>
@@ -86,7 +115,9 @@ export function updateRankDisplay(userData) {
                     </div>
                     ${eloNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${eloNeeded} Elo benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ Elo-Anforderung erfüllt</p>`}
                 </div>
-                ` : ''} 
+                `
+                        : ''
+                } 
                 <div class="mb-2">
                     <div class="flex justify-between text-xs text-gray-600 mb-1">
                         <span>XP: ${userData.xp || 0}/${nextRank.minXP}</span>
@@ -98,7 +129,9 @@ export function updateRankDisplay(userData) {
                     ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
                 </div>
 
-                ${nextRank.requiresGrundlagen ? `
+                ${
+                    nextRank.requiresGrundlagen
+                        ? `
                     <div>
                         <div class="flex justify-between text-xs text-gray-600 mb-1">
                             <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
@@ -109,9 +142,13 @@ export function updateRankDisplay(userData) {
                         </div>
                         ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
                     </div>
-                ` : ''}
+                `
+                        : ''
+                }
             </div>
-        ` : '<p class="text-sm text-green-600 font-medium mt-2">🏆 Höchster Rang erreicht!</p>'}
+        `
+                : '<p class="text-sm text-green-600 font-medium mt-2">🏆 Höchster Rang erreicht!</p>'
+        }
     `;
 
     // Update Elo display if element exists
@@ -177,28 +214,25 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     if (currentSubgroupFilter === 'club') {
         // Show all players in club
         q = query(
-            collection(db, "users"),
-            where("clubId", "==", userData.clubId),
-            where("role", "==", "player")
+            collection(db, 'users'),
+            where('clubId', '==', userData.clubId),
+            where('role', '==', 'player')
         );
     } else if (currentSubgroupFilter === 'global') {
         // Show all players globally
-        q = query(
-            collection(db, "users"),
-            where("role", "==", "player")
-        );
+        q = query(collection(db, 'users'), where('role', '==', 'player'));
     } else {
         // Show players in specific subgroup
         q = query(
-            collection(db, "users"),
-            where("clubId", "==", userData.clubId),
-            where("role", "==", "player"),
-            where("subgroupIDs", "array-contains", currentSubgroupFilter)
+            collection(db, 'users'),
+            where('clubId', '==', userData.clubId),
+            where('role', '==', 'player'),
+            where('subgroupIDs', 'array-contains', currentSubgroupFilter)
         );
     }
 
     // *** onSnapshot für Echtzeit-Updates ***
-    const rivalListener = onSnapshot(q, (querySnapshot) => {
+    const rivalListener = onSnapshot(q, querySnapshot => {
         const players = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // 2. Erstelle zwei separate Ranglisten
@@ -209,12 +243,26 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
         // Finde den aktuellen User in der Liste (für aktuelle Werte)
         const currentUserInList = players.find(p => p.id === userData.id) || userData;
         const mySkillIndex = skillRanking.findIndex(p => p.id === userData.id);
-        displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, (currentUserInList.eloRating || 0), 'Elo');
+        displayRivalInfo(
+            'Skill',
+            skillRanking,
+            mySkillIndex,
+            rivalSkillEl,
+            currentUserInList.eloRating || 0,
+            'Elo'
+        );
 
         // Effort-Rangliste (sortiert nach xp)
         const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
         const myEffortIndex = effortRanking.findIndex(p => p.id === userData.id);
-        displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, (currentUserInList.xp || 0), 'XP');
+        displayRivalInfo(
+            'Fleiß',
+            effortRanking,
+            myEffortIndex,
+            rivalEffortEl,
+            currentUserInList.xp || 0,
+            'XP'
+        );
     });
 
     // Return the unsubscribe function so caller can manage it
@@ -274,58 +322,72 @@ export function loadProfileData(userData, renderCalendarCallback, currentDisplay
     if (streakEl && userData.id && db) {
         const streaksQuery = collection(db, `users/${userData.id}/streaks`);
 
-        const streaksListener = onSnapshot(streaksQuery, async (snapshot) => {
-            if (snapshot.empty) {
-                streakEl.innerHTML = `<p class="text-sm text-gray-400">Noch keine Streaks</p>`;
-            } else {
-                // Get all streaks with subgroup names
-                const streaksWithNames = [];
+        const streaksListener = onSnapshot(
+            streaksQuery,
+            async snapshot => {
+                if (snapshot.empty) {
+                    streakEl.innerHTML = `<p class="text-sm text-gray-400">Noch keine Streaks</p>`;
+                } else {
+                    // Get all streaks with subgroup names
+                    const streaksWithNames = [];
 
-                for (const streakDoc of snapshot.docs) {
-                    const streakData = streakDoc.data();
-                    const subgroupId = streakDoc.id;
-                    const count = streakData.count || 0;
+                    for (const streakDoc of snapshot.docs) {
+                        const streakData = streakDoc.data();
+                        const subgroupId = streakDoc.id;
+                        const count = streakData.count || 0;
 
-                    // Load subgroup name
-                    let subgroupName = 'Unbekannte Gruppe';
-                    try {
-                        const subgroupDocRef = doc(db, 'subgroups', subgroupId);
-                        const subgroupDocSnap = await getDoc(subgroupDocRef);
-                        if (subgroupDocSnap.exists()) {
-                            subgroupName = subgroupDocSnap.data().name;
+                        // Load subgroup name
+                        let subgroupName = 'Unbekannte Gruppe';
+                        try {
+                            const subgroupDocRef = doc(db, 'subgroups', subgroupId);
+                            const subgroupDocSnap = await getDoc(subgroupDocRef);
+                            if (subgroupDocSnap.exists()) {
+                                subgroupName = subgroupDocSnap.data().name;
+                            }
+                        } catch (error) {
+                            console.error(`Error loading subgroup name for ${subgroupId}:`, error);
                         }
-                    } catch (error) {
-                        console.error(`Error loading subgroup name for ${subgroupId}:`, error);
+
+                        streaksWithNames.push({
+                            subgroupId,
+                            subgroupName,
+                            count,
+                        });
                     }
 
-                    streaksWithNames.push({
-                        subgroupId,
-                        subgroupName,
-                        count
-                    });
-                }
+                    // Sort by count (highest first)
+                    streaksWithNames.sort((a, b) => b.count - a.count);
 
-                // Sort by count (highest first)
-                streaksWithNames.sort((a, b) => b.count - a.count);
-
-                // Display all streaks
-                streakEl.innerHTML = streaksWithNames
-                    .map(streak => {
-                        const iconSize = streak.count >= 10 ? 'text-xl' : streak.count >= 5 ? 'text-lg' : 'text-base';
-                        const textColor = streak.count >= 10 ? 'text-orange-600' : streak.count >= 5 ? 'text-pink-600' : 'text-gray-700';
-                        return `
+                    // Display all streaks
+                    streakEl.innerHTML = streaksWithNames
+                        .map(streak => {
+                            const iconSize =
+                                streak.count >= 10
+                                    ? 'text-xl'
+                                    : streak.count >= 5
+                                      ? 'text-lg'
+                                      : 'text-base';
+                            const textColor =
+                                streak.count >= 10
+                                    ? 'text-orange-600'
+                                    : streak.count >= 5
+                                      ? 'text-pink-600'
+                                      : 'text-gray-700';
+                            return `
                             <div class="flex items-center justify-between">
                                 <span class="text-xs text-gray-600 truncate" title="${streak.subgroupName}">${streak.subgroupName}</span>
                                 <span class="${iconSize} ${textColor} font-bold">${streak.count} 🔥</span>
                             </div>
                         `;
-                    })
-                    .join('');
+                        })
+                        .join('');
+                }
+            },
+            error => {
+                console.error('Error loading streaks:', error);
+                streakEl.innerHTML = `<p class="text-sm text-red-500">Fehler beim Laden</p>`;
             }
-        }, (error) => {
-            console.error("Error loading streaks:", error);
-            streakEl.innerHTML = `<p class="text-sm text-red-500">Fehler beim Laden</p>`;
-        });
+        );
 
         renderCalendarCallback(currentDisplayDate);
 

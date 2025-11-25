@@ -1,4 +1,17 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    addDoc,
+    serverTimestamp,
+    query,
+    where,
+    orderBy,
+    onSnapshot,
+    getDoc,
+    doc,
+    updateDoc,
+    setDoc,
+    getDocs,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Doubles Matches Module
@@ -53,7 +66,7 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         winningTeam, // "A" or "B"
         sets,
         handicapUsed,
-        matchMode = 'best-of-5'
+        matchMode = 'best-of-5',
     } = matchData;
 
     // Validate all players are different
@@ -71,12 +84,12 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         teamA: {
             player1Id: teamA_player1Id,
             player2Id: teamA_player2Id,
-            pairingId: teamAPairingId
+            pairingId: teamAPairingId,
         },
         teamB: {
             player1Id: teamB_player1Id,
             player2Id: teamB_player2Id,
-            pairingId: teamBPairingId
+            pairingId: teamBPairingId,
         },
         winningTeam: winningTeam,
         winningPairingId: winningTeam === 'A' ? teamAPairingId : teamBPairingId,
@@ -88,7 +101,7 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         clubId: currentUserData.clubId,
         createdAt: serverTimestamp(),
         processed: false,
-        source: 'coach'
+        source: 'coach',
     });
 
     console.log('Doubles match saved:', doublesMatchRef.id);
@@ -113,7 +126,7 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         opponent2Id,
         sets,
         handicapUsed,
-        matchMode = 'best-of-5'
+        matchMode = 'best-of-5',
     } = requestData;
 
     const initiatorId = currentUserData.id;
@@ -126,7 +139,7 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
 
     // Determine required sets to win based on match mode
     let setsToWin;
-    switch(matchMode) {
+    switch (matchMode) {
         case 'single-set':
             setsToWin = 1;
             break;
@@ -168,16 +181,17 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         teamA: {
             player1Id: initiatorId,
             player2Id: partnerId,
-            player1Name: playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
+            player1Name:
+                playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
             player2Name: playerNames.player2 || 'Unbekannt',
-            pairingId: initiatorPairingId
+            pairingId: initiatorPairingId,
         },
         teamB: {
             player1Id: opponent1Id,
             player2Id: opponent2Id,
             player1Name: playerNames.opponent1 || 'Unbekannt',
             player2Name: playerNames.opponent2 || 'Unbekannt',
-            pairingId: opponentPairingId
+            pairingId: opponentPairingId,
         },
         winningTeam: winningTeam,
         winningPairingId: winningTeam === 'A' ? initiatorPairingId : opponentPairingId,
@@ -189,11 +203,11 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         confirmations: {
             [partnerId]: false, // Partner notified
             [opponent1Id]: false, // Needs confirmation
-            [opponent2Id]: false  // Needs confirmation
+            [opponent2Id]: false, // Needs confirmation
         },
         status: 'pending_opponent', // pending_opponent → pending_coach → approved
         clubId: currentUserData.clubId,
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
     };
 
     console.log('📤 Creating doubles match request:', {
@@ -202,7 +216,7 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         opponents: [opponent1Id, opponent2Id],
         winningTeam,
         status: 'pending_opponent',
-        clubId: currentUserData.clubId
+        clubId: currentUserData.clubId,
     });
 
     const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), doublesRequestData);
@@ -229,7 +243,8 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
     const requestData = requestDoc.data();
 
     // Check if player is one of the opponents
-    const isOpponent = requestData.teamB.player1Id === playerId || requestData.teamB.player2Id === playerId;
+    const isOpponent =
+        requestData.teamB.player1Id === playerId || requestData.teamB.player2Id === playerId;
     if (!isOpponent) {
         throw new Error('Du bist kein Gegner in diesem Match');
     }
@@ -239,7 +254,7 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
         [`confirmations.${playerId}`]: true,
         status: 'pending_coach', // Move to coach approval
         confirmedBy: playerId,
-        confirmedAt: serverTimestamp()
+        confirmedAt: serverTimestamp(),
     });
 
     console.log('Doubles match request confirmed by opponent:', playerId);
@@ -259,7 +274,7 @@ export async function approveDoublesMatchRequest(requestId, db, currentUserData)
     await updateDoc(requestRef, {
         status: 'approved',
         approvedBy: currentUserData.id,
-        approvedAt: serverTimestamp()
+        approvedAt: serverTimestamp(),
     });
 
     console.log('Doubles match request approved by coach');
@@ -281,7 +296,7 @@ export async function rejectDoublesMatchRequest(requestId, reason, db, currentUs
         status: 'rejected',
         rejectedBy: currentUserData.id,
         rejectionReason: reason || 'Keine Angabe',
-        rejectedAt: serverTimestamp()
+        rejectedAt: serverTimestamp(),
     });
 
     console.log('Doubles match request rejected by coach');
@@ -308,7 +323,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         orderBy('matchesWon', 'desc')
     );
 
-    const listener = onSnapshot(pairingsQuery, async (snapshot) => {
+    const listener = onSnapshot(pairingsQuery, async snapshot => {
         const pairings = [];
 
         // Fetch player data for each pairing
@@ -357,7 +372,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
                 player1LastName: player1Data?.lastName || data.player1Name?.split(' ')[1] || 'N',
                 player2FirstName: player2Data?.firstName || data.player2Name?.split(' ')[0] || 'U',
                 player2LastName: player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N',
-                ...data
+                ...data,
             });
         }
 
@@ -377,7 +392,8 @@ export function renderDoublesLeaderboard(pairings, container) {
     if (!container) return;
 
     if (pairings.length === 0) {
-        container.innerHTML = '<p class="text-center text-gray-500 py-8">Noch keine Doppel-Matches gespielt</p>';
+        container.innerHTML =
+            '<p class="text-center text-gray-500 py-8">Noch keine Doppel-Matches gespielt</p>';
         return;
     }
 
@@ -399,17 +415,22 @@ export function renderDoublesLeaderboard(pairings, container) {
 
     pairings.forEach((pairing, index) => {
         const rank = index + 1;
-        const winRate = pairing.matchesPlayed > 0
-            ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1)
-            : 0;
+        const winRate =
+            pairing.matchesPlayed > 0
+                ? ((pairing.matchesWon / pairing.matchesPlayed) * 100).toFixed(1)
+                : 0;
 
         // Generate initials for player 1
         const p1Initials = `${pairing.player1FirstName?.[0] || 'U'}${pairing.player1LastName?.[0] || 'N'}`;
-        const p1Avatar = pairing.player1PhotoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${p1Initials}`;
+        const p1Avatar =
+            pairing.player1PhotoURL ||
+            `https://placehold.co/40x40/e2e8f0/64748b?text=${p1Initials}`;
 
         // Generate initials for player 2
         const p2Initials = `${pairing.player2FirstName?.[0] || 'U'}${pairing.player2LastName?.[0] || 'N'}`;
-        const p2Avatar = pairing.player2PhotoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
+        const p2Avatar =
+            pairing.player2PhotoURL ||
+            `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
 
         html += `
             <tr class="hover:bg-gray-50">
@@ -468,9 +489,10 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
         orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(requestsQuery, async (snapshot) => {
+    const unsubscribe = onSnapshot(requestsQuery, async snapshot => {
         if (snapshot.empty) {
-            container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Doppel-Anfragen</p>';
+            container.innerHTML =
+                '<p class="text-gray-500 text-center py-4">Keine ausstehenden Doppel-Anfragen</p>';
             return;
         }
 
@@ -484,7 +506,7 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
                     getDoc(doc(db, 'users', data.teamA.player2Id)),
                     getDoc(doc(db, 'users', data.teamB.player1Id)),
-                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                    getDoc(doc(db, 'users', data.teamB.player2Id)),
                 ]);
 
                 requests.push({
@@ -493,7 +515,7 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
                     teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
                     teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
                     teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
                 });
             } catch (error) {
                 // Handle permission errors for migrated offline players
@@ -505,7 +527,7 @@ export async function loadCoachDoublesMatchRequests(userData, db, container) {
                     teamAPlayer1: null,
                     teamAPlayer2: null,
                     teamBPlayer1: null,
-                    teamBPlayer2: null
+                    teamBPlayer2: null,
                 });
             }
         }
@@ -534,13 +556,18 @@ function renderCoachDoublesRequestCards(requests, db, userData, container) {
         const teamBName2 = request.teamBPlayer2?.firstName || 'Unbekannt';
 
         const setsDisplay = formatDoublesSets(request.sets);
-        const winnerTeamName = request.winningTeam === 'A'
-            ? `${teamAName1} & ${teamAName2}`
-            : `${teamBName1} & ${teamBName2}`;
+        const winnerTeamName =
+            request.winningTeam === 'A'
+                ? `${teamAName1} & ${teamAName2}`
+                : `${teamBName1} & ${teamBName2}`;
 
-        const createdDate = request.createdAt?.toDate ?
-            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
-            'Unbekannt';
+        const createdDate = request.createdAt?.toDate
+            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+              })
+            : 'Unbekannt';
 
         card.innerHTML = `
             <div class="mb-3">
@@ -636,9 +663,10 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
         orderBy('createdAt', 'desc')
     );
 
-    onSnapshot(q, async (snapshot) => {
+    onSnapshot(q, async snapshot => {
         if (snapshot.empty) {
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Doppel-Anfragen</p>';
+            container.innerHTML =
+                '<p class="text-gray-400 text-center py-4 text-sm">Keine Doppel-Anfragen</p>';
             return;
         }
 
@@ -650,12 +678,13 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
             if (data.teamB.player1Id === userData.id || data.teamB.player2Id === userData.id) {
                 try {
                     // Fetch player names
-                    const [teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2] = await Promise.all([
-                        getDoc(doc(db, 'users', data.teamA.player1Id)),
-                        getDoc(doc(db, 'users', data.teamA.player2Id)),
-                        getDoc(doc(db, 'users', data.teamB.player1Id)),
-                        getDoc(doc(db, 'users', data.teamB.player2Id))
-                    ]);
+                    const [teamAPlayer1, teamAPlayer2, teamBPlayer1, teamBPlayer2] =
+                        await Promise.all([
+                            getDoc(doc(db, 'users', data.teamA.player1Id)),
+                            getDoc(doc(db, 'users', data.teamA.player2Id)),
+                            getDoc(doc(db, 'users', data.teamB.player1Id)),
+                            getDoc(doc(db, 'users', data.teamB.player2Id)),
+                        ]);
 
                     requests.push({
                         id: docSnap.id,
@@ -663,10 +692,13 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
                         teamAPlayer1: teamAPlayer1.exists() ? teamAPlayer1.data() : null,
                         teamAPlayer2: teamAPlayer2.exists() ? teamAPlayer2.data() : null,
                         teamBPlayer1: teamBPlayer1.exists() ? teamBPlayer1.data() : null,
-                        teamBPlayer2: teamBPlayer2.exists() ? teamBPlayer2.data() : null
+                        teamBPlayer2: teamBPlayer2.exists() ? teamBPlayer2.data() : null,
                     });
                 } catch (error) {
-                    console.error(`Error loading players for doubles opponent request ${docSnap.id}:`, error);
+                    console.error(
+                        `Error loading players for doubles opponent request ${docSnap.id}:`,
+                        error
+                    );
                     // Still add request with null player data
                     requests.push({
                         id: docSnap.id,
@@ -674,14 +706,15 @@ export function loadPendingDoublesRequestsForOpponent(userData, db, container) {
                         teamAPlayer1: null,
                         teamAPlayer2: null,
                         teamBPlayer1: null,
-                        teamBPlayer2: null
+                        teamBPlayer2: null,
                     });
                 }
             }
         }
 
         if (requests.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Doppel-Anfragen</p>';
+            container.innerHTML =
+                '<p class="text-gray-400 text-center py-4 text-sm">Keine Doppel-Anfragen</p>';
             return;
         }
 
@@ -709,13 +742,18 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
         const teamBName2 = request.teamBPlayer2?.firstName || 'Unbekannt';
 
         const setsDisplay = formatDoublesSets(request.sets);
-        const winnerTeamName = request.winningTeam === 'A'
-            ? `${teamAName1} & ${teamAName2}`
-            : `${teamBName1} & ${teamBName2}`;
+        const winnerTeamName =
+            request.winningTeam === 'A'
+                ? `${teamAName1} & ${teamAName2}`
+                : `${teamBName1} & ${teamBName2}`;
 
-        const createdDate = request.createdAt?.toDate ?
-            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
-            'Unbekannt';
+        const createdDate = request.createdAt?.toDate
+            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+              })
+            : 'Unbekannt';
 
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
@@ -782,7 +820,12 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
             if (reason === null) return; // User cancelled
 
             try {
-                await rejectDoublesMatchRequest(request.id, reason || 'Abgelehnt vom Gegner', db, userData);
+                await rejectDoublesMatchRequest(
+                    request.id,
+                    reason || 'Abgelehnt vom Gegner',
+                    db,
+                    userData
+                );
                 alert('Doppel-Match abgelehnt.');
             } catch (error) {
                 console.error('Error rejecting doubles request:', error);

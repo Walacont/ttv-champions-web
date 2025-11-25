@@ -1,5 +1,5 @@
 import { createDoublesMatchRequest } from './doubles-matches.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Doubles Player UI Module
@@ -99,7 +99,7 @@ function clearDoublesSelections() {
     const selects = [
         'doubles-partner-select',
         'doubles-opponent1-select',
-        'doubles-opponent2-select'
+        'doubles-opponent2-select',
     ];
 
     selects.forEach(id => {
@@ -190,7 +190,7 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
             getDoc(doc(db, 'users', currentUserData.id)),
             getDoc(doc(db, 'users', partnerId)),
             getDoc(doc(db, 'users', opponent1Id)),
-            getDoc(doc(db, 'users', opponent2Id))
+            getDoc(doc(db, 'users', opponent2Id)),
         ]);
 
         const notReadyPlayers = [];
@@ -206,7 +206,8 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
 
         if (notReadyPlayers.length > 0) {
             feedbackEl.textContent = `Folgende Spieler haben noch nicht genug Grundlagen (min. 5): ${notReadyPlayers.join(', ')}`;
-            feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
+            feedbackEl.className =
+                'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
             feedbackEl.classList.remove('hidden');
             return;
         }
@@ -219,8 +220,10 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
         const opponent2IsOffline = opponent2Data?.isOffline === true;
 
         if (opponent1IsOffline && opponent2IsOffline) {
-            feedbackEl.textContent = 'Mindestens einer der beiden Gegner muss ein Online-Spieler sein (mit Code angemeldet). Beide Gegner können nicht Offline-Spieler sein.';
-            feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
+            feedbackEl.textContent =
+                'Mindestens einer der beiden Gegner muss ein Online-Spieler sein (mit Code angemeldet). Beide Gegner können nicht Offline-Spieler sein.';
+            feedbackEl.className =
+                'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
             feedbackEl.classList.remove('hidden');
             return;
         }
@@ -259,7 +262,7 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     // Convert set field names from playerA/playerB to teamA/teamB for doubles
     const doublesSets = sets.map(set => ({
         teamA: set.playerA,
-        teamB: set.playerB
+        teamB: set.playerB,
     }));
 
     feedbackEl.textContent = 'Sende Doppel-Anfrage...';
@@ -281,17 +284,25 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
             matchMode: matchMode,
             playerNames: {
                 player1: `${currentUserData.firstName} ${currentUserData.lastName}`,
-                player2: partnerData ? `${partnerData.firstName} ${partnerData.lastName}` : 'Unbekannt',
-                opponent1: opponent1Data ? `${opponent1Data.firstName} ${opponent1Data.lastName}` : 'Unbekannt',
-                opponent2: opponent2Data ? `${opponent2Data.firstName} ${opponent2Data.lastName}` : 'Unbekannt'
-            }
+                player2: partnerData
+                    ? `${partnerData.firstName} ${partnerData.lastName}`
+                    : 'Unbekannt',
+                opponent1: opponent1Data
+                    ? `${opponent1Data.firstName} ${opponent1Data.lastName}`
+                    : 'Unbekannt',
+                opponent2: opponent2Data
+                    ? `${opponent2Data.firstName} ${opponent2Data.lastName}`
+                    : 'Unbekannt',
+            },
         };
 
         const result = await createDoublesMatchRequest(requestData, db, currentUserData);
 
         if (result.success) {
-            feedbackEl.textContent = '✅ Doppel-Anfrage gesendet! Einer der Gegner muss bestätigen, dann muss der Coach genehmigen.';
-            feedbackEl.className = 'bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded';
+            feedbackEl.textContent =
+                '✅ Doppel-Anfrage gesendet! Einer der Gegner muss bestätigen, dann muss der Coach genehmigen.';
+            feedbackEl.className =
+                'bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded';
 
             // Reset form
             if (setScoreInput && setScoreInput.reset) {

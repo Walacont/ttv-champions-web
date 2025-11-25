@@ -4,9 +4,12 @@
  */
 
 import { router, viewLoader } from './router.js';
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+import {
+    getAuth,
+    onAuthStateChanged,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import { firebaseConfig } from './firebase-config.js';
 
 // Initialize Firebase
@@ -110,13 +113,17 @@ async function loadPage(htmlPath, jsPath = null) {
         });
 
         // If jsPath explicitly provided, load it
-        if (jsPath && !Array.from(scripts).find(s => s.getAttribute('src')?.includes(jsPath.replace('/js/', '')))) {
+        if (
+            jsPath &&
+            !Array.from(scripts).find(s =>
+                s.getAttribute('src')?.includes(jsPath.replace('/js/', ''))
+            )
+        ) {
             await loadPageModule(jsPath);
         }
 
         // Hide loader
         hideLoader();
-
     } catch (error) {
         console.error('Failed to load page:', error);
         hideLoader();
@@ -149,7 +156,7 @@ function hideLoader() {
  */
 function requireAuth(redirectTo = '/') {
     return new Promise((resolve, reject) => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, user => {
             unsubscribe();
             if (user) {
                 resolve(user);
@@ -230,12 +237,12 @@ router
     });
 
 // Navigation guards
-router.beforeNavigate(async (path) => {
+router.beforeNavigate(async path => {
     console.log('Navigating to:', path);
     return true; // Allow navigation
 });
 
-router.afterNavigate(async (path) => {
+router.afterNavigate(async path => {
     // Scroll to top on navigation
     window.scrollTo(0, 0);
     console.log('Navigation complete:', path);

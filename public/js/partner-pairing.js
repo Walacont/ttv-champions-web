@@ -11,7 +11,7 @@ import {
     setDoc,
     writeBatch,
     serverTimestamp,
-    increment
+    increment,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
@@ -52,7 +52,7 @@ function setupEventListeners() {
  * @returns {Promise} - Resolves when pairing is complete
  */
 export function openPartnerPairingModal(exercise, playerIds, sessionData, existingPairings = null) {
-    return new Promise(async (resolve) => {
+    return new Promise(async resolve => {
         resolveCallback = resolve;
         currentExercise = exercise;
         currentSessionData = sessionData;
@@ -67,7 +67,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
             if (playerDoc.exists()) {
                 availablePlayers.push({
                     id: playerId,
-                    ...playerDoc.data()
+                    ...playerDoc.data(),
                 });
             }
         }
@@ -86,7 +86,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
                         formedPairs.push({
                             player1: player1,
                             player2: player2,
-                            result: pairData.result
+                            result: pairData.result,
                         });
                     }
                 });
@@ -101,7 +101,7 @@ export function openPartnerPairingModal(exercise, playerIds, sessionData, existi
                         singlePlayers.push({
                             ...player,
                             result: singleData.result,
-                            customExercise: singleData.customExercise || null // Load custom exercise if exists
+                            customExercise: singleData.customExercise || null, // Load custom exercise if exists
                         });
                     }
                 });
@@ -160,14 +160,20 @@ function renderAvailablePlayers() {
     // Filter out players that are already paired or single
     const pairedPlayerIds = formedPairs.flatMap(p => [p.player1.id, p.player2.id]);
     const singlePlayerIds = singlePlayers.map(p => p.id);
-    const available = availablePlayers.filter(p =>
-        !pairedPlayerIds.includes(p.id) && !singlePlayerIds.includes(p.id)
+    const available = availablePlayers.filter(
+        p => !pairedPlayerIds.includes(p.id) && !singlePlayerIds.includes(p.id)
     );
 
-    console.log('[Exercise Pairing] Rendering available players:', available.length, 'Current single players:', singlePlayers.length);
+    console.log(
+        '[Exercise Pairing] Rendering available players:',
+        available.length,
+        'Current single players:',
+        singlePlayers.length
+    );
 
     if (available.length === 0) {
-        container.innerHTML = '<p class="col-span-full text-xs text-gray-400 text-center py-4">Alle Spieler zugewiesen</p>';
+        container.innerHTML =
+            '<p class="col-span-full text-xs text-gray-400 text-center py-4">Alle Spieler zugewiesen</p>';
         return;
     }
 
@@ -210,7 +216,7 @@ function handlePlayerClick(player) {
             formedPairs.push({
                 player1: selectedPlayers[0],
                 player2: selectedPlayers[1],
-                result: 'both_success' // Default
+                result: 'both_success', // Default
             });
             selectedPlayers = [];
         }
@@ -227,14 +233,14 @@ function handlePlayerClick(player) {
 /**
  * Add selected player as single player (training alone)
  */
-window.addAsSinglePlayer = function() {
+window.addAsSinglePlayer = function () {
     if (selectedPlayers.length !== 1) return;
 
     const player = selectedPlayers[0];
 
     // Show exercise selection options
     showSinglePlayerExerciseSelection(player);
-}
+};
 
 /**
  * Show exercise selection for single player
@@ -279,14 +285,14 @@ function showSinglePlayerExerciseSelection(player) {
 /**
  * Confirm single player with exercise (null = same exercise)
  */
-window.confirmSinglePlayerWithExercise = function(customExercise) {
+window.confirmSinglePlayerWithExercise = function (customExercise) {
     if (selectedPlayers.length !== 1) return;
 
     const player = selectedPlayers[0];
     singlePlayers.push({
         ...player,
         result: 'success', // Default
-        customExercise: customExercise // null = same exercise, otherwise custom exercise object
+        customExercise: customExercise, // null = same exercise, otherwise custom exercise object
     });
     selectedPlayers = [];
 
@@ -295,19 +301,19 @@ window.confirmSinglePlayerWithExercise = function(customExercise) {
     renderSinglePlayerOption();
     checkSinglePlayers();
     updateConfirmButtonState();
-}
+};
 
 /**
  * Cancel single player selection
  */
-window.cancelSinglePlayerSelection = function() {
+window.cancelSinglePlayerSelection = function () {
     renderSinglePlayerOption();
-}
+};
 
 /**
  * Select different exercise for single player
  */
-window.selectDifferentExerciseForSinglePlayer = function() {
+window.selectDifferentExerciseForSinglePlayer = function () {
     // Save the player reference before opening modal
     const playerToAdd = selectedPlayers[0];
     if (!playerToAdd) {
@@ -315,7 +321,11 @@ window.selectDifferentExerciseForSinglePlayer = function() {
         return;
     }
 
-    console.log('[Exercise Pairing] Opening exercise modal for player:', playerToAdd.firstName, playerToAdd.lastName);
+    console.log(
+        '[Exercise Pairing] Opening exercise modal for player:',
+        playerToAdd.firstName,
+        playerToAdd.lastName
+    );
 
     // Track if player was already added (callback is called for EACH selected exercise)
     let playerAlreadyAdded = false;
@@ -323,28 +333,33 @@ window.selectDifferentExerciseForSinglePlayer = function() {
     // Open exercise selection modal with callback
     // NOTE: The callback is called ONCE PER SELECTED EXERCISE (can be called multiple times!)
     // We only want to use the FIRST exercise and add the player only ONCE
-    openExerciseSelectionModal((exercise) => {
+    openExerciseSelectionModal(exercise => {
         console.log('[Exercise Pairing] Modal callback triggered with exercise:', exercise);
 
         // Only process the first exercise, ignore subsequent calls
         if (exercise && !playerAlreadyAdded) {
             playerAlreadyAdded = true; // Mark as added to prevent duplicate additions
 
-            console.log('[Exercise Pairing] Selected exercise:', exercise.name, 'Points:', exercise.points);
+            console.log(
+                '[Exercise Pairing] Selected exercise:',
+                exercise.name,
+                'Points:',
+                exercise.points
+            );
 
             // Exercise is already in the correct format from toggleExerciseSelection
             const customExercise = {
                 exerciseId: exercise.exerciseId,
                 name: exercise.name,
                 points: exercise.points || 0,
-                tieredPoints: exercise.tieredPoints || false
+                tieredPoints: exercise.tieredPoints || false,
             };
 
             // Add player to single players with custom exercise
             singlePlayers.push({
                 ...playerToAdd,
                 result: 'success', // Default
-                customExercise: customExercise
+                customExercise: customExercise,
             });
 
             console.log('[Exercise Pairing] Single players after adding:', singlePlayers.length);
@@ -365,10 +380,12 @@ window.selectDifferentExerciseForSinglePlayer = function() {
             updateConfirmButtonState();
             console.log('[Exercise Pairing] UI updated');
         } else if (playerAlreadyAdded) {
-            console.log('[Exercise Pairing] Ignoring additional exercise callback - player already added');
+            console.log(
+                '[Exercise Pairing] Ignoring additional exercise callback - player already added'
+            );
         }
     });
-}
+};
 
 /**
  * Render single player option button (when exactly 1 player is selected)
@@ -380,11 +397,18 @@ function renderSinglePlayerOption() {
         return;
     }
 
-    console.log('[Exercise Pairing] renderSinglePlayerOption - selectedPlayers:', selectedPlayers.length);
+    console.log(
+        '[Exercise Pairing] renderSinglePlayerOption - selectedPlayers:',
+        selectedPlayers.length
+    );
 
     if (selectedPlayers.length === 1) {
         const player = selectedPlayers[0];
-        console.log('[Exercise Pairing] Showing "Alleine trainieren" option for:', player.firstName, player.lastName);
+        console.log(
+            '[Exercise Pairing] Showing "Alleine trainieren" option for:',
+            player.firstName,
+            player.lastName
+        );
         container.classList.remove('hidden');
         container.innerHTML = `
             <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -415,7 +439,8 @@ function renderFormedPairs() {
     if (!container) return;
 
     if (formedPairs.length === 0) {
-        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Noch keine Paare gebildet</p>';
+        container.innerHTML =
+            '<p class="text-xs text-gray-400 text-center py-4">Noch keine Paare gebildet</p>';
         return;
     }
 
@@ -427,11 +452,15 @@ function renderFormedPairs() {
         div.className = 'p-4 bg-gray-50 border border-gray-200 rounded-lg';
 
         // Milestone selection (for milestone exercises and successful results)
-        const showMilestoneSelect = isMilestoneExercise && (pair.result === 'both_success' || pair.result === 'one_success');
+        const showMilestoneSelect =
+            isMilestoneExercise &&
+            (pair.result === 'both_success' || pair.result === 'one_success');
         let milestoneSelect = '';
 
         if (showMilestoneSelect && currentExercise.tieredPoints?.milestones) {
-            const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.completions - b.completions);
+            const milestones = currentExercise.tieredPoints.milestones.sort(
+                (a, b) => a.completions - b.completions
+            );
             const selectedMilestone = pair.milestoneIndex ?? 0;
 
             milestoneSelect = `
@@ -441,12 +470,16 @@ function renderFormedPairs() {
                         onchange="window.setPairMilestone(${index}, parseInt(this.value))"
                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
                     >
-                        ${milestones.map((milestone, mIndex) => {
-                            const cumulativePoints = milestones.slice(0, mIndex + 1).reduce((sum, m) => sum + m.points, 0);
-                            return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
+                        ${milestones
+                            .map((milestone, mIndex) => {
+                                const cumulativePoints = milestones
+                                    .slice(0, mIndex + 1)
+                                    .reduce((sum, m) => sum + m.points, 0);
+                                return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
                                 ${milestone.completions}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
                             </option>`;
-                        }).join('')}
+                            })
+                            .join('')}
                     </select>
                     <p class="text-xs text-gray-500 mt-1">Wähle den höchsten erreichten Meilenstein aus</p>
                 </div>
@@ -487,15 +520,15 @@ function renderFormedPairs() {
  */
 function checkSinglePlayers() {
     const pairedPlayerIds = formedPairs.flatMap(p => [p.player1.id, p.player2.id]);
-    const available = availablePlayers.filter(p =>
-        !pairedPlayerIds.includes(p.id) && !singlePlayers.find(sp => sp.id === p.id)
+    const available = availablePlayers.filter(
+        p => !pairedPlayerIds.includes(p.id) && !singlePlayers.find(sp => sp.id === p.id)
     );
 
     // Auto-assign single player if only one left
     if (available.length === 1 && selectedPlayers.length === 0) {
         singlePlayers.push({
             ...available[0],
-            result: 'success' // Default
+            result: 'success', // Default
         });
         renderAvailablePlayers();
         renderSinglePlayers();
@@ -528,12 +561,15 @@ function renderSinglePlayers() {
             : `<span class="text-xs text-gray-600 block mt-1">📝 Gleiche Übung wie alle</span>`;
 
         // Determine if this specific player's exercise is a milestone
-        const playerExerciseMilestone = player.customExercise?.tieredPoints || currentExercise?.tieredPoints;
+        const playerExerciseMilestone =
+            player.customExercise?.tieredPoints || currentExercise?.tieredPoints;
 
         // Get milestones for this player's exercise
         let milestoneSelect = '';
         if (playerExerciseMilestone && player.result === 'success') {
-            const exerciseMilestones = player.customExercise?.tieredPoints?.milestones || currentExercise?.tieredPoints?.milestones;
+            const exerciseMilestones =
+                player.customExercise?.tieredPoints?.milestones ||
+                currentExercise?.tieredPoints?.milestones;
 
             if (exerciseMilestones && exerciseMilestones.length > 0) {
                 const milestones = exerciseMilestones.sort((a, b) => a.completions - b.completions);
@@ -546,12 +582,16 @@ function renderSinglePlayers() {
                             onchange="window.setSinglePlayerMilestone(${index}, parseInt(this.value))"
                             class="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500"
                         >
-                            ${milestones.map((milestone, mIndex) => {
-                                const cumulativePoints = milestones.slice(0, mIndex + 1).reduce((sum, m) => sum + m.points, 0);
-                                return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
+                            ${milestones
+                                .map((milestone, mIndex) => {
+                                    const cumulativePoints = milestones
+                                        .slice(0, mIndex + 1)
+                                        .reduce((sum, m) => sum + m.points, 0);
+                                    return `<option value="${mIndex}" ${mIndex === selectedMilestone ? 'selected' : ''}>
                                     ${milestone.completions}× erreicht → ${milestone.points} Pkt (gesamt: ${cumulativePoints} Pkt)
                                 </option>`;
-                            }).join('')}
+                                })
+                                .join('')}
                         </select>
                         <p class="text-xs text-gray-500 mt-1">Wähle den höchsten erreichten Meilenstein aus</p>
                     </div>
@@ -591,10 +631,14 @@ function renderSinglePlayers() {
 /**
  * Set pair result
  */
-window.setPairResult = function(index, result) {
+window.setPairResult = function (index, result) {
     formedPairs[index].result = result;
     // Initialize milestone index to 0 (first milestone) when marking as success for milestone exercises
-    if ((result === 'both_success' || result === 'one_success') && currentExercise?.tieredPoints && formedPairs[index].milestoneIndex === undefined) {
+    if (
+        (result === 'both_success' || result === 'one_success') &&
+        currentExercise?.tieredPoints &&
+        formedPairs[index].milestoneIndex === undefined
+    ) {
         formedPairs[index].milestoneIndex = 0;
     }
     renderFormedPairs();
@@ -603,14 +647,14 @@ window.setPairResult = function(index, result) {
 /**
  * Set pair milestone (for milestone exercises)
  */
-window.setPairMilestone = function(index, milestoneIndex) {
+window.setPairMilestone = function (index, milestoneIndex) {
     formedPairs[index].milestoneIndex = milestoneIndex;
 };
 
 /**
  * Remove pair
  */
-window.removePair = function(index) {
+window.removePair = function (index) {
     formedPairs.splice(index, 1);
     renderAvailablePlayers();
     renderFormedPairs();
@@ -622,11 +666,16 @@ window.removePair = function(index) {
 /**
  * Set single player result
  */
-window.setSinglePlayerResult = function(index, result) {
+window.setSinglePlayerResult = function (index, result) {
     singlePlayers[index].result = result;
     // Initialize milestone index to 0 (first milestone) when marking as success for milestone exercises
-    const playerExerciseMilestone = singlePlayers[index].customExercise?.tieredPoints || currentExercise?.tieredPoints;
-    if (result === 'success' && playerExerciseMilestone && singlePlayers[index].milestoneIndex === undefined) {
+    const playerExerciseMilestone =
+        singlePlayers[index].customExercise?.tieredPoints || currentExercise?.tieredPoints;
+    if (
+        result === 'success' &&
+        playerExerciseMilestone &&
+        singlePlayers[index].milestoneIndex === undefined
+    ) {
         singlePlayers[index].milestoneIndex = 0;
     }
     renderSinglePlayers();
@@ -635,14 +684,14 @@ window.setSinglePlayerResult = function(index, result) {
 /**
  * Set single player milestone (for milestone exercises)
  */
-window.setSinglePlayerMilestone = function(index, milestoneIndex) {
+window.setSinglePlayerMilestone = function (index, milestoneIndex) {
     singlePlayers[index].milestoneIndex = milestoneIndex;
 };
 
 /**
  * Remove single player
  */
-window.removeSinglePlayer = function(index) {
+window.removeSinglePlayer = function (index) {
     singlePlayers.splice(index, 1);
     renderAvailablePlayers();
     renderSinglePlayers();
@@ -724,12 +773,14 @@ async function confirmPairingAndDistributePoints() {
             const data = {
                 player1Id: pair.player1.id,
                 player2Id: pair.player2.id,
-                result: pair.result
+                result: pair.result,
             };
 
             // For milestone exercises, calculate completionCount from selected milestone
             if (currentExercise?.tieredPoints?.milestones && pair.milestoneIndex !== undefined) {
-                const milestones = currentExercise.tieredPoints.milestones.sort((a, b) => a.completions - b.completions);
+                const milestones = currentExercise.tieredPoints.milestones.sort(
+                    (a, b) => a.completions - b.completions
+                );
                 data.completionCount = milestones[pair.milestoneIndex]?.completions || 1;
                 data.milestoneIndex = pair.milestoneIndex;
             } else {
@@ -742,11 +793,13 @@ async function confirmPairingAndDistributePoints() {
             const data = {
                 playerId: sp.id,
                 result: sp.result,
-                customExercise: sp.customExercise || null
+                customExercise: sp.customExercise || null,
             };
 
             // For milestone exercises, calculate completionCount from selected milestone
-            const exerciseMilestones = sp.customExercise?.tieredPoints?.milestones || currentExercise?.tieredPoints?.milestones;
+            const exerciseMilestones =
+                sp.customExercise?.tieredPoints?.milestones ||
+                currentExercise?.tieredPoints?.milestones;
             if (exerciseMilestones && sp.milestoneIndex !== undefined) {
                 const milestones = exerciseMilestones.sort((a, b) => a.completions - b.completions);
                 data.completionCount = milestones[sp.milestoneIndex]?.completions || 1;
@@ -757,7 +810,7 @@ async function confirmPairingAndDistributePoints() {
 
             return data;
         }),
-        exercise: currentExercise
+        exercise: currentExercise,
     };
 
     console.log('[Exercise Pairing] Pairing data:', pairingData);
@@ -819,12 +872,30 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
 
         // Award to player 1
         if (points1 > 0 && player1Id) {
-            await awardPointsToPlayer(batch, player1Id, points1, exercise.name, date, subgroupId, subgroupName, successRate);
+            await awardPointsToPlayer(
+                batch,
+                player1Id,
+                points1,
+                exercise.name,
+                date,
+                subgroupId,
+                subgroupName,
+                successRate
+            );
         }
 
         // Award to player 2
         if (points2 > 0 && player2Id) {
-            await awardPointsToPlayer(batch, player2Id, points2, exercise.name, date, subgroupId, subgroupName, successRate);
+            await awardPointsToPlayer(
+                batch,
+                player2Id,
+                points2,
+                exercise.name,
+                date,
+                subgroupId,
+                subgroupName,
+                successRate
+            );
         }
     }
 
@@ -837,16 +908,31 @@ export async function distributeExercisePoints(pairs, singles, exercise, session
         // Check if player has custom exercise
         const customExercise = single.customExercise;
         const exerciseToUse = customExercise || exercise;
-        const customPoints = customExercise ? (single.result === 'success' ? customExercise.points : 0) : points;
+        const customPoints = customExercise
+            ? single.result === 'success'
+                ? customExercise.points
+                : 0
+            : points;
 
         if (customPoints > 0 && playerId) {
             // Single players always get 100% when successful (they only get points when they succeed)
-            await awardPointsToPlayer(batch, playerId, customPoints, exerciseToUse.name, date, subgroupId, subgroupName, '100%');
+            await awardPointsToPlayer(
+                batch,
+                playerId,
+                customPoints,
+                exerciseToUse.name,
+                date,
+                subgroupId,
+                subgroupName,
+                '100%'
+            );
         }
     }
 
     await batch.commit();
-    console.log(`[Exercise Pairing] Distributed points for ${pairs.length} pairs and ${singles.length} single players`);
+    console.log(
+        `[Exercise Pairing] Distributed points for ${pairs.length} pairs and ${singles.length} single players`
+    );
 }
 
 /**
@@ -887,12 +973,36 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
         const count = pair.completionCount || 1;
 
         if (pair.result === 'both_success') {
-            if (player1Id) successfulPlayers.push({ playerId: player1Id, count, pointsMultiplier: 1.0, successRate: '100%' });
-            if (player2Id) successfulPlayers.push({ playerId: player2Id, count, pointsMultiplier: 1.0, successRate: '100%' });
+            if (player1Id)
+                successfulPlayers.push({
+                    playerId: player1Id,
+                    count,
+                    pointsMultiplier: 1.0,
+                    successRate: '100%',
+                });
+            if (player2Id)
+                successfulPlayers.push({
+                    playerId: player2Id,
+                    count,
+                    pointsMultiplier: 1.0,
+                    successRate: '100%',
+                });
         } else if (pair.result === 'one_success') {
             // Both get progress, but only 50% of points
-            if (player1Id) successfulPlayers.push({ playerId: player1Id, count, pointsMultiplier: 0.5, successRate: '50%' });
-            if (player2Id) successfulPlayers.push({ playerId: player2Id, count, pointsMultiplier: 0.5, successRate: '50%' });
+            if (player1Id)
+                successfulPlayers.push({
+                    playerId: player1Id,
+                    count,
+                    pointsMultiplier: 0.5,
+                    successRate: '50%',
+                });
+            if (player2Id)
+                successfulPlayers.push({
+                    playerId: player2Id,
+                    count,
+                    pointsMultiplier: 0.5,
+                    successRate: '50%',
+                });
         }
     }
 
@@ -953,7 +1063,7 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
             lastMilestoneIndex: newMilestoneIndex,
             lastSeasonUpdated: currentSeasonKey,
             exerciseName: exercise.name,
-            lastUpdated: serverTimestamp()
+            lastUpdated: serverTimestamp(),
         });
 
         // Award points if milestone reached
@@ -975,15 +1085,21 @@ export async function distributeMilestonePoints(pairs, singles, exercise, sessio
                 successRate
             );
 
-            console.log(`[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.completions}× for ${exercise.name}, awarded ${finalPoints} points (${successRate}, completed ${count}× this session, total: ${newCount})`);
+            console.log(
+                `[Milestone Points] Player ${playerId} reached milestone ${milestoneInfo.completions}× for ${exercise.name}, awarded ${finalPoints} points (${successRate}, completed ${count}× this session, total: ${newCount})`
+            );
         } else {
-            console.log(`[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].completions} (completed ${count}× this session, no milestone reached yet)`);
+            console.log(
+                `[Milestone Points] Player ${playerId} progress: ${newCount}/${sortedMilestones[0].completions} (completed ${count}× this session, no milestone reached yet)`
+            );
         }
 
         await batch.commit();
     }
 
-    console.log(`[Milestone Points] Processed milestones for ${successfulPlayers.length} successful players`);
+    console.log(
+        `[Milestone Points] Processed milestones for ${successfulPlayers.length} successful players`
+    );
 }
 
 /**
@@ -1007,13 +1123,22 @@ async function getCurrentSeasonKey() {
  * Award points to a player
  * @param {string} successRate - Success rate indicator (e.g., "100%", "50%")
  */
-async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, subgroupId, subgroupName, successRate) {
+async function awardPointsToPlayer(
+    batch,
+    playerId,
+    points,
+    exerciseName,
+    date,
+    subgroupId,
+    subgroupName,
+    successRate
+) {
     const playerRef = doc(db, 'users', playerId);
 
     // Update player points and XP
     batch.update(playerRef, {
         points: increment(points),
-        xp: increment(points)
+        xp: increment(points),
     });
 
     // Create reason string with success rate
@@ -1030,7 +1155,7 @@ async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, 
         date,
         subgroupId,
         awardedBy: `Coach: ${currentUserData.firstName} ${currentUserData.lastName}`,
-        sessionId: currentSessionData.id
+        sessionId: currentSessionData.id,
     });
 
     // Create XP history entry
@@ -1042,7 +1167,7 @@ async function awardPointsToPlayer(batch, playerId, points, exerciseName, date, 
         date,
         subgroupId,
         awardedBy: `Coach: ${currentUserData.firstName} ${currentUserData.lastName}`,
-        sessionId: currentSessionData.id
+        sessionId: currentSessionData.id,
     });
 }
 

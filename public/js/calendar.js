@@ -1,4 +1,13 @@
-import { collection, doc, getDoc, getDocs, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    onSnapshot,
+    query,
+    where,
+    orderBy,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Calendar Module
@@ -30,7 +39,7 @@ export async function getClubAttendanceForPeriod(clubId, db, daysToLookBack = 90
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => doc.data());
     } catch (error) {
-        console.error("Fehler beim Abrufen der Club-Anwesenheitsdaten: ", error);
+        console.error('Fehler beim Abrufen der Club-Anwesenheitsdaten: ', error);
         return [];
     }
 }
@@ -51,7 +60,8 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
     if (!calendarGrid || !calendarMonthYear) return () => {};
 
-    calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8">Lade Anwesenheitsdaten...</div>';
+    calendarGrid.innerHTML =
+        '<div class="col-span-7 text-center p-8">Lade Anwesenheitsdaten...</div>';
 
     const month = date.getMonth();
     const year = date.getFullYear();
@@ -80,20 +90,19 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
     // Load subgroups for color mapping
     async function loadSubgroups() {
         try {
-            const subgroupsSnapshot = await getDocs(query(
-                collection(db, 'subgroups'),
-                where('clubId', '==', currentUserData.clubId)
-            ));
+            const subgroupsSnapshot = await getDocs(
+                query(collection(db, 'subgroups'), where('clubId', '==', currentUserData.clubId))
+            );
             subgroupsMap.clear();
             subgroupsSnapshot.forEach(doc => {
                 const data = doc.data();
                 subgroupsMap.set(doc.id, {
                     name: data.name,
-                    color: data.color || '#6366f1'
+                    color: data.color || '#6366f1',
                 });
             });
         } catch (error) {
-            console.error("Error loading subgroups:", error);
+            console.error('Error loading subgroups:', error);
         }
     }
 
@@ -104,7 +113,9 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
         let filteredTrainings = allClubTrainings;
         if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
             // Filter to only show trainings for the selected subgroup
-            filteredTrainings = allClubTrainings.filter(training => training.subgroupId === subgroupFilter);
+            filteredTrainings = allClubTrainings.filter(
+                training => training.subgroupId === subgroupFilter
+            );
         }
 
         // Get all trainings for the player's subgroups (for missed training detection)
@@ -177,17 +188,25 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             // IMPORTANT: Apply the same filter to sessions as to trainings for consistency
             // If subgroup filter is active, only show sessions for that subgroup
             if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-                sessionsOnDay = sessionsOnDay.filter(session => session.subgroupId === subgroupFilter);
+                sessionsOnDay = sessionsOnDay.filter(
+                    session => session.subgroupId === subgroupFilter
+                );
             }
 
             const dayCell = document.createElement('div');
-            dayCell.className = 'border rounded-md p-2 min-h-[80px] hover:shadow-md transition-shadow';
+            dayCell.className =
+                'border rounded-md p-2 min-h-[80px] hover:shadow-md transition-shadow';
 
             // Make clickable if there are sessions
             if (sessionsOnDay.length > 0) {
                 dayCell.classList.add('cursor-pointer', 'hover:bg-gray-50');
                 dayCell.addEventListener('click', () => {
-                    openTrainingDayModal(dateString, sessionsOnDay, filteredTrainings, currentUserData.id);
+                    openTrainingDayModal(
+                        dateString,
+                        sessionsOnDay,
+                        filteredTrainings,
+                        currentUserData.id
+                    );
                 });
             }
 
@@ -207,17 +226,20 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
 
                 // Count how many sessions on this day the player attended
                 const attendedCount = sessionsOnDay.filter(session => {
-                    const attendance = filteredTrainings.find(t =>
-                        t.date === dateString &&
-                        t.sessionId === session.id &&
-                        t.presentPlayerIds &&
-                        t.presentPlayerIds.includes(currentUserData.id)
+                    const attendance = filteredTrainings.find(
+                        t =>
+                            t.date === dateString &&
+                            t.sessionId === session.id &&
+                            t.presentPlayerIds &&
+                            t.presentPlayerIds.includes(currentUserData.id)
                     );
                     return attendance !== undefined;
                 }).length;
 
                 // Count how many sessions are completed
-                const completedCount = sessionsOnDay.filter(session => session.completed === true).length;
+                const completedCount = sessionsOnDay.filter(
+                    session => session.completed === true
+                ).length;
 
                 const totalRelevantSessions = sessionsOnDay.length;
 
@@ -298,28 +320,37 @@ export function renderCalendar(date, currentUserData, db, subgroupFilter = 'club
             where('cancelled', '==', false)
         );
 
-        unsubscribeSessions = onSnapshot(sessionsQuery, (sessionsSnapshot) => {
-            console.log('[Calendar] Training sessions updated in real-time');
-            allSessionsCache = sessionsSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        unsubscribeSessions = onSnapshot(
+            sessionsQuery,
+            sessionsSnapshot => {
+                console.log('[Calendar] Training sessions updated in real-time');
+                allSessionsCache = sessionsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
 
-            // Re-render calendar with updated sessions
-            renderCalendarGrid();
-        }, (error) => {
-            console.error("Error loading sessions:", error);
-        });
+                // Re-render calendar with updated sessions
+                renderCalendarGrid();
+            },
+            error => {
+                console.error('Error loading sessions:', error);
+            }
+        );
 
         // Set up real-time listener for attendance data
-        unsubscribeAttendance = onSnapshot(q, (querySnapshot) => {
-            console.log('[Calendar] Attendance data updated in real-time');
-            allClubTrainingsCache = querySnapshot.docs.map(doc => doc.data());
-            renderCalendarGrid();
-        }, (error) => {
-            console.error("Fehler beim Laden der Anwesenheitsdaten:", error);
-            calendarGrid.innerHTML = '<div class="col-span-7 text-center p-8 text-red-500">Fehler beim Laden der Daten</div>';
-        });
+        unsubscribeAttendance = onSnapshot(
+            q,
+            querySnapshot => {
+                console.log('[Calendar] Attendance data updated in real-time');
+                allClubTrainingsCache = querySnapshot.docs.map(doc => doc.data());
+                renderCalendarGrid();
+            },
+            error => {
+                console.error('Fehler beim Laden der Anwesenheitsdaten:', error);
+                calendarGrid.innerHTML =
+                    '<div class="col-span-7 text-center p-8 text-red-500">Fehler beim Laden der Daten</div>';
+            }
+        );
     });
 
     // Return combined unsubscribe function
@@ -351,18 +382,19 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
         orderBy('startTime', 'asc')
     );
 
-    const sessionsListener = onSnapshot(sessionsQuery, async (sessionsSnapshot) => {
+    const sessionsListener = onSnapshot(sessionsQuery, async sessionsSnapshot => {
         const sessions = sessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter sessions for player's subgroups
         const userSubgroups = userData.subgroupIDs || [];
-        const relevantSessions = sessions.filter(session =>
-            userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)
+        const relevantSessions = sessions.filter(
+            session => userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)
         );
 
         if (relevantSessions.length > 0) {
             container.classList.remove('hidden');
-            listEl.innerHTML = '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Heutige Trainings</h3><div id="todays-sessions-list" class="space-y-2"></div></div>';
+            listEl.innerHTML =
+                '<div class="mb-4"><h3 class="font-semibold text-gray-700 mb-2">Heutige Trainings</h3><div id="todays-sessions-list" class="space-y-2"></div></div>';
 
             const sessionsListEl = document.getElementById('todays-sessions-list');
 
@@ -402,9 +434,9 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
     unsubscribes.push(sessionsListener);
 
     // Keep existing match loading (will be updated later for session-based matches)
-    const matchDocRef = doc(db, "trainingMatches", `${userData.clubId}_${today}`);
+    const matchDocRef = doc(db, 'trainingMatches', `${userData.clubId}_${today}`);
 
-    const matchListener = onSnapshot(matchDocRef, (docSnap) => {
+    const matchListener = onSnapshot(matchDocRef, docSnap => {
         if (docSnap.exists()) {
             container.classList.remove('hidden');
             const data = docSnap.data();
@@ -412,7 +444,8 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
             listEl.innerHTML = '';
 
             if (Object.keys(groups).length === 0 && !data.leftoverPlayer) {
-                listEl.innerHTML = '<p class="text-center text-gray-500 py-4">Für heute wurden noch keine Matches erstellt.</p>';
+                listEl.innerHTML =
+                    '<p class="text-center text-gray-500 py-4">Für heute wurden noch keine Matches erstellt.</p>';
                 return;
             }
 
@@ -423,8 +456,11 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
                 ul.className = 'space-y-2';
 
                 groups[groupName].forEach(match => {
-                    const isMyMatch = match.playerA.id === userData.id || match.playerB.id === userData.id;
-                    const highlightClass = isMyMatch ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200' : 'bg-gray-50';
+                    const isMyMatch =
+                        match.playerA.id === userData.id || match.playerB.id === userData.id;
+                    const highlightClass = isMyMatch
+                        ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200'
+                        : 'bg-gray-50';
 
                     let handicapHTML = '';
                     if (match.handicap) {
@@ -458,7 +494,6 @@ export function loadTodaysMatches(userData, db, unsubscribes) {
                 leftoverEl.textContent = `${data.leftoverPlayer.name} sitzt diese Runde aus.`;
                 listEl.appendChild(leftoverEl);
             }
-
         } else {
             container.classList.add('hidden');
         }
@@ -500,7 +535,8 @@ async function loadPairingsForSession(sessionId, userData, db) {
             html += '<ul class="space-y-1">';
 
             matches.forEach(match => {
-                const isMyMatch = match.playerA.id === userData.id || match.playerB.id === userData.id;
+                const isMyMatch =
+                    match.playerA.id === userData.id || match.playerB.id === userData.id;
                 const highlightClass = isMyMatch ? 'bg-yellow-50 border-yellow-400 font-bold' : '';
 
                 let handicapHTML = '';
@@ -524,14 +560,15 @@ async function loadPairingsForSession(sessionId, userData, db) {
 
         if (pairingsData.leftoverPlayer) {
             const isLeftover = pairingsData.leftoverPlayer.id === userData.id;
-            const leftoverClass = isLeftover ? 'bg-orange-100 text-orange-700 font-bold' : 'text-gray-500';
+            const leftoverClass = isLeftover
+                ? 'bg-orange-100 text-orange-700 font-bold'
+                : 'text-gray-500';
             html += `<p class="text-xs ${leftoverClass} mt-1">${pairingsData.leftoverPlayer.name.split(' ')[0]} sitzt aus</p>`;
         }
 
         html += '</div>';
 
         container.innerHTML = html;
-
     } catch (error) {
         console.error('Error loading pairings for session:', error);
     }
@@ -558,7 +595,7 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
-        day: 'numeric'
+        day: 'numeric',
     });
 
     modalTitle.textContent = `Training am ${formattedDate}`;
@@ -577,9 +614,11 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         // Check if player attended THIS SPECIFIC SESSION
         // IMPORTANT: Must check sessionId to distinguish multiple trainings on same day
         const attendance = attendanceForDate.find(a => {
-            return a.sessionId === session.id &&
-                   a.presentPlayerIds &&
-                   a.presentPlayerIds.includes(playerId);
+            return (
+                a.sessionId === session.id &&
+                a.presentPlayerIds &&
+                a.presentPlayerIds.includes(playerId)
+            );
         });
 
         const attended = attendance !== undefined;
@@ -619,25 +658,43 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
                             <div class="w-3 h-3 rounded-full" style="background-color: ${subgroupColor};"></div>
                             <span>${subgroupName}</span>
                         </div>
-                        ${isCompleted && session.completedExercises && session.completedExercises.length > 0 ? `
+                        ${
+                            isCompleted &&
+                            session.completedExercises &&
+                            session.completedExercises.length > 0
+                                ? `
                             <div class="text-xs text-gray-600 mt-2">
                                 <div class="font-medium mb-1">Durchgeführte Übungen:</div>
                                 <ul class="list-disc list-inside pl-2 space-y-0.5">
-                                    ${session.completedExercises.map(ex => `
+                                    ${session.completedExercises
+                                        .map(
+                                            ex => `
                                         <li>${ex.name} <span class="text-gray-500">(+${ex.points} Pkt)</span></li>
-                                    `).join('')}
+                                    `
+                                        )
+                                        .join('')}
                                 </ul>
                             </div>
-                        ` : (!isCompleted && session.plannedExercises && session.plannedExercises.length > 0 ? `
+                        `
+                                : !isCompleted &&
+                                    session.plannedExercises &&
+                                    session.plannedExercises.length > 0
+                                  ? `
                             <div class="text-xs text-gray-600 mt-2">
                                 <div class="font-medium mb-1">Geplante Übungen:</div>
                                 <ul class="list-disc list-inside pl-2 space-y-0.5">
-                                    ${session.plannedExercises.map(ex => `
+                                    ${session.plannedExercises
+                                        .map(
+                                            ex => `
                                         <li>${ex.name} <span class="text-gray-500">(+${ex.points} Pkt)</span></li>
-                                    `).join('')}
+                                    `
+                                        )
+                                        .join('')}
                                 </ul>
                             </div>
-                        ` : '')}
+                        `
+                                  : ''
+                        }
                     </div>
                     <div class="text-sm font-medium ${statusColor}">
                         ${statusText}
@@ -676,7 +733,7 @@ if (typeof window !== 'undefined') {
         // Close modal when clicking outside
         const modal = document.getElementById('training-day-modal');
         if (modal) {
-            modal.addEventListener('click', (e) => {
+            modal.addEventListener('click', e => {
                 if (e.target === modal) {
                     closeTrainingDayModal();
                 }

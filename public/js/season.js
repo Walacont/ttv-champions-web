@@ -1,4 +1,15 @@
-import { collection, doc, getDocs, query, where, updateDoc, writeBatch, serverTimestamp, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    doc,
+    getDocs,
+    query,
+    where,
+    updateDoc,
+    writeBatch,
+    serverTimestamp,
+    deleteDoc,
+    getDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT } from './leaderboard.js';
 import { loadLeaderboardForCoach } from './leaderboard.js';
 import { getSeasonEndDate } from './ui-utils.js';
@@ -31,7 +42,9 @@ export async function checkAndResetClubSeason(clubId, db) {
  * @param {Object} db - Firestore database instance
  */
 export async function handleSeasonReset(userId, userData, db) {
-    console.warn('⚠️ handleSeasonReset called - this is deprecated. Cloud Function handles resets.');
+    console.warn(
+        '⚠️ handleSeasonReset called - this is deprecated. Cloud Function handles resets.'
+    );
     // Function body kept for reference but does nothing
     return;
 
@@ -61,7 +74,11 @@ export async function loadLeaguesForSelector(clubId, db, setUnsubscribeCallback)
     const coachLeagueSelect = document.getElementById('coach-league-select');
     if (!coachLeagueSelect) return;
 
-    const q = query(collection(db, "users"), where("clubId", "==", clubId), where("role", "==", "player"));
+    const q = query(
+        collection(db, 'users'),
+        where('clubId', '==', clubId),
+        where('role', '==', 'player')
+    );
 
     try {
         const querySnapshot = await getDocs(q);
@@ -71,11 +88,14 @@ export async function loadLeaguesForSelector(clubId, db, setUnsubscribeCallback)
         coachLeagueSelect.innerHTML = '';
         leagues.forEach(league => {
             const button = document.createElement('button');
-            button.className = 'league-select-btn border-2 border-gray-300 rounded-full px-4 py-1 text-sm font-medium hover:bg-gray-200';
+            button.className =
+                'league-select-btn border-2 border-gray-300 rounded-full px-4 py-1 text-sm font-medium hover:bg-gray-200';
             button.textContent = league;
             button.dataset.league = league;
             button.addEventListener('click', () => {
-                document.querySelectorAll('.league-select-btn').forEach(btn => btn.classList.remove('league-select-btn-active'));
+                document
+                    .querySelectorAll('.league-select-btn')
+                    .forEach(btn => btn.classList.remove('league-select-btn-active'));
                 button.classList.add('league-select-btn-active');
                 loadLeaderboardForCoach(clubId, league, db, setUnsubscribeCallback);
             });
@@ -89,6 +109,6 @@ export async function loadLeaguesForSelector(clubId, db, setUnsubscribeCallback)
             loadLeaderboardForCoach(clubId, 'Bronze', db, setUnsubscribeCallback);
         }
     } catch (error) {
-        console.error("Fehler beim Laden der Ligen:", error);
+        console.error('Fehler beim Laden der Ligen:', error);
     }
 }
