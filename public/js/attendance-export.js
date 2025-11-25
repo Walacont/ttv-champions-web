@@ -1,0 +1,368 @@
+import {
+    collection,
+    query,
+    where,
+    orderBy,
+    getDocs,
+    getDoc,
+    doc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+
+/**
+ * Attendance Export Module
+ * Handles exporting attendance data to Excel format
+ */
+
+/**
+ * Exports attendance data for a specific month to Excel
+ * @param {Object} db - Firestore database instance
+ * @param {string} clubId - Club ID
+ * @param {Date} date - The month to export (year/month will be extracted)
+ * @param {string} subgroupFilter - Subgroup ID or 'all' for all subgroups
+ */
+export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter = 'all') {
+    try {
+        // Show loading indicator
+        const loadingEl = document.getElementById('export-loading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+        const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+        console.log(`[Export] Loading attendance data for ${year}-${month + 1}`);
+
+        // Load subgroups for name mapping
+        const subgroupsSnapshot = await getDocs(
+            query(collection(db, 'subgroups'), where('clubId', '==', clubId))
+        );
+        const subgroupsMap = new Map();
+        subgroupsSnapshot.forEach(doc => {
+            const data = doc.data();
+            subgroupsMap.set(doc.id, data.name || doc.id);
+        });
+
+        // Load training sessions for the month
+        let sessionsQuery;
+        if (subgroupFilter === 'all') {
+            sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false),
+                orderBy('date', 'asc')
+            );
+        } else {
+            sessionsQuery = query(
+                collection(db, 'trainingSessions'),
+                where('clubId', '==', clubId),
+                where('subgroupId', '==', subgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                where('cancelled', '==', false),
+                orderBy('date', 'asc')
+            );
+        }
+
+        const sessionsSnapshot = await getDocs(sessionsQuery);
+        const sessions = sessionsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        console.log(`[Export] Loaded ${sessions.length} training sessions`);
+
+        // Load attendance records for the month
+        let attendanceQuery;
+        if (subgroupFilter === 'all') {
+            attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                orderBy('date', 'asc')
+            );
+        } else {
+            attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', clubId),
+                where('subgroupId', '==', subgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate),
+                orderBy('date', 'asc')
+            );
+        }
+
+        const attendanceSnapshot = await getDocs(attendanceQuery);
+        const attendanceRecords = new Map();
+        attendanceSnapshot.forEach(doc => {
+            const data = doc.data();
+            const key = `${data.date}_${data.sessionId || data.subgroupId}`;
+            attendanceRecords.set(key, data);
+        });
+
+        console.log(`[Export] Loaded ${attendanceRecords.size} attendance records`);
+
+        // Load all players
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'player'),
+            orderBy('lastName', 'asc')
+        );
+        const playersSnapshot = await getDocs(playersQuery);
+        const players = playersSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        console.log(`[Export] Loaded ${players.length} players`);
+
+        // Filter players by subgroup if needed
+        let filteredPlayers = players;
+        if (subgroupFilter !== 'all') {
+            filteredPlayers = players.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(subgroupFilter)
+            );
+        }
+
+        // Build Excel data structure
+        const excelData = [];
+
+        // Add header row
+        excelData.push([
+            'Datum',
+            'Wochentag',
+            'Uhrzeit',
+            'Gruppe',
+            'Spieler',
+            'Anwesend',
+            'Punkte erhalten',
+        ]);
+
+        // Process each session
+        for (const session of sessions) {
+            const sessionDate = new Date(session.date + 'T12:00:00');
+            const formattedDate = sessionDate.toLocaleDateString('de-DE', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
+            const weekday = sessionDate.toLocaleDateString('de-DE', { weekday: 'long' });
+            const timeRange = `${session.startTime}-${session.endTime}`;
+            const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
+
+            // Get attendance for this session
+            const attendanceKey = `${session.date}_${session.id}`;
+            const attendance = attendanceRecords.get(attendanceKey);
+            const presentPlayerIds = attendance ? attendance.presentPlayerIds || [] : [];
+
+            // Filter players for this session's subgroup
+            const sessionPlayers = filteredPlayers.filter(
+                p => p.subgroupIDs && p.subgroupIDs.includes(session.subgroupId)
+            );
+
+            // Add row for each player
+            for (const player of sessionPlayers) {
+                const isPresent = presentPlayerIds.includes(player.id);
+                const playerName = `${player.firstName} ${player.lastName}`;
+
+                // Calculate points (simplified - actual calculation is more complex)
+                let points = '';
+                if (isPresent) {
+                    points = '3-6'; // Base points range depending on streak
+                }
+
+                excelData.push([
+                    formattedDate,
+                    weekday,
+                    timeRange,
+                    subgroupName,
+                    playerName,
+                    isPresent ? 'Ja' : 'Nein',
+                    points,
+                ]);
+            }
+        }
+
+        console.log(`[Export] Generated ${excelData.length} rows for Excel`);
+
+        // Create Excel workbook using SheetJS
+        const wb = window.XLSX.utils.book_new();
+        const ws = window.XLSX.utils.aoa_to_sheet(excelData);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 12 }, // Datum
+            { wch: 12 }, // Wochentag
+            { wch: 12 }, // Uhrzeit
+            { wch: 15 }, // Gruppe
+            { wch: 20 }, // Spieler
+            { wch: 10 }, // Anwesend
+            { wch: 15 }, // Punkte
+        ];
+
+        // Add worksheet to workbook
+        const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+        window.XLSX.utils.book_append_sheet(wb, ws, monthName);
+
+        // Generate filename
+        const filename = `Anwesenheit_${year}_${String(month + 1).padStart(2, '0')}.xlsx`;
+
+        // Download the file
+        window.XLSX.writeFile(wb, filename);
+
+        console.log(`[Export] ✓ Excel file downloaded: ${filename}`);
+
+        // Hide loading indicator
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        return true;
+    } catch (error) {
+        console.error('[Export] Error exporting attendance:', error);
+
+        // Hide loading indicator
+        const loadingEl = document.getElementById('export-loading');
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        alert(`Fehler beim Exportieren: ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * Exports a summary view with totals per player
+ * @param {Object} db - Firestore database instance
+ * @param {string} clubId - Club ID
+ * @param {Date} date - The month to export
+ * @param {string} subgroupFilter - Subgroup ID or 'all'
+ */
+export async function exportAttendanceSummary(db, clubId, date, subgroupFilter = 'all') {
+    try {
+        const loadingEl = document.getElementById('export-loading');
+        if (loadingEl) loadingEl.classList.remove('hidden');
+
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const startDate = new Date(year, month, 1).toISOString().split('T')[0];
+        const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
+
+        console.log(`[Export Summary] Loading data for ${year}-${month + 1}`);
+
+        // Load attendance records
+        let attendanceQuery;
+        if (subgroupFilter === 'all') {
+            attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', clubId),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+        } else {
+            attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', clubId),
+                where('subgroupId', '==', subgroupFilter),
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+        }
+
+        const attendanceSnapshot = await getDocs(attendanceQuery);
+
+        // Load players
+        const playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'player'),
+            orderBy('lastName', 'asc')
+        );
+        const playersSnapshot = await getDocs(playersQuery);
+        const playersMap = new Map();
+        playersSnapshot.forEach(doc => {
+            const data = doc.data();
+            playersMap.set(doc.id, {
+                id: doc.id,
+                name: `${data.firstName} ${data.lastName}`,
+                ...data,
+            });
+        });
+
+        // Count attendance per player
+        const playerStats = new Map();
+
+        attendanceSnapshot.forEach(doc => {
+            const data = doc.data();
+            const presentPlayerIds = data.presentPlayerIds || [];
+
+            presentPlayerIds.forEach(playerId => {
+                if (!playerStats.has(playerId)) {
+                    playerStats.set(playerId, { count: 0, dates: [] });
+                }
+                const stats = playerStats.get(playerId);
+                stats.count++;
+                stats.dates.push(data.date);
+            });
+        });
+
+        // Build summary data
+        const summaryData = [];
+        summaryData.push(['Spieler', 'Trainingsteilnahmen', 'Anwesenheitsrate']);
+
+        // Calculate total number of training sessions
+        const totalSessions = attendanceSnapshot.size;
+
+        for (const [playerId, stats] of playerStats) {
+            const player = playersMap.get(playerId);
+            if (!player) continue;
+
+            // Filter by subgroup if needed
+            if (
+                subgroupFilter !== 'all' &&
+                (!player.subgroupIDs || !player.subgroupIDs.includes(subgroupFilter))
+            ) {
+                continue;
+            }
+
+            const attendanceRate =
+                totalSessions > 0 ? ((stats.count / totalSessions) * 100).toFixed(1) : '0.0';
+
+            summaryData.push([player.name, stats.count, `${attendanceRate}%`]);
+        }
+
+        // Sort by attendance count (descending)
+        summaryData.slice(1).sort((a, b) => b[1] - a[1]);
+
+        // Create Excel workbook
+        const wb = window.XLSX.utils.book_new();
+        const ws = window.XLSX.utils.aoa_to_sheet(summaryData);
+
+        ws['!cols'] = [
+            { wch: 25 }, // Spieler
+            { wch: 20 }, // Trainingsteilnahmen
+            { wch: 18 }, // Anwesenheitsrate
+        ];
+
+        const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Zusammenfassung');
+
+        const filename = `Anwesenheit_Zusammenfassung_${year}_${String(month + 1).padStart(2, '0')}.xlsx`;
+        window.XLSX.writeFile(wb, filename);
+
+        console.log(`[Export Summary] ✓ Excel file downloaded: ${filename}`);
+
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        return true;
+    } catch (error) {
+        console.error('[Export Summary] Error:', error);
+
+        const loadingEl = document.getElementById('export-loading');
+        if (loadingEl) loadingEl.classList.add('hidden');
+
+        alert(`Fehler beim Exportieren: ${error.message}`);
+        return false;
+    }
+}
