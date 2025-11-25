@@ -42,20 +42,6 @@ const WIDGETS = [
         essential: true, // Cannot be disabled - required for match system
     },
     {
-        id: 'supercompensation',
-        name: '💪 Trainings-Balance',
-        description: 'Superkompensations-Analyse für optimales Training',
-        default: false,
-        essential: false,
-    },
-    {
-        id: 'training-stats',
-        name: '📈 Trainings-Statistiken',
-        description: 'Heatmap und Monatsvergleich deiner Trainings',
-        default: false,
-        essential: false,
-    },
-    {
         id: 'rank',
         name: '🏆 Dein Rang',
         description: 'Deine aktuelle Rangstufe und Fortschritt',
