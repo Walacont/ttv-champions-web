@@ -1,319 +1,340 @@
 <script setup>
-import { ref, computed } from 'vue'
-import { collection, query, where, orderBy, limit } from 'firebase/firestore'
+import { ref, computed, watch } from 'vue'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { useCollection } from 'vuefire'
 import { db } from '@/config/firebase'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 
-// Current month
-const currentDate = ref(new Date())
+// Subgroup filter
+const currentSubgroupFilter = ref('all')
 
-const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-
-const currentMonthName = computed(() => {
-  return `${monthNames[currentDate.value.getMonth()]} ${currentDate.value.getFullYear()}`
-})
-
-// Navigate months
-function prevMonth() {
-  currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() - 1, 1)
-}
-
-function nextMonth() {
-  currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + 1, 1)
-}
-
-function goToToday() {
-  currentDate.value = new Date()
-}
-
-// Attendance records
-const attendanceQuery = computed(() => {
-  if (!userStore.userData?.id) return null
+// Load subgroups for filter
+const subgroupsQuery = computed(() => {
+  if (!userStore.clubId) return null
   return query(
-    collection(db, 'attendance'),
-    where('userId', '==', userStore.userData.id),
-    orderBy('date', 'desc'),
-    limit(100)
+    collection(db, 'subgroups'),
+    where('clubId', '==', userStore.clubId)
   )
+})
+const subgroups = useCollection(subgroupsQuery)
+
+// Attendance records - FIXED: Use presentPlayerIds array-contains
+const attendanceQuery = computed(() => {
+  if (!userStore.userData?.id || !userStore.clubId) return null
+
+  const constraints = [
+    where('clubId', '==', userStore.clubId),
+    where('presentPlayerIds', 'array-contains', userStore.userData.id)
+  ]
+
+  // Add subgroup filter if not 'all'
+  if (currentSubgroupFilter.value !== 'all') {
+    constraints.push(where('subgroupId', '==', currentSubgroupFilter.value))
+  }
+
+  return query(collection(db, 'attendance'), ...constraints)
 })
 const attendanceRecords = useCollection(attendanceQuery)
 
-// Training sessions (for club)
-const trainingSessionsQuery = computed(() => {
-  if (!userStore.clubId) return null
-  return query(
-    collection(db, 'trainingSessions'),
-    where('clubId', '==', userStore.clubId),
-    orderBy('date', 'desc'),
-    limit(50)
-  )
+// Get training dates for stats (last 12 months)
+const trainingDates = computed(() => {
+  if (!attendanceRecords.value) return []
+
+  const oneYearAgo = new Date()
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+  const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0]
+
+  return attendanceRecords.value
+    .map(record => typeof record.date === 'string' ? record.date : record.date?.toDate?.()?.toISOString().split('T')[0])
+    .filter(date => date && date >= oneYearAgoStr)
+    .sort()
 })
-const trainingSessions = useCollection(trainingSessionsQuery)
 
-// Calendar days
-const calendarDays = computed(() => {
-  const year = currentDate.value.getFullYear()
-  const month = currentDate.value.getMonth()
-  const firstDay = new Date(year, month, 1)
-  const lastDay = new Date(year, month + 1, 0)
-  const days = []
-  const today = new Date().toISOString().split('T')[0]
+// Calculate monthly stats (this month vs last month)
+const monthlyStats = computed(() => {
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
 
-  // Add empty days for alignment (week starts on Monday)
-  const firstDayOfWeek = firstDay.getDay() || 7 // Convert Sunday (0) to 7
-  for (let i = 1; i < firstDayOfWeek; i++) {
-    days.push({ day: null, status: null, isToday: false })
-  }
+  const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1
+  const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear
 
-  // Add days of month
-  for (let d = 1; d <= lastDay.getDate(); d++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-    const record = attendanceRecords.value?.find(r => {
-      const recordDate = r.date?.toDate ? r.date.toDate() : new Date(r.date)
-      return recordDate.toISOString().split('T')[0] === dateStr
-    })
+  let currentMonthCount = 0
+  let lastMonthCount = 0
 
-    // Check if there was a training session on this date
-    const hadTraining = trainingSessions.value?.some(s => {
-      const sessionDate = s.date?.toDate ? s.date.toDate() : new Date(s.date)
-      return sessionDate.toISOString().split('T')[0] === dateStr
-    })
+  trainingDates.value.forEach(dateStr => {
+    const date = new Date(dateStr + 'T12:00:00')
+    const month = date.getMonth()
+    const year = date.getFullYear()
 
-    let status = null
-    if (record?.present) {
-      status = 'present'
-    } else if (record?.present === false || (hadTraining && !record?.present)) {
-      status = 'missed'
+    if (year === currentYear && month === currentMonth) {
+      currentMonthCount++
+    } else if (year === lastMonthYear && month === lastMonth) {
+      lastMonthCount++
     }
+  })
 
-    days.push({
-      day: d,
-      status,
-      isToday: dateStr === today,
-      hadTraining,
-      date: dateStr
-    })
+  // Calculate trend
+  let trend = 'neutral'
+  let trendPercentage = 0
+
+  if (lastMonthCount > 0) {
+    const change = currentMonthCount - lastMonthCount
+    trendPercentage = Math.round((change / lastMonthCount) * 100)
+
+    if (change > 0) trend = 'up'
+    else if (change < 0) trend = 'down'
+  } else if (currentMonthCount > 0) {
+    trend = 'up'
+    trendPercentage = 100
   }
 
-  return days
-})
-
-// Stats
-const stats = computed(() => {
-  const records = attendanceRecords.value || []
-  const present = records.filter(r => r.present).length
-  const missed = records.filter(r => r.present === false).length
-  const total = present + missed
   return {
-    present,
-    missed,
-    total,
-    percentage: total > 0 ? Math.round((present / total) * 100) : 0
+    currentMonthCount,
+    lastMonthCount,
+    trend,
+    trendPercentage
   }
 })
 
-// Calculate current streak
-const streak = computed(() => {
-  const records = attendanceRecords.value || []
-  const presentRecords = records
-    .filter(r => r.present)
-    .map(r => {
-      const date = r.date?.toDate ? r.date.toDate() : new Date(r.date)
-      return date.toISOString().split('T')[0]
+// Calculate weekly average (last 4 weeks)
+const weeklyAverage = computed(() => {
+  const fourWeeksAgo = new Date()
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28)
+  const fourWeeksAgoStr = fourWeeksAgo.toISOString().split('T')[0]
+
+  const recentTrainings = trainingDates.value.filter(d => d >= fourWeeksAgoStr)
+  return (recentTrainings.length / 4).toFixed(1)
+})
+
+// GitHub-style heatmap data (last 52 weeks)
+const heatmapData = computed(() => {
+  const dateMap = new Set(trainingDates.value)
+
+  const now = new Date()
+  const startDate = new Date(now)
+  startDate.setDate(startDate.getDate() - (52 * 7))
+
+  // Find first Sunday
+  while (startDate.getDay() !== 0) {
+    startDate.setDate(startDate.getDate() - 1)
+  }
+
+  const weeks = []
+  let currentWeek = []
+  const currentDate = new Date(startDate)
+
+  while (currentDate <= now) {
+    const dateStr = currentDate.toISOString().split('T')[0]
+    const hasTraining = dateMap.has(dateStr)
+
+    currentWeek.push({
+      date: dateStr,
+      hasTraining,
+      dayOfWeek: currentDate.getDay()
     })
-    .sort((a, b) => b.localeCompare(a)) // Sort descending
 
-  if (presentRecords.length === 0) return 0
-
-  let currentStreak = 0
-  let checkDate = new Date()
-
-  // Check for consecutive days
-  for (let i = 0; i < 100; i++) {
-    const dateStr = checkDate.toISOString().split('T')[0]
-    if (presentRecords.includes(dateStr)) {
-      currentStreak++
-    } else {
-      // Allow for one day gap (weekend, etc.)
-      checkDate.setDate(checkDate.getDate() - 1)
-      const prevDateStr = checkDate.toISOString().split('T')[0]
-      if (!presentRecords.includes(prevDateStr)) {
-        break
-      }
+    if (currentDate.getDay() === 6) {
+      weeks.push(currentWeek)
+      currentWeek = []
     }
-    checkDate.setDate(checkDate.getDate() - 1)
+
+    currentDate.setDate(currentDate.getDate() + 1)
   }
 
-  return currentStreak
+  if (currentWeek.length > 0) {
+    weeks.push(currentWeek)
+  }
+
+  return weeks
 })
 
-// Best streak (from user data)
-const bestStreak = computed(() => {
-  return userStore.userData?.bestStreak || streak.value
+// Month labels for heatmap
+const monthLabels = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+
+// Recent attendance with session details
+const recentAttendanceWithDetails = computed(() => {
+  if (!attendanceRecords.value) return []
+
+  return attendanceRecords.value
+    .slice()
+    .sort((a, b) => {
+      const dateA = typeof a.date === 'string' ? a.date : a.date?.toDate?.()?.toISOString().split('T')[0]
+      const dateB = typeof b.date === 'string' ? b.date : b.date?.toDate?.()?.toISOString().split('T')[0]
+      return dateB.localeCompare(dateA)
+    })
+    .slice(0, 10)
+    .map(record => {
+      // Find subgroup name
+      const subgroup = subgroups.value?.find(s => s.id === record.subgroupId)
+
+      return {
+        id: record.id,
+        date: typeof record.date === 'string' ? record.date : record.date?.toDate?.()?.toISOString().split('T')[0],
+        subgroupName: subgroup?.name || 'Training',
+        subgroupColor: subgroup?.color || '#6366f1'
+      }
+    })
 })
 
-// Recent attendance
-const recentAttendance = computed(() => {
-  return (attendanceRecords.value || []).slice(0, 5)
-})
+function formatDate(dateStr) {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr + 'T12:00:00')
+  return date.toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
 
-function formatDate(timestamp) {
-  if (!timestamp) return '-'
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-  return date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+function getSubgroupName(subgroupId) {
+  const subgroup = subgroups.value?.find(s => s.id === subgroupId)
+  return subgroup?.name || 'Unbekannt'
 }
 </script>
 
 <template>
   <div class="space-y-6">
-    <!-- Streak & Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <!-- Current Streak -->
-      <div class="bg-gradient-to-br from-orange-50 to-yellow-50 p-4 rounded-xl shadow-md border border-orange-200">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-2xl">🔥</span>
-          <span class="text-sm font-semibold text-orange-800">Aktuelle Serie</span>
-        </div>
-        <div class="text-3xl font-bold text-orange-600">{{ streak }}</div>
-        <div class="text-xs text-orange-700">Trainings in Folge</div>
-      </div>
-
-      <!-- Best Streak -->
-      <div class="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl shadow-md border border-purple-200">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-2xl">⭐</span>
-          <span class="text-sm font-semibold text-purple-800">Beste Serie</span>
-        </div>
-        <div class="text-3xl font-bold text-purple-600">{{ bestStreak }}</div>
-        <div class="text-xs text-purple-700">Persönlicher Rekord</div>
-      </div>
-
-      <!-- Attendance Rate -->
-      <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl shadow-md border border-green-200">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-2xl">📊</span>
-          <span class="text-sm font-semibold text-green-800">Quote</span>
-        </div>
-        <div class="text-3xl font-bold text-green-600">{{ stats.percentage }}%</div>
-        <div class="text-xs text-green-700">Anwesenheitsquote</div>
-      </div>
-
-      <!-- Total Trainings -->
-      <div class="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl shadow-md border border-blue-200">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-2xl">🏆</span>
-          <span class="text-sm font-semibold text-blue-800">Gesamt</span>
-        </div>
-        <div class="text-3xl font-bold text-blue-600">{{ stats.present }}</div>
-        <div class="text-xs text-blue-700">Trainings besucht</div>
+    <!-- Subgroup Filter -->
+    <div v-if="subgroups && subgroups.length > 1" class="bg-white p-4 rounded-xl shadow-md">
+      <div class="flex items-center gap-3">
+        <label class="text-sm font-medium text-gray-700">Untergruppe:</label>
+        <select
+          v-model="currentSubgroupFilter"
+          class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="all">Alle Untergruppen</option>
+          <option v-for="subgroup in subgroups" :key="subgroup.id" :value="subgroup.id">
+            {{ subgroup.name }}
+          </option>
+        </select>
       </div>
     </div>
 
-    <!-- Calendar -->
+    <!-- Monthly Stats (like original) -->
+    <div class="grid grid-cols-3 gap-4">
+      <!-- This Month -->
+      <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+        <p class="text-xs text-blue-700 font-medium mb-1">Dieser Monat</p>
+        <p class="text-3xl font-bold text-blue-900">{{ monthlyStats.currentMonthCount }}</p>
+        <p class="text-xs text-blue-600 mt-1">Trainings</p>
+      </div>
+
+      <!-- Last Month -->
+      <div class="bg-gradient-to-br from-gray-50 to-slate-50 p-4 rounded-lg border border-gray-200">
+        <p class="text-xs text-gray-700 font-medium mb-1">Letzter Monat</p>
+        <p class="text-3xl font-bold text-gray-900">{{ monthlyStats.lastMonthCount }}</p>
+        <p class="text-xs text-gray-600 mt-1">Trainings</p>
+      </div>
+
+      <!-- Trend -->
+      <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+        <p class="text-xs text-green-700 font-medium mb-1">Trend</p>
+        <div class="mt-2">
+          <div v-if="monthlyStats.trend === 'up'" class="text-sm font-semibold text-green-600">
+            <svg class="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            +{{ Math.abs(monthlyStats.trendPercentage) }}%
+          </div>
+          <div v-else-if="monthlyStats.trend === 'down'" class="text-sm font-semibold text-red-600">
+            <svg class="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            {{ monthlyStats.trendPercentage }}%
+          </div>
+          <div v-else class="text-sm font-semibold text-gray-600">
+            <svg class="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+            </svg>
+            ±0%
+          </div>
+        </div>
+        <p class="text-xs text-green-600 mt-1">{{ weeklyAverage }}x pro Woche</p>
+      </div>
+    </div>
+
+    <!-- GitHub-style Heatmap -->
     <div class="bg-white p-6 rounded-xl shadow-md">
       <div class="flex items-center justify-between mb-4">
-        <button @click="prevMonth" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <div class="text-center">
-          <h3 class="text-lg font-semibold text-gray-900">{{ currentMonthName }}</h3>
-          <button @click="goToToday" class="text-xs text-indigo-600 hover:text-indigo-800">Heute</button>
-        </div>
-        <button @click="nextMonth" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+        <h2 class="text-xl font-semibold text-gray-800">📈 Aktivitätsverlauf</h2>
+        <span class="text-xs text-gray-500">Letztes Jahr</span>
       </div>
 
-      <!-- Weekday headers -->
-      <div class="grid grid-cols-7 gap-1 mb-2">
-        <div v-for="day in weekDays" :key="day" class="text-center text-xs text-gray-500 font-medium py-2">
-          {{ day }}
-        </div>
-      </div>
+      <div class="overflow-x-auto pb-2">
+        <svg :width="heatmapData.length * 15" :height="7 * 15" class="min-w-full">
+          <!-- Draw cells -->
+          <g v-for="(week, weekIndex) in heatmapData" :key="weekIndex">
+            <rect
+              v-for="day in week"
+              :key="day.date"
+              :x="weekIndex * 15"
+              :y="day.dayOfWeek * 15"
+              width="12"
+              height="12"
+              rx="2"
+              :fill="day.hasTraining ? '#10b981' : '#e5e7eb'"
+              :class="day.hasTraining ? 'hover:opacity-80 cursor-pointer' : 'hover:opacity-80'"
+            >
+              <title>{{ day.date }}{{ day.hasTraining ? ' - Training' : '' }}</title>
+            </rect>
+          </g>
 
-      <!-- Calendar grid -->
-      <div class="grid grid-cols-7 gap-1">
-        <div
-          v-for="(dayInfo, index) in calendarDays"
-          :key="index"
-          class="aspect-square flex items-center justify-center text-sm rounded-lg transition-colors"
-          :class="{
-            'bg-green-500 text-white font-bold': dayInfo.status === 'present',
-            'bg-red-400 text-white': dayInfo.status === 'missed',
-            'bg-gray-100 hover:bg-gray-200': !dayInfo.status && dayInfo.day,
-            'ring-2 ring-indigo-500 ring-offset-1': dayInfo.isToday,
-            'cursor-default': !dayInfo.day
-          }"
-          :title="dayInfo.status === 'present' ? 'Anwesend' : (dayInfo.status === 'missed' ? 'Gefehlt' : '')"
-        >
-          <span v-if="dayInfo.day">{{ dayInfo.day }}</span>
-        </div>
+          <!-- Month labels -->
+          <g v-for="(week, weekIndex) in heatmapData" :key="'label-' + weekIndex">
+            <text
+              v-if="week.length > 0 && new Date(week[0].date + 'T12:00:00').getDate() === 1"
+              :x="weekIndex * 15"
+              y="-5"
+              font-size="10"
+              fill="#6b7280"
+            >
+              {{ monthLabels[new Date(week[0].date + 'T12:00:00').getMonth()] }}
+            </text>
+          </g>
+        </svg>
       </div>
 
       <!-- Legend -->
-      <div class="flex justify-center flex-wrap gap-4 mt-4 text-sm">
-        <div class="flex items-center">
-          <div class="w-4 h-4 bg-green-500 rounded mr-2"></div>
-          <span class="text-gray-700">Anwesend ({{ stats.present }})</span>
-        </div>
-        <div class="flex items-center">
-          <div class="w-4 h-4 bg-red-400 rounded mr-2"></div>
-          <span class="text-gray-700">Gefehlt ({{ stats.missed }})</span>
-        </div>
-        <div class="flex items-center">
-          <div class="w-4 h-4 bg-gray-100 border rounded mr-2"></div>
-          <span class="text-gray-700">Kein Training</span>
-        </div>
+      <div class="flex items-center gap-2 mt-3 text-xs text-gray-600">
+        <span>Weniger</span>
+        <div class="w-3 h-3 bg-gray-200 rounded-sm"></div>
+        <div class="w-3 h-3 bg-green-500 rounded-sm"></div>
+        <span>Mehr</span>
       </div>
     </div>
 
-    <!-- Recent Attendance -->
+    <!-- Recent Attendance with Session Details -->
     <div class="bg-white p-6 rounded-xl shadow-md">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Letzte Trainings</h3>
-      <div v-if="recentAttendance.length" class="space-y-2">
+      <div v-if="recentAttendanceWithDetails.length" class="space-y-2">
         <div
-          v-for="record in recentAttendance"
+          v-for="record in recentAttendanceWithDetails"
           :key="record.id"
-          class="flex items-center justify-between p-3 rounded-lg"
-          :class="record.present ? 'bg-green-50' : 'bg-red-50'"
+          class="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
         >
           <div class="flex items-center gap-3">
-            <span class="text-xl">{{ record.present ? '✅' : '❌' }}</span>
+            <span class="text-xl">✅</span>
             <div>
               <p class="font-medium text-gray-900">{{ formatDate(record.date) }}</p>
-              <p v-if="record.notes" class="text-xs text-gray-500">{{ record.notes }}</p>
+              <div class="flex items-center gap-2 mt-1">
+                <div
+                  class="w-3 h-3 rounded-full"
+                  :style="{ backgroundColor: record.subgroupColor }"
+                ></div>
+                <p class="text-xs text-gray-600">{{ record.subgroupName }}</p>
+              </div>
             </div>
           </div>
-          <span
-            class="px-2 py-1 rounded text-xs font-medium"
-            :class="record.present ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'"
-          >
-            {{ record.present ? 'Anwesend' : 'Abwesend' }}
+          <span class="px-2 py-1 rounded text-xs font-medium bg-green-200 text-green-800">
+            Anwesend
           </span>
         </div>
       </div>
       <p v-else class="text-gray-500 text-center py-4">Noch keine Anwesenheitsdaten</p>
-    </div>
-
-    <!-- Motivation -->
-    <div v-if="streak >= 3" class="bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-xl border-2 border-yellow-300">
-      <div class="flex items-center gap-3">
-        <span class="text-3xl">🔥</span>
-        <div>
-          <p class="font-bold text-yellow-900">Super Serie!</p>
-          <p class="text-sm text-yellow-800">
-            Du bist seit {{ streak }} Trainings dabei. Weiter so!
-          </p>
-        </div>
-      </div>
     </div>
   </div>
 </template>
