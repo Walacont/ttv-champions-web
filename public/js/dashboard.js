@@ -207,8 +207,13 @@ async function initializeDashboard(userData) {
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);
 
-    // Load match history (competition results)
-    loadMatchHistory(db, userData);
+    // Load match history (competition results) - initially show singles
+    loadMatchHistory(db, userData, 'singles');
+
+    // Create a global function to reload match history with different filter
+    window.reloadMatchHistory = (matchType) => {
+        loadMatchHistory(db, userData, matchType);
+    };
 
     // Initialize match suggestions (Gegnervorschläge)
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);

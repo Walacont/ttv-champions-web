@@ -26,9 +26,10 @@ let matchHistoryUnsubscribe = null;
  * Load and display match history for the current player with real-time updates
  * @param {Object} db - Firestore database instance
  * @param {Object} userData - Current user data
+ * @param {string} matchType - Type of matches to show: 'all', 'singles', or 'doubles'
  * @returns {Function} Unsubscribe function to stop listening
  */
-export function loadMatchHistory(db, userData) {
+export function loadMatchHistory(db, userData, matchType = 'all') {
   const container = document.getElementById("match-history-list");
   if (!container) {
     console.error("Match history container not found");
@@ -95,11 +96,27 @@ export function loadMatchHistory(db, userData) {
               );
             });
 
-          // Combine all matches
-          const allMatches = [...singlesMatches, ...doublesMatches].slice(0, 50);
+          // Filter matches based on matchType parameter
+          let filteredMatches = [];
+          if (matchType === 'singles') {
+            filteredMatches = singlesMatches;
+          } else if (matchType === 'doubles') {
+            filteredMatches = doublesMatches;
+          } else {
+            // 'all' - combine both
+            filteredMatches = [...singlesMatches, ...doublesMatches];
+          }
+
+          // Limit to 50 matches
+          const allMatches = filteredMatches.slice(0, 50);
 
           if (allMatches.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+            const emptyMessage = matchType === 'singles'
+              ? 'Noch keine Einzel-Wettkämpfe gespielt'
+              : matchType === 'doubles'
+              ? 'Noch keine Doppel-Wettkämpfe gespielt'
+              : 'Noch keine Wettkämpfe gespielt';
+            container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">${emptyMessage}</p>`;
             return;
           }
 

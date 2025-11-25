@@ -77,6 +77,11 @@ function switchPlayerMatchType(type) {
             handicapInfo.classList.add('hidden');
         }
     }
+
+    // Reload match history with the appropriate filter
+    if (window.reloadMatchHistory) {
+        window.reloadMatchHistory(type);
+    }
 }
 
 /**
