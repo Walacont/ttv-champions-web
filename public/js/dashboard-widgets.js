@@ -8,7 +8,7 @@ import {
     doc,
     getDoc,
     setDoc,
-    serverTimestamp
+    serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 // Widget definitions with metadata
@@ -18,78 +18,78 @@ const WIDGETS = [
         name: '📚 Info-Banner',
         description: 'Erklärt die drei Systeme: XP, Elo und Saisonpunkte',
         default: true,
-        essential: true // Cannot be disabled
+        essential: true, // Cannot be disabled
     },
     {
         id: 'statistics',
         name: '📊 Deine Statistiken',
         description: 'Zeigt XP, Elo und Saisonpunkte übersichtlich an',
         default: true,
-        essential: false
+        essential: false,
     },
     {
         id: 'season-countdown',
         name: '⏳ Saison-Countdown',
         description: 'Zeit bis zum Ende der aktuellen Saison',
         default: true,
-        essential: false
+        essential: false,
     },
     {
         id: 'match-requests',
         name: '🏓 Wettkampf-Anfragen',
         description: 'Ausstehende und eingegangene Match-Anfragen',
         default: true,
-        essential: true // Cannot be disabled - required for match system
+        essential: true, // Cannot be disabled - required for match system
     },
     {
         id: 'supercompensation',
         name: '💪 Trainings-Balance',
         description: 'Superkompensations-Analyse für optimales Training',
         default: false,
-        essential: false
+        essential: false,
     },
     {
         id: 'training-stats',
         name: '📈 Trainings-Statistiken',
         description: 'Heatmap und Monatsvergleich deiner Trainings',
         default: false,
-        essential: false
+        essential: false,
     },
     {
         id: 'rank',
         name: '🏆 Dein Rang',
         description: 'Deine aktuelle Rangstufe und Fortschritt',
         default: true,
-        essential: false
+        essential: false,
     },
     {
         id: 'skill-rival',
         name: '⚡ Skill-Rivale',
         description: 'Dein nächster Gegner in der Elo-Rangliste',
         default: true,
-        essential: false
+        essential: false,
     },
     {
         id: 'effort-rival',
         name: '💪 Fleiß-Rivale',
         description: 'Dein nächster Konkurrent in der XP-Rangliste',
         default: true,
-        essential: false
+        essential: false,
     },
     {
         id: 'points-history',
         name: '📜 Punkte-Historie',
         description: 'Deine letzten Punkteänderungen im Überblick',
         default: true,
-        essential: false
+        essential: false,
     },
     {
         id: 'challenges',
         name: '🎯 Aktive Challenges',
         description: 'Deine aktuellen Herausforderungen',
         default: true,
-        essential: false
-    }
+        essential: false,
+    },
 ];
 
 let currentSettings = {};
@@ -114,11 +114,13 @@ export function initializeWidgetSystem(firestoreInstance, userId) {
     setupWidgetControls();
 
     // Load user's saved settings in background (non-blocking)
-    loadWidgetSettings().then(() => {
-        applyWidgetSettings();
-    }).catch(error => {
-        // Use defaults if loading fails
-    });
+    loadWidgetSettings()
+        .then(() => {
+            applyWidgetSettings();
+        })
+        .catch(error => {
+            // Use defaults if loading fails
+        });
 }
 
 /**
@@ -161,7 +163,7 @@ async function saveWidgetSettings(settings) {
         const settingsRef = doc(db, 'users', currentUserId, 'preferences', 'dashboardWidgets');
         await setDoc(settingsRef, {
             widgets: settings,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         });
         return true;
     } catch (error) {
@@ -234,7 +236,8 @@ function openWidgetSettingsModal() {
         const isEssential = widget.essential;
 
         const widgetItem = document.createElement('div');
-        widgetItem.className = 'flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors';
+        widgetItem.className =
+            'flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors';
         widgetItem.innerHTML = `
             <div class="flex-1">
                 <div class="flex items-center gap-2">

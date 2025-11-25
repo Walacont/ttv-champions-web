@@ -1,14 +1,54 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 // NEU: Zusätzliche Imports für die Emulatoren
-import { getAuth, onAuthStateChanged, signOut, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
-import { getFirestore, collection, doc, getDoc, getDocs, addDoc, onSnapshot, query, deleteDoc, serverTimestamp, orderBy, updateDoc, where, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { getStorage, ref, deleteObject, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
-import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
+import {
+    getAuth,
+    onAuthStateChanged,
+    signOut,
+    connectAuthEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import {
+    getAnalytics,
+    logEvent,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
+import {
+    getFirestore,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    addDoc,
+    onSnapshot,
+    query,
+    deleteDoc,
+    serverTimestamp,
+    orderBy,
+    updateDoc,
+    where,
+    connectFirestoreEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import {
+    getStorage,
+    ref,
+    deleteObject,
+    uploadBytes,
+    getDownloadURL,
+    connectStorageEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
+import {
+    getFunctions,
+    connectFunctionsEmulator,
+    httpsCallable,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
 import { firebaseConfig } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
-import { initializeExerciseMilestones, getExerciseMilestones, isExerciseTieredPointsEnabled, initializeExercisePartnerSystem, getExercisePartnerSettings } from './milestone-management.js';
+import {
+    initializeExerciseMilestones,
+    getExerciseMilestones,
+    isExerciseTieredPointsEnabled,
+    initializeExercisePartnerSystem,
+    getExercisePartnerSettings,
+} from './milestone-management.js';
 import { initPushNotifications } from './init-notifications.js';
 
 const app = initializeApp(firebaseConfig);
@@ -22,22 +62,21 @@ const functions = getFunctions(app);
 // NEU: Der Emulator-Block
 // Dieser Code verbindet sich nur dann mit den Emulatoren,
 // wenn die Seite lokal (z.B. über Live Server) ausgeführt wird.
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    console.log("Admin.js: Verbinde mit lokalen Firebase Emulatoren...");
-    
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log('Admin.js: Verbinde mit lokalen Firebase Emulatoren...');
+
     // Auth Emulator
-    connectAuthEmulator(auth, "http://localhost:9099");
-    
+    connectAuthEmulator(auth, 'http://localhost:9099');
+
     // Firestore Emulator
-    connectFirestoreEmulator(db, "localhost", 8080);
-    
+    connectFirestoreEmulator(db, 'localhost', 8080);
+
     // Functions Emulator
-    connectFunctionsEmulator(functions, "localhost", 5001);
+    connectFunctionsEmulator(functions, 'localhost', 5001);
 
     // Storage Emulator
-    connectStorageEmulator(storage, "localhost", 9199);
+    connectStorageEmulator(storage, 'localhost', 9199);
 }
-
 
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
@@ -84,16 +123,16 @@ function showAuthError(message) {
     mainContent.style.display = 'none';
     authErrorMessage.textContent = message;
     authErrorContainer.style.display = 'flex';
-    console.error("Auth-Fehler auf Admin-Seite:", message);
+    console.error('Auth-Fehler auf Admin-Seite:', message);
 }
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async user => {
     if (user) {
         try {
-            const userDocRef = doc(db, "users", user.uid);
+            const userDocRef = doc(db, 'users', user.uid);
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
-                 const userData = userDocSnap.data();
+                const userData = userDocSnap.data();
                 if (userData.role === 'admin') {
                     initializeAdminPage(userData, user);
 
@@ -101,13 +140,13 @@ onAuthStateChanged(auth, async (user) => {
                     initPushNotifications(app, db, auth, {
                         autoPrompt: true,
                         promptDelay: 3000,
-                        showOnlyOnce: true
+                        showOnlyOnce: true,
                     });
                 } else {
-                     showAuthError(`Ihre Rolle ('${userData.role}') hat keine Admin-Berechtigung.`);
+                    showAuthError(`Ihre Rolle ('${userData.role}') hat keine Admin-Berechtigung.`);
                 }
             } else {
-                 showAuthError("Ihr Benutzerprofil wurde nicht in der Datenbank gefunden.");
+                showAuthError('Ihr Benutzerprofil wurde nicht in der Datenbank gefunden.');
             }
         } catch (error) {
             showAuthError(`Datenbankfehler: ${error.message}`);
@@ -127,7 +166,7 @@ function initializeAdminPage(userData, user) {
             page_title: 'Admin Dashboard',
             page_location: window.location.href,
             page_path: '/admin',
-            user_role: 'admin'
+            user_role: 'admin',
         });
         console.log('[Analytics] Admin page view tracked');
 
@@ -166,13 +205,13 @@ function initializeAdminPage(userData, user) {
         descriptionEditor = setupDescriptionEditor({
             textAreaId: 'exercise-description',
             toggleContainerId: 'description-toggle-container',
-            tableEditorContainerId: 'description-table-editor'
+            tableEditorContainerId: 'description-table-editor',
         });
 
         editDescriptionEditor = setupDescriptionEditor({
             textAreaId: 'edit-exercise-description',
             toggleContainerId: 'edit-description-toggle-container',
-            tableEditorContainerId: 'edit-description-table-editor'
+            tableEditorContainerId: 'edit-description-table-editor',
         });
 
         // Initialize milestone management
@@ -183,8 +222,12 @@ function initializeAdminPage(userData, user) {
 
         // Modal Listeners
         closePlayerModalButton.addEventListener('click', () => playerModal.classList.add('hidden'));
-        closeExerciseModalButton.addEventListener('click', () => exerciseModal.classList.add('hidden'));
-        closeEditExerciseModalButton.addEventListener('click', () => editExerciseModal.classList.add('hidden'));
+        closeExerciseModalButton.addEventListener('click', () =>
+            exerciseModal.classList.add('hidden')
+        );
+        closeEditExerciseModalButton.addEventListener('click', () =>
+            editExerciseModal.classList.add('hidden')
+        );
 
         // Toggle abbreviations in exercise modal
         const toggleAbbreviationsAdmin = document.getElementById('toggle-abbreviations-admin');
@@ -196,34 +239,36 @@ function initializeAdminPage(userData, user) {
                 if (isHidden) {
                     abbreviationsContentAdmin.classList.remove('hidden');
                     abbreviationsIconAdmin.style.transform = 'rotate(180deg)';
-                    toggleAbbreviationsAdmin.innerHTML = '<svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
+                    toggleAbbreviationsAdmin.innerHTML =
+                        '<svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
                 } else {
                     abbreviationsContentAdmin.classList.add('hidden');
                     abbreviationsIconAdmin.style.transform = 'rotate(0deg)';
-                    toggleAbbreviationsAdmin.innerHTML = '<svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
+                    toggleAbbreviationsAdmin.innerHTML =
+                        '<svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
                 }
             });
         }
-        
-        modalPlayerListEl.addEventListener('click', (e) => {
+
+        modalPlayerListEl.addEventListener('click', e => {
             if (e.target.classList.contains('delete-player-btn')) {
                 handleDeletePlayer(e.target.dataset.id);
             }
         });
 
-        exercisesListAdminEl.addEventListener('click', (e) => {
+        exercisesListAdminEl.addEventListener('click', e => {
             const card = e.target.closest('[data-id]');
-            if(card) {
+            if (card) {
                 openExerciseModal(card.dataset);
             }
         });
-        
+
         // *** HIER WURDE DER FEHLENDE LISTENER HINZUGEFÜGT ***
-        modalEditExerciseButton.addEventListener('click', (e) => {
+        modalEditExerciseButton.addEventListener('click', e => {
             openEditExerciseModal(e.target.dataset);
         });
 
-        modalDeleteExerciseButton.addEventListener('click', (e) => {
+        modalDeleteExerciseButton.addEventListener('click', e => {
             handleDeleteExercise(e.target.dataset.id, e.target.dataset.imageUrl);
         });
 
@@ -240,7 +285,7 @@ function initializeAdminPage(userData, user) {
 async function handleInviteCoach(e) {
     e.preventDefault();
     const clubId = document.getElementById('clubId').value;
-    if (!clubId) return alert("Bitte eine Vereins-ID angeben.");
+    if (!clubId) return alert('Bitte eine Vereins-ID angeben.');
 
     try {
         // Generate unique code
@@ -265,7 +310,7 @@ async function handleInviteCoach(e) {
 
         // Create code document
         const expiresAt = getExpirationDate();
-        await addDoc(collection(db, "invitationCodes"), {
+        await addDoc(collection(db, 'invitationCodes'), {
             code,
             clubId: clubId,
             createdBy: auth.currentUser.uid,
@@ -279,15 +324,15 @@ async function handleInviteCoach(e) {
             lastName: '',
             subgroupIds: [],
             // WICHTIG: Für Coach-Registrierung speichern
-            role: 'coach'
+            role: 'coach',
         });
 
         // Display code
         inviteLinkInput.value = code;
         inviteLinkContainer.classList.remove('hidden');
     } catch (error) {
-        console.error("Fehler beim Erstellen des Codes:", error);
-        alert("Fehler: Der Einladungscode konnte nicht erstellt werden.");
+        console.error('Fehler beim Erstellen des Codes:', error);
+        alert('Fehler: Der Einladungscode konnte nicht erstellt werden.');
     }
 }
 
@@ -314,7 +359,11 @@ function openExerciseModal(dataset) {
     if (descriptionData.type === 'table') {
         const tableHtml = renderTableForDisplay(descriptionData.tableData);
         const additionalText = descriptionData.additionalText || '';
-        modalExerciseDescription.innerHTML = tableHtml + (additionalText ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>` : '');
+        modalExerciseDescription.innerHTML =
+            tableHtml +
+            (additionalText
+                ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>`
+                : '');
     } else {
         modalExerciseDescription.textContent = descriptionData.text || '';
         modalExerciseDescription.style.whiteSpace = 'pre-wrap';
@@ -342,7 +391,9 @@ function openExerciseModal(dataset) {
                 .sort((a, b) => a.count - b.count)
                 .map((milestone, index) => {
                     const isFirst = index === 0;
-                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    const displayPoints = isFirst
+                        ? milestone.points
+                        : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
                     return `<div class="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-2 border border-indigo-100">
                         <div class="flex items-center gap-3">
                             <span class="text-2xl">🎯</span>
@@ -386,7 +437,12 @@ function openExerciseModal(dataset) {
     const tagsContainer = document.getElementById('modal-exercise-tags');
     const tagsArray = JSON.parse(tags || '[]');
     if (tagsArray && tagsArray.length > 0) {
-        tagsContainer.innerHTML = tagsArray.map(tag => `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">${tag}</span>`).join('');
+        tagsContainer.innerHTML = tagsArray
+            .map(
+                tag =>
+                    `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">${tag}</span>`
+            )
+            .join('');
     } else {
         tagsContainer.innerHTML = '';
     }
@@ -436,7 +492,11 @@ async function handleUpdateExercise(e) {
         title: document.getElementById('edit-exercise-title').value,
         descriptionContent: JSON.stringify(descriptionContent),
         points: parseInt(document.getElementById('edit-exercise-points').value),
-        tags: document.getElementById('edit-exercise-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+        tags: document
+            .getElementById('edit-exercise-tags')
+            .value.split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag),
     };
 
     if (!updatedData.title || isNaN(updatedData.points)) {
@@ -456,7 +516,6 @@ async function handleUpdateExercise(e) {
             editExerciseModal.classList.add('hidden');
             feedbackEl.textContent = '';
         }, 1500);
-
     } catch (error) {
         console.error('Fehler beim Speichern der Übung:', error);
         feedbackEl.textContent = 'Ein Fehler ist aufgetreten.';
@@ -464,19 +523,26 @@ async function handleUpdateExercise(e) {
     }
 }
 
-
 async function loadStatistics() {
     try {
-        const usersSnapshot = await getDocs(collection(db, "users"));
+        const usersSnapshot = await getDocs(collection(db, 'users'));
         const users = usersSnapshot.docs.map(doc => doc.data());
-        
-        const attendanceSnapshot = await getDocs(collection(db, "attendance"));
+
+        const attendanceSnapshot = await getDocs(collection(db, 'attendance'));
         const attendances = attendanceSnapshot.docs.map(doc => doc.data());
 
         document.getElementById('stats-total-users').textContent = users.length;
-        document.getElementById('stats-total-clubs').textContent = new Set(users.map(u => u.clubId).filter(Boolean)).size;
-        document.getElementById('stats-total-points').textContent = users.reduce((sum, u) => sum + (u.points || 0), 0);
-        document.getElementById('stats-total-attendance').textContent = attendances.reduce((sum, a) => sum + (a.presentPlayerIds?.length || 0), 0);
+        document.getElementById('stats-total-clubs').textContent = new Set(
+            users.map(u => u.clubId).filter(Boolean)
+        ).size;
+        document.getElementById('stats-total-points').textContent = users.reduce(
+            (sum, u) => sum + (u.points || 0),
+            0
+        );
+        document.getElementById('stats-total-attendance').textContent = attendances.reduce(
+            (sum, a) => sum + (a.presentPlayerIds?.length || 0),
+            0
+        );
 
         const genderCounts = users.reduce((acc, user) => {
             const gender = user.gender || 'unknown';
@@ -486,112 +552,136 @@ async function loadStatistics() {
 
         const attendanceByMonth = attendances.reduce((acc, record) => {
             if (record.date) {
-                const month = new Date(record.date).toLocaleString('de-DE', { month: 'short', year: '2-digit' });
+                const month = new Date(record.date).toLocaleString('de-DE', {
+                    month: 'short',
+                    year: '2-digit',
+                });
                 acc[month] = (acc[month] || 0) + (record.presentPlayerIds?.length || 0);
             }
             return acc;
         }, {});
-        const sortedMonths = Object.keys(attendanceByMonth).sort((a,b) => {
-            const [m1, y1] = a.split(' '); const [m2, y2] = b.split(' ');
+        const sortedMonths = Object.keys(attendanceByMonth).sort((a, b) => {
+            const [m1, y1] = a.split(' ');
+            const [m2, y2] = b.split(' ');
             return new Date(`01 ${m1} 20${y1}`) - new Date(`01 ${m2} 20${y2}`);
         });
 
         renderGenderChart(genderCounts);
         renderAttendanceChart(sortedMonths, attendanceByMonth);
-
     } catch (error) {
-        console.error("Fehler beim Laden der Statistiken:", error);
-        document.getElementById('statistics-section').innerHTML = '<p class="text-red-500">Statistiken konnten nicht geladen werden.</p>';
+        console.error('Fehler beim Laden der Statistiken:', error);
+        document.getElementById('statistics-section').innerHTML =
+            '<p class="text-red-500">Statistiken konnten nicht geladen werden.</p>';
     }
 }
 
 function renderGenderChart(data) {
     const ctx = document.getElementById('gender-chart').getContext('2d');
-    if(genderChartInstance) genderChartInstance.destroy();
+    if (genderChartInstance) genderChartInstance.destroy();
     genderChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Männlich', 'Weiblich', 'Divers', 'Unbekannt'],
-            datasets: [{
-                data: [data.male || 0, data.female || 0, data.diverse || 0, data.unknown || 0],
-                backgroundColor: ['#3b82f6', '#ec4899', '#8b5cf6', '#a1a1aa'],
-            }]
+            datasets: [
+                {
+                    data: [data.male || 0, data.female || 0, data.diverse || 0, data.unknown || 0],
+                    backgroundColor: ['#3b82f6', '#ec4899', '#8b5cf6', '#a1a1aa'],
+                },
+            ],
         },
-        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        options: { responsive: true, plugins: { legend: { position: 'top' } } },
     });
 }
 
 function renderAttendanceChart(labels, data) {
     const ctx = document.getElementById('attendance-chart').getContext('2d');
     const chartData = labels.map(label => data[label]);
-     if(attendanceChartInstance) attendanceChartInstance.destroy();
+    if (attendanceChartInstance) attendanceChartInstance.destroy();
     attendanceChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'Anwesenheiten',
-                data: chartData,
-                backgroundColor: 'rgba(79, 70, 229, 0.8)',
-                borderColor: 'rgba(79, 70, 229, 1)',
-                borderWidth: 1
-            }]
+            datasets: [
+                {
+                    label: 'Anwesenheiten',
+                    data: chartData,
+                    backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                    borderColor: 'rgba(79, 70, 229, 1)',
+                    borderWidth: 1,
+                },
+            ],
         },
-        options: { scales: { y: { beginAtZero: true } }, responsive: true, plugins: { legend: { display: false } } }
+        options: {
+            scales: { y: { beginAtZero: true } },
+            responsive: true,
+            plugins: { legend: { display: false } },
+        },
     });
 }
 
 function loadClubsAndPlayers() {
-    onSnapshot(query(collection(db, "users")), 
-    (snapshot) => {
-        const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const clubs = users.reduce((acc, user) => {
-            if (user.clubId) {
-                if (!acc[user.clubId]) { acc[user.clubId] = []; }
-                acc[user.clubId].push(user);
+    onSnapshot(
+        query(collection(db, 'users')),
+        snapshot => {
+            const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const clubs = users.reduce((acc, user) => {
+                if (user.clubId) {
+                    if (!acc[user.clubId]) {
+                        acc[user.clubId] = [];
+                    }
+                    acc[user.clubId].push(user);
+                }
+                return acc;
+            }, {});
+
+            clubsListEl.innerHTML =
+                Object.keys(clubs).length === 0
+                    ? '<p class="text-gray-500">Keine Vereine gefunden.</p>'
+                    : '';
+            for (const clubId in clubs) {
+                const clubDiv = document.createElement('div');
+                clubDiv.className = 'p-4 bg-gray-50 rounded-lg flex justify-between items-center';
+                clubDiv.innerHTML = `<p class="font-semibold">${clubId}</p><button data-club-id="${clubId}" class="view-players-button bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Mitglieder anzeigen (${clubs[clubId].length})</button>`;
+                clubsListEl.appendChild(clubDiv);
             }
-            return acc;
-        }, {});
 
-        clubsListEl.innerHTML = Object.keys(clubs).length === 0 ? '<p class="text-gray-500">Keine Vereine gefunden.</p>' : '';
-        for (const clubId in clubs) {
-            const clubDiv = document.createElement('div');
-            clubDiv.className = 'p-4 bg-gray-50 rounded-lg flex justify-between items-center';
-            clubDiv.innerHTML = `<p class="font-semibold">${clubId}</p><button data-club-id="${clubId}" class="view-players-button bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Mitglieder anzeigen (${clubs[clubId].length})</button>`;
-            clubsListEl.appendChild(clubDiv);
-        }
-
-        document.querySelectorAll('.view-players-button').forEach(button => {
-            button.addEventListener('click', () => {
-                const clubId = button.dataset.clubId;
-                modalClubIdEl.textContent = `Mitglieder von: ${clubId}`;
-                modalPlayerListEl.innerHTML = '';
-                clubs[clubId].sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')).forEach(player => {
-                    const playerEl = document.createElement('div');
-                    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
-                    const avatarSrc = player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-                    playerEl.className = 'p-2 border-b flex justify-between items-center';
-                    playerEl.innerHTML = `<div class="flex items-center"><img src="${avatarSrc}" alt="Avatar" class="h-10 w-10 rounded-full object-cover mr-4"><div><p class="font-medium">${player.firstName} ${player.lastName} (${player.role})</p><p class="text-sm text-gray-500">${player.email || 'Offline'}</p></div></div><button data-id="${player.id}" class="delete-player-btn text-red-500 hover:text-red-700 font-semibold text-sm">Löschen</button>`;
-                    modalPlayerListEl.appendChild(playerEl);
+            document.querySelectorAll('.view-players-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    const clubId = button.dataset.clubId;
+                    modalClubIdEl.textContent = `Mitglieder von: ${clubId}`;
+                    modalPlayerListEl.innerHTML = '';
+                    clubs[clubId]
+                        .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
+                        .forEach(player => {
+                            const playerEl = document.createElement('div');
+                            const initials =
+                                (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+                            const avatarSrc =
+                                player.photoURL ||
+                                `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
+                            playerEl.className = 'p-2 border-b flex justify-between items-center';
+                            playerEl.innerHTML = `<div class="flex items-center"><img src="${avatarSrc}" alt="Avatar" class="h-10 w-10 rounded-full object-cover mr-4"><div><p class="font-medium">${player.firstName} ${player.lastName} (${player.role})</p><p class="text-sm text-gray-500">${player.email || 'Offline'}</p></div></div><button data-id="${player.id}" class="delete-player-btn text-red-500 hover:text-red-700 font-semibold text-sm">Löschen</button>`;
+                            modalPlayerListEl.appendChild(playerEl);
+                        });
+                    playerModal.classList.remove('hidden');
                 });
-                playerModal.classList.remove('hidden');
             });
-        });
-    },
-    (error) => {
-        console.error("Fehler beim Laden der Vereinsübersicht:", error);
-        clubsListEl.innerHTML = '<p class="text-red-500">Fehler beim Laden der Vereine.</p>';
-    });
+        },
+        error => {
+            console.error('Fehler beim Laden der Vereinsübersicht:', error);
+            clubsListEl.innerHTML = '<p class="text-red-500">Fehler beim Laden der Vereine.</p>';
+        }
+    );
 }
 
 async function handleDeletePlayer(playerId) {
-    if (confirm("Sind Sie sicher, dass Sie diesen Benutzer endgültig löschen möchten?")) {
+    if (confirm('Sind Sie sicher, dass Sie diesen Benutzer endgültig löschen möchten?')) {
         try {
-            await deleteDoc(doc(db, "users", playerId));
-            alert("Benutzer erfolgreich gelöscht.");
+            await deleteDoc(doc(db, 'users', playerId));
+            alert('Benutzer erfolgreich gelöscht.');
         } catch (error) {
-            console.error("Fehler beim Löschen des Benutzers:", error);
-            alert("Fehler: Der Benutzer konnte nicht gelöscht werden.");
+            console.error('Fehler beim Löschen des Benutzers:', error);
+            alert('Fehler: Der Benutzer konnte nicht gelöscht werden.');
         }
     }
 }
@@ -604,7 +694,10 @@ async function handleCreateExercise(e) {
     const descriptionContent = descriptionEditor.getContent();
     const file = document.getElementById('exercise-image').files[0];
     const tagsInput = document.getElementById('exercise-tags').value;
-    const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+    const tags = tagsInput
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag);
 
     // Get milestone data and calculate points
     const tieredPoints = isExerciseTieredPointsEnabled();
@@ -659,7 +752,7 @@ async function handleCreateExercise(e) {
             descriptionContent: JSON.stringify(descriptionContent),
             points,
             createdAt: serverTimestamp(),
-            tags
+            tags,
         };
 
         // Add imageUrl only if provided
@@ -671,12 +764,12 @@ async function handleCreateExercise(e) {
         if (tieredPoints && milestones) {
             exerciseData.tieredPoints = {
                 enabled: true,
-                milestones: milestones
+                milestones: milestones,
             };
         } else {
             exerciseData.tieredPoints = {
                 enabled: false,
-                milestones: []
+                milestones: [],
             };
         }
 
@@ -685,16 +778,16 @@ async function handleCreateExercise(e) {
         if (partnerSettings) {
             exerciseData.partnerSystem = {
                 enabled: true,
-                partnerPercentage: partnerSettings.partnerPercentage
+                partnerPercentage: partnerSettings.partnerPercentage,
             };
         } else {
             exerciseData.partnerSystem = {
                 enabled: false,
-                partnerPercentage: 50
+                partnerPercentage: 50,
             };
         }
 
-        await addDoc(collection(db, "exercises"), exerciseData);
+        await addDoc(collection(db, 'exercises'), exerciseData);
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
@@ -719,58 +812,68 @@ async function handleCreateExercise(e) {
 
         // Clear description editor
         descriptionEditor.clear();
-
     } catch (error) {
-        console.error("Fehler beim Erstellen der Übung:", error);
+        console.error('Fehler beim Erstellen der Übung:', error);
         feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Übung speichern';
-        setTimeout(() => { feedbackEl.textContent = ''; }, 4000);
+        setTimeout(() => {
+            feedbackEl.textContent = '';
+        }, 4000);
     }
 }
 
 function loadAllExercises() {
-    const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
-    onSnapshot(q, 
-    (snapshot) => {
-        exercisesListAdminEl.innerHTML = snapshot.empty ? '<p class="text-gray-500 col-span-full">Keine Übungen gefunden.</p>' : '';
-        
-        const exercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        exercises.forEach(exercise => {
-            const card = document.createElement('div');
-            card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
-            card.dataset.id = exercise.id;
-            card.dataset.title = exercise.title;
-            // Support both old and new format
-            if (exercise.descriptionContent) {
-                card.dataset.descriptionContent = exercise.descriptionContent;
-            } else {
-                // Backwards compatibility: convert old description to new format
-                card.dataset.descriptionContent = JSON.stringify({
-                    type: 'text',
-                    text: exercise.description || ''
-                });
-            }
-            if (exercise.imageUrl) {
-                card.dataset.imageUrl = exercise.imageUrl;
-            }
-            card.dataset.points = exercise.points;
-            card.dataset.tags = JSON.stringify(exercise.tags || []);
+    const q = query(collection(db, 'exercises'), orderBy('createdAt', 'desc'));
+    onSnapshot(
+        q,
+        snapshot => {
+            exercisesListAdminEl.innerHTML = snapshot.empty
+                ? '<p class="text-gray-500 col-span-full">Keine Übungen gefunden.</p>'
+                : '';
 
-            // Add tieredPoints data
-            if (exercise.tieredPoints) {
-                card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
-            }
+            const exercises = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            const tagsHtml = (exercise.tags || []).map(tag => `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`).join('');
+            exercises.forEach(exercise => {
+                const card = document.createElement('div');
+                card.className =
+                    'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
+                card.dataset.id = exercise.id;
+                card.dataset.title = exercise.title;
+                // Support both old and new format
+                if (exercise.descriptionContent) {
+                    card.dataset.descriptionContent = exercise.descriptionContent;
+                } else {
+                    // Backwards compatibility: convert old description to new format
+                    card.dataset.descriptionContent = JSON.stringify({
+                        type: 'text',
+                        text: exercise.description || '',
+                    });
+                }
+                if (exercise.imageUrl) {
+                    card.dataset.imageUrl = exercise.imageUrl;
+                }
+                card.dataset.points = exercise.points;
+                card.dataset.tags = JSON.stringify(exercise.tags || []);
 
-            // Image or subtle placeholder
-            const imageHtml = exercise.imageUrl
-                ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
-                : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
+                // Add tieredPoints data
+                if (exercise.tieredPoints) {
+                    card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
+                }
+
+                const tagsHtml = (exercise.tags || [])
+                    .map(
+                        tag =>
+                            `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
+                    )
+                    .join('');
+
+                // Image or subtle placeholder
+                const imageHtml = exercise.imageUrl
+                    ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
+                    : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
                        <div class="text-center">
                            <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -779,24 +882,26 @@ function loadAllExercises() {
                        </div>
                    </div>`;
 
-            card.innerHTML = `${imageHtml}
+                card.innerHTML = `${imageHtml}
                               <div class="p-4 flex flex-col flex-grow pointer-events-none">
                                   <h3 class="font-bold text-md mb-2 flex-grow">${exercise.title}</h3>
                                   <div class="pt-2">${tagsHtml}</div>
                               </div>`;
-            exercisesListAdminEl.appendChild(card);
-        });
-    },
-    (error) => {
-        console.error("Fehler beim Laden des Übungskatalogs:", error);
-        exercisesListAdminEl.innerHTML = '<p class="text-red-500 col-span-full">Fehler beim Laden der Übungen.</p>';
-    });
+                exercisesListAdminEl.appendChild(card);
+            });
+        },
+        error => {
+            console.error('Fehler beim Laden des Übungskatalogs:', error);
+            exercisesListAdminEl.innerHTML =
+                '<p class="text-red-500 col-span-full">Fehler beim Laden der Übungen.</p>';
+        }
+    );
 }
 
 async function handleDeleteExercise(exerciseId, imageUrl) {
-     if (confirm("Sind Sie sicher, dass Sie diese Übung endgültig löschen möchten?")) {
+    if (confirm('Sind Sie sicher, dass Sie diese Übung endgültig löschen möchten?')) {
         try {
-            await deleteDoc(doc(db, "exercises", exerciseId));
+            await deleteDoc(doc(db, 'exercises', exerciseId));
 
             // Only delete image if it exists and is a valid URL
             if (imageUrl && imageUrl !== 'undefined' && imageUrl.trim() !== '') {
@@ -804,15 +909,18 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
                     const imageRef = ref(storage, imageUrl);
                     await deleteObject(imageRef);
                 } catch (storageError) {
-                    console.warn('Image could not be deleted, but exercise was removed:', storageError);
+                    console.warn(
+                        'Image could not be deleted, but exercise was removed:',
+                        storageError
+                    );
                 }
             }
 
-            alert("Übung erfolgreich gelöscht.");
+            alert('Übung erfolgreich gelöscht.');
             exerciseModal.classList.add('hidden');
         } catch (error) {
-            console.error("Fehler beim Löschen der Übung:", error);
-            alert("Fehler: Die Übung konnte nicht vollständig gelöscht werden.");
+            console.error('Fehler beim Löschen der Übung:', error);
+            alert('Fehler: Die Übung konnte nicht vollständig gelöscht werden.');
         }
     }
 }
@@ -826,12 +934,17 @@ const migrationStatus = document.getElementById('migration-status');
 
 if (migrateDoublesNamesBtn) {
     migrateDoublesNamesBtn.addEventListener('click', async () => {
-        if (!confirm('Möchtest du die Migration starten? Dies aktualisiert alle doublesPairings-Dokumente mit Spielernamen.')) {
+        if (
+            !confirm(
+                'Möchtest du die Migration starten? Dies aktualisiert alle doublesPairings-Dokumente mit Spielernamen.'
+            )
+        ) {
             return;
         }
 
         migrateDoublesNamesBtn.disabled = true;
-        migrateDoublesNamesBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Migration läuft...';
+        migrateDoublesNamesBtn.innerHTML =
+            '<i class="fas fa-spinner fa-spin mr-2"></i>Migration läuft...';
         migrationStatus.textContent = 'Migration wird ausgeführt...';
         migrationStatus.className = 'text-sm font-medium text-blue-600';
 
@@ -844,7 +957,9 @@ if (migrateDoublesNamesBtn) {
             if (result.data.success) {
                 migrationStatus.textContent = `✅ Erfolgreich! ${result.data.migrated} Paarungen aktualisiert, ${result.data.skipped} übersprungen.`;
                 migrationStatus.className = 'text-sm font-medium text-green-600';
-                alert(`Migration erfolgreich!\n\n${result.data.migrated} Paarungen wurden aktualisiert.\n${result.data.skipped} wurden übersprungen (hatten bereits Namen).`);
+                alert(
+                    `Migration erfolgreich!\n\n${result.data.migrated} Paarungen wurden aktualisiert.\n${result.data.skipped} wurden übersprungen (hatten bereits Namen).`
+                );
             } else {
                 throw new Error('Migration fehlgeschlagen');
             }

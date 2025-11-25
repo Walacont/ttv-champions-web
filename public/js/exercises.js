@@ -1,5 +1,18 @@
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+import {
+    collection,
+    query,
+    orderBy,
+    onSnapshot,
+    addDoc,
+    serverTimestamp,
+    doc,
+    getDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import {
+    ref,
+    uploadBytes,
+    getDownloadURL,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
 import { renderTableForDisplay } from './tableEditor.js';
 
 /**
@@ -11,7 +24,7 @@ import { renderTableForDisplay } from './tableEditor.js';
 let exerciseContext = {
     db: null,
     userId: null,
-    userRole: null
+    userRole: null,
 };
 
 /**
@@ -40,9 +53,9 @@ export async function loadExercises(db, unsubscribes) {
     // Store exercises data for real-time updates
     let exercisesData = [];
 
-    const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, 'exercises'), orderBy('createdAt', 'desc'));
 
-    const exerciseListener = onSnapshot(q, async (snapshot) => {
+    const exerciseListener = onSnapshot(q, async snapshot => {
         if (snapshot.empty) {
             exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
             return;
@@ -64,7 +77,12 @@ export async function loadExercises(db, unsubscribes) {
             // Load player progress if available
             let progressPercent = 0;
             if (exerciseContext.userId && exerciseContext.userRole === 'player') {
-                progressPercent = await calculateExerciseProgress(db, exerciseContext.userId, exerciseId, exercise);
+                progressPercent = await calculateExerciseProgress(
+                    db,
+                    exerciseContext.userId,
+                    exerciseId,
+                    exercise
+                );
             }
 
             const card = createExerciseCard(docSnap, exercise, progressPercent);
@@ -85,7 +103,7 @@ export async function loadExercises(db, unsubscribes) {
         // Listen to completedExercises changes
         const completedListener = onSnapshot(
             collection(db, `users/${exerciseContext.userId}/completedExercises`),
-            (snapshot) => {
+            snapshot => {
                 snapshot.docChanges().forEach(change => {
                     const exerciseId = change.doc.id;
                     updateExerciseCardProgress(db, exerciseId, exercisesData);
@@ -96,7 +114,7 @@ export async function loadExercises(db, unsubscribes) {
         // Listen to exerciseMilestones changes
         const milestonesListener = onSnapshot(
             collection(db, `users/${exerciseContext.userId}/exerciseMilestones`),
-            (snapshot) => {
+            snapshot => {
                 snapshot.docChanges().forEach(change => {
                     const exerciseId = change.doc.id;
                     updateExerciseCardProgress(db, exerciseId, exercisesData);
@@ -153,11 +171,14 @@ async function updateExerciseCardProgress(db, exerciseId, exercisesData) {
  */
 async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
     try {
-        const hasMilestones = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+        const hasMilestones =
+            exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
 
         if (hasMilestones) {
             // Check milestone progress
-            const progressDoc = await getDoc(doc(db, `users/${userId}/exerciseMilestones`, exerciseId));
+            const progressDoc = await getDoc(
+                doc(db, `users/${userId}/exerciseMilestones`, exerciseId)
+            );
             if (!progressDoc.exists()) return 0;
 
             const progressData = progressDoc.data();
@@ -172,7 +193,9 @@ async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
             return (achievedMilestones / totalMilestones) * 100;
         } else {
             // Check if exercise is completed
-            const completedDoc = await getDoc(doc(db, `users/${userId}/completedExercises`, exerciseId));
+            const completedDoc = await getDoc(
+                doc(db, `users/${userId}/completedExercises`, exerciseId)
+            );
             return completedDoc.exists() ? 100 : 0;
         }
     } catch (error) {
@@ -190,7 +213,8 @@ async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
  */
 function createExerciseCard(docSnap, exercise, progressPercent) {
     const card = document.createElement('div');
-    card.className = 'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300 relative';
+    card.className =
+        'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300 relative';
     card.dataset.id = docSnap.id;
     card.dataset.title = exercise.title;
 
@@ -200,7 +224,7 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     } else {
         card.dataset.descriptionContent = JSON.stringify({
             type: 'text',
-            text: exercise.description || ''
+            text: exercise.description || '',
         });
     }
     if (exercise.imageUrl) {
@@ -215,12 +239,16 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     }
 
     const exerciseTags = exercise.tags || [];
-    const tagsHtml = exerciseTags.map(tag =>
-        `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-    ).join('');
+    const tagsHtml = exerciseTags
+        .map(
+            tag =>
+                `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
+        )
+        .join('');
 
     // Check if exercise has tiered points
-    const hasTieredPoints = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+    const hasTieredPoints =
+        exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
     const pointsBadge = hasTieredPoints
         ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
         : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
@@ -311,14 +339,16 @@ export function renderTagFilters(tags, exercises) {
     filterContainer.innerHTML = '';
 
     const allButton = document.createElement('button');
-    allButton.className = 'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
+    allButton.className =
+        'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
     allButton.textContent = 'Alle';
     allButton.dataset.tag = 'all';
     filterContainer.appendChild(allButton);
 
     tags.forEach(tag => {
         const button = document.createElement('button');
-        button.className = 'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
+        button.className =
+            'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
         button.textContent = tag;
         button.dataset.tag = tag;
         filterContainer.appendChild(button);
@@ -330,7 +360,7 @@ export function renderTagFilters(tags, exercises) {
     // Setup search functionality for player view
     setupTagSearch('player');
 
-    filterContainer.addEventListener('click', (e) => {
+    filterContainer.addEventListener('click', e => {
         if (e.target.classList.contains('tag-filter-btn')) {
             const selectedTag = e.target.dataset.tag;
 
@@ -361,8 +391,8 @@ export function loadAllExercises(db) {
     if (!exercisesListCoachEl) return;
 
     onSnapshot(
-        query(collection(db, "exercises"), orderBy("createdAt", "desc")),
-        (snapshot) => {
+        query(collection(db, 'exercises'), orderBy('createdAt', 'desc')),
+        snapshot => {
             const exercises = [];
             const allTags = new Set();
 
@@ -378,10 +408,11 @@ export function loadAllExercises(db) {
             // Render all exercises initially
             renderCoachExercises(exercises, 'all');
         },
-        (error) => {
-            console.error("[Exercises] Error loading exercises:", error.code || error.message);
+        error => {
+            console.error('[Exercises] Error loading exercises:', error.code || error.message);
             if (exercisesListCoachEl) {
-                exercisesListCoachEl.innerHTML = '<p class="text-gray-400 col-span-full">Keine Übungen verfügbar</p>';
+                exercisesListCoachEl.innerHTML =
+                    '<p class="text-gray-400 col-span-full">Keine Übungen verfügbar</p>';
             }
         }
     );
@@ -399,14 +430,16 @@ function renderTagFiltersCoach(tags, exercises) {
     filterContainer.innerHTML = '';
 
     const allButton = document.createElement('button');
-    allButton.className = 'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
+    allButton.className =
+        'tag-filter-btn active-filter bg-indigo-600 text-white px-3 py-1 text-sm font-semibold rounded-full';
     allButton.textContent = 'Alle';
     allButton.dataset.tag = 'all';
     filterContainer.appendChild(allButton);
 
     tags.forEach(tag => {
         const button = document.createElement('button');
-        button.className = 'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
+        button.className =
+            'tag-filter-btn bg-gray-200 text-gray-700 px-3 py-1 text-sm font-semibold rounded-full hover:bg-gray-300';
         button.textContent = tag;
         button.dataset.tag = tag;
         filterContainer.appendChild(button);
@@ -419,7 +452,7 @@ function renderTagFiltersCoach(tags, exercises) {
     setupTagSearch('coach');
 
     // Add click handlers for filtering
-    filterContainer.addEventListener('click', (e) => {
+    filterContainer.addEventListener('click', e => {
         if (e.target.classList.contains('tag-filter-btn')) {
             const selectedTag = e.target.dataset.tag;
 
@@ -479,7 +512,7 @@ function setupTagSearch(context) {
     const newSearchInput = searchInput.cloneNode(true);
     searchInput.parentNode.replaceChild(newSearchInput, searchInput);
 
-    newSearchInput.addEventListener('input', (e) => {
+    newSearchInput.addEventListener('input', e => {
         const searchTerm = e.target.value.toLowerCase();
         const buttons = filterContainer.querySelectorAll('.tag-filter-btn');
 
@@ -505,18 +538,21 @@ function renderCoachExercises(exercises, filterTag) {
 
     exercisesListCoachEl.innerHTML = '';
 
-    const filteredExercises = filterTag === 'all'
-        ? exercises
-        : exercises.filter(ex => (ex.tags || []).includes(filterTag));
+    const filteredExercises =
+        filterTag === 'all'
+            ? exercises
+            : exercises.filter(ex => (ex.tags || []).includes(filterTag));
 
     if (filteredExercises.length === 0) {
-        exercisesListCoachEl.innerHTML = '<p class="text-gray-500 col-span-full">Keine Übungen für diesen Filter gefunden.</p>';
+        exercisesListCoachEl.innerHTML =
+            '<p class="text-gray-500 col-span-full">Keine Übungen für diesen Filter gefunden.</p>';
         return;
     }
 
     filteredExercises.forEach(exercise => {
         const card = document.createElement('div');
-        card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
+        card.className =
+            'bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow';
         card.dataset.id = exercise.id;
         card.dataset.title = exercise.title;
         // Support both old and new format
@@ -526,7 +562,7 @@ function renderCoachExercises(exercises, filterTag) {
             // Backwards compatibility: convert old description to new format
             card.dataset.descriptionContent = JSON.stringify({
                 type: 'text',
-                text: exercise.description || ''
+                text: exercise.description || '',
             });
         }
         if (exercise.imageUrl) {
@@ -540,12 +576,16 @@ function renderCoachExercises(exercises, filterTag) {
             card.dataset.tieredPoints = JSON.stringify(exercise.tieredPoints);
         }
 
-        const tagsHtml = (exercise.tags || []).map(tag =>
-            `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
-        ).join('');
+        const tagsHtml = (exercise.tags || [])
+            .map(
+                tag =>
+                    `<span class="inline-block bg-gray-200 rounded-full px-2 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${tag}</span>`
+            )
+            .join('');
 
         // Check if exercise has tiered points
-        const hasTieredPoints = exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
+        const hasTieredPoints =
+            exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
         const pointsBadge = hasTieredPoints
             ? `🎯 Bis zu ${exercise.points} P.`
             : `${exercise.points} P.`;
@@ -586,7 +626,7 @@ export function loadExercisesForDropdown(db) {
     const q = query(collection(db, 'exercises'), orderBy('title'));
     onSnapshot(
         q,
-        (snapshot) => {
+        snapshot => {
             if (snapshot.empty) {
                 select.innerHTML = '<option value="">Keine Übungen in DB</option>';
                 return;
@@ -598,7 +638,8 @@ export function loadExercisesForDropdown(db) {
                 option.value = doc.id;
 
                 // Check for tieredPoints format
-                const hasTieredPoints = e.tieredPoints?.enabled && e.tieredPoints?.milestones?.length > 0;
+                const hasTieredPoints =
+                    e.tieredPoints?.enabled && e.tieredPoints?.milestones?.length > 0;
                 const displayText = hasTieredPoints
                     ? `${e.title} (bis zu ${e.points} P. - Meilensteine)`
                     : `${e.title} (+${e.points} P.)`;
@@ -615,8 +656,11 @@ export function loadExercisesForDropdown(db) {
                 select.appendChild(option);
             });
         },
-        (error) => {
-            console.error("[Exercises] Error loading exercises dropdown:", error.code || error.message);
+        error => {
+            console.error(
+                '[Exercises] Error loading exercises dropdown:',
+                error.code || error.message
+            );
             if (select) {
                 select.innerHTML = '<option value="">Keine Übungen verfügbar</option>';
             }
@@ -631,7 +675,8 @@ export function loadExercisesForDropdown(db) {
 export function handleExerciseClick(event) {
     const card = event.target.closest('[data-title]');
     if (card) {
-        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } = card.dataset;
+        const { id, title, descriptionContent, imageUrl, points, tags, tieredPoints } =
+            card.dataset;
         openExerciseModal(id, title, descriptionContent, imageUrl, points, tags, tieredPoints);
     }
 }
@@ -646,7 +691,15 @@ export function handleExerciseClick(event) {
  * @param {string} tags - Exercise tags (JSON string)
  * @param {string} tieredPoints - Tiered points data (JSON string, optional)
  */
-export async function openExerciseModal(exerciseId, title, descriptionContent, imageUrl, points, tags, tieredPoints) {
+export async function openExerciseModal(
+    exerciseId,
+    title,
+    descriptionContent,
+    imageUrl,
+    points,
+    tags,
+    tieredPoints
+) {
     const modal = document.getElementById('exercise-modal');
     if (!modal) return;
 
@@ -675,7 +728,11 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     if (descriptionData.type === 'table') {
         const tableHtml = renderTableForDisplay(descriptionData.tableData);
         const additionalText = descriptionData.additionalText || '';
-        modalDescription.innerHTML = tableHtml + (additionalText ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>` : '');
+        modalDescription.innerHTML =
+            tableHtml +
+            (additionalText
+                ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>`
+                : '');
     } else {
         modalDescription.textContent = descriptionData.text || '';
         modalDescription.style.whiteSpace = 'pre-wrap';
@@ -698,9 +755,19 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
 
     // Load player progress if player role and milestones are enabled
     let playerProgress = null;
-    if (hasTieredPoints && exerciseContext.userRole === 'player' && exerciseContext.db && exerciseContext.userId && exerciseId) {
+    if (
+        hasTieredPoints &&
+        exerciseContext.userRole === 'player' &&
+        exerciseContext.db &&
+        exerciseContext.userId &&
+        exerciseId
+    ) {
         try {
-            const progressRef = doc(exerciseContext.db, `users/${exerciseContext.userId}/exerciseMilestones`, exerciseId);
+            const progressRef = doc(
+                exerciseContext.db,
+                `users/${exerciseContext.userId}/exerciseMilestones`,
+                exerciseId
+            );
             const progressSnap = await getDoc(progressRef);
             if (progressSnap.exists()) {
                 playerProgress = progressSnap.data();
@@ -732,15 +799,19 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                         <p class="text-base text-gray-700 mb-2">
                             Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
                         </p>
-                        ${nextMilestone ? `
+                        ${
+                            nextMilestone
+                                ? `
                             <p class="text-sm text-gray-600">
                                 Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
                             </p>
-                        ` : `
+                        `
+                                : `
                             <p class="text-sm text-green-600 font-semibold">
                                 ✓ Alle Meilensteine erreicht!
                             </p>
-                        `}
+                        `
+                        }
                     </div>
                 `;
             }
@@ -749,7 +820,9 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                 .sort((a, b) => a.count - b.count)
                 .map((milestone, index) => {
                     const isFirst = index === 0;
-                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    const displayPoints = isFirst
+                        ? milestone.points
+                        : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
 
                     // Determine milestone status for players
                     let bgColor, borderColor, iconColor, textColor, statusIcon;
@@ -761,7 +834,10 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
                             iconColor = 'text-green-600';
                             textColor = 'text-green-700';
                             statusIcon = '✓';
-                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
+                        } else if (
+                            index === 0 ||
+                            currentCount >= tieredPointsData.milestones[index - 1].count
+                        ) {
                             // Next achievable
                             bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
                             borderColor = 'border-orange-300';
@@ -820,7 +896,12 @@ export async function openExerciseModal(exerciseId, title, descriptionContent, i
     const tagsContainer = document.getElementById('modal-exercise-tags');
     const tagsArray = JSON.parse(tags || '[]');
     if (tagsArray && tagsArray.length > 0) {
-        tagsContainer.innerHTML = tagsArray.map(tag => `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">${tag}</span>`).join('');
+        tagsContainer.innerHTML = tagsArray
+            .map(
+                tag =>
+                    `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">${tag}</span>`
+            )
+            .join('');
     } else {
         tagsContainer.innerHTML = '';
     }
@@ -863,17 +944,17 @@ export function calculateExercisePoints(level, difficulty) {
         grundlagen: {
             easy: 5,
             normal: 6,
-            hard: 8
+            hard: 8,
         },
         standard: {
             easy: 8,
             normal: 10,
-            hard: 12
+            hard: 12,
         },
         fortgeschritten: {
             normal: 14,
-            hard: 18
-        }
+            hard: 18,
+        },
     };
 
     // Validate fortgeschritten doesn't have easy
@@ -933,7 +1014,7 @@ export function setupExerciseMilestones() {
         console.error('❌ Exercise milestone setup: Missing required elements', {
             milestonesEnabled: !!milestonesEnabled,
             standardContainer: !!standardContainer,
-            milestonesContainer: !!milestonesContainer
+            milestonesContainer: !!milestonesContainer,
         });
         return;
     }
@@ -1075,10 +1156,14 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     const difficulty = document.getElementById('exercise-difficulty-form').value;
     const file = document.getElementById('exercise-image-form').files[0];
     const tagsInput = document.getElementById('exercise-tags-form').value;
-    const tags = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag);
+    const tags = tagsInput
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag);
 
     // Check if milestones are enabled
-    const milestonesEnabled = document.getElementById('exercise-milestones-enabled')?.checked || false;
+    const milestonesEnabled =
+        document.getElementById('exercise-milestones-enabled')?.checked || false;
     let points = 0;
     let milestones = null;
 
@@ -1138,7 +1223,7 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             difficulty,
             points,
             createdAt: serverTimestamp(),
-            tags
+            tags,
         };
 
         // Add imageUrl only if provided
@@ -1150,16 +1235,16 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         if (milestonesEnabled && milestones) {
             exerciseData.tieredPoints = {
                 enabled: true,
-                milestones: milestones
+                milestones: milestones,
             };
         } else {
             exerciseData.tieredPoints = {
                 enabled: false,
-                milestones: []
+                milestones: [],
             };
         }
 
-        await addDoc(collection(db, "exercises"), exerciseData);
+        await addDoc(collection(db, 'exercises'), exerciseData);
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
@@ -1179,12 +1264,14 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             descriptionEditor.clear();
         }
     } catch (error) {
-        console.error("Fehler beim Erstellen der Übung:", error);
+        console.error('Fehler beim Erstellen der Übung:', error);
         feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Übung speichern';
-        setTimeout(() => { feedbackEl.textContent = ''; }, 4000);
+        setTimeout(() => {
+            feedbackEl.textContent = '';
+        }, 4000);
     }
 }

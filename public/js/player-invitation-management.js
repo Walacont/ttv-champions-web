@@ -4,13 +4,19 @@
  * and sending invitations to existing offline players
  */
 
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    addDoc,
+    serverTimestamp,
+    doc,
+    updateDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
     generateInvitationCode,
     getExpirationDate,
     createWhatsAppShareUrl,
     copyToClipboard,
-    CODE_CONFIG
+    CODE_CONFIG,
 } from './invitation-code-utils.js';
 
 let db;
@@ -24,7 +30,13 @@ let currentPlayerId = null; // For send invitation modal
 /**
  * Initialisiert das Player Invitation Management
  */
-export function initPlayerInvitationManagement(firestore, authInstance, functionsInstance, clubId, coachId) {
+export function initPlayerInvitationManagement(
+    firestore,
+    authInstance,
+    functionsInstance,
+    clubId,
+    coachId
+) {
     db = firestore;
     // auth and functions no longer needed (email invitations removed)
     currentClubId = clubId;
@@ -44,23 +56,41 @@ function setupEventListeners() {
     });
 
     // Close after code generated
-    document.getElementById('close-after-code-button')?.addEventListener('click', closeOfflinePlayerModal);
+    document
+        .getElementById('close-after-code-button')
+        ?.addEventListener('click', closeOfflinePlayerModal);
 
     // Send Invitation Modal
-    const sendInvitationTypeRadios = document.querySelectorAll('input[name="send-invitation-type"]');
+    const sendInvitationTypeRadios = document.querySelectorAll(
+        'input[name="send-invitation-type"]'
+    );
     sendInvitationTypeRadios.forEach(radio => {
         radio.addEventListener('change', handleSendInvitationTypeChange);
     });
 
-    document.getElementById('close-send-invitation-modal-button')?.addEventListener('click', closeSendInvitationModal);
-    document.getElementById('send-invitation-form')?.addEventListener('submit', handleSendInvitation);
-    document.getElementById('copy-invitation-code-button')?.addEventListener('click', () => copyInvitationCode('send'));
-    document.getElementById('whatsapp-invitation-share-button')?.addEventListener('click', () => shareInvitationWhatsApp('send'));
-    document.getElementById('close-send-invitation-after-code-button')?.addEventListener('click', closeSendInvitationModal);
+    document
+        .getElementById('close-send-invitation-modal-button')
+        ?.addEventListener('click', closeSendInvitationModal);
+    document
+        .getElementById('send-invitation-form')
+        ?.addEventListener('submit', handleSendInvitation);
+    document
+        .getElementById('copy-invitation-code-button')
+        ?.addEventListener('click', () => copyInvitationCode('send'));
+    document
+        .getElementById('whatsapp-invitation-share-button')
+        ?.addEventListener('click', () => shareInvitationWhatsApp('send'));
+    document
+        .getElementById('close-send-invitation-after-code-button')
+        ?.addEventListener('click', closeSendInvitationModal);
 
     // Code buttons for offline player modal
-    document.getElementById('copy-code-button')?.addEventListener('click', () => copyInvitationCode('offline'));
-    document.getElementById('whatsapp-share-button')?.addEventListener('click', () => shareInvitationWhatsApp('offline'));
+    document
+        .getElementById('copy-code-button')
+        ?.addEventListener('click', () => copyInvitationCode('offline'));
+    document
+        .getElementById('whatsapp-share-button')
+        ?.addEventListener('click', () => shareInvitationWhatsApp('offline'));
 }
 
 /**
@@ -158,7 +188,7 @@ async function generateCodeForPlayer(playerData, playerId = null) {
         firstName: playerData.firstName,
         lastName: playerData.lastName,
         subgroupIds: playerData.subgroupIDs || [],
-        role: playerData.role || 'player'
+        role: playerData.role || 'player',
     };
 
     // IMPORTANT: Store playerId if this is for an existing offline player
@@ -176,7 +206,14 @@ async function generateCodeForPlayer(playerData, playerId = null) {
  * @param {Object} playerData - Player data with firstName, lastName
  */
 async function invalidateOldCodesForPlayer(playerId, playerData) {
-    const {query, where, getDocs, updateDoc, serverTimestamp: firestoreTimestamp, collection: firestoreCollection} = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
+    const {
+        query,
+        where,
+        getDocs,
+        updateDoc,
+        serverTimestamp: firestoreTimestamp,
+        collection: firestoreCollection,
+    } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
 
     let q;
 
@@ -202,7 +239,9 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
         const snapshot = await getDocs(q);
 
         if (!snapshot.empty) {
-            console.log(`🔍 Gefunden: ${snapshot.size} Code(s) für ${playerData.firstName} ${playerData.lastName}`);
+            console.log(
+                `🔍 Gefunden: ${snapshot.size} Code(s) für ${playerData.firstName} ${playerData.lastName}`
+            );
 
             // Filter out already superseded codes
             const codesToInvalidate = snapshot.docs.filter(doc => !doc.data().superseded);
@@ -217,22 +256,30 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             const updatePromises = codesToInvalidate.map(docSnapshot =>
                 updateDoc(docSnapshot.ref, {
                     superseded: true,
-                    supersededAt: firestoreTimestamp()
+                    supersededAt: firestoreTimestamp(),
                 })
             );
 
             await Promise.all(updatePromises);
             console.log(`✅ ${codesToInvalidate.length} alte Code(s) erfolgreich invalidiert`);
         } else {
-            console.log(`ℹ️ Keine alten Codes gefunden für ${playerData.firstName} ${playerData.lastName}`);
+            console.log(
+                `ℹ️ Keine alten Codes gefunden für ${playerData.firstName} ${playerData.lastName}`
+            );
         }
     } catch (error) {
         console.error('❌ Fehler beim Invalidieren alter Codes:', error);
-        console.error('Query-Details:', { playerId, firstName: playerData.firstName, lastName: playerData.lastName });
+        console.error('Query-Details:', {
+            playerId,
+            firstName: playerData.firstName,
+            lastName: playerData.lastName,
+        });
 
         // Check if it's a missing index error
         if (error.message && error.message.includes('index')) {
-            console.error('⚠️ Firestore Index fehlt! Bitte erstelle den Index über die Firebase Console.');
+            console.error(
+                '⚠️ Firestore Index fehlt! Bitte erstelle den Index über die Firebase Console.'
+            );
             console.error('Index-Link könnte in der Fehlermeldung sein:', error.message);
         }
 
@@ -244,11 +291,10 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
  * Check if code already exists
  */
 async function checkCodeExists(code) {
-    const {query, where, getDocs, collection} = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js");
-    const q = query(
-        collection(db, 'invitationCodes'),
-        where('code', '==', code)
+    const { query, where, getDocs, collection } = await import(
+        'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
     );
+    const q = query(collection(db, 'invitationCodes'), where('code', '==', code));
     const snapshot = await getDocs(q);
     return !snapshot.empty;
 }
@@ -316,8 +362,9 @@ async function handleSendInvitation(e) {
     // Only code option available now
     try {
         // Get player data
-        const playerDoc = await import("https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js")
-            .then(mod => mod.getDoc(mod.doc(db, 'users', currentPlayerId)));
+        const playerDoc = await import(
+            'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
+        ).then(mod => mod.getDoc(mod.doc(db, 'users', currentPlayerId)));
 
         if (!playerDoc.exists()) {
             throw new Error('Spieler nicht gefunden');
@@ -387,19 +434,23 @@ export function loadSubgroupsForOfflinePlayerForm(subgroups) {
         return;
     }
 
-    container.innerHTML = subgroups.map(subgroup => {
-        const isDefault = subgroup.isDefault === true;
-        const checkedAttr = isDefault ? 'checked' : '';
-        const disabledAttr = isDefault ? 'disabled' : '';
-        const cursorClass = isDefault ? 'cursor-not-allowed' : 'cursor-pointer';
-        const opacityClass = isDefault ? 'opacity-75' : '';
-        const badgeHtml = isDefault ? '<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded ml-2">Standard</span>' : '';
+    container.innerHTML = subgroups
+        .map(subgroup => {
+            const isDefault = subgroup.isDefault === true;
+            const checkedAttr = isDefault ? 'checked' : '';
+            const disabledAttr = isDefault ? 'disabled' : '';
+            const cursorClass = isDefault ? 'cursor-not-allowed' : 'cursor-pointer';
+            const opacityClass = isDefault ? 'opacity-75' : '';
+            const badgeHtml = isDefault
+                ? '<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded ml-2">Standard</span>'
+                : '';
 
-        return `
+            return `
             <label class="flex items-center space-x-2 text-sm ${cursorClass} ${opacityClass}">
                 <input type="checkbox" value="${subgroup.id}" class="subgroup-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" ${checkedAttr} ${disabledAttr}>
                 <span>${subgroup.name}${badgeHtml}</span>
             </label>
         `;
-    }).join('');
+        })
+        .join('');
 }

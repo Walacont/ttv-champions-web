@@ -1,11 +1,11 @@
 import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  getDocs,
-  getDoc,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+    collection,
+    query,
+    where,
+    onSnapshot,
+    getDocs,
+    getDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Match Suggestions Module
@@ -25,119 +25,123 @@ import {
  * @returns {Promise<Array>} Array of suggested players with priority scores
  */
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
-  try {
-    // Filter eligible players
-    const eligiblePlayers = allPlayers.filter((p) => {
-      const isNotSelf = p.id !== userData.id;
-      const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
-      const isPlayer = p.role === "player";
-      return isNotSelf && isMatchReady && isPlayer;
-    });
+    try {
+        // Filter eligible players
+        const eligiblePlayers = allPlayers.filter(p => {
+            const isNotSelf = p.id !== userData.id;
+            const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
+            const isPlayer = p.role === 'player';
+            return isNotSelf && isMatchReady && isPlayer;
+        });
 
-    // Get all matches involving the current user
-    // Query both new format (with playerIds array) and old format (playerAId/playerBId)
-    const matchesWithPlayerIds = query(
-      collection(db, "matches"),
-      where("playerIds", "array-contains", userData.id)
-    );
-    const matchesAsPlayerA = query(
-      collection(db, "matches"),
-      where("playerAId", "==", userData.id)
-    );
-    const matchesAsPlayerB = query(
-      collection(db, "matches"),
-      where("playerBId", "==", userData.id)
-    );
+        // Get all matches involving the current user
+        // Query both new format (with playerIds array) and old format (playerAId/playerBId)
+        const matchesWithPlayerIds = query(
+            collection(db, 'matches'),
+            where('playerIds', 'array-contains', userData.id)
+        );
+        const matchesAsPlayerA = query(
+            collection(db, 'matches'),
+            where('playerAId', '==', userData.id)
+        );
+        const matchesAsPlayerB = query(
+            collection(db, 'matches'),
+            where('playerBId', '==', userData.id)
+        );
 
-    // Execute all queries
-    const [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3] = await Promise.all([
-      getDocs(matchesWithPlayerIds),
-      getDocs(matchesAsPlayerA),
-      getDocs(matchesAsPlayerB)
-    ]);
+        // Execute all queries
+        const [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3] = await Promise.all([
+            getDocs(matchesWithPlayerIds),
+            getDocs(matchesAsPlayerA),
+            getDocs(matchesAsPlayerB),
+        ]);
 
-    // Combine results and deduplicate by document ID
-    const allMatchDocs = new Map();
-    [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3].forEach(snapshot => {
-      snapshot.forEach(doc => {
-        allMatchDocs.set(doc.id, doc);
-      });
-    });
+        // Combine results and deduplicate by document ID
+        const allMatchDocs = new Map();
+        [matchesSnapshot1, matchesSnapshot2, matchesSnapshot3].forEach(snapshot => {
+            snapshot.forEach(doc => {
+                allMatchDocs.set(doc.id, doc);
+            });
+        });
 
-    // Build opponent history
-    const opponentHistory = {};
-    allMatchDocs.forEach((doc) => {
-      const match = doc.data();
-      const opponentId = match.playerAId === userData.id ? match.playerBId : match.playerAId;
+        // Build opponent history
+        const opponentHistory = {};
+        allMatchDocs.forEach(doc => {
+            const match = doc.data();
+            const opponentId = match.playerAId === userData.id ? match.playerBId : match.playerAId;
 
-      if (!opponentHistory[opponentId]) {
-        opponentHistory[opponentId] = {
-          matchCount: 0,
-          lastMatchDate: null,
-        };
-      }
+            if (!opponentHistory[opponentId]) {
+                opponentHistory[opponentId] = {
+                    matchCount: 0,
+                    lastMatchDate: null,
+                };
+            }
 
-      opponentHistory[opponentId].matchCount++;
+            opponentHistory[opponentId].matchCount++;
 
-      const matchDate = match.playedAt?.toDate?.() || match.createdAt?.toDate?.();
-      if (matchDate && (!opponentHistory[opponentId].lastMatchDate || matchDate > opponentHistory[opponentId].lastMatchDate)) {
-        opponentHistory[opponentId].lastMatchDate = matchDate;
-      }
-    });
+            const matchDate = match.playedAt?.toDate?.() || match.createdAt?.toDate?.();
+            if (
+                matchDate &&
+                (!opponentHistory[opponentId].lastMatchDate ||
+                    matchDate > opponentHistory[opponentId].lastMatchDate)
+            ) {
+                opponentHistory[opponentId].lastMatchDate = matchDate;
+            }
+        });
 
-    // Calculate priority score for each eligible player
-    const now = new Date();
+        // Calculate priority score for each eligible player
+        const now = new Date();
 
-    const suggestions = eligiblePlayers.map((player) => {
-      const history = opponentHistory[player.id] || { matchCount: 0, lastMatchDate: null };
-      const playerElo = player.eloRating || 1000;
-      const myElo = userData.eloRating || 1000;
-      const eloDiff = Math.abs(myElo - playerElo);
+        const suggestions = eligiblePlayers.map(player => {
+            const history = opponentHistory[player.id] || { matchCount: 0, lastMatchDate: null };
+            const playerElo = player.eloRating || 1000;
+            const myElo = userData.eloRating || 1000;
+            const eloDiff = Math.abs(myElo - playerElo);
 
-      let score = 100; // Base score
+            let score = 100; // Base score
 
-      // Factor 1: Never played = highest priority
-      if (history.matchCount === 0) {
-        score += 50;
-      } else {
-        // Factor 2: Fewer matches = higher priority
-        score -= history.matchCount * 5;
-      }
+            // Factor 1: Never played = highest priority
+            if (history.matchCount === 0) {
+                score += 50;
+            } else {
+                // Factor 2: Fewer matches = higher priority
+                score -= history.matchCount * 5;
+            }
 
-      // Factor 3: Time since last match (if played before)
-      if (history.lastMatchDate) {
-        const daysSinceLastMatch = (now - history.lastMatchDate) / (1000 * 60 * 60 * 24);
-        score += Math.min(daysSinceLastMatch / 7, 30); // Up to +30 for 30+ weeks
-      }
+            // Factor 3: Time since last match (if played before)
+            if (history.lastMatchDate) {
+                const daysSinceLastMatch = (now - history.lastMatchDate) / (1000 * 60 * 60 * 24);
+                score += Math.min(daysSinceLastMatch / 7, 30); // Up to +30 for 30+ weeks
+            }
 
-      // NO ELO filtering - everyone should play against everyone
+            // NO ELO filtering - everyone should play against everyone
 
-      return {
-        ...player,
-        suggestionScore: Math.max(0, score),
-        history: history,
-        eloDiff: eloDiff,
-      };
-    });
+            return {
+                ...player,
+                suggestionScore: Math.max(0, score),
+                history: history,
+                eloDiff: eloDiff,
+            };
+        });
 
-    // Sort by priority score (highest first)
-    suggestions.sort((a, b) => b.suggestionScore - a.suggestionScore);
+        // Sort by priority score (highest first)
+        suggestions.sort((a, b) => b.suggestionScore - a.suggestionScore);
 
-    // Check if there are players we've never played against
-    const neverPlayedPlayers = suggestions.filter(s => s.history.matchCount === 0);
+        // Check if there are players we've never played against
+        const neverPlayedPlayers = suggestions.filter(s => s.history.matchCount === 0);
 
-    if (neverPlayedPlayers.length > 0) {
-      // Only show never-played players (3-4 of them)
-      return neverPlayedPlayers.slice(0, 4);
-    } else {
-      // All players have been played against - show random 3-4 suggestions
-      const randomSuggestions = [...suggestions].sort(() => Math.random() - 0.5);
-      return randomSuggestions.slice(0, 4);
+        if (neverPlayedPlayers.length > 0) {
+            // Only show never-played players (3-4 of them)
+            return neverPlayedPlayers.slice(0, 4);
+        } else {
+            // All players have been played against - show random 3-4 suggestions
+            const randomSuggestions = [...suggestions].sort(() => Math.random() - 0.5);
+            return randomSuggestions.slice(0, 4);
+        }
+    } catch (error) {
+        console.error('Error calculating match suggestions:', error);
+        return [];
     }
-  } catch (error) {
-    console.error("Error calculating match suggestions:", error);
-    return [];
-  }
 }
 
 // ========================================================================
@@ -151,16 +155,21 @@ export async function calculateMatchSuggestions(userData, allPlayers, db) {
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  * @param {String} subgroupFilter - Filter by subgroup ('club', 'global', or subgroup ID)
  */
-export async function loadMatchSuggestions(userData, db, unsubscribes = [], subgroupFilter = 'club') {
-  const container = document.getElementById("match-suggestions-list");
-  if (!container) return;
+export async function loadMatchSuggestions(
+    userData,
+    db,
+    unsubscribes = [],
+    subgroupFilter = 'club'
+) {
+    const container = document.getElementById('match-suggestions-list');
+    if (!container) return;
 
-  // Check if player has completed Grundlagen requirement
-  const grundlagenCompleted = userData.grundlagenCompleted || 0;
-  const isMatchReady = grundlagenCompleted >= 5;
+    // Check if player has completed Grundlagen requirement
+    const grundlagenCompleted = userData.grundlagenCompleted || 0;
+    const isMatchReady = grundlagenCompleted >= 5;
 
-  if (!isMatchReady) {
-    container.innerHTML = `
+    if (!isMatchReady) {
+        container.innerHTML = `
       <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
         <div class="flex">
           <div class="flex-shrink-0">
@@ -179,18 +188,19 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
         </div>
       </div>
     `;
-    return; // Exit early
-  }
+        return; // Exit early
+    }
 
-  container.innerHTML = '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
+    container.innerHTML =
+        '<p class="text-gray-500 text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Lade Vorschläge...</p>';
 
-  console.log('[Match Suggestions] Loading with filter:', subgroupFilter);
+    console.log('[Match Suggestions] Loading with filter:', subgroupFilter);
 
-  try {
-    // Match suggestions only work for club view (not global)
-    // This is because Firestore rules only allow players to read other players in their club
-    if (subgroupFilter === 'global') {
-      container.innerHTML = `
+    try {
+        // Match suggestions only work for club view (not global)
+        // This is because Firestore rules only allow players to read other players in their club
+        if (subgroupFilter === 'global') {
+            container.innerHTML = `
         <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
           <div class="flex">
             <div class="flex-shrink-0">
@@ -207,118 +217,126 @@ export async function loadMatchSuggestions(userData, db, unsubscribes = [], subg
           </div>
         </div>
       `;
-      return;
+            return;
+        }
+
+        // Get all players based on filter (club only)
+        let playersQuery;
+        playersQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', userData.clubId),
+            where('role', '==', 'player')
+        );
+
+        const snapshot = await getDocs(playersQuery);
+        let allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        console.log('[Match Suggestions] Players before filter:', allPlayers.length);
+        console.log(
+            '[Match Suggestions] Sample player subgroups:',
+            allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs }))
+        );
+
+        // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
+        // Note: Players can be in multiple subgroups, so we check if the array includes the filter
+        if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+            console.log('[Match Suggestions] Applying subgroup filter:', subgroupFilter);
+            allPlayers = allPlayers.filter(player =>
+                (player.subgroupIDs || []).includes(subgroupFilter)
+            );
+            console.log('[Match Suggestions] Players after filter:', allPlayers.length);
+        }
+
+        // Function to calculate and render suggestions
+        const renderSuggestions = async () => {
+            const suggestions = await calculateMatchSuggestions(userData, allPlayers, db);
+
+            if (suggestions.length === 0) {
+                container.innerHTML =
+                    '<p class="text-gray-500 text-center py-4">Keine Vorschläge verfügbar</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            // Render all suggestions (3-4 players)
+            suggestions.forEach(player => {
+                const card = createSuggestionCard(player, userData, db);
+                container.appendChild(card);
+            });
+        };
+
+        // Initial render
+        await renderSuggestions();
+
+        // Listen for changes to matches collection to update suggestions in real-time
+        // Set up listeners for both new format (playerIds) and old format (playerAId/playerBId)
+        const matchesQueryNew = query(
+            collection(db, 'matches'),
+            where('playerIds', 'array-contains', userData.id)
+        );
+        const matchesQueryA = query(
+            collection(db, 'matches'),
+            where('playerAId', '==', userData.id)
+        );
+        const matchesQueryB = query(
+            collection(db, 'matches'),
+            where('playerBId', '==', userData.id)
+        );
+
+        const unsubscribe1 = onSnapshot(matchesQueryNew, async () => {
+            await renderSuggestions();
+        });
+        const unsubscribe2 = onSnapshot(matchesQueryA, async () => {
+            await renderSuggestions();
+        });
+        const unsubscribe3 = onSnapshot(matchesQueryB, async () => {
+            await renderSuggestions();
+        });
+
+        if (unsubscribes) {
+            unsubscribes.push(unsubscribe1, unsubscribe2, unsubscribe3);
+        }
+    } catch (error) {
+        console.error('Error loading match suggestions:', error);
+        container.innerHTML =
+            '<p class="text-red-500 text-center py-4">Fehler beim Laden der Vorschläge</p>';
     }
-
-    // Get all players based on filter (club only)
-    let playersQuery;
-    playersQuery = query(
-      collection(db, "users"),
-      where("clubId", "==", userData.clubId),
-      where("role", "==", "player")
-    );
-
-    const snapshot = await getDocs(playersQuery);
-    let allPlayers = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-    console.log('[Match Suggestions] Players before filter:', allPlayers.length);
-    console.log('[Match Suggestions] Sample player subgroups:', allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs })));
-
-    // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
-    // Note: Players can be in multiple subgroups, so we check if the array includes the filter
-    if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-      console.log('[Match Suggestions] Applying subgroup filter:', subgroupFilter);
-      allPlayers = allPlayers.filter(player => (player.subgroupIDs || []).includes(subgroupFilter));
-      console.log('[Match Suggestions] Players after filter:', allPlayers.length);
-    }
-
-    // Function to calculate and render suggestions
-    const renderSuggestions = async () => {
-      const suggestions = await calculateMatchSuggestions(userData, allPlayers, db);
-
-      if (suggestions.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine Vorschläge verfügbar</p>';
-        return;
-      }
-
-      container.innerHTML = "";
-
-      // Render all suggestions (3-4 players)
-      suggestions.forEach((player) => {
-        const card = createSuggestionCard(player, userData, db);
-        container.appendChild(card);
-      });
-    };
-
-    // Initial render
-    await renderSuggestions();
-
-    // Listen for changes to matches collection to update suggestions in real-time
-    // Set up listeners for both new format (playerIds) and old format (playerAId/playerBId)
-    const matchesQueryNew = query(
-      collection(db, "matches"),
-      where("playerIds", "array-contains", userData.id)
-    );
-    const matchesQueryA = query(
-      collection(db, "matches"),
-      where("playerAId", "==", userData.id)
-    );
-    const matchesQueryB = query(
-      collection(db, "matches"),
-      where("playerBId", "==", userData.id)
-    );
-
-    const unsubscribe1 = onSnapshot(matchesQueryNew, async () => {
-      await renderSuggestions();
-    });
-    const unsubscribe2 = onSnapshot(matchesQueryA, async () => {
-      await renderSuggestions();
-    });
-    const unsubscribe3 = onSnapshot(matchesQueryB, async () => {
-      await renderSuggestions();
-    });
-
-    if (unsubscribes) {
-      unsubscribes.push(unsubscribe1, unsubscribe2, unsubscribe3);
-    }
-
-  } catch (error) {
-    console.error("Error loading match suggestions:", error);
-    container.innerHTML = '<p class="text-red-500 text-center py-4">Fehler beim Laden der Vorschläge</p>';
-  }
 }
 
 /**
  * Creates a suggestion card (view only, no actions)
  */
 function createSuggestionCard(player, userData, db) {
-  const div = document.createElement("div");
-  div.className = "bg-white border border-indigo-200 rounded-md p-2 shadow-sm";
+    const div = document.createElement('div');
+    div.className = 'bg-white border border-indigo-200 rounded-md p-2 shadow-sm';
 
-  const myElo = userData.eloRating || 1000;
-  const playerElo = player.eloRating || 1000;
-  const eloDiff = Math.abs(myElo - playerElo);
-  const neverPlayed = player.history.matchCount === 0;
-  const lastPlayedStr = player.history.lastMatchDate
-    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short" }).format(player.history.lastMatchDate)
-    : null;
+    const myElo = userData.eloRating || 1000;
+    const playerElo = player.eloRating || 1000;
+    const eloDiff = Math.abs(myElo - playerElo);
+    const neverPlayed = player.history.matchCount === 0;
+    const lastPlayedStr = player.history.lastMatchDate
+        ? new Intl.DateTimeFormat('de-DE', { dateStyle: 'short' }).format(
+              player.history.lastMatchDate
+          )
+        : null;
 
-  // Calculate handicap (same logic as in player-matches.js)
-  let handicapHTML = '';
-  if (eloDiff >= 25) {
-    const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
-    const weakerPlayerIsMe = myElo < playerElo;
-    const weakerPlayerName = weakerPlayerIsMe ? "Du" : player.firstName;
+    // Calculate handicap (same logic as in player-matches.js)
+    let handicapHTML = '';
+    if (eloDiff >= 25) {
+        const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
+        const weakerPlayerIsMe = myElo < playerElo;
+        const weakerPlayerName = weakerPlayerIsMe ? 'Du' : player.firstName;
 
-    handicapHTML = `
+        handicapHTML = `
       <div class="text-xs text-blue-600 mt-1">
         <i class="fas fa-balance-scale-right mr-1"></i>
         Handicap: ${weakerPlayerName} ${handicapPoints} Punkt${handicapPoints === 1 ? '' : 'e'}/Satz
       </div>
     `;
-  }
+    }
 
-  div.innerHTML = `
+    div.innerHTML = `
     <div class="flex justify-between items-center mb-1">
       <div class="flex-1">
         <p class="font-semibold text-gray-800 text-sm">${player.firstName} ${player.lastName}</p>
@@ -327,13 +345,14 @@ function createSuggestionCard(player, userData, db) {
     </div>
 
     <div class="text-xs text-gray-600">
-      ${neverPlayed
-        ? '<span class="text-purple-700 font-medium"><i class="fas fa-star mr-1"></i>Noch nie gespielt</span>'
-        : `${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'}${lastPlayedStr ? `, zuletzt ${lastPlayedStr}` : ''}`
+      ${
+          neverPlayed
+              ? '<span class="text-purple-700 font-medium"><i class="fas fa-star mr-1"></i>Noch nie gespielt</span>'
+              : `${player.history.matchCount} Match${player.history.matchCount === 1 ? '' : 'es'}${lastPlayedStr ? `, zuletzt ${lastPlayedStr}` : ''}`
       }
     </div>
     ${handicapHTML}
   `;
 
-  return div;
+    return div;
 }

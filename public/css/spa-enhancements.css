@@ -27,7 +27,9 @@
     padding: 16px;
     background: white;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 2px 4px rgba(0, 0, 0, 0.1);
     pointer-events: auto;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-left: 4px solid #3b82f6;
@@ -119,8 +121,12 @@
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Toast Animations */
@@ -238,7 +244,9 @@
     height: 100%;
     background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899);
     background-size: 200% 100%;
-    animation: loading-progress 1s ease-in-out infinite, loading-gradient 2s linear infinite;
+    animation:
+        loading-progress 1s ease-in-out infinite,
+        loading-gradient 2s linear infinite;
     transform-origin: left;
     border-radius: 0 3px 3px 0;
     box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
@@ -288,16 +296,20 @@ html {
 /* ==================== LINK HOVER EFFECTS ==================== */
 
 a {
-    transition: color 0.2s ease, background-color 0.2s ease;
+    transition:
+        color 0.2s ease,
+        background-color 0.2s ease;
 }
 
 /* ==================== BUTTON TRANSITIONS ==================== */
 
-button, .btn {
+button,
+.btn {
     transition: all 0.2s ease;
 }
 
-button:active, .btn:active {
+button:active,
+.btn:active {
     transform: scale(0.98);
 }
 

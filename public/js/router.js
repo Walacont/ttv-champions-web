@@ -11,12 +11,12 @@ class Router {
         this.afterNavigateCallbacks = [];
 
         // Handle browser back/forward buttons
-        window.addEventListener('popstate', (e) => {
+        window.addEventListener('popstate', e => {
             this.loadRoute(window.location.pathname, false);
         });
 
         // Intercept all link clicks
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', e => {
             const link = e.target.closest('a');
             if (link && this.isInternalLink(link)) {
                 e.preventDefault();
@@ -199,7 +199,6 @@ class ViewLoader {
 
             // Load it
             this.loadHTML(bodyContent);
-
         } catch (error) {
             console.error('View loading error:', error);
             this.loadHTML('<div class="error">Failed to load page</div>');

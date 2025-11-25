@@ -6,7 +6,14 @@
  * 3. 🔥 Aktivitäts-Monitor (Activity Monitor)
  */
 
-import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    query,
+    where,
+    getDocs,
+    orderBy,
+    limit,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { RANK_ORDER } from './ranks.js';
 
 // Chart instances (global to allow cleanup)
@@ -27,10 +34,10 @@ export async function loadStatistics(userData, db, currentSubgroupFilter = 'all'
         await Promise.all([
             loadTrainingAnalysis(userData, db, currentSubgroupFilter),
             loadTeamOverview(userData, db, currentSubgroupFilter),
-            loadActivityMonitor(userData, db, currentSubgroupFilter)
+            loadActivityMonitor(userData, db, currentSubgroupFilter),
         ]);
     } catch (error) {
-        console.error("Error loading statistics:", error);
+        console.error('Error loading statistics:', error);
     }
 }
 
@@ -40,19 +47,23 @@ export async function loadStatistics(userData, db, currentSubgroupFilter = 'all'
  */
 async function loadTrainingAnalysis(userData, db, currentSubgroupFilter = 'all') {
     try {
-        const attendanceRef = collection(db, "attendance");
+        const attendanceRef = collection(db, 'attendance');
         let q;
 
         // Filter by subgroup
         if (currentSubgroupFilter !== 'all') {
-            q = query(attendanceRef,
-                where("clubId", "==", userData.clubId),
-                where("subgroupId", "==", currentSubgroupFilter),
-                orderBy("date", "desc"));
+            q = query(
+                attendanceRef,
+                where('clubId', '==', userData.clubId),
+                where('subgroupId', '==', currentSubgroupFilter),
+                orderBy('date', 'desc')
+            );
         } else {
-            q = query(attendanceRef,
-                where("clubId", "==", userData.clubId),
-                orderBy("date", "desc"));
+            q = query(
+                attendanceRef,
+                where('clubId', '==', userData.clubId),
+                orderBy('date', 'desc')
+            );
         }
 
         const snapshot = await getDocs(q);
@@ -62,7 +73,7 @@ async function loadTrainingAnalysis(userData, db, currentSubgroupFilter = 'all')
             const data = doc.data();
             attendanceData.push({
                 date: new Date(data.date),
-                count: data.presentPlayerIds ? data.presentPlayerIds.length : 0
+                count: data.presentPlayerIds ? data.presentPlayerIds.length : 0,
             });
         });
 
@@ -74,12 +85,14 @@ async function loadTrainingAnalysis(userData, db, currentSubgroupFilter = 'all')
         const thisWeek = attendanceData.filter(a => a.date >= oneWeekAgo);
         const thisMonth = attendanceData.filter(a => a.date >= oneMonthAgo);
 
-        const avgWeek = thisWeek.length > 0
-            ? Math.round(thisWeek.reduce((sum, a) => sum + a.count, 0) / thisWeek.length)
-            : 0;
-        const avgMonth = thisMonth.length > 0
-            ? Math.round(thisMonth.reduce((sum, a) => sum + a.count, 0) / thisMonth.length)
-            : 0;
+        const avgWeek =
+            thisWeek.length > 0
+                ? Math.round(thisWeek.reduce((sum, a) => sum + a.count, 0) / thisWeek.length)
+                : 0;
+        const avgMonth =
+            thisMonth.length > 0
+                ? Math.round(thisMonth.reduce((sum, a) => sum + a.count, 0) / thisMonth.length)
+                : 0;
         const totalTrainings = attendanceData.length;
 
         // Update UI
@@ -93,7 +106,7 @@ async function loadTrainingAnalysis(userData, db, currentSubgroupFilter = 'all')
 
         renderAttendanceTrendChart(last12Weeks);
     } catch (error) {
-        console.error("Error loading training analysis:", error);
+        console.error('Error loading training analysis:', error);
     }
 }
 
@@ -116,32 +129,34 @@ function renderAttendanceTrendChart(data) {
         type: 'line',
         data: {
             labels: weeklyData.map(w => `KW ${w.week}`),
-            datasets: [{
-                label: 'Ø Teilnehmer',
-                data: weeklyData.map(w => w.avgCount),
-                borderColor: 'rgb(79, 70, 229)',
-                backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                tension: 0.3,
-                fill: true
-            }]
+            datasets: [
+                {
+                    label: 'Ø Teilnehmer',
+                    data: weeklyData.map(w => w.avgCount),
+                    borderColor: 'rgb(79, 70, 229)',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    tension: 0.3,
+                    fill: true,
+                },
+            ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
                 legend: {
-                    display: false
-                }
+                    display: false,
+                },
             },
             scales: {
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        stepSize: 1
-                    }
-                }
-            }
-        }
+                        stepSize: 1,
+                    },
+                },
+            },
+        },
     });
 }
 
@@ -159,7 +174,7 @@ function groupByWeek(data) {
             weekMap[key] = {
                 week: weekNum,
                 counts: [],
-                year: item.date.getFullYear()
+                year: item.date.getFullYear(),
             };
         }
         weekMap[key].counts.push(item.count);
@@ -168,7 +183,7 @@ function groupByWeek(data) {
     return Object.values(weekMap)
         .map(week => ({
             week: week.week,
-            avgCount: Math.round(week.counts.reduce((sum, c) => sum + c, 0) / week.counts.length)
+            avgCount: Math.round(week.counts.reduce((sum, c) => sum + c, 0) / week.counts.length),
         }))
         .slice(-12); // Last 12 weeks
 }
@@ -181,7 +196,7 @@ function getWeekNumber(date) {
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
 
 /**
@@ -190,8 +205,12 @@ function getWeekNumber(date) {
  */
 async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
     try {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("clubId", "==", userData.clubId), where("role", "==", "player"));
+        const usersRef = collection(db, 'users');
+        const q = query(
+            usersRef,
+            where('clubId', '==', userData.clubId),
+            where('role', '==', 'player')
+        );
         const snapshot = await getDocs(q);
 
         let players = [];
@@ -200,7 +219,10 @@ async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
 
             // Filter by subgroup
             if (currentSubgroupFilter !== 'all') {
-                if (playerData.subgroupIDs && playerData.subgroupIDs.includes(currentSubgroupFilter)) {
+                if (
+                    playerData.subgroupIDs &&
+                    playerData.subgroupIDs.includes(currentSubgroupFilter)
+                ) {
                     players.push(playerData);
                 }
             } else {
@@ -211,7 +233,9 @@ async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
         // Calculate team statistics
         const teamSize = players.length;
         const avgAge = calculateAverageAge(players);
-        const avgElo = Math.round(players.reduce((sum, p) => sum + (p.eloRating || 1000), 0) / teamSize);
+        const avgElo = Math.round(
+            players.reduce((sum, p) => sum + (p.eloRating || 1000), 0) / teamSize
+        );
         const avgXp = Math.round(players.reduce((sum, p) => sum + (p.xp || 0), 0) / teamSize);
 
         // Update UI
@@ -225,7 +249,7 @@ async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
         renderGenderDistributionChart(players);
         renderRankDistributionChart(players);
     } catch (error) {
-        console.error("Error loading team overview:", error);
+        console.error('Error loading team overview:', error);
     }
 }
 
@@ -259,11 +283,11 @@ function renderAgeDistributionChart(players) {
 
     // Group by age ranges
     const ageRanges = {
-        'U10': 0,
-        'U13': 0,
-        'U15': 0,
-        'U18': 0,
-        '18+': 0
+        U10: 0,
+        U13: 0,
+        U15: 0,
+        U18: 0,
+        '18+': 0,
     };
 
     const now = new Date();
@@ -283,26 +307,28 @@ function renderAgeDistributionChart(players) {
         type: 'doughnut',
         data: {
             labels: Object.keys(ageRanges),
-            datasets: [{
-                data: Object.values(ageRanges),
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.8)',
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 206, 86, 0.8)',
-                    'rgba(75, 192, 192, 0.8)',
-                    'rgba(153, 102, 255, 0.8)'
-                ]
-            }]
+            datasets: [
+                {
+                    data: Object.values(ageRanges),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                    ],
+                },
+            ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
                 legend: {
-                    position: 'bottom'
-                }
-            }
-        }
+                    position: 'bottom',
+                },
+            },
+        },
     });
 }
 
@@ -318,10 +344,10 @@ function renderGenderDistributionChart(players) {
     }
 
     const genderCounts = {
-        'Männlich': 0,
-        'Weiblich': 0,
-        'Divers': 0,
-        'Unbekannt': 0
+        Männlich: 0,
+        Weiblich: 0,
+        Divers: 0,
+        Unbekannt: 0,
     };
 
     players.forEach(p => {
@@ -336,25 +362,27 @@ function renderGenderDistributionChart(players) {
         type: 'doughnut',
         data: {
             labels: Object.keys(genderCounts),
-            datasets: [{
-                data: Object.values(genderCounts),
-                backgroundColor: [
-                    'rgba(54, 162, 235, 0.8)',
-                    'rgba(255, 99, 132, 0.8)',
-                    'rgba(153, 102, 255, 0.8)',
-                    'rgba(201, 203, 207, 0.8)'
-                ]
-            }]
+            datasets: [
+                {
+                    data: Object.values(genderCounts),
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(201, 203, 207, 0.8)',
+                    ],
+                },
+            ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
                 legend: {
-                    position: 'bottom'
-                }
-            }
-        }
+                    position: 'bottom',
+                },
+            },
+        },
     });
 }
 
@@ -386,31 +414,33 @@ function renderRankDistributionChart(players) {
         type: 'bar',
         data: {
             labels: Object.keys(rankCounts),
-            datasets: [{
-                label: 'Spieler',
-                data: Object.values(rankCounts),
-                backgroundColor: 'rgba(79, 70, 229, 0.8)',
-                borderColor: 'rgba(79, 70, 229, 1)',
-                borderWidth: 1
-            }]
+            datasets: [
+                {
+                    label: 'Spieler',
+                    data: Object.values(rankCounts),
+                    backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                    borderColor: 'rgba(79, 70, 229, 1)',
+                    borderWidth: 1,
+                },
+            ],
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
                 legend: {
-                    display: false
-                }
+                    display: false,
+                },
             },
             scales: {
                 y: {
                     beginAtZero: true,
                     ticks: {
-                        stepSize: 1
-                    }
-                }
-            }
-        }
+                        stepSize: 1,
+                    },
+                },
+            },
+        },
     });
 }
 
@@ -421,8 +451,12 @@ function renderRankDistributionChart(players) {
 async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') {
     try {
         // Get players with attendance data
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("clubId", "==", userData.clubId), where("role", "==", "player"));
+        const usersRef = collection(db, 'users');
+        const q = query(
+            usersRef,
+            where('clubId', '==', userData.clubId),
+            where('role', '==', 'player')
+        );
         const snapshot = await getDocs(q);
 
         let players = [];
@@ -431,7 +465,10 @@ async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') 
 
             // Filter by subgroup
             if (currentSubgroupFilter !== 'all') {
-                if (playerData.subgroupIDs && playerData.subgroupIDs.includes(currentSubgroupFilter)) {
+                if (
+                    playerData.subgroupIDs &&
+                    playerData.subgroupIDs.includes(currentSubgroupFilter)
+                ) {
                     players.push(playerData);
                 }
             } else {
@@ -440,20 +477,24 @@ async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') 
         });
 
         // Get all attendance records filtered by subgroup
-        const attendanceRef = collection(db, "attendance");
+        const attendanceRef = collection(db, 'attendance');
         let attendanceQuery;
 
         if (currentSubgroupFilter !== 'all') {
-            attendanceQuery = query(attendanceRef,
-                where("clubId", "==", userData.clubId),
-                where("subgroupId", "==", currentSubgroupFilter),
-                orderBy("date", "desc"),
-                limit(50));
+            attendanceQuery = query(
+                attendanceRef,
+                where('clubId', '==', userData.clubId),
+                where('subgroupId', '==', currentSubgroupFilter),
+                orderBy('date', 'desc'),
+                limit(50)
+            );
         } else {
-            attendanceQuery = query(attendanceRef,
-                where("clubId", "==", userData.clubId),
-                orderBy("date", "desc"),
-                limit(50));
+            attendanceQuery = query(
+                attendanceRef,
+                where('clubId', '==', userData.clubId),
+                orderBy('date', 'desc'),
+                limit(50)
+            );
         }
 
         const attendanceSnapshot = await getDocs(attendanceQuery);
@@ -480,7 +521,7 @@ async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') 
         // Calculate team progress
         calculateTeamProgress(players);
     } catch (error) {
-        console.error("Error loading activity monitor:", error);
+        console.error('Error loading activity monitor:', error);
     }
 }
 
@@ -507,7 +548,7 @@ function calculateStreaks(players, attendanceRecords) {
 
         return {
             name: `${player.firstName || ''} ${player.lastName || ''}`.trim() || player.email,
-            streak: currentStreak
+            streak: currentStreak,
         };
     });
 
@@ -528,12 +569,16 @@ function renderTopStreaks(streaks) {
     }
 
     const medals = ['🥇', '🥈', '🥉'];
-    container.innerHTML = streaks.map((s, index) => `
+    container.innerHTML = streaks
+        .map(
+            (s, index) => `
         <li class="flex justify-between items-center p-2 bg-white rounded">
             <span class="font-medium">${medals[index]} ${s.name}</span>
             <span class="text-orange-600 font-bold">${s.streak} Tage</span>
         </li>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 /**
@@ -546,7 +591,9 @@ function findInactivePlayers(players, attendanceRecords) {
         .filter(player => {
             // Find most recent attendance for this player
             const lastAttendance = attendanceRecords
-                .filter(record => record.presentPlayerIds && record.presentPlayerIds.includes(player.id))
+                .filter(
+                    record => record.presentPlayerIds && record.presentPlayerIds.includes(player.id)
+                )
                 .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
             if (!lastAttendance) return true; // Never attended
@@ -556,7 +603,7 @@ function findInactivePlayers(players, attendanceRecords) {
         })
         .map(p => ({
             name: `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.email,
-            lastSeen: getLastSeenText(p, attendanceRecords)
+            lastSeen: getLastSeenText(p, attendanceRecords),
         }))
         .slice(0, 5); // Top 5 most inactive
 }
@@ -591,12 +638,16 @@ function renderInactivePlayers(inactivePlayers) {
         return;
     }
 
-    container.innerHTML = inactivePlayers.map(p => `
+    container.innerHTML = inactivePlayers
+        .map(
+            p => `
         <li class="flex justify-between items-center p-2 bg-white rounded">
             <span class="font-medium">${p.name}</span>
             <span class="text-red-600 text-sm">${p.lastSeen}</span>
         </li>
-    `).join('');
+    `
+        )
+        .join('');
 }
 
 /**
@@ -604,8 +655,13 @@ function renderInactivePlayers(inactivePlayers) {
  */
 async function loadMatchActivity(userData, db) {
     try {
-        const matchesRef = collection(db, "matches");
-        const q = query(matchesRef, where("clubId", "==", userData.clubId), orderBy("timestamp", "desc"), limit(100));
+        const matchesRef = collection(db, 'matches');
+        const q = query(
+            matchesRef,
+            where('clubId', '==', userData.clubId),
+            orderBy('timestamp', 'desc'),
+            limit(100)
+        );
         const snapshot = await getDocs(q);
 
         // Count matches in last 7 days
@@ -621,7 +677,7 @@ async function loadMatchActivity(userData, db) {
 
         document.getElementById('stats-matches-per-week').textContent = matchesThisWeek;
     } catch (error) {
-        console.error("Error loading match activity:", error);
+        console.error('Error loading match activity:', error);
         document.getElementById('stats-matches-per-week').textContent = '0';
     }
 }
@@ -631,9 +687,8 @@ async function loadMatchActivity(userData, db) {
  */
 function calculateGrundlagenRate(players) {
     const playersWithGrundlagen = players.filter(p => (p.grundlagenCompleted || 0) >= 5);
-    const rate = players.length > 0
-        ? Math.round((playersWithGrundlagen.length / players.length) * 100)
-        : 0;
+    const rate =
+        players.length > 0 ? Math.round((playersWithGrundlagen.length / players.length) * 100) : 0;
 
     document.getElementById('stats-grundlagen-rate').textContent = `${rate}%`;
 }

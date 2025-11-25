@@ -81,7 +81,8 @@ function showUpdateBanner(message) {
 
     const banner = document.createElement('div');
     banner.id = 'update-banner';
-    banner.className = 'fixed top-0 left-0 right-0 bg-indigo-600 text-white py-3 px-4 shadow-lg z-50 animate-slide-down';
+    banner.className =
+        'fixed top-0 left-0 right-0 bg-indigo-600 text-white py-3 px-4 shadow-lg z-50 animate-slide-down';
     banner.innerHTML = `
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
@@ -138,11 +139,14 @@ function showUpdateBanner(message) {
 
         // Clear cache and reload
         if ('caches' in window) {
-            caches.keys().then(names => {
-                names.forEach(name => caches.delete(name));
-            }).then(() => {
-                location.reload(true);
-            });
+            caches
+                .keys()
+                .then(names => {
+                    names.forEach(name => caches.delete(name));
+                })
+                .then(() => {
+                    location.reload(true);
+                });
         } else {
             location.reload(true);
         }

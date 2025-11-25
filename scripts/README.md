@@ -3,17 +3,19 @@
 ## ELO Migration (0 → 800)
 
 ### Overview
+
 Das neue Punktesystem startet bei **800 ELO** statt 0. Dieses Script migriert alle bestehenden Benutzer zum neuen System.
 
 ### Vorbereitung
 
 1. **Service Account Key erstellen:**
-   - Gehe zu Firebase Console → Project Settings → Service Accounts
-   - Klicke "Generate New Private Key"
-   - Speichere die JSON-Datei als `serviceAccountKey.json` im Projekt-Root (neben `package.json`)
-   - ⚠️ **WICHTIG:** Füge diese Datei zu `.gitignore` hinzu!
+    - Gehe zu Firebase Console → Project Settings → Service Accounts
+    - Klicke "Generate New Private Key"
+    - Speichere die JSON-Datei als `serviceAccountKey.json` im Projekt-Root (neben `package.json`)
+    - ⚠️ **WICHTIG:** Füge diese Datei zu `.gitignore` hinzu!
 
 2. **Dependencies installieren:**
+
 ```bash
 npm install firebase-admin
 ```
@@ -78,6 +80,7 @@ node scripts/init-season-system.js
 ```
 
 Dieses Script wird:
+
 - Eine `seasons` Collection erstellen
 - Die erste Saison initialisieren
 - Alle Benutzer der ersten Saison zuweisen

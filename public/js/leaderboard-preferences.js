@@ -1,4 +1,8 @@
-import { doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    doc,
+    updateDoc,
+    getDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Leaderboard Preferences Module
@@ -11,7 +15,7 @@ const DEFAULT_PREFERENCES = {
     season: true,
     skill: true,
     ranks: true,
-    doubles: true
+    doubles: true,
 };
 
 /**
@@ -62,13 +66,13 @@ async function savePreferences(userData, db) {
         season: document.getElementById('pref-season').checked,
         skill: document.getElementById('pref-skill').checked,
         ranks: document.getElementById('pref-ranks').checked,
-        doubles: document.getElementById('pref-doubles').checked
+        doubles: document.getElementById('pref-doubles').checked,
     };
 
     try {
         const userRef = doc(db, 'users', userData.id);
         await updateDoc(userRef, {
-            leaderboardPreferences: prefs
+            leaderboardPreferences: prefs,
         });
         console.log('Leaderboard preferences saved:', prefs);
     } catch (error) {
@@ -85,7 +89,7 @@ export function applyPreferences() {
         season: document.getElementById('pref-season')?.checked ?? true,
         skill: document.getElementById('pref-skill')?.checked ?? true,
         ranks: document.getElementById('pref-ranks')?.checked ?? true,
-        doubles: document.getElementById('pref-doubles')?.checked ?? true
+        doubles: document.getElementById('pref-doubles')?.checked ?? true,
     };
 
     // Show/hide tab buttons
@@ -94,7 +98,7 @@ export function applyPreferences() {
         season: document.getElementById('tab-season'),
         skill: document.getElementById('tab-skill'),
         ranks: document.getElementById('tab-ranks'),
-        doubles: document.getElementById('tab-doubles')
+        doubles: document.getElementById('tab-doubles'),
     };
 
     // Apply visibility
@@ -123,14 +127,19 @@ function ensureValidActiveTab(prefs) {
 
     // Check if current active tab is visible
     tabButtons.forEach(button => {
-        if (button.classList.contains('border-indigo-600') && !button.classList.contains('hidden')) {
+        if (
+            button.classList.contains('border-indigo-600') &&
+            !button.classList.contains('hidden')
+        ) {
             hasActiveVisibleTab = true;
         }
     });
 
     // If no visible tab is active, activate the first visible one
     if (!hasActiveVisibleTab) {
-        const firstVisibleButton = Array.from(tabButtons).find(btn => !btn.classList.contains('hidden'));
+        const firstVisibleButton = Array.from(tabButtons).find(
+            btn => !btn.classList.contains('hidden')
+        );
         if (firstVisibleButton) {
             firstVisibleButton.click();
         }
@@ -147,6 +156,6 @@ export function getCurrentPreferences() {
         season: document.getElementById('pref-season')?.checked ?? true,
         skill: document.getElementById('pref-skill')?.checked ?? true,
         ranks: document.getElementById('pref-ranks')?.checked ?? true,
-        doubles: document.getElementById('pref-doubles')?.checked ?? true
+        doubles: document.getElementById('pref-doubles')?.checked ?? true,
     };
 }

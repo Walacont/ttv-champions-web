@@ -14,11 +14,16 @@ import {
     writeBatch,
     serverTimestamp,
     increment,
-    Timestamp
+    Timestamp,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 import { openExerciseSelectionModal } from './session-planning.js';
-import { initializePartnerPairing, openPartnerPairingModal, distributeExercisePoints, distributeMilestonePoints } from './partner-pairing.js';
+import {
+    initializePartnerPairing,
+    openPartnerPairingModal,
+    distributeExercisePoints,
+    distributeMilestonePoints,
+} from './partner-pairing.js';
 
 let db = null;
 let currentUserData = null;
@@ -30,7 +35,7 @@ let spontaneousExercises = [];
 // Store partner pairings for each exercise: {planned: [{pairs, singlePlayers}], spontaneous: [{pairs, singlePlayers}]}
 let exercisePairings = {
     planned: [],
-    spontaneous: []
+    spontaneous: [],
 };
 
 /**
@@ -73,7 +78,7 @@ function setupEventListeners() {
  */
 function openSpontaneousExerciseModal() {
     // Open modal with callback to add spontaneous exercise
-    openExerciseSelectionModal((exercise) => {
+    openExerciseSelectionModal(exercise => {
         addSpontaneousExerciseFromModal(exercise);
     });
 }
@@ -88,7 +93,7 @@ function addSpontaneousExerciseFromModal(exercise) {
         exerciseId: exercise.exerciseId || exercise.id,
         name: exercise.name,
         points: exercise.points || 0,
-        tieredPoints: exercise.tieredPoints || false
+        tieredPoints: exercise.tieredPoints || false,
     });
 
     // Add placeholder for pairing data
@@ -102,7 +107,7 @@ function addSpontaneousExerciseFromModal(exercise) {
  * @param {string} sessionId - Training session ID
  * @param {string} dateStr - Date string (YYYY-MM-DD)
  */
-window.openTrainingCompletionModal = async function(sessionId, dateStr) {
+window.openTrainingCompletionModal = async function (sessionId, dateStr) {
     currentSessionId = sessionId;
     plannedExercises = [];
     spontaneousExercises = [];
@@ -117,7 +122,7 @@ window.openTrainingCompletionModal = async function(sessionId, dateStr) {
 
         currentSessionData = {
             id: sessionDoc.id,
-            ...sessionDoc.data()
+            ...sessionDoc.data(),
         };
 
         // Check if training is already completed
@@ -140,7 +145,7 @@ window.openTrainingCompletionModal = async function(sessionId, dateStr) {
 
         currentAttendanceData = {
             id: attendanceSnapshot.docs[0].id,
-            ...attendanceSnapshot.docs[0].data()
+            ...attendanceSnapshot.docs[0].data(),
         };
 
         // Load subgroup info
@@ -152,7 +157,8 @@ window.openTrainingCompletionModal = async function(sessionId, dateStr) {
             `${subgroupName} • ${currentSessionData.startTime}-${currentSessionData.endTime} • ${formatDateGerman(dateStr)}`;
         document.getElementById('completion-session-id').value = sessionId;
         document.getElementById('completion-session-date').value = dateStr;
-        document.getElementById('completion-player-count').textContent = currentAttendanceData.presentPlayerIds?.length || 0;
+        document.getElementById('completion-player-count').textContent =
+            currentAttendanceData.presentPlayerIds?.length || 0;
 
         // Load planned exercises
         plannedExercises = currentSessionData.plannedExercises || [];
@@ -183,7 +189,8 @@ function renderPlannedExercises() {
     if (!container) return;
 
     if (plannedExercises.length === 0) {
-        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Keine Übungen geplant</p>';
+        container.innerHTML =
+            '<p class="text-xs text-gray-400 text-center py-4">Keine Übungen geplant</p>';
         return;
     }
 
@@ -191,15 +198,19 @@ function renderPlannedExercises() {
 
     plannedExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
-        div.className = 'flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50';
+        div.className =
+            'flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50';
 
         let badges = '';
         if (exercise.tieredPoints) {
-            badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
+            badges +=
+                '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
 
         // Check if pairings are already set for this exercise
-        const hasPairings = exercisePairings.planned[index] !== undefined && exercisePairings.planned[index] !== null;
+        const hasPairings =
+            exercisePairings.planned[index] !== undefined &&
+            exercisePairings.planned[index] !== null;
         const pairingStatus = hasPairings
             ? '<span class="text-xs text-green-600 whitespace-nowrap">✓ Paarungen gesetzt</span>'
             : '<span class="text-xs text-orange-600 whitespace-nowrap">⚠ Paarungen fehlen</span>';
@@ -242,7 +253,8 @@ function renderSpontaneousExercises() {
     if (!container) return;
 
     if (spontaneousExercises.length === 0) {
-        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Keine spontanen Übungen hinzugefügt</p>';
+        container.innerHTML =
+            '<p class="text-xs text-gray-400 text-center py-4">Keine spontanen Übungen hinzugefügt</p>';
         return;
     }
 
@@ -250,15 +262,19 @@ function renderSpontaneousExercises() {
 
     spontaneousExercises.forEach((exercise, index) => {
         const div = document.createElement('div');
-        div.className = 'flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-green-50 border border-green-200 rounded';
+        div.className =
+            'flex flex-col sm:flex-row sm:items-center gap-2 p-2 bg-green-50 border border-green-200 rounded';
 
         let badges = '';
         if (exercise.tieredPoints) {
-            badges += '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
+            badges +=
+                '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
 
         // Check if pairings are already set for this exercise
-        const hasPairings = exercisePairings.spontaneous[index] !== undefined && exercisePairings.spontaneous[index] !== null;
+        const hasPairings =
+            exercisePairings.spontaneous[index] !== undefined &&
+            exercisePairings.spontaneous[index] !== null;
         const pairingStatus = hasPairings
             ? '<span class="text-xs text-green-600 whitespace-nowrap">✓ Paarungen gesetzt</span>'
             : '<span class="text-xs text-orange-600 whitespace-nowrap">⚠ Paarungen fehlen</span>';
@@ -289,12 +305,11 @@ function renderSpontaneousExercises() {
     updateSubmitButtonState();
 }
 
-
 /**
  * Remove planned exercise
  * @param {number} index - Index in plannedExercises array
  */
-window.removePlannedExercise = function(index) {
+window.removePlannedExercise = function (index) {
     plannedExercises.splice(index, 1);
     exercisePairings.planned.splice(index, 1);
     document.getElementById('completion-planned-count').textContent = plannedExercises.length;
@@ -305,7 +320,7 @@ window.removePlannedExercise = function(index) {
  * Remove spontaneous exercise
  * @param {number} index - Index in spontaneousExercises array
  */
-window.removeSpontaneousExercise = function(index) {
+window.removeSpontaneousExercise = function (index) {
     spontaneousExercises.splice(index, 1);
     exercisePairings.spontaneous.splice(index, 1);
     renderSpontaneousExercises();
@@ -332,7 +347,7 @@ async function handleCompletionSubmit(e) {
                 exercise,
                 pairingData,
                 type: 'planned',
-                index
+                index,
             });
         });
 
@@ -343,7 +358,7 @@ async function handleCompletionSubmit(e) {
                 exercise,
                 pairingData,
                 type: 'spontaneous',
-                index
+                index,
             });
         });
 
@@ -351,7 +366,9 @@ async function handleCompletionSubmit(e) {
         if (exercisesWithPairings.length > 0) {
             await processPointsDistributionWithPairings(exercisesWithPairings);
         } else {
-            console.log('[Training Completion] No exercises - completing training with attendance only');
+            console.log(
+                '[Training Completion] No exercises - completing training with attendance only'
+            );
         }
 
         // Mark session as completed
@@ -364,23 +381,26 @@ async function handleCompletionSubmit(e) {
                 name: item.exercise.name,
                 points: item.exercise.points,
                 tieredPoints: item.exercise.tieredPoints || false,
-                pairingData: item.pairingData // Include pairing data for single players
-            }))
+                pairingData: item.pairingData, // Include pairing data for single players
+            })),
         });
 
         // Show appropriate success message
-        const successMessage = exercisesWithPairings.length > 0
-            ? 'Training erfolgreich abgeschlossen! Punkte wurden vergeben.'
-            : 'Training erfolgreich abgeschlossen! (Nur Anwesenheit)';
+        const successMessage =
+            exercisesWithPairings.length > 0
+                ? 'Training erfolgreich abgeschlossen! Punkte wurden vergeben.'
+                : 'Training erfolgreich abgeschlossen! (Nur Anwesenheit)';
         showFeedback(successMessage, 'success');
 
         // Trigger calendar reload event
-        window.dispatchEvent(new CustomEvent('trainingCompleted', {
-            detail: {
-                sessionId: currentSessionId,
-                date: currentSessionData.date
-            }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('trainingCompleted', {
+                detail: {
+                    sessionId: currentSessionId,
+                    date: currentSessionData.date,
+                },
+            })
+        );
 
         setTimeout(() => {
             closeCompletionModal();
@@ -421,11 +441,14 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
                 const fullExerciseData = exerciseDoc.data();
                 const exerciseWithMilestones = {
                     ...exercise,
-                    tieredPoints: fullExerciseData.tieredPoints
+                    tieredPoints: fullExerciseData.tieredPoints,
                 };
 
                 // Distribute milestone points
-                if (pairingData && (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)) {
+                if (
+                    pairingData &&
+                    (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)
+                ) {
                     await distributeMilestonePoints(
                         pairingData.pairs || [],
                         pairingData.singlePlayers || [],
@@ -433,7 +456,10 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
                         currentSessionData
                     );
                 } else {
-                    console.warn('[Training Completion] No pairing data for milestone exercise:', exercise);
+                    console.warn(
+                        '[Training Completion] No pairing data for milestone exercise:',
+                        exercise
+                    );
                 }
             } catch (error) {
                 console.error('[Training Completion] Error processing milestone exercise:', error);
@@ -442,7 +468,10 @@ async function processPointsDistributionWithPairings(exercisesWithPairings) {
         }
 
         // All table tennis exercises require pairing data
-        if (pairingData && (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)) {
+        if (
+            pairingData &&
+            (pairingData.pairs?.length > 0 || pairingData.singlePlayers?.length > 0)
+        ) {
             await distributeExercisePoints(
                 pairingData.pairs || [],
                 pairingData.singlePlayers || [],
@@ -509,7 +538,7 @@ function closeCompletionModal() {
     spontaneousExercises = [];
     exercisePairings = {
         planned: [],
-        spontaneous: []
+        spontaneous: [],
     };
 }
 
@@ -517,7 +546,7 @@ function closeCompletionModal() {
  * Open partner pairing modal for a planned exercise
  * @param {number} index - Index in plannedExercises array
  */
-window.openPairingForPlannedExercise = async function(index) {
+window.openPairingForPlannedExercise = async function (index) {
     const exercise = plannedExercises[index];
     if (!exercise) return;
 
@@ -531,17 +560,26 @@ window.openPairingForPlannedExercise = async function(index) {
         // Load full exercise data from database if it's a milestone exercise
         let fullExercise = exercise;
         if (exercise.tieredPoints) {
-            console.log('[Training Completion] Loading full exercise data for milestone exercise:', exercise.exerciseId);
+            console.log(
+                '[Training Completion] Loading full exercise data for milestone exercise:',
+                exercise.exerciseId
+            );
             const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
             if (exerciseDoc.exists()) {
                 const exerciseData = exerciseDoc.data();
                 fullExercise = {
                     ...exercise,
-                    tieredPoints: exerciseData.tieredPoints // Get full milestone details
+                    tieredPoints: exerciseData.tieredPoints, // Get full milestone details
                 };
-                console.log('[Training Completion] Loaded full exercise with milestones:', fullExercise.tieredPoints);
+                console.log(
+                    '[Training Completion] Loaded full exercise with milestones:',
+                    fullExercise.tieredPoints
+                );
             } else {
-                console.warn('[Training Completion] Exercise not found in database:', exercise.exerciseId);
+                console.warn(
+                    '[Training Completion] Exercise not found in database:',
+                    exercise.exerciseId
+                );
             }
         }
 
@@ -549,7 +587,12 @@ window.openPairingForPlannedExercise = async function(index) {
         const existingPairings = exercisePairings.planned[index];
 
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(fullExercise, presentPlayerIds, currentSessionData, existingPairings);
+        const pairingData = await openPartnerPairingModal(
+            fullExercise,
+            presentPlayerIds,
+            currentSessionData,
+            existingPairings
+        );
 
         // Store the pairing data
         exercisePairings.planned[index] = pairingData;
@@ -565,7 +608,7 @@ window.openPairingForPlannedExercise = async function(index) {
  * Open partner pairing modal for a spontaneous exercise
  * @param {number} index - Index in spontaneousExercises array
  */
-window.openPairingForSpontaneousExercise = async function(index) {
+window.openPairingForSpontaneousExercise = async function (index) {
     const exercise = spontaneousExercises[index];
     if (!exercise) return;
 
@@ -579,17 +622,26 @@ window.openPairingForSpontaneousExercise = async function(index) {
         // Load full exercise data from database if it's a milestone exercise
         let fullExercise = exercise;
         if (exercise.tieredPoints) {
-            console.log('[Training Completion] Loading full exercise data for milestone exercise:', exercise.exerciseId);
+            console.log(
+                '[Training Completion] Loading full exercise data for milestone exercise:',
+                exercise.exerciseId
+            );
             const exerciseDoc = await getDoc(doc(db, 'exercises', exercise.exerciseId));
             if (exerciseDoc.exists()) {
                 const exerciseData = exerciseDoc.data();
                 fullExercise = {
                     ...exercise,
-                    tieredPoints: exerciseData.tieredPoints // Get full milestone details
+                    tieredPoints: exerciseData.tieredPoints, // Get full milestone details
                 };
-                console.log('[Training Completion] Loaded full exercise with milestones:', fullExercise.tieredPoints);
+                console.log(
+                    '[Training Completion] Loaded full exercise with milestones:',
+                    fullExercise.tieredPoints
+                );
             } else {
-                console.warn('[Training Completion] Exercise not found in database:', exercise.exerciseId);
+                console.warn(
+                    '[Training Completion] Exercise not found in database:',
+                    exercise.exerciseId
+                );
             }
         }
 
@@ -597,7 +649,12 @@ window.openPairingForSpontaneousExercise = async function(index) {
         const existingPairings = exercisePairings.spontaneous[index];
 
         // Open partner pairing modal and get the result
-        const pairingData = await openPartnerPairingModal(fullExercise, presentPlayerIds, currentSessionData, existingPairings);
+        const pairingData = await openPartnerPairingModal(
+            fullExercise,
+            presentPlayerIds,
+            currentSessionData,
+            existingPairings
+        );
 
         // Store the pairing data
         exercisePairings.spontaneous[index] = pairingData;
@@ -605,7 +662,10 @@ window.openPairingForSpontaneousExercise = async function(index) {
         // Re-render to show updated status
         renderSpontaneousExercises();
     } catch (error) {
-        console.error('[Training Completion] Error setting pairings for spontaneous exercise:', error);
+        console.error(
+            '[Training Completion] Error setting pairings for spontaneous exercise:',
+            error
+        );
     }
 };
 
@@ -618,11 +678,17 @@ function updateSubmitButtonState() {
 
     // Check if all exercises have pairings
     const allPlannedHavePairings = plannedExercises.every((exercise, index) => {
-        return exercisePairings.planned[index] !== undefined && exercisePairings.planned[index] !== null;
+        return (
+            exercisePairings.planned[index] !== undefined &&
+            exercisePairings.planned[index] !== null
+        );
     });
 
     const allSpontaneousHavePairings = spontaneousExercises.every((exercise, index) => {
-        return exercisePairings.spontaneous[index] !== undefined && exercisePairings.spontaneous[index] !== null;
+        return (
+            exercisePairings.spontaneous[index] !== undefined &&
+            exercisePairings.spontaneous[index] !== null
+        );
     });
 
     const allPairingsSet = allPlannedHavePairings && allSpontaneousHavePairings;

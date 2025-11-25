@@ -10,7 +10,7 @@ import {
     where,
     orderBy,
     limit,
-    getDocs
+    getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 // Training phases based on sports science
@@ -19,42 +19,47 @@ const PHASES = {
         name: 'Erholung',
         emoji: '😴',
         color: '#ef4444', // red
-        recommendation: 'Gib deinem Körper Zeit zur Erholung. Leichtes Training oder Pause empfohlen.',
+        recommendation:
+            'Gib deinem Körper Zeit zur Erholung. Leichtes Training oder Pause empfohlen.',
         minHours: 0,
-        maxHours: 24
+        maxHours: 24,
     },
     RECOVERY: {
         name: 'Bereit',
         emoji: '💪',
         color: '#22c55e', // green
-        recommendation: 'Perfekter Zeitpunkt! Dein Körper ist optimal erholt für das nächste Training.',
+        recommendation:
+            'Perfekter Zeitpunkt! Dein Körper ist optimal erholt für das nächste Training.',
         minHours: 24,
-        maxHours: 72
+        maxHours: 72,
     },
     SUPERCOMPENSATION: {
         name: 'Optimal',
         emoji: '🔥',
         color: '#10b981', // emerald
-        recommendation: 'Jetzt trainieren! Du bist in der Superkompensations-Phase - maximale Leistungsfähigkeit!',
+        recommendation:
+            'Jetzt trainieren! Du bist in der Superkompensations-Phase - maximale Leistungsfähigkeit!',
         minHours: 36,
-        maxHours: 60
+        maxHours: 60,
     },
     DECONDITIONING: {
         name: 'Dekonditionierung',
         emoji: '⚠️',
         color: '#f59e0b', // amber
-        recommendation: 'Trainingseffekt lässt nach. Plane bald dein nächstes Training, um den Fortschritt zu erhalten!',
+        recommendation:
+            'Trainingseffekt lässt nach. Plane bald dein nächstes Training, um den Fortschritt zu erhalten!',
         minHours: 72,
-        maxHours: 168
+        maxHours: 168,
     },
     LOSS: {
         name: 'Trainingsrückstand',
         emoji: '🚨',
         color: '#dc2626', // red-600
-        recommendation: 'Lange Pause! Zeit für ein neues Training, um wieder in den Rhythmus zu kommen.',
+        recommendation:
+            'Lange Pause! Zeit für ein neues Training, um wieder in den Rhythmus zu kommen.',
         minHours: 168,
-        maxHours: Infinity
-    }
+        maxHours: Infinity,
+    },
 };
 
 /**
@@ -68,10 +73,9 @@ export function initializeSupercompensation(db, currentUserData) {
     displayLoadingState();
 
     // Load data in background (non-blocking)
-    loadAndDisplaySupercompensation(db, currentUserData)
-        .catch(error => {
-            displayError();
-        });
+    loadAndDisplaySupercompensation(db, currentUserData).catch(error => {
+        displayError();
+    });
 }
 
 /**
@@ -134,7 +138,7 @@ async function getLastTraining(db, playerId, clubId) {
         return {
             id: doc.id,
             date: data.date,
-            subgroupId: data.subgroupId
+            subgroupId: data.subgroupId,
         };
     } catch (error) {
         return null;
@@ -190,7 +194,7 @@ function updateSupercompensationUI(lastTraining, hoursSince, phase) {
         weekday: 'short',
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
+        year: 'numeric',
     });
 
     document.getElementById('supercomp-last-training').textContent = formattedDate;
@@ -301,20 +305,22 @@ function drawSupercompensationCurve(currentHours) {
         { hours: 24, performance: baseline }, // Return to baseline
         { hours: 48, performance: baseline - 30 }, // Supercompensation peak
         { hours: 72, performance: baseline - 15 }, // Still elevated
-        { hours: 96, performance: baseline } // Return to baseline
+        { hours: 96, performance: baseline }, // Return to baseline
     ];
 
     // Scale points to SVG coordinates
     const maxHours = 96;
-    const scaleX = (hours) => (hours / maxHours) * width;
-    const scaleY = (perf) => perf;
+    const scaleX = hours => (hours / maxHours) * width;
+    const scaleY = perf => perf;
 
     // Create path for curve
-    const pathData = points.map((point, index) => {
-        const x = scaleX(point.hours);
-        const y = scaleY(point.performance);
-        return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
-    }).join(' ');
+    const pathData = points
+        .map((point, index) => {
+            const x = scaleX(point.hours);
+            const y = scaleY(point.performance);
+            return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+        })
+        .join(' ');
 
     // Draw baseline
     const baselinePath = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -397,7 +403,7 @@ function drawSupercompensationCurve(currentHours) {
     const regions = [
         { start: 0, end: 24, color: 'rgba(239, 68, 68, 0.05)' }, // Fatigue - red
         { start: 24, end: 72, color: 'rgba(16, 185, 129, 0.1)' }, // Optimal - green
-        { start: 72, end: 96, color: 'rgba(245, 158, 11, 0.05)' } // Deconditioning - amber
+        { start: 72, end: 96, color: 'rgba(245, 158, 11, 0.05)' }, // Deconditioning - amber
     ];
 
     regions.forEach(region => {

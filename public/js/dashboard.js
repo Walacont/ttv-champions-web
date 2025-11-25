@@ -1,13 +1,54 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
-import { getFirestore, doc, getDoc, collection, onSnapshot, query, where, orderBy, getDocs, updateDoc, writeBatch, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+import {
+    getAuth,
+    onAuthStateChanged,
+    signOut,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import {
+    getAnalytics,
+    logEvent,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    collection,
+    onSnapshot,
+    query,
+    where,
+    orderBy,
+    getDocs,
+    updateDoc,
+    writeBatch,
+    serverTimestamp,
+    limit,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
-import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT, setupLeaderboardTabs, setupLeaderboardToggle, loadLeaderboard, loadGlobalLeaderboard, renderLeaderboardHTML } from './leaderboard.js';
-import { loadExercises, handleExerciseClick, closeExerciseModal, setExerciseContext } from './exercises.js';
+import {
+    LEAGUES,
+    PROMOTION_COUNT,
+    DEMOTION_COUNT,
+    setupLeaderboardTabs,
+    setupLeaderboardToggle,
+    loadLeaderboard,
+    loadGlobalLeaderboard,
+    renderLeaderboardHTML,
+} from './leaderboard.js';
+import {
+    loadExercises,
+    handleExerciseClick,
+    closeExerciseModal,
+    setExerciseContext,
+} from './exercises.js';
 import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
-import { loadOverviewData, loadRivalData, loadProfileData, updateRankDisplay, updateGrundlagenDisplay } from './profile.js';
+import {
+    loadOverviewData,
+    loadRivalData,
+    loadProfileData,
+    updateRankDisplay,
+    updateGrundlagenDisplay,
+} from './profile.js';
 import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
 import { initPushNotifications } from './init-notifications.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
@@ -44,22 +85,27 @@ let streaksListener = null; // Listener for player streaks (real-time updates)
 
 // --- Main App Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, async user => {
         if (user) {
             await user.getIdToken(true);
             unsubscribes.forEach(unsub => unsub());
             unsubscribes = [];
-            matchSuggestionsUnsubscribes.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+            matchSuggestionsUnsubscribes.forEach(unsub => {
+                if (typeof unsub === 'function') unsub();
+            });
             matchSuggestionsUnsubscribes = [];
             try {
-                const userDocRef = doc(db, "users", user.uid);
+                const userDocRef = doc(db, 'users', user.uid);
                 const initialDocSnap = await getDoc(userDocRef);
-                if (!initialDocSnap.exists()) { signOut(auth); return; }
-                
+                if (!initialDocSnap.exists()) {
+                    signOut(auth);
+                    return;
+                }
+
                 // Season resets are now handled by Cloud Function (every 6 weeks)
                 // No frontend reset logic needed anymore
 
-                const userListener = onSnapshot(userDocRef, (docSnap) => {
+                const userListener = onSnapshot(userDocRef, docSnap => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
                         if (userData.role === 'player') {
@@ -72,19 +118,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 initPushNotifications(app, db, auth, {
                                     autoPrompt: true,
                                     promptDelay: 3000,
-                                    showOnlyOnce: true
+                                    showOnlyOnce: true,
                                 });
                             } else {
                                 updateDashboard(currentUserData);
                             }
                         } else {
-                            window.location.href = userData.role === 'admin' ? '/admin.html' : '/coach.html';
+                            window.location.href =
+                                userData.role === 'admin' ? '/admin.html' : '/coach.html';
                         }
-                    } else { signOut(auth); }
+                    } else {
+                        signOut(auth);
+                    }
                 });
                 unsubscribes.push(userListener);
             } catch (error) {
-                console.error("Initialer Ladefehler:", error);
+                console.error('Initialer Ladefehler:', error);
                 signOut(auth);
             }
         } else {
@@ -115,7 +164,7 @@ async function checkAndStartTutorial(userData) {
             const tutorial = new TutorialManager(playerTutorialSteps, {
                 tutorialKey: 'player',
                 autoScroll: true,
-                scrollOffset: 100
+                scrollOffset: 100,
             });
             tutorial.start();
         }, 1000);
@@ -125,11 +174,11 @@ async function checkAndStartTutorial(userData) {
 /**
  * Global function to start player tutorial (callable from settings)
  */
-window.startPlayerTutorial = function() {
+window.startPlayerTutorial = function () {
     const tutorial = new TutorialManager(playerTutorialSteps, {
         tutorialKey: 'player',
         autoScroll: true,
-        scrollOffset: 100
+        scrollOffset: 100,
     });
     tutorial.start();
 };
@@ -144,7 +193,7 @@ async function initializeDashboard(userData) {
 
     // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {
-        showToggle: false  // No toggle needed, global filter controls everything
+        showToggle: false, // No toggle needed, global filter controls everything
     });
 
     // Populate subgroup options in global filter dropdown
@@ -166,18 +215,23 @@ async function initializeDashboard(userData) {
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
     // Load profile data and setup calendar with real-time listener
-    streaksListener = loadProfileData(userData, (date) => {
-        // Unsubscribe old calendar listener if exists
-        if (calendarListener && typeof calendarListener === 'function') {
-            try {
-                calendarListener();
-            } catch (e) {
-                console.error("Error unsubscribing calendar listener:", e);
+    streaksListener = loadProfileData(
+        userData,
+        date => {
+            // Unsubscribe old calendar listener if exists
+            if (calendarListener && typeof calendarListener === 'function') {
+                try {
+                    calendarListener();
+                } catch (e) {
+                    console.error('Error unsubscribing calendar listener:', e);
+                }
             }
-        }
-        // Setup new calendar listener
-        calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
-    }, currentDisplayDate, db);
+            // Setup new calendar listener
+            calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
+        },
+        currentDisplayDate,
+        db
+    );
 
     setExerciseContext(db, userData.id, userData.role);
     loadExercises(db, unsubscribes);
@@ -211,7 +265,7 @@ async function initializeDashboard(userData) {
     loadMatchHistory(db, userData, 'singles');
 
     // Create a global function to reload match history with different filter
-    window.reloadMatchHistory = (matchType) => {
+    window.reloadMatchHistory = matchType => {
         loadMatchHistory(db, userData, matchType);
     };
 
@@ -235,8 +289,8 @@ async function initializeDashboard(userData) {
             console.error('Logout error:', error);
         }
     });
-    setupTabs('overview');  // 'overview' is default tab for dashboard
-    setupLeaderboardTabs();  // Setup 3-tab navigation
+    setupTabs('overview'); // 'overview' is default tab for dashboard
+    setupLeaderboardTabs(); // Setup 3-tab navigation
 
     // Initialize leaderboard preferences
     initializeLeaderboardPreferences(userData, db);
@@ -253,7 +307,9 @@ async function initializeDashboard(userData) {
     // Event Listeners for Modals
     document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
     document.getElementById('close-exercise-modal').addEventListener('click', closeExerciseModal);
-    document.getElementById('exercise-modal').addEventListener('click', (e) => { if (e.target === document.getElementById('exercise-modal')) closeExerciseModal(); });
+    document.getElementById('exercise-modal').addEventListener('click', e => {
+        if (e.target === document.getElementById('exercise-modal')) closeExerciseModal();
+    });
 
     // Toggle abbreviations in exercise modal
     const toggleAbbreviations = document.getElementById('toggle-abbreviations');
@@ -265,22 +321,28 @@ async function initializeDashboard(userData) {
             if (isHidden) {
                 abbreviationsContent.classList.remove('hidden');
                 abbreviationsIcon.style.transform = 'rotate(180deg)';
-                toggleAbbreviations.innerHTML = '<svg id="abbreviations-icon" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
+                toggleAbbreviations.innerHTML =
+                    '<svg id="abbreviations-icon" class="w-4 h-4 transform transition-transform" style="transform: rotate(180deg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen ausblenden';
             } else {
                 abbreviationsContent.classList.add('hidden');
                 abbreviationsIcon.style.transform = 'rotate(0deg)';
-                toggleAbbreviations.innerHTML = '<svg id="abbreviations-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
+                toggleAbbreviations.innerHTML =
+                    '<svg id="abbreviations-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg> 📖 Abkürzungen anzeigen';
             }
         });
     }
-    
-    document.getElementById('challenges-list').addEventListener('click', (e) => {
+
+    document.getElementById('challenges-list').addEventListener('click', e => {
         const card = e.target.closest('.challenge-card');
         if (card) {
             openChallengeModal(card.dataset);
         }
     });
-    document.getElementById('close-challenge-modal').addEventListener('click', () => document.getElementById('challenge-modal').classList.add('hidden'));
+    document
+        .getElementById('close-challenge-modal')
+        .addEventListener('click', () =>
+            document.getElementById('challenge-modal').classList.add('hidden')
+        );
 
     // Toggle match suggestions
     document.getElementById('toggle-match-suggestions').addEventListener('click', () => {
@@ -323,11 +385,16 @@ async function initializeDashboard(userData) {
             try {
                 calendarListener();
             } catch (e) {
-                console.error("Error unsubscribing calendar listener:", e);
+                console.error('Error unsubscribing calendar listener:', e);
             }
         }
         // Setup new listener
-        calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
+        calendarListener = renderCalendar(
+            currentDisplayDate,
+            currentUserData,
+            db,
+            currentSubgroupFilter
+        );
     });
     document.getElementById('next-month').addEventListener('click', () => {
         currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
@@ -336,11 +403,16 @@ async function initializeDashboard(userData) {
             try {
                 calendarListener();
             } catch (e) {
-                console.error("Error unsubscribing calendar listener:", e);
+                console.error('Error unsubscribing calendar listener:', e);
             }
         }
         // Setup new listener
-        calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
+        calendarListener = renderCalendar(
+            currentDisplayDate,
+            currentUserData,
+            db,
+            currentSubgroupFilter
+        );
     });
 
     // Track page view in Google Analytics
@@ -349,7 +421,7 @@ async function initializeDashboard(userData) {
         page_location: window.location.href,
         page_path: '/dashboard',
         user_role: 'player',
-        club_id: currentUserData.clubId
+        club_id: currentUserData.clubId,
     });
     console.log('[Analytics] Dashboard page view tracked');
 
@@ -373,8 +445,8 @@ function updateDashboard(userData) {
     // Note: Streak is now loaded via real-time listener in loadProfileData()
     // and displays all subgroup streaks instead of a single global streak
 
-    updateRankDisplay(userData);  // Aktualisiert die Rang-Karte
-    updateGrundlagenDisplay(userData);  // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
+    updateRankDisplay(userData); // Aktualisiert die Rang-Karte
+    updateGrundlagenDisplay(userData); // Aktualisiert die Grundlagen-Karte (falls noch sichtbar)
 
     // Update subgroup filter dropdown when user's subgroups change
     populatePlayerSubgroupFilter(userData, db);
@@ -393,11 +465,9 @@ function updateDashboard(userData) {
 // --- Navigation ---
 // setupTabs now in ui-utils.js
 
-
 // --- Season reset & countdown now in season.js and ui-utils.js ---
 
 // --- Profile, Overview, Calendar, Challenges now in separate modules ---
-
 
 // --- Übungs-Tab Funktionen ---
 
@@ -425,14 +495,17 @@ function populatePlayerSubgroupFilter(userData, db) {
         try {
             subgroupFilterListener();
         } catch (e) {
-            console.error("Error unsubscribing subgroup filter listener:", e);
+            console.error('Error unsubscribing subgroup filter listener:', e);
         }
     }
 
     if (subgroupIDs.length === 0) {
         // User not in any subgroups, keep just club and global
-        const clubOption = dropdown.querySelector('option[value="club"]') || createOption('club', '🏠 Mein Verein');
-        const globalOption = dropdown.querySelector('option[value="global"]') || createOption('global', '🌍 Global');
+        const clubOption =
+            dropdown.querySelector('option[value="club"]') ||
+            createOption('club', '🏠 Mein Verein');
+        const globalOption =
+            dropdown.querySelector('option[value="global"]') || createOption('global', '🌍 Global');
         dropdown.innerHTML = '';
         dropdown.appendChild(clubOption);
         dropdown.appendChild(globalOption);
@@ -448,44 +521,51 @@ function populatePlayerSubgroupFilter(userData, db) {
             orderBy('createdAt', 'asc')
         );
 
-        subgroupFilterListener = onSnapshot(q, (snapshot) => {
-            const allSubgroups = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        subgroupFilterListener = onSnapshot(
+            q,
+            snapshot => {
+                const allSubgroups = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
 
-            // Filter to only user's subgroups and exclude default
-            const userSubgroups = allSubgroups
-                .filter(sg => subgroupIDs.includes(sg.id) && !sg.isDefault);
+                // Filter to only user's subgroups and exclude default
+                const userSubgroups = allSubgroups.filter(
+                    sg => subgroupIDs.includes(sg.id) && !sg.isDefault
+                );
 
-            // Update dropdown
-            const clubOption = createOption('club', '🏠 Mein Verein');
-            const globalOption = createOption('global', '🌍 Global');
-            dropdown.innerHTML = '';
+                // Update dropdown
+                const clubOption = createOption('club', '🏠 Mein Verein');
+                const globalOption = createOption('global', '🌍 Global');
+                dropdown.innerHTML = '';
 
-            // Add subgroup options first (if any)
-            if (userSubgroups.length > 0) {
-                userSubgroups.forEach(subgroup => {
-                    const option = createOption(`subgroup:${subgroup.id}`, `👥 ${subgroup.name}`);
-                    dropdown.appendChild(option);
-                });
+                // Add subgroup options first (if any)
+                if (userSubgroups.length > 0) {
+                    userSubgroups.forEach(subgroup => {
+                        const option = createOption(
+                            `subgroup:${subgroup.id}`,
+                            `👥 ${subgroup.name}`
+                        );
+                        dropdown.appendChild(option);
+                    });
+                }
+
+                // Add club and global options
+                dropdown.appendChild(clubOption);
+                dropdown.appendChild(globalOption);
+
+                // Restore selection if still valid
+                const validValues = Array.from(dropdown.options).map(opt => opt.value);
+                if (validValues.includes(currentSelection)) {
+                    dropdown.value = currentSelection;
+                } else {
+                    dropdown.value = 'club';
+                }
+            },
+            error => {
+                console.error('Error in subgroup filter listener:', error);
             }
-
-            // Add club and global options
-            dropdown.appendChild(clubOption);
-            dropdown.appendChild(globalOption);
-
-            // Restore selection if still valid
-            const validValues = Array.from(dropdown.options).map(opt => opt.value);
-            if (validValues.includes(currentSelection)) {
-                dropdown.value = currentSelection;
-            } else {
-                dropdown.value = 'club';
-            }
-        }, (error) => {
-            console.error('Error in subgroup filter listener:', error);
-        });
-
+        );
     } catch (error) {
         console.error('Error setting up subgroup filter listener:', error);
     }
@@ -529,33 +609,39 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
         try {
             rivalListener();
         } catch (e) {
-            console.error("Error unsubscribing rival listener:", e);
+            console.error('Error unsubscribing rival listener:', e);
         }
     }
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
     // Reload leaderboard with correct filter
-    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, loadLeaderboard: loadLB, loadGlobalLeaderboard: loadGlobalLB }) => {
-        if (currentSubgroupFilter === 'club') {
-            // Reset to 'all' for club view
-            setLeaderboardSubgroupFilter('all');
-            loadLB(userData, db, unsubscribes);
-        } else if (currentSubgroupFilter === 'global') {
-            // Global view doesn't use subgroup filter
-            loadGlobalLB(userData, db, unsubscribes);
-        } else {
-            // Specific subgroup - set the filter
-            setLeaderboardSubgroupFilter(currentSubgroupFilter);
-            loadLB(userData, db, unsubscribes);
+    import('./leaderboard.js').then(
+        ({
+            setLeaderboardSubgroupFilter,
+            loadLeaderboard: loadLB,
+            loadGlobalLeaderboard: loadGlobalLB,
+        }) => {
+            if (currentSubgroupFilter === 'club') {
+                // Reset to 'all' for club view
+                setLeaderboardSubgroupFilter('all');
+                loadLB(userData, db, unsubscribes);
+            } else if (currentSubgroupFilter === 'global') {
+                // Global view doesn't use subgroup filter
+                loadGlobalLB(userData, db, unsubscribes);
+            } else {
+                // Specific subgroup - set the filter
+                setLeaderboardSubgroupFilter(currentSubgroupFilter);
+                loadLB(userData, db, unsubscribes);
+            }
         }
-    });
+    );
 
     // Reload calendar with new filter and proper listener management
     if (calendarListener && typeof calendarListener === 'function') {
         try {
             calendarListener();
         } catch (e) {
-            console.error("Error unsubscribing calendar listener:", e);
+            console.error('Error unsubscribing calendar listener:', e);
         }
     }
     calendarListener = renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
@@ -566,7 +652,7 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
         try {
             if (typeof unsub === 'function') unsub();
         } catch (e) {
-            console.error("Error unsubscribing match suggestions listener:", e);
+            console.error('Error unsubscribing match suggestions listener:', e);
         }
     });
     matchSuggestionsUnsubscribes = [];
@@ -590,7 +676,7 @@ async function loadClubPlayers(userData, db) {
         const snapshot = await getDocs(playersQuery);
         clubPlayers = snapshot.docs.map(doc => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
         }));
     } catch (error) {
         console.error('Error loading club players:', error);
@@ -629,7 +715,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     let doublesData = [];
 
     // Real-time listener for singles requests
-    const unsubSingles = onSnapshot(incomingRequestsQuery, async (singlesSnapshot) => {
+    const unsubSingles = onSnapshot(incomingRequestsQuery, async singlesSnapshot => {
         singlesData = [];
 
         // Add singles match result requests
@@ -643,7 +729,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
                 id: docSnap.id,
                 data,
                 playerAData,
-                createdAt: data.createdAt
+                createdAt: data.createdAt,
             });
         }
 
@@ -652,7 +738,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     });
 
     // Real-time listener for doubles requests (PARALLEL, not nested!)
-    const unsubDoubles = onSnapshot(doublesRequestsQuery, async (doublesSnapshot) => {
+    const unsubDoubles = onSnapshot(doublesRequestsQuery, async doublesSnapshot => {
         doublesData = [];
 
         // Add doubles match requests (only where current user is opponent)
@@ -665,7 +751,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
                     getDoc(doc(db, 'users', data.teamA.player2Id)),
                     getDoc(doc(db, 'users', data.teamB.player1Id)),
-                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                    getDoc(doc(db, 'users', data.teamB.player2Id)),
                 ]);
 
                 doublesData.push({
@@ -677,7 +763,7 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
                     teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
                     teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
                     teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
-                    createdAt: data.createdAt
+                    createdAt: data.createdAt,
                 });
             }
         }
@@ -714,7 +800,8 @@ function renderCombinedOverview(items, userData, db, showAll) {
     container.innerHTML = '';
 
     if (items.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+        container.innerHTML =
+            '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
         return;
     }
 
@@ -729,10 +816,12 @@ function renderCombinedOverview(items, userData, db, showAll) {
             // Doubles match request
             // Convert teamA/teamB to playerA/playerB for formatSetsDisplaySimple
             // Support both old (playerA/playerB) and new (teamA/teamB) format
-            const convertedSets = item.data.sets ? item.data.sets.map(s => ({
-                playerA: s.teamA !== undefined ? s.teamA : s.playerA,
-                playerB: s.teamB !== undefined ? s.teamB : s.playerB
-            })) : [];
+            const convertedSets = item.data.sets
+                ? item.data.sets.map(s => ({
+                      playerA: s.teamA !== undefined ? s.teamA : s.playerA,
+                      playerB: s.teamB !== undefined ? s.teamB : s.playerB,
+                  }))
+                : [];
             const setsDisplay = formatSetsDisplaySimple(convertedSets);
             const teamAName1 = item.teamAPlayer1?.firstName || 'Unbekannt';
             const teamAName2 = item.teamAPlayer2?.firstName || 'Unbekannt';
@@ -811,7 +900,8 @@ function renderCombinedOverview(items, userData, db, showAll) {
     // Add "Show more" button if there are more than 3 items
     if (items.length > 3 && !showAll) {
         const showMoreBtn = document.createElement('button');
-        showMoreBtn.className = 'w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-4 rounded-md transition mt-2';
+        showMoreBtn.className =
+            'w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-4 rounded-md transition mt-2';
         showMoreBtn.innerHTML = `<i class="fas fa-chevron-down mr-1"></i> ${items.length - 3} weitere anzeigen`;
         showMoreBtn.addEventListener('click', () => {
             renderCombinedOverview(items, userData, db, true);
@@ -819,7 +909,8 @@ function renderCombinedOverview(items, userData, db, showAll) {
         container.appendChild(showMoreBtn);
     } else if (showAll && items.length > 3) {
         const showLessBtn = document.createElement('button');
-        showLessBtn.className = 'w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-4 rounded-md transition mt-2';
+        showLessBtn.className =
+            'w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm py-2 px-4 rounded-md transition mt-2';
         showLessBtn.innerHTML = `<i class="fas fa-chevron-up mr-1"></i> Weniger anzeigen`;
         showLessBtn.addEventListener('click', () => {
             renderCombinedOverview(items, userData, db, false);
@@ -849,10 +940,10 @@ async function approveOverviewRequest(requestId, db) {
         await updateDoc(doc(db, 'matchRequests', requestId), {
             'approvals.playerB': {
                 status: 'approved',
-                timestamp: serverTimestamp()
+                timestamp: serverTimestamp(),
             },
             status: 'pending_coach',
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         });
     } catch (error) {
         console.error('Error approving request:', error);
@@ -868,11 +959,11 @@ async function rejectOverviewRequest(requestId, db) {
         await updateDoc(doc(db, 'matchRequests', requestId), {
             'approvals.playerB': {
                 status: 'rejected',
-                timestamp: serverTimestamp()
+                timestamp: serverTimestamp(),
             },
             status: 'rejected',
             rejectedBy: 'playerB',
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         });
     } catch (error) {
         console.error('Error rejecting request:', error);

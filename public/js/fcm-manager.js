@@ -3,8 +3,17 @@
  * Handles FCM token registration, push notification permissions, and token management
  */
 
-import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-messaging.js";
-import { doc, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    getMessaging,
+    getToken,
+    onMessage,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-messaging.js';
+import {
+    doc,
+    setDoc,
+    updateDoc,
+    getDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 class FCMManager {
     constructor(firebaseApp, db, auth) {
@@ -13,7 +22,8 @@ class FCMManager {
         this.auth = auth;
         this.messaging = null;
         this.currentToken = null;
-        this.vapidKey = 'BM0qGt7-11vrNH9MmyoxOXa_xEC4Yi9Lo5OpfBZmzN9IBFxHkAUig_3OecSceVY_gAxyxDQ-rBavoeCNze-bFv4'; 
+        this.vapidKey =
+            'BM0qGt7-11vrNH9MmyoxOXa_xEC4Yi9Lo5OpfBZmzN9IBFxHkAUig_3OecSceVY_gAxyxDQ-rBavoeCNze-bFv4';
 
         try {
             this.messaging = getMessaging(this.app);
@@ -27,9 +37,7 @@ class FCMManager {
      * Check if push notifications are supported
      */
     isSupported() {
-        return 'Notification' in window &&
-               'serviceWorker' in navigator &&
-               this.messaging !== null;
+        return 'Notification' in window && 'serviceWorker' in navigator && this.messaging !== null;
     }
 
     /**
@@ -52,7 +60,9 @@ class FCMManager {
 
         try {
             // Register service worker
-            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+            const registration = await navigator.serviceWorker.register(
+                '/firebase-messaging-sw.js'
+            );
             console.log('[FCM] Service Worker registered:', registration);
 
             // Wait for service worker to be ready
@@ -66,7 +76,7 @@ class FCMManager {
                 // Get FCM token
                 const token = await getToken(this.messaging, {
                     vapidKey: this.vapidKey,
-                    serviceWorkerRegistration: registration
+                    serviceWorkerRegistration: registration,
                 });
 
                 if (token) {
@@ -84,7 +94,6 @@ class FCMManager {
                 console.log('[FCM] Permission denied');
                 return { success: false, reason: 'permission_denied' };
             }
-
         } catch (error) {
             console.error('[FCM] Error requesting permission:', error);
             throw error;
@@ -108,7 +117,9 @@ class FCMManager {
 
         try {
             // Register service worker
-            const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+            const registration = await navigator.serviceWorker.register(
+                '/firebase-messaging-sw.js'
+            );
             console.log('[FCM] Service Worker registered:', registration);
 
             // Wait for service worker to be ready
@@ -117,7 +128,7 @@ class FCMManager {
             // Get FCM token (NO permission request!)
             const token = await getToken(this.messaging, {
                 vapidKey: this.vapidKey,
-                serviceWorkerRegistration: registration
+                serviceWorkerRegistration: registration,
             });
 
             if (token) {
@@ -131,7 +142,6 @@ class FCMManager {
             } else {
                 throw new Error('No registration token available');
             }
-
         } catch (error) {
             console.error('[FCM] Error getting token silently:', error);
             throw error;
@@ -159,19 +169,22 @@ class FCMManager {
                 await updateDoc(userRef, {
                     fcmToken: token,
                     fcmTokenUpdatedAt: new Date(),
-                    notificationsEnabled: true
+                    notificationsEnabled: true,
                 });
             } else {
                 // Create new document (shouldn't happen, but just in case)
-                await setDoc(userRef, {
-                    fcmToken: token,
-                    fcmTokenUpdatedAt: new Date(),
-                    notificationsEnabled: true
-                }, { merge: true });
+                await setDoc(
+                    userRef,
+                    {
+                        fcmToken: token,
+                        fcmTokenUpdatedAt: new Date(),
+                        notificationsEnabled: true,
+                    },
+                    { merge: true }
+                );
             }
 
             console.log('[FCM] Token saved to Firestore for user:', user.uid);
-
         } catch (error) {
             console.error('[FCM] Error saving token to Firestore:', error);
             throw error;
@@ -190,11 +203,10 @@ class FCMManager {
             await updateDoc(userRef, {
                 fcmToken: null,
                 notificationsEnabled: false,
-                fcmTokenUpdatedAt: new Date()
+                fcmTokenUpdatedAt: new Date(),
             });
 
             console.log('[FCM] Token deleted from Firestore');
-
         } catch (error) {
             console.error('[FCM] Error deleting token:', error);
             throw error;
@@ -207,7 +219,7 @@ class FCMManager {
     setupForegroundMessageHandler() {
         if (!this.messaging) return;
 
-        onMessage(this.messaging, (payload) => {
+        onMessage(this.messaging, payload => {
             console.log('[FCM] Foreground message received:', payload);
 
             // Show toast notification instead of browser notification when app is open
@@ -255,7 +267,7 @@ class FCMManager {
             const registration = await navigator.serviceWorker.ready;
             const token = await getToken(this.messaging, {
                 vapidKey: this.vapidKey,
-                serviceWorkerRegistration: registration
+                serviceWorkerRegistration: registration,
             });
 
             if (token && token !== this.currentToken) {
@@ -263,7 +275,6 @@ class FCMManager {
                 await this.saveTokenToFirestore(token);
                 console.log('[FCM] Token refreshed');
             }
-
         } catch (error) {
             console.error('[FCM] Error refreshing token:', error);
         }
@@ -280,11 +291,10 @@ class FCMManager {
             const userRef = doc(this.db, 'users', user.uid);
             await updateDoc(userRef, {
                 notificationPreferences: preferences,
-                notificationPreferencesUpdatedAt: new Date()
+                notificationPreferencesUpdatedAt: new Date(),
             });
 
             console.log('[FCM] Notification preferences updated:', preferences);
-
         } catch (error) {
             console.error('[FCM] Error updating preferences:', error);
             throw error;
@@ -321,7 +331,7 @@ class FCMManager {
             trainingReminder: true,
             challengeAvailable: true,
             rankUp: true,
-            matchSuggestion: false
+            matchSuggestion: false,
         };
     }
 }

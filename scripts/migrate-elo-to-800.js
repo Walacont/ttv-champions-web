@@ -17,7 +17,7 @@ const admin = require('firebase-admin');
 const serviceAccount = require('../serviceAccountKey.json'); // You'll need to provide this
 
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
+    credential: admin.credential.cert(serviceAccount),
 });
 
 const db = admin.firestore();
@@ -56,7 +56,9 @@ async function migrateUsers() {
 
                 // Check if migration already happened (ELO >= 800 suggests new system)
                 if (oldElo >= 800) {
-                    console.log(`⏭️  Skipping ${userData.firstName} ${userData.lastName} (ELO: ${oldElo}) - already migrated`);
+                    console.log(
+                        `⏭️  Skipping ${userData.firstName} ${userData.lastName} (ELO: ${oldElo}) - already migrated`
+                    );
                     skippedCount++;
                     continue;
                 }
@@ -64,10 +66,12 @@ async function migrateUsers() {
                 // Update user document
                 batch.update(userDoc.ref, {
                     eloRating: newElo,
-                    highestElo: newHighestElo
+                    highestElo: newHighestElo,
                 });
 
-                console.log(`✅ ${userData.firstName} ${userData.lastName}: ${oldElo} → ${newElo} ELO`);
+                console.log(
+                    `✅ ${userData.firstName} ${userData.lastName}: ${oldElo} → ${newElo} ELO`
+                );
                 migratedCount++;
                 batchCount++;
 
@@ -78,7 +82,6 @@ async function migrateUsers() {
                     batch = db.batch(); // Create new batch
                     batchCount = 0;
                 }
-
             } catch (error) {
                 console.error(`❌ Error migrating user ${userId}:`, error.message);
                 errorCount++;
@@ -97,7 +100,6 @@ async function migrateUsers() {
         console.log(`   - Migrated: ${migratedCount} users`);
         console.log(`   - Skipped: ${skippedCount} users (already migrated)`);
         console.log(`   - Errors: ${errorCount} users`);
-
     } catch (error) {
         console.error('💥 Fatal error during migration:', error);
         process.exit(1);
@@ -111,7 +113,7 @@ migrateUsers()
         console.log('🎉 All done! You can now deploy the new points system.');
         process.exit(0);
     })
-    .catch((error) => {
+    .catch(error => {
         console.error('💥 Migration failed:', error);
         process.exit(1);
     });

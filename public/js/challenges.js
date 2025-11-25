@@ -1,4 +1,16 @@
-import { collection, query, where, orderBy, addDoc, onSnapshot, serverTimestamp, updateDoc, doc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    query,
+    where,
+    orderBy,
+    addDoc,
+    onSnapshot,
+    serverTimestamp,
+    updateDoc,
+    doc,
+    getDoc,
+    deleteDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { getChallengePartnerSettings } from './milestone-management.js';
 
 /**
@@ -22,7 +34,8 @@ export async function handleCreateChallenge(e, db, currentUserData) {
     const isRepeatable = document.getElementById('challenge-repeatable').checked;
 
     // Check if milestones are enabled
-    const milestonesEnabled = document.getElementById('challenge-milestones-enabled')?.checked || false;
+    const milestonesEnabled =
+        document.getElementById('challenge-milestones-enabled')?.checked || false;
     let points = 0;
     let milestones = null;
 
@@ -62,19 +75,19 @@ export async function handleCreateChallenge(e, db, currentUserData) {
             isActive: true,
             isRepeatable: isRepeatable,
             createdAt: serverTimestamp(),
-            lastReactivatedAt: serverTimestamp()
+            lastReactivatedAt: serverTimestamp(),
         };
 
         // Add tieredPoints if enabled
         if (milestonesEnabled && milestones) {
             challengeData.tieredPoints = {
                 enabled: true,
-                milestones: milestones
+                milestones: milestones,
             };
         } else {
             challengeData.tieredPoints = {
                 enabled: false,
-                milestones: []
+                milestones: [],
             };
         }
 
@@ -83,16 +96,16 @@ export async function handleCreateChallenge(e, db, currentUserData) {
         if (partnerSettings) {
             challengeData.partnerSystem = {
                 enabled: true,
-                partnerPercentage: partnerSettings.partnerPercentage
+                partnerPercentage: partnerSettings.partnerPercentage,
             };
         } else {
             challengeData.partnerSystem = {
                 enabled: false,
-                partnerPercentage: 50
+                partnerPercentage: 50,
             };
         }
 
-        await addDoc(collection(db, "challenges"), challengeData);
+        await addDoc(collection(db, 'challenges'), challengeData);
         feedbackEl.textContent = 'Challenge erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
@@ -109,16 +122,20 @@ export async function handleCreateChallenge(e, db, currentUserData) {
         // Reset partner system
         const partnerToggle = document.getElementById('challenge-partner-system-toggle-coach');
         const partnerContainer = document.getElementById('challenge-partner-container-coach');
-        const partnerPercentageInput = document.getElementById('challenge-partner-percentage-coach');
+        const partnerPercentageInput = document.getElementById(
+            'challenge-partner-percentage-coach'
+        );
         if (partnerToggle) partnerToggle.checked = false;
         if (partnerContainer) partnerContainer.classList.add('hidden');
         if (partnerPercentageInput) partnerPercentageInput.value = 50;
     } catch (error) {
-        console.error("Fehler beim Erstellen der Challenge:", error);
+        console.error('Fehler beim Erstellen der Challenge:', error);
         feedbackEl.textContent = 'Fehler: Challenge konnte nicht erstellt werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     }
-    setTimeout(() => { feedbackEl.textContent = ''; }, 4000);
+    setTimeout(() => {
+        feedbackEl.textContent = '';
+    }, 4000);
 }
 
 /**
@@ -136,7 +153,7 @@ export function setupChallengePointRecommendations() {
         const recommendations = {
             daily: { range: '8-20 Punkte', text: 'tägliche' },
             weekly: { range: '20-50 Punkte', text: 'wöchentliche' },
-            monthly: { range: '40-100 Punkte', text: 'monatliche' }
+            monthly: { range: '40-100 Punkte', text: 'monatliche' },
         };
 
         const rec = recommendations[type] || recommendations.daily;
@@ -161,7 +178,7 @@ export function setupChallengeMilestones() {
         console.error('❌ Challenge milestone setup: Missing required elements', {
             milestonesEnabled: !!milestonesEnabled,
             standardContainer: !!standardContainer,
-            milestonesContainer: !!milestonesContainer
+            milestonesContainer: !!milestonesContainer,
         });
         return;
     }
@@ -295,61 +312,79 @@ function updateChallengeTotalPoints() {
 export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') {
     const activeChallengesList = document.getElementById('active-challenges-list');
     if (!activeChallengesList) return;
-    const q = query(collection(db, "challenges"), where("clubId", "==", clubId), where("isActive", "==", true), orderBy("createdAt", "desc"));
-    onSnapshot(q, async (snapshot) => {
-        activeChallengesList.innerHTML = '';
-        const now = new Date();
-        let challenges = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(challenge => calculateExpiry(challenge.createdAt, challenge.type) > now);
+    const q = query(
+        collection(db, 'challenges'),
+        where('clubId', '==', clubId),
+        where('isActive', '==', true),
+        orderBy('createdAt', 'desc')
+    );
+    onSnapshot(
+        q,
+        async snapshot => {
+            activeChallengesList.innerHTML = '';
+            const now = new Date();
+            let challenges = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(challenge => calculateExpiry(challenge.createdAt, challenge.type) > now);
 
-        // Filter by subgroup
-        if (currentSubgroupFilter !== 'all') {
-            challenges = challenges.filter(challenge =>
-                challenge.subgroupId === currentSubgroupFilter || challenge.subgroupId === 'all'
-            );
-        }
+            // Filter by subgroup
+            if (currentSubgroupFilter !== 'all') {
+                challenges = challenges.filter(
+                    challenge =>
+                        challenge.subgroupId === currentSubgroupFilter ||
+                        challenge.subgroupId === 'all'
+                );
+            }
 
-        if (challenges.length === 0) {
-            activeChallengesList.innerHTML = '<p class="text-gray-500">Keine aktiven Challenges für diese Ansicht gefunden.</p>';
-            return;
-        }
+            if (challenges.length === 0) {
+                activeChallengesList.innerHTML =
+                    '<p class="text-gray-500">Keine aktiven Challenges für diese Ansicht gefunden.</p>';
+                return;
+            }
 
-        // Load subgroup names for badges
-        const subgroupNamesMap = {};
-        for (const challenge of challenges) {
-            if (challenge.subgroupId && challenge.subgroupId !== 'all' && !subgroupNamesMap[challenge.subgroupId]) {
-                try {
-                    const subgroupDoc = await getDoc(doc(db, 'subgroups', challenge.subgroupId));
-                    if (subgroupDoc.exists()) {
-                        subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+            // Load subgroup names for badges
+            const subgroupNamesMap = {};
+            for (const challenge of challenges) {
+                if (
+                    challenge.subgroupId &&
+                    challenge.subgroupId !== 'all' &&
+                    !subgroupNamesMap[challenge.subgroupId]
+                ) {
+                    try {
+                        const subgroupDoc = await getDoc(
+                            doc(db, 'subgroups', challenge.subgroupId)
+                        );
+                        if (subgroupDoc.exists()) {
+                            subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+                        }
+                    } catch (error) {
+                        console.error('Error loading subgroup name:', error);
                     }
-                } catch (error) {
-                    console.error("Error loading subgroup name:", error);
                 }
             }
-        }
 
-        challenges.forEach(challenge => {
-            const card = document.createElement('div');
-            card.className = 'p-4 border rounded-lg bg-gray-50';
-            const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+            challenges.forEach(challenge => {
+                const card = document.createElement('div');
+                card.className = 'p-4 border rounded-lg bg-gray-50';
+                const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
 
-            // Determine subgroup badge
-            let subgroupBadge = '';
-            if (challenge.subgroupId === 'all') {
-                subgroupBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">🏠 Alle (Gesamtverein)</span>';
-            } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
-                subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
-            }
+                // Determine subgroup badge
+                let subgroupBadge = '';
+                if (challenge.subgroupId === 'all') {
+                    subgroupBadge =
+                        '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">🏠 Alle (Gesamtverein)</span>';
+                } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
+                    subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
+                }
 
-            // Determine repeatable badge
-            const isRepeatable = challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
-            const repeatableBadge = isRepeatable
-                ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
-                : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
+                // Determine repeatable badge
+                const isRepeatable =
+                    challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
+                const repeatableBadge = isRepeatable
+                    ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
+                    : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
 
-            card.innerHTML = `
+                card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
                         <h3 class="font-bold">${challenge.title}</h3>
@@ -372,13 +407,16 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
                     </button>
                 </div>
             `;
-            activeChallengesList.appendChild(card);
-        });
-        updateAllCountdowns();
-    }, error => {
-        console.error("Fehler beim Laden der aktiven Challenges:", error);
-        activeChallengesList.innerHTML = '<p class="text-red-500">Fehler beim Laden der Challenges. Möglicherweise wird ein Index benötigt.</p>';
-    });
+                activeChallengesList.appendChild(card);
+            });
+            updateAllCountdowns();
+        },
+        error => {
+            console.error('Fehler beim Laden der aktiven Challenges:', error);
+            activeChallengesList.innerHTML =
+                '<p class="text-red-500">Fehler beim Laden der Challenges. Möglicherweise wird ein Index benötigt.</p>';
+        }
+    );
 }
 
 /**
@@ -390,7 +428,11 @@ export function loadActiveChallenges(clubId, db, currentSubgroupFilter = 'all') 
 export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'all') {
     const select = document.getElementById('challenge-select');
     if (!select) return;
-    const q = query(collection(db, 'challenges'), where('clubId', '==', clubId), where('isActive', '==', true));
+    const q = query(
+        collection(db, 'challenges'),
+        where('clubId', '==', clubId),
+        where('isActive', '==', true)
+    );
     onSnapshot(q, snapshot => {
         if (snapshot.empty) {
             select.innerHTML = '<option value="">Keine aktiven Challenges</option>';
@@ -408,8 +450,9 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
 
         // Filter by subgroup (only show challenges for current subgroup or "all")
         if (currentSubgroupFilter !== 'all') {
-            activeChallenges = activeChallenges.filter(challenge =>
-                challenge.subgroupId === currentSubgroupFilter || challenge.subgroupId === 'all'
+            activeChallenges = activeChallenges.filter(
+                challenge =>
+                    challenge.subgroupId === currentSubgroupFilter || challenge.subgroupId === 'all'
             );
         }
 
@@ -423,7 +466,8 @@ export function loadChallengesForDropdown(clubId, db, currentSubgroupFilter = 'a
             option.value = challenge.id;
 
             // Check for tieredPoints format
-            const hasTieredPoints = challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
+            const hasTieredPoints =
+                challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
             const displayText = hasTieredPoints
                 ? `${challenge.title} (bis zu ${challenge.points} P. - Meilensteine)`
                 : `${challenge.title} (+${challenge.points} P.)`;
@@ -483,60 +527,75 @@ export function loadExpiredChallenges(clubId, db) {
     const expiredChallengesList = document.getElementById('expired-challenges-list');
     if (!expiredChallengesList) return;
 
-    const q = query(collection(db, "challenges"), where("clubId", "==", clubId), orderBy("createdAt", "desc"));
-    onSnapshot(q, async (snapshot) => {
-        expiredChallengesList.innerHTML = '';
-        const now = new Date();
+    const q = query(
+        collection(db, 'challenges'),
+        where('clubId', '==', clubId),
+        orderBy('createdAt', 'desc')
+    );
+    onSnapshot(
+        q,
+        async snapshot => {
+            expiredChallengesList.innerHTML = '';
+            const now = new Date();
 
-        const expiredChallenges = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(challenge => {
-                const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
-                // Show if expired OR manually ended
-                return expiresAt <= now || challenge.isActive === false;
-            });
+            const expiredChallenges = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(challenge => {
+                    const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+                    // Show if expired OR manually ended
+                    return expiresAt <= now || challenge.isActive === false;
+                });
 
-        if (expiredChallenges.length === 0) {
-            expiredChallengesList.innerHTML = '<p class="text-gray-500">Keine abgelaufenen Challenges gefunden.</p>';
-            return;
-        }
+            if (expiredChallenges.length === 0) {
+                expiredChallengesList.innerHTML =
+                    '<p class="text-gray-500">Keine abgelaufenen Challenges gefunden.</p>';
+                return;
+            }
 
-        // Load subgroup names for badges
-        const subgroupNamesMap = {};
-        for (const challenge of expiredChallenges) {
-            if (challenge.subgroupId && challenge.subgroupId !== 'all' && !subgroupNamesMap[challenge.subgroupId]) {
-                try {
-                    const subgroupDoc = await getDoc(doc(db, 'subgroups', challenge.subgroupId));
-                    if (subgroupDoc.exists()) {
-                        subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+            // Load subgroup names for badges
+            const subgroupNamesMap = {};
+            for (const challenge of expiredChallenges) {
+                if (
+                    challenge.subgroupId &&
+                    challenge.subgroupId !== 'all' &&
+                    !subgroupNamesMap[challenge.subgroupId]
+                ) {
+                    try {
+                        const subgroupDoc = await getDoc(
+                            doc(db, 'subgroups', challenge.subgroupId)
+                        );
+                        if (subgroupDoc.exists()) {
+                            subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
+                        }
+                    } catch (error) {
+                        console.error('Error loading subgroup name:', error);
                     }
-                } catch (error) {
-                    console.error("Error loading subgroup name:", error);
                 }
             }
-        }
 
-        expiredChallenges.forEach(challenge => {
-            const card = document.createElement('div');
-            card.className = 'p-4 border rounded-lg bg-gray-50';
-            const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
-            const wasManuallyEnded = challenge.isActive === false;
+            expiredChallenges.forEach(challenge => {
+                const card = document.createElement('div');
+                card.className = 'p-4 border rounded-lg bg-gray-50';
+                const expiresAt = calculateExpiry(challenge.createdAt, challenge.type);
+                const wasManuallyEnded = challenge.isActive === false;
 
-            // Determine subgroup badge
-            let subgroupBadge = '';
-            if (challenge.subgroupId === 'all') {
-                subgroupBadge = '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">🏠 Alle (Gesamtverein)</span>';
-            } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
-                subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
-            }
+                // Determine subgroup badge
+                let subgroupBadge = '';
+                if (challenge.subgroupId === 'all') {
+                    subgroupBadge =
+                        '<span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">🏠 Alle (Gesamtverein)</span>';
+                } else if (challenge.subgroupId && subgroupNamesMap[challenge.subgroupId]) {
+                    subgroupBadge = `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full">👥 ${subgroupNamesMap[challenge.subgroupId]}</span>`;
+                }
 
-            // Determine repeatable badge
-            const isRepeatable = challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
-            const repeatableBadge = isRepeatable
-                ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
-                : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
+                // Determine repeatable badge
+                const isRepeatable =
+                    challenge.isRepeatable !== undefined ? challenge.isRepeatable : true;
+                const repeatableBadge = isRepeatable
+                    ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">🔄 Mehrfach</span>'
+                    : '<span class="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">1️⃣ Einmalig</span>';
 
-            card.innerHTML = `
+                card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
                         <h3 class="font-bold text-gray-700">${challenge.title}</h3>
@@ -565,12 +624,14 @@ export function loadExpiredChallenges(clubId, db) {
                     </button>
                 </div>
             `;
-            expiredChallengesList.appendChild(card);
-        });
-    }, error => {
-        console.error("Fehler beim Laden der abgelaufenen Challenges:", error);
-        expiredChallengesList.innerHTML = '<p class="text-red-500">Fehler beim Laden.</p>';
-    });
+                expiredChallengesList.appendChild(card);
+            });
+        },
+        error => {
+            console.error('Fehler beim Laden der abgelaufenen Challenges:', error);
+            expiredChallengesList.innerHTML = '<p class="text-red-500">Fehler beim Laden.</p>';
+        }
+    );
 }
 
 /**
@@ -588,7 +649,7 @@ export async function reactivateChallenge(challengeId, duration, subgroupId, db)
             type: duration,
             subgroupId: subgroupId,
             isActive: true,
-            lastReactivatedAt: serverTimestamp() // Update reactivation timestamp
+            lastReactivatedAt: serverTimestamp(), // Update reactivation timestamp
         });
         return { success: true };
     } catch (error) {
@@ -606,7 +667,7 @@ export async function endChallenge(challengeId, db) {
     try {
         const challengeRef = doc(db, 'challenges', challengeId);
         await updateDoc(challengeRef, {
-            isActive: false
+            isActive: false,
         });
         return { success: true };
     } catch (error) {
@@ -641,7 +702,7 @@ export function updateAllCountdowns() {
         const expiresAt = new Date(el.dataset.expiresAt);
         const diff = expiresAt - now;
         if (diff <= 0) {
-            el.textContent = "Abgelaufen";
+            el.textContent = 'Abgelaufen';
             el.classList.remove('text-red-600');
             el.classList.add('text-gray-500');
             return;
@@ -670,28 +731,35 @@ export function populateSubgroupDropdown(clubId, selectId, db) {
         orderBy('createdAt', 'asc')
     );
 
-    onSnapshot(q, (snapshot) => {
-        // Keep the "Alle" option
-        const currentValue = select.value;
-        select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
+    onSnapshot(
+        q,
+        snapshot => {
+            // Keep the "Alle" option
+            const currentValue = select.value;
+            select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
 
-        snapshot.forEach(doc => {
-            const subgroup = doc.data();
-            // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
-            if (subgroup.isDefault) {
-                return;
+            snapshot.forEach(doc => {
+                const subgroup = doc.data();
+                // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
+                if (subgroup.isDefault) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = doc.id;
+                option.textContent = subgroup.name;
+                select.appendChild(option);
+            });
+
+            // Restore previous selection if it still exists
+            if (
+                currentValue &&
+                Array.from(select.options).some(opt => opt.value === currentValue)
+            ) {
+                select.value = currentValue;
             }
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.textContent = subgroup.name;
-            select.appendChild(option);
-        });
-
-        // Restore previous selection if it still exists
-        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
-            select.value = currentValue;
+        },
+        error => {
+            console.error('Error loading subgroups for dropdown:', error);
         }
-    }, (error) => {
-        console.error("Error loading subgroups for dropdown:", error);
-    });
+    );
 }

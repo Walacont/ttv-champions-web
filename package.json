@@ -4,12 +4,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "firebase-admin": "^13.6.0",
     "firebase-tools": "^14.24.1",
     "happy-dom": "^20.0.10",
+    "prettier": "^3.4.2",
     "vitest": "^4.0.8"
   },
   "dependencies": {

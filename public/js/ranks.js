@@ -19,7 +19,7 @@ export const RANKS = {
         minXP: 0,
         description: 'Willkommen! Absolviere 5 Grundlagen-Übungen.',
         isOnboarding: true,
-        requiresGrundlagen: false  // No requirement for Rekrut itself
+        requiresGrundlagen: false, // No requirement for Rekrut itself
     },
     BRONZE: {
         id: 1,
@@ -27,51 +27,51 @@ export const RANKS = {
         emoji: '🥉',
         color: '#CD7F32',
         minElo: 850,
-        minXP: 50,  // REDUZIERT (war 100) - Schnellerer Aufstieg!
+        minXP: 50, // REDUZIERT (war 100) - Schnellerer Aufstieg!
         description: 'Du hast die Grundlagen gemeistert!',
-        requiresGrundlagen: true,  // Must complete 5 Grundlage exercises to reach Bronze
-        grundlagenRequired: 5
+        requiresGrundlagen: true, // Must complete 5 Grundlage exercises to reach Bronze
+        grundlagenRequired: 5,
     },
     SILBER: {
         id: 2,
         name: 'Silber',
         emoji: '🥈',
         color: '#C0C0C0',
-        minElo: 1000,  // Neues System
-        minXP: 200,    // REDUZIERT (war 250)
+        minElo: 1000, // Neues System
+        minXP: 200, // REDUZIERT (war 250)
         description: 'Du bist auf dem besten Weg!',
-        requiresGrundlagen: false
+        requiresGrundlagen: false,
     },
     GOLD: {
         id: 3,
         name: 'Gold',
         emoji: '🥇',
         color: '#FFD700',
-        minElo: 1200,  // Neues System
+        minElo: 1200, // Neues System
         minXP: 500,
         description: 'Ein echter Champion!',
-        requiresGrundlagen: false
+        requiresGrundlagen: false,
     },
     PLATIN: {
         id: 4,
         name: 'Platin',
         emoji: '💎',
         color: '#E5E4E2',
-        minElo: 1400,   // Neues System
-        minXP: 1000,    // REDUZIERT (war 1500)
+        minElo: 1400, // Neues System
+        minXP: 1000, // REDUZIERT (war 1500)
         description: 'Du gehörst zur Elite!',
-        requiresGrundlagen: false
+        requiresGrundlagen: false,
     },
     CHAMPION: {
         id: 5,
         name: 'Champion',
         emoji: '👑',
         color: '#9333EA', // purple-600
-        minElo: 1600,   // Neues System
-        minXP: 1800,    // REDUZIERT (war 2500)
+        minElo: 1600, // Neues System
+        minXP: 1800, // REDUZIERT (war 2500)
         description: 'Der höchste Rang - du bist ein Vereinsmeister!',
-        requiresGrundlagen: false
-    }
+        requiresGrundlagen: false,
+    },
 };
 
 /**
@@ -83,7 +83,7 @@ export const RANK_ORDER = [
     RANKS.SILBER,
     RANKS.GOLD,
     RANKS.PLATIN,
-    RANKS.CHAMPION
+    RANKS.CHAMPION,
 ];
 
 /**
@@ -143,7 +143,7 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
             eloNeeded: 0,
             xpNeeded: 0,
             grundlagenNeeded: 0,
-            isMaxRank: true
+            isMaxRank: true,
         };
     }
 
@@ -155,14 +155,23 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
     const eloNeeded = Math.max(0, nextRank.minElo - elo);
     const xpNeeded = Math.max(0, nextRank.minXP - totalXP);
     const grundlagenRequired = nextRank.grundlagenRequired || 5;
-    const grundlagenNeeded = nextRank.requiresGrundlagen ? Math.max(0, grundlagenRequired - grundlagenCount) : 0;
+    const grundlagenNeeded = nextRank.requiresGrundlagen
+        ? Math.max(0, grundlagenRequired - grundlagenCount)
+        : 0;
 
     // Progress percentage (0-100)
     // Handle potential division by zero if minElo/minXP is 0
-    const eloProgress = nextRank.minElo === 0 ? (elo > 0 ? 100 : 0) : Math.min(100, (elo / nextRank.minElo) * 100);
-    const xpProgress = nextRank.minXP === 0 ? (totalXP > 0 ? 100 : 0) : Math.min(100, (totalXP / nextRank.minXP) * 100);
-    const grundlagenProgress = nextRank.requiresGrundlagen ? Math.min(100, (grundlagenCount / grundlagenRequired) * 100) : 100;
-
+    const eloProgress =
+        nextRank.minElo === 0 ? (elo > 0 ? 100 : 0) : Math.min(100, (elo / nextRank.minElo) * 100);
+    const xpProgress =
+        nextRank.minXP === 0
+            ? totalXP > 0
+                ? 100
+                : 0
+            : Math.min(100, (totalXP / nextRank.minXP) * 100);
+    const grundlagenProgress = nextRank.requiresGrundlagen
+        ? Math.min(100, (grundlagenCount / grundlagenRequired) * 100)
+        : 100;
 
     return {
         currentRank,
@@ -173,7 +182,7 @@ export function getRankProgress(eloRating, xp, grundlagenCount = 0) {
         eloNeeded,
         xpNeeded,
         grundlagenNeeded,
-        isMaxRank: false
+        isMaxRank: false,
     };
 }
 
@@ -224,14 +233,18 @@ export function groupPlayersByRank(players) {
         // Spieler-Objekt um grundlagenCount erweitern, falls es fehlt
         const playerWithGrundlagen = {
             ...player,
-            grundlagenCompleted: player.grundlagenCompleted || 0
+            grundlagenCompleted: player.grundlagenCompleted || 0,
         };
-        
-        const rank = calculateRank(playerWithGrundlagen.eloRating, playerWithGrundlagen.xp, playerWithGrundlagen.grundlagenCompleted);
-        
+
+        const rank = calculateRank(
+            playerWithGrundlagen.eloRating,
+            playerWithGrundlagen.xp,
+            playerWithGrundlagen.grundlagenCompleted
+        );
+
         grouped[rank.id].push({
             ...playerWithGrundlagen,
-            rank
+            rank,
         });
     });
 

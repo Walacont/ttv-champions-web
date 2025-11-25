@@ -105,7 +105,7 @@ function clearDoublesSelections() {
         'doubles-team-a-player1-select',
         'doubles-team-a-player2-select',
         'doubles-team-b-player1-select',
-        'doubles-team-b-player2-select'
+        'doubles-team-b-player2-select',
     ];
 
     selects.forEach(id => {
@@ -132,8 +132,8 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyPlayers = matchReadyPlayers.filter(player =>
-            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        matchReadyPlayers = matchReadyPlayers.filter(
+            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
         );
     }
 
@@ -142,7 +142,7 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
         'doubles-team-a-player1-select',
         'doubles-team-a-player2-select',
         'doubles-team-b-player1-select',
-        'doubles-team-b-player2-select'
+        'doubles-team-b-player2-select',
     ];
 
     dropdownIds.forEach(id => {
@@ -218,7 +218,7 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
     // Convert set field names from playerA/playerB to teamA/teamB for doubles
     const doublesSets = sets.map(set => ({
         teamA: set.playerA,
-        teamB: set.playerB
+        teamB: set.playerB,
     }));
 
     const handicapUsed = document.getElementById('handicap-toggle')?.checked || false;
@@ -239,7 +239,7 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
             winningTeam: winningTeam,
             sets: doublesSets,
             handicapUsed: handicapUsed,
-            matchMode: matchMode
+            matchMode: matchMode,
         };
 
         const result = await saveDoublesMatch(matchData, db, currentUserData);

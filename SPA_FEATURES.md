@@ -74,7 +74,6 @@ async function saveMatch(matchData) {
 
         // Formular zurücksetzen
         resetForm();
-
     } catch (error) {
         console.error('Error:', error);
         loader.error('Fehler: ' + error.message);
@@ -105,11 +104,10 @@ async function approveMatch(matchId) {
         await updateDoc(doc(db, 'matchRequests', matchId), {
             status: 'approved',
             approvedBy: currentUserData.id,
-            approvedAt: new Date()
+            approvedAt: new Date(),
         });
 
         loader.success('Match erfolgreich genehmigt!');
-
     } catch (error) {
         loader.error('Fehler beim Genehmigen: ' + error.message);
     }
@@ -133,7 +131,7 @@ Wenn du die Animationen ändern möchtest, bearbeite `/css/spa-enhancements.css`
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(5px);  /* Weniger Bewegung */
+        transform: translateY(5px); /* Weniger Bewegung */
     }
     to {
         opacity: 1;
@@ -145,7 +143,7 @@ Wenn du die Animationen ändern möchtest, bearbeite `/css/spa-enhancements.css`
 @keyframes slideIn {
     from {
         opacity: 0;
-        transform: translateX(100px);  /* Von rechts */
+        transform: translateX(100px); /* Von rechts */
     }
     to {
         opacity: 1;
@@ -158,12 +156,12 @@ Wenn du die Animationen ändern möchtest, bearbeite `/css/spa-enhancements.css`
 
 ```javascript
 // Reagiere auf Seiten-Navigation
-window.spaEnhancer.on('navigationStart', (data) => {
+window.spaEnhancer.on('navigationStart', data => {
     console.log('Navigation startet zu:', data.url);
     // Hier eigene Exit-Animation starten
 });
 
-window.spaEnhancer.on('navigationEnd', (data) => {
+window.spaEnhancer.on('navigationEnd', data => {
     console.log('Navigation beendet:', data.url);
     // Hier eigene Enter-Animation starten
 });
@@ -198,10 +196,9 @@ async function loadLeaderboard() {
 
     try {
         const snapshot = await getDocs(collection(db, 'users'));
-        const players = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+        const players = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
 
         renderLeaderboard(players);
-
     } catch (error) {
         console.error('Error loading leaderboard:', error);
         window.notifications.error('Fehler beim Laden der Rangliste');
@@ -251,7 +248,6 @@ export async function approveMatch(matchId, coachId, coachName) {
         // ... bestehender Firestore-Code ...
 
         loader.success(`Match von ${coachName} genehmigt!`);
-
     } catch (error) {
         loader.error('Fehler beim Genehmigen');
         console.error(error);
@@ -271,11 +267,10 @@ async function updateProfile() {
     try {
         await updateDoc(doc(db, 'users', user.uid), {
             firstName: document.getElementById('first-name').value,
-            lastName: document.getElementById('last-name').value
+            lastName: document.getElementById('last-name').value,
         });
 
         loader.success('Profil erfolgreich aktualisiert!');
-
     } catch (error) {
         loader.error('Fehler beim Speichern: ' + error.message);
     }
@@ -294,7 +289,6 @@ async function inviteCoach(email) {
         // ... Einladungs-Code ...
 
         loader.success(`Einladung an ${email} gesendet!`);
-
     } catch (error) {
         loader.error('Fehler beim Senden der Einladung');
     }
@@ -341,6 +335,7 @@ window.spaEnhancer.clearCache();
 ## 📱 Mobile-Optimierung
 
 Die Toasts sind bereits mobile-responsive! Auf kleinen Bildschirmen:
+
 - Toasts passen sich der Breite an
 - Seitliche Margins werden kleiner
 - Schriftgröße bleibt lesbar
@@ -356,7 +351,7 @@ Die Toasts sind bereits mobile-responsive! Auf kleinen Bildschirmen:
 ```css
 /* Erfolgs-Toast grüner machen */
 .toast-success {
-    border-left-color: #059669;  /* Dunkleres Grün */
+    border-left-color: #059669; /* Dunkleres Grün */
 }
 
 .toast-success .toast-icon {
@@ -424,9 +419,7 @@ async function loadMatchHistory() {
     const loader = window.notifications.loading('Lade Historie...');
 
     // Lade nur die ersten 20 Matches
-    const recentMatches = await getDocs(
-        query(collection(db, 'matches'), limit(20))
-    );
+    const recentMatches = await getDocs(query(collection(db, 'matches'), limit(20)));
 
     renderMatches(recentMatches.docs);
     loader.close();
@@ -443,6 +436,7 @@ async function loadMatchHistory() {
 ### Problem: Toasts erscheinen nicht
 
 **Lösung:**
+
 ```javascript
 // Prüfe ob NotificationManager geladen ist
 console.log(window.notifications); // Sollte Object sein
@@ -456,6 +450,7 @@ if (!window.notifications) {
 ### Problem: Loading-Bar erscheint nicht
 
 **Lösung:**
+
 ```javascript
 // Prüfe ob SPA Enhancer geladen ist
 console.log(window.spaEnhancer); // Sollte Object sein
@@ -468,6 +463,7 @@ console.log(link); // Sollte <link> element sein
 ### Problem: Animationen ruckeln
 
 **Lösung:**
+
 ```css
 /* Füge Hardware-Acceleration hinzu */
 .toast,
@@ -499,7 +495,9 @@ try {
 }
 
 // Benutze sinnvolle Nachrichten
-window.notifications.error('Match konnte nicht gespeichert werden. Bitte überprüfe deine Internet-Verbindung.');
+window.notifications.error(
+    'Match konnte nicht gespeichert werden. Bitte überprüfe deine Internet-Verbindung.'
+);
 ```
 
 ### ❌ DON'T:
@@ -519,7 +517,9 @@ await operation();
 // ❌ loader.close() vergessen!
 
 // Nicht zu lange Nachrichten
-window.notifications.success('Dies ist eine sehr lange Nachricht die viel zu viel Text enthält und niemand liest das ganz durch und es sieht auch nicht gut aus'); // ❌
+window.notifications.success(
+    'Dies ist eine sehr lange Nachricht die viel zu viel Text enthält und niemand liest das ganz durch und es sieht auch nicht gut aus'
+); // ❌
 ```
 
 ---
@@ -528,18 +528,18 @@ window.notifications.success('Dies ist eine sehr lange Nachricht die viel zu vie
 
 ```javascript
 // Tracke Page-Views
-window.spaEnhancer.on('navigationEnd', (data) => {
+window.spaEnhancer.on('navigationEnd', data => {
     // Google Analytics
     if (window.gtag) {
         gtag('event', 'page_view', {
-            page_path: data.url
+            page_path: data.url,
         });
     }
 
     // Oder Firebase Analytics
     if (window.analytics) {
         logEvent(analytics, 'page_view', {
-            page_path: data.url
+            page_path: data.url,
         });
     }
 });
@@ -549,7 +549,7 @@ function trackNotification(type, message) {
     if (window.gtag) {
         gtag('event', 'notification_shown', {
             notification_type: type,
-            message: message
+            message: message,
         });
     }
 }
@@ -592,6 +592,7 @@ window.addEventListener('online', () => {
 ## 📝 Zusammenfassung
 
 **Was du jetzt hast:**
+
 - ✅ Professionelles Toast-System
 - ✅ Smooth Page Transitions
 - ✅ Schöner Loading-Indicator
@@ -599,6 +600,7 @@ window.addEventListener('online', () => {
 - ✅ Einfach zu benutzen
 
 **Wie du es benutzt:**
+
 ```javascript
 // Einfach:
 window.notifications.success('Fertig!');
@@ -615,6 +617,7 @@ window.spaEnhancer.on('navigationEnd', () => {
 ```
 
 **Nächste Schritte:**
+
 1. Ersetze alle `alert()` calls mit Toasts
 2. Füge Loading-Toasts zu längeren Operationen hinzu
 3. Teste auf Mobile
