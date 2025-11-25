@@ -1974,8 +1974,8 @@ exports.notifyCoachesSinglesRequest = onDocumentWritten(
 
             // Fetch player names
             const [playerADoc, playerBDoc] = await Promise.all([
-                db.collection('users').doc(afterData.playerA).get(),
-                db.collection('users').doc(afterData.playerB).get(),
+                db.collection('users').doc(afterData.playerAId).get(),
+                db.collection('users').doc(afterData.playerBId).get(),
             ]);
 
             const playerA = playerADoc.data();
@@ -1989,7 +1989,7 @@ exports.notifyCoachesSinglesRequest = onDocumentWritten(
             const setsStr = afterData.sets?.map(s => `${s.playerA}:${s.playerB}`).join(', ') || 'N/A';
 
             // Determine winner name
-            const winnerName = afterData.winner === afterData.playerA ? playerAName : playerBName;
+            const winnerName = afterData.winnerId === afterData.playerAId ? playerAName : playerBName;
 
             // Configure SMTP transport (flexible, not Gmail-specific)
             // Use environment variables or Firebase config
