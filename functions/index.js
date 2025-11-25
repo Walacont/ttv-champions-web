@@ -1915,14 +1915,160 @@ exports.notifyCoachesDoublesRequest = onDocumentWritten(
     }
 );
 
+/**
+ * Sends email notification to coaches when a singles match request is pending
+ * Triggered when matchRequests document status changes to 'pending_coach'
+ * Uses flexible SMTP configuration (not Gmail-specific)
+ */
+exports.notifyCoachesSinglesRequest = onDocumentWritten(
+    {
+        region: CONFIG.REGION,
+        document: 'matchRequests/{requestId}',
+    },
+    async event => {
+        try {
+            const afterData = event.data?.after?.data();
+            const beforeData = event.data?.before?.data();
+
+            // Only proceed if status changed to 'pending_coach'
+            if (
+                !afterData ||
+                afterData.status !== 'pending_coach' ||
+                (beforeData && beforeData.status === 'pending_coach')
+            ) {
+                return null;
+            }
+
+            logger.info(
+                `📧 Sending coach notification for singles match request ${event.params.requestId}`
+            );
+
+            const clubId = afterData.clubId;
+
+            // Get all coaches in the club
+            const coachesSnapshot = await db
+                .collection('users')
+                .where('clubId', '==', clubId)
+                .where('role', 'in', ['coach', 'admin'])
+                .get();
+
+            if (coachesSnapshot.empty) {
+                logger.warn(`⚠️ No coaches found for club ${clubId}`);
+                return null;
+            }
+
+            // Fetch player names
+            const [playerADoc, playerBDoc] = await Promise.all([
+                db.collection('users').doc(afterData.playerA).get(),
+                db.collection('users').doc(afterData.playerB).get(),
+            ]);
+
+            const playerA = playerADoc.data();
+            const playerB = playerBDoc.data();
+
+            // Format player names
+            const playerAName = `${playerA?.firstName || '?'} ${playerA?.lastName || '?'}`;
+            const playerBName = `${playerB?.firstName || '?'} ${playerB?.lastName || '?'}`;
+
+            // Format sets
+            const setsStr = afterData.sets?.map(s => `${s.playerA}:${s.playerB}`).join(', ') || 'N/A';
+
+            // Determine winner name
+            const winnerName = afterData.winner === afterData.playerA ? playerAName : playerBName;
+
+            // Configure SMTP transport (flexible, not Gmail-specific)
+            // Use environment variables or Firebase config
+            const smtpConfig = {
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+                auth: {
+                    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+                    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
+                },
+            };
+
+            // Check if SMTP is configured
+            if (!smtpConfig.auth.user || !smtpConfig.auth.pass) {
+                logger.warn(
+                    '⚠️ SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS environment variables.'
+                );
+                return null;
+            }
+
+            const transporter = nodemailer.createTransporter(smtpConfig);
+
+            // Send email to each coach
+            const emailPromises = coachesSnapshot.docs.map(async coachDoc => {
+                const coach = coachDoc.data();
+                if (!coach.email) {
+                    logger.warn(`⚠️ Coach ${coachDoc.id} has no email address`);
+                    return null;
+                }
+
+                const mailOptions = {
+                    from: `"TTV Champions" <${smtpConfig.auth.user}>`,
+                    to: coach.email,
+                    subject: '🏓 Neue Match-Anfrage wartet auf Genehmigung',
+                    html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #4f46e5;">Neue Match-Anfrage</h2>
+              <p>Hallo ${coach.firstName || 'Coach'},</p>
+              <p>Es wartet eine neue Match-Anfrage auf deine Genehmigung:</p>
+
+              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Spieler A:</strong> ${playerAName}</p>
+                <p style="margin: 5px 0;"><strong>Spieler B:</strong> ${playerBName}</p>
+                <p style="margin: 5px 0;"><strong>Ergebnis:</strong> ${setsStr}</p>
+                <p style="margin: 5px 0;"><strong>Gewinner:</strong> ${winnerName}</p>
+                ${afterData.handicapUsed ? '<p style="margin: 5px 0; color: #f59e0b;"><strong>⚖️ Handicap verwendet</strong></p>' : ''}
+              </div>
+
+              <p>Bitte logge dich in die TTV Champions App ein, um die Anfrage zu genehmigen oder abzulehnen.</p>
+
+              <a href="${process.env.APP_URL || 'https://ttv-champions.web.app'}/coach.html"
+                 style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px;">
+                Zur App
+              </a>
+
+              <p style="margin-top: 30px; color: #6b7280; font-size: 12px;">
+                Diese E-Mail wurde automatisch generiert. Bitte nicht antworten.
+              </p>
+            </div>
+          `,
+                };
+
+                try {
+                    await transporter.sendMail(mailOptions);
+                    logger.info(`✅ Email sent to coach ${coach.email}`);
+                    return { success: true, email: coach.email };
+                } catch (error) {
+                    logger.error(`❌ Failed to send email to ${coach.email}:`, error);
+                    return { success: false, email: coach.email, error: error.message };
+                }
+            });
+
+            const results = await Promise.all(emailPromises);
+            const successCount = results.filter(r => r?.success).length;
+
+            logger.info(
+                `📧 Email notification complete: ${successCount}/${coachesSnapshot.size} coaches notified`
+            );
+
+            return { success: true, notified: successCount };
+        } catch (error) {
+            logger.error('💥 Error in notifyCoachesSinglesRequest:', error);
+            return { success: false, error: error.message };
+        }
+    }
+);
+
 // ========================================================================
 // ===== TODO: Additional Email Notifications =====
 // ========================================================================
 // Future enhancement: Send email notifications when:
-// 1. Match request created → notify playerB (Singles)
-// 2. PlayerB approves → notify coach (Singles)
-// 3. Coach approves/rejects → notify both players
-// 4. PlayerB rejects → notify playerA
+// 1. Coach approves/rejects → notify both players
+// 2. PlayerB rejects → notify playerA
 // ========================================================================
 // ===== PUSH NOTIFICATIONS =====
 // ========================================================================
