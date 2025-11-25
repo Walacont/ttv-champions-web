@@ -84,10 +84,19 @@ const sessionsPerDay = computed(() => {
 
   const map = new Map()
   const userSubgroups = userStore.userData?.subgroupIDs || []
+  const subgroupFilter = userStore.currentSubgroupFilter
 
   trainingSessions.value.forEach(session => {
     // Only include sessions for player's subgroups
     if (userSubgroups.length === 0 || userSubgroups.includes(session.subgroupId)) {
+      // Apply subgroup filter
+      if (subgroupFilter && subgroupFilter !== 'club' && subgroupFilter !== 'global') {
+        // Filter by specific subgroup
+        if (session.subgroupId !== subgroupFilter) {
+          return
+        }
+      }
+
       if (!map.has(session.date)) {
         map.set(session.date, [])
       }
@@ -217,15 +226,13 @@ async function loadStreaks() {
             resolve({
               subgroupName: subgroup?.name || 'Training',
               subgroupColor: subgroup?.color || '#6366f1',
-              currentStreak: streakData.currentStreak || 0,
-              longestStreak: streakData.longestStreak || 0
+              count: streakData.count || 0
             })
           } else {
             resolve({
               subgroupName: subgroup?.name || 'Training',
               subgroupColor: subgroup?.color || '#6366f1',
-              currentStreak: 0,
-              longestStreak: 0
+              count: 0
             })
           }
           unsubscribe()
@@ -323,6 +330,11 @@ watch(() => subgroups.value, () => {
   if (subgroups.value) {
     loadStreaks()
   }
+})
+
+// Reload streaks when subgroup filter changes
+watch(() => userStore.currentSubgroupFilter, () => {
+  loadStreaks()
 })
 </script>
 
@@ -428,10 +440,7 @@ watch(() => subgroups.value, () => {
                   <span class="text-gray-700">{{ streak.subgroupName }}:</span>
                 </div>
                 <div class="font-semibold text-gray-900">
-                  {{ streak.currentStreak }}🔥
-                  <span v-if="streak.longestStreak > streak.currentStreak" class="text-xs text-gray-500">
-                    (Rekord: {{ streak.longestStreak }})
-                  </span>
+                  {{ streak.count }}🔥
                 </div>
               </div>
             </div>
