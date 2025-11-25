@@ -162,38 +162,71 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             if (setB > setA && setB >= 11) playerBWins++;
         }
 
-        // Auto-add next set dynamically based on match mode
-        // Only auto-add if we haven't reached maxSets and no one has won yet
-        if (sets.length < maxSets && playerAWins < setsToWin && playerBWins < setsToWin) {
-            // For single set mode, never auto-add
-            if (mode === 'single-set') {
-                return;
+        // Calculate how many fields we need based on current score
+        // Formula: gespielte Sätze + (Sätze zum Sieg - höchste Satzgewinne)
+        //
+        // Best of 5 Examples (setsToWin = 3):
+        //   1:0 → 1 + (3-1) = 3 Felder
+        //   2:0 → 2 + (3-2) = 3 Felder
+        //   3:0 → 3 + (3-3) = 3 Felder (Match beendet)
+        //   1:1 → 2 + (3-1) = 4 Felder
+        //   2:1 → 3 + (3-2) = 4 Felder
+        //   2:2 → 4 + (3-2) = 5 Felder
+        //
+        // Best of 7 Examples (setsToWin = 4):
+        //   1:0 → 1 + (4-1) = 4 Felder
+        //   2:0 → 2 + (4-2) = 4 Felder
+        //   3:0 → 3 + (4-3) = 4 Felder
+        //   4:0 → 4 + (4-4) = 4 Felder (Match beendet)
+        //   2:2 → 4 + (4-2) = 6 Felder
+        //   3:3 → 6 + (4-3) = 7 Felder
+        const totalSetsPlayed = playerAWins + playerBWins;
+        const maxWins = Math.max(playerAWins, playerBWins);
+        const fieldsNeeded = totalSetsPlayed + (setsToWin - maxWins);
+
+        // For single set mode, always keep exactly 1 field
+        if (mode === 'single-set') {
+            if (sets.length > 1) {
+                sets.length = 1;
+                renderSets();
             }
+            return;
+        }
 
-            // Calculate how many fields we need based on current score
-            // Formula: gespielte Sätze + (Sätze zum Sieg - höchste Satzgewinne)
-            //
-            // Best of 5 Examples (setsToWin = 3):
-            //   1:0 → 1 + (3-1) = 3 Felder
-            //   2:0 → 2 + (3-2) = 3 Felder
-            //   1:1 → 2 + (3-1) = 4 Felder
-            //   2:1 → 3 + (3-2) = 4 Felder
-            //   2:2 → 4 + (3-2) = 5 Felder
-            //
-            // Best of 7 Examples (setsToWin = 4):
-            //   1:0 → 1 + (4-1) = 4 Felder
-            //   2:0 → 2 + (4-2) = 4 Felder
-            //   3:0 → 3 + (4-3) = 4 Felder
-            //   2:2 → 4 + (4-2) = 6 Felder
-            //   3:3 → 6 + (4-3) = 7 Felder
-            const totalSetsPlayed = playerAWins + playerBWins;
-            const maxWins = Math.max(playerAWins, playerBWins);
-            const fieldsNeeded = totalSetsPlayed + (setsToWin - maxWins);
+        // Check if someone has already won
+        const matchIsWon = playerAWins >= setsToWin || playerBWins >= setsToWin;
 
-            // Add fields if needed
-            if (sets.length < fieldsNeeded) {
+        if (matchIsWon) {
+            // Match is decided, keep only the sets that were played
+            if (sets.length > totalSetsPlayed) {
+                // Remove empty trailing sets
+                sets.length = Math.max(totalSetsPlayed, minSets);
+                renderSets();
+            }
+        } else {
+            // Match is ongoing, dynamically adjust fields
+            if (sets.length < fieldsNeeded && sets.length < maxSets) {
+                // Add fields if needed
                 sets.push({ playerA: '', playerB: '' });
                 renderSets();
+            } else if (sets.length > fieldsNeeded && sets.length > minSets) {
+                // Remove excess fields if score changed (e.g., 2:1 → 3:0)
+                // Only remove empty sets beyond what's needed
+                const newLength = Math.max(fieldsNeeded, minSets);
+                if (sets.length > newLength) {
+                    // Check if sets beyond newLength are empty
+                    let canTrim = true;
+                    for (let i = newLength; i < sets.length; i++) {
+                        if (sets[i].playerA !== '' || sets[i].playerB !== '') {
+                            canTrim = false;
+                            break;
+                        }
+                    }
+                    if (canTrim) {
+                        sets.length = newLength;
+                        renderSets();
+                    }
+                }
             }
         }
     }
