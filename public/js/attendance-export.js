@@ -151,6 +151,25 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Build Excel data structure in matrix format
         const excelData = [];
 
+        // Create a color palette for dates (pastel colors for better readability)
+        const colorPalette = [
+            'FFB3E5FC', // Light Blue
+            'FFC8E6C9', // Light Green
+            'FFFFF9C4', // Light Yellow
+            'FFFFCCBC', // Light Orange
+            'FFD1C4E9', // Light Purple
+            'FFF8BBD0', // Light Pink
+            'FFB2DFDB', // Light Teal
+            'FFDCEDC8', // Light Lime
+        ];
+
+        // Map each unique date to a color
+        const dateColorMap = new Map();
+        const uniqueDates = [...new Set(sessions.map(s => s.date))];
+        uniqueDates.forEach((date, index) => {
+            dateColorMap.set(date, colorPalette[index % colorPalette.length]);
+        });
+
         // Build header rows
         const headerRow1 = ['Nachname', 'Vorname']; // First header row (dates)
         const headerRow2 = ['', '']; // Second header row (group + time)
@@ -233,6 +252,34 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Create Excel workbook using SheetJS
         const wb = window.XLSX.utils.book_new();
         const ws = window.XLSX.utils.aoa_to_sheet(excelData);
+
+        // Apply colors to header cells based on date
+        // Column letters: C onwards (A=Nachname, B=Vorname, C=first date)
+        const startCol = 2; // Column C (0-indexed: A=0, B=1, C=2)
+        sessions.forEach((session, sessionIndex) => {
+            const colIndex = startCol + sessionIndex;
+            const colLetter = window.XLSX.utils.encode_col(colIndex);
+            const color = dateColorMap.get(session.date);
+
+            // Apply color to both header rows (row 1 and row 2)
+            const cell1 = `${colLetter}1`;
+            const cell2 = `${colLetter}2`;
+
+            if (!ws[cell1]) ws[cell1] = { t: 's', v: '' };
+            if (!ws[cell2]) ws[cell2] = { t: 's', v: '' };
+
+            // Set background color (fill)
+            ws[cell1].s = {
+                fill: { fgColor: { rgb: color } },
+                font: { bold: true },
+                alignment: { horizontal: 'center', vertical: 'center' },
+            };
+            ws[cell2].s = {
+                fill: { fgColor: { rgb: color } },
+                font: { bold: true },
+                alignment: { horizontal: 'center', vertical: 'center' },
+            };
+        });
 
         // Set column widths
         const colWidths = [
