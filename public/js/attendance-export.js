@@ -212,16 +212,24 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             });
             const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
 
-            // Get attendance for this session to find coach
+            // Get attendance for this session to find coaches
             const attendanceKey = `${session.date}_${session.id}`;
             const attendance = attendanceRecords.get(attendanceKey);
-            const coachName = attendance && attendance.coachId
-                ? coachesMap.get(attendance.coachId) || 'Unbekannt'
-                : '';
+            let coachNames = '';
+
+            if (attendance && attendance.coachIds && attendance.coachIds.length > 0) {
+                const names = attendance.coachIds
+                    .map(id => coachesMap.get(id) || 'Unbekannt')
+                    .join(', ');
+                coachNames = `Trainer: ${names}`;
+            } else if (attendance && attendance.coachId) {
+                // Backward compatibility for old single-coach data
+                coachNames = `Trainer: ${coachesMap.get(attendance.coachId) || 'Unbekannt'}`;
+            }
 
             headerRow1.push(formattedDate);
             headerRow2.push(`${subgroupName} (${session.startTime}-${session.endTime})`);
-            headerRow3.push(coachName ? `Trainer: ${coachName}` : '');
+            headerRow3.push(coachNames);
         }
 
         // Add "Gesamt" column header

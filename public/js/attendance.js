@@ -817,19 +817,35 @@ export async function openAttendanceModalForSession(
         }
         sessionIdInput.value = sessionId;
 
-        // Populate coach dropdown
-        const coachSelect = document.getElementById('attendance-coach-select');
-        coachSelect.innerHTML = '<option value="">Trainer auswählen...</option>';
-        coaches.forEach(coach => {
-            const option = document.createElement('option');
-            option.value = coach.id;
-            option.textContent = `${coach.firstName} ${coach.lastName}`;
-            coachSelect.appendChild(option);
-        });
+        // Populate coach checkboxes
+        const coachListContainer = document.getElementById('attendance-coach-list');
+        coachListContainer.innerHTML = '';
 
-        // Set selected coach if attendance data exists
-        if (attendanceData && attendanceData.coachId) {
-            coachSelect.value = attendanceData.coachId;
+        if (coaches.length === 0) {
+            coachListContainer.innerHTML = '<p class="text-sm text-gray-400">Keine Trainer gefunden</p>';
+        } else {
+            coaches.forEach(coach => {
+                const isChecked = attendanceData &&
+                    attendanceData.coachIds &&
+                    attendanceData.coachIds.includes(coach.id);
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                div.innerHTML = `
+                    <input
+                        id="coach-check-${coach.id}"
+                        name="coaches"
+                        value="${coach.id}"
+                        type="checkbox"
+                        ${isChecked ? 'checked' : ''}
+                        class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    >
+                    <label for="coach-check-${coach.id}" class="ml-2 block text-sm text-gray-700">
+                        ${coach.firstName} ${coach.lastName}
+                    </label>
+                `;
+                coachListContainer.appendChild(div);
+            });
         }
 
         const playerListContainer = document.getElementById('attendance-player-list');
@@ -983,9 +999,13 @@ export async function handleAttendanceSave(
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
-    // Get selected coach
-    const coachSelect = document.getElementById('attendance-coach-select');
-    const coachId = coachSelect ? coachSelect.value : null;
+    // Get selected coaches
+    const coachCheckboxes = document
+        .getElementById('attendance-coach-list')
+        .querySelectorAll('input[type="checkbox"]');
+    const coachIds = Array.from(coachCheckboxes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => checkbox.value);
 
     // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
     // We need to distinguish between different training sessions on the same day
@@ -1049,9 +1069,9 @@ export async function handleAttendanceSave(
                 updatedAt: serverTimestamp(),
             };
 
-            // Add coach if selected
-            if (coachId) {
-                attendanceData.coachId = coachId;
+            // Add coaches if selected
+            if (coachIds && coachIds.length > 0) {
+                attendanceData.coachIds = coachIds;
             }
 
             batch.set(attendanceRef, attendanceData, { merge: true });
