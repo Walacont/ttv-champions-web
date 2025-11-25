@@ -19,32 +19,33 @@ class SPAEnhancer {
 
     init() {
         // Intercept link clicks
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', e => {
             const link = e.target.closest('a');
             if (link) {
                 const href = link.getAttribute('href');
-                console.log("[SPA] Link clicked:", href);
+                console.log('[SPA] Link clicked:', href);
 
                 if (this.shouldIntercept(link)) {
-                    console.log("[SPA] Intercepting link");
+                    console.log('[SPA] Intercepting link');
                     e.preventDefault();
                     this.navigateTo(href);
                 } else {
-                    console.log("[SPA] NOT intercepting link, allowing default behavior");
+                    console.log('[SPA] NOT intercepting link, allowing default behavior');
                 }
             }
         });
 
         // Handle browser back/forward
-        window.addEventListener('popstate', (e) => {
+        window.addEventListener('popstate', e => {
             if (e.state && e.state.url) {
                 this.loadPage(e.state.url, false);
             }
         });
 
         // Store initial state with FULL URL (including query string and hash)
-        const currentPath = window.location.pathname + window.location.search + window.location.hash;
-        console.log("[SPA] init() - storing initial state:", currentPath);
+        const currentPath =
+            window.location.pathname + window.location.search + window.location.hash;
+        console.log('[SPA] init() - storing initial state:', currentPath);
         history.replaceState({ url: currentPath }, '', currentPath);
     }
 
@@ -60,13 +61,15 @@ class SPAEnhancer {
         // - Has download attribute
         // - Is a hash link
         // - Is mailto: or tel:
-        if (!href ||
+        if (
+            !href ||
             href.startsWith('http') ||
             href.startsWith('#') ||
             href.startsWith('mailto:') ||
             href.startsWith('tel:') ||
             link.hasAttribute('target') ||
-            link.hasAttribute('download')) {
+            link.hasAttribute('download')
+        ) {
             return false;
         }
 
@@ -77,11 +80,11 @@ class SPAEnhancer {
         const noInterceptPages = [
             '/index.html',
             '/',
-            '/dashboard.html',   // Player dashboard - needs full reload
-            '/coach.html',       // Coach dashboard - needs full reload
-            '/admin.html',       // Admin dashboard - needs full reload
+            '/dashboard.html', // Player dashboard - needs full reload
+            '/coach.html', // Coach dashboard - needs full reload
+            '/admin.html', // Admin dashboard - needs full reload
             '/onboarding.html',
-            '/register.html'
+            '/register.html',
         ];
 
         // Normalize the link path (handle both relative and absolute paths)
@@ -92,16 +95,16 @@ class SPAEnhancer {
             linkPath = '/' + linkPath;
         }
 
-        console.log("[SPA] Checking if should intercept - linkPath:", linkPath);
+        console.log('[SPA] Checking if should intercept - linkPath:', linkPath);
 
         // Check if the link is to a no-intercept page
         if (noInterceptPages.includes(linkPath)) {
-            console.log("[SPA] Not intercepting link to:", linkPath, "(requires full reload)");
+            console.log('[SPA] Not intercepting link to:', linkPath, '(requires full reload)');
             return false;
         }
 
         // All other internal links can use SPA navigation
-        console.log("[SPA] Intercepting link (SPA navigation)");
+        console.log('[SPA] Intercepting link (SPA navigation)');
         return true;
     }
 
@@ -111,25 +114,32 @@ class SPAEnhancer {
     async navigateTo(url) {
         if (this.isNavigating) return;
 
-        console.log("[SPA] navigateTo called with:", url);
+        console.log('[SPA] navigateTo called with:', url);
 
         // Parse URL to separate path and query string
         const urlObj = new URL(url, window.location.origin);
         const fullPath = urlObj.pathname + urlObj.search + urlObj.hash;
 
-        console.log("[SPA] Parsed URL - pathname:", urlObj.pathname, "search:", urlObj.search, "fullPath:", fullPath);
+        console.log(
+            '[SPA] Parsed URL - pathname:',
+            urlObj.pathname,
+            'search:',
+            urlObj.search,
+            'fullPath:',
+            fullPath
+        );
 
         // Don't reload if we're already on this exact page (including query params)
         if (fullPath === window.location.pathname + window.location.search + window.location.hash) {
-            console.log("[SPA] Already on this page, skipping navigation");
+            console.log('[SPA] Already on this page, skipping navigation');
             return;
         }
 
         // Push state with full URL
-        console.log("[SPA] Pushing state with fullPath:", fullPath);
+        console.log('[SPA] Pushing state with fullPath:', fullPath);
         history.pushState({ url: fullPath }, '', fullPath);
-        console.log("[SPA] After pushState - window.location.href:", window.location.href);
-        console.log("[SPA] After pushState - window.location.search:", window.location.search);
+        console.log('[SPA] After pushState - window.location.href:', window.location.href);
+        console.log('[SPA] After pushState - window.location.search:', window.location.search);
 
         // Load the page
         await this.loadPage(urlObj.pathname, true);
@@ -179,9 +189,10 @@ class SPAEnhancer {
             document.body.innerHTML = newBody.innerHTML;
 
             // Add page transition animation
-            const mainContent = document.getElementById('main-content') ||
-                               document.getElementById('app-content') ||
-                               document.body;
+            const mainContent =
+                document.getElementById('main-content') ||
+                document.getElementById('app-content') ||
+                document.body;
             this.addPageTransition(mainContent);
 
             // Update or add styles
@@ -198,7 +209,6 @@ class SPAEnhancer {
 
             // Trigger navigation end event
             this.trigger('navigationEnd', { url });
-
         } catch (error) {
             console.error('Navigation failed:', error);
             // Fallback to full page load
@@ -308,8 +318,8 @@ class SPAEnhancer {
         }
 
         // Also show existing page loader if present
-        const loader = document.getElementById('spa-loader') ||
-                      document.getElementById('page-loader');
+        const loader =
+            document.getElementById('spa-loader') || document.getElementById('page-loader');
         if (loader) {
             loader.style.display = 'flex';
             loader.classList.remove('hidden');
@@ -333,8 +343,8 @@ class SPAEnhancer {
             }
 
             // Hide existing page loader
-            const loader = document.getElementById('spa-loader') ||
-                          document.getElementById('page-loader');
+            const loader =
+                document.getElementById('spa-loader') || document.getElementById('page-loader');
             if (loader) {
                 loader.style.display = 'none';
                 loader.classList.add('hidden');
@@ -406,14 +416,14 @@ class SPAEnhancer {
 
 // Initialize SPA enhancer when DOM is ready (only once!)
 if (!window.spaEnhancer) {
-    console.log("[SPA] Initializing SPAEnhancer for the first time");
+    console.log('[SPA] Initializing SPAEnhancer for the first time');
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             window.spaEnhancer = new SPAEnhancer();
 
             // Provide a global navigate function for programmatic navigation
-            window.spaNavigate = (url) => {
+            window.spaNavigate = url => {
                 if (window.spaEnhancer) {
                     window.spaEnhancer.navigateTo(url);
                 } else {
@@ -425,7 +435,7 @@ if (!window.spaEnhancer) {
         window.spaEnhancer = new SPAEnhancer();
 
         // Provide a global navigate function for programmatic navigation
-        window.spaNavigate = (url) => {
+        window.spaNavigate = url => {
             if (window.spaEnhancer) {
                 window.spaEnhancer.navigateTo(url);
             } else {
@@ -434,7 +444,7 @@ if (!window.spaEnhancer) {
         };
     }
 } else {
-    console.log("[SPA] SPAEnhancer already initialized, skipping");
+    console.log('[SPA] SPAEnhancer already initialized, skipping');
 }
 
 // Export for module usage

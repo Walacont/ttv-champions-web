@@ -15,11 +15,11 @@ import NotificationPermissionDialog from './notification-permission-dialog.js';
  */
 export async function initPushNotifications(firebaseApp, db, auth, options = {}) {
     const {
-        autoPrompt = false,        // Automatically show permission dialog
-        promptDelay = 3000,         // Delay before showing dialog (ms)
-        showOnlyOnce = true,        // Only show dialog once per session
+        autoPrompt = false, // Automatically show permission dialog
+        promptDelay = 3000, // Delay before showing dialog (ms)
+        showOnlyOnce = true, // Only show dialog once per session
         onPermissionGranted = null, // Callback when permission granted
-        onPermissionDenied = null   // Callback when permission denied
+        onPermissionDenied = null, // Callback when permission denied
     } = options;
 
     // Initialize FCM Manager
@@ -76,7 +76,7 @@ export async function initPushNotifications(firebaseApp, db, auth, options = {})
         setTimeout(() => {
             showNotificationPermissionDialog(fcmManager, {
                 onPermissionGranted,
-                onPermissionDenied
+                onPermissionDenied,
             });
         }, promptDelay);
 
@@ -102,9 +102,9 @@ export function showNotificationPermissionDialog(fcmManager, callbacks = {}) {
             console.log('[Notifications] User accepted');
 
             // Show loading toast
-            const loader = window.notifications ?
-                window.notifications.loading('Aktiviere Benachrichtigungen...') :
-                null;
+            const loader = window.notifications
+                ? window.notifications.loading('Aktiviere Benachrichtigungen...')
+                : null;
 
             try {
                 const result = await fcmManager.requestPermission();
@@ -119,7 +119,6 @@ export function showNotificationPermissionDialog(fcmManager, callbacks = {}) {
                     if (onPermissionGranted) {
                         onPermissionGranted(result.token);
                     }
-
                 } else {
                     console.log('[Notifications] Permission not granted:', result.reason);
 
@@ -131,7 +130,6 @@ export function showNotificationPermissionDialog(fcmManager, callbacks = {}) {
                         onPermissionDenied(result.reason);
                     }
                 }
-
             } catch (error) {
                 console.error('[Notifications] Error requesting permission:', error);
 
@@ -151,7 +149,7 @@ export function showNotificationPermissionDialog(fcmManager, callbacks = {}) {
             if (onPermissionDenied) {
                 onPermissionDenied('user_declined');
             }
-        }
+        },
     });
 }
 
@@ -171,14 +169,14 @@ export async function requestNotificationPermission() {
         return { success: false, reason: 'not_supported' };
     }
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
         showNotificationPermissionDialog(fcmManager, {
-            onPermissionGranted: (token) => {
+            onPermissionGranted: token => {
                 resolve({ success: true, token });
             },
-            onPermissionDenied: (reason) => {
+            onPermissionDenied: reason => {
                 resolve({ success: false, reason });
-            }
+            },
         });
     });
 }
@@ -252,7 +250,7 @@ export function getNotificationStatus() {
     return {
         initialized: true,
         supported: fcmManager.isSupported(),
-        permission: fcmManager.getPermissionStatus()
+        permission: fcmManager.getPermissionStatus(),
     };
 }
 
@@ -263,5 +261,5 @@ export default {
     disableNotifications,
     updateNotificationPreferences,
     getNotificationPreferences,
-    getNotificationStatus
+    getNotificationStatus,
 };

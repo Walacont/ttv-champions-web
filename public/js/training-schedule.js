@@ -18,7 +18,7 @@ import {
     Timestamp,
     serverTimestamp,
     writeBatch,
-    increment
+    increment,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 // DB instance will be passed to functions instead of module-level initialization
@@ -43,7 +43,15 @@ export function initializeTrainingSchedule(firestoreInstance) {
  * @returns {Promise<string>} Template ID
  */
 export async function createRecurringTemplate(templateData, userId = 'system') {
-    const { dayOfWeek, startTime, endTime, subgroupId, clubId, startDate, endDate = null } = templateData;
+    const {
+        dayOfWeek,
+        startTime,
+        endTime,
+        subgroupId,
+        clubId,
+        startDate,
+        endDate = null,
+    } = templateData;
 
     // Validation
     if (dayOfWeek < 0 || dayOfWeek > 6) {
@@ -59,9 +67,17 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
     }
 
     // Check for overlapping templates
-    const overlapping = await checkTemplateOverlap(dayOfWeek, startTime, endTime, subgroupId, clubId);
+    const overlapping = await checkTemplateOverlap(
+        dayOfWeek,
+        startTime,
+        endTime,
+        subgroupId,
+        clubId
+    );
     if (overlapping) {
-        throw new Error('Ein wiederkehrendes Training mit überschneidenden Zeiten existiert bereits');
+        throw new Error(
+            'Ein wiederkehrendes Training mit überschneidenden Zeiten existiert bereits'
+        );
     }
 
     const template = {
@@ -74,7 +90,7 @@ export async function createRecurringTemplate(templateData, userId = 'system') {
         startDate,
         endDate,
         createdAt: serverTimestamp(),
-        createdBy: userId
+        createdBy: userId,
     };
 
     const docRef = await addDoc(collection(db, 'recurringTrainingTemplates'), template);
@@ -98,7 +114,7 @@ export async function getRecurringTemplates(clubId) {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
     }));
 }
 
@@ -133,7 +149,14 @@ export async function deleteRecurringTemplate(templateId) {
  * Check if template would overlap with existing ones
  * @private
  */
-async function checkTemplateOverlap(dayOfWeek, startTime, endTime, subgroupId, clubId, excludeTemplateId = null) {
+async function checkTemplateOverlap(
+    dayOfWeek,
+    startTime,
+    endTime,
+    subgroupId,
+    clubId,
+    excludeTemplateId = null
+) {
     const templates = await getRecurringTemplates(clubId);
 
     for (const template of templates) {
@@ -161,7 +184,15 @@ async function checkTemplateOverlap(dayOfWeek, startTime, endTime, subgroupId, c
  * @returns {Promise<string>} Session ID
  */
 export async function createTrainingSession(sessionData, userId = 'system') {
-    const { date, startTime, endTime, subgroupId, clubId, recurringTemplateId = null, plannedExercises = [] } = sessionData;
+    const {
+        date,
+        startTime,
+        endTime,
+        subgroupId,
+        clubId,
+        recurringTemplateId = null,
+        plannedExercises = [],
+    } = sessionData;
 
     // Validation
     if (!isValidDateFormat(date)) {
@@ -179,7 +210,9 @@ export async function createTrainingSession(sessionData, userId = 'system') {
     // Check for overlapping sessions on same date
     const overlapping = await checkSessionOverlap(date, startTime, endTime, subgroupId, clubId);
     if (overlapping) {
-        throw new Error('Eine Trainingsession mit überschneidenden Zeiten existiert bereits an diesem Tag');
+        throw new Error(
+            'Eine Trainingsession mit überschneidenden Zeiten existiert bereits an diesem Tag'
+        );
     }
 
     const session = {
@@ -190,11 +223,11 @@ export async function createTrainingSession(sessionData, userId = 'system') {
         clubId,
         recurringTemplateId,
         cancelled: false,
-        plannedExercises: plannedExercises || [],  // Array of planned exercises
-        completed: false,  // Tracking whether training has been completed
-        completedAt: null,  // Timestamp when training was completed
+        plannedExercises: plannedExercises || [], // Array of planned exercises
+        completed: false, // Tracking whether training has been completed
+        completedAt: null, // Timestamp when training was completed
         createdAt: serverTimestamp(),
-        createdBy: userId
+        createdBy: userId,
     };
 
     const docRef = await addDoc(collection(db, 'trainingSessions'), session);
@@ -222,7 +255,7 @@ export async function getTrainingSessions(clubId, startDate, endDate) {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
     }));
 }
 
@@ -246,7 +279,7 @@ export async function getSessionsForDate(clubId, date, forceServerFetch = false)
     const snapshot = forceServerFetch ? await getDocsFromServer(q) : await getDocs(q);
     return snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
     }));
 }
 
@@ -265,7 +298,7 @@ export async function getSession(sessionId) {
 
     return {
         id: docSnap.id,
-        ...docSnap.data()
+        ...docSnap.data(),
     };
 }
 
@@ -284,7 +317,9 @@ export async function updateTrainingSession(sessionId, updates) {
  * @param {string} sessionId
  */
 export async function cancelTrainingSession(sessionId) {
-    console.log(`[Cancel Training] Cancelling session ${sessionId} and correcting player points...`);
+    console.log(
+        `[Cancel Training] Cancelling session ${sessionId} and correcting player points...`
+    );
 
     // Find associated attendance records
     const attendanceQuery = query(
@@ -314,10 +349,12 @@ export async function cancelTrainingSession(sessionId) {
         const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
             day: '2-digit',
             month: '2-digit',
-            year: 'numeric'
+            year: 'numeric',
         });
 
-        console.log(`[Cancel Training] Correcting points for ${presentPlayerIds.length} players on ${date}`);
+        console.log(
+            `[Cancel Training] Correcting points for ${presentPlayerIds.length} players on ${date}`
+        );
 
         // Use a batch for atomic updates
         const batch = writeBatch(db);
@@ -339,7 +376,12 @@ export async function cancelTrainingSession(sessionId) {
                 const historyEntry = historySnapshot.docs.find(doc => {
                     const data = doc.data();
                     // Match by date and subgroup, and it should be a positive entry (not a correction)
-                    return data.points > 0 && data.reason && !data.reason.includes('korrigiert') && !data.reason.includes('gelöscht');
+                    return (
+                        data.points > 0 &&
+                        data.reason &&
+                        !data.reason.includes('korrigiert') &&
+                        !data.reason.includes('gelöscht')
+                    );
                 });
 
                 if (historyEntry) {
@@ -347,17 +389,21 @@ export async function cancelTrainingSession(sessionId) {
                     const pointsToDeduct = historyData.points || 0;
                     const xpToDeduct = historyData.xp || 0;
 
-                    console.log(`[Cancel Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`);
+                    console.log(
+                        `[Cancel Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
+                    );
 
                     // Deduct points and XP from player
                     const playerRef = doc(db, 'users', playerId);
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
-                        xp: increment(-xpToDeduct)
+                        xp: increment(-xpToDeduct),
                     });
 
                     // Create negative entry in points history
-                    const correctionHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                    const correctionHistoryRef = doc(
+                        collection(db, `users/${playerId}/pointsHistory`)
+                    );
                     batch.set(correctionHistoryRef, {
                         points: -pointsToDeduct,
                         xp: -xpToDeduct,
@@ -366,24 +412,28 @@ export async function cancelTrainingSession(sessionId) {
                         date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: 'System (Training abgesagt)'
+                        awardedBy: 'System (Training abgesagt)',
                     });
 
                     // Create negative entry in XP history
-                    const correctionXpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
+                    const correctionXpHistoryRef = doc(
+                        collection(db, `users/${playerId}/xpHistory`)
+                    );
                     batch.set(correctionXpHistoryRef, {
                         xp: -xpToDeduct,
                         reason: `Training abgesagt am ${formattedDate} (${xpToDeduct} XP zurückgegeben) - ${subgroupName}`,
                         date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: 'System (Training abgesagt)'
+                        awardedBy: 'System (Training abgesagt)',
                     });
 
                     // Delete the original history entry
                     batch.delete(historyEntry.ref);
                 } else {
-                    console.warn(`[Cancel Training] No points history found for player ${playerId} on ${date}`);
+                    console.warn(
+                        `[Cancel Training] No points history found for player ${playerId} on ${date}`
+                    );
                 }
             } catch (error) {
                 console.error(`[Cancel Training] Error processing player ${playerId}:`, error);
@@ -439,10 +489,12 @@ export async function deleteTrainingSession(sessionId) {
         const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
             day: '2-digit',
             month: '2-digit',
-            year: 'numeric'
+            year: 'numeric',
         });
 
-        console.log(`[Delete Training] Correcting points for ${presentPlayerIds.length} players on ${date}`);
+        console.log(
+            `[Delete Training] Correcting points for ${presentPlayerIds.length} players on ${date}`
+        );
 
         // Use a batch for atomic updates
         const batch = writeBatch(db);
@@ -473,17 +525,21 @@ export async function deleteTrainingSession(sessionId) {
                     const pointsToDeduct = historyData.points || 0;
                     const xpToDeduct = historyData.xp || 0;
 
-                    console.log(`[Delete Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`);
+                    console.log(
+                        `[Delete Training] Player ${playerId}: Deducting ${pointsToDeduct} points and ${xpToDeduct} XP`
+                    );
 
                     // Deduct points and XP from player
                     const playerRef = doc(db, 'users', playerId);
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
-                        xp: increment(-xpToDeduct)
+                        xp: increment(-xpToDeduct),
                     });
 
                     // Create negative entry in points history
-                    const correctionHistoryRef = doc(collection(db, `users/${playerId}/pointsHistory`));
+                    const correctionHistoryRef = doc(
+                        collection(db, `users/${playerId}/pointsHistory`)
+                    );
                     batch.set(correctionHistoryRef, {
                         points: -pointsToDeduct,
                         xp: -xpToDeduct,
@@ -492,24 +548,28 @@ export async function deleteTrainingSession(sessionId) {
                         date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: 'System (Training gelöscht)'
+                        awardedBy: 'System (Training gelöscht)',
                     });
 
                     // Create negative entry in XP history
-                    const correctionXpHistoryRef = doc(collection(db, `users/${playerId}/xpHistory`));
+                    const correctionXpHistoryRef = doc(
+                        collection(db, `users/${playerId}/xpHistory`)
+                    );
                     batch.set(correctionXpHistoryRef, {
                         xp: -xpToDeduct,
                         reason: `Training gelöscht am ${formattedDate} (${xpToDeduct} XP zurückgegeben) - ${subgroupName}`,
                         date: date,
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: 'System (Training gelöscht)'
+                        awardedBy: 'System (Training gelöscht)',
                     });
 
                     // Delete the original history entry
                     batch.delete(historyEntry.ref);
                 } else {
-                    console.warn(`[Delete Training] No points history found for player ${playerId} on ${date}`);
+                    console.warn(
+                        `[Delete Training] No points history found for player ${playerId} on ${date}`
+                    );
                 }
             } catch (error) {
                 console.error(`[Delete Training] Error processing player ${playerId}:`, error);
@@ -535,7 +595,14 @@ export async function deleteTrainingSession(sessionId) {
  * Check if session would overlap with existing ones
  * @private
  */
-async function checkSessionOverlap(date, startTime, endTime, subgroupId, clubId, excludeSessionId = null) {
+async function checkSessionOverlap(
+    date,
+    startTime,
+    endTime,
+    subgroupId,
+    clubId,
+    excludeSessionId = null
+) {
     const sessions = await getSessionsForDate(clubId, date);
 
     for (const session of sessions) {
@@ -598,7 +665,7 @@ export async function generateSessionsFromTemplates(clubId, startDate, endDate) 
                     endTime: template.endTime,
                     subgroupId: template.subgroupId,
                     clubId,
-                    recurringTemplateId: template.id
+                    recurringTemplateId: template.id,
                 });
                 createdCount++;
             }

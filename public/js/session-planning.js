@@ -7,7 +7,7 @@ import {
     collection,
     getDocs,
     query,
-    orderBy
+    orderBy,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 let db = null;
@@ -31,18 +31,17 @@ export function initializeSessionPlanning(firestoreInstance) {
  */
 export async function loadExercisesForSelection(db) {
     try {
-        const exercisesQuery = query(
-            collection(db, 'exercises'),
-            orderBy('title', 'asc')
-        );
+        const exercisesQuery = query(collection(db, 'exercises'), orderBy('title', 'asc'));
         const snapshot = await getDocs(exercisesQuery);
 
         allExercisesForSelection = snapshot.docs.map(doc => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
         }));
 
-        console.log(`[Session Planning] Loaded ${allExercisesForSelection.length} exercises for selection`);
+        console.log(
+            `[Session Planning] Loaded ${allExercisesForSelection.length} exercises for selection`
+        );
     } catch (error) {
         console.error('[Session Planning] Error loading exercises:', error);
     }
@@ -109,15 +108,18 @@ function renderTagFilters() {
     if (alleButton) container.appendChild(alleButton);
 
     // Add tag filter buttons
-    Array.from(allTags).sort().forEach(tag => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'tag-filter-btn px-3 py-1 text-xs rounded-full border border-gray-300 hover:bg-gray-100 transition';
-        btn.dataset.tag = tag;
-        btn.textContent = tag;
-        btn.addEventListener('click', () => handleTagFilterClick(tag));
-        container.appendChild(btn);
-    });
+    Array.from(allTags)
+        .sort()
+        .forEach(tag => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className =
+                'tag-filter-btn px-3 py-1 text-xs rounded-full border border-gray-300 hover:bg-gray-100 transition';
+            btn.dataset.tag = tag;
+            btn.textContent = tag;
+            btn.addEventListener('click', () => handleTagFilterClick(tag));
+            container.appendChild(btn);
+        });
 
     // Add click handler to "Alle" button
     if (alleButton) {
@@ -173,22 +175,22 @@ function renderExerciseSelectionGrid(searchTerm = '') {
     // Filter exercises by tag filter
     let exercises = allExercisesForSelection;
     if (currentTagFilter !== 'all') {
-        exercises = exercises.filter(ex =>
-            ex.tags && ex.tags.includes(currentTagFilter)
-        );
+        exercises = exercises.filter(ex => ex.tags && ex.tags.includes(currentTagFilter));
     }
 
     // Filter by search term
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        exercises = exercises.filter(ex =>
-            ex.title.toLowerCase().includes(term) ||
-            (ex.tags && ex.tags.some(tag => tag.toLowerCase().includes(term)))
+        exercises = exercises.filter(
+            ex =>
+                ex.title.toLowerCase().includes(term) ||
+                (ex.tags && ex.tags.some(tag => tag.toLowerCase().includes(term)))
         );
     }
 
     if (exercises.length === 0) {
-        grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500">Keine Übungen gefunden.</div>';
+        grid.innerHTML =
+            '<div class="col-span-full text-center py-8 text-gray-500">Keine Übungen gefunden.</div>';
         return;
     }
 
@@ -200,16 +202,15 @@ function renderExerciseSelectionGrid(searchTerm = '') {
 
         const card = document.createElement('div');
         card.className = `relative border-2 rounded-lg overflow-hidden hover:shadow-lg transition-all cursor-pointer ${
-            isSelected
-                ? 'border-green-500 bg-green-50'
-                : 'border-gray-200 hover:border-indigo-300'
+            isSelected ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-indigo-300'
         }`;
         card.onclick = () => toggleExerciseSelection(exercise);
 
         // System badges (top corners)
         let systemBadges = '';
         if (exercise.tieredPoints?.enabled) {
-            systemBadges += '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
+            systemBadges +=
+                '<span class="absolute top-2 right-2 text-xs bg-blue-500 text-white px-2 py-1 rounded-full" title="Meilenstein-System">📊</span>';
         }
 
         // Tags display
@@ -228,7 +229,8 @@ function renderExerciseSelectionGrid(searchTerm = '') {
         // Selection indicator
         let selectionIndicator = '';
         if (isSelected) {
-            selectionIndicator = '<div class="absolute top-2 left-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"><i class="fas fa-check"></i></div>';
+            selectionIndicator =
+                '<div class="absolute top-2 left-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold"><i class="fas fa-check"></i></div>';
         }
 
         // Image or subtle placeholder (same style as global exercise catalog)
@@ -287,7 +289,7 @@ function toggleExerciseSelection(exercise) {
             exerciseId: exercise.id,
             name: exercise.title,
             points: exercise.points || 0,
-            tieredPoints: exercise.tieredPoints?.enabled || false
+            tieredPoints: exercise.tieredPoints?.enabled || false,
         });
     }
 
@@ -311,7 +313,8 @@ function updateSelectionCounter() {
         if (count > 0) {
             counterElement.innerHTML = `<span class="text-green-600 font-semibold">${count} Übung${count > 1 ? 'en' : ''} ausgewählt</span>`;
         } else {
-            counterElement.innerHTML = '<span class="text-gray-500">Keine Übungen ausgewählt</span>';
+            counterElement.innerHTML =
+                '<span class="text-gray-500">Keine Übungen ausgewählt</span>';
         }
     }
 
@@ -374,7 +377,7 @@ function addExerciseFromModal(exerciseId) {
         exerciseId: exercise.id,
         name: exercise.title,
         points: exercise.points || 0,
-        tieredPoints: exercise.tieredPoints?.enabled || false
+        tieredPoints: exercise.tieredPoints?.enabled || false,
     });
 
     // Re-render list
@@ -398,7 +401,8 @@ function renderSelectedExercises() {
     if (!container) return;
 
     if (selectedExercises.length === 0) {
-        container.innerHTML = '<p class="text-xs text-gray-500 text-center py-2">Keine Übungen ausgewählt</p>';
+        container.innerHTML =
+            '<p class="text-xs text-gray-500 text-center py-2">Keine Übungen ausgewählt</p>';
         return;
     }
 
@@ -410,7 +414,8 @@ function renderSelectedExercises() {
 
         let badges = '';
         if (exercise.tieredPoints) {
-            badges += '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
+            badges +=
+                '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2" title="Meilenstein-System">📊</span>';
         }
 
         div.innerHTML = `
@@ -436,7 +441,7 @@ export function getPlannedExercises() {
         exerciseId: exercise.exerciseId,
         name: exercise.name,
         points: exercise.points,
-        tieredPoints: exercise.tieredPoints
+        tieredPoints: exercise.tieredPoints,
     }));
 }
 
@@ -452,7 +457,7 @@ export function loadPlannedExercises(plannedExercises) {
             exerciseId: ex.exerciseId,
             name: ex.name,
             points: ex.points || 0,
-            tieredPoints: ex.tieredPoints || false
+            tieredPoints: ex.tieredPoints || false,
         }));
     }
     renderSelectedExercises();
@@ -494,7 +499,7 @@ export function initializeSessionPlanningListeners() {
     // Search input in exercise selection modal
     const searchInput = document.getElementById('exercise-selection-search');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
+        searchInput.addEventListener('input', e => {
             renderExerciseSelectionGrid(e.target.value);
         });
     }
@@ -503,9 +508,13 @@ export function initializeSessionPlanningListeners() {
     const createButton = document.getElementById('create-new-exercise-from-session-button');
     if (createButton) {
         createButton.addEventListener('click', openCreateExerciseModal);
-        console.log('[Session Planning] Event listener attached to create-new-exercise-from-session-button');
+        console.log(
+            '[Session Planning] Event listener attached to create-new-exercise-from-session-button'
+        );
     } else {
-        console.warn('[Session Planning] Button "create-new-exercise-from-session-button" not found');
+        console.warn(
+            '[Session Planning] Button "create-new-exercise-from-session-button" not found'
+        );
     }
 
     // Make remove function globally available
@@ -539,6 +548,8 @@ function openCreateExerciseModal() {
             }
         }, 300);
     } else {
-        alert('Konnte nicht zum Übungen-Tab wechseln. Bitte öffne manuell den "Übungen verwalten"-Tab.');
+        alert(
+            'Konnte nicht zum Übungen-Tab wechseln. Bitte öffne manuell den "Übungen verwalten"-Tab.'
+        );
     }
 }

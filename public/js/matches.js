@@ -1,5 +1,18 @@
-import { collection, addDoc, serverTimestamp, query, where, orderBy, onSnapshot, getDoc, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    addDoc,
+    serverTimestamp,
+    query,
+    where,
+    orderBy,
+    onSnapshot,
+    getDoc,
+    doc,
+    updateDoc,
+    setDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { createSetScoreInput } from './player-matches.js';
+import { calculateHandicap } from './validation-utils.js';
 
 /**
  * Matches Module
@@ -31,7 +44,7 @@ export function initializeCoachSetScoreInput() {
     // Function to update label text based on mode
     function updateSetScoreLabel(mode) {
         if (!setScoreLabel) return;
-        switch(mode) {
+        switch (mode) {
             case 'single-set':
                 setScoreLabel.textContent = 'Satzergebnisse (1 Satz)';
                 break;
@@ -73,38 +86,6 @@ export function initializeCoachSetScoreInput() {
 }
 
 /**
- * Calculates handicap points based on ELO rating difference
- * @param {Object} playerA - First player object with eloRating
- * @param {Object} playerB - Second player object with eloRating
- * @returns {Object|null} Handicap object with player and points, or null if no handicap needed
- */
-export function calculateHandicap(playerA, playerB) {
-    const eloA = playerA.eloRating || 0;
-    const eloB = playerB.eloRating || 0;
-    const eloDiff = Math.abs(eloA - eloB);
-
-    if (eloDiff < 25) {
-        return null;
-    }
-
-    let handicapPoints = Math.round(eloDiff / 50);
-
-    if (handicapPoints > 10) {
-        handicapPoints = 10;
-    }
-
-    if (handicapPoints < 1) {
-        return null;
-    }
-
-    const weakerPlayer = eloA < eloB ? playerA : playerB;
-    return {
-        player: weakerPlayer,
-        points: handicapPoints
-    };
-}
-
-/**
  * Sets the current session for pairings generation
  * @param {string} sessionId - Session ID
  */
@@ -118,11 +99,17 @@ export function setCurrentPairingsSession(sessionId) {
  * @param {string} currentSubgroupFilter - Current subgroup filter (or "all")
  * @param {string} sessionId - Optional session ID for session-based pairings
  */
-export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all', sessionId = null) {
+export function handleGeneratePairings(
+    clubPlayers,
+    currentSubgroupFilter = 'all',
+    sessionId = null
+) {
     if (sessionId) {
         currentPairingsSession = sessionId;
     }
-    const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
+    const presentPlayerCheckboxes = document.querySelectorAll(
+        '#attendance-player-list input:checked'
+    );
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
     // Only pair players who have completed Grundlagen (5 exercises)
     let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
@@ -132,8 +119,8 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(player =>
-            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(
+            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
         );
     }
 
@@ -144,7 +131,10 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
 
     for (let i = 0; i < matchReadyAndPresentPlayers.length; i += groupSize) {
         const groupNumber = Math.floor(i / groupSize) + 1;
-        pairingsByGroup[`Gruppe ${groupNumber}`] = matchReadyAndPresentPlayers.slice(i, i + groupSize);
+        pairingsByGroup[`Gruppe ${groupNumber}`] = matchReadyAndPresentPlayers.slice(
+            i,
+            i + groupSize
+        );
     }
 
     const finalPairings = {};
@@ -179,7 +169,8 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 
     const hasPairings = Object.values(pairings).some(group => group.length > 0);
     if (!hasPairings && !leftoverPlayer) {
-        container.innerHTML = '<p class="text-center text-gray-500">Keine möglichen Paarungen gefunden.</p>';
+        container.innerHTML =
+            '<p class="text-center text-gray-500">Keine möglichen Paarungen gefunden.</p>';
         modal.classList.remove('hidden');
         return;
     }
@@ -220,7 +211,8 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 
     if (leftoverPlayer) {
         const leftoverEl = document.createElement('p');
-        leftoverEl.className = 'text-sm text-center text-orange-600 bg-orange-100 p-2 rounded-md mt-4';
+        leftoverEl.className =
+            'text-sm text-center text-orange-600 bg-orange-100 p-2 rounded-md mt-4';
         leftoverEl.innerHTML = `<strong>${leftoverPlayer.firstName} ${leftoverPlayer.lastName}</strong> (sitzt diese Runde aus)`;
         container.appendChild(leftoverEl);
     }
@@ -232,7 +224,8 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 
         const saveButton = document.createElement('button');
         saveButton.id = 'save-pairings-button';
-        saveButton.className = 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition';
+        saveButton.className =
+            'bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md transition';
         saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Paarungen speichern';
         saveButton.onclick = () => savePairings(pairings, leftoverPlayer);
 
@@ -262,7 +255,9 @@ async function savePairings(pairings, leftoverPlayer) {
 
     try {
         // Get session data from Firestore
-        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const { getFirestore } = await import(
+            'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
+        );
         const db = getFirestore();
         const sessionDoc = await getDoc(doc(db, 'trainingSessions', currentPairingsSession));
 
@@ -283,20 +278,22 @@ async function savePairings(pairings, leftoverPlayer) {
                     playerA: {
                         id: playerA.id,
                         name: `${playerA.firstName} ${playerA.lastName}`,
-                        eloRating: playerA.eloRating || 0
+                        eloRating: playerA.eloRating || 0,
                     },
                     playerB: {
                         id: playerB.id,
                         name: `${playerB.firstName} ${playerB.lastName}`,
-                        eloRating: playerB.eloRating || 0
+                        eloRating: playerB.eloRating || 0,
                     },
-                    handicap: handicap ? {
-                        player: {
-                            id: handicap.player.id,
-                            name: `${handicap.player.firstName} ${handicap.player.lastName}`
-                        },
-                        points: handicap.points
-                    } : null
+                    handicap: handicap
+                        ? {
+                              player: {
+                                  id: handicap.player.id,
+                                  name: `${handicap.player.firstName} ${handicap.player.lastName}`,
+                              },
+                              points: handicap.points,
+                          }
+                        : null,
                 };
             });
         }
@@ -310,7 +307,7 @@ async function savePairings(pairings, leftoverPlayer) {
             endTime: sessionData.endTime,
             groups: groups,
             // leftoverPlayer should NOT be saved - only actual pairings
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp(),
         };
 
         // Save to trainingMatches collection with sessionId as document ID
@@ -331,7 +328,6 @@ async function savePairings(pairings, leftoverPlayer) {
                 saveButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
             }
         }, 1500);
-
     } catch (error) {
         console.error('Error saving pairings:', error);
         alert('Fehler beim Speichern der Paarungen: ' + error.message);
@@ -350,7 +346,9 @@ async function savePairings(pairings, leftoverPlayer) {
  */
 export async function loadSessionPairings(sessionId) {
     try {
-        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const { getFirestore } = await import(
+            'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
+        );
         const db = getFirestore();
 
         const pairingsDoc = await getDoc(doc(db, 'trainingMatches', sessionId));
@@ -373,7 +371,9 @@ export async function loadSessionPairings(sessionId) {
  */
 export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = 'all') {
     const pairingsButton = document.getElementById('generate-pairings-button');
-    const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
+    const presentPlayerCheckboxes = document.querySelectorAll(
+        '#attendance-player-list input:checked'
+    );
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
     // Only count players who have completed Grundlagen (5 exercises)
     let eligiblePlayers = clubPlayers.filter(player => {
@@ -383,8 +383,8 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
-        eligiblePlayers = eligiblePlayers.filter(player =>
-            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        eligiblePlayers = eligiblePlayers.filter(
+            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
         );
     }
 
@@ -461,7 +461,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
             reportedBy: currentUserData.id,
             clubId: currentUserData.clubId,
             createdAt: serverTimestamp(),
-            processed: false
+            processed: false,
         });
         feedbackEl.textContent = 'Match gemeldet! Punkte werden in Kürze aktualisiert.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
@@ -489,20 +489,28 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
         // If this match was entered from a saved pairing, remove that pairing
         if (currentPairingSessionId && currentPairingPlayerAId && currentPairingPlayerBId) {
             // STEP 1: Immediately remove the pairing from DOM (optimistic update - instant visual feedback)
-            removePairingFromDOM(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId);
+            removePairingFromDOM(
+                currentPairingSessionId,
+                currentPairingPlayerAId,
+                currentPairingPlayerBId
+            );
 
             const userData = JSON.parse(localStorage.getItem('userData'));
 
             // STEP 2: Remove from Firestore in the background
             try {
-                await removePairingFromSession(currentPairingSessionId, currentPairingPlayerAId, currentPairingPlayerBId, db);
+                await removePairingFromSession(
+                    currentPairingSessionId,
+                    currentPairingPlayerAId,
+                    currentPairingPlayerBId,
+                    db
+                );
                 console.log('Pairing removed from Firestore');
 
                 // Reset tracking variables
                 currentPairingSessionId = null;
                 currentPairingPlayerAId = null;
                 currentPairingPlayerBId = null;
-
             } catch (error) {
                 console.error('Error removing pairing from Firestore:', error);
                 // Even if Firestore fails, the DOM update already happened
@@ -515,7 +523,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
             }
         }
     } catch (error) {
-        console.error("Fehler beim Melden des Matches:", error);
+        console.error('Fehler beim Melden des Matches:', error);
         feedbackEl.textContent = 'Fehler: Das Match konnte nicht gemeldet werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     }
@@ -565,17 +573,21 @@ export function updateMatchUI(clubPlayers) {
             // Store handicap data for toggle handler
             currentHandicapData = {
                 player: handicap.player.id === playerAId ? 'A' : 'B',
-                points: handicap.points
+                points: handicap.points,
             };
 
-            document.getElementById('handicap-text').textContent = `${handicap.player.firstName} startet mit ${handicap.points} Punkten Vorsprung pro Satz.`;
+            document.getElementById('handicap-text').textContent =
+                `${handicap.player.firstName} startet mit ${handicap.points} Punkten Vorsprung pro Satz.`;
             handicapContainer.classList.remove('hidden');
             handicapToggleContainer.classList.remove('hidden');
             handicapToggleContainer.classList.add('flex');
 
             // Apply handicap if toggle is checked
             if (handicapToggle && handicapToggle.checked && coachSetScoreInput) {
-                coachSetScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+                coachSetScoreInput.setHandicap(
+                    currentHandicapData.player,
+                    currentHandicapData.points
+                );
             }
         } else {
             currentHandicapData = null;
@@ -585,8 +597,8 @@ export function updateMatchUI(clubPlayers) {
         }
     } else {
         currentHandicapData = null;
-        if(handicapContainer) handicapContainer.classList.add('hidden');
-        if(handicapToggleContainer) {
+        if (handicapContainer) handicapContainer.classList.add('hidden');
+        if (handicapToggleContainer) {
             handicapToggleContainer.classList.add('hidden');
             handicapToggleContainer.classList.remove('flex');
         }
@@ -619,8 +631,8 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 
     // Filter by subgroup if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyPlayers = matchReadyPlayers.filter(player =>
-            player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+        matchReadyPlayers = matchReadyPlayers.filter(
+            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
         );
     }
 
@@ -628,16 +640,19 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     const handicapSuggestion = document.getElementById('handicap-suggestion');
     if (handicapSuggestion) {
         if (matchReadyPlayers.length < 2) {
-            let message = currentSubgroupFilter !== 'all'
-                ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
-                : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
+            let message =
+                currentSubgroupFilter !== 'all'
+                    ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
+                    : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
 
             // Add info about locked players
             if (lockedPlayers.length > 0) {
-                const lockedNames = lockedPlayers.map(p => {
-                    const grundlagen = p.grundlagenCompleted || 0;
-                    return `${p.firstName} (${grundlagen}/5 Grundlagen)`;
-                }).join(', ');
+                const lockedNames = lockedPlayers
+                    .map(p => {
+                        const grundlagen = p.grundlagenCompleted || 0;
+                        return `${p.firstName} (${grundlagen}/5 Grundlagen)`;
+                    })
+                    .join(', ');
                 message += `<p class="text-xs text-gray-600 mt-2">🔒 Gesperrt: ${lockedNames}</p>`;
             }
 
@@ -685,8 +700,8 @@ export async function loadCoachMatchRequests(userData, db) {
     );
 
     // Listen to both singles and doubles requests
-    const unsubscribe1 = onSnapshot(singlesQuery, async (singlesSnapshot) => {
-        const unsubscribe2 = onSnapshot(doublesQuery, async (doublesSnapshot) => {
+    const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
+        const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
             const allRequests = [];
 
             // Process singles requests
@@ -700,7 +715,7 @@ export async function loadCoachMatchRequests(userData, db) {
                     type: 'singles',
                     ...data,
                     playerAData: playerADoc.exists() ? playerADoc.data() : null,
-                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null,
                 });
             }
 
@@ -711,7 +726,7 @@ export async function loadCoachMatchRequests(userData, db) {
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
                     getDoc(doc(db, 'users', data.teamA.player2Id)),
                     getDoc(doc(db, 'users', data.teamB.player1Id)),
-                    getDoc(doc(db, 'users', data.teamB.player2Id))
+                    getDoc(doc(db, 'users', data.teamB.player2Id)),
                 ]);
 
                 allRequests.push({
@@ -721,7 +736,7 @@ export async function loadCoachMatchRequests(userData, db) {
                     teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
                     teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
                     teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null
+                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
                 });
             }
 
@@ -733,7 +748,8 @@ export async function loadCoachMatchRequests(userData, db) {
             });
 
             if (allRequests.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+                container.innerHTML =
+                    '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
                 if (badge) badge.classList.add('hidden');
                 return;
             }
@@ -764,7 +780,7 @@ export async function loadCoachProcessedRequests(userData, db) {
         orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(requestsQuery, async (snapshot) => {
+    const unsubscribe = onSnapshot(requestsQuery, async snapshot => {
         const requests = [];
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
@@ -779,7 +795,7 @@ export async function loadCoachProcessedRequests(userData, db) {
                     id: docSnap.id,
                     ...data,
                     playerAData: playerADoc.exists() ? playerADoc.data() : null,
-                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null
+                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null,
                 });
             }
         }
@@ -800,7 +816,8 @@ function renderCoachProcessedCards(requests, db) {
     if (!container) return;
 
     if (requests.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine bearbeiteten Anfragen</p>';
+        container.innerHTML =
+            '<p class="text-gray-500 text-center py-4">Keine bearbeiteten Anfragen</p>';
         showAllCoachProcessed = false;
         return;
     }
@@ -830,20 +847,26 @@ function renderCoachProcessedCards(requests, db) {
         const setsDisplay = formatSetsForCoach(request.sets);
         const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
 
-        const createdDate = request.createdAt?.toDate ?
-            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
-            'Unbekannt';
+        const createdDate = request.createdAt?.toDate
+            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+              })
+            : 'Unbekannt';
 
         // Get coach name who processed the request
         const coachName = request.approvals?.coach?.coachName || 'Ein Coach';
 
-        const statusBadge = request.status === 'approved' ?
-            `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Von ${coachName} genehmigt</span>` :
-            `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von ${coachName} abgelehnt</span>`;
+        const statusBadge =
+            request.status === 'approved'
+                ? `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Von ${coachName} genehmigt</span>`
+                : `<span class="text-xs bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium">✗ Von ${coachName} abgelehnt</span>`;
 
-        const statusDescription = request.status === 'approved' ?
-            `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> ${coachName} hat diese Anfrage genehmigt. Das Match wurde erstellt und verarbeitet.</p>` :
-            `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> ${coachName} hat diese Anfrage abgelehnt.</p>`;
+        const statusDescription =
+            request.status === 'approved'
+                ? `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> ${coachName} hat diese Anfrage genehmigt. Das Match wurde erstellt und verarbeitet.</p>`
+                : `<p class="text-xs text-red-700 mt-2"><i class="fas fa-times-circle mr-1"></i> ${coachName} hat diese Anfrage abgelehnt.</p>`;
 
         card.innerHTML = `
             <div class="mb-3">
@@ -856,9 +879,10 @@ function renderCoachProcessedCards(requests, db) {
                         <p class="text-sm font-medium text-indigo-700 mt-1">
                             <i class="fas fa-trophy mr-1"></i> Gewinner: ${winner}
                         </p>
-                        ${request.handicapUsed ?
-                            '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' :
-                            ''
+                        ${
+                            request.handicapUsed
+                                ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>'
+                                : ''
                         }
                     </div>
                     <div class="text-right">
@@ -904,7 +928,8 @@ function renderCoachRequestCards(requests, db, userData) {
     if (!container) return;
 
     if (requests.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+        container.innerHTML =
+            '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
         showAllCoachRequests = false;
         return;
     }
@@ -920,15 +945,20 @@ function renderCoachRequestCards(requests, db, userData) {
         const card = document.createElement('div');
         card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
-        const createdDate = request.createdAt?.toDate ?
-            request.createdAt.toDate().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) :
-            'Unbekannt';
+        const createdDate = request.createdAt?.toDate
+            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+              })
+            : 'Unbekannt';
 
         let matchTypeTag, playersDisplay, setsDisplay, winnerDisplay, buttonsHtml;
 
         if (request.type === 'doubles') {
             // Doubles match
-            matchTypeTag = '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-users mr-1"></i>Doppel</span>';
+            matchTypeTag =
+                '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-users mr-1"></i>Doppel</span>';
 
             const teamAName1 = request.teamAPlayer1?.firstName || '?';
             const teamAName2 = request.teamAPlayer2?.firstName || '?';
@@ -946,9 +976,10 @@ function renderCoachRequestCards(requests, db, userData) {
             const winsB = request.sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
             setsDisplay = `<strong>${winsA}:${winsB}</strong> Sätze (${setsStr})`;
 
-            const winnerTeamName = request.winningTeam === 'A'
-                ? `${teamAName1} & ${teamAName2}`
-                : `${teamBName1} & ${teamBName2}`;
+            const winnerTeamName =
+                request.winningTeam === 'A'
+                    ? `${teamAName1} & ${teamAName2}`
+                    : `${teamBName1} & ${teamBName2}`;
             winnerDisplay = `<i class="fas fa-trophy mr-1"></i> Gewinner: ${winnerTeamName}`;
 
             buttonsHtml = `
@@ -961,7 +992,8 @@ function renderCoachRequestCards(requests, db, userData) {
             `;
         } else {
             // Singles match
-            matchTypeTag = '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-user mr-1"></i>Einzel</span>';
+            matchTypeTag =
+                '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mr-2"><i class="fas fa-user mr-1"></i>Einzel</span>';
 
             const playerAName = request.playerAData?.firstName || 'Unbekannt';
             const playerBName = request.playerBData?.firstName || 'Unbekannt';
@@ -993,9 +1025,10 @@ function renderCoachRequestCards(requests, db, userData) {
                         <p class="text-sm font-medium text-indigo-700 mt-1">
                             ${winnerDisplay}
                         </p>
-                        ${request.handicapUsed ?
-                            '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>' :
-                            ''
+                        ${
+                            request.handicapUsed
+                                ? '<p class="text-xs text-blue-600 mt-1"><i class="fas fa-balance-scale-right"></i> Handicap verwendet</p>'
+                                : ''
                         }
                     </div>
                     <div class="text-right">
@@ -1031,7 +1064,9 @@ function renderCoachRequestCards(requests, db, userData) {
             const approveBtn = card.querySelector('.coach-approve-btn');
             const rejectBtn = card.querySelector('.coach-reject-btn');
 
-            approveBtn.addEventListener('click', () => approveCoachRequest(request.id, db, userData));
+            approveBtn.addEventListener('click', () =>
+                approveCoachRequest(request.id, db, userData)
+            );
             rejectBtn.addEventListener('click', () => rejectCoachRequest(request.id, db, userData));
         }
 
@@ -1120,10 +1155,10 @@ async function approveCoachRequest(requestId, db, userData) {
                 status: 'approved',
                 timestamp: serverTimestamp(),
                 coachId: userData.id,
-                coachName: userData.firstName
+                coachName: userData.firstName,
             },
             status: 'approved',
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         });
 
         alert('Match wurde genehmigt! Es wird automatisch verarbeitet.');
@@ -1164,12 +1199,12 @@ async function rejectCoachRequest(requestId, db, userData) {
                 status: 'rejected',
                 timestamp: serverTimestamp(),
                 coachId: userData.id,
-                coachName: userData.firstName
+                coachName: userData.firstName,
             },
             status: 'rejected',
             rejectedBy: 'coach',
             rejectionReason: reason || 'Keine Angabe',
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
         });
 
         alert('Match-Anfrage wurde abgelehnt.');
@@ -1189,10 +1224,13 @@ export async function loadSavedPairings(db, clubId) {
     if (!container) return;
 
     try {
-        container.innerHTML = '<p class="text-center text-gray-500 py-8">Lade gespeicherte Paarungen...</p>';
+        container.innerHTML =
+            '<p class="text-center text-gray-500 py-8">Lade gespeicherte Paarungen...</p>';
 
         // Get all trainingMatches for this club
-        const { getDocs } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const { getDocs } = await import(
+            'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
+        );
 
         const pairingsQuery = query(
             collection(db, 'trainingMatches'),
@@ -1203,7 +1241,8 @@ export async function loadSavedPairings(db, clubId) {
         const pairingsSnapshot = await getDocs(pairingsQuery);
 
         if (pairingsSnapshot.empty) {
-            container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+            container.innerHTML =
+                '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
             return;
         }
 
@@ -1306,14 +1345,15 @@ export async function loadSavedPairings(db, clubId) {
 
         // If no pairings were added after filtering, show "no pairings" message
         if (html === '') {
-            container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+            container.innerHTML =
+                '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
         } else {
             container.innerHTML = html;
         }
-
     } catch (error) {
         console.error('Error loading saved pairings:', error);
-        container.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Paarungen.</p>';
+        container.innerHTML =
+            '<p class="text-center text-red-500 py-8">Fehler beim Laden der Paarungen.</p>';
     }
 }
 
@@ -1328,7 +1368,15 @@ function formatDateGerman(dateStr) {
 /**
  * Opens match form with pre-selected players
  */
-window.handleEnterResultForPairing = function(sessionId, playerAId, playerBId, playerAName, playerBName, handicapPlayerId, handicapPoints) {
+window.handleEnterResultForPairing = function (
+    sessionId,
+    playerAId,
+    playerBId,
+    playerAName,
+    playerBName,
+    handicapPlayerId,
+    handicapPoints
+) {
     // Store pairing information to delete after successful match save
     currentPairingSessionId = sessionId;
     currentPairingPlayerAId = playerAId;
@@ -1383,13 +1431,19 @@ function removePairingFromDOM(sessionId, playerAId, playerBId) {
             const buttons = matchDiv.querySelectorAll('button');
             buttons.forEach(button => {
                 const onclickAttr = button.getAttribute('onclick');
-                if (onclickAttr && onclickAttr.includes(sessionId) &&
-                    onclickAttr.includes(playerAId) && onclickAttr.includes(playerBId)) {
+                if (
+                    onclickAttr &&
+                    onclickAttr.includes(sessionId) &&
+                    onclickAttr.includes(playerAId) &&
+                    onclickAttr.includes(playerBId)
+                ) {
                     // Remove this match div
                     matchDiv.remove();
 
                     // Check if this was the last pairing in the card
-                    const remainingMatches = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+                    const remainingMatches = card.querySelectorAll(
+                        '.bg-gray-50.border.border-gray-200.rounded'
+                    );
                     if (remainingMatches.length === 0) {
                         // Check if there's a leftover player
                         const hasLeftover = card.querySelector('.bg-orange-50');
@@ -1398,9 +1452,12 @@ function removePairingFromDOM(sessionId, playerAId, playerBId) {
                             card.remove();
 
                             // Check if container is now empty
-                            const remainingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+                            const remainingCards = container.querySelectorAll(
+                                '.border.border-gray-200.rounded-lg'
+                            );
                             if (remainingCards.length === 0) {
-                                container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+                                container.innerHTML =
+                                    '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
                             }
                         }
                     }
@@ -1432,9 +1489,10 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
         // Find and remove the matching pairing
         for (const groupName in groups) {
             const matches = groups[groupName];
-            const matchIndex = matches.findIndex(match =>
-                (match.playerA.id === playerAId && match.playerB.id === playerBId) ||
-                (match.playerA.id === playerBId && match.playerB.id === playerAId)
+            const matchIndex = matches.findIndex(
+                match =>
+                    (match.playerA.id === playerAId && match.playerB.id === playerBId) ||
+                    (match.playerA.id === playerBId && match.playerB.id === playerAId)
             );
 
             if (matchIndex !== -1) {
@@ -1453,11 +1511,11 @@ async function removePairingFromSession(sessionId, playerAId, playerBId, db) {
             // If no groups left, delete the entire document
             if (Object.keys(groups).length === 0 && !pairingData.leftoverPlayer) {
                 await updateDoc(doc(db, 'trainingMatches', sessionId), {
-                    groups: {}
+                    groups: {},
                 });
             } else {
                 await updateDoc(doc(db, 'trainingMatches', sessionId), {
-                    groups: groups
+                    groups: groups,
                 });
             }
         }
@@ -1489,16 +1547,19 @@ function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
             if (discardButton) {
                 const onclickAttr = discardButton.getAttribute('onclick');
                 // Check if this is the right pairing to remove
-                if (onclickAttr &&
+                if (
+                    onclickAttr &&
                     onclickAttr.includes(`'${sessionId}'`) &&
                     onclickAttr.includes(`${matchIndex},`) &&
-                    onclickAttr.includes(`'${groupName}'`)) {
-
+                    onclickAttr.includes(`'${groupName}'`)
+                ) {
                     // Remove this match div
                     matchDiv.remove();
 
                     // Check if this was the last pairing in the card
-                    const remainingMatches = card.querySelectorAll('.bg-gray-50.border.border-gray-200.rounded');
+                    const remainingMatches = card.querySelectorAll(
+                        '.bg-gray-50.border.border-gray-200.rounded'
+                    );
                     if (remainingMatches.length === 0) {
                         // Check if there's a leftover player
                         const hasLeftover = card.querySelector('.bg-orange-50');
@@ -1507,9 +1568,12 @@ function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
                             card.remove();
 
                             // Check if container is now empty
-                            const remainingCards = container.querySelectorAll('.border.border-gray-200.rounded-lg');
+                            const remainingCards = container.querySelectorAll(
+                                '.border.border-gray-200.rounded-lg'
+                            );
                             if (remainingCards.length === 0) {
-                                container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
+                                container.innerHTML =
+                                    '<p class="text-center text-gray-500 py-8">Keine gespeicherten Paarungen vorhanden.</p>';
                             }
                         }
                     }
@@ -1522,7 +1586,7 @@ function removeDiscardedPairingFromDOM(sessionId, matchIndex, groupName) {
 /**
  * Discards a pairing
  */
-window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
+window.handleDiscardPairing = async function (sessionId, matchIndex, groupName) {
     if (!confirm('Möchtest du diese Paarung wirklich verwerfen?')) {
         return;
     }
@@ -1532,7 +1596,9 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
 
     // STEP 2: Remove from Firestore in background
     try {
-        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+        const { getFirestore } = await import(
+            'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
+        );
         const db = getFirestore();
 
         // Get current pairings
@@ -1557,7 +1623,7 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
 
             // Update Firestore
             await updateDoc(doc(db, 'trainingMatches', sessionId), {
-                groups: groups
+                groups: groups,
             });
 
             console.log('Pairing removed from Firestore');
@@ -1569,7 +1635,9 @@ window.handleDiscardPairing = async function(sessionId, matchIndex, groupName) {
         // Reload to show the correct state
         const userData = JSON.parse(localStorage.getItem('userData'));
         if (userData && userData.clubId) {
-            const { getFirestore } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+            const { getFirestore } = await import(
+                'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js'
+            );
             const db = getFirestore();
             setTimeout(async () => {
                 await loadSavedPairings(db, userData.clubId);

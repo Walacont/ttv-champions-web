@@ -8,7 +8,7 @@ import {
     query,
     where,
     getDocs,
-    Timestamp
+    Timestamp,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
@@ -18,17 +18,14 @@ import {
  * @param {Object} currentUserData - Current user's data
  */
 export function initializeTrainingStats(db, currentUserData) {
-
     // Show loading state immediately
     displayLoadingState();
 
     // Load data in background (non-blocking)
-    loadAndDisplayTrainingStats(db, currentUserData)
-        .catch(error => {
-            console.error('[Training Stats] Error initializing:', error);
-            displayError();
-        });
-
+    loadAndDisplayTrainingStats(db, currentUserData).catch(error => {
+        console.error('[Training Stats] Error initializing:', error);
+        displayError();
+    });
 }
 
 /**
@@ -41,8 +38,12 @@ async function loadAndDisplayTrainingStats(db, currentUserData) {
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-        const trainingDates = await getTrainingDates(db, currentUserData.id, currentUserData.clubId, oneYearAgo);
-
+        const trainingDates = await getTrainingDates(
+            db,
+            currentUserData.id,
+            currentUserData.clubId,
+            oneYearAgo
+        );
 
         // Calculate statistics
         const stats = calculateStatistics(trainingDates);
@@ -52,7 +53,6 @@ async function loadAndDisplayTrainingStats(db, currentUserData) {
 
         // Draw heatmap
         drawHeatmap(trainingDates);
-
     } catch (error) {
         console.error('[Training Stats] Error loading data:', error);
         throw error;
@@ -147,7 +147,7 @@ function calculateStatistics(trainingDates) {
         trend,
         trendPercentage,
         weeklyAverage,
-        totalDays: trainingDates.length
+        totalDays: trainingDates.length,
     };
 }
 
@@ -218,7 +218,7 @@ function drawHeatmap(trainingDates) {
     // Calculate date range (last 52 weeks)
     const now = new Date();
     const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - (52 * 7)); // 52 weeks ago
+    startDate.setDate(startDate.getDate() - 52 * 7); // 52 weeks ago
 
     // Find first Sunday
     while (startDate.getDay() !== 0) {
@@ -237,7 +237,7 @@ function drawHeatmap(trainingDates) {
         currentWeek.push({
             date: dateStr,
             hasTraining,
-            dayOfWeek: currentDate.getDay()
+            dayOfWeek: currentDate.getDay(),
         });
 
         // Start new week on Sunday
@@ -267,7 +267,7 @@ function drawHeatmap(trainingDates) {
 
     // Draw cells
     weeks.forEach((week, weekIndex) => {
-        week.forEach((day) => {
+        week.forEach(day => {
             const x = weekIndex * (cellSize + cellGap);
             const y = day.dayOfWeek * (cellSize + cellGap);
 
@@ -297,7 +297,20 @@ function drawHeatmap(trainingDates) {
     });
 
     // Add month labels
-    const monthLabels = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+    const monthLabels = [
+        'Jan',
+        'Feb',
+        'Mär',
+        'Apr',
+        'Mai',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Dez',
+    ];
     let lastMonth = -1;
 
     weeks.forEach((week, weekIndex) => {
@@ -365,6 +378,7 @@ function displayError() {
 
     const heatmap = document.getElementById('training-heatmap');
     if (heatmap) {
-        heatmap.innerHTML = '<p class="text-sm text-red-600">Daten konnten nicht geladen werden</p>';
+        heatmap.innerHTML =
+            '<p class="text-sm text-red-600">Daten konnten nicht geladen werden</p>';
     }
 }

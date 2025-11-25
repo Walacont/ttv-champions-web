@@ -3,7 +3,7 @@
  * Common UI utility functions for tabs and countdown timers
  */
 
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 // Module-level cache for season end date
 let cachedSeasonEnd = null;
@@ -18,7 +18,7 @@ const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
 async function fetchSeasonEndDate(db) {
     try {
         // Check cache first
-        if (cachedSeasonEnd && lastFetchTime && (Date.now() - lastFetchTime < CACHE_DURATION)) {
+        if (cachedSeasonEnd && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
             return cachedSeasonEnd;
         }
 
@@ -35,7 +35,10 @@ async function fetchSeasonEndDate(db) {
             cachedSeasonEnd = seasonEnd;
             lastFetchTime = Date.now();
 
-            console.log('📅 Season end date loaded from Firestore:', seasonEnd.toLocaleString('de-DE'));
+            console.log(
+                '📅 Season end date loaded from Firestore:',
+                seasonEnd.toLocaleString('de-DE')
+            );
             return seasonEnd;
         } else {
             // Fallback: If no config exists, calculate from today + 6 weeks
@@ -98,13 +101,17 @@ export function setupTabs(defaultTab = 'overview') {
  * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false)
  * @param {Object} db - Firestore database instance (required)
  */
-export async function updateSeasonCountdown(elementId = 'season-countdown', reloadOnEnd = false, db = null) {
+export async function updateSeasonCountdown(
+    elementId = 'season-countdown',
+    reloadOnEnd = false,
+    db = null
+) {
     const seasonCountdownEl = document.getElementById(elementId);
     if (!seasonCountdownEl) return;
 
     if (!db) {
         console.error('Firestore instance required for season countdown');
-        seasonCountdownEl.textContent = "Lädt...";
+        seasonCountdownEl.textContent = 'Lädt...';
         return;
     }
 
@@ -114,7 +121,7 @@ export async function updateSeasonCountdown(elementId = 'season-countdown', relo
     const diff = endOfSeason - now;
 
     if (diff <= 0) {
-        seasonCountdownEl.textContent = "Saison beendet! Wird automatisch zurückgesetzt...";
+        seasonCountdownEl.textContent = 'Saison beendet! Wird automatisch zurückgesetzt...';
 
         if (reloadOnEnd) {
             console.log('🔄 Season ended, reloading page in 30 seconds...');

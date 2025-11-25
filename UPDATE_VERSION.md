@@ -5,18 +5,18 @@
 Das System besteht aus 3 Teilen:
 
 1. **Cache-Control Headers** in `firebase.json`
-   - JS/CSS Dateien werden 1 Stunde gecacht
-   - HTML Dateien werden nicht gecacht
-   - `version.json` wird nie gecacht
+    - JS/CSS Dateien werden 1 Stunde gecacht
+    - HTML Dateien werden nicht gecacht
+    - `version.json` wird nie gecacht
 
 2. **version.json** Datei
-   - Enthält die aktuelle App-Version
-   - Wird alle 5 Minuten von Nutzern geprüft
+    - Enthält die aktuelle App-Version
+    - Wird alle 5 Minuten von Nutzern geprüft
 
 3. **update-checker.js** Script
-   - Läuft auf allen wichtigen Seiten
-   - Prüft automatisch nach Updates
-   - Zeigt Banner wenn neue Version verfügbar
+    - Läuft auf allen wichtigen Seiten
+    - Prüft automatisch nach Updates
+    - Zeigt Banner wenn neue Version verfügbar
 
 ## Vor jedem Firebase Deploy:
 
@@ -26,13 +26,14 @@ Das System besteht aus 3 Teilen:
 
 ```json
 {
-  "version": "1.0.1",  // ← Erhöhe diese Nummer
-  "timestamp": "2024-01-15T10:30:00Z",  // ← Aktualisiere auf jetzt
-  "message": "Neue Funktionen verfügbar!"  // ← Optional: Eigene Nachricht
+    "version": "1.0.1", // ← Erhöhe diese Nummer
+    "timestamp": "2024-01-15T10:30:00Z", // ← Aktualisiere auf jetzt
+    "message": "Neue Funktionen verfügbar!" // ← Optional: Eigene Nachricht
 }
 ```
 
 **Versionsschema:**
+
 - `1.0.0` → `1.0.1` = Bugfixes
 - `1.0.0` → `1.1.0` = Neue Features
 - `1.0.0` → `2.0.0` = Große Änderungen
@@ -84,6 +85,7 @@ echo "Version updated: $CURRENT → $NEW"
 ```
 
 Dann vor jedem Deploy einfach:
+
 ```bash
 ./update-version.sh
 firebase deploy

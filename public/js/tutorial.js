@@ -4,7 +4,12 @@
  */
 
 import { getAuth } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-import { getFirestore, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import {
+    getFirestore,
+    doc,
+    updateDoc,
+    getDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 export class TutorialManager {
     constructor(steps = [], options = {}) {
@@ -16,7 +21,7 @@ export class TutorialManager {
             scrollOffset: 100,
             onComplete: null,
             onSkip: null,
-            ...options
+            ...options,
         };
 
         this.overlay = null;
@@ -54,7 +59,7 @@ export class TutorialManager {
     createOverlay() {
         this.overlay = document.createElement('div');
         this.overlay.className = 'tutorial-overlay active';
-        this.overlay.addEventListener('click', (e) => {
+        this.overlay.addEventListener('click', e => {
             // Klicks auf Overlay verhindern (außer auf Spotlight-Element)
             if (e.target === this.overlay) {
                 e.preventDefault();
@@ -98,9 +103,15 @@ export class TutorialManager {
         `;
 
         // Event Listener
-        this.tooltip.querySelector('.tutorial-btn-next').addEventListener('click', () => this.next());
-        this.tooltip.querySelector('.tutorial-btn-back').addEventListener('click', () => this.previous());
-        this.tooltip.querySelector('.tutorial-btn-skip').addEventListener('click', () => this.skip());
+        this.tooltip
+            .querySelector('.tutorial-btn-next')
+            .addEventListener('click', () => this.next());
+        this.tooltip
+            .querySelector('.tutorial-btn-back')
+            .addEventListener('click', () => this.previous());
+        this.tooltip
+            .querySelector('.tutorial-btn-skip')
+            .addEventListener('click', () => this.skip());
 
         document.body.appendChild(this.tooltip);
     }
@@ -178,7 +189,8 @@ export class TutorialManager {
         const progressPercent = ((index + 1) / this.steps.length) * 100;
 
         this.tooltip.querySelector('.tutorial-progress-fill').style.width = `${progressPercent}%`;
-        this.tooltip.querySelector('.tutorial-step-counter').textContent = `${index + 1} / ${this.steps.length}`;
+        this.tooltip.querySelector('.tutorial-step-counter').textContent =
+            `${index + 1} / ${this.steps.length}`;
 
         const categoryEl = this.tooltip.querySelector('.tutorial-category');
         if (step.category) {
@@ -240,18 +252,18 @@ export class TutorialManager {
         switch (position) {
             case 'bottom':
                 top = rect.bottom + margin;
-                left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                left = rect.left + rect.width / 2 - tooltipRect.width / 2;
                 break;
             case 'top':
                 top = rect.top - tooltipRect.height - margin;
-                left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                left = rect.left + rect.width / 2 - tooltipRect.width / 2;
                 break;
             case 'right':
-                top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                top = rect.top + rect.height / 2 - tooltipRect.height / 2;
                 left = rect.right + margin;
                 break;
             case 'left':
-                top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+                top = rect.top + rect.height / 2 - tooltipRect.height / 2;
                 left = rect.left - tooltipRect.width - margin;
                 break;
         }
@@ -294,7 +306,7 @@ export class TutorialManager {
             element.scrollIntoView({
                 behavior: 'smooth',
                 block: 'center',
-                inline: 'nearest'
+                inline: 'nearest',
             });
         } else {
             const rect = element.getBoundingClientRect();
@@ -303,7 +315,7 @@ export class TutorialManager {
 
             window.scrollTo({
                 top: targetY,
-                behavior: 'smooth'
+                behavior: 'smooth',
             });
         }
     }
@@ -312,7 +324,7 @@ export class TutorialManager {
      * Auf Element warten (mit Timeout)
      */
     waitForElement(selector, timeout = 5000) {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             if (document.querySelector(selector)) {
                 return resolve(document.querySelector(selector));
             }
@@ -326,7 +338,7 @@ export class TutorialManager {
 
             observer.observe(document.body, {
                 childList: true,
-                subtree: true
+                subtree: true,
             });
 
             setTimeout(() => {
@@ -372,7 +384,11 @@ export class TutorialManager {
      * Tutorial überspringen
      */
     async skip() {
-        if (confirm('Möchtest du das Tutorial wirklich überspringen? Du kannst es später in den Einstellungen neu starten.')) {
+        if (
+            confirm(
+                'Möchtest du das Tutorial wirklich überspringen? Du kannst es später in den Einstellungen neu starten.'
+            )
+        ) {
             await this.cleanup();
 
             if (this.options.onSkip) {
@@ -396,7 +412,7 @@ export class TutorialManager {
                 const userRef = doc(db, 'users', auth.currentUser.uid);
                 await updateDoc(userRef, {
                     [`tutorialCompleted.${this.options.tutorialKey}`]: true,
-                    [`tutorialCompletedAt.${this.options.tutorialKey}`]: new Date().toISOString()
+                    [`tutorialCompletedAt.${this.options.tutorialKey}`]: new Date().toISOString(),
                 });
 
                 console.log(`Tutorial "${this.options.tutorialKey}" abgeschlossen`);

@@ -1,348 +1,636 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - TTV Champions</title>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Admin Dashboard - TTV Champions</title>
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-H2R9ZJYQ06');
-    </script>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+            gtag('js', new Date());
+            gtag('config', 'G-H2R9ZJYQ06');
+        </script>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/css/spa-enhancements.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .modal { transition: opacity 0.25s ease; }
-        #page-loader, #auth-error-container {
-            display: flex; justify-content: center; align-items: center; position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh; background-color: #f3f4f6; z-index: 9999;
-        }
-        #main-content, #auth-error-container { display: none; }
-    </style>
-</head>
-<body class="bg-gray-100 text-gray-800">
-
-    <div id="page-loader">
-        <svg class="animate-spin h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-    </div>
-
-    <div id="auth-error-container">
-        <div class="text-center p-8 bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold text-red-600 mb-4">Zugriff verweigert</h2>
-            <p id="auth-error-message" class="text-gray-700">Die Seite konnte nicht geladen werden.</p>
-            <button id="error-logout-button" class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
-                Zurück zum Login
-            </button>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            .modal {
+                transition: opacity 0.25s ease;
+            }
+            #page-loader,
+            #auth-error-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #f3f4f6;
+                z-index: 9999;
+            }
+            #main-content,
+            #auth-error-container {
+                display: none;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 text-gray-800">
+        <div id="page-loader">
+            <svg
+                class="animate-spin h-10 w-10 text-indigo-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+            </svg>
         </div>
-    </div>
 
-    <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
-        <header class="flex justify-between items-center mb-8">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p id="welcome-message" class="text-gray-600">Willkommen!</p>
-            </div>
-             <div class="flex items-center space-x-4">
-                <a href="/settings.html" class="text-gray-500 hover:text-gray-800 transition-colors" title="Einstellungen">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                </a>
-                <button id="logout-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105">
-                    Logout
+        <div id="auth-error-container">
+            <div class="text-center p-8 bg-white rounded-lg shadow-md">
+                <h2 class="text-2xl font-bold text-red-600 mb-4">Zugriff verweigert</h2>
+                <p id="auth-error-message" class="text-gray-700">
+                    Die Seite konnte nicht geladen werden.
+                </p>
+                <button
+                    id="error-logout-button"
+                    class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
+                >
+                    Zurück zum Login
                 </button>
             </div>
-        </header>
+        </div>
 
-        <main class="space-y-8">
-            <section id="statistics-section">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">Statistik-Übersicht</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                        <div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-users text-indigo-600 text-xl"></i></div>
-                        <div>
-                            <p class="text-sm text-gray-500">Gesamte Nutzer</p>
-                            <p id="stats-total-users" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                        <div class="bg-teal-100 p-3 rounded-full"><i class="fas fa-shield-alt text-teal-600 text-xl"></i></div>
-                        <div>
-                            <p class="text-sm text-gray-500">Vereine</p>
-                            <p id="stats-total-clubs" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
-                     <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                        <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-star text-amber-600 text-xl"></i></div>
-                        <div>
-                            <p class="text-sm text-gray-500">Vergebene Punkte</p>
-                            <p id="stats-total-points" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-                        <div class="bg-rose-100 p-3 rounded-full"><i class="fas fa-calendar-check text-rose-600 text-xl"></i></div>
-                        <div>
-                            <p class="text-sm text-gray-500">Anwesenheiten</p>
-                            <p id="stats-total-attendance" class="text-2xl font-bold">0</p>
-                        </div>
-                    </div>
+        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+            <header class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                    <p id="welcome-message" class="text-gray-600">Willkommen!</p>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                        <h3 class="text-lg font-semibold mb-4">Geschlechterverteilung</h3>
-                        <canvas id="gender-chart"></canvas>
-                    </div>
-                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
-                         <h3 class="text-lg font-semibold mb-4">Anwesenheit pro Monat</h3>
-                        <canvas id="attendance-chart"></canvas>
-                    </div>
+                <div class="flex items-center space-x-4">
+                    <a
+                        href="/settings.html"
+                        class="text-gray-500 hover:text-gray-800 transition-colors"
+                        title="Einstellungen"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                            ></path>
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            ></path>
+                        </svg>
+                    </a>
+                    <button
+                        id="logout-button"
+                        class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-transform transform hover:scale-105"
+                    >
+                        Logout
+                    </button>
                 </div>
-            </section>
-            
-            <section id="management-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-1 space-y-8">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4">Neuen Coach einladen</h2>
-                        <form id="invite-coach-form" class="space-y-4">
-                            <div>
-                                <label for="clubId" class="block text-sm font-medium text-gray-700">Neue Vereins-ID</label>
-                                <input type="text" id="clubId" required="" placeholder="z.B. ttv-musterstadt" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
-                                <i class="fas fa-key mr-2"></i>Einladungscode generieren
-                            </button>
-                        </form>
-                        <div id="invite-link-container" class="mt-4 hidden">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Generierter Code:</label>
-                            <input type="text" id="invite-link-input" readonly="" class="mt-1 w-full bg-gray-100 p-3 border rounded-md text-lg font-mono text-center tracking-wider">
-                            <button id="copy-link-button" class="w-full mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm">
-                                <i class="fas fa-copy mr-2"></i>Code kopieren
-                            </button>
-                            <p class="mt-2 text-xs text-gray-500 text-center">Der Coach kann sich mit diesem Code auf der Login-Seite anmelden und seine Email-Adresse eingeben.</p>
-                        </div>
-                    </div>
-                     <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4">Übung erstellen</h2>
-                        <form id="create-exercise-form" class="space-y-4">
-                            <div>
-                                <label for="exercise-title" class="block text-sm font-medium text-gray-700">Titel</label>
-                                <input type="text" id="exercise-title" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
-                            <div>
-                                <label for="exercise-description" class="block text-sm font-medium text-gray-700">Beschreibung</label>
-                                <div id="description-toggle-container"></div>
-                                <textarea id="exercise-description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-                                <div id="description-table-editor" class="mt-2"></div>
-                            </div>
-                            <div id="exercise-points-container-admin">
-                                <label for="exercise-points" class="block text-sm font-medium text-gray-700">Punkte</label>
-                                <input type="number" id="exercise-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                                <p class="text-xs text-gray-500 mt-1">Gesamtpunkte für diese Übung</p>
-                            </div>
+            </header>
 
-                            <!-- Tiered Points System -->
-                            <div class="border-t pt-4">
-                                <div class="flex items-center mb-3">
-                                    <input type="checkbox" id="exercise-tiered-points-toggle" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                                    <label for="exercise-tiered-points-toggle" class="ml-2 text-sm font-medium text-gray-700">
-                                        🎯 Abgestufte Punktevergabe aktivieren (für wiederholbare Übungen)
-                                    </label>
+            <main class="space-y-8">
+                <section id="statistics-section">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">Statistik-Übersicht</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                            <div class="bg-indigo-100 p-3 rounded-full">
+                                <i class="fas fa-users text-indigo-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Gesamte Nutzer</p>
+                                <p id="stats-total-users" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                            <div class="bg-teal-100 p-3 rounded-full">
+                                <i class="fas fa-shield-alt text-teal-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Vereine</p>
+                                <p id="stats-total-clubs" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                            <div class="bg-amber-100 p-3 rounded-full">
+                                <i class="fas fa-star text-amber-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Vergebene Punkte</p>
+                                <p id="stats-total-points" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
+                            <div class="bg-rose-100 p-3 rounded-full">
+                                <i class="fas fa-calendar-check text-rose-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Anwesenheiten</p>
+                                <p id="stats-total-attendance" class="text-2xl font-bold">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="text-lg font-semibold mb-4">Geschlechterverteilung</h3>
+                            <canvas id="gender-chart"></canvas>
+                        </div>
+                        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="text-lg font-semibold mb-4">Anwesenheit pro Monat</h3>
+                            <canvas id="attendance-chart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="management-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 space-y-8">
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-semibold mb-4">Neuen Coach einladen</h2>
+                            <form id="invite-coach-form" class="space-y-4">
+                                <div>
+                                    <label
+                                        for="clubId"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Neue Vereins-ID</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="clubId"
+                                        required=""
+                                        placeholder="z.B. ttv-musterstadt"
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
                                 </div>
-                                <div id="exercise-milestones-container" class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg">
-                                    <p class="text-xs text-indigo-700 mb-2">
-                                        <strong>Meilensteine:</strong> Spieler können pro Saison Punkte sammeln, indem sie diese Übung mehrmals schaffen. Punkte sind kumulativ!
+                                <button
+                                    type="submit"
+                                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
+                                >
+                                    <i class="fas fa-key mr-2"></i>Einladungscode generieren
+                                </button>
+                            </form>
+                            <div id="invite-link-container" class="mt-4 hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2"
+                                    >Generierter Code:</label
+                                >
+                                <input
+                                    type="text"
+                                    id="invite-link-input"
+                                    readonly=""
+                                    class="mt-1 w-full bg-gray-100 p-3 border rounded-md text-lg font-mono text-center tracking-wider"
+                                />
+                                <button
+                                    id="copy-link-button"
+                                    class="w-full mt-2 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm"
+                                >
+                                    <i class="fas fa-copy mr-2"></i>Code kopieren
+                                </button>
+                                <p class="mt-2 text-xs text-gray-500 text-center">
+                                    Der Coach kann sich mit diesem Code auf der Login-Seite anmelden
+                                    und seine Email-Adresse eingeben.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-semibold mb-4">Übung erstellen</h2>
+                            <form id="create-exercise-form" class="space-y-4">
+                                <div>
+                                    <label
+                                        for="exercise-title"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Titel</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="exercise-title"
+                                        required
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label
+                                        for="exercise-description"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Beschreibung</label
+                                    >
+                                    <div id="description-toggle-container"></div>
+                                    <textarea
+                                        id="exercise-description"
+                                        rows="3"
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    ></textarea>
+                                    <div id="description-table-editor" class="mt-2"></div>
+                                </div>
+                                <div id="exercise-points-container-admin">
+                                    <label
+                                        for="exercise-points"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Punkte</label
+                                    >
+                                    <input
+                                        type="number"
+                                        id="exercise-points"
+                                        required
+                                        min="1"
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Gesamtpunkte für diese Übung
                                     </p>
-                                    <div id="exercise-milestones-list" class="space-y-2">
-                                        <!-- Milestones will be added here dynamically -->
+                                </div>
+
+                                <!-- Tiered Points System -->
+                                <div class="border-t pt-4">
+                                    <div class="flex items-center mb-3">
+                                        <input
+                                            type="checkbox"
+                                            id="exercise-tiered-points-toggle"
+                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                        />
+                                        <label
+                                            for="exercise-tiered-points-toggle"
+                                            class="ml-2 text-sm font-medium text-gray-700"
+                                        >
+                                            🎯 Abgestufte Punktevergabe aktivieren (für
+                                            wiederholbare Übungen)
+                                        </label>
                                     </div>
-                                    <button type="button" id="add-exercise-milestone-btn" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md">
-                                        + Meilenstein hinzufügen
-                                    </button>
-                                    <div class="text-xs text-indigo-600 font-semibold mt-2">
-                                        Max. erreichbare Punkte: <span id="exercise-max-points-display">0</span> P.
+                                    <div
+                                        id="exercise-milestones-container"
+                                        class="hidden space-y-3 bg-indigo-50 p-4 rounded-lg"
+                                    >
+                                        <p class="text-xs text-indigo-700 mb-2">
+                                            <strong>Meilensteine:</strong> Spieler können pro Saison
+                                            Punkte sammeln, indem sie diese Übung mehrmals schaffen.
+                                            Punkte sind kumulativ!
+                                        </p>
+                                        <div id="exercise-milestones-list" class="space-y-2">
+                                            <!-- Milestones will be added here dynamically -->
+                                        </div>
+                                        <button
+                                            type="button"
+                                            id="add-exercise-milestone-btn"
+                                            class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md"
+                                        >
+                                            + Meilenstein hinzufügen
+                                        </button>
+                                        <div class="text-xs text-indigo-600 font-semibold mt-2">
+                                            Max. erreichbare Punkte:
+                                            <span id="exercise-max-points-display">0</span> P.
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <label for="exercise-tags" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
-                                <input type="text" id="exercise-tags" placeholder="z.B. Aufschlag, Beinarbeit, Koordination" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                            </div>
+                                <div>
+                                    <label
+                                        for="exercise-tags"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Tags (kommagetrennt)</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="exercise-tags"
+                                        placeholder="z.B. Aufschlag, Beinarbeit, Koordination"
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    />
+                                </div>
 
-                            <div>
-                                <label for="exercise-image" class="block text-sm font-medium text-gray-700">Bild (optional)</label>
-                                <input type="file" id="exercise-image" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                            </div>
-                            <button type="submit" id="create-exercise-submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105">
-                                Übung speichern
-                            </button>
-                        </form>
-                        <p id="exercise-feedback" class="mt-3 text-sm font-medium text-center"></p>
+                                <div>
+                                    <label
+                                        for="exercise-image"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Bild (optional)</label
+                                    >
+                                    <input
+                                        type="file"
+                                        id="exercise-image"
+                                        accept="image/*"
+                                        class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    id="create-exercise-submit"
+                                    class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
+                                >
+                                    Übung speichern
+                                </button>
+                            </form>
+                            <p
+                                id="exercise-feedback"
+                                class="mt-3 text-sm font-medium text-center"
+                            ></p>
+                        </div>
                     </div>
-                </div>
-                <div class="lg:col-span-2 space-y-8">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4">Vereinsübersicht</h2>
-                        <div id="clubs-list" class="space-y-3"><p>Vereine werden geladen...</p></div>
+                    <div class="lg:col-span-2 space-y-8">
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-semibold mb-4">Vereinsübersicht</h2>
+                            <div id="clubs-list" class="space-y-3">
+                                <p>Vereine werden geladen...</p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                            <div
+                                id="exercises-list-admin"
+                                class="grid grid-cols-1 sm:grid-cols-2 gap-6"
+                            >
+                                <p>Übungen werden geladen...</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
-                        <div id="exercises-list-admin" class="grid grid-cols-1 sm:grid-cols-2 gap-6"><p>Übungen werden geladen...</p></div>
-                    </div>
-                </div>
-            </section>
+                </section>
 
-            <section id="migrations-section" class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-bold text-gray-800 mb-4">
-                    <i class="fas fa-database mr-2 text-blue-600"></i>Daten-Migrationen
-                </h2>
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                    <p class="text-sm text-blue-800">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        <strong>Hinweis:</strong> Diese Tools aktualisieren bestehende Daten in der Datenbank.
-                        Bitte nur ausführen, wenn du weißt, was du tust!
-                    </p>
-                </div>
-
-                <div class="space-y-6">
-                    <!-- Doubles Pairings Names Migration -->
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold mb-2 flex items-center">
-                            <i class="fas fa-user-friends mr-2 text-indigo-600"></i>
-                            Doppel-Paarungen: Namen hinzufügen
-                        </h3>
-                        <p class="text-sm text-gray-600 mb-4">
-                            Aktualisiert alle bestehenden Doppel-Paarungen (doublesPairings) und fügt die Spielernamen hinzu.
-                            Dies behebt das Problem, dass in der Doppel-Rangliste "Unbekannt" angezeigt wird.
+                <section id="migrations-section" class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-database mr-2 text-blue-600"></i>Daten-Migrationen
+                    </h2>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            <strong>Hinweis:</strong> Diese Tools aktualisieren bestehende Daten in
+                            der Datenbank. Bitte nur ausführen, wenn du weißt, was du tust!
                         </p>
-                        <div class="flex items-center gap-4">
-                            <button id="migrate-doubles-names-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition">
-                                <i class="fas fa-play mr-2"></i>Migration starten
-                            </button>
-                            <div id="migration-status" class="text-sm font-medium"></div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <!-- Doubles Pairings Names Migration -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold mb-2 flex items-center">
+                                <i class="fas fa-user-friends mr-2 text-indigo-600"></i>
+                                Doppel-Paarungen: Namen hinzufügen
+                            </h3>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Aktualisiert alle bestehenden Doppel-Paarungen (doublesPairings) und
+                                fügt die Spielernamen hinzu. Dies behebt das Problem, dass in der
+                                Doppel-Rangliste "Unbekannt" angezeigt wird.
+                            </p>
+                            <div class="flex items-center gap-4">
+                                <button
+                                    id="migrate-doubles-names-btn"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition"
+                                >
+                                    <i class="fas fa-play mr-2"></i>Migration starten
+                                </button>
+                                <div id="migration-status" class="text-sm font-medium"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <div
+            id="player-modal"
+            class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center"
+        >
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="modal-club-id" class="text-xl font-semibold"></h3>
+                    <button
+                        id="close-player-modal-button"
+                        class="text-gray-500 hover:text-gray-800"
+                    >
+                        ×
+                    </button>
+                </div>
+                <div id="modal-player-list" class="max-h-96 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <div
+            id="exercise-modal"
+            class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-start py-8 overflow-y-auto"
+        >
+            <div class="relative bg-white rounded-lg shadow-xl p-6 w-full max-w-lg my-auto">
+                <!-- Close button - absolute positioned with shadow -->
+                <button
+                    id="close-exercise-modal-button"
+                    class="absolute top-3 right-3 text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full p-2 transition-colors shadow-lg border border-gray-200"
+                    style="z-index: 9999"
+                >
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                        />
+                    </svg>
+                </button>
+                <div class="mb-4 pr-10">
+                    <h3 id="modal-exercise-title" class="text-xl font-semibold"></h3>
+                </div>
+                <img
+                    id="modal-exercise-image"
+                    src=""
+                    alt="Übungsbild"
+                    class="w-full max-h-96 object-contain rounded-md mb-4"
+                />
+                <div id="modal-exercise-tags" class="mb-4"></div>
+                <p
+                    id="modal-exercise-description"
+                    class="text-sm text-gray-600 mb-4"
+                    style="white-space: pre-wrap"
+                ></p>
+
+                <!-- Abkürzungen Legende -->
+                <div class="mb-4 border-t border-gray-200 pt-3">
+                    <button
+                        id="toggle-abbreviations-admin"
+                        class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 font-medium"
+                    >
+                        <svg
+                            id="abbreviations-icon-admin"
+                            class="w-4 h-4 transform transition-transform"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M19 9l-7 7-7-7"
+                            ></path>
+                        </svg>
+                        📖 Abkürzungen anzeigen
+                    </button>
+                    <div
+                        id="abbreviations-content-admin"
+                        class="hidden mt-3 bg-gray-50 rounded-lg p-3"
+                    >
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                            <div><span class="font-semibold">VH</span> = Vorhand</div>
+                            <div><span class="font-semibold">RH</span> = Rückhand</div>
+                            <div><span class="font-semibold">T</span> = Topspin</div>
+                            <div><span class="font-semibold">K</span> = Konter</div>
+                            <div><span class="font-semibold">B</span> = Block</div>
+                            <div><span class="font-semibold">S</span> = Smash</div>
+                            <div><span class="font-semibold">F</span> = Flip</div>
+                            <div><span class="font-semibold">SCH</span> = Schupf</div>
+                            <div><span class="font-semibold">U</span> = Unterschnitt - Abwehr</div>
+                            <div><span class="font-semibold">A</span> = Aufschlag</div>
+                            <div><span class="font-semibold">OS</span> = Oberschnitt</div>
+                            <div><span class="font-semibold">US</span> = Unterschnitt</div>
+                            <div><span class="font-semibold">SS</span> = Seitenschnitt</div>
                         </div>
                     </div>
                 </div>
-            </section>
-        </main>
-    </div>
 
-    <div id="player-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="modal-club-id" class="text-xl font-semibold"></h3>
-                <button id="close-player-modal-button" class="text-gray-500 hover:text-gray-800">×</button>
-            </div>
-            <div id="modal-player-list" class="max-h-96 overflow-y-auto"></div>
-        </div>
-    </div>
+                <!-- Milestones display -->
+                <div id="modal-exercise-milestones-admin"></div>
 
-    <div id="exercise-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-start py-8 overflow-y-auto">
-        <div class="relative bg-white rounded-lg shadow-xl p-6 w-full max-w-lg my-auto">
-            <!-- Close button - absolute positioned with shadow -->
-            <button id="close-exercise-modal-button" class="absolute top-3 right-3 text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full p-2 transition-colors shadow-lg border border-gray-200" style="z-index: 9999;">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <div class="mb-4 pr-10">
-                <h3 id="modal-exercise-title" class="text-xl font-semibold"></h3>
-            </div>
-            <img id="modal-exercise-image" src="" alt="Übungsbild" class="w-full max-h-96 object-contain rounded-md mb-4">
-            <div id="modal-exercise-tags" class="mb-4"></div>
-            <p id="modal-exercise-description" class="text-sm text-gray-600 mb-4" style="white-space: pre-wrap;"></p>
-
-            <!-- Abkürzungen Legende -->
-            <div class="mb-4 border-t border-gray-200 pt-3">
-                <button id="toggle-abbreviations-admin" class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 font-medium">
-                    <svg id="abbreviations-icon-admin" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                    📖 Abkürzungen anzeigen
-                </button>
-                <div id="abbreviations-content-admin" class="hidden mt-3 bg-gray-50 rounded-lg p-3">
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        <div><span class="font-semibold">VH</span> = Vorhand</div>
-                        <div><span class="font-semibold">RH</span> = Rückhand</div>
-                        <div><span class="font-semibold">T</span> = Topspin</div>
-                        <div><span class="font-semibold">K</span> = Konter</div>
-                        <div><span class="font-semibold">B</span> = Block</div>
-                        <div><span class="font-semibold">S</span> = Smash</div>
-                        <div><span class="font-semibold">F</span> = Flip</div>
-                        <div><span class="font-semibold">SCH</span> = Schupf</div>
-                        <div><span class="font-semibold">U</span> = Unterschnitt - Abwehr</div>
-                        <div><span class="font-semibold">A</span> = Aufschlag</div>
-                        <div><span class="font-semibold">OS</span> = Oberschnitt</div>
-                        <div><span class="font-semibold">US</span> = Unterschnitt</div>
-                        <div><span class="font-semibold">SS</span> = Seitenschnitt</div>
+                <div class="flex justify-between items-center">
+                    <span
+                        id="modal-exercise-points"
+                        class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"
+                    ></span>
+                    <div class="flex gap-4">
+                        <button
+                            id="modal-edit-exercise-button"
+                            class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600"
+                        >
+                            Bearbeiten
+                        </button>
+                        <button
+                            id="modal-delete-exercise-button"
+                            class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600"
+                        >
+                            Löschen
+                        </button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Milestones display -->
-            <div id="modal-exercise-milestones-admin"></div>
-
-            <div class="flex justify-between items-center">
-                <span id="modal-exercise-points" class="font-bold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full text-md"></span>
-                <div class="flex gap-4">
-                     <button id="modal-edit-exercise-button" class="bg-blue-500 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-600">
-                        Bearbeiten
-                    </button>
-                    <button id="modal-delete-exercise-button" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600">
-                        Löschen
-                    </button>
-                </div>
+        <div
+            id="edit-exercise-modal"
+            class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center"
+        >
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+                <h3 class="text-xl font-semibold mb-4">Übung bearbeiten</h3>
+                <form id="edit-exercise-form" class="space-y-4">
+                    <input type="hidden" id="edit-exercise-id" />
+                    <div>
+                        <label
+                            for="edit-exercise-title"
+                            class="block text-sm font-medium text-gray-700"
+                            >Titel</label
+                        >
+                        <input
+                            type="text"
+                            id="edit-exercise-title"
+                            required
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            for="edit-exercise-description"
+                            class="block text-sm font-medium text-gray-700"
+                            >Beschreibung</label
+                        >
+                        <div id="edit-description-toggle-container"></div>
+                        <textarea
+                            id="edit-exercise-description"
+                            rows="3"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        ></textarea>
+                        <div id="edit-description-table-editor" class="mt-2"></div>
+                    </div>
+                    <div>
+                        <label
+                            for="edit-exercise-points"
+                            class="block text-sm font-medium text-gray-700"
+                            >Punkte</label
+                        >
+                        <input
+                            type="number"
+                            id="edit-exercise-points"
+                            required
+                            min="1"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            for="edit-exercise-tags"
+                            class="block text-sm font-medium text-gray-700"
+                            >Tags (kommagetrennt)</label
+                        >
+                        <input
+                            type="text"
+                            id="edit-exercise-tags"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div class="flex justify-end gap-4 pt-4">
+                        <button
+                            type="button"
+                            id="close-edit-exercise-modal-button"
+                            class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-300"
+                        >
+                            Abbrechen
+                        </button>
+                        <button
+                            type="submit"
+                            class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700"
+                        >
+                            Änderungen speichern
+                        </button>
+                    </div>
+                    <p id="edit-exercise-feedback" class="mt-2 text-sm text-center"></p>
+                </form>
             </div>
         </div>
-    </div>
 
-    <div id="edit-exercise-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 hidden z-50 flex justify-center items-center">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
-            <h3 class="text-xl font-semibold mb-4">Übung bearbeiten</h3>
-            <form id="edit-exercise-form" class="space-y-4">
-                <input type="hidden" id="edit-exercise-id">
-                <div>
-                    <label for="edit-exercise-title" class="block text-sm font-medium text-gray-700">Titel</label>
-                    <input type="text" id="edit-exercise-title" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div>
-                    <label for="edit-exercise-description" class="block text-sm font-medium text-gray-700">Beschreibung</label>
-                    <div id="edit-description-toggle-container"></div>
-                    <textarea id="edit-exercise-description" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-                    <div id="edit-description-table-editor" class="mt-2"></div>
-                </div>
-                <div>
-                    <label for="edit-exercise-points" class="block text-sm font-medium text-gray-700">Punkte</label>
-                    <input type="number" id="edit-exercise-points" required min="1" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div>
-                    <label for="edit-exercise-tags" class="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
-                    <input type="text" id="edit-exercise-tags" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div class="flex justify-end gap-4 pt-4">
-                    <button type="button" id="close-edit-exercise-modal-button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm hover:bg-gray-300">
-                        Abbrechen
-                    </button>
-                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700">
-                        Änderungen speichern
-                    </button>
-                </div>
-                 <p id="edit-exercise-feedback" class="mt-2 text-sm text-center"></p>
-            </form>
-        </div>
-    </div>
-
-
-    <script type="module" src="/js/notifications.js"></script>
-    <script type="module" src="/js/spa-enhancer.js"></script>
-    <script type="module" src="/js/admin.js"></script>
-</body>
+        <script type="module" src="/js/notifications.js"></script>
+        <script type="module" src="/js/spa-enhancer.js"></script>
+        <script type="module" src="/js/admin.js"></script>
+    </body>
 </html>

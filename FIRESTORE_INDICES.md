@@ -9,6 +9,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `trainingSessions`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `date` - Ascending
 3. `cancelled` - Ascending
@@ -22,6 +23,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `trainingSessions`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `subgroupId` - Ascending
 3. `date` - Ascending
@@ -36,6 +38,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `trainingSessions`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `date` - Ascending
 3. `cancelled` - Ascending
@@ -50,6 +53,7 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 **Collection**: `recurringTrainingTemplates`
 
 **Felder**:
+
 1. `clubId` - Ascending
 2. `active` - Ascending
 3. `dayOfWeek` - Ascending
@@ -65,9 +69,9 @@ Das Multi-Session Training System benötigt folgende zusammengesetzte Firestore-
 1. Versuche dich als Coach einzuloggen
 2. Öffne die Browser-Konsole (F12)
 3. Firebase zeigt einen Link mit dem Fehler an, z.B.:
-   ```
-   FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/...
-   ```
+    ```
+    FirebaseError: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/...
+    ```
 4. **Klicke auf den Link** - Firebase schlägt automatisch den richtigen Index vor
 5. Klicke auf "Create Index"
 6. Warte 1-2 Minuten bis Index erstellt ist
@@ -89,47 +93,47 @@ Erstelle eine Datei `firestore.indexes.json`:
 
 ```json
 {
-  "indexes": [
-    {
-      "collectionGroup": "trainingSessions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clubId", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "trainingSessions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clubId", "order": "ASCENDING" },
-        { "fieldPath": "subgroupId", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "trainingSessions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clubId", "order": "ASCENDING" },
-        { "fieldPath": "date", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" },
-        { "fieldPath": "startTime", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "recurringTrainingTemplates",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clubId", "order": "ASCENDING" },
-        { "fieldPath": "active", "order": "ASCENDING" },
-        { "fieldPath": "dayOfWeek", "order": "ASCENDING" }
-      ]
-    }
-  ],
-  "fieldOverrides": []
+    "indexes": [
+        {
+            "collectionGroup": "trainingSessions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "clubId", "order": "ASCENDING" },
+                { "fieldPath": "date", "order": "ASCENDING" },
+                { "fieldPath": "cancelled", "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "trainingSessions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "clubId", "order": "ASCENDING" },
+                { "fieldPath": "subgroupId", "order": "ASCENDING" },
+                { "fieldPath": "date", "order": "ASCENDING" },
+                { "fieldPath": "cancelled", "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "trainingSessions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "clubId", "order": "ASCENDING" },
+                { "fieldPath": "date", "order": "ASCENDING" },
+                { "fieldPath": "cancelled", "order": "ASCENDING" },
+                { "fieldPath": "startTime", "order": "ASCENDING" }
+            ]
+        },
+        {
+            "collectionGroup": "recurringTrainingTemplates",
+            "queryScope": "COLLECTION",
+            "fields": [
+                { "fieldPath": "clubId", "order": "ASCENDING" },
+                { "fieldPath": "active", "order": "ASCENDING" },
+                { "fieldPath": "dayOfWeek", "order": "ASCENDING" }
+            ]
+        }
+    ],
+    "fieldOverrides": []
 }
 ```
 
@@ -148,6 +152,7 @@ firebase deploy --only firestore:indexes
 ### Fehler: "The query requires an index"
 
 **Lösung**:
+
 1. Kopiere den Link aus der Browser-Konsole
 2. Öffne den Link in neuem Tab
 3. Firebase schlägt automatisch den Index vor
@@ -179,11 +184,13 @@ Warte 1-2 Minuten und lade die Seite neu.
 ## Warum werden Indices benötigt?
 
 Firebase Firestore benötigt **zusammengesetzte Indices** für Queries mit:
+
 - Mehreren WHERE-Klauseln auf verschiedenen Feldern
 - Kombination von WHERE und ORDER BY
 - Range-Queries (>=, <=) auf verschiedenen Feldern
 
 Unser Multi-Session System nutzt solche Queries für:
+
 - Laden von Sessions eines Monats (date range + clubId + cancelled)
 - Filtern nach Untergruppen
 - Sortieren nach Startzeit

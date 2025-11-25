@@ -6,10 +6,10 @@ Dieses Projekt verwendet **GitHub Actions** für automatisierte Tests und Deploy
 
 ### Workflows
 
-| Workflow | Datei | Trigger | Zweck |
-|----------|-------|---------|-------|
-| **Tests** | `test.yml` | Push/PR auf `main` | Führt alle Tests aus (Backend + Frontend) |
-| **Deploy** | `deploy.yml` | Push auf `main` (nur nach Tests) | Deployed zu Firebase |
+| Workflow   | Datei        | Trigger                          | Zweck                                     |
+| ---------- | ------------ | -------------------------------- | ----------------------------------------- |
+| **Tests**  | `test.yml`   | Push/PR auf `main`               | Führt alle Tests aus (Backend + Frontend) |
+| **Deploy** | `deploy.yml` | Push auf `main` (nur nach Tests) | Deployed zu Firebase                      |
 
 ---
 
@@ -18,20 +18,20 @@ Dieses Projekt verwendet **GitHub Actions** für automatisierte Tests und Deploy
 ### Was wird getestet?
 
 1. **Backend Tests (Jest)** - 44 Tests
-   - Elo-Berechnung (`calculateElo`)
-   - Gate-Protection (`getHighestEloGate`, `applyEloGate`)
-   - Season Points, Handicap-Matches
-   - Integration-Tests
+    - Elo-Berechnung (`calculateElo`)
+    - Gate-Protection (`getHighestEloGate`, `applyEloGate`)
+    - Season Points, Handicap-Matches
+    - Integration-Tests
 
 2. **Frontend Tests (Vitest)** - 61 Tests
-   - Set-Score-Validierung (`isValidSet`)
-   - Match-Validierung (`validateMatch`)
-   - Handicap-Berechnung (`calculateHandicap`)
-   - Edge Cases
+    - Set-Score-Validierung (`isValidSet`)
+    - Match-Validierung (`validateMatch`)
+    - Handicap-Berechnung (`calculateHandicap`)
+    - Edge Cases
 
 3. **Code Quality**
-   - ESLint (Backend)
-   - Coverage Reports
+    - ESLint (Backend)
+    - Coverage Reports
 
 ### Wann läuft der Test-Workflow?
 
@@ -113,10 +113,11 @@ git push
 Gehe zu: **Settings** → **Branches** → **Add branch protection rule**
 
 Für `main` Branch:
+
 - ✅ **Require a pull request before merging**
 - ✅ **Require status checks to pass before merging**
-  - Wähle: `Backend Tests (Jest)`
-  - Wähle: `Frontend Tests (Vitest)`
+    - Wähle: `Backend Tests (Jest)`
+    - Wähle: `Frontend Tests (Vitest)`
 - ✅ **Require branches to be up to date before merging**
 
 ---
@@ -128,8 +129,8 @@ Nach jedem Workflow-Lauf:
 1. Gehe zu **Actions** → Workflow auswählen
 2. Klicke auf den Job
 3. Unter **Artifacts** findest du:
-   - `backend-coverage` - Coverage-Report für Backend
-   - `frontend-test-results` - Test-Resultate Frontend
+    - `backend-coverage` - Coverage-Report für Backend
+    - `frontend-test-results` - Test-Resultate Frontend
 
 ---
 
@@ -180,6 +181,7 @@ Füge diese Badges in dein `README.md` ein:
 ### Problem: Tests schlagen fehl in CI, aber lokal funktionieren sie
 
 **Lösung:**
+
 - Prüfe Node.js-Version (sollte 20 sein)
 - Prüfe, ob `package-lock.json` committed ist
 - Führe lokal `npm ci` statt `npm install` aus
@@ -187,6 +189,7 @@ Füge diese Badges in dein `README.md` ein:
 ### Problem: Firebase Deployment schlägt fehl
 
 **Lösung:**
+
 - Prüfe, ob `FIREBASE_TOKEN` Secret korrekt gesetzt ist
 - Prüfe Firebase CLI Version: `firebase --version`
 - Token erneuern: `firebase login:ci`
@@ -194,6 +197,7 @@ Füge diese Badges in dein `README.md` ein:
 ### Problem: ESLint-Fehler blockieren Tests
 
 **Lösung:**
+
 - Lokale ESLint-Fehler beheben: `npm run lint --fix`
 - Oder temporär `continue-on-error: true` in Workflow setzen
 

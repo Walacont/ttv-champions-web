@@ -78,19 +78,19 @@ Dieses Verzeichnis enthält die CI/CD-Workflows für automatisierte Tests und De
 
 ### Test-Workflow
 
-| Job | Zweck | Dauer | Artifacts |
-|-----|-------|-------|-----------|
-| `backend-tests` | Jest Tests + ESLint | ~30s | Coverage Report |
-| `frontend-tests` | Vitest Tests | ~20s | Test Results |
-| `test-summary` | Zusammenfassung | ~5s | - |
+| Job              | Zweck               | Dauer | Artifacts       |
+| ---------------- | ------------------- | ----- | --------------- |
+| `backend-tests`  | Jest Tests + ESLint | ~30s  | Coverage Report |
+| `frontend-tests` | Vitest Tests        | ~20s  | Test Results    |
+| `test-summary`   | Zusammenfassung     | ~5s   | -               |
 
 ### Deploy-Workflow
 
-| Job | Zweck | Dauer | Bedingung |
-|-----|-------|-------|-----------|
-| `run-tests` | Alle Tests | ~50s | - |
-| `deploy` | Firebase Deployment | ~2min | Tests ✅ |
-| `deployment-failed` | Fehler-Nachricht | ~5s | Tests ❌ |
+| Job                 | Zweck               | Dauer | Bedingung |
+| ------------------- | ------------------- | ----- | --------- |
+| `run-tests`         | Alle Tests          | ~50s  | -         |
+| `deploy`            | Firebase Deployment | ~2min | Tests ✅  |
+| `deployment-failed` | Fehler-Nachricht    | ~5s   | Tests ❌  |
 
 ---
 
@@ -99,19 +99,20 @@ Dieses Verzeichnis enthält die CI/CD-Workflows für automatisierte Tests und De
 ### Schnellstart
 
 1. **Firebase Token generieren:**
-   ```bash
-   firebase login:ci
-   ```
+
+    ```bash
+    firebase login:ci
+    ```
 
 2. **GitHub Secret hinzufügen:**
-   - Gehe zu: Repository → Settings → Secrets → New secret
-   - Name: `FIREBASE_TOKEN`
-   - Value: Der Token von Schritt 1
+    - Gehe zu: Repository → Settings → Secrets → New secret
+    - Name: `FIREBASE_TOKEN`
+    - Value: Der Token von Schritt 1
 
 3. **Workflows aktivieren:**
-   ```bash
-   git push origin main
-   ```
+    ```bash
+    git push origin main
+    ```
 
 Fertig! 🎉
 
@@ -120,10 +121,12 @@ Fertig! 🎉
 ## 📊 Status überwachen
 
 ### In GitHub:
+
 - **Actions** Tab → Siehe alle Workflow-Läufe
 - **Pull Requests** → Checks bei jedem PR
 
 ### Badges im README:
+
 ```markdown
 ![Tests](https://github.com/USERNAME/REPO/actions/workflows/test.yml/badge.svg)
 ```

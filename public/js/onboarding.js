@@ -1,9 +1,25 @@
 // NEU: Zusätzliche Imports für die Emulatoren
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
-import { getFirestore, doc, getDoc, updateDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+import {
+    getAuth,
+    onAuthStateChanged,
+    connectAuthEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc,
+    connectFirestoreEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import {
+    getStorage,
+    ref,
+    uploadBytes,
+    getDownloadURL,
+    connectStorageEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
@@ -13,19 +29,18 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 
 // NEU: Der Emulator-Block
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    console.log("Onboarding.js: Verbinde mit lokalen Firebase Emulatoren...");
-    
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log('Onboarding.js: Verbinde mit lokalen Firebase Emulatoren...');
+
     // Auth Emulator
-    connectAuthEmulator(auth, "http://localhost:9099");
-    
+    connectAuthEmulator(auth, 'http://localhost:9099');
+
     // Firestore Emulator
-    connectFirestoreEmulator(db, "localhost", 8080);
+    connectFirestoreEmulator(db, 'localhost', 8080);
 
     // Storage Emulator
-    connectStorageEmulator(storage, "localhost", 9199);
+    connectStorageEmulator(storage, 'localhost', 9199);
 }
-
 
 const onboardingForm = document.getElementById('onboarding-form');
 const submitButton = document.getElementById('submit-button');
@@ -72,14 +87,14 @@ function initializeDateSelects() {
 // Initialize the date selects when the page loads
 initializeDateSelects();
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async user => {
     if (user) {
         currentUser = user;
-        
+
         // WICHTIG: Erzwinge die Aktualisierung des Tokens, um die neuen Custom Claims zu erhalten.
         await user.getIdToken(true);
 
-        const userDocRef = doc(db, "users", user.uid);
+        const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
 
         if (userDocSnap.exists()) {
@@ -103,9 +118,9 @@ onAuthStateChanged(auth, async (user) => {
                     document.getElementById('birthdate-day').value = parseInt(dateParts[2], 10);
                 }
             }
-
         } else {
-            errorMessage.textContent = "Fehler: Dein Profil konnte nicht gefunden werden. Bitte starte den Prozess neu.";
+            errorMessage.textContent =
+                'Fehler: Dein Profil konnte nicht gefunden werden. Bitte starte den Prozess neu.';
             submitButton.disabled = true;
         }
     } else {
@@ -118,16 +133,18 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-photoUpload.addEventListener('change', (e) => {
+photoUpload.addEventListener('change', e => {
     selectedFile = e.target.files[0];
     if (selectedFile) {
         const reader = new FileReader();
-        reader.onload = (event) => { profileImagePreview.src = event.target.result; };
+        reader.onload = event => {
+            profileImagePreview.src = event.target.result;
+        };
         reader.readAsDataURL(selectedFile);
     }
 });
 
-onboardingForm.addEventListener('submit', async (e) => {
+onboardingForm.addEventListener('submit', async e => {
     e.preventDefault();
     submitButton.disabled = true;
     submitButton.textContent = 'Speichern...';
@@ -135,12 +152,15 @@ onboardingForm.addEventListener('submit', async (e) => {
 
     try {
         if (!currentUser || !currentUserData) {
-            throw new Error("Benutzerdaten nicht geladen. Bitte Seite neu laden.");
+            throw new Error('Benutzerdaten nicht geladen. Bitte Seite neu laden.');
         }
 
         let photoURL = currentUserData.photoURL || null; // Behalte altes Foto, falls keins ausgewählt
         if (selectedFile) {
-            const storageRef = ref(storage, `profile-pictures/${currentUser.uid}/${selectedFile.name}`);
+            const storageRef = ref(
+                storage,
+                `profile-pictures/${currentUser.uid}/${selectedFile.name}`
+            );
             const snapshot = await uploadBytes(storageRef, selectedFile);
             photoURL = await getDownloadURL(snapshot.ref);
         }
@@ -167,9 +187,8 @@ onboardingForm.addEventListener('submit', async (e) => {
 
         const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, dataToUpdate);
-        
-        redirectToDashboard(currentUserData.role);
 
+        redirectToDashboard(currentUserData.role);
     } catch (error) {
         errorMessage.textContent = 'Fehler: ' + error.message;
         submitButton.disabled = false;
@@ -187,7 +206,7 @@ function redirectToDashboard(role) {
         targetUrl = '/dashboard.html';
     }
 
-    console.log("[ONBOARDING] Onboarding complete, redirecting to:", targetUrl);
+    console.log('[ONBOARDING] Onboarding complete, redirecting to:', targetUrl);
     // Use normal navigation after onboarding (not SPA) to ensure fresh state
     window.location.href = targetUrl;
 }

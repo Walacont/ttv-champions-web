@@ -1,11 +1,37 @@
 // NEU: Zusätzliche Imports für die Emulatoren
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, connectAuthEmulator, verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential, sendEmailVerification } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js";
-import { getFirestore, doc, getDoc, updateDoc, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+import {
+    getAuth,
+    onAuthStateChanged,
+    connectAuthEmulator,
+    verifyBeforeUpdateEmail,
+    EmailAuthProvider,
+    reauthenticateWithCredential,
+    sendEmailVerification,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc,
+    connectFirestoreEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import {
+    getStorage,
+    ref,
+    uploadBytes,
+    getDownloadURL,
+    connectStorageEmulator,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
 import { firebaseConfig } from './firebase-config.js';
-import { requestNotificationPermission, disableNotifications, updateNotificationPreferences, getNotificationPreferences, getNotificationStatus } from './init-notifications.js';
+import {
+    requestNotificationPermission,
+    disableNotifications,
+    updateNotificationPreferences,
+    getNotificationPreferences,
+    getNotificationStatus,
+} from './init-notifications.js';
 import { getFCMManager } from './fcm-manager.js';
 
 const app = initializeApp(firebaseConfig);
@@ -16,19 +42,18 @@ const analytics = getAnalytics(app);
 
 // NEU: Der Emulator-Block
 // Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    console.log("Settings.js: Verbinde mit lokalen Firebase Emulatoren...");
-    
+if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log('Settings.js: Verbinde mit lokalen Firebase Emulatoren...');
+
     // Auth Emulator
-    connectAuthEmulator(auth, "http://localhost:9099");
-    
+    connectAuthEmulator(auth, 'http://localhost:9099');
+
     // Firestore Emulator
-    connectFirestoreEmulator(db, "localhost", 8080);
+    connectFirestoreEmulator(db, 'localhost', 8080);
 
     // Storage Emulator
-    connectStorageEmulator(storage, "localhost", 9199);
+    connectStorageEmulator(storage, 'localhost', 9199);
 }
-
 
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
@@ -51,7 +76,7 @@ const emailFeedback = document.getElementById('email-feedback');
 let currentUser = null;
 let selectedFile = null;
 
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async user => {
     if (user) {
         currentUser = user;
         const userDocRef = doc(db, 'users', user.uid);
@@ -61,7 +86,8 @@ onAuthStateChanged(auth, async (user) => {
         if (userDocSnap.exists()) {
             userData = userDocSnap.data();
             const initials = (userData.firstName?.[0] || '') + (userData.lastName?.[0] || '');
-            profileImagePreview.src = userData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
+            profileImagePreview.src =
+                userData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
             firstNameInput.value = userData.firstName || '';
             lastNameInput.value = userData.lastName || '';
 
@@ -81,7 +107,6 @@ onAuthStateChanged(auth, async (user) => {
 
         pageLoader.style.display = 'none';
         mainContent.style.display = 'block';
-
     } else {
         window.location.href = '/index.html';
     }
@@ -110,7 +135,9 @@ function updateEmailVerificationStatus(isVerified) {
         `;
 
         // Event Listener für Verifizierungs-Email
-        document.getElementById('send-verification-btn')?.addEventListener('click', sendVerificationEmail);
+        document
+            .getElementById('send-verification-btn')
+            ?.addEventListener('click', sendVerificationEmail);
     }
 }
 
@@ -125,27 +152,27 @@ async function sendVerificationEmail() {
             </div>
         `;
     } catch (error) {
-        console.error("Fehler beim Senden der Verifizierungs-Email:", error);
+        console.error('Fehler beim Senden der Verifizierungs-Email:', error);
         emailVerificationStatus.innerHTML += `
             <p class="text-red-600 text-sm mt-2">Fehler: ${error.message}</p>
         `;
     }
 }
 
-photoUpload.addEventListener('change', (e) => {
+photoUpload.addEventListener('change', e => {
     selectedFile = e.target.files[0];
     if (selectedFile) {
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = event => {
             profileImagePreview.src = event.target.result;
-        }
+        };
         reader.readAsDataURL(selectedFile);
         savePhotoButton.disabled = false;
         savePhotoButton.classList.remove('opacity-0');
     }
 });
 
-uploadPhotoForm.addEventListener('submit', async (e) => {
+uploadPhotoForm.addEventListener('submit', async e => {
     e.preventDefault();
     if (!selectedFile || !currentUser) return;
 
@@ -166,9 +193,8 @@ uploadPhotoForm.addEventListener('submit', async (e) => {
         uploadFeedback.classList.add('text-green-600');
         savePhotoButton.classList.add('opacity-0');
         selectedFile = null;
-
     } catch (error) {
-        console.error("Fehler beim Hochladen des Bildes:", error);
+        console.error('Fehler beim Hochladen des Bildes:', error);
         uploadFeedback.textContent = 'Fehler beim Speichern des Bildes.';
         uploadFeedback.classList.add('text-red-600');
     } finally {
@@ -177,7 +203,7 @@ uploadPhotoForm.addEventListener('submit', async (e) => {
     }
 });
 
-updateNameForm.addEventListener('submit', async (e) => {
+updateNameForm.addEventListener('submit', async e => {
     e.preventDefault();
     const firstName = firstNameInput.value;
     const lastName = lastNameInput.value;
@@ -187,19 +213,19 @@ updateNameForm.addEventListener('submit', async (e) => {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, {
             firstName,
-            lastName
+            lastName,
         });
         nameFeedback.textContent = 'Name erfolgreich gespeichert!';
         nameFeedback.className = 'mt-2 text-sm text-green-600'; // Erfolgsmeldung grün machen
     } catch (error) {
-        console.error("Fehler beim Speichern des Namens:", error);
+        console.error('Fehler beim Speichern des Namens:', error);
         nameFeedback.textContent = 'Fehler beim Speichern des Namens.';
         nameFeedback.className = 'mt-2 text-sm text-red-600';
     }
 });
 
 // Email-Änderung mit Re-Authentication
-updateEmailForm.addEventListener('submit', async (e) => {
+updateEmailForm.addEventListener('submit', async e => {
     e.preventDefault();
     const newEmail = newEmailInput.value.trim();
     const password = currentPasswordInput.value;
@@ -247,9 +273,8 @@ updateEmailForm.addEventListener('submit', async (e) => {
         // Formular zurücksetzen
         newEmailInput.value = '';
         currentPasswordInput.value = '';
-
     } catch (error) {
-        console.error("Fehler beim Ändern der Email:", error);
+        console.error('Fehler beim Ändern der Email:', error);
 
         let errorMessage = 'Ein unbekannter Fehler ist aufgetreten.';
 
@@ -261,7 +286,8 @@ updateEmailForm.addEventListener('submit', async (e) => {
         } else if (error.code === 'auth/invalid-email') {
             errorMessage = 'Die eingegebene Email-Adresse ist ungültig.';
         } else if (error.code === 'auth/requires-recent-login') {
-            errorMessage = 'Aus Sicherheitsgründen musst du dich erneut anmelden, bevor du deine Email ändern kannst.';
+            errorMessage =
+                'Aus Sicherheitsgründen musst du dich erneut anmelden, bevor du deine Email ändern kannst.';
         } else if (error.code === 'auth/too-many-requests') {
             errorMessage = 'Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.';
         }
@@ -284,7 +310,7 @@ updateEmailForm.addEventListener('submit', async (e) => {
 // ========================================================================
 
 // Initialize notification settings when user is loaded
-onAuthStateChanged(auth, async (user) => {
+onAuthStateChanged(auth, async user => {
     if (user) {
         await initializeNotificationSettings();
     }
@@ -317,7 +343,8 @@ async function initializeNotificationSettings() {
         const hasToken = fcmManager ? await fcmManager.checkExistingPermission() : false;
 
         if (hasToken) {
-            statusText.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Benachrichtigungen aktiviert</span>';
+            statusText.innerHTML =
+                '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Benachrichtigungen aktiviert</span>';
             toggleBtn.textContent = 'Deaktivieren';
             toggleBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
             toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700');
@@ -329,7 +356,8 @@ async function initializeNotificationSettings() {
             // Load current preferences
             await loadNotificationPreferences();
         } else {
-            statusText.innerHTML = '<span class="text-gray-600">Benachrichtigungen verfügbar</span>';
+            statusText.innerHTML =
+                '<span class="text-gray-600">Benachrichtigungen verfügbar</span>';
             toggleBtn.textContent = 'Aktivieren';
             toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700');
             toggleBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
@@ -337,7 +365,8 @@ async function initializeNotificationSettings() {
             preferencesSection.classList.add('hidden');
         }
     } else if (permission === 'denied') {
-        statusText.innerHTML = '<span class="text-red-600"><i class="fas fa-times-circle mr-1"></i>Benachrichtigungen blockiert</span>';
+        statusText.innerHTML =
+            '<span class="text-red-600"><i class="fas fa-times-circle mr-1"></i>Benachrichtigungen blockiert</span>';
         toggleBtn.disabled = true;
         toggleBtn.textContent = 'Blockiert';
 
@@ -403,21 +432,24 @@ async function initializeNotificationSettings() {
                 trainingReminder: document.getElementById('pref-training-reminder').checked,
                 challengeAvailable: document.getElementById('pref-challenge-available').checked,
                 rankUp: document.getElementById('pref-rank-up').checked,
-                matchSuggestion: document.getElementById('pref-match-suggestion').checked
+                matchSuggestion: document.getElementById('pref-match-suggestion').checked,
             };
 
             const success = await updateNotificationPreferences(preferences);
 
             if (success) {
-                preferencesFeedback.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Präferenzen gespeichert!</span>';
+                preferencesFeedback.innerHTML =
+                    '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Präferenzen gespeichert!</span>';
                 window.notifications.success('Präferenzen gespeichert!');
             } else {
-                preferencesFeedback.innerHTML = '<span class="text-red-600">Fehler beim Speichern</span>';
+                preferencesFeedback.innerHTML =
+                    '<span class="text-red-600">Fehler beim Speichern</span>';
                 window.notifications.error('Fehler beim Speichern der Präferenzen');
             }
         } catch (error) {
             console.error('Error saving preferences:', error);
-            preferencesFeedback.innerHTML = '<span class="text-red-600">Fehler beim Speichern</span>';
+            preferencesFeedback.innerHTML =
+                '<span class="text-red-600">Fehler beim Speichern</span>';
             window.notifications.error('Fehler beim Speichern der Präferenzen');
         } finally {
             savePreferencesBtn.disabled = false;
@@ -435,12 +467,17 @@ async function loadNotificationPreferences() {
         const preferences = await getNotificationPreferences();
 
         if (preferences) {
-            document.getElementById('pref-match-approved').checked = preferences.matchApproved !== false;
-            document.getElementById('pref-match-request').checked = preferences.matchRequest !== false;
-            document.getElementById('pref-training-reminder').checked = preferences.trainingReminder !== false;
-            document.getElementById('pref-challenge-available').checked = preferences.challengeAvailable !== false;
+            document.getElementById('pref-match-approved').checked =
+                preferences.matchApproved !== false;
+            document.getElementById('pref-match-request').checked =
+                preferences.matchRequest !== false;
+            document.getElementById('pref-training-reminder').checked =
+                preferences.trainingReminder !== false;
+            document.getElementById('pref-challenge-available').checked =
+                preferences.challengeAvailable !== false;
             document.getElementById('pref-rank-up').checked = preferences.rankUp !== false;
-            document.getElementById('pref-match-suggestion').checked = preferences.matchSuggestion === true;
+            document.getElementById('pref-match-suggestion').checked =
+                preferences.matchSuggestion === true;
         }
     } catch (error) {
         console.error('Error loading preferences:', error);

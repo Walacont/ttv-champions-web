@@ -1,4 +1,12 @@
-import { collection, getDocs, getDoc, doc, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    getDocs,
+    getDoc,
+    doc,
+    onSnapshot,
+    query,
+    where,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateExpiry } from './challenges.js';
 
 /**
@@ -19,22 +27,31 @@ export async function loadChallenges(userData, db, unsubscribes) {
     // Load completed challenges with error handling
     let completedChallengeIds = [];
     try {
-        const completedChallengesSnap = await getDocs(collection(db, `users/${userData.id}/completedChallenges`));
+        const completedChallengesSnap = await getDocs(
+            collection(db, `users/${userData.id}/completedChallenges`)
+        );
         completedChallengeIds = completedChallengesSnap.docs.map(doc => doc.id);
     } catch (error) {
-        console.warn('Could not load completed challenges (this is normal for new users):', error.message);
+        console.warn(
+            'Could not load completed challenges (this is normal for new users):',
+            error.message
+        );
         // Continue with empty array - user hasn't completed any challenges yet
     }
 
-    const q = query(collection(db, "challenges"), where("clubId", "==", userData.clubId), where("isActive", "==", true));
+    const q = query(
+        collection(db, 'challenges'),
+        where('clubId', '==', userData.clubId),
+        where('isActive', '==', true)
+    );
 
-    const challengesListener = onSnapshot(q, async (snapshot) => {
+    const challengesListener = onSnapshot(q, async snapshot => {
         const now = new Date();
         const playerSubgroups = userData.subgroupIDs || [];
 
         // Load subgroup info to filter out default subgroups
         const subgroupDocs = await Promise.all(
-            playerSubgroups.map(async (subgroupId) => {
+            playerSubgroups.map(async subgroupId => {
                 try {
                     const subgroupDoc = await getDoc(doc(db, 'subgroups', subgroupId));
                     if (subgroupDoc.exists()) {
@@ -62,7 +79,8 @@ export async function loadChallenges(userData, db, unsubscribes) {
                 // 1. subgroupId === 'all' (for entire club), OR
                 // 2. subgroupId matches one of player's specialized (non-default) subgroups
                 const subgroupId = challenge.subgroupId || 'all';
-                const isForPlayer = subgroupId === 'all' || specializedSubgroups.includes(subgroupId);
+                const isForPlayer =
+                    subgroupId === 'all' || specializedSubgroups.includes(subgroupId);
 
                 return !isCompleted && !isExpired && isForPlayer;
             });
@@ -77,14 +95,18 @@ export async function loadChallenges(userData, db, unsubscribes) {
         // Load subgroup names for badges
         const subgroupNamesMap = {};
         for (const challenge of activeChallenges) {
-            if (challenge.subgroupId && challenge.subgroupId !== 'all' && !subgroupNamesMap[challenge.subgroupId]) {
+            if (
+                challenge.subgroupId &&
+                challenge.subgroupId !== 'all' &&
+                !subgroupNamesMap[challenge.subgroupId]
+            ) {
                 try {
                     const subgroupDoc = await getDoc(doc(db, 'subgroups', challenge.subgroupId));
                     if (subgroupDoc.exists()) {
                         subgroupNamesMap[challenge.subgroupId] = subgroupDoc.data().name;
                     }
                 } catch (error) {
-                    console.error("Error loading subgroup name:", error);
+                    console.error('Error loading subgroup name:', error);
                 }
             }
         }
@@ -92,7 +114,8 @@ export async function loadChallenges(userData, db, unsubscribes) {
         challengesListEl.innerHTML = '';
         activeChallenges.forEach(challenge => {
             const card = document.createElement('div');
-            card.className = 'challenge-card bg-gray-50 p-4 rounded-lg border border-gray-200 cursor-pointer hover:shadow-md transition-shadow';
+            card.className =
+                'challenge-card bg-gray-50 p-4 rounded-lg border border-gray-200 cursor-pointer hover:shadow-md transition-shadow';
             card.dataset.id = challenge.id;
             card.dataset.title = challenge.title;
             card.dataset.description = challenge.description || '';
@@ -104,12 +127,14 @@ export async function loadChallenges(userData, db, unsubscribes) {
                 card.dataset.tieredPoints = JSON.stringify(challenge.tieredPoints);
             }
 
-            const subgroupBadge = challenge.subgroupId && challenge.subgroupId !== 'all'
-                ? `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full ml-2">👥 ${subgroupNamesMap[challenge.subgroupId] || challenge.subgroupId}</span>`
-                : '';
+            const subgroupBadge =
+                challenge.subgroupId && challenge.subgroupId !== 'all'
+                    ? `<span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full ml-2">👥 ${subgroupNamesMap[challenge.subgroupId] || challenge.subgroupId}</span>`
+                    : '';
 
             // Check if challenge has tiered points
-            const hasTieredPoints = challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
+            const hasTieredPoints =
+                challenge.tieredPoints?.enabled && challenge.tieredPoints?.milestones?.length > 0;
             const pointsBadge = hasTieredPoints
                 ? `🎯 Bis zu ${challenge.points} Punkte`
                 : `+${challenge.points} Punkte`;
@@ -169,7 +194,9 @@ export function openChallengeModal(dataset) {
                 .sort((a, b) => a.count - b.count)
                 .map((milestone, index) => {
                     const isFirst = index === 0;
-                    const displayPoints = isFirst ? milestone.points : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+                    const displayPoints = isFirst
+                        ? milestone.points
+                        : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
                     return `<div class="flex justify-between items-center py-3 px-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-2 border border-indigo-100">
                         <div class="flex items-center gap-3">
                             <span class="text-2xl">🎯</span>

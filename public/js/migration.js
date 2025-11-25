@@ -1,4 +1,14 @@
-import { collection, doc, getDoc, getDocs, addDoc, writeBatch, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    addDoc,
+    writeBatch,
+    query,
+    where,
+    serverTimestamp,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Migration Module for Subgroups Feature
@@ -10,7 +20,7 @@ import { collection, doc, getDoc, getDocs, addDoc, writeBatch, query, where, ser
  */
 
 const MIGRATION_VERSION = 1;
-const DEFAULT_SUBGROUP_NAME = "Hauptgruppe";
+const DEFAULT_SUBGROUP_NAME = 'Hauptgruppe';
 
 /**
  * Checks if migration is needed for a club
@@ -26,7 +36,7 @@ export async function needsMigration(clubId, db) {
 
         return subgroupsSnapshot.empty;
     } catch (error) {
-        console.error("Error checking migration status:", error);
+        console.error('Error checking migration status:', error);
         return false;
     }
 }
@@ -46,7 +56,7 @@ export async function runMigration(clubId, db) {
             clubId: clubId,
             name: DEFAULT_SUBGROUP_NAME,
             createdAt: serverTimestamp(),
-            isDefault: true
+            isDefault: true,
         });
         const mainSubgroupId = mainSubgroupRef.id;
         console.log(`[Migration] Created main subgroup: ${mainSubgroupId}`);
@@ -72,7 +82,7 @@ export async function runMigration(clubId, db) {
             batch.update(userRef, {
                 subgroupIDs: subgroupIDs,
                 migratedToSubgroups: true,
-                migrationVersion: MIGRATION_VERSION
+                migrationVersion: MIGRATION_VERSION,
             });
             batchCount++;
             migratedUsers++;
@@ -83,7 +93,7 @@ export async function runMigration(clubId, db) {
                 batch.set(streakRef, {
                     count: userData.streak,
                     subgroupId: mainSubgroupId,
-                    lastUpdated: serverTimestamp()
+                    lastUpdated: serverTimestamp(),
                 });
                 batchCount++;
                 migratedStreaks++;
@@ -118,7 +128,7 @@ export async function runMigration(clubId, db) {
             // Add subgroupId to attendance document
             attendanceBatch.update(attendanceRef, {
                 subgroupId: mainSubgroupId,
-                migratedToSubgroups: true
+                migratedToSubgroups: true,
             });
             attendanceBatchCount++;
             migratedAttendance++;
@@ -126,7 +136,9 @@ export async function runMigration(clubId, db) {
             // Commit batch if approaching limit
             if (attendanceBatchCount >= 450) {
                 await attendanceBatch.commit();
-                console.log(`[Migration] Attendance batch committed (${attendanceBatchCount} operations)`);
+                console.log(
+                    `[Migration] Attendance batch committed (${attendanceBatchCount} operations)`
+                );
                 attendanceBatchCount = 0;
             }
         }
@@ -134,7 +146,9 @@ export async function runMigration(clubId, db) {
         // Commit any remaining attendance operations
         if (attendanceBatchCount > 0) {
             await attendanceBatch.commit();
-            console.log(`[Migration] Final attendance batch committed (${attendanceBatchCount} operations)`);
+            console.log(
+                `[Migration] Final attendance batch committed (${attendanceBatchCount} operations)`
+            );
         }
 
         // Step 5: Migrate challenges (add subgroupId: "all" to existing challenges)
@@ -151,22 +165,26 @@ export async function runMigration(clubId, db) {
 
             // Set subgroupId to "all" for existing challenges
             challengesBatch.update(challengeRef, {
-                subgroupId: "all",
-                migratedToSubgroups: true
+                subgroupId: 'all',
+                migratedToSubgroups: true,
             });
             challengesBatchCount++;
             migratedChallenges++;
 
             if (challengesBatchCount >= 450) {
                 await challengesBatch.commit();
-                console.log(`[Migration] Challenges batch committed (${challengesBatchCount} operations)`);
+                console.log(
+                    `[Migration] Challenges batch committed (${challengesBatchCount} operations)`
+                );
                 challengesBatchCount = 0;
             }
         }
 
         if (challengesBatchCount > 0) {
             await challengesBatch.commit();
-            console.log(`[Migration] Final challenges batch committed (${challengesBatchCount} operations)`);
+            console.log(
+                `[Migration] Final challenges batch committed (${challengesBatchCount} operations)`
+            );
         }
 
         console.log(`[Migration] Completed successfully!`);
@@ -184,15 +202,14 @@ export async function runMigration(clubId, db) {
                 users: migratedUsers,
                 streaks: migratedStreaks,
                 attendance: migratedAttendance,
-                challenges: migratedChallenges
-            }
+                challenges: migratedChallenges,
+            },
         };
-
     } catch (error) {
-        console.error("[Migration] Error during migration:", error);
+        console.error('[Migration] Error during migration:', error);
         return {
             success: false,
-            error: error.message
+            error: error.message,
         };
     }
 }
@@ -214,7 +231,7 @@ export async function checkAndMigrate(clubId, db) {
         return {
             success: true,
             skipped: true,
-            message: "Migration already completed or not needed"
+            message: 'Migration already completed or not needed',
         };
     }
 }

@@ -3,9 +3,9 @@ name: Tests
 # Trigger: Bei jedem Push auf main oder Pull Request
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   # ========================================================================
@@ -35,7 +35,7 @@ jobs:
 
       - name: Run ESLint (Backend)
         run: npm run lint
-        continue-on-error: true  # ESLint Warnungen stoppen nicht den Build
+        continue-on-error: true # ESLint Warnungen stoppen nicht den Build
 
       - name: Run Jest Tests
         run: npm test

@@ -65,8 +65,9 @@ export function createTableEditor(containerId, initialData = null) {
             input.type = 'text';
             input.value = header;
             input.placeholder = `Spalte ${colIndex + 1}`;
-            input.className = 'w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-500';
-            input.addEventListener('input', (e) => {
+            input.className =
+                'w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-500';
+            input.addEventListener('input', e => {
                 tableData.headers[colIndex] = e.target.value;
             });
             th.appendChild(input);
@@ -84,8 +85,9 @@ export function createTableEditor(containerId, initialData = null) {
                 input.type = 'text';
                 input.value = cell;
                 input.placeholder = `Zeile ${rowIndex + 1}, Spalte ${colIndex + 1}`;
-                input.className = 'w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-500';
-                input.addEventListener('input', (e) => {
+                input.className =
+                    'w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-500';
+                input.addEventListener('input', e => {
                     tableData.rows[rowIndex][colIndex] = e.target.value;
                 });
                 td.appendChild(input);
@@ -135,14 +137,14 @@ export function createTableEditor(containerId, initialData = null) {
 
     return {
         getData: () => tableData,
-        setData: (data) => {
+        setData: data => {
             tableData = data;
             renderTable();
         },
         clear: () => {
             tableData = { rows: [['']], headers: [''] };
             renderTable();
-        }
+        },
     };
 }
 
@@ -200,12 +202,7 @@ function escapeHtml(text) {
  * @returns {Object} Editor instance with methods
  */
 export function setupDescriptionEditor(config) {
-    const {
-        textAreaId,
-        toggleContainerId,
-        tableEditorContainerId,
-        initialData = null
-    } = config;
+    const { textAreaId, toggleContainerId, tableEditorContainerId, initialData = null } = config;
 
     const textArea = document.getElementById(textAreaId);
     const toggleContainer = document.getElementById(toggleContainerId);
@@ -255,14 +252,18 @@ export function setupDescriptionEditor(config) {
         currentMode = mode;
 
         if (mode === 'text') {
-            textModeBtn.className = 'mode-toggle-btn text-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-indigo-600 text-white';
-            tableModeBtn.className = 'mode-toggle-btn table-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+            textModeBtn.className =
+                'mode-toggle-btn text-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-indigo-600 text-white';
+            tableModeBtn.className =
+                'mode-toggle-btn table-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
             textArea.style.display = 'block';
             tableEditorContainer.style.display = 'none';
             textArea.value = textContent;
         } else {
-            textModeBtn.className = 'mode-toggle-btn text-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
-            tableModeBtn.className = 'mode-toggle-btn table-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-indigo-600 text-white';
+            textModeBtn.className =
+                'mode-toggle-btn text-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+            tableModeBtn.className =
+                'mode-toggle-btn table-mode px-4 py-2 rounded-md text-sm font-medium transition-colors bg-indigo-600 text-white';
             textArea.style.display = 'none';
             tableEditorContainer.style.display = 'block';
 
@@ -282,8 +283,10 @@ export function setupDescriptionEditor(config) {
 
             tableEditor = createTableEditor(`${tableEditorContainerId}-table`, tableContent);
 
-            const additionalTextArea = document.getElementById(`${tableEditorContainerId}-additional-text`);
-            additionalTextArea.addEventListener('input', (e) => {
+            const additionalTextArea = document.getElementById(
+                `${tableEditorContainerId}-additional-text`
+            );
+            additionalTextArea.addEventListener('input', e => {
                 textContent = e.target.value;
             });
         }
@@ -307,17 +310,19 @@ export function setupDescriptionEditor(config) {
             if (currentMode === 'text') {
                 return {
                     type: 'text',
-                    text: textArea.value
+                    text: textArea.value,
                 };
             } else {
                 return {
                     type: 'table',
-                    tableData: tableEditor ? tableEditor.getData() : { rows: [['']], headers: [''] },
-                    additionalText: textContent
+                    tableData: tableEditor
+                        ? tableEditor.getData()
+                        : { rows: [['']], headers: [''] },
+                    additionalText: textContent,
                 };
             }
         },
-        setContent: (data) => {
+        setContent: data => {
             if (data.type === 'table') {
                 tableContent = data.tableData;
                 textContent = data.additionalText || '';
@@ -335,6 +340,6 @@ export function setupDescriptionEditor(config) {
                 tableEditor.clear();
             }
             switchMode('text');
-        }
+        },
     };
 }

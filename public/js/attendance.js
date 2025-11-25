@@ -1,4 +1,18 @@
-import { collection, query, where, orderBy, limit, getDocs, doc, writeBatch, serverTimestamp, increment, onSnapshot, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import {
+    collection,
+    query,
+    where,
+    orderBy,
+    limit,
+    getDocs,
+    doc,
+    writeBatch,
+    serverTimestamp,
+    increment,
+    onSnapshot,
+    getDoc,
+    setDoc,
+} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Attendance Module
@@ -51,14 +65,17 @@ export async function renderCalendar(date, db, currentUserData) {
 
     const month = date.getMonth();
     const year = date.getFullYear();
-    calendarMonthYear.textContent = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    calendarMonthYear.textContent = date.toLocaleDateString('de-DE', {
+        month: 'long',
+        year: 'numeric',
+    });
 
     await fetchMonthlyAttendance(year, month, db, currentUserData);
 
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    const startOffset = (firstDayOfMonth === 0) ? 6 : firstDayOfMonth - 1;
+    const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
     for (let i = 0; i < startOffset; i++) {
         const emptyCell = document.createElement('div');
@@ -71,7 +88,8 @@ export async function renderCalendar(date, db, currentUserData) {
         const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
         // Base styling
-        dayCell.className = 'calendar-day p-2 border rounded-md text-center relative cursor-pointer hover:bg-gray-50 transition-colors';
+        dayCell.className =
+            'calendar-day p-2 border rounded-md text-center relative cursor-pointer hover:bg-gray-50 transition-colors';
 
         const dayNumber = document.createElement('div');
         dayNumber.className = 'font-medium';
@@ -141,16 +159,15 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
     try {
         console.log('[fetchMonthlyAttendance] Loading subgroups...');
         // Load subgroups for color mapping
-        const subgroupsSnapshot = await getDocs(query(
-            collection(db, 'subgroups'),
-            where('clubId', '==', currentUserData.clubId)
-        ));
+        const subgroupsSnapshot = await getDocs(
+            query(collection(db, 'subgroups'), where('clubId', '==', currentUserData.clubId))
+        );
         subgroupsMap.clear();
         subgroupsSnapshot.forEach(doc => {
             const data = doc.data();
             subgroupsMap.set(doc.id, {
                 name: data.name,
-                color: data.color || '#6366f1' // Default to indigo if no color set
+                color: data.color || '#6366f1', // Default to indigo if no color set
             });
         });
         console.log(`[fetchMonthlyAttendance] Loaded ${subgroupsMap.size} subgroups`);
@@ -199,7 +216,7 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
             clubId: currentUserData.clubId,
             startDate,
             endDate,
-            subgroupFilter: currentSubgroupFilter
+            subgroupFilter: currentSubgroupFilter,
         });
         throw error;
     }
@@ -210,14 +227,16 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
         let q;
         if (currentSubgroupFilter === 'all') {
             // Show all attendance events for the club
-            q = query(collection(db, 'attendance'),
+            q = query(
+                collection(db, 'attendance'),
                 where('clubId', '==', currentUserData.clubId),
                 where('date', '>=', startDate),
                 where('date', '<=', endDate)
             );
         } else {
             // Show only attendance events for the selected subgroup
-            q = query(collection(db, 'attendance'),
+            q = query(
+                collection(db, 'attendance'),
                 where('clubId', '==', currentUserData.clubId),
                 where('subgroupId', '==', currentSubgroupFilter),
                 where('date', '>=', startDate),
@@ -251,7 +270,7 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
             clubId: currentUserData.clubId,
             startDate,
             endDate,
-            subgroupFilter: currentSubgroupFilter
+            subgroupFilter: currentSubgroupFilter,
         });
         throw error;
     }
@@ -269,7 +288,9 @@ export async function fetchMonthlyAttendance(year, month, db, currentUserData) {
  */
 async function findOriginalAttendancePoints(playerId, date, subgroupName, db, subgroupId) {
     try {
-        console.log(`[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`);
+        console.log(
+            `[findOriginalAttendancePoints] Searching for attendance on ${date} for subgroup ${subgroupName} (${subgroupId})`
+        );
 
         // Load recent history entries (no complex query to avoid index issues)
         const historyQuery = query(
@@ -279,7 +300,9 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
         );
 
         const historySnapshot = await getDocs(historyQuery);
-        console.log(`[findOriginalAttendancePoints] Loaded ${historySnapshot.size} recent history entries`);
+        console.log(
+            `[findOriginalAttendancePoints] Loaded ${historySnapshot.size} recent history entries`
+        );
 
         let totalPositivePoints = 0;
         let foundEntries = 0;
@@ -289,10 +312,11 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
             const historyData = historyDoc.data();
 
             // Check if this is a positive attendance entry (not a correction)
-            if (historyData.points > 0 &&
+            if (
+                historyData.points > 0 &&
                 historyData.reason &&
-                historyData.reason.includes('Anwesenheit beim Training')) {
-
+                historyData.reason.includes('Anwesenheit beim Training')
+            ) {
                 let matchesDate = false;
                 let matchesSubgroup = false;
 
@@ -318,7 +342,9 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
                 }
 
                 if (matchesDate && matchesSubgroup) {
-                    console.log(`[findOriginalAttendancePoints] Found entry: ${historyData.reason}, points: ${historyData.points}`);
+                    console.log(
+                        `[findOriginalAttendancePoints] Found entry: ${historyData.reason}, points: ${historyData.points}`
+                    );
                     totalPositivePoints += historyData.points;
                     foundEntries++;
                 }
@@ -326,12 +352,16 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
         });
 
         if (foundEntries > 0) {
-            console.log(`[findOriginalAttendancePoints] ✓ Found ${foundEntries} positive entries, total: ${totalPositivePoints} points`);
+            console.log(
+                `[findOriginalAttendancePoints] ✓ Found ${foundEntries} positive entries, total: ${totalPositivePoints} points`
+            );
             return totalPositivePoints;
         }
 
         // If not found, return base points
-        console.warn(`[findOriginalAttendancePoints] ✗ No positive attendance entries found for ${date}/${subgroupName}, defaulting to 10`);
+        console.warn(
+            `[findOriginalAttendancePoints] ✗ No positive attendance entries found for ${date}/${subgroupName}, defaulting to 10`
+        );
         return 10;
     } catch (error) {
         console.error('[findOriginalAttendancePoints] Error:', error);
@@ -350,11 +380,18 @@ async function findOriginalAttendancePoints(playerId, date, subgroupName, db, su
  * @param {Object} batch - Firestore batch
  * @param {string} subgroupName - Subgroup name for history entries
  */
-async function recalculateSubsequentDays(playerId, removedDate, subgroupId, clubId, db, batch, subgroupName) {
+async function recalculateSubsequentDays(
+    playerId,
+    removedDate,
+    subgroupId,
+    clubId,
+    db,
+    batch,
+    subgroupName
+) {
     const ATTENDANCE_POINTS_BASE = 3; // New system: 3 points base
 
     try {
-
         // Find all training days AFTER the removed date for this subgroup
         const subsequentTrainingsQuery = query(
             collection(db, 'attendance'),
@@ -365,7 +402,9 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
         );
 
         const subsequentSnapshot = await getDocs(subsequentTrainingsQuery);
-        console.log(`[recalculateSubsequentDays] Found ${subsequentSnapshot.size} training days after ${removedDate}`);
+        console.log(
+            `[recalculateSubsequentDays] Found ${subsequentSnapshot.size} training days after ${removedDate}`
+        );
 
         // Filter to only days where this player was present
         const playerPresentDays = [];
@@ -376,7 +415,9 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
             }
         });
 
-        console.log(`[recalculateSubsequentDays] Player was present on ${playerPresentDays.length} subsequent days: ${playerPresentDays.join(', ')}`);
+        console.log(
+            `[recalculateSubsequentDays] Player was present on ${playerPresentDays.length} subsequent days: ${playerPresentDays.join(', ')}`
+        );
 
         if (playerPresentDays.length === 0) {
             console.log(`[recalculateSubsequentDays] No subsequent days to recalculate`);
@@ -394,11 +435,16 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
         const allTrainingsSnapshot = await getDocs(allTrainingsQuery);
         const allTrainingDates = allTrainingsSnapshot.docs
             .map(doc => doc.data())
-            .filter(training => training.presentPlayerIds && training.presentPlayerIds.includes(playerId))
+            .filter(
+                training =>
+                    training.presentPlayerIds && training.presentPlayerIds.includes(playerId)
+            )
             .map(training => training.date)
             .sort();
 
-        console.log(`[recalculateSubsequentDays] All training dates (player present): ${allTrainingDates.join(', ')}`);
+        console.log(
+            `[recalculateSubsequentDays] All training dates (player present): ${allTrainingDates.join(', ')}`
+        );
 
         // Get ALL trainings for this subgroup (to check for gaps)
         const allSubgroupTrainings = allTrainingsSnapshot.docs
@@ -427,7 +473,9 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 }
             }
 
-            console.log(`[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`);
+            console.log(
+                `[recalculateSubsequentDays] Date ${currentDate}: new streak = ${newStreak}`
+            );
 
             // Calculate NEW points based on new streak (New System)
             let newPoints = ATTENDANCE_POINTS_BASE; // 3 points default
@@ -451,32 +499,47 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
 
             if (isSecondTrainingOrMore) {
                 newPoints = Math.ceil(newPoints / 2); // Half points for 2nd+ training
-                console.log(`[recalculateSubsequentDays] Date ${currentDate}: is 2nd+ training, reducing to ${newPoints} points`);
+                console.log(
+                    `[recalculateSubsequentDays] Date ${currentDate}: is 2nd+ training, reducing to ${newPoints} points`
+                );
             }
 
             // Find OLD points that were awarded
-            const oldPoints = await findOriginalAttendancePoints(playerId, currentDate, subgroupName, db, subgroupId);
+            const oldPoints = await findOriginalAttendancePoints(
+                playerId,
+                currentDate,
+                subgroupName,
+                db,
+                subgroupId
+            );
 
-            console.log(`[recalculateSubsequentDays] Date ${currentDate}: old points = ${oldPoints}, new points = ${newPoints}`);
+            console.log(
+                `[recalculateSubsequentDays] Date ${currentDate}: old points = ${oldPoints}, new points = ${newPoints}`
+            );
 
             // If points changed, create correction entry
             if (oldPoints !== newPoints) {
                 const pointsDifference = newPoints - oldPoints;
 
-                console.log(`[recalculateSubsequentDays] Adjusting ${pointsDifference} points for ${currentDate}`);
+                console.log(
+                    `[recalculateSubsequentDays] Adjusting ${pointsDifference} points for ${currentDate}`
+                );
 
                 // Format date for display in history
-                const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString('de-DE', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric'
-                });
+                const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString(
+                    'de-DE',
+                    {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                    }
+                );
 
                 // Update player's points and XP
                 const playerRef = doc(db, 'users', playerId);
                 batch.update(playerRef, {
                     points: increment(pointsDifference),
-                    xp: increment(pointsDifference)
+                    xp: increment(pointsDifference),
                 });
 
                 // Create history entry for the correction
@@ -489,7 +552,7 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                     date: currentDate,
                     subgroupId: subgroupId,
                     timestamp: serverTimestamp(),
-                    awardedBy: "System (Neuberechnung)"
+                    awardedBy: 'System (Neuberechnung)',
                 });
 
                 // XP history
@@ -500,7 +563,7 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                     date: currentDate,
                     subgroupId: subgroupId,
                     timestamp: serverTimestamp(),
-                    awardedBy: "System (Neuberechnung)"
+                    awardedBy: 'System (Neuberechnung)',
                 });
             }
 
@@ -510,14 +573,15 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
                 batch.set(streakRef, {
                     count: newStreak,
                     subgroupId: subgroupId,
-                    lastUpdated: serverTimestamp()
+                    lastUpdated: serverTimestamp(),
                 });
-                console.log(`[recalculateSubsequentDays] Updated streak subcollection: ${newStreak}`);
+                console.log(
+                    `[recalculateSubsequentDays] Updated streak subcollection: ${newStreak}`
+                );
             }
         }
 
         console.log(`[recalculateSubsequentDays] Recalculation complete`);
-
     } catch (error) {
         console.error('[recalculateSubsequentDays] Error during recalculation:', error);
         // Don't throw - let the main operation continue even if recalculation fails
@@ -536,7 +600,6 @@ async function recalculateSubsequentDays(playerId, removedDate, subgroupId, club
  */
 async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubId, db, batch) {
     try {
-
         // Get all trainings for this subgroup (in order)
         const allTrainingsQuery = query(
             collection(db, 'attendance'),
@@ -551,7 +614,7 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
         const allTrainings = allTrainingsSnapshot.docs
             .map(doc => ({
                 date: doc.data().date,
-                presentPlayerIds: doc.data().presentPlayerIds || []
+                presentPlayerIds: doc.data().presentPlayerIds || [],
             }))
             .sort((a, b) => b.date.localeCompare(a.date)); // Sort descending (newest first)
 
@@ -566,12 +629,14 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
 
         if (!latestPresentDate) {
             // Player has no remaining attendance records - set streak to 0
-            console.log(`[updateStreakAfterRemoval] No remaining attendance records, setting streak to 0`);
+            console.log(
+                `[updateStreakAfterRemoval] No remaining attendance records, setting streak to 0`
+            );
             const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
             batch.set(streakRef, {
                 count: 0,
                 subgroupId: subgroupId,
-                lastUpdated: serverTimestamp()
+                lastUpdated: serverTimestamp(),
             });
             return;
         }
@@ -597,16 +662,17 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
             }
         }
 
-        console.log(`[updateStreakAfterRemoval] Calculated streak: ${streak} for date ${latestPresentDate}`);
+        console.log(
+            `[updateStreakAfterRemoval] Calculated streak: ${streak} for date ${latestPresentDate}`
+        );
 
         // Update streak subcollection
         const streakRef = doc(db, `users/${playerId}/streaks`, subgroupId);
         batch.set(streakRef, {
             count: streak,
             subgroupId: subgroupId,
-            lastUpdated: serverTimestamp()
+            lastUpdated: serverTimestamp(),
         });
-
     } catch (error) {
         console.error('[updateStreakAfterRemoval] Error:', error);
         // Don't throw - let the main operation continue
@@ -622,7 +688,14 @@ async function updateStreakAfterRemoval(playerId, removedDate, subgroupId, clubI
  * @param {Object} db - Firestore database instance
  * @param {string} clubId - Club ID
  */
-export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCount, updatePairingsButtonState, db, clubId) {
+export async function handleCalendarDayClick(
+    e,
+    clubPlayers,
+    updateAttendanceCount,
+    updatePairingsButtonState,
+    db,
+    clubId
+) {
     const dayCell = e.target.closest('.calendar-day');
     if (!dayCell || dayCell.classList.contains('disabled')) return;
 
@@ -673,7 +746,15 @@ export async function handleCalendarDayClick(e, clubPlayers, updateAttendanceCou
  * @param {Object} db - Firestore instance
  * @param {string} clubId - Club ID
  */
-export async function openAttendanceModalForSession(sessionId, date, clubPlayers, updateAttendanceCount, updatePairingsButtonState, db, clubId) {
+export async function openAttendanceModalForSession(
+    sessionId,
+    date,
+    clubPlayers,
+    updateAttendanceCount,
+    updatePairingsButtonState,
+    db,
+    clubId
+) {
     try {
         currentSessionId = sessionId;
 
@@ -699,16 +780,20 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
             where('sessionId', '==', sessionId)
         );
         const attendanceSnapshot = await getDocs(attendanceQuery);
-        const attendanceData = attendanceSnapshot.empty ? null : {
-            id: attendanceSnapshot.docs[0].id,
-            ...attendanceSnapshot.docs[0].data()
-        };
+        const attendanceData = attendanceSnapshot.empty
+            ? null
+            : {
+                  id: attendanceSnapshot.docs[0].id,
+                  ...attendanceSnapshot.docs[0].data(),
+              };
 
         const modal = document.getElementById('attendance-modal');
         document.getElementById('attendance-modal-date').textContent =
             `${new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - ${sessionData.startTime}-${sessionData.endTime}`;
         document.getElementById('attendance-date-input').value = date;
-        document.getElementById('attendance-doc-id-input').value = attendanceData ? attendanceData.id : '';
+        document.getElementById('attendance-doc-id-input').value = attendanceData
+            ? attendanceData.id
+            : '';
 
         // Store sessionId in a hidden field
         let sessionIdInput = document.getElementById('attendance-session-id-input');
@@ -727,16 +812,20 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
             playerListContainer.removeChild(playerListContainer.firstChild);
         }
 
-        console.log(`[Attendance Modal] Container cleared, checkboxes count: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
+        console.log(
+            `[Attendance Modal] Container cleared, checkboxes count: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`
+        );
         console.log(`[Attendance Modal] Total players in clubPlayers: ${clubPlayers.length}`);
         console.log(`[Attendance Modal] Session subgroup: ${subgroupId}`);
 
         // Filter players: Only show players who are members of the session's subgroup
-        const playersInCurrentSubgroup = clubPlayers.filter(player =>
-            player.subgroupIDs && player.subgroupIDs.includes(subgroupId)
+        const playersInCurrentSubgroup = clubPlayers.filter(
+            player => player.subgroupIDs && player.subgroupIDs.includes(subgroupId)
         );
 
-        console.log(`[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`);
+        console.log(
+            `[Attendance Modal] Players in current subgroup (before dedup): ${playersInCurrentSubgroup.length}`
+        );
 
         // Deduplicate players by ID to prevent duplicates in the UI
         const playersMap = new Map();
@@ -749,7 +838,9 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
         });
         const uniquePlayers = Array.from(playersMap.values());
 
-        console.log(`[Attendance Modal] Unique players after dedup: ${uniquePlayers.length} (removed ${dedupCount} duplicates)`);
+        console.log(
+            `[Attendance Modal] Unique players after dedup: ${uniquePlayers.length} (removed ${dedupCount} duplicates)`
+        );
 
         if (uniquePlayers.length === 0) {
             playerListContainer.innerHTML = `
@@ -776,14 +867,19 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
             playerListContainer.appendChild(div);
         }
 
-        console.log(`[Attendance Modal] Rendered ${uniquePlayers.length} players in the attendance list`);
-        console.log(`[Attendance Modal] Total checkboxes in DOM: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`);
+        console.log(
+            `[Attendance Modal] Rendered ${uniquePlayers.length} players in the attendance list`
+        );
+        console.log(
+            `[Attendance Modal] Total checkboxes in DOM: ${playerListContainer.querySelectorAll('input[type="checkbox"]').length}`
+        );
 
         modal.classList.remove('hidden');
 
         // Initialen Zustand für Zähler und Button setzen
         if (currentUpdateAttendanceCount) currentUpdateAttendanceCount();
-        if (currentUpdatePairingsButtonState) currentUpdatePairingsButtonState(currentClubPlayers, subgroupId);
+        if (currentUpdatePairingsButtonState)
+            currentUpdatePairingsButtonState(currentClubPlayers, subgroupId);
     } catch (error) {
         console.error('[Attendance Modal] Error rendering attendance:', error);
     } finally {
@@ -802,7 +898,14 @@ export async function openAttendanceModalForSession(sessionId, date, clubPlayers
  * @param {Date} currentCalendarDate - Current calendar date being viewed
  * @param {Function} renderCalendarCallback - Callback to re-render calendar
  */
-export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, currentCalendarDate, renderCalendarCallback) {
+export async function handleAttendanceSave(
+    e,
+    db,
+    currentUserData,
+    clubPlayers,
+    currentCalendarDate,
+    renderCalendarCallback
+) {
     e.preventDefault();
     const feedbackEl = document.getElementById('attendance-feedback');
     feedbackEl.textContent = 'Speichere...';
@@ -815,7 +918,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
     // NEW: If no sessionId, we can't save (must have a training session)
     if (!sessionId) {
-        feedbackEl.textContent = 'Keine Training-Session gefunden. Bitte erstelle zuerst ein Training.';
+        feedbackEl.textContent =
+            'Keine Training-Session gefunden. Bitte erstelle zuerst ein Training.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
@@ -839,13 +943,15 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             subgroupName = subgroupId;
         }
     } catch (error) {
-        console.error("Error loading session/subgroup:", error);
+        console.error('Error loading session/subgroup:', error);
         feedbackEl.textContent = 'Fehler beim Laden der Session-Daten';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
         return;
     }
 
-    const allPlayerCheckboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]');
+    const allPlayerCheckboxes = document
+        .getElementById('attendance-player-list')
+        .querySelectorAll('input[type="checkbox"]');
     const presentPlayerIds = Array.from(allPlayerCheckboxes)
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
@@ -866,7 +972,9 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
     }
 
     console.log(`[Attendance Save] Session ${sessionId}, Date: ${date}`);
-    console.log(`  - Previously present in THIS session: ${previouslyPresentIdsOnThisDay.length} players`);
+    console.log(
+        `  - Previously present in THIS session: ${previouslyPresentIdsOnThisDay.length} players`
+    );
     console.log(`  - Now present in THIS session: ${presentPlayerIds.length} players`);
 
     try {
@@ -886,7 +994,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
 
         let previousTrainingPresentIds = [];
         if (!previousTrainingSnapshot.empty) {
-            previousTrainingPresentIds = previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
+            previousTrainingPresentIds =
+                previousTrainingSnapshot.docs[0].data().presentPlayerIds || [];
         }
 
         // Handle attendance document: delete if empty, create/update otherwise
@@ -900,20 +1009,24 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             // If no entry exists and no players present, we don't need to do anything
         } else {
             // Update/create attendance document for this session
-            batch.set(attendanceRef, {
-                date,
-                clubId: currentUserData.clubId,
-                subgroupId, // CHANGED: Use subgroupId from session
-                sessionId, // NEW: Add sessionId
-                presentPlayerIds,
-                updatedAt: serverTimestamp()
-            }, { merge: true });
+            batch.set(
+                attendanceRef,
+                {
+                    date,
+                    clubId: currentUserData.clubId,
+                    subgroupId, // CHANGED: Use subgroupId from session
+                    sessionId, // NEW: Add sessionId
+                    presentPlayerIds,
+                    updatedAt: serverTimestamp(),
+                },
+                { merge: true }
+            );
         }
 
         // Process EVERY player in the club and update their subgroup-specific streak and points
         // Filter to only process players who are members of this subgroup
-        const playersInSubgroup = clubPlayers.filter(p =>
-            p.subgroupIDs && p.subgroupIDs.includes(subgroupId) // CHANGED: Use subgroupId from session
+        const playersInSubgroup = clubPlayers.filter(
+            p => p.subgroupIDs && p.subgroupIDs.includes(subgroupId) // CHANGED: Use subgroupId from session
         );
 
         for (const player of playersInSubgroup) {
@@ -929,7 +1042,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                 if (!wasPresentPreviouslyOnThisDay) {
                     // Get current streak from subcollection
                     const streakDoc = await getDoc(streakRef);
-                    const currentStreak = streakDoc.exists() ? (streakDoc.data().count || 0) : 0;
+                    const currentStreak = streakDoc.exists() ? streakDoc.data().count || 0 : 0;
 
                     const wasPresentLastTraining = previousTrainingPresentIds.includes(player.id);
 
@@ -949,36 +1062,40 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     // We need to filter out both:
                     // 1. The current sessionId (to exclude this session)
                     // 2. The current docId (if editing an existing document, to exclude this specific record)
-                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(docSnapshot => {
-                        const docData = docSnapshot.data();
+                    const otherTrainingsCount = otherTrainingsTodaySnapshot.docs.filter(
+                        docSnapshot => {
+                            const docData = docSnapshot.data();
 
-                        // Only count documents that have a sessionId
-                        // This prevents old documents without sessionId from being counted
-                        if (!docData.sessionId) {
-                            console.warn(`[Attendance Save] Found attendance document without sessionId: ${docSnapshot.id}`);
-                            return false; // Skip documents without sessionId
+                            // Only count documents that have a sessionId
+                            // This prevents old documents without sessionId from being counted
+                            if (!docData.sessionId) {
+                                console.warn(
+                                    `[Attendance Save] Found attendance document without sessionId: ${docSnapshot.id}`
+                                );
+                                return false; // Skip documents without sessionId
+                            }
+
+                            // Exclude if it's the same session
+                            if (docData.sessionId === sessionId) {
+                                return false;
+                            }
+
+                            // ALSO exclude if it's the current document being edited
+                            // This handles the case where we're updating an existing attendance record
+                            if (docId && docSnapshot.id === docId) {
+                                return false;
+                            }
+
+                            return true;
                         }
-
-                        // Exclude if it's the same session
-                        if (docData.sessionId === sessionId) {
-                            return false;
-                        }
-
-                        // ALSO exclude if it's the current document being edited
-                        // This handles the case where we're updating an existing attendance record
-                        if (docId && docSnapshot.id === docId) {
-                            return false;
-                        }
-
-                        return true;
-                    }).length;
+                    ).length;
                     const alreadyAttendedToday = otherTrainingsCount > 0;
 
                     // Format date for display in history
                     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: '2-digit',
-                        year: 'numeric'
+                        year: 'numeric',
                     });
 
                     // Bonus points logic (New System)
@@ -1009,14 +1126,14 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                     batch.set(streakRef, {
                         count: newStreak,
                         subgroupId: subgroupId,
-                        lastUpdated: serverTimestamp()
+                        lastUpdated: serverTimestamp(),
                     });
 
                     // Update global player points and XP
                     batch.update(playerRef, {
                         points: increment(pointsToAdd),
                         xp: increment(pointsToAdd), // XP = same as points for attendance
-                        lastXPUpdate: serverTimestamp()
+                        lastXPUpdate: serverTimestamp(),
                     });
 
                     const historyRef = doc(collection(db, `users/${player.id}/pointsHistory`));
@@ -1028,7 +1145,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         date: date, // Store date for easier lookup when correcting
                         subgroupId: subgroupId, // Store subgroup ID for precise matching
                         timestamp: serverTimestamp(),
-                        awardedBy: "System (Anwesenheit)"
+                        awardedBy: 'System (Anwesenheit)',
                     });
 
                     // Track XP in separate history
@@ -1039,7 +1156,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         date: date, // Store date for easier lookup
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: "System (Anwesenheit)"
+                        awardedBy: 'System (Anwesenheit)',
                     });
                 }
             }
@@ -1048,19 +1165,25 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                 // If coach unchecked the player for this day, deduct the originally awarded points
                 if (wasPresentPreviouslyOnThisDay) {
                     // Find the original points awarded for this date by searching pointsHistory
-                    const pointsToDeduct = await findOriginalAttendancePoints(player.id, date, subgroupName, db, subgroupId);
+                    const pointsToDeduct = await findOriginalAttendancePoints(
+                        player.id,
+                        date,
+                        subgroupName,
+                        db,
+                        subgroupId
+                    );
 
                     // Format date for display in history
                     const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
                         day: '2-digit',
                         month: '2-digit',
-                        year: 'numeric'
+                        year: 'numeric',
                     });
 
                     // Deduct both points and XP
                     batch.update(playerRef, {
                         points: increment(-pointsToDeduct),
-                        xp: increment(-pointsToDeduct)
+                        xp: increment(-pointsToDeduct),
                     });
 
                     // Create negative entry in history
@@ -1073,7 +1196,7 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         date: date, // Store date for tracking
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: "System (Anwesenheit)"
+                        awardedBy: 'System (Anwesenheit)',
                     });
 
                     // Track XP deduction in xpHistory as well
@@ -1084,18 +1207,33 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
                         date: date, // Store date for tracking
                         subgroupId: subgroupId,
                         timestamp: serverTimestamp(),
-                        awardedBy: "System (Anwesenheit)"
+                        awardedBy: 'System (Anwesenheit)',
                     });
 
                     // IMPORTANT: Recalculate all subsequent training days
                     // When we remove a day, all future days need to be recalculated
                     // because their streaks might have changed
-                    await recalculateSubsequentDays(player.id, date, subgroupId, currentUserData.clubId, db, batch, subgroupName);
+                    await recalculateSubsequentDays(
+                        player.id,
+                        date,
+                        subgroupId,
+                        currentUserData.clubId,
+                        db,
+                        batch,
+                        subgroupName
+                    );
 
                     // IMPORTANT: Update the streak subcollection
                     // If we removed the last day, recalculateSubsequentDays won't update the streak
                     // So we need to calculate the correct streak based on remaining trainings
-                    await updateStreakAfterRemoval(player.id, date, subgroupId, currentUserData.clubId, db, batch);
+                    await updateStreakAfterRemoval(
+                        player.id,
+                        date,
+                        subgroupId,
+                        currentUserData.clubId,
+                        db,
+                        batch
+                    );
                 }
             }
         }
@@ -1110,9 +1248,8 @@ export async function handleAttendanceSave(e, db, currentUserData, clubPlayers, 
             feedbackEl.textContent = '';
             renderCalendarCallback(currentCalendarDate); // Kalender neu laden
         }, 1500);
-
     } catch (error) {
-        console.error("Fehler beim Speichern der Anwesenheit:", error);
+        console.error('Fehler beim Speichern der Anwesenheit:', error);
         feedbackEl.textContent = `Fehler: ${error.message}`;
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     }
@@ -1136,11 +1273,13 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     );
 
     // Helper function to process players (deduplication logic)
-    const processPlayers = (snapshot) => {
+    const processPlayers = snapshot => {
         const totalLoaded = snapshot.docs.length;
         const hitLimit = totalLoaded === PLAYER_LIMIT;
 
-        console.log(`[Attendance] Loaded ${totalLoaded} player documents from Firestore${hitLimit ? ' (limit reached)' : ''}`);
+        console.log(
+            `[Attendance] Loaded ${totalLoaded} player documents from Firestore${hitLimit ? ' (limit reached)' : ''}`
+        );
 
         // Use Map to prevent duplicate players
         // Deduplicate by document ID first, then by email or name combination
@@ -1172,12 +1311,18 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
         });
 
         const players = Array.from(playersMap.values());
-        console.log(`[Attendance] After deduplication: ${players.length} unique players (removed ${duplicateCount} duplicates)`);
+        console.log(
+            `[Attendance] After deduplication: ${players.length} unique players (removed ${duplicateCount} duplicates)`
+        );
 
         // Warn if we hit the limit (club might have more players)
         if (hitLimit) {
-            console.warn(`[Attendance] ⚠️ Player limit (${PLAYER_LIMIT}) reached! Club may have more players.`);
-            console.warn('[Attendance] Consider implementing "Load More" functionality for larger clubs.');
+            console.warn(
+                `[Attendance] ⚠️ Player limit (${PLAYER_LIMIT}) reached! Club may have more players.`
+            );
+            console.warn(
+                '[Attendance] Consider implementing "Load More" functionality for larger clubs.'
+            );
         }
 
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
@@ -1185,35 +1330,41 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     };
 
     // OPTIMIZATION: Initial load with getDocs (fast, one-time)
-    getDocs(q).then(snapshot => {
-        console.log('[Attendance] ⚡ Initial load complete (getDocs - optimized)');
-        const players = processPlayers(snapshot);
-        onPlayersLoaded(players);
+    getDocs(q)
+        .then(snapshot => {
+            console.log('[Attendance] ⚡ Initial load complete (getDocs - optimized)');
+            const players = processPlayers(snapshot);
+            onPlayersLoaded(players);
 
-        // OPTIMIZATION: Then activate live updates with debouncing
-        let debounceTimeout = null;
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            console.log('[Attendance] 🔄 Live update received, debouncing...');
+            // OPTIMIZATION: Then activate live updates with debouncing
+            let debounceTimeout = null;
+            const unsubscribe = onSnapshot(
+                q,
+                snapshot => {
+                    console.log('[Attendance] 🔄 Live update received, debouncing...');
 
-            // Clear existing timeout
-            if (debounceTimeout) clearTimeout(debounceTimeout);
+                    // Clear existing timeout
+                    if (debounceTimeout) clearTimeout(debounceTimeout);
 
-            // Debounce updates (500ms) - bundles rapid changes
-            debounceTimeout = setTimeout(() => {
-                console.log('[Attendance] ✅ Processing debounced live update');
-                const players = processPlayers(snapshot);
-                onPlayersLoaded(players);
-            }, 500);
-        }, (error) => {
-            console.error("Fehler beim Laden der Spieler für die Anwesenheit:", error);
+                    // Debounce updates (500ms) - bundles rapid changes
+                    debounceTimeout = setTimeout(() => {
+                        console.log('[Attendance] ✅ Processing debounced live update');
+                        const players = processPlayers(snapshot);
+                        onPlayersLoaded(players);
+                    }, 500);
+                },
+                error => {
+                    console.error('Fehler beim Laden der Spieler für die Anwesenheit:', error);
+                }
+            );
+
+            // Store unsubscribe function for cleanup
+            if (!window.attendanceUnsubscribes) window.attendanceUnsubscribes = [];
+            window.attendanceUnsubscribes.push(unsubscribe);
+        })
+        .catch(error => {
+            console.error('[Attendance] ❌ Error during initial load:', error);
         });
-
-        // Store unsubscribe function for cleanup
-        if (!window.attendanceUnsubscribes) window.attendanceUnsubscribes = [];
-        window.attendanceUnsubscribes.push(unsubscribe);
-    }).catch(error => {
-        console.error('[Attendance] ❌ Error during initial load:', error);
-    });
 }
 
 /**
@@ -1222,6 +1373,8 @@ export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
 export function updateAttendanceCount() {
     const countEl = document.getElementById('attendance-count');
     if (!countEl) return;
-    const checkboxes = document.getElementById('attendance-player-list').querySelectorAll('input[type="checkbox"]:checked');
+    const checkboxes = document
+        .getElementById('attendance-player-list')
+        .querySelectorAll('input[type="checkbox"]:checked');
     countEl.textContent = `${checkboxes.length} Spieler anwesend`;
 }

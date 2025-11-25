@@ -25,7 +25,9 @@
 .tutorial-spotlight {
     position: relative;
     z-index: 9999 !important;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px rgba(79, 70, 229, 0.8) !important;
+    box-shadow:
+        0 0 0 9999px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(79, 70, 229, 0.8) !important;
     border-radius: 8px !important;
     animation: tutorial-pulse 2s infinite;
     pointer-events: auto;
@@ -37,11 +39,16 @@
 }
 
 @keyframes tutorial-pulse {
-    0%, 100% {
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 20px rgba(79, 70, 229, 0.8);
+    0%,
+    100% {
+        box-shadow:
+            0 0 0 9999px rgba(0, 0, 0, 0.5),
+            0 0 20px rgba(79, 70, 229, 0.8);
     }
     50% {
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 30px rgba(79, 70, 229, 1);
+        box-shadow:
+            0 0 0 9999px rgba(0, 0, 0, 0.5),
+            0 0 30px rgba(79, 70, 229, 1);
     }
 }
 
@@ -300,15 +307,22 @@ body.tutorial-active {
 
     /* Spotlight weniger intensiv auf Mobile */
     .tutorial-spotlight {
-        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(79, 70, 229, 0.6) !important;
+        box-shadow:
+            0 0 0 9999px rgba(0, 0, 0, 0.4),
+            0 0 15px rgba(79, 70, 229, 0.6) !important;
     }
 
     @keyframes tutorial-pulse {
-        0%, 100% {
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(79, 70, 229, 0.6);
+        0%,
+        100% {
+            box-shadow:
+                0 0 0 9999px rgba(0, 0, 0, 0.4),
+                0 0 15px rgba(79, 70, 229, 0.6);
         }
         50% {
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 25px rgba(79, 70, 229, 0.8);
+            box-shadow:
+                0 0 0 9999px rgba(0, 0, 0, 0.4),
+                0 0 25px rgba(79, 70, 229, 0.8);
         }
     }
 }
@@ -343,7 +357,9 @@ html.tutorial-active {
 }
 
 @keyframes tutorial-spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Highlight Effect (alternative to spotlight) */
