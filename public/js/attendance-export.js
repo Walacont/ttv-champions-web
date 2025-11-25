@@ -151,23 +151,23 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Build Excel data structure in matrix format
         const excelData = [];
 
-        // Create a color palette for dates (pastel colors for better readability)
-        const colorPalette = [
-            'FFB3E5FC', // Light Blue
-            'FFC8E6C9', // Light Green
-            'FFFFF9C4', // Light Yellow
-            'FFFFCCBC', // Light Orange
-            'FFD1C4E9', // Light Purple
-            'FFF8BBD0', // Light Pink
-            'FFB2DFDB', // Light Teal
-            'FFDCEDC8', // Light Lime
-        ];
+        // Count how many sessions per date
+        const sessionsPerDate = new Map();
+        sessions.forEach(session => {
+            const count = sessionsPerDate.get(session.date) || 0;
+            sessionsPerDate.set(session.date, count + 1);
+        });
 
-        // Map each unique date to a color
+        // Map each date to a color: only highlight dates with multiple sessions
         const dateColorMap = new Map();
-        const uniqueDates = [...new Set(sessions.map(s => s.date))];
-        uniqueDates.forEach((date, index) => {
-            dateColorMap.set(date, colorPalette[index % colorPalette.length]);
+        const highlightColor = 'FFFFEB99'; // Light yellow/amber for dates with multiple trainings
+
+        sessions.forEach(session => {
+            if (sessionsPerDate.get(session.date) > 1) {
+                dateColorMap.set(session.date, highlightColor);
+            } else {
+                dateColorMap.set(session.date, null); // No special color for single trainings
+            }
         });
 
         // Build header rows
@@ -267,11 +267,14 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                         const session = sessions[sessionIndex];
                         const color = dateColorMap.get(session.date);
 
-                        cell.fill = {
-                            type: 'pattern',
-                            pattern: 'solid',
-                            fgColor: { argb: color },
-                        };
+                        // Only apply color if this date has multiple trainings
+                        if (color) {
+                            cell.fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: { argb: color },
+                            };
+                        }
                     }
 
                     // Make all header cells bold and centered
