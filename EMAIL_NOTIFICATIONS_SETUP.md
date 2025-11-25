@@ -4,9 +4,15 @@ Die TTV Champions App sendet automatisch Email-Benachrichtigungen an Coaches, we
 
 ## 📧 Funktionsweise
 
+### Singles-Matches (`notifyCoachesSinglesRequest`)
 - **Trigger:** Wenn ein Spieler eine Match-Anfrage erstellt und der Gegner zustimmt, ändert sich der Status zu `pending_coach`
 - **Empfänger:** Alle Coaches und Admins im jeweiligen Club
 - **Inhalt:** Spielernamen, Ergebnis, Gewinner, Handicap-Info
+
+### Doppel-Matches (`notifyCoachesDoublesRequest`)
+- **Trigger:** Wenn ein Doppel-Match zur Genehmigung eingereicht wird (Status: `pending_coach`)
+- **Empfänger:** Alle Coaches und Admins im jeweiligen Club
+- **Inhalt:** Team-Namen, Ergebnis, Gewinner-Team, Handicap-Info
 
 ## ⚙️ Email-Provider Konfiguration
 
@@ -102,20 +108,34 @@ firebase functions:config:set app.url="https://ttv-champions.web.app"
 cd functions
 npm install
 cd ..
-firebase deploy --only functions:notifyCoachesSinglesRequest
+
+# Deploy beide Email-Funktionen
+firebase deploy --only functions:notifyCoachesSinglesRequest,functions:notifyCoachesDoublesRequest
+
+# Oder alle Functions auf einmal
+firebase deploy --only functions
 ```
 
-## 📝 Email-Template
+## 📝 Email-Templates
 
-Die Email enthält:
+### Singles-Match Email
 - Begrüßung mit Coach-Namen
-- Match-Details (Spieler, Ergebnis, Gewinner)
+- Match-Details (Spieler A vs Spieler B, Ergebnis, Gewinner)
+- Handicap-Hinweis (falls verwendet)
+- **Direkter Link zur Coach-App** zum Genehmigen
+- Automatisch generierte Signatur
+
+### Doppel-Match Email
+- Begrüßung mit Coach-Namen
+- Team-Details (Team A vs Team B mit allen 4 Spielern)
+- Match-Ergebnis und Gewinner-Team
 - Handicap-Hinweis (falls verwendet)
 - **Direkter Link zur Coach-App** zum Genehmigen
 - Automatisch generierte Signatur
 
 ## 🧪 Testen
 
+### Singles-Match testen
 1. Erstelle eine Test-Match-Anfrage als Spieler
 2. Lass den Gegner zustimmen
 3. Prüfe die Firebase Functions Logs:
@@ -124,13 +144,29 @@ Die Email enthält:
    ```
 4. Coach sollte eine Email erhalten
 
+### Doppel-Match testen
+1. Erstelle eine Doppel-Match-Anfrage mit 4 Spielern
+2. Reiche das Match zur Genehmigung ein
+3. Prüfe die Logs:
+   ```bash
+   firebase functions:log --only notifyCoachesDoublesRequest
+   ```
+4. Coach sollte eine Email mit Team-Details erhalten
+
 ## 🔍 Troubleshooting
 
 ### Keine Email erhalten?
 
 **1. Prüfe die Logs:**
 ```bash
+# Singles
 firebase functions:log --only notifyCoachesSinglesRequest
+
+# Doubles
+firebase functions:log --only notifyCoachesDoublesRequest
+
+# Beide
+firebase functions:log | grep "Email sent"
 ```
 
 **2. Prüfe SMTP-Konfiguration:**
@@ -169,11 +205,17 @@ Die Umgebungsvariablen sind nicht gesetzt. Führe Schritt 1 aus.
 
 Prüfe regelmäßig:
 ```bash
-# Anzahl gesendeter Emails
+# Anzahl gesendeter Emails (alle)
+firebase functions:log | grep "Email sent" | wc -l
+
+# Anzahl gesendeter Singles-Emails
 firebase functions:log --only notifyCoachesSinglesRequest | grep "Email sent"
 
+# Anzahl gesendeter Doppel-Emails
+firebase functions:log --only notifyCoachesDoublesRequest | grep "Email sent"
+
 # Fehlerrate
-firebase functions:log --only notifyCoachesSinglesRequest | grep "Failed to send"
+firebase functions:log | grep "Failed to send"
 ```
 
 ## 💡 Tipps
