@@ -44,7 +44,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'europe-west3');
 
 // NEU: Der Emulator-Block
 // Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
