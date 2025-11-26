@@ -311,7 +311,7 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         }
 
         // Add bottom row with counts per session (only counting players, not coaches)
-        const countRow = ['Anzahl', ''];
+        const countRow = ['Spieler pro Tag (ohne Trainer)', ''];
         for (const session of sessions) {
             const attendanceKey = `${session.date}_${session.id}`;
             const attendance = attendanceRecords.get(attendanceKey);
