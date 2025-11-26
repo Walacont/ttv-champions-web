@@ -1,9 +1,10 @@
 /**
  * Coach Statistics Module
- * Handles the Statistics tab for coaches with 3 main sections:
+ * Handles the Statistics tab for coaches with 4 main sections:
  * 1. 📈 Trainings-Analyse (Training Analysis)
- * 2. 👥 Team-Übersicht (Team Overview)
- * 3. 🔥 Aktivitäts-Monitor (Activity Monitor)
+ * 2. 🏓 Wettkampf-Aktivität (Competition Activity)
+ * 3. 👥 Team-Übersicht (Team Overview)
+ * 4. 🔥 Aktivitäts-Monitor (Activity Monitor)
  */
 
 import {
@@ -15,6 +16,7 @@ import {
     limit,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { RANK_ORDER } from './ranks.js';
+import { loadCompetitionStatistics, cleanupCompetitionStatistics } from './competition-statistics.js';
 
 // Chart instances (global to allow cleanup)
 let attendanceTrendChart = null;
@@ -33,6 +35,7 @@ export async function loadStatistics(userData, db, currentSubgroupFilter = 'all'
         // Load all statistics sections
         await Promise.all([
             loadTrainingAnalysis(userData, db, currentSubgroupFilter),
+            loadCompetitionStatistics(userData, db, currentSubgroupFilter),
             loadTeamOverview(userData, db, currentSubgroupFilter),
             loadActivityMonitor(userData, db, currentSubgroupFilter),
         ]);
@@ -734,4 +737,5 @@ export function cleanupStatistics() {
         rankDistributionChart.destroy();
         rankDistributionChart = null;
     }
+    cleanupCompetitionStatistics();
 }
