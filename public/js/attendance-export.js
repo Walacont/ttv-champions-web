@@ -14,6 +14,31 @@ import {
  */
 
 /**
+ * Calculates the duration in hours between two time strings
+ * @param {string} startTime - Start time in HH:MM format (e.g., "18:00")
+ * @param {string} endTime - End time in HH:MM format (e.g., "20:00")
+ * @returns {number} Duration in hours (e.g., 2.0)
+ */
+function calculateSessionDuration(startTime, endTime) {
+    try {
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+
+        const startTotalMinutes = startHour * 60 + startMinute;
+        const endTotalMinutes = endHour * 60 + endMinute;
+
+        const durationMinutes = endTotalMinutes - startTotalMinutes;
+        const durationHours = durationMinutes / 60;
+
+        // Round to 1 decimal place
+        return Math.round(durationHours * 10) / 10;
+    } catch (error) {
+        console.error('Error calculating session duration:', error);
+        return 2.0; // Default to 2 hours
+    }
+}
+
+/**
  * Exports attendance data for a specific month to Excel
  * @param {Object} db - Firestore database instance
  * @param {string} clubId - Club ID
@@ -279,7 +304,7 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Add coach rows
         for (const coach of allCoaches) {
             const row = [coach.lastName || '', coach.firstName || ''];
-            let coachTotal = 0; // Count attendance for this coach
+            let coachTotalHours = 0; // Total hours for this coach
 
             // Check attendance for each session
             for (const session of sessions) {
@@ -287,25 +312,34 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                 const attendanceKey = `${session.date}_${session.id}`;
                 const attendance = attendanceRecords.get(attendanceKey);
 
-                // Check if this coach was present (in coachIds array)
-                let isPresent = false;
-                if (attendance && attendance.coachIds && attendance.coachIds.includes(coach.id)) {
-                    isPresent = true;
-                } else if (attendance && attendance.coachId === coach.id) {
-                    // Backward compatibility for old single-coach data
-                    isPresent = true;
+                let hours = 0;
+
+                // New format: coaches array with {id, hours}
+                if (attendance && attendance.coaches && Array.isArray(attendance.coaches)) {
+                    const coachData = attendance.coaches.find(c => c.id === coach.id);
+                    if (coachData && coachData.hours) {
+                        hours = coachData.hours;
+                    }
+                }
+                // Old format: coachIds array (backward compatibility)
+                else if (attendance && attendance.coachIds && attendance.coachIds.includes(coach.id)) {
+                    // Calculate session duration as fallback
+                    hours = calculateSessionDuration(session.startTime, session.endTime);
+                }
+                // Very old format: single coachId (backward compatibility)
+                else if (attendance && attendance.coachId === coach.id) {
+                    // Calculate session duration as fallback
+                    hours = calculateSessionDuration(session.startTime, session.endTime);
                 }
 
-                // Add checkbox: ☑ if present, ☐ if not
-                row.push(isPresent ? '☑' : '☐');
+                // Add hours to row (show hours if present, empty if not)
+                row.push(hours > 0 ? hours : '');
 
-                if (isPresent) {
-                    coachTotal++;
-                }
+                coachTotalHours += hours;
             }
 
-            // Add total for this coach
-            row.push(coachTotal);
+            // Add total hours for this coach (rounded to 1 decimal)
+            row.push(coachTotalHours > 0 ? Math.round(coachTotalHours * 10) / 10 : '');
 
             excelData.push(row);
         }
@@ -331,8 +365,9 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
 
         // Add legend
         excelData.push(['Legende:']);
-        excelData.push(['☑', '= Anwesend']);
-        excelData.push(['☐', '= Nicht anwesend']);
+        excelData.push(['Spieler:', '☑ = Anwesend, ☐ = Nicht anwesend']);
+        excelData.push(['Trainer:', 'Stunden = Anwesenheitszeit in Stunden (z.B. 2.5)']);
+        excelData.push(['Gesamt:', 'Spieler = Anzahl Trainings, Trainer = Summe Stunden']);
         if (datesWithMultipleSessions.length > 0) {
             excelData.push([
                 'Farbige Spalten',
