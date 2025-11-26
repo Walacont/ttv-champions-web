@@ -362,16 +362,32 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
                 }
             }
 
+            // Check if players are deleted
+            const player1Deleted = player1Data?.deleted || !player1Data?.firstName || !player1Data?.lastName;
+            const player2Deleted = player2Data?.deleted || !player2Data?.firstName || !player2Data?.lastName;
+
             pairings.push({
                 id: docSnap.id,
-                player1Name: data.player1Name || 'Unbekannt',
-                player2Name: data.player2Name || 'Unbekannt',
+                player1Name: player1Deleted
+                    ? (player1Data?.displayName || 'Gelöschter Nutzer')
+                    : (data.player1Name || 'Unbekannt'),
+                player2Name: player2Deleted
+                    ? (player2Data?.displayName || 'Gelöschter Nutzer')
+                    : (data.player2Name || 'Unbekannt'),
                 player1PhotoURL: player1Data?.photoURL || null,
                 player2PhotoURL: player2Data?.photoURL || null,
-                player1FirstName: player1Data?.firstName || data.player1Name?.split(' ')[0] || 'U',
-                player1LastName: player1Data?.lastName || data.player1Name?.split(' ')[1] || 'N',
-                player2FirstName: player2Data?.firstName || data.player2Name?.split(' ')[0] || 'U',
-                player2LastName: player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N',
+                player1FirstName: player1Deleted
+                    ? (player1Data?.displayName?.substring(0, 2) || 'GN')
+                    : (player1Data?.firstName || data.player1Name?.split(' ')[0] || 'U'),
+                player1LastName: player1Deleted
+                    ? ''
+                    : (player1Data?.lastName || data.player1Name?.split(' ')[1] || 'N'),
+                player2FirstName: player2Deleted
+                    ? (player2Data?.displayName?.substring(0, 2) || 'GN')
+                    : (player2Data?.firstName || data.player2Name?.split(' ')[0] || 'U'),
+                player2LastName: player2Deleted
+                    ? ''
+                    : (player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N'),
                 ...data,
             });
         }

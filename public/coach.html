@@ -2502,7 +2502,9 @@
                             </h2>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                                 <div class="bg-emerald-50 p-4 rounded-lg text-center">
-                                    <p class="text-sm text-gray-600 mb-1">Gesamt (12 Monate)</p>
+                                    <p id="stats-competition-total-label" class="text-sm text-gray-600 mb-1">
+                                        Gesamt (12 Monate)
+                                    </p>
                                     <p
                                         id="stats-competition-total"
                                         class="text-3xl font-bold text-emerald-600"
@@ -2512,7 +2514,9 @@
                                     <p class="text-xs text-gray-500 mt-1">Wettkämpfe</p>
                                 </div>
                                 <div class="bg-sky-50 p-4 rounded-lg text-center">
-                                    <p class="text-sm text-gray-600 mb-1">Ø pro Monat</p>
+                                    <p id="stats-competition-avg-label" class="text-sm text-gray-600 mb-1">
+                                        Ø pro Monat
+                                    </p>
                                     <p
                                         id="stats-competition-avg"
                                         class="text-3xl font-bold text-sky-600"
@@ -2522,17 +2526,22 @@
                                     <p class="text-xs text-gray-500 mt-1">Wettkämpfe</p>
                                 </div>
                                 <div class="bg-violet-50 p-4 rounded-lg text-center">
-                                    <p class="text-sm text-gray-600 mb-1">Aktivster Monat</p>
                                     <p
-                                        id="stats-competition-active-month"
+                                        id="stats-competition-active-period-label"
+                                        class="text-sm text-gray-600 mb-1"
+                                    >
+                                        Aktivster Monat
+                                    </p>
+                                    <p
+                                        id="stats-competition-active-period"
                                         class="text-3xl font-bold text-violet-600"
                                     >
                                         -
                                     </p>
-                                    <p class="text-xs text-gray-500 mt-1">Monat (Anzahl)</p>
+                                    <p class="text-xs text-gray-500 mt-1">Zeitraum (Anzahl)</p>
                                 </div>
                                 <div class="bg-amber-50 p-4 rounded-lg text-center">
-                                    <p class="text-sm text-gray-600 mb-1">Trend (6M)</p>
+                                    <p class="text-sm text-gray-600 mb-1">Trend</p>
                                     <p
                                         id="stats-competition-trend"
                                         class="text-3xl font-bold text-amber-600"
@@ -2543,8 +2552,39 @@
                                 </div>
                             </div>
 
-                            <!-- Filter Buttons -->
-                            <div class="flex flex-wrap gap-2 mb-4 justify-center">
+                            <!-- Period Filter Buttons -->
+                            <div class="mb-3">
+                                <p class="text-sm font-semibold text-gray-700 mb-2 text-center">
+                                    Zeitraum:
+                                </p>
+                                <div class="flex flex-wrap gap-2 justify-center">
+                                    <button
+                                        id="competition-period-week"
+                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
+                                    >
+                                        📅 Woche
+                                    </button>
+                                    <button
+                                        id="competition-period-month"
+                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white"
+                                    >
+                                        📆 Monat
+                                    </button>
+                                    <button
+                                        id="competition-period-year"
+                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
+                                    >
+                                        📊 Jahr
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Type Filter Buttons -->
+                            <div class="mb-4">
+                                <p class="text-sm font-semibold text-gray-700 mb-2 text-center">
+                                    Ansicht:
+                                </p>
+                                <div class="flex flex-wrap gap-2 justify-center">
                                 <button
                                     id="competition-filter-all"
                                     class="px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white"
@@ -2563,19 +2603,18 @@
                                 >
                                     Nur von Spielern
                                 </button>
-                                <button
-                                    id="competition-filter-comparison"
-                                    class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
-                                >
-                                    Trainer vs. Spieler
-                                </button>
+                                    <button
+                                        id="competition-filter-comparison"
+                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
+                                    >
+                                        Trainer vs. Spieler
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Chart -->
                             <div class="bg-gray-50 p-4 rounded-lg">
-                                <h3 class="text-lg font-semibold mb-4">
-                                    Monatliche Übersicht (Letzte 12 Monate)
-                                </h3>
+                                <h3 class="text-lg font-semibold mb-4">Aktivitäts-Übersicht</h3>
                                 <canvas id="competition-activity-chart" height="80"></canvas>
                             </div>
                         </div>

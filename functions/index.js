@@ -2420,3 +2420,137 @@ exports.sendTestNotification = onCall({ region: CONFIG.REGION }, async request =
 
     return { success: true, message: 'Test notification sent' };
 });
+
+// ========================================================================
+// ===== GDPR: ANONYMIZE ACCOUNT =====
+// ========================================================================
+/**
+ * Anonymize user account (GDPR Art. 17)
+ * - Deletes personal data
+ * - Replaces name with "Gelöschter Nutzer"
+ * - Marks account as deleted
+ * - Deletes Firebase Auth account
+ * - Match history remains (anonymized)
+ */
+exports.anonymizeAccount = onCall({ region: CONFIG.REGION }, async request => {
+    const requestingUserId = request.auth?.uid;
+    const { userId } = request.data;
+
+    // Security: Only user can delete their own account
+    if (!requestingUserId || requestingUserId !== userId) {
+        throw new HttpsError(
+            'permission-denied',
+            'You can only delete your own account'
+        );
+    }
+
+    try {
+        logger.info(`Starting account anonymization for user: ${userId}`);
+
+        // Get user data
+        const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+            throw new HttpsError('not-found', 'User not found');
+        }
+
+        const userData = userDoc.data();
+
+        // Create anonymized display name with hash
+        const userIdHash = userId.substring(0, 8);
+        const anonymizedName = `Gelöschter Nutzer #${userIdHash}`;
+
+        // Anonymize user data
+        await userRef.update({
+            // Mark as deleted
+            deleted: true,
+            deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+
+            // Remove personal data
+            firstName: null,
+            lastName: null,
+            displayName: anonymizedName,
+            email: null,
+            birthdate: null,
+            gender: null,
+            photoURL: null,
+            phoneNumber: null,
+
+            // Keep for data integrity
+            // eloRating - keep for leaderboards
+            // xp - keep for statistics
+            // rankName - keep for statistics
+            // clubId - keep for club statistics
+            // role - keep for data structure
+            // matches/attendance - handled by keeping user document
+        });
+
+        logger.info(`User data anonymized: ${userId}`);
+
+        // Delete FCM tokens
+        try {
+            await db
+                .collection('fcmTokens')
+                .where('userId', '==', userId)
+                .get()
+                .then(snapshot => {
+                    const batch = db.batch();
+                    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                    return batch.commit();
+                });
+            logger.info(`FCM tokens deleted for user: ${userId}`);
+        } catch (error) {
+            logger.warn(`Error deleting FCM tokens: ${error.message}`);
+        }
+
+        // Delete invitation tokens created by this user
+        try {
+            await db
+                .collection(CONFIG.COLLECTIONS.INVITATION_TOKENS)
+                .where('createdBy', '==', userId)
+                .get()
+                .then(snapshot => {
+                    const batch = db.batch();
+                    snapshot.docs.forEach(doc => batch.delete(doc.ref));
+                    return batch.commit();
+                });
+            logger.info(`Invitation tokens deleted for user: ${userId}`);
+        } catch (error) {
+            logger.warn(`Error deleting invitation tokens: ${error.message}`);
+        }
+
+        // Delete notification preferences
+        try {
+            await db
+                .collection('notificationPreferences')
+                .doc(userId)
+                .delete();
+            logger.info(`Notification preferences deleted for user: ${userId}`);
+        } catch (error) {
+            logger.warn(`Error deleting notification preferences: ${error.message}`);
+        }
+
+        // Delete Firebase Auth account
+        try {
+            await admin.auth().deleteUser(userId);
+            logger.info(`Firebase Auth account deleted: ${userId}`);
+        } catch (error) {
+            logger.error(`Error deleting Firebase Auth account: ${error.message}`);
+            // Continue even if auth deletion fails
+        }
+
+        logger.info(`Account anonymization completed successfully for: ${userId}`);
+
+        return {
+            success: true,
+            message: 'Account successfully anonymized',
+        };
+    } catch (error) {
+        logger.error('Error anonymizing account:', error);
+        throw new HttpsError(
+            'internal',
+            `Error anonymizing account: ${error.message}`
+        );
+    }
+});

@@ -13,6 +13,12 @@ import {
 // Chart instance (global to allow cleanup)
 let competitionActivityChart = null;
 
+// Current filter states
+let currentMatchData = [];
+let currentPeriod = 'month';
+let currentTypeFilter = 'all';
+let filtersInitialized = false;
+
 /**
  * Load competition statistics
  * @param {Object} userData - Current coach user data
@@ -104,22 +110,87 @@ export async function loadCompetitionStatistics(userData, db, currentSubgroupFil
             }
         });
 
-        // Group by month
-        const monthlyStats = groupByMonth(matchData);
+        // Store match data globally for filter changes
+        currentMatchData = matchData;
+
+        // Group by current period (respects filter state)
+        const stats = groupByPeriod(matchData, currentPeriod);
 
         // Calculate metrics
-        const metrics = calculateMetrics(monthlyStats);
+        const metrics = calculateMetrics(stats, currentPeriod);
 
         // Render UI
-        renderCompetitionMetrics(metrics);
-        renderCompetitionChart(monthlyStats);
+        renderCompetitionMetrics(metrics, currentPeriod);
+        renderCompetitionChart(stats, currentTypeFilter);
 
-        // Add filter toggle listeners
-        setupFilterToggles(monthlyStats);
+        // Add filter toggle listeners (only once)
+        setupFilterToggles();
 
     } catch (error) {
         console.error('Error loading competition statistics:', error);
     }
+}
+
+/**
+ * Group match data by specified period
+ * @param {Array} matchData - Array of match objects
+ * @param {string} period - 'week', 'month', or 'year'
+ */
+function groupByPeriod(matchData, period) {
+    if (period === 'week') return groupByWeek(matchData);
+    if (period === 'month') return groupByMonth(matchData);
+    if (period === 'year') return groupByYear(matchData);
+    return groupByMonth(matchData); // default
+}
+
+/**
+ * Group match data by week for the last 12 weeks
+ */
+function groupByWeek(matchData) {
+    const now = new Date();
+    const weeksData = [];
+
+    // Generate last 12 weeks
+    for (let i = 11; i >= 0; i--) {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - (i * 7) - now.getDay()); // Start of week (Sunday)
+        weekStart.setHours(0, 0, 0, 0);
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const weekNum = getWeekNumber(weekStart);
+        const weekKey = `${weekStart.getFullYear()}-W${weekNum}`;
+
+        weeksData.push({
+            label: `KW ${weekNum}`,
+            weekKey: weekKey,
+            startDate: weekStart,
+            endDate: weekEnd,
+            total: 0,
+            singles: 0,
+            doubles: 0,
+            byCoach: 0,
+            byPlayer: 0,
+        });
+    }
+
+    // Count matches per week
+    matchData.forEach(match => {
+        const matchDate = match.createdAt;
+        const weekEntry = weeksData.find(w => matchDate >= w.startDate && matchDate <= w.endDate);
+
+        if (weekEntry) {
+            weekEntry.total++;
+            if (match.type === 'single') weekEntry.singles++;
+            else weekEntry.doubles++;
+            if (match.isCoachReported) weekEntry.byCoach++;
+            else weekEntry.byPlayer++;
+        }
+    });
+
+    return weeksData;
 }
 
 /**
@@ -135,7 +206,7 @@ function groupByMonth(matchData) {
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
         monthsData.push({
-            month: date.toLocaleString('de-DE', { month: 'short', year: '2-digit' }),
+            label: date.toLocaleString('de-DE', { month: 'short', year: '2-digit' }),
             monthKey: monthKey,
             date: date,
             total: 0,
@@ -173,23 +244,88 @@ function groupByMonth(matchData) {
 }
 
 /**
- * Calculate summary metrics
+ * Group match data by year for the last 5 years
  */
-function calculateMetrics(monthlyStats) {
-    const totalCompetitions = monthlyStats.reduce((sum, m) => sum + m.total, 0);
-    const avgPerMonth = totalCompetitions > 0 ? Math.round(totalCompetitions / 12) : 0;
+function groupByYear(matchData) {
+    const now = new Date();
+    const yearsData = [];
 
-    // Find most active month
-    const mostActiveMonth = monthlyStats.reduce((max, current) =>
+    // Generate last 5 years
+    for (let i = 4; i >= 0; i--) {
+        const year = now.getFullYear() - i;
+        const yearKey = `${year}`;
+
+        yearsData.push({
+            label: yearKey,
+            yearKey: yearKey,
+            year: year,
+            total: 0,
+            singles: 0,
+            doubles: 0,
+            byCoach: 0,
+            byPlayer: 0,
+        });
+    }
+
+    // Count matches per year
+    matchData.forEach(match => {
+        const matchDate = match.createdAt;
+        const yearKey = `${matchDate.getFullYear()}`;
+
+        const yearEntry = yearsData.find(y => y.yearKey === yearKey);
+        if (yearEntry) {
+            yearEntry.total++;
+
+            if (match.type === 'single') {
+                yearEntry.singles++;
+            } else {
+                yearEntry.doubles++;
+            }
+
+            if (match.isCoachReported) {
+                yearEntry.byCoach++;
+            } else {
+                yearEntry.byPlayer++;
+            }
+        }
+    });
+
+    return yearsData;
+}
+
+/**
+ * Get ISO week number
+ */
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+}
+
+/**
+ * Calculate summary metrics
+ * @param {Array} stats - Grouped statistics data
+ * @param {string} period - 'week', 'month', or 'year'
+ */
+function calculateMetrics(stats, period) {
+    const totalCompetitions = stats.reduce((sum, m) => sum + m.total, 0);
+    const count = stats.length;
+    const avgPerPeriod = totalCompetitions > 0 ? Math.round(totalCompetitions / count) : 0;
+
+    // Find most active period
+    const mostActivePeriod = stats.reduce((max, current) =>
         current.total > max.total ? current : max
-    , monthlyStats[0]);
+    , stats[0]);
 
-    // Calculate trend (comparing last 6 months to previous 6 months)
-    const recentMonths = monthlyStats.slice(6);
-    const previousMonths = monthlyStats.slice(0, 6);
+    // Calculate trend (comparing last half to previous half)
+    const halfPoint = Math.floor(count / 2);
+    const recentPeriods = stats.slice(halfPoint);
+    const previousPeriods = stats.slice(0, halfPoint);
 
-    const recentTotal = recentMonths.reduce((sum, m) => sum + m.total, 0);
-    const previousTotal = previousMonths.reduce((sum, m) => sum + m.total, 0);
+    const recentTotal = recentPeriods.reduce((sum, m) => sum + m.total, 0);
+    const previousTotal = previousPeriods.reduce((sum, m) => sum + m.total, 0);
 
     let trend = 'neutral';
     if (recentTotal > previousTotal) trend = 'up';
@@ -201,41 +337,65 @@ function calculateMetrics(monthlyStats) {
 
     return {
         totalCompetitions,
-        avgPerMonth,
-        mostActiveMonth: {
-            name: mostActiveMonth.month,
-            count: mostActiveMonth.total,
+        avgPerPeriod,
+        mostActivePeriod: {
+            name: mostActivePeriod.label,
+            count: mostActivePeriod.total,
         },
         trend,
         trendPercent,
+        period,
     };
 }
 
 /**
  * Render competition metrics summary
+ * @param {Object} metrics - Calculated metrics
+ * @param {string} period - 'week', 'month', or 'year'
  */
-function renderCompetitionMetrics(metrics) {
+function renderCompetitionMetrics(metrics, period) {
     const totalEl = document.getElementById('stats-competition-total');
     const avgEl = document.getElementById('stats-competition-avg');
-    const activeMonthEl = document.getElementById('stats-competition-active-month');
+    const avgLabelEl = document.getElementById('stats-competition-avg-label');
+    const activePeriodEl = document.getElementById('stats-competition-active-period');
+    const activePeriodLabelEl = document.getElementById('stats-competition-active-period-label');
     const trendEl = document.getElementById('stats-competition-trend');
 
+    // Get period-specific labels
+    const periodLabels = {
+        week: { avg: 'Ø pro Woche', active: 'Aktivste Woche', total: '12 Wochen' },
+        month: { avg: 'Ø pro Monat', active: 'Aktivster Monat', total: '12 Monate' },
+        year: { avg: 'Ø pro Jahr', active: 'Aktivstes Jahr', total: '5 Jahre' },
+    };
+
+    const labels = periodLabels[period] || periodLabels.month;
+
     if (totalEl) totalEl.textContent = metrics.totalCompetitions;
-    if (avgEl) avgEl.textContent = metrics.avgPerMonth;
-    if (activeMonthEl) {
-        activeMonthEl.textContent = `${metrics.mostActiveMonth.name} (${metrics.mostActiveMonth.count})`;
+    if (avgEl) avgEl.textContent = metrics.avgPerPeriod;
+    if (avgLabelEl) avgLabelEl.textContent = labels.avg;
+    if (activePeriodEl) {
+        activePeriodEl.textContent = `${metrics.mostActivePeriod.name} (${metrics.mostActivePeriod.count})`;
+    }
+    if (activePeriodLabelEl) {
+        activePeriodLabelEl.textContent = labels.active;
     }
     if (trendEl) {
         const trendIcon = metrics.trend === 'up' ? '↗️' : metrics.trend === 'down' ? '↘️' : '➡️';
         const trendClass = metrics.trend === 'up' ? 'text-green-600' : metrics.trend === 'down' ? 'text-red-600' : 'text-gray-600';
         trendEl.innerHTML = `<span class="${trendClass}">${trendIcon} ${Math.abs(metrics.trendPercent)}%</span>`;
     }
+
+    // Update total label
+    const totalLabelEl = document.getElementById('stats-competition-total-label');
+    if (totalLabelEl) totalLabelEl.textContent = `Gesamt (${labels.total})`;
 }
 
 /**
  * Render competition activity chart
+ * @param {Array} stats - Grouped statistics data
+ * @param {string} filterMode - 'all', 'coach', 'player', or 'comparison'
  */
-function renderCompetitionChart(monthlyStats, filterMode = 'all') {
+function renderCompetitionChart(stats, filterMode = 'all') {
     const ctx = document.getElementById('competition-activity-chart');
     if (!ctx) return;
 
@@ -251,14 +411,14 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
         datasets = [
             {
                 label: 'Einzel',
-                data: monthlyStats.map(m => m.singles),
+                data: stats.map(m => m.singles),
                 backgroundColor: 'rgba(34, 197, 94, 0.8)',
                 borderColor: 'rgba(34, 197, 94, 1)',
                 borderWidth: 1,
             },
             {
                 label: 'Doppel',
-                data: monthlyStats.map(m => m.doubles),
+                data: stats.map(m => m.doubles),
                 backgroundColor: 'rgba(59, 130, 246, 0.8)',
                 borderColor: 'rgba(59, 130, 246, 1)',
                 borderWidth: 1,
@@ -268,7 +428,7 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
         datasets = [
             {
                 label: 'Von Trainern',
-                data: monthlyStats.map(m => m.byCoach),
+                data: stats.map(m => m.byCoach),
                 backgroundColor: 'rgba(139, 92, 246, 0.8)',
                 borderColor: 'rgba(139, 92, 246, 1)',
                 borderWidth: 1,
@@ -278,7 +438,7 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
         datasets = [
             {
                 label: 'Von Spielern',
-                data: monthlyStats.map(m => m.byPlayer),
+                data: stats.map(m => m.byPlayer),
                 backgroundColor: 'rgba(234, 179, 8, 0.8)',
                 borderColor: 'rgba(234, 179, 8, 1)',
                 borderWidth: 1,
@@ -288,14 +448,14 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
         datasets = [
             {
                 label: 'Von Trainern',
-                data: monthlyStats.map(m => m.byCoach),
+                data: stats.map(m => m.byCoach),
                 backgroundColor: 'rgba(139, 92, 246, 0.8)',
                 borderColor: 'rgba(139, 92, 246, 1)',
                 borderWidth: 1,
             },
             {
                 label: 'Von Spielern',
-                data: monthlyStats.map(m => m.byPlayer),
+                data: stats.map(m => m.byPlayer),
                 backgroundColor: 'rgba(234, 179, 8, 0.8)',
                 borderColor: 'rgba(234, 179, 8, 1)',
                 borderWidth: 1,
@@ -306,7 +466,7 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
     competitionActivityChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: monthlyStats.map(m => m.month),
+            labels: stats.map(m => m.label),
             datasets: datasets,
         },
         options: {
@@ -321,7 +481,7 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
                     callbacks: {
                         footer: (tooltipItems) => {
                             const index = tooltipItems[0].dataIndex;
-                            const data = monthlyStats[index];
+                            const data = stats[index];
                             return `Gesamt: ${data.total}`;
                         },
                     },
@@ -344,31 +504,77 @@ function renderCompetitionChart(monthlyStats, filterMode = 'all') {
 }
 
 /**
- * Setup filter toggle buttons
+ * Setup filter toggle buttons for both period and type filters
  */
-function setupFilterToggles(monthlyStats) {
-    const filters = ['all', 'coach', 'player', 'comparison'];
+function setupFilterToggles() {
+    // Only initialize once to prevent duplicate event listeners
+    if (filtersInitialized) {
+        return;
+    }
+    filtersInitialized = true;
 
-    filters.forEach(filter => {
-        const button = document.getElementById(`competition-filter-${filter}`);
-        if (button) {
-            button.addEventListener('click', () => {
-                // Update active state
-                filters.forEach(f => {
-                    const btn = document.getElementById(`competition-filter-${f}`);
-                    if (btn) {
-                        btn.classList.remove('bg-indigo-600', 'text-white');
-                        btn.classList.add('bg-gray-200', 'text-gray-700');
-                    }
-                });
-
-                button.classList.remove('bg-gray-200', 'text-gray-700');
-                button.classList.add('bg-indigo-600', 'text-white');
-
-                // Re-render chart with filter
-                renderCompetitionChart(monthlyStats, filter);
-            });
+    // Period filters (week, month, year)
+    const periods = ['week', 'month', 'year'];
+    periods.forEach(period => {
+        const button = document.getElementById(`competition-period-${period}`);
+        if (!button) {
+            console.warn(`Button not found: competition-period-${period}`);
+            return;
         }
+
+        button.addEventListener('click', () => {
+            // Update active state for period buttons
+            periods.forEach(p => {
+                const btn = document.getElementById(`competition-period-${p}`);
+                if (btn) {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
+
+            button.classList.remove('bg-gray-200', 'text-gray-700');
+            button.classList.add('bg-blue-600', 'text-white');
+
+            // Update current period
+            currentPeriod = period;
+
+            // Re-group data and re-render
+            const stats = groupByPeriod(currentMatchData, period);
+            const metrics = calculateMetrics(stats, period);
+            renderCompetitionMetrics(metrics, period);
+            renderCompetitionChart(stats, currentTypeFilter);
+        });
+    });
+
+    // Type filters (all, coach, player, comparison)
+    const typeFilters = ['all', 'coach', 'player', 'comparison'];
+    typeFilters.forEach(filter => {
+        const button = document.getElementById(`competition-filter-${filter}`);
+        if (!button) {
+            console.warn(`Button not found: competition-filter-${filter}`);
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            // Update active state for type buttons
+            typeFilters.forEach(f => {
+                const btn = document.getElementById(`competition-filter-${f}`);
+                if (btn) {
+                    btn.classList.remove('bg-indigo-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
+            });
+
+            button.classList.remove('bg-gray-200', 'text-gray-700');
+            button.classList.add('bg-indigo-600', 'text-white');
+
+            // Update current type filter
+            currentTypeFilter = filter;
+
+            // Re-render chart with current stats
+            const stats = groupByPeriod(currentMatchData, currentPeriod);
+            renderCompetitionChart(stats, filter);
+        });
     });
 }
 
