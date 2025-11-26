@@ -25,6 +25,33 @@ let showFullLeaderboards = {
 };
 
 /**
+ * Helper function to get display name for a player (handles deleted accounts)
+ * @param {Object} player - Player data object
+ * @returns {string} Display name
+ */
+function getPlayerDisplayName(player) {
+    // Check if player is deleted (firstName/lastName are null or deleted flag is set)
+    if (player.deleted || !player.firstName || !player.lastName) {
+        return player.displayName || 'Gelöschter Nutzer';
+    }
+    return `${player.firstName} ${player.lastName}`;
+}
+
+/**
+ * Helper function to get initials for a player (handles deleted accounts)
+ * @param {Object} player - Player data object
+ * @returns {string} Initials (1-2 characters)
+ */
+function getPlayerInitials(player) {
+    // Check if player is deleted
+    if (player.deleted || !player.firstName || !player.lastName) {
+        const displayName = player.displayName || 'GN';
+        return displayName.substring(0, 2).toUpperCase();
+    }
+    return (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+}
+
+/**
  * Sets the current subgroup filter for leaderboard
  * @param {string} subgroupId - Subgroup ID or 'all'
  */
@@ -566,8 +593,7 @@ function loadRanksView(userData, db, unsubscribes) {
                     ${playersInRank
                         .map((player, idx) => {
                             const isCurrentUser = player.id === userData.id;
-                            const initials =
-                                (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+                            const initials = getPlayerInitials(player);
                             const avatarSrc =
                                 player.photoURL ||
                                 `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
@@ -576,7 +602,7 @@ function loadRanksView(userData, db, unsubscribes) {
                             <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
                                 <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3">
                                 <div class="flex-grow">
-                                    <p class="text-sm">${player.firstName} ${player.lastName}</p>
+                                    <p class="text-sm">${getPlayerDisplayName(player)}</p>
                                 </div>
                                 <div class="text-xs text-gray-600">
                                     ${player.eloRating || 0} Elo | ${player.xp || 0} XP
@@ -791,7 +817,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+    const initials = getPlayerInitials(player);
     const avatarSrc =
         player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal
@@ -803,7 +829,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
         <div class="flex-grow">
-            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
+            <p class="text-sm font-medium text-gray-900">${getPlayerDisplayName(player)}</p>
             ${clubInfo}
         </div>
         <div class="text-right">
@@ -824,7 +850,7 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+    const initials = getPlayerInitials(player);
     const avatarSrc =
         player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal
@@ -836,7 +862,7 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
         <div class="flex-grow">
-            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
+            <p class="text-sm font-medium text-gray-900">${getPlayerDisplayName(player)}</p>
             ${clubInfo}
         </div>
         <div class="text-right">
@@ -857,7 +883,7 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
 
     const playerDiv = document.createElement('div');
     const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-    const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+    const initials = getPlayerInitials(player);
     const avatarSrc =
         player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
     const clubInfo = isGlobal
@@ -869,7 +895,7 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
         <div class="flex-grow">
-            <p class="text-sm font-medium text-gray-900">${player.firstName} ${player.lastName}</p>
+            <p class="text-sm font-medium text-gray-900">${getPlayerDisplayName(player)}</p>
             ${clubInfo}
         </div>
         <div class="text-right">
