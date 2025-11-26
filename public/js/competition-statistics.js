@@ -523,28 +523,27 @@ function setupFilterToggles() {
         }
 
         button.addEventListener('click', () => {
-                // Update active state for period buttons
-                periods.forEach(p => {
-                    const btn = document.getElementById(`competition-period-${p}`);
-                    if (btn) {
-                        btn.classList.remove('bg-blue-600', 'text-white');
-                        btn.classList.add('bg-gray-200', 'text-gray-700');
-                    }
-                });
-
-                button.classList.remove('bg-gray-200', 'text-gray-700');
-                button.classList.add('bg-blue-600', 'text-white');
-
-                // Update current period
-                currentPeriod = period;
-
-                // Re-group data and re-render
-                const stats = groupByPeriod(currentMatchData, period);
-                const metrics = calculateMetrics(stats, period);
-                renderCompetitionMetrics(metrics, period);
-                renderCompetitionChart(stats, currentTypeFilter);
+            // Update active state for period buttons
+            periods.forEach(p => {
+                const btn = document.getElementById(`competition-period-${p}`);
+                if (btn) {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
             });
-        }
+
+            button.classList.remove('bg-gray-200', 'text-gray-700');
+            button.classList.add('bg-blue-600', 'text-white');
+
+            // Update current period
+            currentPeriod = period;
+
+            // Re-group data and re-render
+            const stats = groupByPeriod(currentMatchData, period);
+            const metrics = calculateMetrics(stats, period);
+            renderCompetitionMetrics(metrics, period);
+            renderCompetitionChart(stats, currentTypeFilter);
+        });
     });
 
     // Type filters (all, coach, player, comparison)
@@ -557,26 +556,25 @@ function setupFilterToggles() {
         }
 
         button.addEventListener('click', () => {
-                // Update active state for type buttons
-                typeFilters.forEach(f => {
-                    const btn = document.getElementById(`competition-filter-${f}`);
-                    if (btn) {
-                        btn.classList.remove('bg-indigo-600', 'text-white');
-                        btn.classList.add('bg-gray-200', 'text-gray-700');
-                    }
-                });
-
-                button.classList.remove('bg-gray-200', 'text-gray-700');
-                button.classList.add('bg-indigo-600', 'text-white');
-
-                // Update current type filter
-                currentTypeFilter = filter;
-
-                // Re-render chart with current stats
-                const stats = groupByPeriod(currentMatchData, currentPeriod);
-                renderCompetitionChart(stats, filter);
+            // Update active state for type buttons
+            typeFilters.forEach(f => {
+                const btn = document.getElementById(`competition-filter-${f}`);
+                if (btn) {
+                    btn.classList.remove('bg-indigo-600', 'text-white');
+                    btn.classList.add('bg-gray-200', 'text-gray-700');
+                }
             });
-        }
+
+            button.classList.remove('bg-gray-200', 'text-gray-700');
+            button.classList.add('bg-indigo-600', 'text-white');
+
+            // Update current type filter
+            currentTypeFilter = filter;
+
+            // Re-render chart with current stats
+            const stats = groupByPeriod(currentMatchData, currentPeriod);
+            renderCompetitionChart(stats, filter);
+        });
     });
 }
 
