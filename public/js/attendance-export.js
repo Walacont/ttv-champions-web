@@ -118,17 +118,24 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             ...doc.data(),
         }));
 
-        // Load all coaches for name mapping
+        // Load all coaches for name mapping and tracking
         const coachesQuery = query(
             collection(db, 'users'),
             where('clubId', '==', clubId),
-            where('role', '==', 'coach')
+            where('role', '==', 'coach'),
+            orderBy('lastName', 'asc')
         );
         const coachesSnapshot = await getDocs(coachesQuery);
         const coachesMap = new Map();
+        const allCoaches = [];
         coachesSnapshot.forEach(doc => {
             const data = doc.data();
             coachesMap.set(doc.id, `${data.firstName} ${data.lastName}`);
+            allCoaches.push({
+                id: doc.id,
+                firstName: data.firstName || '',
+                lastName: data.lastName || '',
+            });
         });
 
         console.log(`[Export] Loaded ${players.length} players`);
@@ -200,7 +207,6 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         // Build header rows
         const headerRow1 = ['Nachname', 'Vorname']; // First header row (dates)
         const headerRow2 = ['', '']; // Second header row (group + time)
-        const headerRow3 = ['', '']; // Third header row (coach name)
 
         // Add date columns
         for (const session of sessions) {
@@ -212,34 +218,16 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             });
             const subgroupName = subgroupsMap.get(session.subgroupId) || session.subgroupId;
 
-            // Get attendance for this session to find coaches
-            const attendanceKey = `${session.date}_${session.id}`;
-            const attendance = attendanceRecords.get(attendanceKey);
-            let coachNames = '';
-
-            if (attendance && attendance.coachIds && attendance.coachIds.length > 0) {
-                const names = attendance.coachIds
-                    .map(id => coachesMap.get(id) || 'Unbekannt')
-                    .join(', ');
-                coachNames = `Trainer: ${names}`;
-            } else if (attendance && attendance.coachId) {
-                // Backward compatibility for old single-coach data
-                coachNames = `Trainer: ${coachesMap.get(attendance.coachId) || 'Unbekannt'}`;
-            }
-
             headerRow1.push(formattedDate);
             headerRow2.push(`${subgroupName} (${session.startTime}-${session.endTime})`);
-            headerRow3.push(coachNames);
         }
 
         // Add "Gesamt" column header
         headerRow1.push('Gesamt');
         headerRow2.push('');
-        headerRow3.push('');
 
         excelData.push(headerRow1);
         excelData.push(headerRow2);
-        excelData.push(headerRow3);
 
         // Add player rows
         for (const player of playersList) {
@@ -277,7 +265,52 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
             excelData.push(row);
         }
 
-        // Add bottom row with counts per session
+        // Add empty row for spacing
+        excelData.push([]);
+
+        // Add "Trainer" label row
+        const trainerLabelRow = ['Trainer', ''];
+        for (let i = 0; i < sessions.length; i++) {
+            trainerLabelRow.push('');
+        }
+        trainerLabelRow.push(''); // Empty cell for Gesamt column
+        excelData.push(trainerLabelRow);
+
+        // Add coach rows
+        for (const coach of allCoaches) {
+            const row = [coach.lastName || '', coach.firstName || ''];
+            let coachTotal = 0; // Count attendance for this coach
+
+            // Check attendance for each session
+            for (const session of sessions) {
+                // Get attendance for this session
+                const attendanceKey = `${session.date}_${session.id}`;
+                const attendance = attendanceRecords.get(attendanceKey);
+
+                // Check if this coach was present (in coachIds array)
+                let isPresent = false;
+                if (attendance && attendance.coachIds && attendance.coachIds.includes(coach.id)) {
+                    isPresent = true;
+                } else if (attendance && attendance.coachId === coach.id) {
+                    // Backward compatibility for old single-coach data
+                    isPresent = true;
+                }
+
+                // Add checkbox: ☑ if present, ☐ if not
+                row.push(isPresent ? '☑' : '☐');
+
+                if (isPresent) {
+                    coachTotal++;
+                }
+            }
+
+            // Add total for this coach
+            row.push(coachTotal);
+
+            excelData.push(row);
+        }
+
+        // Add bottom row with counts per session (only counting players, not coaches)
         const countRow = ['Anzahl', ''];
         for (const session of sessions) {
             const attendanceKey = `${session.date}_${session.id}`;
@@ -314,16 +347,18 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
         const monthName = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
         const worksheet = workbook.addWorksheet(monthName);
 
-        // Calculate where legend starts (after count row + 1 empty row)
-        const countRowIndex = playersList.length + 3; // +3 for the three header rows
+        // Calculate row indices for styling
+        // Structure: 2 header rows + players + empty row + "Trainer" label + coaches + countRow
+        const trainerLabelRowIndex = 2 + playersList.length + 1; // +2 for headers, +1 for empty row
+        const countRowIndex = 2 + playersList.length + 2 + allCoaches.length; // +2 for empty + "Trainer" label
         const legendStartIndex = countRowIndex + 2; // +1 for count row, +1 for empty row
 
         // Add rows to worksheet
         excelData.forEach((rowData, rowIndex) => {
             const row = worksheet.addRow(rowData);
 
-            // Style header rows (first three rows)
-            if (rowIndex === 0 || rowIndex === 1 || rowIndex === 2) {
+            // Style header rows (first two rows)
+            if (rowIndex === 0 || rowIndex === 1) {
                 row.eachCell((cell, colNumber) => {
                     // Apply color to date columns (column 3 onwards, before "Gesamt")
                     if (colNumber > 2 && colNumber <= sessions.length + 2) {
@@ -344,6 +379,13 @@ export async function exportAttendanceToExcel(db, clubId, date, subgroupFilter =
                     // Make all header cells bold and centered
                     cell.font = { bold: true };
                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+            }
+
+            // Style the "Trainer" label row
+            if (rowIndex === trainerLabelRowIndex) {
+                row.eachCell(cell => {
+                    cell.font = { bold: true };
                 });
             }
 
