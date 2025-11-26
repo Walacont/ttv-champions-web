@@ -21,6 +21,31 @@ import {
  * Updated to support subgroups with separate streaks per subgroup
  */
 
+/**
+ * Calculates the duration in hours between two time strings
+ * @param {string} startTime - Start time in HH:MM format (e.g., "18:00")
+ * @param {string} endTime - End time in HH:MM format (e.g., "20:00")
+ * @returns {number} Duration in hours (e.g., 2.0)
+ */
+function calculateTrainingDuration(startTime, endTime) {
+    try {
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+
+        const startTotalMinutes = startHour * 60 + startMinute;
+        const endTotalMinutes = endHour * 60 + endMinute;
+
+        const durationMinutes = endTotalMinutes - startTotalMinutes;
+        const durationHours = durationMinutes / 60;
+
+        // Round to 1 decimal place
+        return Math.round(durationHours * 10) / 10;
+    } catch (error) {
+        console.error('Error calculating training duration:', error);
+        return 2.0; // Default to 2 hours
+    }
+}
+
 // Module state
 let monthlyAttendance = new Map();
 let monthlySessions = new Map(); // NEW: Store sessions by date
@@ -817,20 +842,42 @@ export async function openAttendanceModalForSession(
         }
         sessionIdInput.value = sessionId;
 
-        // Populate coach checkboxes
+        // Populate coach checkboxes with hours input
         const coachListContainer = document.getElementById('attendance-coach-list');
         coachListContainer.innerHTML = '';
+
+        // Calculate default training duration in hours
+        const defaultDuration = calculateTrainingDuration(sessionData.startTime, sessionData.endTime);
 
         if (coaches.length === 0) {
             coachListContainer.innerHTML = '<p class="text-sm text-gray-400">Keine Trainer gefunden</p>';
         } else {
             coaches.forEach(coach => {
-                const isChecked = attendanceData &&
-                    attendanceData.coachIds &&
-                    attendanceData.coachIds.includes(coach.id);
+                // Check if coach was present (supports both old and new format)
+                let isChecked = false;
+                let savedHours = defaultDuration;
+
+                // New format: coaches array with {id, hours}
+                if (attendanceData && attendanceData.coaches && Array.isArray(attendanceData.coaches)) {
+                    const coachData = attendanceData.coaches.find(c => c.id === coach.id);
+                    if (coachData) {
+                        isChecked = true;
+                        savedHours = coachData.hours || defaultDuration;
+                    }
+                }
+                // Old format: coachIds array (backward compatibility)
+                else if (attendanceData && attendanceData.coachIds && attendanceData.coachIds.includes(coach.id)) {
+                    isChecked = true;
+                    savedHours = defaultDuration;
+                }
+                // Very old format: single coachId (backward compatibility)
+                else if (attendanceData && attendanceData.coachId === coach.id) {
+                    isChecked = true;
+                    savedHours = defaultDuration;
+                }
 
                 const div = document.createElement('div');
-                div.className = 'flex items-center';
+                div.className = 'flex items-center gap-3 mb-2';
                 div.innerHTML = `
                     <input
                         id="coach-check-${coach.id}"
@@ -839,10 +886,26 @@ export async function openAttendanceModalForSession(
                         type="checkbox"
                         ${isChecked ? 'checked' : ''}
                         class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        onchange="document.getElementById('coach-hours-${coach.id}').disabled = !this.checked"
                     >
-                    <label for="coach-check-${coach.id}" class="ml-2 block text-sm text-gray-700">
+                    <label for="coach-check-${coach.id}" class="block text-sm text-gray-700 flex-1">
                         ${coach.firstName} ${coach.lastName}
                     </label>
+                    <div class="flex items-center gap-1">
+                        <input
+                            id="coach-hours-${coach.id}"
+                            name="coach-hours"
+                            data-coach-id="${coach.id}"
+                            type="number"
+                            min="0"
+                            max="24"
+                            step="0.5"
+                            value="${savedHours}"
+                            ${!isChecked ? 'disabled' : ''}
+                            class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+                        >
+                        <span class="text-xs text-gray-500">h</span>
+                    </div>
                 `;
                 coachListContainer.appendChild(div);
             });
@@ -999,13 +1062,18 @@ export async function handleAttendanceSave(
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
-    // Get selected coaches
+    // Get selected coaches with their hours
     const coachCheckboxes = document
         .getElementById('attendance-coach-list')
         .querySelectorAll('input[type="checkbox"]');
-    const coachIds = Array.from(coachCheckboxes)
+    const coaches = Array.from(coachCheckboxes)
         .filter(checkbox => checkbox.checked)
-        .map(checkbox => checkbox.value);
+        .map(checkbox => {
+            const coachId = checkbox.value;
+            const hoursInput = document.getElementById(`coach-hours-${coachId}`);
+            const hours = hoursInput ? parseFloat(hoursInput.value) || 0 : 0;
+            return { id: coachId, hours };
+        });
 
     // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
     // We need to distinguish between different training sessions on the same day
@@ -1069,9 +1137,9 @@ export async function handleAttendanceSave(
                 updatedAt: serverTimestamp(),
             };
 
-            // Add coaches if selected
-            if (coachIds && coachIds.length > 0) {
-                attendanceData.coachIds = coachIds;
+            // Add coaches with hours if selected
+            if (coaches && coaches.length > 0) {
+                attendanceData.coaches = coaches;
             }
 
             batch.set(attendanceRef, attendanceData, { merge: true });
