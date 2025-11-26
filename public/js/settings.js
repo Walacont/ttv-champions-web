@@ -647,16 +647,29 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             doublesMatches.push({ id: doc.id, ...doc.data() });
         });
 
-        // Get attendance records
-        const attendanceQuery = query(
-            collection(db, 'attendance'),
-            where('presentPlayerIds', 'array-contains', currentUser.uid)
-        );
-        const attendanceSnapshot = await getDocs(attendanceQuery);
-        const attendance = [];
-        attendanceSnapshot.forEach(doc => {
-            attendance.push({ id: doc.id, ...doc.data() });
-        });
+        // Get attendance records (role-aware)
+        let attendance = [];
+        if (userData.role === 'player') {
+            // Players: query by their presence in attendance
+            const attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('presentPlayerIds', 'array-contains', currentUser.uid)
+            );
+            const attendanceSnapshot = await getDocs(attendanceQuery);
+            attendanceSnapshot.forEach(doc => {
+                attendance.push({ id: doc.id, ...doc.data() });
+            });
+        } else if (userData.role === 'coach' && userData.clubId) {
+            // Coaches: query by club (they can see all club attendance)
+            const attendanceQuery = query(
+                collection(db, 'attendance'),
+                where('clubId', '==', userData.clubId)
+            );
+            const attendanceSnapshot = await getDocs(attendanceQuery);
+            attendanceSnapshot.forEach(doc => {
+                attendance.push({ id: doc.id, ...doc.data() });
+            });
+        }
 
         // Compile all data
         const exportData = {
