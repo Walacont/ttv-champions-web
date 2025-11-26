@@ -636,16 +636,19 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
             matches.push({ id: doc.id, ...doc.data() });
         });
 
-        // Get all doubles matches
-        const doublesQuery = query(
-            collection(db, 'doublesMatches'),
-            where('playerIds', 'array-contains', currentUser.uid)
-        );
-        const doublesSnapshot = await getDocs(doublesQuery);
+        // Get all doubles matches (requires clubId filter for security rules)
         const doublesMatches = [];
-        doublesSnapshot.forEach(doc => {
-            doublesMatches.push({ id: doc.id, ...doc.data() });
-        });
+        if (userData.clubId) {
+            const doublesQuery = query(
+                collection(db, 'doublesMatches'),
+                where('clubId', '==', userData.clubId),
+                where('playerIds', 'array-contains', currentUser.uid)
+            );
+            const doublesSnapshot = await getDocs(doublesQuery);
+            doublesSnapshot.forEach(doc => {
+                doublesMatches.push({ id: doc.id, ...doc.data() });
+            });
+        }
 
         // Get attendance records (role-aware)
         let attendance = [];
