@@ -17,6 +17,7 @@ let competitionActivityChart = null;
 let currentMatchData = [];
 let currentPeriod = 'month';
 let currentTypeFilter = 'all';
+let filtersInitialized = false;
 
 /**
  * Load competition statistics
@@ -112,17 +113,17 @@ export async function loadCompetitionStatistics(userData, db, currentSubgroupFil
         // Store match data globally for filter changes
         currentMatchData = matchData;
 
-        // Group by default period (month)
-        const stats = groupByPeriod(matchData, 'month');
+        // Group by current period (respects filter state)
+        const stats = groupByPeriod(matchData, currentPeriod);
 
         // Calculate metrics
-        const metrics = calculateMetrics(stats, 'month');
+        const metrics = calculateMetrics(stats, currentPeriod);
 
         // Render UI
-        renderCompetitionMetrics(metrics, 'month');
-        renderCompetitionChart(stats, 'all');
+        renderCompetitionMetrics(metrics, currentPeriod);
+        renderCompetitionChart(stats, currentTypeFilter);
 
-        // Add filter toggle listeners
+        // Add filter toggle listeners (only once)
         setupFilterToggles();
 
     } catch (error) {
@@ -506,12 +507,22 @@ function renderCompetitionChart(stats, filterMode = 'all') {
  * Setup filter toggle buttons for both period and type filters
  */
 function setupFilterToggles() {
+    // Only initialize once to prevent duplicate event listeners
+    if (filtersInitialized) {
+        return;
+    }
+    filtersInitialized = true;
+
     // Period filters (week, month, year)
     const periods = ['week', 'month', 'year'];
     periods.forEach(period => {
         const button = document.getElementById(`competition-period-${period}`);
-        if (button) {
-            button.addEventListener('click', () => {
+        if (!button) {
+            console.warn(`Button not found: competition-period-${period}`);
+            return;
+        }
+
+        button.addEventListener('click', () => {
                 // Update active state for period buttons
                 periods.forEach(p => {
                     const btn = document.getElementById(`competition-period-${p}`);
@@ -540,8 +551,12 @@ function setupFilterToggles() {
     const typeFilters = ['all', 'coach', 'player', 'comparison'];
     typeFilters.forEach(filter => {
         const button = document.getElementById(`competition-filter-${filter}`);
-        if (button) {
-            button.addEventListener('click', () => {
+        if (!button) {
+            console.warn(`Button not found: competition-filter-${filter}`);
+            return;
+        }
+
+        button.addEventListener('click', () => {
                 // Update active state for type buttons
                 typeFilters.forEach(f => {
                     const btn = document.getElementById(`competition-filter-${f}`);
