@@ -389,6 +389,70 @@
                     </div>
                 </div>
 
+                <!-- Privacy & Account Management -->
+                <div id="privacy-account-section">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i class="fas fa-shield-alt text-indigo-600"></i>
+                        Datenschutz & Konto
+                    </h2>
+
+                    <!-- Data Export Section (GDPR Art. 20) -->
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
+                        <h3 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                            <i class="fas fa-download"></i>
+                            Datenexport
+                        </h3>
+                        <p class="text-sm text-blue-800 mb-3">
+                            Lade alle deine gespeicherten Daten als JSON-Datei herunter.
+                            Dies umfasst dein Profil, Match-Historie, Trainings-Teilnahmen und Statistiken.
+                        </p>
+                        <button
+                            id="export-data-btn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                        >
+                            <i class="fas fa-file-download mr-2"></i>
+                            Daten herunterladen
+                        </button>
+                        <p id="export-feedback" class="text-sm mt-2"></p>
+                    </div>
+
+                    <!-- Account Deletion Section -->
+                    <div class="bg-red-50 border border-red-200 p-4 rounded-lg">
+                        <h3 class="font-semibold text-red-900 mb-2 flex items-center gap-2">
+                            <i class="fas fa-user-slash"></i>
+                            Account löschen
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="bg-white border border-red-300 p-3 rounded-lg">
+                                <p class="text-sm text-gray-800 font-medium mb-2">
+                                    ⚠️ Was passiert bei der Account-Löschung:
+                                </p>
+                                <ul class="text-sm text-gray-700 space-y-1 ml-5 list-disc">
+                                    <li>Dein Account wird deaktiviert - Login nicht mehr möglich</li>
+                                    <li>Persönliche Daten werden gelöscht (Name, Email, Geburtsdatum, Profilbild)</li>
+                                    <li>Dein Name wird durch "Gelöschter Nutzer" ersetzt</li>
+                                    <li>Match-Historie bleibt erhalten (anonymisiert)</li>
+                                    <li>Ranglisten-Einträge bleiben als "Gelöschter Nutzer"</li>
+                                    <li><strong>Diese Aktion kann nicht rückgängig gemacht werden!</strong></li>
+                                </ul>
+                            </div>
+
+                            <p class="text-sm text-red-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>Empfehlung:</strong> Lade zuerst deine Daten herunter (siehe oben).
+                            </p>
+
+                            <button
+                                id="delete-account-btn"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition"
+                            >
+                                <i class="fas fa-trash-alt mr-2"></i>
+                                Account unwiderruflich löschen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tutorial & Hilfe -->
                 <div id="tutorial-section">
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">

@@ -16,6 +16,10 @@ import {
     getDoc,
     updateDoc,
     connectFirestoreEmulator,
+    collection,
+    query,
+    where,
+    getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
     getStorage,
@@ -33,12 +37,14 @@ import {
     getNotificationStatus,
 } from './init-notifications.js';
 import { getFCMManager } from './fcm-manager.js';
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
+const functions = getFunctions(app);
 
 // NEU: Der Emulator-Block
 // Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
@@ -53,6 +59,9 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
 
     // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
+
+    // Functions Emulator
+    connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 
 const pageLoader = document.getElementById('page-loader');
@@ -584,5 +593,184 @@ document.getElementById('start-player-tutorial-btn')?.addEventListener('click', 
         // Zur Dashboard-Seite navigieren und Tutorial-Flag setzen
         sessionStorage.setItem('startTutorial', 'player');
         window.location.href = '/dashboard.html';
+    }
+});
+
+/**
+ * ===============================================
+ * GDPR DATA EXPORT & ACCOUNT DELETION
+ * ===============================================
+ */
+
+/**
+ * Export all user data as JSON file (GDPR Art. 20)
+ */
+document.getElementById('export-data-btn')?.addEventListener('click', async () => {
+    const exportBtn = document.getElementById('export-data-btn');
+    const feedbackEl = document.getElementById('export-feedback');
+
+    if (!currentUser) {
+        feedbackEl.textContent = 'Fehler: Nicht angemeldet';
+        feedbackEl.className = 'text-sm mt-2 text-red-600';
+        return;
+    }
+
+    try {
+        exportBtn.disabled = true;
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exportiere Daten...';
+        feedbackEl.textContent = '';
+
+        // Get user data
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        const userData = userDoc.exists() ? userDoc.data() : {};
+
+        // Get all matches (singles)
+        const matchesQuery = query(
+            collection(db, 'matches'),
+            where('playerIds', 'array-contains', currentUser.uid)
+        );
+        const matchesSnapshot = await getDocs(matchesQuery);
+        const matches = [];
+        matchesSnapshot.forEach(doc => {
+            matches.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Get all doubles matches
+        const doublesQuery = query(
+            collection(db, 'doublesMatches'),
+            where('playerIds', 'array-contains', currentUser.uid)
+        );
+        const doublesSnapshot = await getDocs(doublesQuery);
+        const doublesMatches = [];
+        doublesSnapshot.forEach(doc => {
+            doublesMatches.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Get attendance records
+        const attendanceQuery = query(
+            collection(db, 'attendance'),
+            where('presentPlayerIds', 'array-contains', currentUser.uid)
+        );
+        const attendanceSnapshot = await getDocs(attendanceQuery);
+        const attendance = [];
+        attendanceSnapshot.forEach(doc => {
+            attendance.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Compile all data
+        const exportData = {
+            exportDate: new Date().toISOString(),
+            profile: {
+                userId: currentUser.uid,
+                email: currentUser.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                birthdate: userData.birthdate,
+                gender: userData.gender,
+                photoURL: userData.photoURL,
+                eloRating: userData.eloRating,
+                xp: userData.xp,
+                rankName: userData.rankName,
+                clubId: userData.clubId,
+                role: userData.role,
+                createdAt: userData.createdAt,
+            },
+            statistics: {
+                totalMatches: matches.length + doublesMatches.length,
+                singlesMatches: matches.length,
+                doublesMatches: doublesMatches.length,
+                trainingAttendance: attendance.length,
+            },
+            matches: matches,
+            doublesMatches: doublesMatches,
+            attendance: attendance,
+        };
+
+        // Create and download JSON file
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `ttv-champions-datenexport-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        feedbackEl.textContent = '✓ Daten erfolgreich heruntergeladen';
+        feedbackEl.className = 'text-sm mt-2 text-green-600';
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = '<i class="fas fa-file-download mr-2"></i>Daten herunterladen';
+    } catch (error) {
+        console.error('Error exporting data:', error);
+        feedbackEl.textContent = `Fehler beim Export: ${error.message}`;
+        feedbackEl.className = 'text-sm mt-2 text-red-600';
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = '<i class="fas fa-file-download mr-2"></i>Daten herunterladen';
+    }
+});
+
+/**
+ * Delete account with anonymization
+ */
+document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
+    if (!currentUser) {
+        alert('Fehler: Nicht angemeldet');
+        return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = confirm(
+        '⚠️ WARNUNG: Account-Löschung\n\n' +
+        'Bist du sicher, dass du deinen Account löschen möchtest?\n\n' +
+        'Was passiert:\n' +
+        '• Dein Account wird deaktiviert\n' +
+        '• Persönliche Daten werden gelöscht\n' +
+        '• Dein Name wird durch "Gelöschter Nutzer" ersetzt\n' +
+        '• Match-Historie bleibt anonymisiert erhalten\n' +
+        '• Diese Aktion kann NICHT rückgängig gemacht werden!\n\n' +
+        'Empfehlung: Lade zuerst deine Daten herunter.\n\n' +
+        'Fortfahren?'
+    );
+
+    if (!confirmed) return;
+
+    // Second confirmation
+    const doubleConfirm = prompt(
+        'Bitte tippe "LÖSCHEN" ein, um die Account-Löschung zu bestätigen:'
+    );
+
+    if (doubleConfirm !== 'LÖSCHEN') {
+        alert('Account-Löschung abgebrochen.');
+        return;
+    }
+
+    const deleteBtn = document.getElementById('delete-account-btn');
+
+    try {
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Lösche Account...';
+
+        // Call Cloud Function to anonymize account
+        const anonymizeAccount = httpsCallable(functions, 'anonymizeAccount');
+        const result = await anonymizeAccount({ userId: currentUser.uid });
+
+        if (result.data.success) {
+            alert(
+                'Dein Account wurde erfolgreich anonymisiert.\n\n' +
+                'Du wirst jetzt abgemeldet.'
+            );
+
+            // Sign out user
+            await auth.signOut();
+            window.location.href = '/index.html';
+        } else {
+            throw new Error(result.data.message || 'Unbekannter Fehler');
+        }
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        alert(`Fehler beim Löschen des Accounts: ${error.message}`);
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Account unwiderruflich löschen';
     }
 });
