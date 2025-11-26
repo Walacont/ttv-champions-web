@@ -67,6 +67,10 @@ import {
     getCurrentSessionId,
 } from './attendance.js';
 import {
+    exportAttendanceToExcel,
+    exportAttendanceSummary,
+} from './attendance-export.js';
+import {
     handleCreateChallenge,
     loadActiveChallenges,
     loadExpiredChallenges,
@@ -632,6 +636,14 @@ async function initializeCoachPage(userData) {
             calendarUnsubscribe();
         }
         calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    });
+
+    // Export buttons for attendance
+    document.getElementById('export-attendance-btn').addEventListener('click', async () => {
+        await exportAttendanceToExcel(db, userData.clubId, currentCalendarDate, currentSubgroupFilter);
+    });
+    document.getElementById('export-attendance-summary-btn').addEventListener('click', async () => {
+        await exportAttendanceSummary(db, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
     document
         .getElementById('calendar-grid')

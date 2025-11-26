@@ -28,6 +28,7 @@
         <link rel="stylesheet" href="/css/spa-enhancements.css" />
         <link rel="stylesheet" href="/css/tutorial.css" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
         <style>
             body {
                 font-family: 'Inter', sans-serif;
@@ -310,7 +311,7 @@
 
                 <div id="tab-content-attendance" class="tab-content hidden">
                     <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                        <div class="flex justify-between items-center mb-6">
+                        <div class="flex justify-between items-center mb-4">
                             <button id="prev-month-btn" class="p-2 rounded-full hover:bg-gray-200">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
@@ -318,6 +319,28 @@
                             <button id="next-month-btn" class="p-2 rounded-full hover:bg-gray-200">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
+                        </div>
+                        <div class="flex justify-end gap-2 mb-4">
+                            <button
+                                id="export-attendance-btn"
+                                class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg shadow transition-all flex items-center gap-2"
+                                title="Anwesenheit als Excel exportieren"
+                            >
+                                <i class="fas fa-file-excel"></i>
+                                <span>Als Excel exportieren</span>
+                            </button>
+                            <button
+                                id="export-attendance-summary-btn"
+                                class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg shadow transition-all flex items-center gap-2"
+                                title="Zusammenfassung exportieren"
+                            >
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Zusammenfassung</span>
+                            </button>
+                        </div>
+                        <div id="export-loading" class="hidden text-center py-2 text-indigo-600">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            <span>Excel wird erstellt...</span>
                         </div>
                         <div
                             class="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-gray-500 mb-2"
@@ -2868,6 +2891,20 @@
                 <form id="attendance-form" class="space-y-4">
                     <input type="hidden" id="attendance-date-input" />
                     <input type="hidden" id="attendance-doc-id-input" />
+
+                    <!-- Coach selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Anwesende Trainer (mehrere auswählbar)
+                        </label>
+                        <div
+                            id="attendance-coach-list"
+                            class="border border-gray-300 rounded-md px-3 py-2 max-h-32 overflow-y-auto space-y-1"
+                        >
+                            <p class="text-sm text-gray-400">Trainer werden geladen...</p>
+                        </div>
+                    </div>
+
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <h4 class="text-md font-medium text-gray-800">Anwesende Spieler</h4>

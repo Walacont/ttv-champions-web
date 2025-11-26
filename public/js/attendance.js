@@ -787,6 +787,18 @@ export async function openAttendanceModalForSession(
                   ...attendanceSnapshot.docs[0].data(),
               };
 
+        // Load coaches for the club
+        const coachesQuery = query(
+            collection(db, 'users'),
+            where('clubId', '==', clubId),
+            where('role', '==', 'coach')
+        );
+        const coachesSnapshot = await getDocs(coachesQuery);
+        const coaches = coachesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
         const modal = document.getElementById('attendance-modal');
         document.getElementById('attendance-modal-date').textContent =
             `${new Date(date).toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - ${sessionData.startTime}-${sessionData.endTime}`;
@@ -804,6 +816,37 @@ export async function openAttendanceModalForSession(
             document.getElementById('attendance-form').appendChild(sessionIdInput);
         }
         sessionIdInput.value = sessionId;
+
+        // Populate coach checkboxes
+        const coachListContainer = document.getElementById('attendance-coach-list');
+        coachListContainer.innerHTML = '';
+
+        if (coaches.length === 0) {
+            coachListContainer.innerHTML = '<p class="text-sm text-gray-400">Keine Trainer gefunden</p>';
+        } else {
+            coaches.forEach(coach => {
+                const isChecked = attendanceData &&
+                    attendanceData.coachIds &&
+                    attendanceData.coachIds.includes(coach.id);
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                div.innerHTML = `
+                    <input
+                        id="coach-check-${coach.id}"
+                        name="coaches"
+                        value="${coach.id}"
+                        type="checkbox"
+                        ${isChecked ? 'checked' : ''}
+                        class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    >
+                    <label for="coach-check-${coach.id}" class="ml-2 block text-sm text-gray-700">
+                        ${coach.firstName} ${coach.lastName}
+                    </label>
+                `;
+                coachListContainer.appendChild(div);
+            });
+        }
 
         const playerListContainer = document.getElementById('attendance-player-list');
 
@@ -956,6 +999,14 @@ export async function handleAttendanceSave(
         .filter(checkbox => checkbox.checked)
         .map(checkbox => checkbox.value);
 
+    // Get selected coaches
+    const coachCheckboxes = document
+        .getElementById('attendance-coach-list')
+        .querySelectorAll('input[type="checkbox"]');
+    const coachIds = Array.from(coachCheckboxes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => checkbox.value);
+
     // IMPORTANT: Get previous attendance for THIS SPECIFIC SESSION, not just this date!
     // We need to distinguish between different training sessions on the same day
     let previouslyPresentIdsOnThisDay = [];
@@ -1009,18 +1060,21 @@ export async function handleAttendanceSave(
             // If no entry exists and no players present, we don't need to do anything
         } else {
             // Update/create attendance document for this session
-            batch.set(
-                attendanceRef,
-                {
-                    date,
-                    clubId: currentUserData.clubId,
-                    subgroupId, // CHANGED: Use subgroupId from session
-                    sessionId, // NEW: Add sessionId
-                    presentPlayerIds,
-                    updatedAt: serverTimestamp(),
-                },
-                { merge: true }
-            );
+            const attendanceData = {
+                date,
+                clubId: currentUserData.clubId,
+                subgroupId, // CHANGED: Use subgroupId from session
+                sessionId, // NEW: Add sessionId
+                presentPlayerIds,
+                updatedAt: serverTimestamp(),
+            };
+
+            // Add coaches if selected
+            if (coachIds && coachIds.length > 0) {
+                attendanceData.coachIds = coachIds;
+            }
+
+            batch.set(attendanceRef, attendanceData, { merge: true });
         }
 
         // Process EVERY player in the club and update their subgroup-specific streak and points
