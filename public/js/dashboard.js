@@ -50,7 +50,6 @@ import {
     updateGrundlagenDisplay,
 } from './profile.js';
 import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
-import { initPushNotifications } from './init-notifications.js';
 import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 // Season reset import removed - now handled by Cloud Function
@@ -111,13 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             currentUserData = { id: docSnap.id, ...userData };
                             if (isFirstLoad) {
                                 initializeDashboard(currentUserData);
-
-                                // Initialize push notifications (auto-prompt after 3 seconds)
-                                initPushNotifications(app, db, auth, {
-                                    autoPrompt: true,
-                                    promptDelay: 3000,
-                                    showOnlyOnce: true,
-                                });
                             } else {
                                 updateDashboard(currentUserData);
                             }
