@@ -1641,20 +1641,27 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Function to load all clubs for display
     async function loadClubs() {
         try {
+            console.log('[Opponent Search] 🔵 Starting to load clubs...');
             const clubsRef = collection(db, 'clubs');
             const snapshot = await getDocs(clubsRef);
 
-            console.log('[Opponent Search] Loading clubs:', snapshot.size);
+            console.log('[Opponent Search] 📊 Clubs snapshot size:', snapshot.size);
 
             snapshot.docs.forEach(doc => {
                 const clubData = { id: doc.id, ...doc.data() };
+                // Store by both doc.id AND name for flexible lookup
                 clubsMap.set(doc.id, clubData);
-                console.log('[Opponent Search] Loaded club:', doc.id, clubData.name);
+                if (clubData.name) {
+                    clubsMap.set(clubData.name, clubData); // Also store by name!
+                }
+                console.log('[Opponent Search] ✅ Loaded club - ID:', doc.id, '| Name:', clubData.name);
             });
 
-            console.log('[Opponent Search] Total clubs loaded:', clubsMap.size);
+            console.log('[Opponent Search] 🎯 Total entries in map:', clubsMap.size);
+            console.log('[Opponent Search] 📋 All club keys:', Array.from(clubsMap.keys()));
         } catch (error) {
-            console.error('[Opponent Search] Error loading clubs:', error);
+            console.error('[Opponent Search] ❌ Error loading clubs:', error);
+            console.error('[Opponent Search] Error details:', error.code, error.message);
         }
     }
 
