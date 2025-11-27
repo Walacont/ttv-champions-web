@@ -112,13 +112,22 @@ function filterPlayersByPrivacy(players, currentUserData) {
 }
 
 /**
- * Filter out players from test clubs (unless coach/admin from same club)
+ * Filter out players from test clubs (unless viewer is from a test club)
  * @param {Array} players - Array of player objects
  * @param {Object} currentUserData - Current user's data (with id, role, clubId)
  * @param {Map} clubsMap - Map of clubId -> club data
  * @returns {Array} Filtered players
  */
 function filterTestClubPlayers(players, currentUserData, clubsMap) {
+    // Check if current user is from a test club
+    const currentUserClub = clubsMap.get(currentUserData.clubId);
+    if (currentUserClub && currentUserClub.isTestClub) {
+        // Test club members (players/coaches/admins) see everyone
+        return players;
+    }
+
+    // Current user is NOT from a test club
+    // Filter out all test club players
     return players.filter(player => {
         // Always show current user
         if (player.id === currentUserData.id) return true;
@@ -126,19 +135,13 @@ function filterTestClubPlayers(players, currentUserData, clubsMap) {
         // If player has no club, show them
         if (!player.clubId) return true;
 
-        // Get club data
+        // Get player's club data
         const club = clubsMap.get(player.clubId);
 
         // If club doesn't exist or is not a test club, show player
         if (!club || !club.isTestClub) return true;
 
-        // Player is from a test club - only show to coach/admin from SAME club
-        if ((currentUserData.role === 'coach' || currentUserData.role === 'admin') &&
-            currentUserData.clubId === player.clubId) {
-            return true;
-        }
-
-        // Hide test club players from everyone else
+        // Player is from a test club - hide from non-test-club users
         return false;
     });
 }
