@@ -149,14 +149,8 @@ service cloud.firestore {
 
     // Clubs collection
     match /clubs/{clubId} {
-      // Users can read clubs they belong to
-      allow read: if isAuthenticated() && isSameClub(clubId);
-
-      // Users can read ALL clubs (for club search) but exclude test clubs
+      // All authenticated users can read clubs (for club search and opponent info)
       allow read: if isAuthenticated();
-
-      // Admins can read everything
-      allow read: if isAdmin();
 
       // Only coaches and admins can write
       allow write: if isCoachOfClub(clubId);
