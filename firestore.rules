@@ -32,31 +32,6 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().clubId != null;
     }
 
-    function canViewUser(targetUserId) {
-      let targetData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
-      let currentUserData = getUserData();
-
-      // User can view themselves
-      if (targetUserId == request.auth.uid) return true;
-
-      // Same club members can view each other
-      if (currentUserData.clubId != null && targetData.clubId == currentUserData.clubId) return true;
-
-      // If target is globally searchable, anyone can view
-      if ('privacySettings' in targetData &&
-          'searchable' in targetData.privacySettings &&
-          targetData.privacySettings.searchable == 'global') {
-        return true;
-      }
-
-      // Coaches and admins can view all users in their club
-      if (isCoachOrAdmin() && targetData.clubId != null && currentUserData.clubId == targetData.clubId) {
-        return true;
-      }
-
-      return false;
-    }
-
     function isCoachOfClub(clubId) {
       return isCoachOrAdmin() && isSameClub(clubId);
     }
@@ -79,8 +54,14 @@ service cloud.firestore {
       // Users can read their own data
       allow read: if isOwner(userId);
 
-      // Users can read others based on privacy settings and club membership
-      allow read: if canViewUser(userId);
+      // All authenticated users can read player profiles
+      // This is necessary for: opponent search, leaderboards, match requests
+      // Privacy filtering is enforced in frontend queries (privacySettings.searchable)
+      // TODO: Implement custom claims (clubId, role in auth token) to enforce privacy in rules
+      allow read: if isAuthenticated() && resource.data.role == 'player';
+
+      // Coaches and admins can read all users
+      allow read: if isCoachOrAdmin();
 
       // ADMIN can read ALL users (for statistics and club management)
       allow read: if isAdmin();
@@ -164,22 +145,6 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
         allow read: if isCoachOrAdmin();
       }
-    }
-
-    // Clubs collection
-    match /clubs/{clubId} {
-      // Users can read clubs they belong to
-      allow read: if isAuthenticated() && isSameClub(clubId);
-
-      // Users can read ALL clubs (for club search) but exclude test clubs
-      allow read: if isAuthenticated();
-
-      // Admins can read everything
-      allow read: if isAdmin();
-
-      // Only coaches and admins can write
-      allow write: if isCoachOfClub(clubId);
-      allow write: if isAdmin();
     }
 
     // Club Join Requests collection

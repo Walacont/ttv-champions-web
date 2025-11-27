@@ -181,6 +181,10 @@ onboardingForm.addEventListener('submit', async e => {
         const paddedMonth = month.padStart(2, '0');
         const birthdate = `${year}-${paddedMonth}-${paddedDay}`;
 
+        // Get QTTR points (optional)
+        const qttrPointsInput = document.getElementById('qttr-points').value;
+        const qttrPoints = qttrPointsInput ? parseInt(qttrPointsInput, 10) : null;
+
         const dataToUpdate = {
             firstName: document.getElementById('firstName').value,
             lastName: document.getElementById('lastName').value,
@@ -190,6 +194,11 @@ onboardingForm.addEventListener('submit', async e => {
             onboardingComplete: true, // Wichtig: Onboarding abschließen
             isOffline: false, // User is now online after completing onboarding
         };
+
+        // Add QTTR points if provided
+        if (qttrPoints !== null && qttrPoints > 0) {
+            dataToUpdate.qttrPoints = qttrPoints;
+        }
 
         const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, dataToUpdate);

@@ -1580,7 +1580,10 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     const form = document.getElementById('match-request-form');
     if (!form) return;
 
-    const opponentSelect = document.getElementById('opponent-select');
+    const opponentSearchInput = document.getElementById('opponent-search-input');
+    const opponentSearchResults = document.getElementById('opponent-search-results');
+    const selectedOpponentId = document.getElementById('selected-opponent-id');
+    const selectedOpponentElo = document.getElementById('selected-opponent-elo');
     const handicapToggle = document.getElementById('match-handicap-toggle');
     const handicapInfo = document.getElementById('match-handicap-info');
     const setScoreContainer = document.getElementById('set-score-container');
@@ -1630,21 +1633,125 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         return; // Exit early, don't initialize form
     }
 
-    // Populate opponent dropdown (only match-ready players)
-    opponentSelect.innerHTML = '<option value="">Gegner wählen...</option>';
-    clubPlayers
-        .filter(p => {
-            // Filter: not self, is player role, and has completed Grundlagen
-            const playerGrundlagen = p.grundlagenCompleted || 0;
-            return p.id !== userData.id && p.role === 'player' && playerGrundlagen >= 5;
-        })
-        .forEach(player => {
-            const option = document.createElement('option');
-            option.value = player.id;
-            option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 0)})`;
-            option.dataset.elo = player.eloRating || 0;
-            opponentSelect.appendChild(option);
+    // Opponent Search Functionality
+    let allPlayers = []; // Will store all searchable players
+    let selectedOpponent = null;
+
+    // Function to load all searchable players (with privacy filter)
+    async function loadSearchablePlayers() {
+        try {
+
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('role', '==', 'player'));
+            const snapshot = await getDocs(q);
+
+            allPlayers = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(p => {
+                    // Filter: not self, match-ready, and privacy check
+                    const playerGrundlagen = p.grundlagenCompleted || 0;
+                    const isMatchReady = playerGrundlagen >= 5;
+                    const isSelf = p.id === userData.id;
+
+                    // Privacy check: same club OR globally searchable
+                    const isSameClub = userData.clubId && p.clubId === userData.clubId;
+                    const isGloballySearchable = p.privacySettings?.searchable === 'global';
+
+                    return !isSelf && isMatchReady && (isSameClub || isGloballySearchable);
+                });
+
+            // Add to playersMap for easy lookup
+            allPlayers.forEach(player => {
+                playersMap.set(player.id, player);
+            });
+        } catch (error) {
+            console.error('Error loading players:', error);
+        }
+    }
+
+    // Function to display search results
+    function displayOpponentResults(players) {
+        if (players.length === 0) {
+            opponentSearchResults.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden.</p>';
+            return;
+        }
+
+        opponentSearchResults.innerHTML = players.map(player => {
+            // clubId IS the club name (e.g., "TuRa Harksheide")
+            const clubName = player.clubId || 'Kein Verein';
+            const isSameClub = player.clubId === userData.clubId;
+
+            return `
+            <div class="opponent-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                 data-player-id="${player.id}"
+                 data-player-elo="${player.eloRating || 0}"
+                 data-player-name="${player.firstName} ${player.lastName}">
+                <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                        <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
+                        <p class="text-sm text-gray-600">Elo: ${Math.round(player.eloRating || 0)}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-users mr-1"></i>${clubName}
+                        </p>
+                    </div>
+                    ${!isSameClub && player.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
+                </div>
+            </div>
+        `;
+        }).join('');
+
+        // Add click handlers to results
+        document.querySelectorAll('.opponent-result').forEach(result => {
+            result.addEventListener('click', () => {
+                const playerId = result.dataset.playerId;
+                const playerName = result.dataset.playerName;
+                const playerElo = result.dataset.playerElo;
+
+                // Set selected opponent
+                selectedOpponentId.value = playerId;
+                selectedOpponentElo.value = playerElo;
+                selectedOpponent = allPlayers.find(p => p.id === playerId);
+
+                // Update search input to show selected player
+                opponentSearchInput.value = playerName;
+
+                // Clear search results
+                opponentSearchResults.innerHTML = '';
+
+                // Trigger handicap calculation
+                calculateHandicap();
+            });
         });
+    }
+
+    // Search input event listener
+    if (opponentSearchInput) {
+        opponentSearchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            // Clear selection if input changes
+            selectedOpponentId.value = '';
+            selectedOpponentElo.value = '';
+            selectedOpponent = null;
+
+            if (searchTerm.length < 2) {
+                opponentSearchResults.innerHTML = '';
+                hideHandicap();
+                return;
+            }
+
+            // Filter players by name
+            const filteredPlayers = allPlayers.filter(p =>
+                p.firstName?.toLowerCase().includes(searchTerm) ||
+                p.lastName?.toLowerCase().includes(searchTerm)
+            );
+
+            displayOpponentResults(filteredPlayers);
+        });
+    }
+
+    // Load searchable players on initialization
+    loadSearchablePlayers();
 
     // Initialize set score input with current mode
     let currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
@@ -1695,23 +1802,28 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Store current handicap data
     let currentHandicapData = null;
 
-    // Handicap calculation
-    opponentSelect.addEventListener('change', () => {
-        const selectedOption = opponentSelect.selectedOptions[0];
-        if (!selectedOption || !selectedOption.value) {
+    // Function to hide handicap info
+    function hideHandicap() {
+        if (handicapInfo) {
             handicapInfo.classList.add('hidden');
-            currentHandicapData = null;
+        }
+        currentHandicapData = null;
+    }
+
+    // Function to calculate and display handicap
+    function calculateHandicap() {
+        if (!selectedOpponent || !selectedOpponentElo.value) {
+            hideHandicap();
             return;
         }
 
-        const opponentElo = parseFloat(selectedOption.dataset.elo) || 0;
+        const opponentElo = parseFloat(selectedOpponentElo.value) || 0;
         const myElo = userData.eloRating || 0;
         const eloDiff = Math.abs(myElo - opponentElo);
 
         if (eloDiff >= 25) {
             const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
-            const weakerPlayer =
-                myElo < opponentElo ? 'Du' : selectedOption.textContent.split(' (')[0];
+            const weakerPlayer = myElo < opponentElo ? 'Du' : `${selectedOpponent.firstName} ${selectedOpponent.lastName}`;
             const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B'; // A = me, B = opponent
 
             // Store handicap data
@@ -1720,19 +1832,20 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 points: handicapPoints,
             };
 
-            document.getElementById('match-handicap-text').textContent =
-                `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
-            handicapInfo.classList.remove('hidden');
+            if (handicapInfo) {
+                document.getElementById('match-handicap-text').textContent =
+                    `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
+                handicapInfo.classList.remove('hidden');
 
-            // Apply handicap if toggle is checked
-            if (handicapToggle && handicapToggle.checked) {
-                setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+                // Apply handicap if toggle is checked
+                if (handicapToggle && handicapToggle.checked) {
+                    setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+                }
             }
         } else {
-            handicapInfo.classList.add('hidden');
-            currentHandicapData = null;
+            hideHandicap();
         }
-    });
+    }
 
     // Handicap toggle event listener
     handicapToggle.addEventListener('change', () => {
@@ -1769,7 +1882,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
         // Handle singles match request (existing logic)
 
-        const opponentId = opponentSelect.value;
+        const opponentId = selectedOpponentId.value;
         const handicapUsed = handicapToggle.checked;
 
         if (!opponentId) {
@@ -1816,6 +1929,13 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
             showFeedback('Anfrage erfolgreich erstellt! Warte auf Bestätigung.', 'success');
             form.reset();
+
+            // Reset opponent search fields
+            if (opponentSearchInput) opponentSearchInput.value = '';
+            if (opponentSearchResults) opponentSearchResults.innerHTML = '';
+            if (selectedOpponentId) selectedOpponentId.value = '';
+            if (selectedOpponentElo) selectedOpponentElo.value = '';
+            selectedOpponent = null;
 
             // Reset match mode dropdown to default (form.reset() sets it to the selected value in HTML)
             if (matchModeSelect) {
