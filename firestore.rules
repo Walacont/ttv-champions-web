@@ -285,9 +285,11 @@ service cloud.firestore {
         playerIsMatchReady(request.resource.data.playerBId);
 
       // PlayerB can update (approve/reject) if they are playerB and status is pending_player
+      // Can transition to: pending_coach (needs coach), approved (auto-approved), or rejected
       allow update: if isAuthenticated() &&
         resource.data.playerBId == request.auth.uid &&
-        resource.data.status == 'pending_player';
+        resource.data.status == 'pending_player' &&
+        request.resource.data.status in ['pending_coach', 'approved', 'rejected'];
 
       // PlayerA can update (edit/cancel) their own request if nobody has responded yet
       allow update: if isAuthenticated() &&
@@ -299,9 +301,11 @@ service cloud.firestore {
          resource.data.approvals.playerB.status == null);
 
       // Coach can update (approve/reject) if pending_coach and same club
+      // Can transition to: approved or rejected
       allow update: if isCoachOrAdmin() &&
         isSameClub(resource.data.clubId) &&
-        resource.data.status == 'pending_coach';
+        resource.data.status == 'pending_coach' &&
+        request.resource.data.status in ['approved', 'rejected'];
 
       // PlayerA can delete their own request if nobody has responded yet
       allow delete: if isAuthenticated() &&
@@ -461,15 +465,19 @@ service cloud.firestore {
         atLeastOneOpponentIsOnline(request.resource.data.teamB.player1Id, request.resource.data.teamB.player2Id);
 
       // Opponents can update (approve/reject) if they are one of the opponents and status is pending_opponent
+      // Can transition to: pending_coach (needs coach), approved (auto-approved), or rejected
       allow update: if isAuthenticated() &&
         (resource.data.teamB.player1Id == request.auth.uid ||
          resource.data.teamB.player2Id == request.auth.uid) &&
-        resource.data.status == 'pending_opponent';
+        resource.data.status == 'pending_opponent' &&
+        request.resource.data.status in ['pending_coach', 'approved', 'rejected'];
 
       // Coach can update (approve/reject) if pending_coach and (same club OR cross-club)
+      // Can transition to: approved or rejected
       allow update: if isCoachOrAdmin() &&
         (resource.data.clubId == null || isSameClub(resource.data.clubId)) &&
-        resource.data.status == 'pending_coach';
+        resource.data.status == 'pending_coach' &&
+        request.resource.data.status in ['approved', 'rejected'];
 
       // Initiator can delete their own request if still pending (before approved/rejected)
       allow delete: if isAuthenticated() &&
