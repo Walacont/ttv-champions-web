@@ -1076,7 +1076,7 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
             try {
                 const result = await confirmDoublesMatchRequest(request.id, userData.id, db);
                 if (result.autoApproved) {
-                    alert('✅ Doppel-Match bestätigt und automatisch genehmigt! Da alle 4 Spieler keinem Verein angehören, wurde das Match direkt freigegeben.');
+                    alert('✅ Doppel-Match bestätigt und automatisch genehmigt! Da mindestens ein Team keinem Verein angehört, wurde das Match direkt freigegeben.');
                 } else {
                     alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
                 }

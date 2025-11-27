@@ -1176,11 +1176,11 @@ function createPendingDoublesCard(request, playersData, userData, db) {
             approveBtn.addEventListener('click', async () => {
                 const { confirmDoublesMatchRequest } = await import('./doubles-matches.js');
                 try {
-                    await confirmDoublesMatchRequest(request.id, userData.id, db);
-                    showFeedback(
-                        'Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.',
-                        'success'
-                    );
+                    const result = await confirmDoublesMatchRequest(request.id, userData.id, db);
+                    const message = result.autoApproved
+                        ? 'Doppel-Match bestätigt und automatisch genehmigt! Da mindestens ein Team keinem Verein angehört, wurde das Match direkt erstellt.'
+                        : 'Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.';
+                    showFeedback(message, 'success');
                 } catch (error) {
                     console.error('Error confirming doubles request:', error);
                     showFeedback(`Fehler: ${error.message}`, 'error');
@@ -1310,9 +1310,9 @@ function getDoublesStatusDescription(status, approvedBy = null) {
     }
 
     if (status === 'approved') {
-        // Check if it was auto-approved (all 4 players without club)
+        // Check if it was auto-approved (at least one team without club)
         if (approvedBy === 'auto_approved') {
-            return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde automatisch genehmigt, da alle 4 Spieler keinem Verein angehören. Das Match wurde erstellt.</p>';
+            return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde automatisch genehmigt, da mindestens ein Team keinem Verein angehört. Das Match wurde erstellt.</p>';
         }
         return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde genehmigt und das Match wurde erstellt.</p>';
     }
