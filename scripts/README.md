@@ -100,6 +100,80 @@ node scripts/migrate-clubs.cjs
 
 ---
 
+## Auto-Approve Matches Without Club
+
+### Overview
+
+Migriert bestehende `pending_coach` Match-Anfragen für Spieler ohne Verein. Seit dem Fix vom November 2024 werden Matches zwischen Spielern ohne Club automatisch genehmigt. Dieses Script aktualisiert bestehende Anfragen, die vor dem Fix erstellt wurden.
+
+### Vorbereitung
+
+1. **Service Account Key erstellen** (falls noch nicht vorhanden):
+    - Siehe Anleitung oben bei "ELO Migration"
+    - Speichere `serviceAccountKey.json` im Projekt-Root
+
+2. **Dependencies installieren**:
+
+```bash
+npm install firebase-admin
+```
+
+### Migration ausführen
+
+```bash
+node scripts/migrate-auto-approve-no-club.cjs
+```
+
+### Was passiert?
+
+**Singles Matches:**
+- Findet alle Anfragen mit Status `pending_coach`
+- Prüft für jede Anfrage, ob beide Spieler keinen Club haben (`clubId` ist `null`, `undefined`, oder `""`)
+- Setzt Status auf `approved` mit `approvals.coach.status = 'auto_approved'`
+
+**Doubles Matches:**
+- Findet alle Doppel-Anfragen mit Status `pending_coach`
+- Prüft, ob alle 4 Spieler keinen Club haben
+- Setzt Status auf `approved` mit `approvedBy = 'auto_approved'`
+
+### Beispiel Output
+
+```
+📋 Checking singles match requests...
+Found 5 singles matches with status 'pending_coach'
+  ✅ Match abc123: Auto-approved (both players without club)
+  ⏭️  Match def456: At least one player has club, skipping
+  ✅ Match ghi789: Auto-approved (both players without club)
+
+✨ Singles migration complete:
+   - Approved: 2
+   - Skipped: 3
+   - Errors: 0
+
+📋 Checking doubles match requests...
+Found 2 doubles matches with status 'pending_coach'
+  ✅ Match xyz123: Auto-approved (all 4 players without club)
+  ⏭️  Match uvw456: At least one player has club, skipping
+
+✨ Doubles migration complete:
+   - Approved: 1
+   - Skipped: 1
+   - Errors: 0
+```
+
+### Sicherheit
+
+- ✅ **Selektiv:** Nur Matches ohne Club werden genehmigt
+- ✅ **Error Handling:** Fehler bei einzelnen Matches stoppen nicht die Migration
+- ✅ **Idempotent:** Kann mehrfach ausgeführt werden (bereits genehmigte Matches haben nicht mehr den Status `pending_coach`)
+- ✅ **Logging:** Detaillierte Ausgabe für jedes verarbeitete Match
+
+### Nach der Migration
+
+Die betroffenen Spieler sehen in ihrer Match-Historie nun "✓ Automatisch genehmigt" statt "⏳ Wartet auf Coach".
+
+---
+
 ## Weitere Migrationen
 
 ### Season-System
