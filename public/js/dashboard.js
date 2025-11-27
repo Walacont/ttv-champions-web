@@ -183,7 +183,7 @@ async function initializeDashboard(userData) {
 
     // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {
-        showToggle: false, // No toggle needed, global filter controls everything
+        showToggle: true, // Show Club/Global toggle for Skill, Doubles, etc.
     });
 
     // Populate subgroup options in global filter dropdown
@@ -275,6 +275,7 @@ async function initializeDashboard(userData) {
     });
     setupTabs('overview'); // 'overview' is default tab for dashboard
     setupLeaderboardTabs(); // Setup 3-tab navigation
+    setupLeaderboardToggle(); // Setup Club/Global toggle
 
     // Initialize leaderboard preferences
     initializeLeaderboardPreferences(userData, db);

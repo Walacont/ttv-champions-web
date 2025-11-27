@@ -54,13 +54,20 @@ function getPlayerInitials(player) {
 /**
  * Filter players based on privacy settings (showInLeaderboards)
  * @param {Array} players - Array of player objects
- * @param {string} currentUserId - Current user's ID (to always show themselves)
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
  * @returns {Array} Filtered players
  */
-function filterPlayersByPrivacy(players, currentUserId) {
+function filterPlayersByPrivacy(players, currentUserData) {
     return players.filter(player => {
         // Always show current user
-        if (player.id === currentUserId) return true;
+        if (player.id === currentUserData.id) return true;
+
+        // Coaches and admins can see all players from their club
+        if ((currentUserData.role === 'coach' || currentUserData.role === 'admin') &&
+            currentUserData.clubId && player.clubId === currentUserData.clubId) {
+            return true;
+        }
+
         // Show players who have showInLeaderboards enabled (default: true)
         return player.privacySettings?.showInLeaderboards !== false;
     });
@@ -149,41 +156,15 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-effort" class="leaderboard-tab-content hidden">
-                <div id="effort-club-container">
-                    <div id="effort-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
-                    </div>
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="effort-global-container" class="hidden">
-                        <div id="effort-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Fleiß-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-season" class="leaderboard-tab-content hidden">
-                <div id="season-club-container">
-                    <div id="season-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
-                    </div>
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="season-global-container" class="hidden">
-                        <div id="season-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Season-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-ranks" class="leaderboard-tab-content hidden">
@@ -193,9 +174,22 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-doubles" class="leaderboard-tab-content hidden">
-                <div id="doubles-list" class="mt-6">
-                    <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                <div id="doubles-club-container">
+                    <div id="doubles-list-club" class="mt-6">
+                        <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                    </div>
                 </div>
+                ${
+                    showToggle
+                        ? `
+                    <div id="doubles-global-container" class="hidden">
+                        <div id="doubles-list-global" class="mt-6">
+                            <p class="text-center text-gray-500 py-8">Lade globale Doppel-Rangliste...</p>
+                        </div>
+                    </div>
+                `
+                        : ''
+                }
             </div>
         </div>
     `;
@@ -264,12 +258,12 @@ export function setupLeaderboardTabs() {
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (Ranks and Doubles tabs don't have global view)
+        // Show/hide scope toggle based on tab (only Skill and Doubles have global view)
         if (scopeToggleContainer) {
-            if (tabName === 'ranks' || tabName === 'doubles') {
-                scopeToggleContainer.classList.add('hidden');
-            } else {
+            if (tabName === 'skill' || tabName === 'doubles') {
                 scopeToggleContainer.classList.remove('hidden');
+            } else {
+                scopeToggleContainer.classList.add('hidden');
             }
         }
     };
@@ -337,17 +331,17 @@ export function loadLeaderboard(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the Doubles leaderboard with real-time updates
+ * Loads the Doubles leaderboard with real-time updates (Club view)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
-    const listEl = document.getElementById('doubles-list');
+    const listEl = document.getElementById('doubles-list-club');
     if (!listEl) return;
 
     try {
-        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes);
+        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes, userData.id);
     } catch (error) {
         console.error('Error loading doubles leaderboard:', error);
         listEl.innerHTML =
@@ -388,7 +382,7 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
         }
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -454,7 +448,7 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
         }
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -520,7 +514,7 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
         }
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -645,15 +639,15 @@ function loadRanksView(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the global leaderboards (Skill, Effort, and Season)
+ * Loads the global leaderboards (only Skill and Doubles)
+ * Effort and Season are club-only
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadGlobalLeaderboard(userData, db, unsubscribes) {
     loadGlobalSkillLeaderboard(userData, db, unsubscribes);
-    loadGlobalEffortLeaderboard(userData, db, unsubscribes);
-    loadGlobalSeasonLeaderboard(userData, db, unsubscribes);
+    loadGlobalDoublesLeaderboard(userData, db, unsubscribes);
 }
 
 /**
@@ -678,7 +672,7 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.skillGlobal
@@ -724,7 +718,7 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.effortGlobal
@@ -774,7 +768,7 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.seasonGlobal
@@ -800,6 +794,29 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     });
 
     if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the global Doubles leaderboard (all clubs)
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadGlobalDoublesLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('doubles-list-global');
+    if (!listEl) return;
+
+    // Import loadDoublesLeaderboard from doubles-matches module
+    import('./doubles-matches.js').then(module => {
+        try {
+            // Load global doubles leaderboard (no clubId filter)
+            module.loadDoublesLeaderboard(null, db, listEl, unsubscribes, userData.id, true);
+        } catch (error) {
+            console.error('Error loading global doubles leaderboard:', error);
+            listEl.innerHTML =
+                '<p class="text-center text-red-500 py-8">Fehler beim Laden der globalen Doppel-Rangliste.</p>';
+        }
+    });
 }
 
 /**
