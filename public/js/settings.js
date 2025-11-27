@@ -751,6 +751,59 @@ async function initializeClubManagement() {
 }
 
 /**
+ * Show rejection notification and delete the rejected request
+ */
+async function showRejectionNotification(type, requestDoc) {
+    const requestData = requestDoc.data();
+
+    // Load club name
+    let clubName = requestData.clubId;
+    try {
+        const clubDoc = await getDoc(doc(db, 'clubs', requestData.clubId));
+        if (clubDoc.exists()) {
+            clubName = clubDoc.data().name || clubName;
+        }
+    } catch (error) {
+        console.error('Error loading club name:', error);
+    }
+
+    const messageType = type === 'join' ? 'Beitrittsanfrage' : 'Austrittsanfrage';
+    const message = `Deine ${messageType} an "${clubName}" wurde leider abgelehnt.`;
+
+    // Show notification in the feedback area
+    clubManagementFeedback.innerHTML = `
+        <div class="bg-red-50 border border-red-300 p-3 rounded-lg">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <p class="text-sm text-red-800">
+                        <i class="fas fa-times-circle mr-2"></i>
+                        <strong>${message}</strong>
+                    </p>
+                    <p class="text-xs text-red-600 mt-1">
+                        Du kannst eine neue Anfrage senden, wenn du möchtest.
+                    </p>
+                </div>
+                <button
+                    onclick="this.closest('.bg-red-50').remove()"
+                    class="text-red-600 hover:text-red-800 ml-2"
+                    title="Schließen"
+                >
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Delete the rejected request after showing notification
+    try {
+        const collectionName = type === 'join' ? 'clubRequests' : 'leaveClubRequests';
+        await deleteDoc(doc(db, collectionName, requestDoc.id));
+    } catch (error) {
+        console.error('Error deleting rejected request:', error);
+    }
+}
+
+/**
  * Listen to club join requests in real-time
  */
 function listenToClubRequests() {
@@ -760,11 +813,17 @@ function listenToClubRequests() {
 
     const q = query(
         collection(db, 'clubRequests'),
-        where('playerId', '==', currentUser.uid),
-        where('status', '==', 'pending')
+        where('playerId', '==', currentUser.uid)
     );
 
     clubRequestsUnsubscribe = onSnapshot(q, async snapshot => {
+        // Check for rejected requests and show notification
+        const rejectedRequests = snapshot.docs.filter(doc => doc.data().status === 'rejected');
+        if (rejectedRequests.length > 0) {
+            for (const doc of rejectedRequests) {
+                await showRejectionNotification('join', doc);
+            }
+        }
         await updateClubManagementUI();
     });
 }
@@ -779,11 +838,17 @@ function listenToLeaveRequests() {
 
     const q = query(
         collection(db, 'leaveClubRequests'),
-        where('playerId', '==', currentUser.uid),
-        where('status', '==', 'pending')
+        where('playerId', '==', currentUser.uid)
     );
 
     leaveRequestsUnsubscribe = onSnapshot(q, async snapshot => {
+        // Check for rejected requests and show notification
+        const rejectedRequests = snapshot.docs.filter(doc => doc.data().status === 'rejected');
+        if (rejectedRequests.length > 0) {
+            for (const doc of rejectedRequests) {
+                await showRejectionNotification('leave', doc);
+            }
+        }
         await updateClubManagementUI();
     });
 }
@@ -1057,6 +1122,7 @@ async function requestToJoinClub(clubId, clubName) {
         await addDoc(collection(db, 'clubRequests'), {
             playerId: currentUser.uid,
             playerEmail: currentUser.email,
+            playerName: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUser.email,
             clubId: clubId,
             status: 'pending',
             createdAt: serverTimestamp(),
@@ -1111,6 +1177,7 @@ leaveClubBtn?.addEventListener('click', async () => {
         await addDoc(collection(db, 'leaveClubRequests'), {
             playerId: currentUser.uid,
             playerEmail: currentUser.email,
+            playerName: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUser.email,
             clubId: currentUserData.clubId,
             status: 'pending',
             createdAt: serverTimestamp(),
