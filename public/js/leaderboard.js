@@ -52,6 +52,21 @@ function getPlayerInitials(player) {
 }
 
 /**
+ * Filter players based on privacy settings (showInLeaderboards)
+ * @param {Array} players - Array of player objects
+ * @param {string} currentUserId - Current user's ID (to always show themselves)
+ * @returns {Array} Filtered players
+ */
+function filterPlayersByPrivacy(players, currentUserId) {
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserId) return true;
+        // Show players who have showInLeaderboards enabled (default: true)
+        return player.privacySettings?.showInLeaderboards !== false;
+    });
+}
+
+/**
  * Sets the current subgroup filter for leaderboard
  * @param {string} subgroupId - Subgroup ID or 'all'
  */
@@ -372,6 +387,9 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             );
         }
 
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData.id);
+
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
             return;
@@ -435,6 +453,9 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
             );
         }
 
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData.id);
+
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
             return;
@@ -497,6 +518,9 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData.id);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -651,7 +675,11 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData.id);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.skillGlobal
             ? players
@@ -693,7 +721,11 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData.id);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.effortGlobal
             ? players
@@ -739,7 +771,11 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData.id);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.seasonGlobal
             ? players
@@ -838,6 +874,17 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
@@ -871,6 +918,17 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
@@ -904,6 +962,17 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
