@@ -36,25 +36,16 @@ service cloud.firestore {
       let targetData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
       let currentUserData = getUserData();
 
-      // User can view themselves
-      if (targetUserId == request.auth.uid) return true;
-
-      // Same club members can view each other
-      if (currentUserData.clubId != null && targetData.clubId == currentUserData.clubId) return true;
-
-      // If target is globally searchable, anyone can view
-      if ('privacySettings' in targetData &&
-          'searchable' in targetData.privacySettings &&
-          targetData.privacySettings.searchable == 'global') {
-        return true;
-      }
-
+      // User can view themselves OR
+      // Same club members can view each other OR
+      // If target is globally searchable, anyone can view OR
       // Coaches and admins can view all users in their club
-      if (isCoachOrAdmin() && targetData.clubId != null && currentUserData.clubId == targetData.clubId) {
-        return true;
-      }
-
-      return false;
+      return targetUserId == request.auth.uid ||
+        (currentUserData.clubId != null && targetData.clubId == currentUserData.clubId) ||
+        ('privacySettings' in targetData &&
+         'searchable' in targetData.privacySettings &&
+         targetData.privacySettings.searchable == 'global') ||
+        (isCoachOrAdmin() && targetData.clubId != null && currentUserData.clubId == targetData.clubId);
     }
 
     function isCoachOfClub(clubId) {
