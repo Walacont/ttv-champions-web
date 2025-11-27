@@ -1996,6 +1996,25 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         // Get opponent data from the map
         const opponentData = playersMap.get(opponentId);
 
+        // Determine clubId based on both players
+        let matchClubId;
+        if (!userData.clubId && !opponentData?.clubId) {
+            // Both without club → null (auto-approve)
+            matchClubId = null;
+        } else if (userData.clubId && opponentData?.clubId && userData.clubId === opponentData.clubId) {
+            // Same club → use that club
+            matchClubId = userData.clubId;
+        } else if (userData.clubId && !opponentData?.clubId) {
+            // Only PlayerA has club → use PlayerA's club
+            matchClubId = userData.clubId;
+        } else if (!userData.clubId && opponentData?.clubId) {
+            // Only PlayerB has club → use PlayerB's club
+            matchClubId = opponentData.clubId;
+        } else {
+            // Different clubs → null (cross-club, any coach can approve)
+            matchClubId = null;
+        }
+
         try {
             await addDoc(collection(db, 'matchRequests'), {
                 status: 'pending_player',
@@ -2009,7 +2028,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 loserId,
                 handicapUsed,
                 matchMode: currentMode || 'best-of-5',
-                clubId: userData.clubId,
+                clubId: matchClubId,
                 sets,
                 approvals: {
                     playerB: { status: null, timestamp: null },
@@ -2022,8 +2041,15 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
             // Show appropriate message based on club status
             let message = 'Anfrage erfolgreich erstellt! Warte auf Bestätigung.';
-            if (!userData.clubId && opponentData && !opponentData.clubId) {
+            if (matchClubId === null && !userData.clubId && !opponentData?.clubId) {
+                // Both without club → auto-approve
                 message += ' ℹ️ Da ihr beide keinem Verein angehört, wird das Match automatisch genehmigt, sobald dein Gegner bestätigt.';
+            } else if (matchClubId === null && userData.clubId && opponentData?.clubId) {
+                // Different clubs → cross-club
+                message += ' ℹ️ Cross-Club Match: Ein Coach kann das Match genehmigen, nachdem dein Gegner bestätigt hat.';
+            } else if (matchClubId) {
+                // Same club or one with club
+                message += ' Nach Bestätigung deines Gegners muss ein Coach das Match genehmigen.';
             }
             showFeedback(message, 'success');
             form.reset();

@@ -267,10 +267,11 @@ service cloud.firestore {
     // Match Requests collection (Player-initiated matches)
     match /matchRequests/{requestId} {
       // Players can read requests they're involved in or requests in their club
+      // Coaches can read cross-club matches (clubId == null) to approve them
       allow read: if isAuthenticated() && (
         resource.data.playerAId == request.auth.uid ||
         resource.data.playerBId == request.auth.uid ||
-        (isCoachOrAdmin() && resource.data.clubId != null && isSameClub(resource.data.clubId))
+        (isCoachOrAdmin() && (resource.data.clubId == null || isSameClub(resource.data.clubId)))
       );
 
       // Players can create requests for themselves (as playerA)
@@ -300,10 +301,11 @@ service cloud.firestore {
          !('status' in resource.data.approvals.playerB) ||
          resource.data.approvals.playerB.status == null);
 
-      // Coach can update (approve/reject) if pending_coach and same club
+      // Coach can update (approve/reject) if pending_coach and (same club OR cross-club)
       // Can transition to: approved or rejected
+      // Cross-club matches (clubId == null) can be approved by any coach
       allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId) &&
+        (resource.data.clubId == null || isSameClub(resource.data.clubId)) &&
         resource.data.status == 'pending_coach' &&
         request.resource.data.status in ['approved', 'rejected'];
 

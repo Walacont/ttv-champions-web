@@ -129,7 +129,9 @@ function clearDoublesSelections() {
  */
 export async function initializeDoublesPlayerSearch(db, userData) {
     // Load all searchable players - with real-time updates
-    let allPlayers = [];
+    // Use object wrapper so search functions always access current data
+    const playersData = { players: [] };
+
     try {
         // Load clubs for test club filtering
         const clubsSnapshot = await getDocs(collection(db, 'clubs'));
@@ -147,7 +149,7 @@ export async function initializeDoublesPlayerSearch(db, userData) {
 
         // Use onSnapshot for real-time updates (Doubles ELO changes after matches)
         onSnapshot(q, (snapshot) => {
-            allPlayers = snapshot.docs
+            playersData.players = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
                 .filter(p => {
                     // Filter: not self, match-ready, and privacy check
@@ -187,19 +189,19 @@ export async function initializeDoublesPlayerSearch(db, userData) {
                     return false;
                 });
 
-            console.log('[Doubles Player Search] Players list updated with', allPlayers.length, 'players');
+            console.log('[Doubles Player Search] Players list updated with', playersData.players.length, 'players');
         });
     } catch (error) {
         console.error('Error loading players:', error);
     }
 
-    // Initialize search for Partner
+    // Initialize search for Partner - pass playersData object
     initializePlayerSearchInput(
         'partner-search-input',
         'partner-search-results',
         'selected-partner-id',
         'selected-partner-elo',
-        allPlayers,
+        playersData,
         userData,
         []
     );
@@ -210,7 +212,7 @@ export async function initializeDoublesPlayerSearch(db, userData) {
         'opponent1-search-results',
         'selected-opponent1-id',
         'selected-opponent1-elo',
-        allPlayers,
+        playersData,
         userData,
         []
     );
@@ -221,7 +223,7 @@ export async function initializeDoublesPlayerSearch(db, userData) {
         'opponent2-search-results',
         'selected-opponent2-id',
         'selected-opponent2-elo',
-        allPlayers,
+        playersData,
         userData,
         []
     );
@@ -233,11 +235,11 @@ export async function initializeDoublesPlayerSearch(db, userData) {
  * @param {string} resultsId - ID of the results container element
  * @param {string} selectedIdFieldId - ID of the hidden field storing selected player ID
  * @param {string} selectedEloFieldId - ID of the hidden field storing selected player Elo
- * @param {Array} allPlayers - Array of all searchable players
+ * @param {Object} playersData - Object with players array (for real-time updates)
  * @param {Object} userData - Current user data
  * @param {Array} excludeIds - Array of player IDs to exclude from results
  */
-function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, selectedEloFieldId, allPlayers, userData, excludeIds) {
+function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, selectedEloFieldId, playersData, userData, excludeIds) {
     const searchInput = document.getElementById(inputId);
     const searchResults = document.getElementById(resultsId);
     const selectedIdField = document.getElementById(selectedIdFieldId);
@@ -255,8 +257,8 @@ function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, sele
             return;
         }
 
-        // Filter players by search term
-        const filteredPlayers = allPlayers.filter(player => {
+        // Filter players by search term - use playersData.players for real-time data
+        const filteredPlayers = playersData.players.filter(player => {
             // Exclude players in excludeIds
             if (excludeIds.includes(player.id)) return false;
 
