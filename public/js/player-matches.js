@@ -1636,46 +1636,10 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Opponent Search Functionality
     let allPlayers = []; // Will store all searchable players
     let selectedOpponent = null;
-    let clubsMap = new Map(); // Map of clubId -> club data
-
-    // Function to load all clubs for display
-    async function loadClubs() {
-        try {
-            console.log('🔵 START: loadClubs()');
-            const clubsRef = collection(db, 'clubs');
-
-            const snapshot = await getDocs(clubsRef);
-            console.log('📊 Snapshot received - Size:', snapshot.size, '| Empty:', snapshot.empty);
-
-            if (snapshot.empty) {
-                console.error('⚠️ EMPTY SNAPSHOT! Check: 1) Do clubs exist? 2) Are rules deployed?');
-                return;
-            }
-
-            snapshot.docs.forEach((doc, i) => {
-                const clubData = { id: doc.id, ...doc.data() };
-                console.log(`  Club ${i + 1}: ID="${doc.id}" Name="${clubData.name}"`);
-
-                clubsMap.set(doc.id, clubData);
-                if (clubData.name) {
-                    clubsMap.set(clubData.name, clubData);
-                }
-            });
-
-            console.log('✅ clubsMap size:', clubsMap.size);
-        } catch (error) {
-            console.error('❌ EXCEPTION:', error.code, error.message);
-            if (error.code === 'permission-denied') {
-                console.error('🔒 PERMISSION DENIED - Deploy rules!');
-            }
-        }
-    }
 
     // Function to load all searchable players (with privacy filter)
     async function loadSearchablePlayers() {
         try {
-            // Load clubs first
-            await loadClubs();
 
             const usersRef = collection(db, 'users');
             const q = query(usersRef, where('role', '==', 'player'));
@@ -1712,16 +1676,9 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             return;
         }
 
-        // Quick debug
-        console.log('DEBUG: clubsMap size:', clubsMap.size);
-        if (players[0]) {
-            console.log('DEBUG: First player clubId:', players[0].clubId);
-            console.log('DEBUG: Club lookup result:', clubsMap.get(players[0].clubId));
-        }
-
         opponentSearchResults.innerHTML = players.map(player => {
-            const playerClub = player.clubId ? clubsMap.get(player.clubId) : null;
-            const clubName = playerClub ? playerClub.name : 'Kein Verein';
+            // clubId IS the club name (e.g., "TuRa Harksheide")
+            const clubName = player.clubId || 'Kein Verein';
             const isSameClub = player.clubId === userData.clubId;
 
             return `
