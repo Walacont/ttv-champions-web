@@ -54,13 +54,20 @@ function getPlayerInitials(player) {
 /**
  * Filter players based on privacy settings (showInLeaderboards)
  * @param {Array} players - Array of player objects
- * @param {string} currentUserId - Current user's ID (to always show themselves)
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
  * @returns {Array} Filtered players
  */
-function filterPlayersByPrivacy(players, currentUserId) {
+function filterPlayersByPrivacy(players, currentUserData) {
     return players.filter(player => {
         // Always show current user
-        if (player.id === currentUserId) return true;
+        if (player.id === currentUserData.id) return true;
+
+        // Coaches and admins can see all players from their club
+        if ((currentUserData.role === 'coach' || currentUserData.role === 'admin') &&
+            currentUserData.clubId && player.clubId === currentUserData.clubId) {
+            return true;
+        }
+
         // Show players who have showInLeaderboards enabled (default: true)
         return player.privacySettings?.showInLeaderboards !== false;
     });
@@ -375,7 +382,7 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
         }
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -441,7 +448,7 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
         }
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -507,7 +514,7 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
         }
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -665,7 +672,7 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.skillGlobal
@@ -711,7 +718,7 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.effortGlobal
@@ -761,7 +768,7 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         // Filter by privacy settings (showInLeaderboards)
-        players = filterPlayersByPrivacy(players, userData.id);
+        players = filterPlayersByPrivacy(players, userData);
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.seasonGlobal
