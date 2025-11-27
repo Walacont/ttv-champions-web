@@ -380,6 +380,67 @@
                         </div>
                     </div>
 
+                    <!-- Club Management Section -->
+                    <div class="bg-white border border-gray-200 p-4 rounded-lg mb-4">
+                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-users text-indigo-600"></i>
+                            Vereinsverwaltung
+                        </h3>
+
+                        <!-- Current Club Status -->
+                        <div id="current-club-status" class="mb-4"></div>
+
+                        <!-- Pending Request Status -->
+                        <div id="pending-request-status" class="mb-4"></div>
+
+                        <!-- Club Search (only shown if no club and no pending request) -->
+                        <div id="club-search-section" class="hidden">
+                            <label for="club-search-input" class="block text-sm font-medium text-gray-700 mb-2">
+                                Verein suchen
+                            </label>
+                            <div class="flex gap-2 mb-3">
+                                <input
+                                    type="text"
+                                    id="club-search-input"
+                                    placeholder="Vereinsname eingeben..."
+                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                                <button
+                                    id="club-search-btn"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition"
+                                >
+                                    <i class="fas fa-search mr-2"></i>
+                                    Suchen
+                                </button>
+                            </div>
+
+                            <!-- Search Results -->
+                            <div id="club-search-results" class="space-y-2"></div>
+
+                            <p class="text-xs text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Nach dem Senden einer Beitrittsanfrage muss ein Coach deines Wunschvereins diese genehmigen.
+                            </p>
+                        </div>
+
+                        <!-- Leave Club Button (only shown if in club and no pending leave request) -->
+                        <div id="leave-club-section" class="hidden">
+                            <button
+                                id="leave-club-btn"
+                                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                            >
+                                <i class="fas fa-sign-out-alt mr-2"></i>
+                                Austrittsanfrage senden
+                            </button>
+                            <p class="text-xs text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Nach dem Senden einer Austrittsanfrage muss ein Coach deines Vereins diese genehmigen.
+                            </p>
+                        </div>
+
+                        <p id="club-management-feedback" class="text-sm mt-3"></p>
+                    </div>
+
                     <!-- Data Export Section (GDPR Art. 20) -->
                     <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
                         <h3 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">

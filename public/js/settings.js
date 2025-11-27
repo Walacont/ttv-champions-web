@@ -20,6 +20,10 @@ import {
     query,
     where,
     getDocs,
+    addDoc,
+    deleteDoc,
+    serverTimestamp,
+    onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
     getStorage,
@@ -111,6 +115,9 @@ onAuthStateChanged(auth, async user => {
 
             // Privacy-Einstellungen laden
             loadPrivacySettings(currentUserData);
+
+            // Vereinsverwaltung initialisieren
+            initializeClubManagement();
         }
 
         // Email-Adresse anzeigen und Verifizierungs-Status
@@ -706,3 +713,473 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Einstellungen speichern';
     }
 });
+
+/**
+ * ===============================================
+ * CLUB MANAGEMENT
+ * ===============================================
+ */
+
+// Get DOM elements
+const currentClubStatus = document.getElementById('current-club-status');
+const pendingRequestStatus = document.getElementById('pending-request-status');
+const clubSearchSection = document.getElementById('club-search-section');
+const clubSearchInput = document.getElementById('club-search-input');
+const clubSearchBtn = document.getElementById('club-search-btn');
+const clubSearchResults = document.getElementById('club-search-results');
+const leaveClubSection = document.getElementById('leave-club-section');
+const leaveClubBtn = document.getElementById('leave-club-btn');
+const clubManagementFeedback = document.getElementById('club-management-feedback');
+
+let clubRequestsUnsubscribe = null;
+let leaveRequestsUnsubscribe = null;
+
+/**
+ * Initialize club management UI
+ */
+async function initializeClubManagement() {
+    if (!currentUser || !currentUserData) return;
+
+    // Listen for club requests
+    listenToClubRequests();
+
+    // Listen for leave requests
+    listenToLeaveRequests();
+
+    // Update UI based on current state
+    await updateClubManagementUI();
+}
+
+/**
+ * Listen to club join requests in real-time
+ */
+function listenToClubRequests() {
+    if (clubRequestsUnsubscribe) {
+        clubRequestsUnsubscribe();
+    }
+
+    const q = query(
+        collection(db, 'clubRequests'),
+        where('playerId', '==', currentUser.uid),
+        where('status', '==', 'pending')
+    );
+
+    clubRequestsUnsubscribe = onSnapshot(q, async snapshot => {
+        await updateClubManagementUI();
+    });
+}
+
+/**
+ * Listen to club leave requests in real-time
+ */
+function listenToLeaveRequests() {
+    if (leaveRequestsUnsubscribe) {
+        leaveRequestsUnsubscribe();
+    }
+
+    const q = query(
+        collection(db, 'leaveClubRequests'),
+        where('playerId', '==', currentUser.uid),
+        where('status', '==', 'pending')
+    );
+
+    leaveRequestsUnsubscribe = onSnapshot(q, async snapshot => {
+        await updateClubManagementUI();
+    });
+}
+
+/**
+ * Update club management UI based on user state
+ */
+async function updateClubManagementUI() {
+    if (!currentUser || !currentUserData) return;
+
+    // Refresh user data
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+        currentUserData = userDocSnap.data();
+    }
+
+    // Check for pending join request
+    const joinRequestQuery = query(
+        collection(db, 'clubRequests'),
+        where('playerId', '==', currentUser.uid),
+        where('status', '==', 'pending')
+    );
+    const joinRequestSnapshot = await getDocs(joinRequestQuery);
+    const hasPendingJoinRequest = !joinRequestSnapshot.empty;
+
+    // Check for pending leave request
+    const leaveRequestQuery = query(
+        collection(db, 'leaveClubRequests'),
+        where('playerId', '==', currentUser.uid),
+        where('status', '==', 'pending')
+    );
+    const leaveRequestSnapshot = await getDocs(leaveRequestQuery);
+    const hasPendingLeaveRequest = !leaveRequestSnapshot.empty;
+
+    // Update current club status
+    if (currentUserData.clubId) {
+        // Load club name
+        let clubName = currentUserData.clubId;
+        try {
+            const clubDoc = await getDoc(doc(db, 'clubs', currentUserData.clubId));
+            if (clubDoc.exists()) {
+                clubName = clubDoc.data().name || clubName;
+            }
+        } catch (error) {
+            console.error('Error loading club name:', error);
+        }
+
+        currentClubStatus.innerHTML = `
+            <div class="bg-green-50 border border-green-200 p-3 rounded-lg">
+                <p class="text-sm text-green-800">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <strong>Aktueller Verein:</strong> ${clubName}
+                </p>
+            </div>
+        `;
+    } else {
+        currentClubStatus.innerHTML = `
+            <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+                <p class="text-sm text-gray-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Du bist aktuell keinem Verein zugeordnet.
+                </p>
+            </div>
+        `;
+    }
+
+    // Update pending request status
+    if (hasPendingJoinRequest) {
+        const joinRequestDoc = joinRequestSnapshot.docs[0];
+        const joinRequestData = joinRequestDoc.data();
+
+        // Load club name
+        let clubName = joinRequestData.clubId;
+        try {
+            const clubDoc = await getDoc(doc(db, 'clubs', joinRequestData.clubId));
+            if (clubDoc.exists()) {
+                clubName = clubDoc.data().name || clubName;
+            }
+        } catch (error) {
+            console.error('Error loading club name:', error);
+        }
+
+        pendingRequestStatus.innerHTML = `
+            <div class="bg-yellow-50 border border-yellow-300 p-3 rounded-lg">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-sm text-yellow-800 mb-1">
+                            <i class="fas fa-clock mr-2"></i>
+                            <strong>Ausstehende Beitrittsanfrage</strong>
+                        </p>
+                        <p class="text-xs text-yellow-700">
+                            Verein: <strong>${clubName}</strong>
+                        </p>
+                    </div>
+                    <button
+                        class="withdraw-join-request-btn bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition"
+                        data-request-id="${joinRequestDoc.id}"
+                    >
+                        <i class="fas fa-times mr-1"></i>
+                        Zurückziehen
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add event listener to withdraw button
+        document.querySelector('.withdraw-join-request-btn').addEventListener('click', async (e) => {
+            const requestId = e.target.closest('button').dataset.requestId;
+            await withdrawJoinRequest(requestId);
+        });
+    } else if (hasPendingLeaveRequest) {
+        const leaveRequestDoc = leaveRequestSnapshot.docs[0];
+        const leaveRequestData = leaveRequestDoc.data();
+
+        // Load club name
+        let clubName = leaveRequestData.clubId;
+        try {
+            const clubDoc = await getDoc(doc(db, 'clubs', leaveRequestData.clubId));
+            if (clubDoc.exists()) {
+                clubName = clubDoc.data().name || clubName;
+            }
+        } catch (error) {
+            console.error('Error loading club name:', error);
+        }
+
+        pendingRequestStatus.innerHTML = `
+            <div class="bg-orange-50 border border-orange-300 p-3 rounded-lg">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="text-sm text-orange-800 mb-1">
+                            <i class="fas fa-clock mr-2"></i>
+                            <strong>Ausstehende Austrittsanfrage</strong>
+                        </p>
+                        <p class="text-xs text-orange-700">
+                            Verein: <strong>${clubName}</strong>
+                        </p>
+                    </div>
+                    <button
+                        class="withdraw-leave-request-btn bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-1 px-3 rounded transition"
+                        data-request-id="${leaveRequestDoc.id}"
+                    >
+                        <i class="fas fa-times mr-1"></i>
+                        Zurückziehen
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Add event listener to withdraw button
+        document.querySelector('.withdraw-leave-request-btn').addEventListener('click', async (e) => {
+            const requestId = e.target.closest('button').dataset.requestId;
+            await withdrawLeaveRequest(requestId);
+        });
+    } else {
+        pendingRequestStatus.innerHTML = '';
+    }
+
+    // Show/hide club search section
+    if (!currentUserData.clubId && !hasPendingJoinRequest) {
+        clubSearchSection.classList.remove('hidden');
+    } else {
+        clubSearchSection.classList.add('hidden');
+    }
+
+    // Show/hide leave club section
+    if (currentUserData.clubId && !hasPendingLeaveRequest) {
+        leaveClubSection.classList.remove('hidden');
+    } else {
+        leaveClubSection.classList.add('hidden');
+    }
+}
+
+/**
+ * Search for clubs
+ */
+clubSearchBtn?.addEventListener('click', async () => {
+    const searchTerm = clubSearchInput.value.trim().toLowerCase();
+
+    if (searchTerm.length < 2) {
+        clubSearchResults.innerHTML = `
+            <p class="text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                Bitte mindestens 2 Zeichen eingeben.
+            </p>
+        `;
+        return;
+    }
+
+    try {
+        clubSearchBtn.disabled = true;
+        clubSearchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Suche...';
+        clubSearchResults.innerHTML = '<p class="text-sm text-gray-500">Suche...</p>';
+
+        // Get all clubs
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+
+        // Filter by search term
+        const clubs = clubsSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(club => {
+                const name = (club.name || club.id).toLowerCase();
+                return name.includes(searchTerm) && !club.isTestClub; // Exclude test clubs
+            });
+
+        if (clubs.length === 0) {
+            clubSearchResults.innerHTML = `
+                <p class="text-sm text-gray-500">
+                    <i class="fas fa-search mr-1"></i>
+                    Keine Vereine gefunden.
+                </p>
+            `;
+        } else {
+            clubSearchResults.innerHTML = clubs
+                .map(club => `
+                    <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">${club.name || club.id}</p>
+                            <p class="text-xs text-gray-600">${club.memberCount || 0} Mitglieder</p>
+                        </div>
+                        <button
+                            class="request-to-join-btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-1 px-3 rounded transition"
+                            data-club-id="${club.id}"
+                            data-club-name="${club.name || club.id}"
+                        >
+                            <i class="fas fa-paper-plane mr-1"></i>
+                            Anfrage senden
+                        </button>
+                    </div>
+                `)
+                .join('');
+
+            // Add event listeners to all request buttons
+            document.querySelectorAll('.request-to-join-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const clubId = e.target.closest('button').dataset.clubId;
+                    const clubName = e.target.closest('button').dataset.clubName;
+                    await requestToJoinClub(clubId, clubName);
+                });
+            });
+        }
+
+        clubSearchBtn.disabled = false;
+        clubSearchBtn.innerHTML = '<i class="fas fa-search mr-2"></i>Suchen';
+    } catch (error) {
+        console.error('Error searching clubs:', error);
+        clubSearchResults.innerHTML = `
+            <p class="text-sm text-red-600">
+                <i class="fas fa-exclamation-circle mr-1"></i>
+                Fehler bei der Suche: ${error.message}
+            </p>
+        `;
+        clubSearchBtn.disabled = false;
+        clubSearchBtn.innerHTML = '<i class="fas fa-search mr-2"></i>Suchen';
+    }
+});
+
+/**
+ * Request to join a club
+ */
+async function requestToJoinClub(clubId, clubName) {
+    if (!confirm(`Möchtest du wirklich eine Beitrittsanfrage an "${clubName}" senden?`)) {
+        return;
+    }
+
+    try {
+        clubManagementFeedback.textContent = 'Sende Anfrage...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        // Create club join request
+        await addDoc(collection(db, 'clubRequests'), {
+            playerId: currentUser.uid,
+            playerEmail: currentUser.email,
+            clubId: clubId,
+            status: 'pending',
+            createdAt: serverTimestamp(),
+        });
+
+        clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        // Clear search
+        clubSearchInput.value = '';
+        clubSearchResults.innerHTML = '';
+
+        // Update UI
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error requesting to join club:', error);
+        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+/**
+ * Request to leave club
+ */
+leaveClubBtn?.addEventListener('click', async () => {
+    if (!currentUserData.clubId) {
+        alert('Du bist aktuell keinem Verein zugeordnet.');
+        return;
+    }
+
+    // Load club name
+    let clubName = currentUserData.clubId;
+    try {
+        const clubDoc = await getDoc(doc(db, 'clubs', currentUserData.clubId));
+        if (clubDoc.exists()) {
+            clubName = clubDoc.data().name || clubName;
+        }
+    } catch (error) {
+        console.error('Error loading club name:', error);
+    }
+
+    if (!confirm(`Möchtest du wirklich eine Austrittsanfrage für "${clubName}" senden?`)) {
+        return;
+    }
+
+    try {
+        leaveClubBtn.disabled = true;
+        leaveClubBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sende Anfrage...';
+        clubManagementFeedback.textContent = '';
+
+        // Create leave club request
+        await addDoc(collection(db, 'leaveClubRequests'), {
+            playerId: currentUser.uid,
+            playerEmail: currentUser.email,
+            clubId: currentUserData.clubId,
+            status: 'pending',
+            createdAt: serverTimestamp(),
+        });
+
+        clubManagementFeedback.textContent = `✓ Austrittsanfrage gesendet!`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        // Update UI
+        await updateClubManagementUI();
+
+        leaveClubBtn.disabled = false;
+        leaveClubBtn.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Austrittsanfrage senden';
+    } catch (error) {
+        console.error('Error requesting to leave club:', error);
+        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+
+        leaveClubBtn.disabled = false;
+        leaveClubBtn.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Austrittsanfrage senden';
+    }
+});
+
+/**
+ * Withdraw join request
+ */
+async function withdrawJoinRequest(requestId) {
+    if (!confirm('Möchtest du deine Beitrittsanfrage wirklich zurückziehen?')) {
+        return;
+    }
+
+    try {
+        clubManagementFeedback.textContent = 'Ziehe Anfrage zurück...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        await deleteDoc(doc(db, 'clubRequests', requestId));
+
+        clubManagementFeedback.textContent = '✓ Beitrittsanfrage zurückgezogen';
+        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error withdrawing join request:', error);
+        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+/**
+ * Withdraw leave request
+ */
+async function withdrawLeaveRequest(requestId) {
+    if (!confirm('Möchtest du deine Austrittsanfrage wirklich zurückziehen?')) {
+        return;
+    }
+
+    try {
+        clubManagementFeedback.textContent = 'Ziehe Anfrage zurück...';
+        clubManagementFeedback.className = 'text-sm mt-3 text-gray-600';
+
+        await deleteDoc(doc(db, 'leaveClubRequests', requestId));
+
+        clubManagementFeedback.textContent = '✓ Austrittsanfrage zurückgezogen';
+        clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
+
+        await updateClubManagementUI();
+    } catch (error) {
+        console.error('Error withdrawing leave request:', error);
+        clubManagementFeedback.textContent = `Fehler: ${error.message}`;
+        clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
