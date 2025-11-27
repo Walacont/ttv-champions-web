@@ -585,13 +585,15 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         debouncedRenderAll();
     });
 
-    unsubscribes.push(
-        myRequestsUnsubscribe,
-        incomingRequestsUnsubscribe,
-        processedRequestsUnsubscribe,
-        myDoublesUnsubscribe,
-        doublesInvolvedUnsubscribe
-    );
+    if (Array.isArray(unsubscribes)) {
+        unsubscribes.push(
+            myRequestsUnsubscribe,
+            incomingRequestsUnsubscribe,
+            processedRequestsUnsubscribe,
+            myDoublesUnsubscribe,
+            doublesInvolvedUnsubscribe
+        );
+    }
 }
 
 /**
