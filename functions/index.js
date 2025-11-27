@@ -2646,20 +2646,44 @@ exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request
 });
 
 // ========================================================================
-// ===== AUTO-CREATE CLUB: When invitation code is created with new clubId =====
+// ===== AUTO-CREATE CLUB: When invitation code is created by admin with new clubId =====
 // ========================================================================
 exports.autoCreateClubOnInvitation = onDocumentCreated(
     { document: 'invitationCodes/{codeId}', region: CONFIG.REGION },
     async event => {
         const codeData = event.data.data();
         const clubId = codeData.clubId;
+        const createdBy = codeData.createdBy;
 
         if (!clubId) {
             logger.info('Invitation code created without clubId, skipping club creation');
             return;
         }
 
+        if (!createdBy) {
+            logger.info('Invitation code created without createdBy, skipping club creation');
+            return;
+        }
+
         try {
+            // Check if the creator is an admin
+            const creatorRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(createdBy);
+            const creatorDoc = await creatorRef.get();
+
+            if (!creatorDoc.exists) {
+                logger.info(`Creator ${createdBy} does not exist, skipping club creation`);
+                return;
+            }
+
+            const creatorData = creatorDoc.data();
+            if (creatorData.role !== 'admin') {
+                logger.info(`Creator ${createdBy} is not an admin (role: ${creatorData.role}), skipping club creation`);
+                return;
+            }
+
+            // Only admins can create clubs
+            logger.info(`Admin ${createdBy} creating invitation for club ${clubId}`);
+
             // Check if club already exists
             const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
             const clubDoc = await clubRef.get();
@@ -2708,13 +2732,37 @@ exports.autoCreateClubOnToken = onDocumentCreated(
     async event => {
         const tokenData = event.data.data();
         const clubId = tokenData.clubId;
+        const createdBy = tokenData.createdBy;
 
         if (!clubId) {
             logger.info('Invitation token created without clubId, skipping club creation');
             return;
         }
 
+        if (!createdBy) {
+            logger.info('Invitation token created without createdBy, skipping club creation');
+            return;
+        }
+
         try {
+            // Check if the creator is an admin
+            const creatorRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(createdBy);
+            const creatorDoc = await creatorRef.get();
+
+            if (!creatorDoc.exists) {
+                logger.info(`Creator ${createdBy} does not exist, skipping club creation`);
+                return;
+            }
+
+            const creatorData = creatorDoc.data();
+            if (creatorData.role !== 'admin') {
+                logger.info(`Creator ${createdBy} is not an admin (role: ${creatorData.role}), skipping club creation`);
+                return;
+            }
+
+            // Only admins can create clubs
+            logger.info(`Admin ${createdBy} creating invitation token for club ${clubId}`);
+
             // Check if club already exists
             const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
             const clubDoc = await clubRef.get();
