@@ -195,9 +195,13 @@ onboardingForm.addEventListener('submit', async e => {
             isOffline: false, // User is now online after completing onboarding
         };
 
-        // Add QTTR points if provided
+        // Add QTTR points if provided and calculate Elo
         if (qttrPoints !== null && qttrPoints > 0) {
             dataToUpdate.qttrPoints = qttrPoints;
+            // Conservative conversion: ELO = QTTR * 0.9, minimum 800
+            const calculatedElo = Math.max(800, Math.round(qttrPoints * 0.9));
+            dataToUpdate.eloRating = calculatedElo;
+            dataToUpdate.highestElo = calculatedElo;
         }
 
         const userDocRef = doc(db, 'users', currentUser.uid);
