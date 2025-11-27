@@ -149,41 +149,15 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-effort" class="leaderboard-tab-content hidden">
-                <div id="effort-club-container">
-                    <div id="effort-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
-                    </div>
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="effort-global-container" class="hidden">
-                        <div id="effort-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Fleiß-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-season" class="leaderboard-tab-content hidden">
-                <div id="season-club-container">
-                    <div id="season-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
-                    </div>
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="season-global-container" class="hidden">
-                        <div id="season-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Season-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-ranks" class="leaderboard-tab-content hidden">
@@ -277,12 +251,12 @@ export function setupLeaderboardTabs() {
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (only Ranks tab doesn't have global view)
+        // Show/hide scope toggle based on tab (only Skill and Doubles have global view)
         if (scopeToggleContainer) {
-            if (tabName === 'ranks') {
-                scopeToggleContainer.classList.add('hidden');
-            } else {
+            if (tabName === 'skill' || tabName === 'doubles') {
                 scopeToggleContainer.classList.remove('hidden');
+            } else {
+                scopeToggleContainer.classList.add('hidden');
             }
         }
     };
@@ -658,15 +632,14 @@ function loadRanksView(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the global leaderboards (Skill, Effort, Season, and Doubles)
+ * Loads the global leaderboards (only Skill and Doubles)
+ * Effort and Season are club-only
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 export function loadGlobalLeaderboard(userData, db, unsubscribes) {
     loadGlobalSkillLeaderboard(userData, db, unsubscribes);
-    loadGlobalEffortLeaderboard(userData, db, unsubscribes);
-    loadGlobalSeasonLeaderboard(userData, db, unsubscribes);
     loadGlobalDoublesLeaderboard(userData, db, unsubscribes);
 }
 
