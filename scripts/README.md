@@ -133,7 +133,7 @@ node scripts/migrate-auto-approve-no-club.cjs
 
 **Doubles Matches:**
 - Findet alle Doppel-Anfragen mit Status `pending_coach`
-- Prüft, ob alle 4 Spieler keinen Club haben
+- Prüft, ob mindestens ein ganzes Team (beide Spieler) keinen Club haben
 - Setzt Status auf `approved` mit `approvedBy = 'auto_approved'`
 
 ### Beispiel Output
@@ -151,12 +151,13 @@ Found 5 singles matches with status 'pending_coach'
    - Errors: 0
 
 📋 Checking doubles match requests...
-Found 2 doubles matches with status 'pending_coach'
-  ✅ Match xyz123: Auto-approved (all 4 players without club)
-  ⏭️  Match uvw456: At least one player has club, skipping
+Found 3 doubles matches with status 'pending_coach'
+  ✅ Match xyz123: Auto-approved (Both teams have no club (migrated))
+  ✅ Match uvw456: Auto-approved (One team has no club (migrated))
+  ⏭️  Match rst789: Both teams have at least one club player, skipping
 
 ✨ Doubles migration complete:
-   - Approved: 1
+   - Approved: 2
    - Skipped: 1
    - Errors: 0
 ```

@@ -142,24 +142,30 @@ async function migrateDoublesMatches() {
             const player3Data = player3Doc.data();
             const player4Data = player4Doc.data();
 
-            // Check if all 4 players have no club
-            if (hasNoClub(player1Data.clubId) && hasNoClub(player2Data.clubId) &&
-                hasNoClub(player3Data.clubId) && hasNoClub(player4Data.clubId)) {
+            // Check if at least one team has no club
+            const teamANoClub = hasNoClub(player1Data.clubId) && hasNoClub(player2Data.clubId);
+            const teamBNoClub = hasNoClub(player3Data.clubId) && hasNoClub(player4Data.clubId);
+            const shouldAutoApprove = teamANoClub || teamBNoClub;
+
+            if (shouldAutoApprove) {
+                const approvalReason = teamANoClub && teamBNoClub
+                    ? 'Both teams have no club (migrated)'
+                    : 'One team has no club (migrated)';
 
                 // Auto-approve this match
                 await doublesRequestsRef.doc(matchId).update({
                     status: 'approved',
                     approvedBy: 'auto_approved',
                     approvedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    approvalReason: 'All 4 players have no club (migrated)',
+                    approvalReason: approvalReason,
                     migratedAt: admin.firestore.FieldValue.serverTimestamp(),
                     updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 });
 
-                console.log(`  ✅ Match ${matchId}: Auto-approved (all 4 players without club)`);
+                console.log(`  ✅ Match ${matchId}: Auto-approved (${approvalReason})`);
                 approved++;
             } else {
-                console.log(`  ⏭️  Match ${matchId}: At least one player has club, skipping`);
+                console.log(`  ⏭️  Match ${matchId}: Both teams have at least one club player, skipping`);
                 skipped++;
             }
         } catch (error) {

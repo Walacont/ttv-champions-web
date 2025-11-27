@@ -322,9 +322,10 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
     const player3Data = player3Doc.data();
     const player4Data = player4Doc.data();
 
-    // Check if all 4 players have no club → auto-approve
-    const allPlayersNoClub = hasNoClub(player1Data?.clubId) && hasNoClub(player2Data?.clubId) &&
-                             hasNoClub(player3Data?.clubId) && hasNoClub(player4Data?.clubId);
+    // Check if at least one team has no club → auto-approve
+    const teamANoClub = hasNoClub(player1Data?.clubId) && hasNoClub(player2Data?.clubId);
+    const teamBNoClub = hasNoClub(player3Data?.clubId) && hasNoClub(player4Data?.clubId);
+    const shouldAutoApprove = teamANoClub || teamBNoClub;
 
     const updateData = {
         [`confirmations.${playerId}`]: true,
@@ -332,12 +333,14 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
         confirmedAt: serverTimestamp(),
     };
 
-    if (allPlayersNoClub) {
-        // Auto-approve if all players have no club
+    if (shouldAutoApprove) {
+        // Auto-approve if at least one team has no club
         updateData.status = 'approved';
         updateData.approvedBy = 'auto_approved';
         updateData.approvedAt = serverTimestamp();
-        updateData.approvalReason = 'All 4 players have no club';
+        updateData.approvalReason = teamANoClub && teamBNoClub
+            ? 'Both teams have no club'
+            : 'One team has no club';
     } else {
         // Move to coach approval
         updateData.status = 'pending_coach';

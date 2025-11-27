@@ -108,9 +108,10 @@ function determineDoublesMatchClubId(player1, player2, player3, player4) {
 function simulateDoublesOpponentApproval(player1, player2, player3, player4) {
     const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
 
-    // Auto-approve if all 4 players have no club
-    const isAutoApproved = hasNoClub(player1.clubId) && hasNoClub(player2.clubId) &&
-                           hasNoClub(player3.clubId) && hasNoClub(player4.clubId);
+    // Auto-approve if at least one team has no club
+    const teamANoClub = hasNoClub(player1.clubId) && hasNoClub(player2.clubId);
+    const teamBNoClub = hasNoClub(player3.clubId) && hasNoClub(player4.clubId);
+    const isAutoApproved = teamANoClub || teamBNoClub;
     const status = isAutoApproved ? 'approved' : 'pending_coach';
 
     return { status, isAutoApproved, clubId };
@@ -302,6 +303,48 @@ describe('Doubles Match Approval Logic', () => {
         expect(clubId).toBe(null);
         expect(result.status).toBe('pending_coach');
         expect(result.isAutoApproved).toBe(false);
+    });
+
+    test('Team A without club vs Team B with club → Auto-approve', () => {
+        const player1 = { id: '1', clubId: null };
+        const player2 = { id: '2', clubId: null };
+        const player3 = { id: '3', clubId: 'TuRa Harksheide' };
+        const player4 = { id: '4', clubId: 'TuRa Harksheide' };
+
+        const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
+        const result = simulateDoublesOpponentApproval(player1, player2, player3, player4);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
+    });
+
+    test('Team A with club vs Team B without club → Auto-approve', () => {
+        const player1 = { id: '1', clubId: 'TuRa Harksheide' };
+        const player2 = { id: '2', clubId: 'TuRa Harksheide' };
+        const player3 = { id: '3', clubId: null };
+        const player4 = { id: '4', clubId: null };
+
+        const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
+        const result = simulateDoublesOpponentApproval(player1, player2, player3, player4);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
+    });
+
+    test('Team A without club vs Team B mixed → Auto-approve', () => {
+        const player1 = { id: '1', clubId: null };
+        const player2 = { id: '2', clubId: null };
+        const player3 = { id: '3', clubId: 'TuRa Harksheide' };
+        const player4 = { id: '4', clubId: null };
+
+        const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
+        const result = simulateDoublesOpponentApproval(player1, player2, player3, player4);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
     });
 
     test('Mixed clubs (2 different clubs) → Cross-club (null), Coach approval', () => {
