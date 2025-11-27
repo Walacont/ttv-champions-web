@@ -1636,9 +1636,23 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Opponent Search Functionality
     let allPlayers = []; // Will store all searchable players
     let selectedOpponent = null;
+    let clubsMap = new Map(); // Map of clubId -> club data
+
+    // Function to load all clubs for display
+    async function loadClubs() {
+        const clubsRef = collection(db, 'clubs');
+        const snapshot = await getDocs(clubsRef);
+
+        snapshot.docs.forEach(doc => {
+            clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+    }
 
     // Function to load all searchable players (with privacy filter)
     async function loadSearchablePlayers() {
+        // Load clubs first
+        await loadClubs();
+
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('role', '==', 'player'));
         const snapshot = await getDocs(q);
@@ -1671,20 +1685,29 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             return;
         }
 
-        opponentSearchResults.innerHTML = players.map(player => `
+        opponentSearchResults.innerHTML = players.map(player => {
+            const playerClub = player.clubId ? clubsMap.get(player.clubId) : null;
+            const clubName = playerClub ? playerClub.name : 'Kein Verein';
+            const isSameClub = player.clubId === userData.clubId;
+
+            return `
             <div class="opponent-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
                  data-player-id="${player.id}"
                  data-player-elo="${player.eloRating || 0}"
                  data-player-name="${player.firstName} ${player.lastName}">
                 <div class="flex justify-between items-center">
-                    <div>
+                    <div class="flex-1">
                         <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
                         <p class="text-sm text-gray-600">Elo: ${Math.round(player.eloRating || 0)}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-users mr-1"></i>${clubName}
+                        </p>
                     </div>
-                    ${player.clubId !== userData.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
+                    ${!isSameClub && player.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         // Add click handlers to results
         document.querySelectorAll('.opponent-result').forEach(result => {
