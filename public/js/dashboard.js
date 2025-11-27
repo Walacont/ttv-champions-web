@@ -333,7 +333,7 @@ async function initializeDashboard(userData) {
     await loadClubPlayers(userData, db);
 
     // Initialize match request functionality
-    initializeMatchRequestForm(userData, db, clubPlayers);
+    initializeMatchRequestForm(userData, db, clubPlayers, unsubscribes);
 
     // Initialize doubles match UI
     initializeDoublesPlayerUI();

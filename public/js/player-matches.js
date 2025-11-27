@@ -1638,8 +1638,12 @@ function showFeedback(message, type = 'success') {
 
 /**
  * Initializes the match request form
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} clubPlayers - List of club players
+ * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
  */
-export function initializeMatchRequestForm(userData, db, clubPlayers) {
+export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscribes = []) {
     const form = document.getElementById('match-request-form');
     if (!form) return;
 
