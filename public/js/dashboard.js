@@ -54,7 +54,7 @@ import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 // Season reset import removed - now handled by Cloud Function
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
-import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './doubles-player-ui.js';
+import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui.js';
 import { confirmDoublesMatchRequest, rejectDoublesMatchRequest } from './doubles-matches.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
@@ -240,7 +240,7 @@ async function initializeDashboard(userData) {
 
     // Initialize doubles match UI
     initializeDoublesPlayerUI();
-    populateDoublesPlayerDropdowns(clubPlayers, userData.id);
+    initializeDoublesPlayerSearch(db, userData);
 
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);

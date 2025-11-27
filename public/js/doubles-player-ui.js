@@ -1,5 +1,5 @@
 import { createDoublesMatchRequest } from './doubles-matches.js';
-import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Doubles Player UI Module
@@ -96,55 +96,207 @@ function clearSinglesSelection() {
  * Clears doubles player selections
  */
 function clearDoublesSelections() {
-    const selects = [
-        'doubles-partner-select',
-        'doubles-opponent1-select',
-        'doubles-opponent2-select',
-    ];
+    // Clear search inputs
+    const partnerInput = document.getElementById('partner-search-input');
+    const opponent1Input = document.getElementById('opponent1-search-input');
+    const opponent2Input = document.getElementById('opponent2-search-input');
 
-    selects.forEach(id => {
-        const select = document.getElementById(id);
-        if (select) select.value = '';
-    });
+    if (partnerInput) {
+        partnerInput.value = '';
+        document.getElementById('partner-search-results').innerHTML = '';
+        document.getElementById('selected-partner-id').value = '';
+    }
+    if (opponent1Input) {
+        opponent1Input.value = '';
+        document.getElementById('opponent1-search-results').innerHTML = '';
+        document.getElementById('selected-opponent1-id').value = '';
+    }
+    if (opponent2Input) {
+        opponent2Input.value = '';
+        document.getElementById('opponent2-search-results').innerHTML = '';
+        document.getElementById('selected-opponent2-id').value = '';
+    }
 }
 
 // ========================================================================
-// ===== POPULATE DROPDOWNS =====
+// ===== PLAYER SEARCH FUNCTIONALITY =====
 // ========================================================================
 
 /**
- * Populates all doubles dropdowns with available players
- * @param {Array} players - Array of club players
- * @param {string} currentUserId - Current user's ID (to exclude from opponents)
+ * Initializes search functionality for all 3 player selections in doubles
+ * @param {Object} db - Firestore database instance
+ * @param {Object} userData - Current user data
  */
-export function populateDoublesPlayerDropdowns(players, currentUserId) {
-    const partnerSelect = document.getElementById('doubles-partner-select');
-    const opponent1Select = document.getElementById('doubles-opponent1-select');
-    const opponent2Select = document.getElementById('doubles-opponent2-select');
+export async function initializeDoublesPlayerSearch(db, userData) {
+    // Load all searchable players
+    let allPlayers = [];
+    try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('role', '==', 'player'));
+        const snapshot = await getDocs(q);
 
-    if (!partnerSelect || !opponent1Select || !opponent2Select) return;
+        allPlayers = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => {
+                // Filter: not self, match-ready, and privacy check
+                const playerGrundlagen = p.grundlagenCompleted || 0;
+                const isMatchReady = playerGrundlagen >= 5;
+                const isSelf = p.id === userData.id;
 
-    // Filter: exclude current user AND only show match-ready players
-    const otherPlayers = players.filter(p => {
-        if (p.id === currentUserId) return false;
+                // Privacy check: same club OR globally searchable
+                const isSameClub = userData.clubId && p.clubId === userData.clubId;
+                const isGloballySearchable = p.privacySettings?.searchable === 'global';
 
-        // Player must be match-ready (either flag is set OR has 5+ Grundlagen)
-        const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5;
+                return !isSelf && isMatchReady && (isSameClub || isGloballySearchable);
+            });
+    } catch (error) {
+        console.error('Error loading players:', error);
+    }
 
-        return isMatchReady;
+    // Initialize search for Partner
+    initializePlayerSearchInput(
+        'partner-search-input',
+        'partner-search-results',
+        'selected-partner-id',
+        'selected-partner-elo',
+        allPlayers,
+        userData,
+        []
+    );
+
+    // Initialize search for Opponent 1
+    initializePlayerSearchInput(
+        'opponent1-search-input',
+        'opponent1-search-results',
+        'selected-opponent1-id',
+        'selected-opponent1-elo',
+        allPlayers,
+        userData,
+        []
+    );
+
+    // Initialize search for Opponent 2
+    initializePlayerSearchInput(
+        'opponent2-search-input',
+        'opponent2-search-results',
+        'selected-opponent2-id',
+        'selected-opponent2-elo',
+        allPlayers,
+        userData,
+        []
+    );
+}
+
+/**
+ * Initializes a single player search input
+ * @param {string} inputId - ID of the search input element
+ * @param {string} resultsId - ID of the results container element
+ * @param {string} selectedIdFieldId - ID of the hidden field storing selected player ID
+ * @param {string} selectedEloFieldId - ID of the hidden field storing selected player Elo
+ * @param {Array} allPlayers - Array of all searchable players
+ * @param {Object} userData - Current user data
+ * @param {Array} excludeIds - Array of player IDs to exclude from results
+ */
+function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, selectedEloFieldId, allPlayers, userData, excludeIds) {
+    const searchInput = document.getElementById(inputId);
+    const searchResults = document.getElementById(resultsId);
+    const selectedIdField = document.getElementById(selectedIdFieldId);
+    const selectedEloField = document.getElementById(selectedEloFieldId);
+
+    if (!searchInput || !searchResults || !selectedIdField) return;
+
+    // Search on input
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+
+        // If search is empty, clear results
+        if (!searchTerm) {
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        // Filter players by search term
+        const filteredPlayers = allPlayers.filter(player => {
+            // Exclude players in excludeIds
+            if (excludeIds.includes(player.id)) return false;
+
+            const fullName = `${player.firstName} ${player.lastName}`.toLowerCase();
+            return fullName.includes(searchTerm);
+        }).slice(0, 10); // Limit to 10 results
+
+        displaySearchResults(filteredPlayers, searchResults, searchInput, selectedIdField, selectedEloField, userData);
     });
 
-    // Populate all 3 dropdowns
-    [partnerSelect, opponent1Select, opponent2Select].forEach(select => {
-        select.innerHTML = '<option value="">Spieler wählen...</option>';
+    // Clear results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.innerHTML = '';
+        }
+    });
+}
 
-        otherPlayers.forEach(player => {
-            const option = document.createElement('option');
-            option.value = player.id;
-            option.textContent = `${player.firstName} ${player.lastName} (Doppel-Elo: ${Math.round(player.doublesEloRating || 800)})`;
-            select.appendChild(option);
+/**
+ * Displays search results for player selection
+ * @param {Array} players - Filtered players to display
+ * @param {HTMLElement} resultsContainer - Container to display results
+ * @param {HTMLElement} searchInput - Search input element
+ * @param {HTMLElement} selectedIdField - Hidden field to store selected ID
+ * @param {HTMLElement} selectedEloField - Hidden field to store selected Elo
+ * @param {Object} userData - Current user data
+ */
+function displaySearchResults(players, resultsContainer, searchInput, selectedIdField, selectedEloField, userData) {
+    if (players.length === 0) {
+        resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden.</p>';
+        return;
+    }
+
+    resultsContainer.innerHTML = players.map(player => {
+        const clubName = player.clubId || 'Kein Verein';
+        const isSameClub = player.clubId === userData.clubId;
+        const doublesElo = Math.round(player.doublesEloRating || 800);
+
+        return `
+            <div class="player-search-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                 data-player-id="${player.id}"
+                 data-player-elo="${doublesElo}"
+                 data-player-name="${player.firstName} ${player.lastName}">
+                <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                        <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
+                        <p class="text-sm text-gray-600">Doppel-Elo: ${doublesElo}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-users mr-1"></i>${clubName}
+                        </p>
+                    </div>
+                    ${!isSameClub && player.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers to results
+    resultsContainer.querySelectorAll('.player-search-result').forEach(result => {
+        result.addEventListener('click', () => {
+            const playerId = result.dataset.playerId;
+            const playerName = result.dataset.playerName;
+            const playerElo = result.dataset.playerElo;
+
+            // Set selected player
+            selectedIdField.value = playerId;
+            if (selectedEloField) selectedEloField.value = playerElo;
+
+            // Update search input to show selected player
+            searchInput.value = playerName;
+
+            // Clear search results
+            resultsContainer.innerHTML = '';
         });
     });
+}
+
+// Deprecated: Keep for backwards compatibility but mark as deprecated
+export function populateDoublesPlayerDropdowns(players, currentUserId) {
+    console.warn('populateDoublesPlayerDropdowns is deprecated. Use initializeDoublesPlayerSearch instead.');
 }
 
 // ========================================================================
@@ -161,10 +313,10 @@ export function populateDoublesPlayerDropdowns(players, currentUserId) {
 export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
     const feedbackEl = document.getElementById('match-request-feedback');
 
-    // Get player selections
-    const partnerId = document.getElementById('doubles-partner-select').value;
-    const opponent1Id = document.getElementById('doubles-opponent1-select').value;
-    const opponent2Id = document.getElementById('doubles-opponent2-select').value;
+    // Get player selections from hidden fields
+    const partnerId = document.getElementById('selected-partner-id').value;
+    const opponent1Id = document.getElementById('selected-opponent1-id').value;
+    const opponent2Id = document.getElementById('selected-opponent2-id').value;
 
     // Validate all players are selected
     if (!partnerId || !opponent1Id || !opponent2Id) {
