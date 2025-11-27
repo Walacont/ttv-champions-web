@@ -167,10 +167,10 @@ export async function initializeDoublesPlayerSearch(db, userData) {
                 // Privacy check - 3 cases:
                 // 1. Both players have NO club → visible
                 // 2. Same club → visible
-                // 3. Player is globally searchable → visible
+                // 3. Player is globally searchable → visible (default: global)
                 const bothNoClub = !userData.clubId && !p.clubId;
                 const isSameClub = userData.clubId && p.clubId === userData.clubId;
-                const isGloballySearchable = p.privacySettings?.searchable === 'global';
+                const isGloballySearchable = (p.privacySettings?.searchable || 'global') === 'global';
 
                 return bothNoClub || isSameClub || isGloballySearchable;
             });
