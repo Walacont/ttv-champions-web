@@ -1640,42 +1640,58 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
     // Function to load all clubs for display
     async function loadClubs() {
-        const clubsRef = collection(db, 'clubs');
-        const snapshot = await getDocs(clubsRef);
+        try {
+            const clubsRef = collection(db, 'clubs');
+            const snapshot = await getDocs(clubsRef);
 
-        snapshot.docs.forEach(doc => {
-            clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
-        });
+            console.log('[Opponent Search] Loading clubs:', snapshot.size);
+
+            snapshot.docs.forEach(doc => {
+                const clubData = { id: doc.id, ...doc.data() };
+                clubsMap.set(doc.id, clubData);
+                console.log('[Opponent Search] Loaded club:', doc.id, clubData.name);
+            });
+
+            console.log('[Opponent Search] Total clubs loaded:', clubsMap.size);
+        } catch (error) {
+            console.error('[Opponent Search] Error loading clubs:', error);
+        }
     }
 
     // Function to load all searchable players (with privacy filter)
     async function loadSearchablePlayers() {
-        // Load clubs first
-        await loadClubs();
+        try {
+            // Load clubs first
+            await loadClubs();
 
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('role', '==', 'player'));
-        const snapshot = await getDocs(q);
+            const usersRef = collection(db, 'users');
+            const q = query(usersRef, where('role', '==', 'player'));
+            const snapshot = await getDocs(q);
 
-        allPlayers = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(p => {
-                // Filter: not self, match-ready, and privacy check
-                const playerGrundlagen = p.grundlagenCompleted || 0;
-                const isMatchReady = playerGrundlagen >= 5;
-                const isSelf = p.id === userData.id;
+            allPlayers = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(p => {
+                    // Filter: not self, match-ready, and privacy check
+                    const playerGrundlagen = p.grundlagenCompleted || 0;
+                    const isMatchReady = playerGrundlagen >= 5;
+                    const isSelf = p.id === userData.id;
 
-                // Privacy check: same club OR globally searchable
-                const isSameClub = userData.clubId && p.clubId === userData.clubId;
-                const isGloballySearchable = p.privacySettings?.searchable === 'global';
+                    // Privacy check: same club OR globally searchable
+                    const isSameClub = userData.clubId && p.clubId === userData.clubId;
+                    const isGloballySearchable = p.privacySettings?.searchable === 'global';
 
-                return !isSelf && isMatchReady && (isSameClub || isGloballySearchable);
+                    return !isSelf && isMatchReady && (isSameClub || isGloballySearchable);
+                });
+
+            // Add to playersMap for easy lookup
+            allPlayers.forEach(player => {
+                playersMap.set(player.id, player);
             });
 
-        // Add to playersMap for easy lookup
-        allPlayers.forEach(player => {
-            playersMap.set(player.id, player);
-        });
+            console.log('[Opponent Search] Loaded players:', allPlayers.length);
+        } catch (error) {
+            console.error('[Opponent Search] Error loading players:', error);
+        }
     }
 
     // Function to display search results
@@ -1689,6 +1705,11 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             const playerClub = player.clubId ? clubsMap.get(player.clubId) : null;
             const clubName = playerClub ? playerClub.name : 'Kein Verein';
             const isSameClub = player.clubId === userData.clubId;
+
+            // Debug logging
+            if (player.clubId && !playerClub) {
+                console.warn('[Opponent Search] Club not found for player:', player.firstName, player.lastName, 'clubId:', player.clubId);
+            }
 
             return `
             <div class="opponent-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
