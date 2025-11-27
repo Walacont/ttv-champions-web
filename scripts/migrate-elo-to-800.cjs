@@ -10,7 +10,7 @@
  * Run this ONCE after deploying the new points system.
  *
  * Usage:
- *   node scripts/migrate-elo-to-800.js
+ *   node scripts/migrate-elo-to-800.cjs
  */
 
 const admin = require('firebase-admin');

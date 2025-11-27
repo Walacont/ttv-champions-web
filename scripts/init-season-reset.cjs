@@ -4,7 +4,7 @@
  * Script to initialize the season reset configuration in Firestore
  * This creates the config/seasonReset document needed for the 6-week season cycle
  *
- * Usage: node scripts/init-season-reset.js
+ * Usage: node scripts/init-season-reset.cjs
  */
 
 const admin = require('firebase-admin');
