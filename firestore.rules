@@ -66,18 +66,20 @@ service cloud.firestore {
       // ADMIN can read ALL users (for statistics and club management)
       allow read: if isAdmin();
 
+      // Users can update their own profile during onboarding (completing for first time)
+      // Allow setting eloRating and highestElo only when completing onboarding with QTTR points
+      allow update: if isOwner(userId) &&
+        resource.data.get('onboardingComplete', false) == false &&
+        request.resource.data.onboardingComplete == true &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['eloRating', 'highestElo']) ||
+         (request.resource.data.eloRating == request.resource.data.highestElo)) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'clubRequestStatus', 'clubRequestId']);
+
       // Users can update their own profile (limited fields, NOT role, clubId, points, xp, elo)
       // Users CAN update privacySettings, but clubId changes require Cloud Function
       allow update: if isOwner(userId) &&
+        resource.data.get('onboardingComplete', false) == true &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo', 'clubRequestStatus', 'clubRequestId']);
-
-      // Exception: Allow setting eloRating and highestElo during onboarding completion (QTTR points)
-      // Only when completing onboarding for the first time and both elo values are equal
-      allow update: if isOwner(userId) &&
-        resource.data.onboardingComplete == false &&
-        request.resource.data.onboardingComplete == true &&
-        request.resource.data.eloRating == request.resource.data.highestElo &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'clubRequestStatus', 'clubRequestId']);
 
       // Coaches can update players in their club (including points, xp, eloRating, etc.)
       // Also allow coaches to update players without club (for approval process)
