@@ -164,15 +164,26 @@ export async function initializeDoublesPlayerSearch(db, userData) {
                     }
                 }
 
-                // Privacy check - 3 cases:
-                // 1. Both players have NO club → visible
-                // 2. Same club → visible
-                // 3. Player is globally searchable → visible (default: global)
-                const bothNoClub = !userData.clubId && !p.clubId;
-                const isSameClub = userData.clubId && p.clubId === userData.clubId;
-                const isGloballySearchable = (p.privacySettings?.searchable || 'global') === 'global';
+                // Privacy check
+                // Special case: Both players have no club → always visible to each other
+                if (!userData.clubId && !p.clubId) {
+                    return true;
+                }
 
-                return bothNoClub || isSameClub || isGloballySearchable;
+                // Get searchable setting (default: global)
+                const searchable = p.privacySettings?.searchable || 'global';
+
+                // Global: visible to everyone
+                if (searchable === 'global') {
+                    return true;
+                }
+
+                // Club only: only visible to players in the same club
+                if (searchable === 'club_only' && userData.clubId && p.clubId === userData.clubId) {
+                    return true;
+                }
+
+                return false;
             });
     } catch (error) {
         console.error('Error loading players:', error);
