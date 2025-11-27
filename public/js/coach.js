@@ -70,6 +70,7 @@ import {
     exportAttendanceToExcel,
     exportAttendanceSummary,
 } from './attendance-export.js';
+import { initClubRequestsManager } from './club-requests-manager.js';
 import {
     handleCreateChallenge,
     loadActiveChallenges,
@@ -279,6 +280,10 @@ async function initializeCoachPage(userData) {
         club_id: userData.clubId,
     });
     console.log('[Analytics] Coach page view tracked');
+
+    // Initialize Club Requests Manager
+    await initClubRequestsManager(userData);
+    console.log('[Coach] Club requests manager initialized');
 
     // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
