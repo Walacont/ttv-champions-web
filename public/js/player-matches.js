@@ -1698,6 +1698,13 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             return;
         }
 
+        // Quick debug
+        console.log('DEBUG: clubsMap size:', clubsMap.size);
+        if (players[0]) {
+            console.log('DEBUG: First player clubId:', players[0].clubId);
+            console.log('DEBUG: Club lookup result:', clubsMap.get(players[0].clubId));
+        }
+
         opponentSearchResults.innerHTML = players.map(player => {
             const playerClub = player.clubId ? clubsMap.get(player.clubId) : null;
             const clubName = playerClub ? playerClub.name : 'Kein Verein';
