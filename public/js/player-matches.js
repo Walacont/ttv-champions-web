@@ -1648,9 +1648,9 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             allPlayers = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() }))
                 .filter(p => {
-                    // Filter: not self, match-ready, and privacy check
+                    // Filter: not self and privacy check
                     const playerGrundlagen = p.grundlagenCompleted || 0;
-                    const isMatchReady = playerGrundlagen >= 5;
+                    const isMatchReady = playerGrundlagen >= 0; // Changed from 5 to 0 for testing
                     const isSelf = p.id === userData.id;
 
                     // Privacy check: same club OR globally searchable
