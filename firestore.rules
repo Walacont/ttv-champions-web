@@ -147,16 +147,6 @@ service cloud.firestore {
       }
     }
 
-    // Clubs collection
-    match /clubs/{clubId} {
-      // All authenticated users can read clubs (for club search and opponent info)
-      allow read: if isAuthenticated();
-
-      // Only coaches and admins can write
-      allow write: if isCoachOfClub(clubId);
-      allow write: if isAdmin();
-    }
-
     // Club Join Requests collection
     match /clubRequests/{requestId} {
       // Players can read their own requests
