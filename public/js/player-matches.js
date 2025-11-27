@@ -1644,6 +1644,12 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             const clubsRef = collection(db, 'clubs');
             const snapshot = await getDocs(clubsRef);
 
+            console.log('DEBUG: Clubs snapshot size:', snapshot.size);
+
+            if (snapshot.empty) {
+                console.warn('⚠️ No clubs in snapshot! Check Firestore Rules.');
+            }
+
             snapshot.docs.forEach(doc => {
                 const clubData = { id: doc.id, ...doc.data() };
                 // Store by both doc.id AND name for flexible lookup
@@ -1653,7 +1659,10 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 }
             });
         } catch (error) {
-            console.error('Error loading clubs:', error);
+            console.error('❌ Error loading clubs:', error);
+            if (error.code === 'permission-denied') {
+                console.error('🔒 PERMISSION DENIED! Run: firebase deploy --only firestore:rules');
+            }
         }
     }
 
