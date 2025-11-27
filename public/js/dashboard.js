@@ -55,7 +55,7 @@ import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 // Season reset import removed - now handled by Cloud Function
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui.js';
-import { confirmDoublesMatchRequest, rejectDoublesMatchRequest } from './doubles-matches.js';
+import { confirmDoublesMatchRequest, rejectDoublesMatchRequest, approveDoublesMatchRequest } from './doubles-matches.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
@@ -925,12 +925,15 @@ function renderCombinedOverview(items, userData, db, showAll) {
 
     itemsToShow.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'bg-white border-2 border-blue-300 bg-blue-50 rounded-lg p-3 shadow-sm';
+
+        // Different styling for coach-approval vs match-request
+        const isCoachApproval = item.type === 'coach-approval';
+        card.className = isCoachApproval
+            ? 'bg-white border-2 border-yellow-300 bg-yellow-50 rounded-lg p-3 shadow-sm'
+            : 'bg-white border-2 border-blue-300 bg-blue-50 rounded-lg p-3 shadow-sm';
 
         if (item.matchType === 'doubles') {
-            // Doubles match request
-            // Convert teamA/teamB to playerA/playerB for formatSetsDisplaySimple
-            // Support both old (playerA/playerB) and new (teamA/teamB) format
+            // Doubles match request or coach approval
             const convertedSets = item.data.sets
                 ? item.data.sets.map(s => ({
                       playerA: s.teamA !== undefined ? s.teamA : s.playerA,
@@ -943,9 +946,13 @@ function renderCombinedOverview(items, userData, db, showAll) {
             const teamBName1 = item.teamBPlayer1?.firstName || 'Unbekannt';
             const teamBName2 = item.teamBPlayer2?.firstName || 'Unbekannt';
 
+            const badgeColor = isCoachApproval ? 'yellow' : 'green';
+            const badgeText = isCoachApproval ? 'Coach-Genehmigung' : 'Doppel';
+            const approveText = isCoachApproval ? 'Genehmigen' : 'Bestätigen';
+
             card.innerHTML = `
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded"><i class="fas fa-users mr-1"></i>Doppel</span>
+                    <span class="text-xs font-semibold text-${badgeColor}-700 bg-${badgeColor}-200 px-2 py-1 rounded"><i class="fas fa-users mr-1"></i>${badgeText}</span>
                 </div>
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
@@ -954,34 +961,39 @@ function renderCombinedOverview(items, userData, db, showAll) {
                     </div>
                 </div>
                 <div class="flex gap-2 mt-2">
-                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles">
-                        <i class="fas fa-check"></i> Bestätigen
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles" data-item-type="${item.type}">
+                        <i class="fas fa-check"></i> ${approveText}
                     </button>
-                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles">
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles" data-item-type="${item.type}">
                         <i class="fas fa-times"></i> Ablehnen
                     </button>
                 </div>
             `;
         } else {
-            // Singles match request
+            // Singles match request or coach approval
             const setsDisplay = formatSetsDisplaySimple(item.data.sets);
-            const playerName = item.playerAData?.firstName || 'Unbekannt';
+            const playerAName = item.playerAData?.firstName || 'Unbekannt';
+            const playerBName = item.playerBData?.firstName || userData.firstName || 'Unbekannt';
+
+            const badgeColor = isCoachApproval ? 'yellow' : 'blue';
+            const badgeText = isCoachApproval ? 'Coach-Genehmigung' : 'Einzel';
+            const approveText = isCoachApproval ? 'Genehmigen' : 'Akzeptieren';
 
             card.innerHTML = `
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs font-semibold text-blue-700 bg-blue-200 px-2 py-1 rounded"><i class="fas fa-user mr-1"></i>Einzel</span>
+                    <span class="text-xs font-semibold text-${badgeColor}-700 bg-${badgeColor}-200 px-2 py-1 rounded"><i class="fas fa-user mr-1"></i>${badgeText}</span>
                 </div>
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
-                        <p class="font-semibold text-gray-800 text-sm">${playerName} vs ${userData.firstName}</p>
+                        <p class="font-semibold text-gray-800 text-sm">${playerAName} vs ${playerBName}</p>
                         <p class="text-xs text-gray-600">${setsDisplay}</p>
                     </div>
                 </div>
                 <div class="flex gap-2 mt-2">
-                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles">
-                        <i class="fas fa-check"></i> Akzeptieren
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles" data-item-type="${item.type}">
+                        <i class="fas fa-check"></i> ${approveText}
                     </button>
-                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles">
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles" data-item-type="${item.type}">
                         <i class="fas fa-times"></i> Ablehnen
                     </button>
                 </div>
@@ -993,19 +1005,43 @@ function renderCombinedOverview(items, userData, db, showAll) {
 
         approveBtn.addEventListener('click', async () => {
             const matchType = approveBtn.getAttribute('data-match-type');
-            if (matchType === 'doubles') {
-                await approveDoublesOverviewRequest(item.id, userData.id, db);
+            const itemType = approveBtn.getAttribute('data-item-type');
+
+            if (itemType === 'coach-approval') {
+                // Coach approving a match
+                if (matchType === 'doubles') {
+                    await approveDoublesCoachRequest(item.id, db, userData);
+                } else {
+                    await approveSinglesCoachRequest(item.id, db);
+                }
             } else {
-                await approveOverviewRequest(item.id, db);
+                // Player confirming a match request
+                if (matchType === 'doubles') {
+                    await approveDoublesOverviewRequest(item.id, userData.id, db);
+                } else {
+                    await approveOverviewRequest(item.id, db);
+                }
             }
         });
 
         rejectBtn.addEventListener('click', async () => {
             const matchType = rejectBtn.getAttribute('data-match-type');
-            if (matchType === 'doubles') {
-                await rejectDoublesOverviewRequest(item.id, db);
+            const itemType = rejectBtn.getAttribute('data-item-type');
+
+            if (itemType === 'coach-approval') {
+                // Coach rejecting a match
+                if (matchType === 'doubles') {
+                    await rejectDoublesCoachRequest(item.id, db, userData);
+                } else {
+                    await rejectSinglesCoachRequest(item.id, db);
+                }
             } else {
-                await rejectOverviewRequest(item.id, db);
+                // Player rejecting a match request
+                if (matchType === 'doubles') {
+                    await rejectDoublesOverviewRequest(item.id, db);
+                } else {
+                    await rejectOverviewRequest(item.id, db);
+                }
             }
         });
 
@@ -1122,5 +1158,75 @@ function updateMatchRequestBadge(count) {
         badge.classList.remove('hidden');
     } else {
         badge.classList.add('hidden');
+    }
+}
+
+/**
+ * Approves singles coach request from overview
+ */
+async function approveSinglesCoachRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.coach': {
+                status: 'approved',
+                timestamp: serverTimestamp(),
+            },
+            status: 'approved',
+            updatedAt: serverTimestamp(),
+        });
+        console.log('Singles match request approved by coach');
+    } catch (error) {
+        console.error('Error approving singles request:', error);
+        alert('Fehler beim Genehmigen der Anfrage.');
+    }
+}
+
+/**
+ * Rejects singles coach request from overview
+ */
+async function rejectSinglesCoachRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.coach': {
+                status: 'rejected',
+                timestamp: serverTimestamp(),
+            },
+            status: 'rejected',
+            rejectedBy: 'coach',
+            updatedAt: serverTimestamp(),
+        });
+        console.log('Singles match request rejected by coach');
+    } catch (error) {
+        console.error('Error rejecting singles request:', error);
+        alert('Fehler beim Ablehnen der Anfrage.');
+    }
+}
+
+/**
+ * Approves doubles coach request from overview
+ */
+async function approveDoublesCoachRequest(requestId, db, userData) {
+    try {
+        await approveDoublesMatchRequest(requestId, db, userData);
+        console.log('Doubles match request approved by coach');
+    } catch (error) {
+        console.error('Error approving doubles request:', error);
+        alert('Fehler beim Genehmigen der Doppel-Anfrage.');
+    }
+}
+
+/**
+ * Rejects doubles coach request from overview
+ */
+async function rejectDoublesCoachRequest(requestId, db, userData) {
+    try {
+        const reason = prompt('Grund für die Ablehnung (optional):');
+        if (reason === null) return; // User cancelled
+
+        await rejectDoublesMatchRequest(requestId, reason || 'Keine Angabe', db, userData);
+        console.log('Doubles match request rejected by coach');
+    } catch (error) {
+        console.error('Error rejecting doubles request:', error);
+        alert('Fehler beim Ablehnen der Doppel-Anfrage.');
     }
 }
