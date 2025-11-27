@@ -2413,6 +2413,33 @@
                             </div>
                         </div>
 
+                        <!-- Club Join/Leave Requests Section -->
+                        <div class="space-y-6">
+                            <!-- Beitrittsanfragen -->
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                    <i class="fas fa-user-plus text-indigo-600 mr-2"></i>
+                                    Ausstehende Beitrittsanfragen
+                                </h3>
+                                <div id="club-join-requests-list">
+                                    <!-- Wird dynamisch von club-requests-manager.js gefüllt -->
+                                    <p class="text-gray-500 text-sm text-center py-4">Lade Anfragen...</p>
+                                </div>
+                            </div>
+
+                            <!-- Austrittsanfragen -->
+                            <div class="bg-white rounded-lg shadow-md p-6">
+                                <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                                    <i class="fas fa-sign-out-alt text-orange-600 mr-2"></i>
+                                    Ausstehende Austrittsanfragen
+                                </h3>
+                                <div id="leave-requests-list">
+                                    <!-- Wird dynamisch von club-requests-manager.js gefüllt -->
+                                    <p class="text-gray-500 text-sm text-center py-4">Lade Anfragen...</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Pending Match Requests Section (Singles + Doubles) -->
                         <div
                             class="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 p-6 rounded-xl shadow-md"
