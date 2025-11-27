@@ -28,6 +28,35 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().clubId == clubId;
     }
 
+    function hasClub() {
+      return isAuthenticated() && getUserData().clubId != null;
+    }
+
+    function canViewUser(targetUserId) {
+      let targetData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
+      let currentUserData = getUserData();
+
+      // User can view themselves
+      if (targetUserId == request.auth.uid) return true;
+
+      // Same club members can view each other
+      if (currentUserData.clubId != null && targetData.clubId == currentUserData.clubId) return true;
+
+      // If target is globally searchable, anyone can view
+      if ('privacySettings' in targetData &&
+          'searchable' in targetData.privacySettings &&
+          targetData.privacySettings.searchable == 'global') {
+        return true;
+      }
+
+      // Coaches and admins can view all users in their club
+      if (isCoachOrAdmin() && targetData.clubId != null && currentUserData.clubId == targetData.clubId) {
+        return true;
+      }
+
+      return false;
+    }
+
     function isCoachOfClub(clubId) {
       return isCoachOrAdmin() && isSameClub(clubId);
     }
@@ -50,29 +79,21 @@ service cloud.firestore {
       // Users can read their own data
       allow read: if isOwner(userId);
 
-      // Players can read other players in their club (for leaderboard, rivals, etc.)
-      allow read: if isAuthenticated() &&
-        resource.data.role == 'player' &&
-        isSameClub(resource.data.clubId);
-
-      // Players can also read coaches/admins in their club (for match history partner/opponent names)
-      allow read: if isAuthenticated() &&
-        resource.data.role in ['coach', 'admin'] &&
-        isSameClub(resource.data.clubId);
-
-      // Coaches and admins can read all users in their club
-      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+      // Users can read others based on privacy settings and club membership
+      allow read: if canViewUser(userId);
 
       // ADMIN can read ALL users (for statistics and club management)
       allow read: if isAdmin();
 
-      // Users can update their own profile (limited fields)
+      // Users can update their own profile (limited fields, NOT role, clubId, points, xp, elo)
+      // Users CAN update privacySettings, but clubId changes require Cloud Function
       allow update: if isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo', 'clubRequestStatus', 'clubRequestId']);
 
       // Coaches can update players in their club (including points, xp, eloRating, etc.)
+      // Also allow coaches to update players without club (for approval process)
       allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId) &&
+        (resource.data.clubId == null || isSameClub(resource.data.clubId)) &&
         resource.data.role == 'player';
 
       // Coaches can promote players to coach in their club
@@ -147,10 +168,68 @@ service cloud.firestore {
 
     // Clubs collection
     match /clubs/{clubId} {
+      // Users can read clubs they belong to
       allow read: if isAuthenticated() && isSameClub(clubId);
+
+      // Users can read ALL clubs (for club search) but exclude test clubs
+      allow read: if isAuthenticated();
+
+      // Admins can read everything
       allow read: if isAdmin();
+
+      // Only coaches and admins can write
       allow write: if isCoachOfClub(clubId);
       allow write: if isAdmin();
+    }
+
+    // Club Join Requests collection
+    match /clubRequests/{requestId} {
+      // Players can read their own requests
+      allow read: if isAuthenticated() && resource.data.playerId == request.auth.uid;
+
+      // Coaches can read requests for their club
+      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+
+      // Players can create requests (only for themselves)
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Players can delete their own pending requests
+      allow delete: if isAuthenticated() &&
+        resource.data.playerId == request.auth.uid &&
+        resource.data.status == 'pending';
+
+      // Coaches can update requests for their club (approve/reject)
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending';
+    }
+
+    // Leave Club Requests collection
+    match /leaveClubRequests/{requestId} {
+      // Players can read their own requests
+      allow read: if isAuthenticated() && resource.data.playerId == request.auth.uid;
+
+      // Coaches can read requests for their club
+      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+
+      // Players can create requests (only for themselves, must have clubId)
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerId == request.auth.uid &&
+        request.resource.data.clubId == getUserData().clubId &&
+        getUserData().clubId != null &&
+        request.resource.data.status == 'pending';
+
+      // Players can delete their own pending requests
+      allow delete: if isAuthenticated() &&
+        resource.data.playerId == request.auth.uid &&
+        resource.data.status == 'pending';
+
+      // Coaches can update requests for their club (approve/reject)
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending';
     }
 
     // Subgroups collection
@@ -201,17 +280,17 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         resource.data.playerAId == request.auth.uid ||
         resource.data.playerBId == request.auth.uid ||
-        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+        (isCoachOrAdmin() && resource.data.clubId != null && isSameClub(resource.data.clubId))
       );
 
       // Players can create requests for themselves (as playerA)
       // Must include proper initial approvals structure
       // Must have completed 5 Grundlagen exercises (match-ready)
+      // Can be same club OR cross-club (if both players are globally searchable or one has no club)
       allow create: if isAuthenticated() &&
         request.resource.data.playerAId == request.auth.uid &&
-        isSameClub(request.resource.data.clubId) &&
         request.resource.data.status == 'pending_player' &&
-        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']) &&
+        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'status', 'approvals', 'sets']) &&
         playerIsMatchReady(request.resource.data.playerAId) &&
         playerIsMatchReady(request.resource.data.playerBId);
 

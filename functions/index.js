@@ -528,6 +528,13 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
                 isOffline: true, // User is offline until they complete onboarding
                 createdAt: now,
                 photoURL: '',
+                clubRequestStatus: null,
+                clubRequestId: null,
+                privacySettings: {
+                    searchable: 'global', // Default: globally searchable
+                    showInLeaderboards: true,
+                },
+                clubJoinedAt: now,
             };
 
             await userRef.set(userData);
@@ -2219,5 +2226,309 @@ exports.anonymizeAccount = onCall({ region: CONFIG.REGION }, async request => {
             'internal',
             `Error anonymizing account: ${error.message}`
         );
+    }
+});
+
+// ========================================================================
+// ===== FUNKTION: Registrierung ohne Einladungscode =====
+// ========================================================================
+exports.registerWithoutCode = onCall({ region: CONFIG.REGION }, async request => {
+    // 1. Check if user is authenticated
+    if (!request.auth) {
+        throw new HttpsError(
+            'unauthenticated',
+            'Du musst angemeldet sein, um dich zu registrieren.'
+        );
+    }
+
+    const userId = request.auth.uid;
+    const { firstName, lastName } = request.data;
+
+    if (!firstName || !lastName) {
+        throw new HttpsError('invalid-argument', 'Vor- und Nachname sind erforderlich.');
+    }
+
+    try {
+        // 2. Check if user document already exists
+        const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+        const userDoc = await userRef.get();
+
+        if (userDoc.exists) {
+            throw new HttpsError(
+                'already-exists',
+                'Ein Profil für diesen Benutzer existiert bereits.'
+            );
+        }
+
+        // 3. Create new user document WITHOUT clubId
+        const now = admin.firestore.Timestamp.now();
+        const userData = {
+            email: request.auth.token.email || '',
+            firstName: firstName,
+            lastName: lastName,
+            clubId: null, // No club yet
+            role: 'player',
+            subgroupIds: [],
+            points: 0,
+            xp: 0,
+            eloRating: CONFIG.ELO.DEFAULT_RATING,
+            highestElo: CONFIG.ELO.DEFAULT_RATING,
+            wins: 0,
+            losses: 0,
+            grundlagenCompleted: 0,
+            onboardingComplete: false,
+            isOffline: true, // Will be set to false after onboarding
+            createdAt: now,
+            photoURL: '',
+            clubRequestStatus: null,
+            clubRequestId: null,
+            privacySettings: {
+                searchable: 'global', // Default: globally searchable
+                showInLeaderboards: true,
+            },
+        };
+
+        await userRef.set(userData);
+        logger.info(`New user created without club: ${userId} (${firstName} ${lastName})`);
+
+        return {
+            success: true,
+            message: 'Registrierung erfolgreich!',
+        };
+    } catch (error) {
+        logger.error(`Error registering user ${userId}:`, error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+    }
+});
+
+// ========================================================================
+// ===== FUNKTION: Club-Beitrittsanfrage bearbeiten =====
+// ========================================================================
+exports.handleClubRequest = onCall({ region: CONFIG.REGION }, async request => {
+    // 1. Check if user is authenticated and is a coach/admin
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Du musst angemeldet sein.');
+    }
+
+    const coachId = request.auth.uid;
+    const { requestId, action } = request.data; // action: 'approve' | 'reject'
+
+    if (!requestId || !action) {
+        throw new HttpsError('invalid-argument', 'Request-ID und Aktion sind erforderlich.');
+    }
+
+    if (!['approve', 'reject'].includes(action)) {
+        throw new HttpsError('invalid-argument', 'Ungültige Aktion. Verwende "approve" oder "reject".');
+    }
+
+    try {
+        // 2. Get coach data
+        const coachRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(coachId);
+        const coachDoc = await coachRef.get();
+
+        if (!coachDoc.exists) {
+            throw new HttpsError('not-found', 'Coach nicht gefunden.');
+        }
+
+        const coachData = coachDoc.data();
+
+        if (!['coach', 'admin'].includes(coachData.role)) {
+            throw new HttpsError('permission-denied', 'Nur Coaches und Admins können Anfragen bearbeiten.');
+        }
+
+        // 3. Get club request
+        const requestRef = db.collection('clubRequests').doc(requestId);
+        const requestDoc = await requestRef.get();
+
+        if (!requestDoc.exists) {
+            throw new HttpsError('not-found', 'Anfrage nicht gefunden.');
+        }
+
+        const requestData = requestDoc.data();
+
+        // 4. Verify coach is from the same club
+        if (coachData.clubId !== requestData.clubId) {
+            throw new HttpsError('permission-denied', 'Du kannst nur Anfragen für deinen eigenen Verein bearbeiten.');
+        }
+
+        // 5. Verify request is still pending
+        if (requestData.status !== 'pending') {
+            throw new HttpsError('failed-precondition', 'Diese Anfrage wurde bereits bearbeitet.');
+        }
+
+        // 6. Get player data
+        const playerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(requestData.playerId);
+        const playerDoc = await playerRef.get();
+
+        if (!playerDoc.exists) {
+            throw new HttpsError('not-found', 'Spieler nicht gefunden.');
+        }
+
+        const now = admin.firestore.Timestamp.now();
+        const batch = db.batch();
+
+        if (action === 'approve') {
+            // Approve: Set clubId and update request
+            batch.update(playerRef, {
+                clubId: requestData.clubId,
+                clubRequestStatus: 'approved',
+                clubRequestId: null,
+                clubJoinedAt: now,
+            });
+
+            batch.update(requestRef, {
+                status: 'approved',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Club request approved: ${requestId} by coach ${coachId}`);
+        } else {
+            // Reject: Update request only
+            batch.update(playerRef, {
+                clubRequestStatus: null,
+                clubRequestId: null,
+            });
+
+            batch.update(requestRef, {
+                status: 'rejected',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Club request rejected: ${requestId} by coach ${coachId}`);
+        }
+
+        await batch.commit();
+
+        return {
+            success: true,
+            message: action === 'approve' ? 'Spieler erfolgreich genehmigt!' : 'Anfrage abgelehnt.',
+        };
+    } catch (error) {
+        logger.error(`Error handling club request ${requestId}:`, error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+    }
+});
+
+// ========================================================================
+// ===== FUNKTION: Austrittsanfrage bearbeiten =====
+// ========================================================================
+exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => {
+    // 1. Check if user is authenticated and is a coach/admin
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Du musst angemeldet sein.');
+    }
+
+    const coachId = request.auth.uid;
+    const { requestId, action } = request.data; // action: 'approve' | 'reject'
+
+    if (!requestId || !action) {
+        throw new HttpsError('invalid-argument', 'Request-ID und Aktion sind erforderlich.');
+    }
+
+    if (!['approve', 'reject'].includes(action)) {
+        throw new HttpsError('invalid-argument', 'Ungültige Aktion. Verwende "approve" oder "reject".');
+    }
+
+    try {
+        // 2. Get coach data
+        const coachRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(coachId);
+        const coachDoc = await coachRef.get();
+
+        if (!coachDoc.exists) {
+            throw new HttpsError('not-found', 'Coach nicht gefunden.');
+        }
+
+        const coachData = coachDoc.data();
+
+        if (!['coach', 'admin'].includes(coachData.role)) {
+            throw new HttpsError('permission-denied', 'Nur Coaches und Admins können Anfragen bearbeiten.');
+        }
+
+        // 3. Get leave request
+        const requestRef = db.collection('leaveClubRequests').doc(requestId);
+        const requestDoc = await requestRef.get();
+
+        if (!requestDoc.exists) {
+            throw new HttpsError('not-found', 'Anfrage nicht gefunden.');
+        }
+
+        const requestData = requestDoc.data();
+
+        // 4. Verify coach is from the same club
+        if (coachData.clubId !== requestData.clubId) {
+            throw new HttpsError('permission-denied', 'Du kannst nur Anfragen für deinen eigenen Verein bearbeiten.');
+        }
+
+        // 5. Verify request is still pending
+        if (requestData.status !== 'pending') {
+            throw new HttpsError('failed-precondition', 'Diese Anfrage wurde bereits bearbeitet.');
+        }
+
+        // 6. Get player data
+        const playerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(requestData.playerId);
+        const playerDoc = await playerRef.get();
+
+        if (!playerDoc.exists) {
+            throw new HttpsError('not-found', 'Spieler nicht gefunden.');
+        }
+
+        const playerData = playerDoc.data();
+        const now = admin.firestore.Timestamp.now();
+        const batch = db.batch();
+
+        if (action === 'approve') {
+            // Approve: Remove clubId, reset season points, keep xp/elo
+            batch.update(playerRef, {
+                previousClubId: playerData.clubId,
+                clubId: null,
+                points: 0, // Reset season points
+                subgroupIds: [], // Remove from subgroups
+                // Keep: xp, eloRating, highestElo, wins, losses
+            });
+
+            batch.update(requestRef, {
+                status: 'approved',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Leave request approved: ${requestId} by coach ${coachId}`);
+        } else {
+            // Reject: Keep player in club
+            batch.update(requestRef, {
+                status: 'rejected',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Leave request rejected: ${requestId} by coach ${coachId}`);
+        }
+
+        await batch.commit();
+
+        return {
+            success: true,
+            message: action === 'approve' ? 'Spieler hat den Verein verlassen.' : 'Austrittsanfrage abgelehnt.',
+        };
+    } catch (error) {
+        logger.error(`Error handling leave request ${requestId}:`, error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
     }
 });

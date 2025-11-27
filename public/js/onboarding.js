@@ -11,6 +11,12 @@ import {
     doc,
     getDoc,
     updateDoc,
+    collection,
+    getDocs,
+    query,
+    where,
+    addDoc,
+    Timestamp,
     connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
@@ -188,12 +194,145 @@ onboardingForm.addEventListener('submit', async e => {
         const userDocRef = doc(db, 'users', currentUser.uid);
         await updateDoc(userDocRef, dataToUpdate);
 
-        redirectToDashboard(currentUserData.role);
+        // Check if user has clubId
+        if (currentUserData.clubId) {
+            // User already has a club, redirect to dashboard
+            redirectToDashboard(currentUserData.role);
+        } else {
+            // User has NO club - show club selection dialog
+            showClubSelectionDialog();
+        }
     } catch (error) {
         errorMessage.textContent = 'Fehler: ' + error.message;
         submitButton.disabled = false;
         submitButton.textContent = 'Profil speichern';
     }
+});
+
+// ===== CLUB SELECTION DIALOG =====
+const clubSelectionDialog = document.getElementById('club-selection-dialog');
+const hasClubBtn = document.getElementById('has-club-btn');
+const noClubBtn = document.getElementById('no-club-btn');
+const clubDropdownContainer = document.getElementById('club-dropdown-container');
+const clubSelect = document.getElementById('club-select');
+const requestClubBtn = document.getElementById('request-club-btn');
+const backToChoiceBtn = document.getElementById('back-to-choice-btn');
+const clubErrorMessage = document.getElementById('club-error-message');
+
+function showClubSelectionDialog() {
+    // Hide onboarding form
+    onboardingForm.parentElement.classList.add('hidden');
+    // Show club selection dialog
+    clubSelectionDialog.classList.remove('hidden');
+}
+
+function hideClubSelectionDialog() {
+    clubSelectionDialog.classList.add('hidden');
+}
+
+// Load all clubs (excluding test clubs)
+async function loadClubs() {
+    try {
+        const clubsRef = collection(db, 'clubs');
+        const snapshot = await getDocs(clubsRef);
+
+        const clubs = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(club => !club.isTestClub); // Exclude test clubs
+
+        // Populate dropdown
+        clubSelect.innerHTML = '<option value="">-- Verein auswählen --</option>';
+        clubs.forEach(club => {
+            const option = document.createElement('option');
+            option.value = club.id;
+            option.textContent = club.name;
+            clubSelect.appendChild(option);
+        });
+
+        return clubs;
+    } catch (error) {
+        console.error('Error loading clubs:', error);
+        clubErrorMessage.textContent = 'Fehler beim Laden der Vereine.';
+        return [];
+    }
+}
+
+// "Ja, ich bin in einem Verein" - Show club dropdown
+hasClubBtn.addEventListener('click', async () => {
+    hasClubBtn.disabled = true;
+    noClubBtn.disabled = true;
+    clubErrorMessage.textContent = '';
+
+    // Load clubs
+    await loadClubs();
+
+    // Hide choice buttons
+    hasClubBtn.parentElement.classList.add('hidden');
+    // Show dropdown
+    clubDropdownContainer.classList.remove('hidden');
+
+    hasClubBtn.disabled = false;
+    noClubBtn.disabled = false;
+});
+
+// "Nein, noch nicht" - Continue to dashboard without club
+noClubBtn.addEventListener('click', () => {
+    // User chooses to continue without club
+    hideClubSelectionDialog();
+    redirectToDashboard(currentUserData.role);
+});
+
+// Enable/disable request button based on club selection
+clubSelect.addEventListener('change', () => {
+    requestClubBtn.disabled = !clubSelect.value;
+});
+
+// "Beitrittsanfrage senden"
+requestClubBtn.addEventListener('click', async () => {
+    const selectedClubId = clubSelect.value;
+    if (!selectedClubId) return;
+
+    requestClubBtn.disabled = true;
+    requestClubBtn.textContent = 'Sende Anfrage...';
+    clubErrorMessage.textContent = '';
+
+    try {
+        // Create club request
+        await addDoc(collection(db, 'clubRequests'), {
+            playerId: currentUser.uid,
+            clubId: selectedClubId,
+            status: 'pending',
+            playerName: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim(),
+            playerEmail: currentUser.email || '',
+            createdAt: Timestamp.now(),
+        });
+
+        // Update user's clubRequestStatus
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+            clubRequestStatus: 'pending',
+            clubRequestId: selectedClubId,
+        });
+
+        // Show success message and redirect
+        alert('Deine Beitrittsanfrage wurde gesendet! Ein Coach muss diese noch genehmigen.');
+        hideClubSelectionDialog();
+        redirectToDashboard(currentUserData.role);
+    } catch (error) {
+        console.error('Error creating club request:', error);
+        clubErrorMessage.textContent = 'Fehler beim Senden der Anfrage. Bitte versuche es erneut.';
+        requestClubBtn.disabled = false;
+        requestClubBtn.textContent = 'Beitrittsanfrage senden';
+    }
+});
+
+// "Zurück" button
+backToChoiceBtn.addEventListener('click', () => {
+    // Hide dropdown
+    clubDropdownContainer.classList.add('hidden');
+    // Show choice buttons
+    hasClubBtn.parentElement.classList.remove('hidden');
+    clubErrorMessage.textContent = '';
 });
 
 function redirectToDashboard(role) {

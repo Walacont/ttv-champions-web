@@ -52,7 +52,7 @@ const tokenRequiredMessageContainer = document.getElementById('token-required-me
 let tokenId = null;
 let invitationCode = null;
 let invitationCodeData = null;
-let registrationType = null; // 'token' or 'code'
+let registrationType = null; // 'token', 'code', or 'no-code'
 
 // ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
 // Function to initialize registration (works for both normal load and SPA navigation)
@@ -145,6 +145,31 @@ if (document.readyState === 'loading') {
     initializeRegistration();
 }
 
+// ===== REGISTRIERUNG OHNE CODE =====
+const registerWithoutCodeBtn = document.getElementById('register-without-code-btn');
+if (registerWithoutCodeBtn) {
+    registerWithoutCodeBtn.addEventListener('click', () => {
+        registrationType = 'no-code';
+
+        // Hide welcome message, show registration form
+        tokenRequiredMessageContainer.classList.add('hidden');
+        loader.classList.add('hidden');
+        registrationFormContainer.classList.remove('hidden');
+
+        // Show name fields (required for no-code registration)
+        const nameFields = document.getElementById('name-fields');
+        if (nameFields) {
+            nameFields.classList.remove('hidden');
+            // Make name fields required
+            document.getElementById('first-name').required = true;
+            document.getElementById('last-name').required = true;
+        }
+
+        // Update subtitle
+        formSubtitle.textContent = 'Erstelle deinen Account und trete später einem Verein bei.';
+    });
+}
+
 // ===== REGISTRIERUNG (MIT NEUER CHECKBOX-VALIDIERUNG) =====
 registrationForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -212,6 +237,38 @@ registrationForm.addEventListener('submit', async e => {
             // 4️⃣ Callable Cloud Function aufrufen
             const claimInvitationToken = httpsCallable(functions, 'claimInvitationToken');
             const result = await claimInvitationToken({ tokenId });
+
+            if (result.data.success) {
+                // 5️⃣ Weiterleitung zum Onboarding
+                // Use SPA navigation if available
+                if (window.spaNavigate) {
+                    window.spaNavigate('/onboarding.html');
+                } else {
+                    window.location.href = '/onboarding.html';
+                }
+            } else {
+                throw new Error('Ein unbekannter Fehler ist aufgetreten.');
+            }
+        }
+        // ===== NO-CODE FLOW (Neu: Registrierung ohne Einladung) =====
+        else if (registrationType === 'no-code') {
+            // Get name fields
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+
+            if (!firstName || !lastName) {
+                errorMessage.textContent = 'Bitte gib deinen Vor- und Nachnamen ein.';
+                submitButton.disabled = false;
+                submitButton.textContent = 'Registrierung abschließen';
+                return;
+            }
+
+            // 4️⃣ Callable Cloud Function aufrufen für Registrierung ohne Code
+            const registerWithoutCode = httpsCallable(functions, 'registerWithoutCode');
+            const result = await registerWithoutCode({
+                firstName,
+                lastName,
+            });
 
             if (result.data.success) {
                 // 5️⃣ Weiterleitung zum Onboarding
