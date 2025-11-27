@@ -2644,3 +2644,163 @@ exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request
         throw new HttpsError('internal', 'Fehler bei der Migration: ' + error.message);
     }
 });
+
+// ========================================================================
+// ===== AUTO-CREATE CLUB: When invitation code is created by admin with new clubId =====
+// ========================================================================
+exports.autoCreateClubOnInvitation = onDocumentCreated(
+    { document: 'invitationCodes/{codeId}', region: CONFIG.REGION },
+    async event => {
+        const codeData = event.data.data();
+        const clubId = codeData.clubId;
+        const createdBy = codeData.createdBy;
+
+        if (!clubId) {
+            logger.info('Invitation code created without clubId, skipping club creation');
+            return;
+        }
+
+        if (!createdBy) {
+            logger.info('Invitation code created without createdBy, skipping club creation');
+            return;
+        }
+
+        try {
+            // Check if the creator is an admin
+            const creatorRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(createdBy);
+            const creatorDoc = await creatorRef.get();
+
+            if (!creatorDoc.exists) {
+                logger.info(`Creator ${createdBy} does not exist, skipping club creation`);
+                return;
+            }
+
+            const creatorData = creatorDoc.data();
+            if (creatorData.role !== 'admin') {
+                logger.info(`Creator ${createdBy} is not an admin (role: ${creatorData.role}), skipping club creation`);
+                return;
+            }
+
+            // Only admins can create clubs
+            logger.info(`Admin ${createdBy} creating invitation for club ${clubId}`);
+
+            // Check if club already exists
+            const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
+            const clubDoc = await clubRef.get();
+
+            if (clubDoc.exists) {
+                logger.info(`Club ${clubId} already exists, no need to create`);
+                return;
+            }
+
+            // Club doesn't exist yet - create it
+            logger.info(`Creating new club: ${clubId}`);
+
+            // Find a coach for this club to set as owner
+            const coachQuery = await db
+                .collection(CONFIG.COLLECTIONS.USERS)
+                .where('clubId', '==', clubId)
+                .where('role', 'in', ['coach', 'admin'])
+                .limit(1)
+                .get();
+
+            let ownerId = null;
+            if (!coachQuery.empty) {
+                ownerId = coachQuery.docs[0].id;
+            }
+
+            const newClub = {
+                name: clubId, // Default name is the clubId
+                createdAt: admin.firestore.Timestamp.now(),
+                isTestClub: false, // Default: not a test club
+                memberCount: 0, // Will be updated as members join
+                ownerId: ownerId,
+            };
+
+            await clubRef.set(newClub);
+            logger.info(`Successfully created club: ${clubId} with owner: ${ownerId || 'none'}`);
+        } catch (error) {
+            logger.error(`Error auto-creating club ${clubId}:`, error);
+            // Don't throw - let the invitation code creation succeed even if club creation fails
+        }
+    }
+);
+
+// Similar trigger for invitation tokens
+exports.autoCreateClubOnToken = onDocumentCreated(
+    { document: 'invitationTokens/{tokenId}', region: CONFIG.REGION },
+    async event => {
+        const tokenData = event.data.data();
+        const clubId = tokenData.clubId;
+        const createdBy = tokenData.createdBy;
+
+        if (!clubId) {
+            logger.info('Invitation token created without clubId, skipping club creation');
+            return;
+        }
+
+        if (!createdBy) {
+            logger.info('Invitation token created without createdBy, skipping club creation');
+            return;
+        }
+
+        try {
+            // Check if the creator is an admin
+            const creatorRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(createdBy);
+            const creatorDoc = await creatorRef.get();
+
+            if (!creatorDoc.exists) {
+                logger.info(`Creator ${createdBy} does not exist, skipping club creation`);
+                return;
+            }
+
+            const creatorData = creatorDoc.data();
+            if (creatorData.role !== 'admin') {
+                logger.info(`Creator ${createdBy} is not an admin (role: ${creatorData.role}), skipping club creation`);
+                return;
+            }
+
+            // Only admins can create clubs
+            logger.info(`Admin ${createdBy} creating invitation token for club ${clubId}`);
+
+            // Check if club already exists
+            const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
+            const clubDoc = await clubRef.get();
+
+            if (clubDoc.exists) {
+                logger.info(`Club ${clubId} already exists, no need to create`);
+                return;
+            }
+
+            // Club doesn't exist yet - create it
+            logger.info(`Creating new club from token: ${clubId}`);
+
+            // Find a coach for this club to set as owner
+            const coachQuery = await db
+                .collection(CONFIG.COLLECTIONS.USERS)
+                .where('clubId', '==', clubId)
+                .where('role', 'in', ['coach', 'admin'])
+                .limit(1)
+                .get();
+
+            let ownerId = null;
+            if (!coachQuery.empty) {
+                ownerId = coachQuery.docs[0].id;
+            }
+
+            const newClub = {
+                name: clubId, // Default name is the clubId
+                createdAt: admin.firestore.Timestamp.now(),
+                isTestClub: false, // Default: not a test club
+                memberCount: 0, // Will be updated as members join
+                ownerId: ownerId,
+            };
+
+            await clubRef.set(newClub);
+            logger.info(`Successfully created club from token: ${clubId} with owner: ${ownerId || 'none'}`);
+        } catch (error) {
+            logger.error(`Error auto-creating club from token ${clubId}:`, error);
+            // Don't throw - let the invitation token creation succeed even if club creation fails
+        }
+    }
+);
