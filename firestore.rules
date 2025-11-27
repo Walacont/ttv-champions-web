@@ -32,29 +32,21 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().clubId != null;
     }
 
-    function canViewUser(targetUserId) {
-      // User can always view themselves (no need to fetch data)
-      if (targetUserId == request.auth.uid) {
-        return true;
-      }
-
-      // Fetch target user data
+    // Helper function to check if user can view another user's data
+    // This is only called when targetUserId != request.auth.uid
+    function canViewUserData(targetUserId) {
       let targetData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
-
-      // If target is globally searchable, anyone can view (no need to fetch current user data)
-      if ('privacySettings' in targetData &&
-          'searchable' in targetData.privacySettings &&
-          targetData.privacySettings.searchable == 'global') {
-        return true;
-      }
-
-      // For club-based checks, fetch current user data
       let currentUserData = getUserData();
 
-      // Same club members can view each other OR
-      // Coaches and admins can view all users in their club
-      return (currentUserData.clubId != null && targetData.clubId == currentUserData.clubId) ||
+      return ('privacySettings' in targetData &&
+              'searchable' in targetData.privacySettings &&
+              targetData.privacySettings.searchable == 'global') ||
+             (currentUserData.clubId != null && targetData.clubId == currentUserData.clubId) ||
              (currentUserData.role in ['coach', 'admin'] && targetData.clubId != null && currentUserData.clubId == targetData.clubId);
+    }
+
+    function canViewUser(targetUserId) {
+      return targetUserId == request.auth.uid || canViewUserData(targetUserId);
     }
 
     function isCoachOfClub(clubId) {
