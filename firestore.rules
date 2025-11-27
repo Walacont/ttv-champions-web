@@ -466,8 +466,9 @@ service cloud.firestore {
 
     // Doubles Pairings collection (Team statistics for leaderboard)
     match /doublesPairings/{pairingId} {
-      // All authenticated players can read pairings in their club
-      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+      // All authenticated players can read all pairings (for global leaderboard)
+      // Privacy filtering is handled in frontend queries
+      allow read: if isAuthenticated();
 
       // Only Cloud Functions can write (computed/aggregate data)
       allow write: if false;

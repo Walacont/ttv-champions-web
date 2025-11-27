@@ -193,9 +193,22 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-doubles" class="leaderboard-tab-content hidden">
-                <div id="doubles-list" class="mt-6">
-                    <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                <div id="doubles-club-container">
+                    <div id="doubles-list-club" class="mt-6">
+                        <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                    </div>
                 </div>
+                ${
+                    showToggle
+                        ? `
+                    <div id="doubles-global-container" class="hidden">
+                        <div id="doubles-list-global" class="mt-6">
+                            <p class="text-center text-gray-500 py-8">Lade globale Doppel-Rangliste...</p>
+                        </div>
+                    </div>
+                `
+                        : ''
+                }
             </div>
         </div>
     `;
@@ -264,9 +277,9 @@ export function setupLeaderboardTabs() {
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (Ranks and Doubles tabs don't have global view)
+        // Show/hide scope toggle based on tab (only Ranks tab doesn't have global view)
         if (scopeToggleContainer) {
-            if (tabName === 'ranks' || tabName === 'doubles') {
+            if (tabName === 'ranks') {
                 scopeToggleContainer.classList.add('hidden');
             } else {
                 scopeToggleContainer.classList.remove('hidden');
@@ -337,17 +350,17 @@ export function loadLeaderboard(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the Doubles leaderboard with real-time updates
+ * Loads the Doubles leaderboard with real-time updates (Club view)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
-    const listEl = document.getElementById('doubles-list');
+    const listEl = document.getElementById('doubles-list-club');
     if (!listEl) return;
 
     try {
-        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes);
+        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes, userData.id);
     } catch (error) {
         console.error('Error loading doubles leaderboard:', error);
         listEl.innerHTML =
@@ -645,7 +658,7 @@ function loadRanksView(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the global leaderboards (Skill, Effort, and Season)
+ * Loads the global leaderboards (Skill, Effort, Season, and Doubles)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
@@ -654,6 +667,7 @@ export function loadGlobalLeaderboard(userData, db, unsubscribes) {
     loadGlobalSkillLeaderboard(userData, db, unsubscribes);
     loadGlobalEffortLeaderboard(userData, db, unsubscribes);
     loadGlobalSeasonLeaderboard(userData, db, unsubscribes);
+    loadGlobalDoublesLeaderboard(userData, db, unsubscribes);
 }
 
 /**
@@ -800,6 +814,29 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     });
 
     if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the global Doubles leaderboard (all clubs)
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadGlobalDoublesLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('doubles-list-global');
+    if (!listEl) return;
+
+    // Import loadDoublesLeaderboard from doubles-matches module
+    import('./doubles-matches.js').then(module => {
+        try {
+            // Load global doubles leaderboard (no clubId filter)
+            module.loadDoublesLeaderboard(null, db, listEl, unsubscribes, userData.id, true);
+        } catch (error) {
+            console.error('Error loading global doubles leaderboard:', error);
+            listEl.innerHTML =
+                '<p class="text-center text-red-500 py-8">Fehler beim Laden der globalen Doppel-Rangliste.</p>';
+        }
+    });
 }
 
 /**

@@ -308,20 +308,33 @@ export async function rejectDoublesMatchRequest(requestId, reason, db, currentUs
 // ========================================================================
 
 /**
- * Loads doubles pairings leaderboard for a club with real-time updates
- * @param {string} clubId - Club ID
+ * Loads doubles pairings leaderboard with real-time updates
+ * @param {string} clubId - Club ID (null for global leaderboard)
  * @param {Object} db - Firestore database instance
  * @param {HTMLElement} container - Container element to render leaderboard
  * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
+ * @param {string} currentUserId - Current user's ID (for privacy filtering)
+ * @param {boolean} isGlobal - Whether this is the global leaderboard (default: false)
  */
-export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
+export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, currentUserId, isGlobal = false) {
     if (!container) return;
 
-    const pairingsQuery = query(
-        collection(db, 'doublesPairings'),
-        where('clubId', '==', clubId),
-        orderBy('matchesWon', 'desc')
-    );
+    // Build query based on whether it's global or club-specific
+    let pairingsQuery;
+    if (isGlobal || clubId === null) {
+        // Global leaderboard: no clubId filter
+        pairingsQuery = query(
+            collection(db, 'doublesPairings'),
+            orderBy('matchesWon', 'desc')
+        );
+    } else {
+        // Club leaderboard: filter by clubId
+        pairingsQuery = query(
+            collection(db, 'doublesPairings'),
+            where('clubId', '==', clubId),
+            orderBy('matchesWon', 'desc')
+        );
+    }
 
     const listener = onSnapshot(pairingsQuery, async snapshot => {
         const pairings = [];
@@ -330,7 +343,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
 
-            // Try to fetch player data for profile pictures
+            // Try to fetch player data for profile pictures and privacy settings
             let player1Data = null;
             let player2Data = null;
 
@@ -359,6 +372,21 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
                 // Silently handle permission errors
                 if (error.code !== 'permission-denied') {
                     console.warn('Could not fetch player2 data:', error);
+                }
+            }
+
+            // Privacy filtering: Check if either player has disabled leaderboard visibility
+            // If current user is one of the players, always show the team
+            const isCurrentUserInTeam = (currentUserId && (data.player1Id === currentUserId || data.player2Id === currentUserId));
+
+            if (!isCurrentUserInTeam) {
+                // Check privacy settings for both players
+                const player1ShowInLeaderboards = player1Data?.privacySettings?.showInLeaderboards !== false;
+                const player2ShowInLeaderboards = player2Data?.privacySettings?.showInLeaderboards !== false;
+
+                // If either player has disabled leaderboard visibility, skip this pairing
+                if (!player1ShowInLeaderboards || !player2ShowInLeaderboards) {
+                    continue;
                 }
             }
 
@@ -393,7 +421,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
         }
 
         // Render the leaderboard with updated data
-        renderDoublesLeaderboard(pairings, container);
+        renderDoublesLeaderboard(pairings, container, isGlobal);
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -403,8 +431,9 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
  * Renders the doubles leaderboard in the UI
  * @param {Array} pairings - Array of pairing objects
  * @param {HTMLElement} container - Container element
+ * @param {boolean} isGlobal - Whether this is the global leaderboard (shows club info)
  */
-export function renderDoublesLeaderboard(pairings, container) {
+export function renderDoublesLeaderboard(pairings, container, isGlobal = false) {
     if (!container) return;
 
     if (pairings.length === 0) {
@@ -422,6 +451,7 @@ export function renderDoublesLeaderboard(pairings, container) {
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Rang</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Team</th>
+                        ${isGlobal ? '<th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Verein</th>' : ''}
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siege</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Niederlagen</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siegrate</th>
@@ -470,6 +500,7 @@ export function renderDoublesLeaderboard(pairings, container) {
                         </div>
                     </div>
                 </td>
+                ${isGlobal ? `<td class="px-4 py-3 text-sm text-gray-600">${pairing.clubId || 'Kein Verein'}</td>` : ''}
                 <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
                 <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
                 <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
@@ -531,6 +562,13 @@ export function renderDoublesLeaderboard(pairings, container) {
                         <span class="font-semibold text-indigo-700 text-sm">${pairing.player2Name}</span>
                     </div>
                 </div>
+
+                ${isGlobal ? `
+                <!-- Club Info -->
+                <div class="mb-3 text-xs text-gray-500">
+                    <i class="fas fa-building mr-1"></i>${pairing.clubId || 'Kein Verein'}
+                </div>
+                ` : ''}
 
                 <!-- Stats Grid -->
                 <div class="grid grid-cols-3 gap-2 text-center pt-3 border-t border-gray-200">
