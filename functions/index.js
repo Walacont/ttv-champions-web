@@ -21,6 +21,7 @@ const CONFIG = {
         INVITATION_TOKENS: 'invitationTokens',
         INVITATION_CODES: 'invitationCodes',
         POINTS_HISTORY: 'pointsHistory',
+        CLUBS: 'clubs',
     },
     ELO: {
         DEFAULT_RATING: 800, // Start at 800 Elo (new system)
@@ -2530,5 +2531,116 @@ exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => 
         }
 
         throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+    }
+});
+
+// ========================================================================
+// ===== MIGRATION: Create clubs collection from existing clubId values =====
+// ========================================================================
+exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request => {
+    // Only admins can run this migration
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Du musst angemeldet sein.');
+    }
+
+    const callerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(request.auth.uid);
+    const callerDoc = await callerRef.get();
+
+    if (!callerDoc.exists || callerDoc.data().role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Nur Admins können diese Migration ausführen.');
+    }
+
+    try {
+        logger.info('Starting clubs collection migration...');
+
+        // 1. Get all users with a clubId
+        const usersSnapshot = await db
+            .collection(CONFIG.COLLECTIONS.USERS)
+            .where('clubId', '!=', null)
+            .get();
+
+        if (usersSnapshot.empty) {
+            return {
+                success: true,
+                message: 'Keine Spieler mit Vereinszugehörigkeit gefunden.',
+                clubsCreated: 0,
+            };
+        }
+
+        // 2. Group users by clubId and collect club info
+        const clubsMap = new Map();
+
+        usersSnapshot.docs.forEach(doc => {
+            const userData = doc.data();
+            const clubId = userData.clubId;
+
+            if (!clubId) return;
+
+            if (!clubsMap.has(clubId)) {
+                clubsMap.set(clubId, {
+                    id: clubId,
+                    name: clubId, // Default: use clubId as name
+                    members: [],
+                    coaches: [],
+                    createdAt: admin.firestore.Timestamp.now(),
+                    isTestClub: false, // Default: not a test club (must be set manually later)
+                });
+            }
+
+            const club = clubsMap.get(clubId);
+            club.members.push({
+                userId: doc.id,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: userData.role,
+            });
+
+            if (userData.role === 'coach' || userData.role === 'admin') {
+                club.coaches.push(doc.id);
+            }
+        });
+
+        // 3. Create clubs collection entries
+        const batch = db.batch();
+        let clubsCreated = 0;
+
+        clubsMap.forEach((clubData, clubId) => {
+            const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
+
+            const clubDocument = {
+                name: clubData.name,
+                createdAt: clubData.createdAt,
+                isTestClub: clubData.isTestClub,
+                memberCount: clubData.members.length,
+                // Optional: Add first coach as owner
+                ownerId: clubData.coaches.length > 0 ? clubData.coaches[0] : null,
+            };
+
+            batch.set(clubRef, clubDocument);
+            clubsCreated++;
+
+            logger.info(
+                `Creating club: ${clubId} with ${clubData.members.length} members, ${clubData.coaches.length} coaches`
+            );
+        });
+
+        await batch.commit();
+
+        logger.info(`Migration complete. Created ${clubsCreated} clubs.`);
+
+        return {
+            success: true,
+            message: `Migration erfolgreich! ${clubsCreated} Vereine erstellt.`,
+            clubsCreated: clubsCreated,
+            clubs: Array.from(clubsMap.keys()),
+        };
+    } catch (error) {
+        logger.error('Error during clubs migration:', error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Fehler bei der Migration: ' + error.message);
     }
 });
