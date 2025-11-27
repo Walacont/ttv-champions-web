@@ -131,6 +131,17 @@ export async function initializeDoublesPlayerSearch(db, userData) {
     // Load all searchable players
     let allPlayers = [];
     try {
+        // Load clubs for test club filtering
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+        const clubsMap = new Map();
+        clubsSnapshot.forEach(doc => {
+            clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        // Check if current user is from a test club
+        const currentUserClub = userData.clubId ? clubsMap.get(userData.clubId) : null;
+        const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
+
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('role', '==', 'player'));
         const snapshot = await getDocs(q);
@@ -143,11 +154,25 @@ export async function initializeDoublesPlayerSearch(db, userData) {
                 const isMatchReady = playerGrundlagen >= 5;
                 const isSelf = p.id === userData.id;
 
-                // Privacy check: same club OR globally searchable
+                if (isSelf || !isMatchReady) return false;
+
+                // Test club filtering
+                if (!isCurrentUserFromTestClub && p.clubId) {
+                    const playerClub = clubsMap.get(p.clubId);
+                    if (playerClub && playerClub.isTestClub) {
+                        return false; // Hide test club players from non-test club users
+                    }
+                }
+
+                // Privacy check - 3 cases:
+                // 1. Both players have NO club → visible
+                // 2. Same club → visible
+                // 3. Player is globally searchable → visible
+                const bothNoClub = !userData.clubId && !p.clubId;
                 const isSameClub = userData.clubId && p.clubId === userData.clubId;
                 const isGloballySearchable = p.privacySettings?.searchable === 'global';
 
-                return !isSelf && isMatchReady && (isSameClub || isGloballySearchable);
+                return bothNoClub || isSameClub || isGloballySearchable;
             });
     } catch (error) {
         console.error('Error loading players:', error);
