@@ -905,6 +905,10 @@ function getProcessedStatusBadge(status, approvals) {
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (players without club)
+        if (approvals?.coach?.status === 'auto_approved') {
+            return '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Automatisch genehmigt</span>';
+        }
         const coachName = approvals?.coach?.coachName || 'Coach';
         return `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Genehmigt von ${coachName}</span>`;
     }
@@ -930,6 +934,10 @@ function getStatusDescription(status, approvals) {
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (players without club)
+        if (approvals?.coach?.status === 'auto_approved') {
+            return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde automatisch genehmigt, da beide Spieler keinem Verein angehören. Das Match wurde erstellt.</p>';
+        }
         const coachName = approvals?.coach?.coachName || 'Coach';
         return `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde von ${coachName} genehmigt und das Match wurde erstellt.</p>`;
     }
@@ -1000,7 +1008,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
     const timeAgo = formatTimestamp(request.createdAt);
 
     // Get status badge
-    const statusBadge = getDoublesStatusBadge(request.status);
+    const statusBadge = getDoublesStatusBadge(request.status, request.approvedBy);
 
     // Build HTML
     div.innerHTML = `
@@ -1026,7 +1034,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
         ${statusBadge}
       </div>
 
-      ${getDoublesStatusDescription(request.status)}
+      ${getDoublesStatusDescription(request.status, request.approvedBy)}
     </div>
   `;
 
@@ -1256,7 +1264,7 @@ function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'bes
 /**
  * Gets status badge for doubles requests
  */
-function getDoublesStatusBadge(status) {
+function getDoublesStatusBadge(status, approvedBy = null) {
     if (status === 'pending_opponent') {
         return '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Wartet auf Gegner</span>';
     }
@@ -1266,6 +1274,10 @@ function getDoublesStatusBadge(status) {
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (all 4 players without club)
+        if (approvedBy === 'auto_approved') {
+            return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Automatisch genehmigt</span>';
+        }
         return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Genehmigt</span>';
     }
 
@@ -1279,12 +1291,16 @@ function getDoublesStatusBadge(status) {
 /**
  * Gets status description for doubles requests
  */
-function getDoublesStatusDescription(status) {
+function getDoublesStatusDescription(status, approvedBy = null) {
     if (status === 'pending_coach') {
         return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (all 4 players without club)
+        if (approvedBy === 'auto_approved') {
+            return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde automatisch genehmigt, da alle 4 Spieler keinem Verein angehören. Das Match wurde erstellt.</p>';
+        }
         return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde genehmigt und das Match wurde erstellt.</p>';
     }
 
