@@ -23,6 +23,15 @@ import {
 // ========================================================================
 
 /**
+ * Checks if a player has no club
+ * @param {string|null|undefined} clubId - The club ID to check
+ * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ */
+function hasNoClub(clubId) {
+    return !clubId || clubId === '';
+}
+
+/**
  * Creates a sorted pairing ID from two player IDs
  * Ensures that playerA + playerB = playerB + playerA
  * @param {string} player1Id - First player ID
@@ -314,8 +323,8 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
     const player4Data = player4Doc.data();
 
     // Check if all 4 players have no club → auto-approve
-    const allPlayersNoClub = !player1Data?.clubId && !player2Data?.clubId &&
-                             !player3Data?.clubId && !player4Data?.clubId;
+    const allPlayersNoClub = hasNoClub(player1Data?.clubId) && hasNoClub(player2Data?.clubId) &&
+                             hasNoClub(player3Data?.clubId) && hasNoClub(player4Data?.clubId);
 
     const updateData = {
         [`confirmations.${playerId}`]: true,

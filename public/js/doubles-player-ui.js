@@ -7,6 +7,19 @@ import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'http
  * NOTE: Set score input is shared via window.playerSetScoreInput (from player-matches.js)
  */
 
+// ========================================================================
+// ===== HELPER FUNCTIONS =====
+// ========================================================================
+
+/**
+ * Checks if a player has no club
+ * @param {string|null|undefined} clubId - The club ID to check
+ * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ */
+function hasNoClub(clubId) {
+    return !clubId || clubId === '';
+}
+
 let currentPlayerMatchType = 'singles'; // 'singles' or 'doubles'
 
 // ========================================================================
@@ -169,7 +182,7 @@ export async function initializeDoublesPlayerSearch(db, userData) {
 
                     // Privacy check
                     // Special case: Both players have no club → always visible to each other
-                    if (!userData.clubId && !p.clubId) {
+                    if (hasNoClub(userData.clubId) && hasNoClub(p.clubId)) {
                         return true;
                     }
 

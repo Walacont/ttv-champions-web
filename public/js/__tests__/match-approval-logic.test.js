@@ -11,6 +11,19 @@
 import { describe, test, expect } from 'vitest';
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Checks if a player has no club
+ * @param {string|null|undefined} clubId - The club ID to check
+ * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ */
+function hasNoClub(clubId) {
+    return !clubId || clubId === '';
+}
+
+// ============================================================================
 // Singles Match clubId Logic (Extracted from player-matches.js)
 // ============================================================================
 
@@ -21,19 +34,19 @@ import { describe, test, expect } from 'vitest';
  * @returns {string|null} - Club ID or null for auto-approve/cross-club
  */
 function determineSinglesMatchClubId(playerA, playerB) {
-    const playerAClubId = playerA?.clubId || null;
-    const playerBClubId = playerB?.clubId || null;
+    const playerAClubId = playerA?.clubId;
+    const playerBClubId = playerB?.clubId;
 
-    if (!playerAClubId && !playerBClubId) {
+    if (hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
         // Both without club → null (auto-approve)
         return null;
-    } else if (playerAClubId && playerBClubId && playerAClubId === playerBClubId) {
+    } else if (!hasNoClub(playerAClubId) && !hasNoClub(playerBClubId) && playerAClubId === playerBClubId) {
         // Same club → use that club
         return playerAClubId;
-    } else if (playerAClubId && !playerBClubId) {
+    } else if (!hasNoClub(playerAClubId) && hasNoClub(playerBClubId)) {
         // Only PlayerA has club → use PlayerA's club
         return playerAClubId;
-    } else if (!playerAClubId && playerBClubId) {
+    } else if (hasNoClub(playerAClubId) && !hasNoClub(playerBClubId)) {
         // Only PlayerB has club → use PlayerB's club
         return playerBClubId;
     } else {
@@ -52,7 +65,7 @@ function simulatePlayerBApproval(playerA, playerB) {
     const clubId = determineSinglesMatchClubId(playerA, playerB);
 
     // Auto-approve if both players have no club
-    const isAutoApproved = !playerA.clubId && !playerB.clubId;
+    const isAutoApproved = hasNoClub(playerA.clubId) && hasNoClub(playerB.clubId);
     const status = isAutoApproved ? 'approved' : 'pending_coach';
 
     return { status, isAutoApproved, clubId };
@@ -96,8 +109,8 @@ function simulateDoublesOpponentApproval(player1, player2, player3, player4) {
     const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
 
     // Auto-approve if all 4 players have no club
-    const isAutoApproved = !player1.clubId && !player2.clubId &&
-                           !player3.clubId && !player4.clubId;
+    const isAutoApproved = hasNoClub(player1.clubId) && hasNoClub(player2.clubId) &&
+                           hasNoClub(player3.clubId) && hasNoClub(player4.clubId);
     const status = isAutoApproved ? 'approved' : 'pending_coach';
 
     return { status, isAutoApproved, clubId };
@@ -125,6 +138,30 @@ describe('Singles Match Approval Logic', () => {
     test('Both players without club (undefined) → Auto-approve', () => {
         const playerA = { id: 'A' }; // clubId undefined
         const playerB = { id: 'B' }; // clubId undefined
+
+        const clubId = determineSinglesMatchClubId(playerA, playerB);
+        const result = simulatePlayerBApproval(playerA, playerB);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
+    });
+
+    test('Both players without club (empty string) → Auto-approve', () => {
+        const playerA = { id: 'A', clubId: '' }; // clubId empty string
+        const playerB = { id: 'B', clubId: '' }; // clubId empty string
+
+        const clubId = determineSinglesMatchClubId(playerA, playerB);
+        const result = simulatePlayerBApproval(playerA, playerB);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
+    });
+
+    test('Mixed: PlayerA empty string, PlayerB null → Auto-approve', () => {
+        const playerA = { id: 'A', clubId: '' }; // clubId empty string
+        const playerB = { id: 'B', clubId: null }; // clubId null
 
         const clubId = determineSinglesMatchClubId(playerA, playerB);
         const result = simulatePlayerBApproval(playerA, playerB);
@@ -198,6 +235,36 @@ describe('Doubles Match Approval Logic', () => {
         const player2 = { id: '2', clubId: null };
         const player3 = { id: '3', clubId: null };
         const player4 = { id: '4', clubId: null };
+
+        const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
+        const result = simulateDoublesOpponentApproval(player1, player2, player3, player4);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
+        expect(result.clubId).toBe(null);
+    });
+
+    test('All 4 players without club (empty strings) → Auto-approve', () => {
+        const player1 = { id: '1', clubId: '' };
+        const player2 = { id: '2', clubId: '' };
+        const player3 = { id: '3', clubId: '' };
+        const player4 = { id: '4', clubId: '' };
+
+        const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
+        const result = simulateDoublesOpponentApproval(player1, player2, player3, player4);
+
+        expect(clubId).toBe(null);
+        expect(result.status).toBe('approved');
+        expect(result.isAutoApproved).toBe(true);
+        expect(result.clubId).toBe(null);
+    });
+
+    test('Mixed: All 4 players without club (empty string, null, undefined) → Auto-approve', () => {
+        const player1 = { id: '1', clubId: '' };
+        const player2 = { id: '2', clubId: null };
+        const player3 = { id: '3' }; // undefined
+        const player4 = { id: '4', clubId: '' };
 
         const clubId = determineDoublesMatchClubId(player1, player2, player3, player4);
         const result = simulateDoublesOpponentApproval(player1, player2, player3, player4);

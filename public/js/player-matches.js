@@ -19,6 +19,19 @@ import {
  */
 
 // ========================================================================
+// ===== HELPER FUNCTIONS =====
+// ========================================================================
+
+/**
+ * Checks if a player has no club
+ * @param {string|null|undefined} clubId - The club ID to check
+ * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ */
+function hasNoClub(clubId) {
+    return !clubId || clubId === '';
+}
+
+// ========================================================================
 // ===== SET SCORE INPUT COMPONENT =====
 // ========================================================================
 
@@ -1415,7 +1428,7 @@ async function approveMatchRequest(requestId, db, role) {
                 const playerBData = playerBSnap.data();
 
                 // Auto-approve if both players have no club
-                if (!playerAData?.clubId && !playerBData?.clubId) {
+                if (hasNoClub(playerAData?.clubId) && hasNoClub(playerBData?.clubId)) {
                     updateData.status = 'approved'; // Auto-approved
                     updateData['approvals.coach'] = {
                         status: 'auto_approved',
@@ -1724,7 +1737,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
                         // Privacy check
                         // Special case: Both players have no club → always visible to each other
-                        if (!userData.clubId && !p.clubId) {
+                        if (hasNoClub(userData.clubId) && hasNoClub(p.clubId)) {
                             return true;
                         }
 
@@ -1998,16 +2011,16 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
         // Determine clubId based on both players
         let matchClubId;
-        if (!userData.clubId && !opponentData?.clubId) {
+        if (hasNoClub(userData.clubId) && hasNoClub(opponentData?.clubId)) {
             // Both without club → null (auto-approve)
             matchClubId = null;
-        } else if (userData.clubId && opponentData?.clubId && userData.clubId === opponentData.clubId) {
+        } else if (!hasNoClub(userData.clubId) && !hasNoClub(opponentData?.clubId) && userData.clubId === opponentData.clubId) {
             // Same club → use that club
             matchClubId = userData.clubId;
-        } else if (userData.clubId && !opponentData?.clubId) {
+        } else if (!hasNoClub(userData.clubId) && hasNoClub(opponentData?.clubId)) {
             // Only PlayerA has club → use PlayerA's club
             matchClubId = userData.clubId;
-        } else if (!userData.clubId && opponentData?.clubId) {
+        } else if (hasNoClub(userData.clubId) && !hasNoClub(opponentData?.clubId)) {
             // Only PlayerB has club → use PlayerB's club
             matchClubId = opponentData.clubId;
         } else {
