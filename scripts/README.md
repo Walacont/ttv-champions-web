@@ -23,7 +23,7 @@ npm install firebase-admin
 ### Migration ausführen
 
 ```bash
-node scripts/migrate-elo-to-800.js
+node scripts/migrate-elo-to-800.cjs
 ```
 
 ### Was passiert?
@@ -69,18 +69,45 @@ Nachher:
 
 ---
 
-## Weitere Migrationen
+## Clubs Collection Migration
 
-### Season-System (zukünftig)
+### Overview
 
-Wenn das Saison-System implementiert wird, wird ein weiteres Script benötigt:
+Erstellt eine `clubs` Collection aus bestehenden `clubId` Feldern der Benutzer.
+
+### Migration ausführen
 
 ```bash
-node scripts/init-season-system.js
+node scripts/migrate-clubs.cjs
 ```
 
-Dieses Script wird:
+### Was passiert?
 
-- Eine `seasons` Collection erstellen
-- Die erste Saison initialisieren
-- Alle Benutzer der ersten Saison zuweisen
+- **Liest alle Benutzer** mit `clubId` aus Firestore
+- **Gruppiert sie** nach Vereins-ID
+- **Erstellt Club-Dokumente** für jeden eindeutigen Club:
+  - `name`: Standard = clubId
+  - `createdAt`: Aktueller Zeitstempel
+  - `isTestClub`: false (muss manuell geändert werden für Test-Clubs)
+  - `memberCount`: Anzahl der Mitglieder
+  - `ownerId`: Erster Coach/Admin des Clubs
+
+### Sicherheit
+
+- ✅ **Idempotent:** Überspringt bereits existierende Clubs
+- ✅ **Error Handling:** Fehler bei einzelnen Clubs stoppen nicht die Migration
+- ⚠️ **Test-Clubs:** Müssen manuell in Firestore auf `isTestClub: true` gesetzt werden
+
+---
+
+## Weitere Migrationen
+
+### Season-System
+
+Initialize the season reset configuration:
+
+```bash
+node scripts/init-season-reset.cjs
+```
+
+Dieses Script erstellt die `config/seasonReset` Konfiguration für den 6-Wochen Saison-Zyklus.

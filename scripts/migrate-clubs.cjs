@@ -10,7 +10,7 @@
  * Run this ONCE after deploying the clubs collection feature.
  *
  * Usage:
- *   node scripts/migrate-clubs.js
+ *   node scripts/migrate-clubs.cjs
  */
 
 const admin = require('firebase-admin');
