@@ -185,10 +185,10 @@ service cloud.firestore {
         request.resource.data.playerId == request.auth.uid &&
         request.resource.data.status == 'pending';
 
-      // Players can delete their own pending requests
+      // Players can delete their own pending or rejected requests
       allow delete: if isAuthenticated() &&
         resource.data.playerId == request.auth.uid &&
-        resource.data.status == 'pending';
+        (resource.data.status == 'pending' || resource.data.status == 'rejected');
 
       // Coaches can update requests for their club (approve/reject)
       allow update: if isCoachOrAdmin() &&
@@ -211,10 +211,10 @@ service cloud.firestore {
         getUserData().clubId != null &&
         request.resource.data.status == 'pending';
 
-      // Players can delete their own pending requests
+      // Players can delete their own pending or rejected requests
       allow delete: if isAuthenticated() &&
         resource.data.playerId == request.auth.uid &&
-        resource.data.status == 'pending';
+        (resource.data.status == 'pending' || resource.data.status == 'rejected');
 
       // Coaches can update requests for their club (approve/reject)
       allow update: if isCoachOrAdmin() &&
