@@ -1641,27 +1641,19 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Function to load all clubs for display
     async function loadClubs() {
         try {
-            console.log('[Opponent Search] 🔵 Starting to load clubs...');
             const clubsRef = collection(db, 'clubs');
             const snapshot = await getDocs(clubsRef);
-
-            console.log('[Opponent Search] 📊 Clubs snapshot size:', snapshot.size);
 
             snapshot.docs.forEach(doc => {
                 const clubData = { id: doc.id, ...doc.data() };
                 // Store by both doc.id AND name for flexible lookup
                 clubsMap.set(doc.id, clubData);
                 if (clubData.name) {
-                    clubsMap.set(clubData.name, clubData); // Also store by name!
+                    clubsMap.set(clubData.name, clubData);
                 }
-                console.log('[Opponent Search] ✅ Loaded club - ID:', doc.id, '| Name:', clubData.name);
             });
-
-            console.log('[Opponent Search] 🎯 Total entries in map:', clubsMap.size);
-            console.log('[Opponent Search] 📋 All club keys:', Array.from(clubsMap.keys()));
         } catch (error) {
-            console.error('[Opponent Search] ❌ Error loading clubs:', error);
-            console.error('[Opponent Search] Error details:', error.code, error.message);
+            console.error('Error loading clubs:', error);
         }
     }
 
@@ -1694,10 +1686,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             allPlayers.forEach(player => {
                 playersMap.set(player.id, player);
             });
-
-            console.log('[Opponent Search] Loaded players:', allPlayers.length);
         } catch (error) {
-            console.error('[Opponent Search] Error loading players:', error);
+            console.error('Error loading players:', error);
         }
     }
 
@@ -1712,11 +1702,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
             const playerClub = player.clubId ? clubsMap.get(player.clubId) : null;
             const clubName = playerClub ? playerClub.name : 'Kein Verein';
             const isSameClub = player.clubId === userData.clubId;
-
-            // Debug logging
-            if (player.clubId && !playerClub) {
-                console.warn('[Opponent Search] Club not found for player:', player.firstName, player.lastName, 'clubId:', player.clubId);
-            }
 
             return `
             <div class="opponent-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
