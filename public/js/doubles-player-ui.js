@@ -506,15 +506,14 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
         const result = await createDoublesMatchRequest(requestData, db, currentUserData);
 
         if (result.success) {
-            // Check if all 4 players have no club → auto-approve message
-            const allPlayersNoClub = !currentUserData.clubId &&
-                                      !partnerData?.clubId &&
-                                      !opponent1Data?.clubId &&
-                                      !opponent2Data?.clubId;
+            // Check if at least one team has no club → auto-approve message
+            const teamANoClub = hasNoClub(currentUserData.clubId) && hasNoClub(partnerData?.clubId);
+            const teamBNoClub = hasNoClub(opponent1Data?.clubId) && hasNoClub(opponent2Data?.clubId);
+            const shouldAutoApprove = teamANoClub || teamBNoClub;
 
             let message = '✅ Doppel-Anfrage gesendet! Einer der Gegner muss bestätigen';
-            if (allPlayersNoClub) {
-                message += '. ℹ️ Da alle 4 Spieler keinem Verein angehören, wird das Match automatisch genehmigt, sobald ein Gegner bestätigt.';
+            if (shouldAutoApprove) {
+                message += '. ℹ️ Da mindestens ein Team keinem Verein angehört, wird das Match automatisch genehmigt, sobald ein Gegner bestätigt.';
             } else {
                 message += ', dann muss der Coach genehmigen.';
             }

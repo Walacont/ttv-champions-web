@@ -348,8 +348,8 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
 
     await updateDoc(requestRef, updateData);
 
-    console.log('Doubles match request confirmed by opponent:', playerId, 'Auto-approved:', allPlayersNoClub);
-    return { success: true, autoApproved: allPlayersNoClub };
+    console.log('Doubles match request confirmed by opponent:', playerId, 'Auto-approved:', shouldAutoApprove);
+    return { success: true, autoApproved: shouldAutoApprove };
 }
 
 /**
