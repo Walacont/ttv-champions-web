@@ -300,16 +300,44 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
         throw new Error('Du bist kein Gegner in diesem Match');
     }
 
-    // Update confirmation
-    await updateDoc(requestRef, {
+    // Load all 4 players to check club status
+    const [player1Doc, player2Doc, player3Doc, player4Doc] = await Promise.all([
+        getDoc(doc(db, 'users', requestData.teamA.player1Id)),
+        getDoc(doc(db, 'users', requestData.teamA.player2Id)),
+        getDoc(doc(db, 'users', requestData.teamB.player1Id)),
+        getDoc(doc(db, 'users', requestData.teamB.player2Id)),
+    ]);
+
+    const player1Data = player1Doc.data();
+    const player2Data = player2Doc.data();
+    const player3Data = player3Doc.data();
+    const player4Data = player4Doc.data();
+
+    // Check if all 4 players have no club → auto-approve
+    const allPlayersNoClub = !player1Data?.clubId && !player2Data?.clubId &&
+                             !player3Data?.clubId && !player4Data?.clubId;
+
+    const updateData = {
         [`confirmations.${playerId}`]: true,
-        status: 'pending_coach', // Move to coach approval
         confirmedBy: playerId,
         confirmedAt: serverTimestamp(),
-    });
+    };
 
-    console.log('Doubles match request confirmed by opponent:', playerId);
-    return { success: true };
+    if (allPlayersNoClub) {
+        // Auto-approve if all players have no club
+        updateData.status = 'approved';
+        updateData.approvedBy = 'auto_approved';
+        updateData.approvedAt = serverTimestamp();
+        updateData.approvalReason = 'All 4 players have no club';
+    } else {
+        // Move to coach approval
+        updateData.status = 'pending_coach';
+    }
+
+    await updateDoc(requestRef, updateData);
+
+    console.log('Doubles match request confirmed by opponent:', playerId, 'Auto-approved:', allPlayersNoClub);
+    return { success: true, autoApproved: allPlayersNoClub };
 }
 
 /**
@@ -1034,8 +1062,12 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
             if (!confirm('Möchtest du dieses Doppel-Match bestätigen?')) return;
 
             try {
-                await confirmDoublesMatchRequest(request.id, userData.id, db);
-                alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
+                const result = await confirmDoublesMatchRequest(request.id, userData.id, db);
+                if (result.autoApproved) {
+                    alert('✅ Doppel-Match bestätigt und automatisch genehmigt! Da alle 4 Spieler keinem Verein angehören, wurde das Match direkt freigegeben.');
+                } else {
+                    alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
+                }
             } catch (error) {
                 console.error('Error confirming doubles request:', error);
                 alert('Fehler beim Bestätigen: ' + error.message);

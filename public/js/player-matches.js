@@ -1384,7 +1384,34 @@ async function approveMatchRequest(requestId, db, role) {
                 status: 'approved',
                 timestamp: serverTimestamp(),
             };
-            updateData.status = 'pending_coach'; // Move to coach approval
+
+            // Check if both players have no club → auto-approve
+            const requestSnap = await getDoc(requestRef);
+            const requestData = requestSnap.data();
+
+            if (requestData) {
+                const [playerASnap, playerBSnap] = await Promise.all([
+                    getDoc(doc(db, 'users', requestData.playerAId)),
+                    getDoc(doc(db, 'users', requestData.playerBId)),
+                ]);
+
+                const playerAData = playerASnap.data();
+                const playerBData = playerBSnap.data();
+
+                // Auto-approve if both players have no club
+                if (!playerAData?.clubId && !playerBData?.clubId) {
+                    updateData.status = 'approved'; // Auto-approved
+                    updateData['approvals.coach'] = {
+                        status: 'auto_approved',
+                        timestamp: serverTimestamp(),
+                        reason: 'Both players have no club',
+                    };
+                } else {
+                    updateData.status = 'pending_coach'; // Move to coach approval
+                }
+            } else {
+                updateData.status = 'pending_coach'; // Fallback
+            }
         } else if (role === 'coach') {
             updateData['approvals.coach'] = {
                 status: 'approved',
@@ -1397,7 +1424,12 @@ async function approveMatchRequest(requestId, db, role) {
 
         await updateDoc(requestRef, updateData);
 
-        showFeedback('Anfrage akzeptiert!', 'success');
+        // Show appropriate message based on approval flow
+        let message = 'Anfrage akzeptiert!';
+        if (role === 'playerB' && updateData.status === 'approved') {
+            message += ' ✅ Das Match wurde automatisch genehmigt, da ihr beide keinem Verein angehört.';
+        }
+        showFeedback(message, 'success');
     } catch (error) {
         console.error('Error approving request:', error);
         showFeedback('Fehler beim Akzeptieren der Anfrage.', 'error');
@@ -1962,7 +1994,12 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 requestedBy: userData.id,
             });
 
-            showFeedback('Anfrage erfolgreich erstellt! Warte auf Bestätigung.', 'success');
+            // Show appropriate message based on club status
+            let message = 'Anfrage erfolgreich erstellt! Warte auf Bestätigung.';
+            if (!userData.clubId && opponentData && !opponentData.clubId) {
+                message += ' ℹ️ Da ihr beide keinem Verein angehört, wird das Match automatisch genehmigt, sobald dein Gegner bestätigt.';
+            }
+            showFeedback(message, 'success');
             form.reset();
 
             // Reset opponent search fields
