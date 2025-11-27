@@ -523,7 +523,7 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
                 highestElo: CONFIG.ELO.DEFAULT_RATING,
                 wins: 0,
                 losses: 0,
-                grundlagenCompleted: 0,
+                grundlagenCompleted: 5, // Direkt wettkampfsbereit
                 onboardingComplete: false,
                 isOffline: true, // User is offline until they complete onboarding
                 createdAt: now,
