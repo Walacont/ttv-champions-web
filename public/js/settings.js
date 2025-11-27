@@ -74,7 +74,16 @@ const newEmailInput = document.getElementById('new-email');
 const currentPasswordInput = document.getElementById('current-password');
 const emailFeedback = document.getElementById('email-feedback');
 
+// Privacy Settings Elements
+const searchableGlobal = document.getElementById('searchable-global');
+const searchableClubOnly = document.getElementById('searchable-club-only');
+const showInLeaderboards = document.getElementById('show-in-leaderboards');
+const savePrivacySettingsBtn = document.getElementById('save-privacy-settings-btn');
+const privacyFeedback = document.getElementById('privacy-feedback');
+const noClubWarning = document.getElementById('no-club-warning');
+
 let currentUser = null;
+let currentUserData = null;
 let selectedFile = null;
 
 onAuthStateChanged(auth, async user => {
@@ -83,23 +92,25 @@ onAuthStateChanged(auth, async user => {
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
 
-        let userData = null;
         if (userDocSnap.exists()) {
-            userData = userDocSnap.data();
-            const initials = (userData.firstName?.[0] || '') + (userData.lastName?.[0] || '');
+            currentUserData = userDocSnap.data();
+            const initials = (currentUserData.firstName?.[0] || '') + (currentUserData.lastName?.[0] || '');
             profileImagePreview.src =
-                userData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
-            firstNameInput.value = userData.firstName || '';
-            lastNameInput.value = userData.lastName || '';
+                currentUserData.photoURL || `https://placehold.co/96x96/e2e8f0/64748b?text=${initials}`;
+            firstNameInput.value = currentUserData.firstName || '';
+            lastNameInput.value = currentUserData.lastName || '';
 
             // Synchronisiere Email zwischen Firebase Auth und Firestore
-            if (user.email !== userData.email) {
+            if (user.email !== currentUserData.email) {
                 console.log('Email-Adresse hat sich geändert, aktualisiere Firestore...');
                 await updateDoc(userDocRef, { email: user.email });
             }
 
             // Tutorial-Status anzeigen
-            updateTutorialStatus(userData);
+            updateTutorialStatus(currentUserData);
+
+            // Privacy-Einstellungen laden
+            loadPrivacySettings(currentUserData);
         }
 
         // Email-Adresse anzeigen und Verifizierungs-Status
@@ -602,5 +613,96 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
         alert(`Fehler beim Löschen des Accounts: ${error.message}`);
         deleteBtn.disabled = false;
         deleteBtn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Account unwiderruflich löschen';
+    }
+});
+
+/**
+ * ===============================================
+ * PRIVACY SETTINGS
+ * ===============================================
+ */
+
+/**
+ * Load privacy settings from user data
+ */
+function loadPrivacySettings(userData) {
+    if (!userData) return;
+
+    // Load searchable setting (default: 'global')
+    const searchable = userData.privacySettings?.searchable || 'global';
+    if (searchable === 'global') {
+        searchableGlobal.checked = true;
+    } else {
+        searchableClubOnly.checked = true;
+    }
+
+    // Load showInLeaderboards setting (default: true)
+    const showInLeaderboardsSetting = userData.privacySettings?.showInLeaderboards !== false;
+    showInLeaderboards.checked = showInLeaderboardsSetting;
+
+    // Show warning if user has no club and selects club_only
+    updateNoClubWarning(userData.clubId);
+
+    // Add listeners to radio buttons to show/hide warning
+    searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+}
+
+/**
+ * Show/hide warning if user has no club
+ */
+function updateNoClubWarning(clubId) {
+    if (!clubId && searchableClubOnly.checked) {
+        noClubWarning.classList.remove('hidden');
+    } else {
+        noClubWarning.classList.add('hidden');
+    }
+}
+
+/**
+ * Save privacy settings
+ */
+savePrivacySettingsBtn?.addEventListener('click', async () => {
+    if (!currentUser || !currentUserData) {
+        privacyFeedback.textContent = 'Fehler: Nicht angemeldet';
+        privacyFeedback.className = 'text-sm mt-2 text-red-600';
+        return;
+    }
+
+    try {
+        savePrivacySettingsBtn.disabled = true;
+        savePrivacySettingsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
+        privacyFeedback.textContent = '';
+
+        // Get selected values
+        const searchable = searchableGlobal.checked ? 'global' : 'club_only';
+        const showInLeaderboardsValue = showInLeaderboards.checked;
+
+        // Update Firestore
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+            'privacySettings.searchable': searchable,
+            'privacySettings.showInLeaderboards': showInLeaderboardsValue,
+        });
+
+        // Update local data
+        if (!currentUserData.privacySettings) {
+            currentUserData.privacySettings = {};
+        }
+        currentUserData.privacySettings.searchable = searchable;
+        currentUserData.privacySettings.showInLeaderboards = showInLeaderboardsValue;
+
+        privacyFeedback.textContent = '✓ Einstellungen erfolgreich gespeichert';
+        privacyFeedback.className = 'text-sm mt-2 text-green-600';
+
+        savePrivacySettingsBtn.disabled = false;
+        savePrivacySettingsBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Einstellungen speichern';
+    } catch (error) {
+        console.error('Error saving privacy settings:', error);
+        privacyFeedback.textContent = `Fehler beim Speichern: ${error.message}`;
+        privacyFeedback.className = 'text-sm mt-2 text-red-600';
+
+        savePrivacySettingsBtn.disabled = false;
+        savePrivacySettingsBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Einstellungen speichern';
     }
 });
