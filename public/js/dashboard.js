@@ -134,6 +134,27 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Checks if user has access to a specific feature
+ * @param {string} feature - Feature name to check
+ * @param {Object} userData - Current user data
+ * @returns {Object} { allowed: boolean, message: string }
+ */
+function checkFeatureAccess(feature, userData) {
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
+
+    const clubOnlyFeatures = ['challenges', 'attendance', 'subgroups'];
+
+    if (clubOnlyFeatures.includes(feature) && !hasClub) {
+        return {
+            allowed: false,
+            message: 'Diese Funktion ist nur für Vereinsmitglieder verfügbar. Tritt einem Verein bei, um diese Funktion zu nutzen.',
+        };
+    }
+
+    return { allowed: true };
+}
+
+/**
  * Shows info box for players without club
  */
 function showNoClubInfoIfNeeded(userData) {
@@ -215,8 +236,28 @@ async function initializeDashboard(userData) {
     // Populate subgroup options in global filter dropdown
     await populatePlayerSubgroupFilter(userData, db);
 
+    // Check if user has access to challenges feature
+    const challengesAccess = checkFeatureAccess('challenges', userData);
+    const challengesLoader = challengesAccess.allowed ? loadChallenges : null;
+
     // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
-    loadOverviewData(userData, db, unsubscribes, null, loadChallenges, loadPointsHistory);
+    loadOverviewData(userData, db, unsubscribes, null, challengesLoader, loadPointsHistory);
+
+    // If challenges not allowed, show blocked message
+    if (!challengesAccess.allowed) {
+        const challengesList = document.getElementById('challenges-list');
+        if (challengesList) {
+            challengesList.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <i class="fas fa-lock text-yellow-600 text-3xl mb-3"></i>
+                    <p class="text-yellow-800 font-medium">${challengesAccess.message}</p>
+                    <a href="/settings.html#club-management" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                        Verein suchen
+                    </a>
+                </div>
+            `;
+        }
+    }
 
     // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(db, userData.id);
@@ -499,6 +540,7 @@ function populatePlayerSubgroupFilter(userData, db) {
     const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
 
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
     const subgroupIDs = userData.subgroupIDs || [];
 
     // Save current selection
@@ -511,6 +553,15 @@ function populatePlayerSubgroupFilter(userData, db) {
         } catch (e) {
             console.error('Error unsubscribing subgroup filter listener:', e);
         }
+    }
+
+    // If user has no club, show only Global option
+    if (!hasClub) {
+        const globalOption = createOption('global', '🌍 Global');
+        dropdown.innerHTML = '';
+        dropdown.appendChild(globalOption);
+        dropdown.value = 'global';
+        return;
     }
 
     if (subgroupIDs.length === 0) {
