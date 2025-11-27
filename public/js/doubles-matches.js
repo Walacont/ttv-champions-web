@@ -75,6 +75,30 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
+    // Load all 4 players to check their clubIds
+    const [player1Doc, player2Doc, player3Doc, player4Doc] = await Promise.all([
+        getDoc(doc(db, 'users', teamA_player1Id)),
+        getDoc(doc(db, 'users', teamA_player2Id)),
+        getDoc(doc(db, 'users', teamB_player1Id)),
+        getDoc(doc(db, 'users', teamB_player2Id)),
+    ]);
+
+    const player1ClubId = player1Doc.exists() ? player1Doc.data().clubId : null;
+    const player2ClubId = player2Doc.exists() ? player2Doc.data().clubId : null;
+    const player3ClubId = player3Doc.exists() ? player3Doc.data().clubId : null;
+    const player4ClubId = player4Doc.exists() ? player4Doc.data().clubId : null;
+
+    // Determine clubId: Only set if all 4 players are from the same club
+    let matchClubId = null;
+    if (
+        player1ClubId &&
+        player1ClubId === player2ClubId &&
+        player1ClubId === player3ClubId &&
+        player1ClubId === player4ClubId
+    ) {
+        matchClubId = player1ClubId;
+    }
+
     // Create pairing IDs
     const teamAPairingId = createPairingId(teamA_player1Id, teamA_player2Id);
     const teamBPairingId = createPairingId(teamB_player1Id, teamB_player2Id);
@@ -98,14 +122,15 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         handicapUsed: handicapUsed || false,
         matchMode: matchMode,
         reportedBy: currentUserData.id,
-        clubId: currentUserData.clubId,
+        clubId: matchClubId, // null if players are from different clubs
+        isCrossClub: matchClubId === null, // Flag to indicate cross-club team
         createdAt: serverTimestamp(),
         processed: false,
         source: 'coach',
     });
 
-    console.log('Doubles match saved:', doublesMatchRef.id);
-    return { success: true, matchId: doublesMatchRef.id };
+    console.log('Doubles match saved:', doublesMatchRef.id, 'clubId:', matchClubId, 'isCrossClub:', matchClubId === null);
+    return { success: true, matchId: doublesMatchRef.id, isCrossClub: matchClubId === null };
 }
 
 // ========================================================================
@@ -135,6 +160,30 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const allPlayerIds = [initiatorId, partnerId, opponent1Id, opponent2Id];
     if (new Set(allPlayerIds).size !== 4) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
+    }
+
+    // Load all 4 players to check their clubIds
+    const [initiatorDoc, partnerDoc, opponent1Doc, opponent2Doc] = await Promise.all([
+        getDoc(doc(db, 'users', initiatorId)),
+        getDoc(doc(db, 'users', partnerId)),
+        getDoc(doc(db, 'users', opponent1Id)),
+        getDoc(doc(db, 'users', opponent2Id)),
+    ]);
+
+    const initiatorClubId = initiatorDoc.exists() ? initiatorDoc.data().clubId : null;
+    const partnerClubId = partnerDoc.exists() ? partnerDoc.data().clubId : null;
+    const opponent1ClubId = opponent1Doc.exists() ? opponent1Doc.data().clubId : null;
+    const opponent2ClubId = opponent2Doc.exists() ? opponent2Doc.data().clubId : null;
+
+    // Determine clubId: Only set if all 4 players are from the same club
+    let matchClubId = null;
+    if (
+        initiatorClubId &&
+        initiatorClubId === partnerClubId &&
+        initiatorClubId === opponent1ClubId &&
+        initiatorClubId === opponent2ClubId
+    ) {
+        matchClubId = initiatorClubId;
     }
 
     // Determine required sets to win based on match mode
@@ -206,7 +255,8 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
             [opponent2Id]: false, // Needs confirmation
         },
         status: 'pending_opponent', // pending_opponent → pending_coach → approved
-        clubId: currentUserData.clubId,
+        clubId: matchClubId, // null if players are from different clubs
+        isCrossClub: matchClubId === null, // Flag to indicate cross-club team
         createdAt: serverTimestamp(),
     };
 
@@ -216,7 +266,8 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         opponents: [opponent1Id, opponent2Id],
         winningTeam,
         status: 'pending_opponent',
-        clubId: currentUserData.clubId,
+        clubId: matchClubId,
+        isCrossClub: matchClubId === null,
     });
 
     const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), doublesRequestData);
@@ -520,7 +571,7 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
                         </div>
                     </div>
                 </td>
-                ${isGlobal ? `<td class="px-4 py-3 text-sm text-gray-600">${pairing.clubName || 'Kein Verein'}</td>` : ''}
+                ${isGlobal ? `<td class="px-4 py-3 text-sm ${pairing.clubId ? 'text-gray-600' : 'text-amber-600 italic'}">${pairing.clubName || '⚡ Vereins-übergreifend'}</td>` : ''}
                 <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
                 <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
                 <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
@@ -585,8 +636,8 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
 
                 ${isGlobal ? `
                 <!-- Club Info -->
-                <div class="mb-3 text-xs text-gray-500">
-                    <i class="fas fa-building mr-1"></i>${pairing.clubName || 'Kein Verein'}
+                <div class="mb-3 text-xs ${pairing.clubId ? 'text-gray-500' : 'text-amber-600 font-medium'}">
+                    <i class="fas fa-${pairing.clubId ? 'building' : 'bolt'} mr-1"></i>${pairing.clubName || '⚡ Vereins-übergreifend'}
                 </div>
                 ` : ''}
 
