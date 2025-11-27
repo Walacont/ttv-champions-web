@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clubs Migration - TTV Champions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-xl shadow-lg max-w-2xl w-full">
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">🏓 Clubs Collection Migration</h1>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h2 class="font-semibold text-blue-900 mb-2">Was macht diese Migration?</h2>
+            <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                <li>Sammelt alle einzigartigen <code>clubId</code> Werte aus der users Collection</li>
+                <li>Erstellt für jeden Verein einen Eintrag in der neuen <code>clubs</code> Collection</li>
+                <li>Setzt automatisch den ersten Coach als Owner</li>
+                <li>Zählt die Mitglieder pro Verein</li>
+                <li><strong>Wichtig:</strong> Die <code>clubId</code> Felder bei den Usern bleiben unverändert!</li>
+            </ul>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <h2 class="font-semibold text-amber-900 mb-2">⚠️ Voraussetzungen</h2>
+            <ul class="text-sm text-amber-800 space-y-1 list-disc list-inside">
+                <li>Du musst als <strong>Admin</strong> angemeldet sein</li>
+                <li>Die Migration kann nur einmal ausgeführt werden</li>
+                <li>Danach musst du manuell Test-Clubs markieren (<code>isTestClub: true</code>)</li>
+            </ul>
+        </div>
+
+        <button
+            id="run-migration-btn"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 mb-4"
+        >
+            🚀 Migration starten
+        </button>
+
+        <div id="result-container" class="hidden">
+            <div id="result" class="rounded-lg p-4"></div>
+        </div>
+
+        <div id="loading" class="hidden text-center py-4">
+            <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-gray-600 mt-2">Migration läuft...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+        import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
+        import { firebaseConfig } from './js/firebase-config.js';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const functions = getFunctions(app, 'europe-west3');
+
+        const runBtn = document.getElementById('run-migration-btn');
+        const loading = document.getElementById('loading');
+        const resultContainer = document.getElementById('result-container');
+        const resultDiv = document.getElementById('result');
+
+        let currentUser = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                alert('Du musst angemeldet sein!');
+                window.location.href = '/index.html';
+                return;
+            }
+
+            currentUser = user;
+
+            // Check if user is admin
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (!userDoc.exists() || userDoc.data().role !== 'admin') {
+                alert('Nur Admins können diese Migration ausführen!');
+                window.location.href = '/dashboard.html';
+                return;
+            }
+        });
+
+        runBtn.addEventListener('click', async () => {
+            if (!currentUser) {
+                alert('Du musst angemeldet sein!');
+                return;
+            }
+
+            if (!confirm('Migration starten? Dies kann nicht rückgängig gemacht werden.')) {
+                return;
+            }
+
+            runBtn.disabled = true;
+            loading.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+
+            try {
+                const migrateClubs = httpsCallable(functions, 'migrateClubsCollection');
+                const result = await migrateClubs();
+
+                loading.classList.add('hidden');
+                resultContainer.classList.remove('hidden');
+
+                if (result.data.success) {
+                    resultDiv.className = 'rounded-lg p-4 bg-green-50 border border-green-200';
+                    resultDiv.innerHTML = `
+                        <h3 class="font-semibold text-green-900 mb-2">✅ Migration erfolgreich!</h3>
+                        <p class="text-sm text-green-800 mb-2">${result.data.message}</p>
+                        <div class="bg-white rounded p-3 mt-3">
+                            <p class="font-semibold text-gray-900 mb-2">Erstellte Vereine:</p>
+                            <ul class="text-sm text-gray-700 list-disc list-inside">
+                                ${result.data.clubs.map(club => `<li>${club}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <p class="text-sm text-green-700 mt-4">
+                            <strong>Nächster Schritt:</strong> Gehe zur Firestore Console und setze bei Test-Clubs das Feld <code>isTestClub: true</code>
+                        </p>
+                    `;
+                } else {
+                    throw new Error(result.data.message || 'Migration fehlgeschlagen');
+                }
+            } catch (error) {
+                loading.classList.add('hidden');
+                resultContainer.classList.remove('hidden');
+                resultDiv.className = 'rounded-lg p-4 bg-red-50 border border-red-200';
+                resultDiv.innerHTML = `
+                    <h3 class="font-semibold text-red-900 mb-2">❌ Fehler bei der Migration</h3>
+                    <p class="text-sm text-red-800">${error.message}</p>
+                `;
+                runBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

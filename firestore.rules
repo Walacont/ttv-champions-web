@@ -157,6 +157,21 @@ service cloud.firestore {
       }
     }
 
+    // Clubs collection
+    match /clubs/{clubId} {
+      // Everyone can read club information (for club selection, search, etc.)
+      allow read: if isAuthenticated();
+
+      // Only admins can create clubs (typically via migration or admin panel)
+      allow create: if isAdmin();
+
+      // Coaches and admins can update their own club
+      allow update: if isCoachOrAdmin() && isSameClub(clubId);
+
+      // Only admins can delete clubs
+      allow delete: if isAdmin();
+    }
+
     // Club Join Requests collection
     match /clubRequests/{requestId} {
       // Players can read their own requests
