@@ -134,6 +134,32 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
+ * Shows info box for players without club
+ */
+function showNoClubInfoIfNeeded(userData) {
+    const noClubInfoBox = document.getElementById('no-club-info-box');
+    const closeBtn = document.getElementById('close-no-club-info');
+
+    if (!noClubInfoBox) return;
+
+    // Check if user has no club and hasn't dismissed the info box
+    const hasClub = userData.clubId && userData.clubId !== null;
+    const hasDismissed = localStorage.getItem('noClubInfoDismissed') === 'true';
+
+    if (!hasClub && !hasDismissed) {
+        noClubInfoBox.classList.remove('hidden');
+    }
+
+    // Close button handler
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            noClubInfoBox.classList.add('hidden');
+            localStorage.setItem('noClubInfoDismissed', 'true');
+        });
+    }
+}
+
+/**
  * Check and start player tutorial if not completed
  */
 async function checkAndStartTutorial(userData) {
@@ -412,6 +438,9 @@ async function initializeDashboard(userData) {
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
+
+    // Check and show no-club info box if needed
+    showNoClubInfoIfNeeded(userData);
 
     // Check and start tutorial if needed
     checkAndStartTutorial(userData);

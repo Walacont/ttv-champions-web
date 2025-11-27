@@ -212,8 +212,9 @@ onboardingForm.addEventListener('submit', async e => {
             // User already has a club, redirect to dashboard
             redirectToDashboard(currentUserData.role);
         } else {
-            // User has NO club - show club selection dialog
-            showClubSelectionDialog();
+            // User has NO club - redirect to dashboard and show info message
+            // They can search for a club in settings
+            redirectToDashboard(currentUserData.role);
         }
     } catch (error) {
         errorMessage.textContent = 'Fehler: ' + error.message;

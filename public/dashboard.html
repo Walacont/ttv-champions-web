@@ -192,6 +192,32 @@
                 </div>
             </header>
 
+            <!-- Info Box for Players without Club (hidden by default, shown via JS) -->
+            <div id="no-club-info-box" class="hidden mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg shadow-sm">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="text-sm font-medium text-blue-800">
+                            Du bist noch keinem Verein beigetreten
+                        </h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>
+                                Möchtest du einem Verein beitreten? Du kannst in den
+                                <a href="/settings.html#club-management" class="font-semibold underline hover:text-blue-900">
+                                    Einstellungen
+                                </a>
+                                nach Vereinen suchen und eine Beitrittsanfrage stellen.
+                            </p>
+                        </div>
+                    </div>
+                    <button id="close-no-club-info" class="flex-shrink-0 ml-3 text-blue-400 hover:text-blue-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
             <div class="mb-6 border-b border-gray-200">
                 <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
                     <button
