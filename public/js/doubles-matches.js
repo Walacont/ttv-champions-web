@@ -390,18 +390,33 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
     const listener = onSnapshot(pairingsQuery, async snapshot => {
         const pairings = [];
 
-        // Load clubs map if this is a global leaderboard
+        // Load clubs map (needed for test club filtering and global leaderboard)
         let clubsMap = new Map();
-        if (isGlobal) {
+        try {
+            const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+            clubsSnapshot.forEach(doc => {
+                clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+            });
+        } catch (error) {
+            console.error('Error loading clubs:', error);
+        }
+
+        // Load current user data (for test club filtering)
+        let currentUserData = null;
+        if (currentUserId) {
             try {
-                const clubsSnapshot = await getDocs(collection(db, 'clubs'));
-                clubsSnapshot.forEach(doc => {
-                    clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
-                });
+                const currentUserDoc = await getDoc(doc(db, 'users', currentUserId));
+                if (currentUserDoc.exists()) {
+                    currentUserData = { id: currentUserId, ...currentUserDoc.data() };
+                }
             } catch (error) {
-                console.error('Error loading clubs:', error);
+                console.error('Error loading current user:', error);
             }
         }
+
+        // Check if current user is from a test club
+        const currentUserClub = currentUserData ? clubsMap.get(currentUserData.clubId) : null;
+        const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
 
         // Fetch player data for each pairing
         for (const docSnap of snapshot.docs) {
@@ -451,6 +466,19 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                 // If either player has disabled leaderboard visibility, skip this pairing
                 if (!player1ShowInLeaderboards || !player2ShowInLeaderboards) {
                     continue;
+                }
+            }
+
+            // Test club filtering: Hide test club teams from non-test club users
+            // If current user is NOT from a test club, filter out test club teams
+            if (!isCurrentUserFromTestClub && !isCurrentUserInTeam) {
+                // Check if this team's club is a test club
+                if (data.clubId) {
+                    const teamClub = clubsMap.get(data.clubId);
+                    if (teamClub && teamClub.isTestClub) {
+                        // Skip this pairing - it's from a test club
+                        continue;
+                    }
                 }
             }
 
