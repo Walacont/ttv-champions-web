@@ -688,6 +688,13 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'pending_player')
     );
 
+    // Query for SINGLES pending coach approval (own club)
+    const singlesCoachQuery = userData.clubId ? query(
+        collection(db, 'matchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_coach')
+    ) : null;
+
     // Query for DOUBLES requests where user is opponent (teamB)
     const doublesRequestsQuery = query(
         collection(db, 'doublesMatchRequests'),
@@ -695,9 +702,25 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'pending_opponent')
     );
 
-    // Store data from both listeners
+    // Query for DOUBLES pending coach approval (own club)
+    const doublesCoachQuery = userData.clubId ? query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_coach')
+    ) : null;
+
+    // Query for DOUBLES pending coach approval (cross-club, clubId = null)
+    const doublesCrossClubQuery = userData.clubId ? query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', null),
+        where('status', '==', 'pending_coach')
+    ) : null;
+
+    // Store data from all listeners
     let singlesData = [];
+    let singlesCoachData = [];
     let doublesData = [];
+    let doublesCoachData = [];
 
     // Real-time listener for singles requests
     const unsubSingles = onSnapshot(incomingRequestsQuery, async singlesSnapshot => {
@@ -721,6 +744,31 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         // Combine and render
         combineAndRender();
     });
+
+    // Real-time listener for singles coach approvals
+    const unsubSinglesCoach = singlesCoachQuery ? onSnapshot(singlesCoachQuery, async snapshot => {
+        singlesCoachData = [];
+
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const [playerADoc, playerBDoc] = await Promise.all([
+                getDoc(doc(db, 'users', data.playerAId)),
+                getDoc(doc(db, 'users', data.playerBId))
+            ]);
+
+            singlesCoachData.push({
+                type: 'coach-approval',
+                matchType: 'singles',
+                id: docSnap.id,
+                data,
+                playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                playerBData: playerBDoc.exists() ? playerBDoc.data() : null,
+                createdAt: data.createdAt,
+            });
+        }
+
+        combineAndRender();
+    }) : null;
 
     // Real-time listener for doubles requests (PARALLEL, not nested!)
     const unsubDoubles = onSnapshot(doublesRequestsQuery, async doublesSnapshot => {
@@ -757,9 +805,84 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         combineAndRender();
     });
 
-    // Function to combine both data sources and render
+    // Real-time listener for doubles coach approvals (own club + cross-club)
+    const unsubDoublesCoach = doublesCoachQuery ? onSnapshot(doublesCoachQuery, async snapshot => {
+        doublesCoachData = [];
+
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                getDoc(doc(db, 'users', data.teamA.player1Id)),
+                getDoc(doc(db, 'users', data.teamA.player2Id)),
+                getDoc(doc(db, 'users', data.teamB.player1Id)),
+                getDoc(doc(db, 'users', data.teamB.player2Id)),
+            ]);
+
+            doublesCoachData.push({
+                type: 'coach-approval',
+                matchType: 'doubles',
+                id: docSnap.id,
+                data,
+                teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
+                createdAt: data.createdAt,
+            });
+        }
+
+        combineAndRender();
+    }) : null;
+
+    // Real-time listener for cross-club doubles coach approvals
+    const unsubCrossClub = doublesCrossClubQuery ? onSnapshot(doublesCrossClubQuery, async snapshot => {
+        const crossClubData = [];
+
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                getDoc(doc(db, 'users', data.teamA.player1Id)),
+                getDoc(doc(db, 'users', data.teamA.player2Id)),
+                getDoc(doc(db, 'users', data.teamB.player1Id)),
+                getDoc(doc(db, 'users', data.teamB.player2Id)),
+            ]);
+
+            const p1Data = p1Doc.exists() ? p1Doc.data() : null;
+            const p2Data = p2Doc.exists() ? p2Doc.data() : null;
+            const p3Data = p3Doc.exists() ? p3Doc.data() : null;
+            const p4Data = p4Doc.exists() ? p4Doc.data() : null;
+
+            // Only show if at least one of the 4 players is in the coach's club
+            const isRelevant =
+                p1Data?.clubId === userData.clubId ||
+                p2Data?.clubId === userData.clubId ||
+                p3Data?.clubId === userData.clubId ||
+                p4Data?.clubId === userData.clubId;
+
+            if (isRelevant) {
+                crossClubData.push({
+                    type: 'coach-approval',
+                    matchType: 'doubles',
+                    id: docSnap.id,
+                    data,
+                    teamAPlayer1: p1Data,
+                    teamAPlayer2: p2Data,
+                    teamBPlayer1: p3Data,
+                    teamBPlayer2: p4Data,
+                    createdAt: data.createdAt,
+                    isCrossClub: true,
+                });
+            }
+        }
+
+        // Merge cross-club data into doublesCoachData
+        doublesCoachData = [...doublesCoachData.filter(item => !item.isCrossClub), ...crossClubData];
+        combineAndRender();
+    }) : null;
+
+    // Function to combine all data sources and render
     function combineAndRender() {
-        allItems = [...singlesData, ...doublesData];
+        allItems = [...singlesData, ...singlesCoachData, ...doublesData, ...doublesCoachData];
 
         // Sort by creation date (newest first)
         allItems.sort((a, b) => {
@@ -772,7 +895,14 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         updateMatchRequestBadge(allItems.length);
     }
 
-    unsubscribes.push(unsubSingles, unsubDoubles);
+    const unsubs = [unsubSingles, unsubDoubles];
+    if (unsubSinglesCoach) unsubs.push(unsubSinglesCoach);
+    if (unsubDoublesCoach) unsubs.push(unsubDoublesCoach);
+    if (unsubCrossClub) unsubs.push(unsubCrossClub);
+
+    if (Array.isArray(unsubscribes)) {
+        unsubscribes.push(...unsubs);
+    }
 }
 
 /**
