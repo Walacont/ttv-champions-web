@@ -265,24 +265,54 @@ async function initializeDashboard(userData) {
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
+    // Check if user has access to attendance/calendar feature
+    const attendanceAccess = checkFeatureAccess('attendance', userData);
+
     // Load profile data and setup calendar with real-time listener
-    streaksListener = loadProfileData(
-        userData,
-        date => {
-            // Unsubscribe old calendar listener if exists
-            if (calendarListener && typeof calendarListener === 'function') {
-                try {
-                    calendarListener();
-                } catch (e) {
-                    console.error('Error unsubscribing calendar listener:', e);
+    if (attendanceAccess.allowed) {
+        streaksListener = loadProfileData(
+            userData,
+            date => {
+                // Unsubscribe old calendar listener if exists
+                if (calendarListener && typeof calendarListener === 'function') {
+                    try {
+                        calendarListener();
+                    } catch (e) {
+                        console.error('Error unsubscribing calendar listener:', e);
+                    }
                 }
-            }
-            // Setup new calendar listener
-            calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
-        },
-        currentDisplayDate,
-        db
-    );
+                // Setup new calendar listener
+                calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
+            },
+            currentDisplayDate,
+            db
+        );
+    } else {
+        // Show blocked message for attendance
+        const calendarGrid = document.getElementById('calendar-grid');
+        if (calendarGrid) {
+            calendarGrid.innerHTML = `
+                <div class="col-span-7 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <i class="fas fa-lock text-yellow-600 text-3xl mb-3"></i>
+                    <p class="text-yellow-800 font-medium">${attendanceAccess.message}</p>
+                    <a href="/settings.html#club-management" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                        Verein suchen
+                    </a>
+                </div>
+            `;
+        }
+
+        // Also hide calendar navigation and stats
+        const monthYearDisplay = document.getElementById('calendar-month-year');
+        const prevMonthBtn = document.getElementById('prev-month');
+        const nextMonthBtn = document.getElementById('next-month');
+        const statsSection = document.querySelector('#tab-content-profile .mt-6.pt-6.border-t');
+
+        if (monthYearDisplay) monthYearDisplay.style.display = 'none';
+        if (prevMonthBtn) prevMonthBtn.style.display = 'none';
+        if (nextMonthBtn) nextMonthBtn.style.display = 'none';
+        if (statsSection) statsSection.style.display = 'none';
+    }
 
     setExerciseContext(db, userData.id, userData.role);
     loadExercises(db, unsubscribes);
@@ -430,42 +460,46 @@ async function initializeDashboard(userData) {
     }
 
     // Calendar listeners with proper listener management
-    document.getElementById('prev-month').addEventListener('click', () => {
-        currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
-        // Unsubscribe old listener
-        if (calendarListener && typeof calendarListener === 'function') {
-            try {
-                calendarListener();
-            } catch (e) {
-                console.error('Error unsubscribing calendar listener:', e);
+    // Only add listeners if user has a club (attendance feature is allowed)
+    const hasClubForCalendar = currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+    if (hasClubForCalendar) {
+        document.getElementById('prev-month').addEventListener('click', () => {
+            currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
+            // Unsubscribe old listener
+            if (calendarListener && typeof calendarListener === 'function') {
+                try {
+                    calendarListener();
+                } catch (e) {
+                    console.error('Error unsubscribing calendar listener:', e);
+                }
             }
-        }
-        // Setup new listener
-        calendarListener = renderCalendar(
-            currentDisplayDate,
-            currentUserData,
-            db,
-            currentSubgroupFilter
-        );
-    });
-    document.getElementById('next-month').addEventListener('click', () => {
-        currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
-        // Unsubscribe old listener
-        if (calendarListener && typeof calendarListener === 'function') {
-            try {
-                calendarListener();
-            } catch (e) {
-                console.error('Error unsubscribing calendar listener:', e);
+            // Setup new listener
+            calendarListener = renderCalendar(
+                currentDisplayDate,
+                currentUserData,
+                db,
+                currentSubgroupFilter
+            );
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
+            // Unsubscribe old listener
+            if (calendarListener && typeof calendarListener === 'function') {
+                try {
+                    calendarListener();
+                } catch (e) {
+                    console.error('Error unsubscribing calendar listener:', e);
+                }
             }
-        }
-        // Setup new listener
-        calendarListener = renderCalendar(
-            currentDisplayDate,
-            currentUserData,
-            db,
-            currentSubgroupFilter
-        );
-    });
+            // Setup new listener
+            calendarListener = renderCalendar(
+                currentDisplayDate,
+                currentUserData,
+                db,
+                currentSubgroupFilter
+            );
+        });
+    }
 
     // Track page view in Google Analytics
     logEvent(analytics, 'page_view', {
