@@ -1,5 +1,5 @@
 import { createDoublesMatchRequest } from './doubles-matches.js';
-import { doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
  * Doubles Player UI Module
@@ -128,7 +128,7 @@ function clearDoublesSelections() {
  * @param {Object} userData - Current user data
  */
 export async function initializeDoublesPlayerSearch(db, userData) {
-    // Load all searchable players
+    // Load all searchable players - with real-time updates
     let allPlayers = [];
     try {
         // Load clubs for test club filtering
@@ -144,47 +144,51 @@ export async function initializeDoublesPlayerSearch(db, userData) {
 
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('role', '==', 'player'));
-        const snapshot = await getDocs(q);
 
-        allPlayers = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(p => {
-                // Filter: not self, match-ready, and privacy check
-                const playerGrundlagen = p.grundlagenCompleted || 0;
-                const isMatchReady = playerGrundlagen >= 5;
-                const isSelf = p.id === userData.id;
+        // Use onSnapshot for real-time updates (Doubles ELO changes after matches)
+        onSnapshot(q, (snapshot) => {
+            allPlayers = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .filter(p => {
+                    // Filter: not self, match-ready, and privacy check
+                    const playerGrundlagen = p.grundlagenCompleted || 0;
+                    const isMatchReady = playerGrundlagen >= 5;
+                    const isSelf = p.id === userData.id;
 
-                if (isSelf || !isMatchReady) return false;
+                    if (isSelf || !isMatchReady) return false;
 
-                // Test club filtering
-                if (!isCurrentUserFromTestClub && p.clubId) {
-                    const playerClub = clubsMap.get(p.clubId);
-                    if (playerClub && playerClub.isTestClub) {
-                        return false; // Hide test club players from non-test club users
+                    // Test club filtering
+                    if (!isCurrentUserFromTestClub && p.clubId) {
+                        const playerClub = clubsMap.get(p.clubId);
+                        if (playerClub && playerClub.isTestClub) {
+                            return false; // Hide test club players from non-test club users
+                        }
                     }
-                }
 
-                // Privacy check
-                // Special case: Both players have no club → always visible to each other
-                if (!userData.clubId && !p.clubId) {
-                    return true;
-                }
+                    // Privacy check
+                    // Special case: Both players have no club → always visible to each other
+                    if (!userData.clubId && !p.clubId) {
+                        return true;
+                    }
 
-                // Get searchable setting (default: global)
-                const searchable = p.privacySettings?.searchable || 'global';
+                    // Get searchable setting (default: global)
+                    const searchable = p.privacySettings?.searchable || 'global';
 
-                // Global: visible to everyone
-                if (searchable === 'global') {
-                    return true;
-                }
+                    // Global: visible to everyone
+                    if (searchable === 'global') {
+                        return true;
+                    }
 
-                // Club only: only visible to players in the same club
-                if (searchable === 'club_only' && userData.clubId && p.clubId === userData.clubId) {
-                    return true;
-                }
+                    // Club only: only visible to players in the same club
+                    if (searchable === 'club_only' && userData.clubId && p.clubId === userData.clubId) {
+                        return true;
+                    }
 
-                return false;
-            });
+                    return false;
+                });
+
+            console.log('[Doubles Player Search] Players list updated with', allPlayers.length, 'players');
+        });
     } catch (error) {
         console.error('Error loading players:', error);
     }
