@@ -339,6 +339,19 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
     const listener = onSnapshot(pairingsQuery, async snapshot => {
         const pairings = [];
 
+        // Load clubs map if this is a global leaderboard
+        let clubsMap = new Map();
+        if (isGlobal) {
+            try {
+                const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+                clubsSnapshot.forEach(doc => {
+                    clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+                });
+            } catch (error) {
+                console.error('Error loading clubs:', error);
+            }
+        }
+
         // Fetch player data for each pairing
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
@@ -394,6 +407,12 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
             const player1Deleted = player1Data?.deleted || !player1Data?.firstName || !player1Data?.lastName;
             const player2Deleted = player2Data?.deleted || !player2Data?.firstName || !player2Data?.lastName;
 
+            // Get club name if this is a global leaderboard
+            let clubName = data.clubId || 'Kein Verein';
+            if (isGlobal && data.clubId && clubsMap.has(data.clubId)) {
+                clubName = clubsMap.get(data.clubId).name || data.clubId;
+            }
+
             pairings.push({
                 id: docSnap.id,
                 player1Name: player1Deleted
@@ -416,6 +435,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                 player2LastName: player2Deleted
                     ? ''
                     : (player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N'),
+                clubName: clubName, // Add club name for display
                 ...data,
             });
         }
@@ -500,7 +520,7 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
                         </div>
                     </div>
                 </td>
-                ${isGlobal ? `<td class="px-4 py-3 text-sm text-gray-600">${pairing.clubId || 'Kein Verein'}</td>` : ''}
+                ${isGlobal ? `<td class="px-4 py-3 text-sm text-gray-600">${pairing.clubName || 'Kein Verein'}</td>` : ''}
                 <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
                 <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
                 <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
@@ -566,7 +586,7 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
                 ${isGlobal ? `
                 <!-- Club Info -->
                 <div class="mb-3 text-xs text-gray-500">
-                    <i class="fas fa-building mr-1"></i>${pairing.clubId || 'Kein Verein'}
+                    <i class="fas fa-building mr-1"></i>${pairing.clubName || 'Kein Verein'}
                 </div>
                 ` : ''}
 
