@@ -1641,27 +1641,32 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Function to load all clubs for display
     async function loadClubs() {
         try {
+            console.log('🔵 START: loadClubs()');
             const clubsRef = collection(db, 'clubs');
-            const snapshot = await getDocs(clubsRef);
 
-            console.log('DEBUG: Clubs snapshot size:', snapshot.size);
+            const snapshot = await getDocs(clubsRef);
+            console.log('📊 Snapshot received - Size:', snapshot.size, '| Empty:', snapshot.empty);
 
             if (snapshot.empty) {
-                console.warn('⚠️ No clubs in snapshot! Check Firestore Rules.');
+                console.error('⚠️ EMPTY SNAPSHOT! Check: 1) Do clubs exist? 2) Are rules deployed?');
+                return;
             }
 
-            snapshot.docs.forEach(doc => {
+            snapshot.docs.forEach((doc, i) => {
                 const clubData = { id: doc.id, ...doc.data() };
-                // Store by both doc.id AND name for flexible lookup
+                console.log(`  Club ${i + 1}: ID="${doc.id}" Name="${clubData.name}"`);
+
                 clubsMap.set(doc.id, clubData);
                 if (clubData.name) {
                     clubsMap.set(clubData.name, clubData);
                 }
             });
+
+            console.log('✅ clubsMap size:', clubsMap.size);
         } catch (error) {
-            console.error('❌ Error loading clubs:', error);
+            console.error('❌ EXCEPTION:', error.code, error.message);
             if (error.code === 'permission-denied') {
-                console.error('🔒 PERMISSION DENIED! Run: firebase deploy --only firestore:rules');
+                console.error('🔒 PERMISSION DENIED - Deploy rules!');
             }
         }
     }
