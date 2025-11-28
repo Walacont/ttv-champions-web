@@ -366,7 +366,7 @@ async function initializeDashboard(userData) {
 
     // Setup tabs and toggle BEFORE loading data
     setupTabs('overview'); // 'overview' is default tab for dashboard
-    setupLeaderboardTabs(); // Setup 3-tab navigation
+    setupLeaderboardTabs(userData); // Setup 3-tab navigation
     setupLeaderboardToggle(userData); // Setup Club/Global toggle - MUST be before loadLeaderboard
 
     // Initialize leaderboard preferences

@@ -338,7 +338,7 @@ async function initializeCoachPage(userData) {
     });
 
     setupTabs('statistics');
-    setupLeaderboardTabs();
+    setupLeaderboardTabs(userData);
     setupLeaderboardToggle(userData);
 
     // Add event listener for tab changes to load saved pairings when Wettkampf tab is opened

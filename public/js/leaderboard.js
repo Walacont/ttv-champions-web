@@ -301,8 +301,9 @@ let currentActiveTab = 'effort'; // GEÄNDERT: Standard-Tab ist jetzt 'effort'
 
 /**
  * Sets up the tab navigation for the new 3-tab leaderboard
+ * @param {Object} userData - Current user data (optional, for checking club membership)
  */
-export function setupLeaderboardTabs() {
+export function setupLeaderboardTabs(userData = null) {
     const tabSkillBtn = document.getElementById('tab-skill');
     const tabEffortBtn = document.getElementById('tab-effort');
     const tabSeasonBtn = document.getElementById('tab-season');
@@ -353,8 +354,12 @@ export function setupLeaderboardTabs() {
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
     tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
-    // Activate first tab by default
-    switchTab('effort'); // GEÄNDERT: Standard-Tab ist jetzt 'effort'
+    // Determine default tab based on club membership
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+    const defaultTab = hasClub ? 'effort' : 'skill'; // Players without club start at Skill tab
+
+    // Activate default tab
+    switchTab(defaultTab);
 }
 
 /**
