@@ -12,8 +12,19 @@
  *   node scripts/migrate-doubles-club-ids.js
  */
 
-const admin = require('firebase-admin');
-const serviceAccount = require('../serviceAccountKey.json');
+import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get current directory (ES Module equivalent of __dirname)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load service account key
+const serviceAccount = JSON.parse(
+    readFileSync(join(__dirname, '../serviceAccountKey.json'), 'utf8')
+);
 
 // Initialize Firebase Admin
 admin.initializeApp({
