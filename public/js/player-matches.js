@@ -1426,11 +1426,27 @@ async function approveMatchRequest(requestId, db, role) {
                     getDoc(doc(db, 'users', requestData.playerBId)),
                 ]);
 
-                const playerAData = playerASnap.data();
-                const playerBData = playerBSnap.data();
+                const playerAData = playerASnap.exists() ? playerASnap.data() : null;
+                const playerBData = playerBSnap.exists() ? playerBSnap.data() : null;
 
-                // Auto-approve if both players have no club
-                if (hasNoClub(playerAData?.clubId) && hasNoClub(playerBData?.clubId)) {
+                // Debug logging
+                console.log('🔍 Match Approval Debug:');
+                console.log('PlayerA exists:', playerASnap.exists());
+                console.log('PlayerB exists:', playerBSnap.exists());
+                console.log('PlayerA data:', playerAData);
+                console.log('PlayerB data:', playerBData);
+                console.log('PlayerA clubId:', playerAData?.clubId);
+                console.log('PlayerB clubId:', playerBData?.clubId);
+                console.log('PlayerA hasNoClub:', hasNoClub(playerAData?.clubId));
+                console.log('PlayerB hasNoClub:', hasNoClub(playerBData?.clubId));
+
+                // Check if both players exist
+                if (!playerAData || !playerBData) {
+                    console.log('⚠️ Player data missing, defaulting to pending_coach');
+                    updateData.status = 'pending_coach';
+                } else if (hasNoClub(playerAData.clubId) && hasNoClub(playerBData.clubId)) {
+                    // Auto-approve if both players have no club
+                    console.log('✅ Auto-approving: Both players have no club');
                     updateData.status = 'approved'; // Auto-approved
                     updateData['approvals.coach'] = {
                         status: 'auto_approved',
@@ -1438,9 +1454,11 @@ async function approveMatchRequest(requestId, db, role) {
                         reason: 'Both players have no club',
                     };
                 } else {
+                    console.log('⏳ Pending coach approval required');
                     updateData.status = 'pending_coach'; // Move to coach approval
                 }
             } else {
+                console.log('⚠️ No request data found, defaulting to pending_coach');
                 updateData.status = 'pending_coach'; // Fallback
             }
         } else if (role === 'coach') {
