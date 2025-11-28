@@ -650,17 +650,17 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
             <tr class="hover:bg-gray-50">
                 <td class="px-2 py-3 text-sm font-bold text-gray-900 w-16">#${rank}</td>
                 <td class="px-4 py-3 ${isGlobal ? 'w-64' : 'w-80'}">
-                    <div class="flex items-center gap-3">
-                        <div class="flex -space-x-2">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
                             <img src="${p1Avatar}" alt="${pairing.player1Name}"
-                                 class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                 class="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
                                  title="${pairing.player1Name}">
-                            <img src="${p2Avatar}" alt="${pairing.player2Name}"
-                                 class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
-                                 title="${pairing.player2Name}">
-                        </div>
-                        <div class="flex flex-col">
                             <span class="font-semibold text-indigo-700 text-sm">${pairing.player1Name}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <img src="${p2Avatar}" alt="${pairing.player2Name}"
+                                 class="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
+                                 title="${pairing.player2Name}">
                             <span class="font-semibold text-indigo-700 text-sm">${pairing.player2Name}</span>
                         </div>
                     </div>
