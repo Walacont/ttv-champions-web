@@ -683,6 +683,8 @@ export async function loadCoachMatchRequests(userData, db) {
     const badge = document.getElementById('coach-match-request-badge');
     if (!container) return;
 
+    console.log('[COACH MATCH REQUESTS] Loading match requests for coach clubId:', userData.clubId);
+
     // Query for SINGLES requests awaiting coach approval
     const singlesQuery = query(
         collection(db, 'matchRequests'),
@@ -711,6 +713,11 @@ export async function loadCoachMatchRequests(userData, db) {
     const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
         const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
             const unsubscribe3 = onSnapshot(crossClubDoublesQuery, async crossClubSnapshot => {
+                console.log('[COACH MATCH REQUESTS] Snapshots received:');
+                console.log('  - Singles:', singlesSnapshot.docs.length);
+                console.log('  - Same-club doubles:', doublesSnapshot.docs.length);
+                console.log('  - Cross-club doubles (before filtering):', crossClubSnapshot.docs.length);
+
                 const allRequests = [];
 
                 // Process singles requests
@@ -752,6 +759,11 @@ export async function loadCoachMatchRequests(userData, db) {
                 // Process cross-club doubles requests
                 for (const docSnap of crossClubSnapshot.docs) {
                     const data = docSnap.data();
+                    console.log('[CROSS-CLUB DOUBLES] Processing request:', docSnap.id);
+                    console.log('  - isCrossClub:', data.isCrossClub);
+                    console.log('  - status:', data.status);
+                    console.log('  - clubId:', data.clubId);
+
                     const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
                         getDoc(doc(db, 'users', data.teamA.player1Id)),
                         getDoc(doc(db, 'users', data.teamA.player2Id)),
@@ -772,6 +784,10 @@ export async function loadCoachMatchRequests(userData, db) {
                         p4Data?.clubId,
                     ];
 
+                    console.log('  - Player club IDs:', playerClubIds);
+                    console.log('  - Coach club ID:', userData.clubId);
+                    console.log('  - Match:', playerClubIds.includes(userData.clubId) ? 'YES - Adding to requests' : 'NO - Skipping');
+
                     if (playerClubIds.includes(userData.clubId)) {
                         allRequests.push({
                             id: docSnap.id,
@@ -790,6 +806,12 @@ export async function loadCoachMatchRequests(userData, db) {
                     const aTime = a.createdAt?.toMillis?.() || 0;
                     const bTime = b.createdAt?.toMillis?.() || 0;
                     return bTime - aTime;
+                });
+
+                console.log('[COACH MATCH REQUESTS] Total requests to display:', allRequests.length);
+                console.log('  - Breakdown by type:', {
+                    singles: allRequests.filter(r => r.type === 'singles').length,
+                    doubles: allRequests.filter(r => r.type === 'doubles').length
                 });
 
                 if (allRequests.length === 0) {
