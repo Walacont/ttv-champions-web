@@ -220,6 +220,47 @@ window.startPlayerTutorial = function () {
     tutorial.start();
 };
 
+/**
+ * Sets the header profile picture and club information
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+async function setHeaderProfileAndClub(userData, db) {
+    const headerProfilePic = document.getElementById('header-profile-pic');
+    const headerClubName = document.getElementById('header-club-name');
+
+    // Set profile picture
+    if (userData.photoURL) {
+        headerProfilePic.src = userData.photoURL;
+    } else {
+        // Generate initials
+        const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}` || 'U';
+        headerProfilePic.src = `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
+    }
+
+    // Set club information
+    if (userData.clubId) {
+        try {
+            const clubDoc = await getDoc(doc(db, 'clubs', userData.clubId));
+            if (clubDoc.exists()) {
+                headerClubName.textContent = clubDoc.data().name || userData.clubId;
+            } else {
+                headerClubName.textContent = userData.clubId;
+            }
+        } catch (error) {
+            console.error('Error loading club info:', error);
+            headerClubName.textContent = 'Fehler beim Laden';
+        }
+    } else {
+        headerClubName.innerHTML = '<i class="fas fa-user-slash mr-1"></i>Kein Verein';
+        // Change icon for "no club" state
+        const headerClubInfo = document.getElementById('header-club-info');
+        if (headerClubInfo) {
+            headerClubInfo.querySelector('i').className = 'fas fa-user-slash mr-1';
+        }
+    }
+}
+
 async function initializeDashboard(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
@@ -227,6 +268,9 @@ async function initializeDashboard(userData) {
     const logoutButton = document.getElementById('logout-button');
 
     welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
+
+    // Set header profile picture and club info
+    await setHeaderProfileAndClub(userData, db);
 
     // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {

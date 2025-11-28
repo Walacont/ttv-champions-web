@@ -126,13 +126,23 @@
 
         <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
             <header class="mb-6">
-                <!-- Top Row: Title + Settings/Logout -->
+                <!-- Top Row: Profile + Title + Settings/Logout -->
                 <div class="flex justify-between items-start mb-4">
-                    <div class="flex-1">
-                        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
-                        <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
-                            Willkommen zurück!
-                        </p>
+                    <div class="flex items-start gap-3 flex-1">
+                        <!-- Profile Picture -->
+                        <img id="header-profile-pic" src="" alt="Profilbild"
+                             class="h-14 w-14 rounded-full object-cover border-2 border-indigo-200 shadow-md flex-shrink-0">
+
+                        <!-- Title and Club Info -->
+                        <div class="flex-1">
+                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
+                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
+                                Willkommen zurück!
+                            </p>
+                            <p id="header-club-info" class="text-xs sm:text-sm text-gray-500 mt-1">
+                                <i class="fas fa-building mr-1"></i><span id="header-club-name">Lade...</span>
+                            </p>
+                        </div>
                     </div>
                     <div class="flex items-center space-x-3 sm:space-x-4">
                         <a
