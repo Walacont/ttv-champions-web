@@ -614,13 +614,13 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
             <table class="min-w-full bg-white border border-gray-200 rounded-lg">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Rang</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Team</th>
-                        ${isGlobal ? '<th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Verein</th>' : ''}
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siege</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Niederlagen</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siegrate</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Elo</th>
+                        <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase w-16">Rang</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase ${isGlobal ? 'w-64' : 'w-80'}">Team</th>
+                        ${isGlobal ? '<th class="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase w-40">Verein</th>' : ''}
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-20">Siege</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-24">Niederl.</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-24">Siegrate</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-20">Elo</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -648,8 +648,8 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
         // Desktop Table Row
         html += `
             <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm font-bold text-gray-900">#${rank}</td>
-                <td class="px-4 py-3">
+                <td class="px-2 py-3 text-sm font-bold text-gray-900 w-16">#${rank}</td>
+                <td class="px-4 py-3 ${isGlobal ? 'w-64' : 'w-80'}">
                     <div class="flex items-center gap-3">
                         <div class="flex -space-x-2">
                             <img src="${p1Avatar}" alt="${pairing.player1Name}"
@@ -665,15 +665,15 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
                         </div>
                     </div>
                 </td>
-                ${isGlobal ? `<td class="px-4 py-3 text-sm ${
+                ${isGlobal ? `<td class="px-3 py-3 text-sm w-40 ${
                     pairing.clubType === 'same' ? 'text-gray-600' :
                     pairing.clubType === 'none' ? 'text-amber-600 italic' :
                     'text-blue-600 font-medium'
                 }">${pairing.clubDisplay}</td>` : ''}
-                <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
-                <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
-                <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
-                <td class="px-4 py-3 text-sm text-center font-bold">${Math.round(pairing.currentEloRating)}</td>
+                <td class="px-3 py-3 text-sm text-center text-green-600 font-medium w-20">${pairing.matchesWon}</td>
+                <td class="px-3 py-3 text-sm text-center text-red-600 w-24">${pairing.matchesLost}</td>
+                <td class="px-3 py-3 text-sm text-center font-medium w-24">${winRate}%</td>
+                <td class="px-3 py-3 text-sm text-center font-bold w-20">${Math.round(pairing.currentEloRating)}</td>
             </tr>
         `;
     });
