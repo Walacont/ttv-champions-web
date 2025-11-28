@@ -364,6 +364,15 @@ async function initializeDashboard(userData) {
     setExerciseContext(db, userData.id, userData.role);
     loadExercises(db, unsubscribes);
 
+    // Setup tabs and toggle BEFORE loading data
+    setupTabs('overview'); // 'overview' is default tab for dashboard
+    setupLeaderboardTabs(); // Setup 3-tab navigation
+    setupLeaderboardToggle(userData); // Setup Club/Global toggle - MUST be before loadLeaderboard
+
+    // Initialize leaderboard preferences
+    initializeLeaderboardPreferences(userData, db);
+    applyPreferences();
+
     // Set leaderboard filter to 'all' for initial load (club view)
     import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
         setLeaderboardSubgroupFilter('all');
@@ -417,13 +426,6 @@ async function initializeDashboard(userData) {
             console.error('Logout error:', error);
         }
     });
-    setupTabs('overview'); // 'overview' is default tab for dashboard
-    setupLeaderboardTabs(); // Setup 3-tab navigation
-    setupLeaderboardToggle(userData); // Setup Club/Global toggle
-
-    // Initialize leaderboard preferences
-    initializeLeaderboardPreferences(userData, db);
-    applyPreferences();
 
     // Setup global subgroup filter change handler
     const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
