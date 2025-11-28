@@ -419,7 +419,7 @@ async function initializeDashboard(userData) {
     });
     setupTabs('overview'); // 'overview' is default tab for dashboard
     setupLeaderboardTabs(); // Setup 3-tab navigation
-    setupLeaderboardToggle(); // Setup Club/Global toggle
+    setupLeaderboardToggle(userData); // Setup Club/Global toggle
 
     // Initialize leaderboard preferences
     initializeLeaderboardPreferences(userData, db);

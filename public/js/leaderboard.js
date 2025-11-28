@@ -359,17 +359,26 @@ export function setupLeaderboardTabs() {
 
 /**
  * Sets up the club/global toggle for Skill and Effort tabs
+ * @param {Object} userData - Current user data (optional, for checking club membership)
  */
-export function setupLeaderboardToggle() {
+export function setupLeaderboardToggle(userData = null) {
     const toggleClubBtn = document.getElementById('toggle-club');
     const toggleGlobalBtn = document.getElementById('toggle-global');
 
     if (!toggleClubBtn || !toggleGlobalBtn) return;
 
+    // Check if user has a club
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
+    // If user has no club, hide the "Mein Verein" button
+    if (!hasClub) {
+        toggleClubBtn.style.display = 'none';
+    }
+
     const switchScope = scope => {
         const tab = currentActiveTab;
 
-        if (scope === 'club') {
+        if (scope === 'club' && hasClub) {
             toggleClubBtn.classList.add('toggle-btn-active');
             toggleGlobalBtn.classList.remove('toggle-btn-active');
 
@@ -391,8 +400,8 @@ export function setupLeaderboardToggle() {
     toggleClubBtn.addEventListener('click', () => switchScope('club'));
     toggleGlobalBtn.addEventListener('click', () => switchScope('global'));
 
-    // Activate club view by default
-    switchScope('club');
+    // Activate global view by default if user has no club, otherwise club view
+    switchScope(hasClub ? 'club' : 'global');
 }
 
 /**

@@ -339,7 +339,7 @@ async function initializeCoachPage(userData) {
 
     setupTabs('statistics');
     setupLeaderboardTabs();
-    setupLeaderboardToggle();
+    setupLeaderboardToggle(userData);
 
     // Add event listener for tab changes to load saved pairings when Wettkampf tab is opened
     document.querySelectorAll('.tab-button').forEach(button => {

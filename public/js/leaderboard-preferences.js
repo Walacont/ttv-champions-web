@@ -47,8 +47,8 @@ export function initializeLeaderboardPreferences(userData, db) {
 
     // Disable checkboxes for club-only features if user has no club
     if (!hasClub) {
-        // Disable and uncheck club-only tabs
-        const clubOnlyCheckboxes = ['pref-effort', 'pref-season', 'pref-ranks', 'pref-skill'];
+        // Disable and uncheck club-only tabs (Skill is available globally)
+        const clubOnlyCheckboxes = ['pref-effort', 'pref-season', 'pref-ranks'];
         clubOnlyCheckboxes.forEach(id => {
             const checkbox = document.getElementById(id);
             if (checkbox) {
