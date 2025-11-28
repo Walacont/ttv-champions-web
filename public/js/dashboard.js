@@ -252,11 +252,14 @@ async function setHeaderProfileAndClub(userData, db) {
             headerClubName.textContent = 'Fehler beim Laden';
         }
     } else {
-        headerClubName.innerHTML = '<i class="fas fa-user-slash mr-1"></i>Kein Verein';
-        // Change icon for "no club" state
+        headerClubName.textContent = 'Kein Verein';
+        // Hide icon for "no club" state
         const headerClubInfo = document.getElementById('header-club-info');
         if (headerClubInfo) {
-            headerClubInfo.querySelector('i').className = 'fas fa-user-slash mr-1';
+            const icon = headerClubInfo.querySelector('i');
+            if (icon) {
+                icon.style.display = 'none';
+            }
         }
     }
 }
