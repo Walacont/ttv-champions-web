@@ -531,8 +531,13 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
             let clubType = 'none'; // 'none', 'same', 'mix'
 
             if (isGlobal) {
-                const p1ClubId = player1Data?.clubId;
-                const p2ClubId = player2Data?.clubId;
+                // Use stored clubIds from match time if available, otherwise fall back to current clubIds
+                const p1ClubId = data.player1ClubIdAtMatch !== undefined
+                    ? data.player1ClubIdAtMatch
+                    : player1Data?.clubId;
+                const p2ClubId = data.player2ClubIdAtMatch !== undefined
+                    ? data.player2ClubIdAtMatch
+                    : player2Data?.clubId;
 
                 // Check if both have the same club
                 if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
