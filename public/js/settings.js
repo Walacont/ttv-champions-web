@@ -1047,12 +1047,23 @@ clubSearchBtn?.addEventListener('click', async () => {
         const clubsSnapshot = await getDocs(collection(db, 'clubs'));
 
         // Filter by search term
-        const clubs = clubsSnapshot.docs
+        let clubs = clubsSnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(club => {
                 const name = (club.name || club.id).toLowerCase();
                 return name.includes(searchTerm) && !club.isTestClub; // Exclude test clubs
             });
+
+        // Count members for each club
+        for (const club of clubs) {
+            const usersQuery = query(
+                collection(db, 'users'),
+                where('clubId', '==', club.id),
+                where('role', '==', 'player')
+            );
+            const usersSnapshot = await getDocs(usersQuery);
+            club.memberCount = usersSnapshot.size;
+        }
 
         if (clubs.length === 0) {
             clubSearchResults.innerHTML = `
