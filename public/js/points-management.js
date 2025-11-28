@@ -38,8 +38,9 @@ export function loadPointsHistory(userData, db, unsubscribes) {
             : '';
         snapshot.forEach(doc => {
             const entry = doc.data();
-            const pointsClass = entry.points >= 0 ? 'text-green-600' : 'text-red-600';
-            const sign = entry.points >= 0 ? '+' : '';
+            // Fix: Use gray color for ±0 points instead of green
+            const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
+            const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
             const date = entry.timestamp
                 ? entry.timestamp.toDate().toLocaleDateString('de-DE')
                 : '...';
@@ -53,12 +54,13 @@ export function loadPointsHistory(userData, db, unsubscribes) {
             // Add XP and Elo details if they exist
             const details = [];
             if (xpChange !== 0) {
-                const xpSign = xpChange >= 0 ? '+' : '';
-                details.push(`${xpSign}${xpChange} XP`);
+                const xpSign = xpChange > 0 ? '+' : xpChange < 0 ? '' : '±';
+                const xpClass = xpChange > 0 ? 'text-green-600' : xpChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${xpClass}">${xpSign}${xpChange} XP</span>`);
             }
             if (eloChange !== 0) {
-                const eloSign = eloChange >= 0 ? '+' : '';
-                const eloClass = eloChange >= 0 ? 'text-blue-600' : 'text-red-600';
+                const eloSign = eloChange > 0 ? '+' : eloChange < 0 ? '' : '±';
+                const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
                 details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
             }
 
@@ -122,8 +124,9 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
         historyListEl.innerHTML = '';
         snapshot.forEach(doc => {
             const entry = doc.data();
-            const pointsClass = entry.points >= 0 ? 'text-green-600' : 'text-red-600';
-            const sign = entry.points >= 0 ? '+' : '';
+            // Fix: Use gray color for ±0 points instead of green
+            const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
+            const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
             const date = entry.timestamp
                 ? entry.timestamp.toDate().toLocaleDateString('de-DE')
                 : '...';
@@ -137,12 +140,13 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
             // Add XP and Elo details if they exist
             const details = [];
             if (xpChange !== 0) {
-                const xpSign = xpChange >= 0 ? '+' : '';
-                details.push(`${xpSign}${xpChange} XP`);
+                const xpSign = xpChange > 0 ? '+' : xpChange < 0 ? '' : '±';
+                const xpClass = xpChange > 0 ? 'text-green-600' : xpChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${xpClass}">${xpSign}${xpChange} XP</span>`);
             }
             if (eloChange !== 0) {
-                const eloSign = eloChange >= 0 ? '+' : '';
-                const eloClass = eloChange >= 0 ? 'text-blue-600' : 'text-red-600';
+                const eloSign = eloChange > 0 ? '+' : eloChange < 0 ? '' : '±';
+                const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
                 details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
             }
 

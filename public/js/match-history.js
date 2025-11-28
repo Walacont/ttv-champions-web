@@ -423,7 +423,7 @@ function renderMatchHistory(container, matches, userData) {
         // ELO change display
         const eloChangeDisplay =
             match.eloChange !== null
-                ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange} ELO`
+                ? `${match.eloChange > 0 ? '+' : match.eloChange < 0 ? '' : '±'}${match.eloChange} ELO`
                 : 'N/A';
 
         const eloChangeClass =
