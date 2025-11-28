@@ -436,6 +436,7 @@ service cloud.firestore {
       // Players can read all pending requests in their club (to see opponent confirmations)
       // Cross-club matches (clubId == null OR isCrossClub == true) can be read by all involved players
       // Once approved/rejected, only involved players and coaches can read
+      // Coaches can read ALL pending_coach requests (filtering happens in frontend)
       allow read: if isAuthenticated() && (
         ((resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)) && resource.data.status in ['pending_opponent', 'pending_coach']) ||
         resource.data.initiatedBy == request.auth.uid ||
@@ -443,7 +444,7 @@ service cloud.firestore {
         resource.data.teamA.player2Id == request.auth.uid ||
         resource.data.teamB.player1Id == request.auth.uid ||
         resource.data.teamB.player2Id == request.auth.uid ||
-        (isCoachOrAdmin() && (resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)))
+        (isCoachOrAdmin() && resource.data.status == 'pending_coach')
       );
 
       // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)

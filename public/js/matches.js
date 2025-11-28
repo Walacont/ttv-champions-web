@@ -693,141 +693,110 @@ export async function loadCoachMatchRequests(userData, db) {
         orderBy('createdAt', 'desc')
     );
 
-    // Query for DOUBLES requests awaiting coach approval (same club)
+    // Query for ALL DOUBLES requests awaiting coach approval
+    // We load ALL pending_coach doubles and filter by club in code
     const doublesQuery = query(
         collection(db, 'doublesMatchRequests'),
-        where('clubId', '==', userData.clubId),
         where('status', '==', 'pending_coach'),
         orderBy('createdAt', 'desc')
     );
 
-    // Query for CROSS-CLUB DOUBLES requests (where clubId is null)
-    const crossClubDoublesQuery = query(
-        collection(db, 'doublesMatchRequests'),
-        where('isCrossClub', '==', true),
-        where('status', '==', 'pending_coach'),
-        orderBy('createdAt', 'desc')
-    );
-
-    // Listen to singles, doubles, and cross-club doubles requests
+    // Listen to singles and doubles requests
     const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
         const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
-            const unsubscribe3 = onSnapshot(crossClubDoublesQuery, async crossClubSnapshot => {
-                console.log('[COACH MATCH REQUESTS] Snapshots received:');
-                console.log('  - Singles:', singlesSnapshot.docs.length);
-                console.log('  - Same-club doubles:', doublesSnapshot.docs.length);
-                console.log('  - Cross-club doubles (before filtering):', crossClubSnapshot.docs.length);
+            console.log('[COACH MATCH REQUESTS] Snapshots received:');
+            console.log('  - Singles:', singlesSnapshot.docs.length);
+            console.log('  - Doubles (all pending_coach, before filtering):', doublesSnapshot.docs.length);
 
-                const allRequests = [];
+            const allRequests = [];
 
-                // Process singles requests
-                for (const docSnap of singlesSnapshot.docs) {
-                    const data = docSnap.data();
-                    const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
-                    const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
+            // Process singles requests
+            for (const docSnap of singlesSnapshot.docs) {
+                const data = docSnap.data();
+                const playerADoc = await getDoc(doc(db, 'users', data.playerAId));
+                const playerBDoc = await getDoc(doc(db, 'users', data.playerBId));
 
-                    allRequests.push({
-                        id: docSnap.id,
-                        type: 'singles',
-                        ...data,
-                        playerAData: playerADoc.exists() ? playerADoc.data() : null,
-                        playerBData: playerBDoc.exists() ? playerBDoc.data() : null,
-                    });
-                }
+                allRequests.push({
+                    id: docSnap.id,
+                    type: 'singles',
+                    ...data,
+                    playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                    playerBData: playerBDoc.exists() ? playerBDoc.data() : null,
+                });
+            }
 
-                // Process doubles requests (same club)
-                for (const docSnap of doublesSnapshot.docs) {
-                    const data = docSnap.data();
-                    const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-                        getDoc(doc(db, 'users', data.teamA.player1Id)),
-                        getDoc(doc(db, 'users', data.teamA.player2Id)),
-                        getDoc(doc(db, 'users', data.teamB.player1Id)),
-                        getDoc(doc(db, 'users', data.teamB.player2Id)),
-                    ]);
+            // Process ALL doubles requests and filter by coach's club
+            for (const docSnap of doublesSnapshot.docs) {
+                const data = docSnap.data();
+                console.log('[DOUBLES] Processing request:', docSnap.id);
+                console.log('  - clubId:', data.clubId);
+                console.log('  - isCrossClub:', data.isCrossClub);
+                console.log('  - status:', data.status);
 
+                const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                    getDoc(doc(db, 'users', data.teamA.player1Id)),
+                    getDoc(doc(db, 'users', data.teamA.player2Id)),
+                    getDoc(doc(db, 'users', data.teamB.player1Id)),
+                    getDoc(doc(db, 'users', data.teamB.player2Id)),
+                ]);
+
+                const p1Data = p1Doc.exists() ? p1Doc.data() : null;
+                const p2Data = p2Doc.exists() ? p2Doc.data() : null;
+                const p3Data = p3Doc.exists() ? p3Doc.data() : null;
+                const p4Data = p4Doc.exists() ? p4Doc.data() : null;
+
+                // Check if at least one player is from the coach's club
+                const playerClubIds = [
+                    p1Data?.clubId,
+                    p2Data?.clubId,
+                    p3Data?.clubId,
+                    p4Data?.clubId,
+                ];
+
+                console.log('  - Player club IDs:', playerClubIds);
+                console.log('  - Coach club ID:', userData.clubId);
+                console.log('  - Match:', playerClubIds.includes(userData.clubId) ? 'YES - Adding to requests' : 'NO - Skipping');
+
+                // Only show to coach if at least one player is from their club
+                if (playerClubIds.includes(userData.clubId)) {
                     allRequests.push({
                         id: docSnap.id,
                         type: 'doubles',
                         ...data,
-                        teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-                        teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-                        teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-                        teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
+                        teamAPlayer1: p1Data,
+                        teamAPlayer2: p2Data,
+                        teamBPlayer1: p3Data,
+                        teamBPlayer2: p4Data,
                     });
                 }
+            }
 
-                // Process cross-club doubles requests
-                for (const docSnap of crossClubSnapshot.docs) {
-                    const data = docSnap.data();
-                    console.log('[CROSS-CLUB DOUBLES] Processing request:', docSnap.id);
-                    console.log('  - isCrossClub:', data.isCrossClub);
-                    console.log('  - status:', data.status);
-                    console.log('  - clubId:', data.clubId);
-
-                    const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
-                        getDoc(doc(db, 'users', data.teamA.player1Id)),
-                        getDoc(doc(db, 'users', data.teamA.player2Id)),
-                        getDoc(doc(db, 'users', data.teamB.player1Id)),
-                        getDoc(doc(db, 'users', data.teamB.player2Id)),
-                    ]);
-
-                    const p1Data = p1Doc.exists() ? p1Doc.data() : null;
-                    const p2Data = p2Doc.exists() ? p2Doc.data() : null;
-                    const p3Data = p3Doc.exists() ? p3Doc.data() : null;
-                    const p4Data = p4Doc.exists() ? p4Doc.data() : null;
-
-                    // Check if at least one player is from the coach's club
-                    const playerClubIds = [
-                        p1Data?.clubId,
-                        p2Data?.clubId,
-                        p3Data?.clubId,
-                        p4Data?.clubId,
-                    ];
-
-                    console.log('  - Player club IDs:', playerClubIds);
-                    console.log('  - Coach club ID:', userData.clubId);
-                    console.log('  - Match:', playerClubIds.includes(userData.clubId) ? 'YES - Adding to requests' : 'NO - Skipping');
-
-                    if (playerClubIds.includes(userData.clubId)) {
-                        allRequests.push({
-                            id: docSnap.id,
-                            type: 'doubles',
-                            ...data,
-                            teamAPlayer1: p1Data,
-                            teamAPlayer2: p2Data,
-                            teamBPlayer1: p3Data,
-                            teamBPlayer2: p4Data,
-                        });
-                    }
-                }
-
-                // Sort by createdAt
-                allRequests.sort((a, b) => {
-                    const aTime = a.createdAt?.toMillis?.() || 0;
-                    const bTime = b.createdAt?.toMillis?.() || 0;
-                    return bTime - aTime;
-                });
-
-                console.log('[COACH MATCH REQUESTS] Total requests to display:', allRequests.length);
-                console.log('  - Breakdown by type:', {
-                    singles: allRequests.filter(r => r.type === 'singles').length,
-                    doubles: allRequests.filter(r => r.type === 'doubles').length
-                });
-
-                if (allRequests.length === 0) {
-                    container.innerHTML =
-                        '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
-                    if (badge) badge.classList.add('hidden');
-                    return;
-                }
-
-                renderCoachRequestCards(allRequests, db, userData);
-
-                if (badge) {
-                    badge.textContent = allRequests.length;
-                    badge.classList.remove('hidden');
-                }
+            // Sort by createdAt
+            allRequests.sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return bTime - aTime;
             });
+
+            console.log('[COACH MATCH REQUESTS] Total requests to display:', allRequests.length);
+            console.log('  - Breakdown by type:', {
+                singles: allRequests.filter(r => r.type === 'singles').length,
+                doubles: allRequests.filter(r => r.type === 'doubles').length
+            });
+
+            if (allRequests.length === 0) {
+                container.innerHTML =
+                    '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+                if (badge) badge.classList.add('hidden');
+                return;
+            }
+
+            renderCoachRequestCards(allRequests, db, userData);
+
+            if (badge) {
+                badge.textContent = allRequests.length;
+                badge.classList.remove('hidden');
+            }
         });
     });
 
