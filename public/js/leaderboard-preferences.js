@@ -43,6 +43,27 @@ function getDefaultPreferences(userData) {
  * @param {Object} db - Firestore database instance
  */
 export function initializeLeaderboardPreferences(userData, db) {
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
+
+    // Disable checkboxes for club-only features if user has no club
+    if (!hasClub) {
+        // Disable and uncheck club-only tabs
+        const clubOnlyCheckboxes = ['pref-effort', 'pref-season', 'pref-ranks', 'pref-skill'];
+        clubOnlyCheckboxes.forEach(id => {
+            const checkbox = document.getElementById(id);
+            if (checkbox) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                // Add visual indicator
+                const label = checkbox.closest('label');
+                if (label) {
+                    label.classList.add('opacity-50', 'cursor-not-allowed');
+                    label.title = 'Nur für Vereinsmitglieder verfügbar';
+                }
+            }
+        });
+    }
+
     // Load saved preferences (or set defaults if first time)
     loadPreferences(userData);
 

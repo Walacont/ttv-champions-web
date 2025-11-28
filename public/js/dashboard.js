@@ -307,7 +307,7 @@ async function initializeDashboard(userData) {
     }
 
     // Initialize widget system (customizable dashboard)
-    initializeWidgetSystem(db, userData.id);
+    initializeWidgetSystem(db, userData.id, userData);
 
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);

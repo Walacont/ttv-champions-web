@@ -33,6 +33,7 @@ const WIDGETS = [
         description: 'Zeit bis zum Ende der aktuellen Saison',
         default: true,
         essential: false,
+        requiresClub: true, // Only available for club members
     },
     {
         id: 'match-requests',
@@ -61,6 +62,7 @@ const WIDGETS = [
         description: 'Dein nächster Konkurrent in der XP-Rangliste',
         default: true,
         essential: false,
+        requiresClub: true, // Only available for club members
     },
     {
         id: 'points-history',
@@ -81,16 +83,19 @@ const WIDGETS = [
 let currentSettings = {};
 let db = null;
 let currentUserId = null;
+let currentUserData = null;
 
 /**
  * Initialize widget management system
  * Non-blocking: Shows defaults immediately, then loads saved settings in background
  * @param {Object} firestoreInstance - Firestore database instance
  * @param {string} userId - Current user ID
+ * @param {Object} userData - Current user data (optional, for club status)
  */
-export function initializeWidgetSystem(firestoreInstance, userId) {
+export function initializeWidgetSystem(firestoreInstance, userId, userData = null) {
     db = firestoreInstance;
     currentUserId = userId;
+    currentUserData = userData;
 
     // Use default settings immediately (non-blocking)
     currentSettings = getDefaultSettings();
@@ -134,8 +139,15 @@ async function loadWidgetSettings() {
  */
 function getDefaultSettings() {
     const settings = {};
+    const hasClub = currentUserData && currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+
     WIDGETS.forEach(widget => {
-        settings[widget.id] = widget.default;
+        // Disable club-only widgets by default if user has no club
+        if (widget.requiresClub && !hasClub) {
+            settings[widget.id] = false;
+        } else {
+            settings[widget.id] = widget.default;
+        }
     });
     return settings;
 }
@@ -162,12 +174,20 @@ async function saveWidgetSettings(settings) {
  */
 function applyWidgetSettings() {
     const widgets = document.querySelectorAll('.dashboard-widget');
+    const hasClub = currentUserData && currentUserData.clubId !== null && currentUserData.clubId !== undefined;
 
     widgets.forEach(widget => {
         const widgetId = widget.getAttribute('data-widget-id');
         const isVisible = currentSettings[widgetId] !== false; // Default to visible if not set
 
-        if (isVisible) {
+        // Check if widget requires club membership
+        const widgetDef = WIDGETS.find(w => w.id === widgetId);
+        const requiresClub = widgetDef?.requiresClub || false;
+
+        // Hide widget if it requires club and user has no club
+        const shouldShow = isVisible && (!requiresClub || hasClub);
+
+        if (shouldShow) {
             widget.classList.remove('hidden');
         } else {
             widget.classList.add('hidden');
@@ -213,6 +233,9 @@ function openWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     const listContainer = document.getElementById('widget-settings-list');
 
+    // Check if user has a club
+    const hasClub = currentUserData && currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+
     // Clear previous content
     listContainer.innerHTML = '';
 
@@ -220,6 +243,8 @@ function openWidgetSettingsModal() {
     WIDGETS.forEach(widget => {
         const isEnabled = currentSettings[widget.id] !== false;
         const isEssential = widget.essential;
+        const requiresClub = widget.requiresClub || false;
+        const isDisabled = isEssential || (requiresClub && !hasClub);
 
         const widgetItem = document.createElement('div');
         widgetItem.className =
@@ -229,15 +254,16 @@ function openWidgetSettingsModal() {
                 <div class="flex items-center gap-2">
                     <span class="text-lg">${widget.name}</span>
                     ${isEssential ? '<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full font-semibold">Pflicht</span>' : ''}
+                    ${requiresClub && !hasClub ? '<span class="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full font-semibold">🏠 Nur für Vereinsmitglieder</span>' : ''}
                 </div>
                 <p class="text-sm text-gray-600 mt-1">${widget.description}</p>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer ${isEssential ? 'opacity-50 cursor-not-allowed' : ''}">
+            <label class="relative inline-flex items-center cursor-pointer ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
                 <input type="checkbox"
                        class="widget-toggle sr-only peer"
                        data-widget-id="${widget.id}"
-                       ${isEnabled ? 'checked' : ''}
-                       ${isEssential ? 'disabled' : ''}>
+                       ${isEnabled && (!requiresClub || hasClub) ? 'checked' : ''}
+                       ${isDisabled ? 'disabled' : ''}>
                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
             </label>
         `;
