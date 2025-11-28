@@ -313,6 +313,8 @@ export function setupLeaderboardTabs(userData = null) {
 
     if (!tabSkillBtn || !tabEffortBtn || !tabSeasonBtn || !tabRanksBtn || !tabDoublesBtn) return;
 
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
     const switchTab = tabName => {
         currentActiveTab = tabName;
 
@@ -345,6 +347,20 @@ export function setupLeaderboardTabs(userData = null) {
             } else {
                 scopeToggleContainer.classList.add('hidden');
             }
+        }
+
+        // For players without club, automatically show global view for Skill and Doubles tabs
+        if (!hasClub && (tabName === 'skill' || tabName === 'doubles')) {
+            const clubContainer = document.getElementById(`${tabName}-club-container`);
+            const globalContainer = document.getElementById(`${tabName}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+
+            // Update toggle button states
+            const toggleClubBtn = document.getElementById('toggle-club');
+            const toggleGlobalBtn = document.getElementById('toggle-global');
+            if (toggleClubBtn) toggleClubBtn.classList.remove('toggle-btn-active');
+            if (toggleGlobalBtn) toggleGlobalBtn.classList.add('toggle-btn-active');
         }
     };
 
