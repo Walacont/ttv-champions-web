@@ -371,7 +371,6 @@ export function setupLeaderboardTabs(userData = null) {
     tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
     // Determine default tab based on club membership
-    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
     const defaultTab = hasClub ? 'effort' : 'skill'; // Players without club start at Skill tab
 
     // Activate default tab
