@@ -458,6 +458,10 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
         const currentUserClub = currentUserData ? clubsMap.get(currentUserData.clubId) : null;
         const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
 
+        // Coaches and admins never see test club teams, even if they are from a test club
+        const isCoachOrAdmin = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'admin');
+        const shouldFilterTestClubs = !isCurrentUserFromTestClub || isCoachOrAdmin;
+
         // Fetch player data for each pairing
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
@@ -510,8 +514,8 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
             }
 
             // Test club filtering: Hide test club teams from non-test club users
-            // If current user is NOT from a test club, filter out test club teams
-            if (!isCurrentUserFromTestClub && !isCurrentUserInTeam) {
+            // Coaches and admins never see test club teams, even if they are from a test club
+            if (shouldFilterTestClubs && !isCurrentUserInTeam) {
                 // Check if this team's club is a test club
                 if (data.clubId) {
                     const teamClub = clubsMap.get(data.clubId);
