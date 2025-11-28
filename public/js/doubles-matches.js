@@ -526,10 +526,30 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
             const player1Deleted = player1Data?.deleted || !player1Data?.firstName || !player1Data?.lastName;
             const player2Deleted = player2Data?.deleted || !player2Data?.firstName || !player2Data?.lastName;
 
-            // Get club name if this is a global leaderboard
-            let clubName = data.clubId || 'Kein Verein';
-            if (isGlobal && data.clubId && clubsMap.has(data.clubId)) {
-                clubName = clubsMap.get(data.clubId).name || data.clubId;
+            // Determine club display (3 states for global leaderboard)
+            let clubDisplay = 'Kein Verein';
+            let clubType = 'none'; // 'none', 'same', 'mix'
+
+            if (isGlobal) {
+                const p1ClubId = player1Data?.clubId;
+                const p2ClubId = player2Data?.clubId;
+
+                // Check if both have the same club
+                if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
+                    // Both in the SAME club
+                    clubType = 'same';
+                    clubDisplay = clubsMap.has(p1ClubId)
+                        ? clubsMap.get(p1ClubId).name
+                        : p1ClubId;
+                } else if (!p1ClubId && !p2ClubId) {
+                    // Both have NO club
+                    clubType = 'none';
+                    clubDisplay = 'Kein Verein';
+                } else {
+                    // Mixed team (club & no-club OR different clubs)
+                    clubType = 'mix';
+                    clubDisplay = 'Mix';
+                }
             }
 
             pairings.push({
@@ -554,7 +574,8 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                 player2LastName: player2Deleted
                     ? ''
                     : (player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N'),
-                clubName: clubName, // Add club name for display
+                clubDisplay: clubDisplay, // New: 3-state club display
+                clubType: clubType, // New: type for styling
                 ...data,
             });
         }
@@ -639,7 +660,11 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
                         </div>
                     </div>
                 </td>
-                ${isGlobal ? `<td class="px-4 py-3 text-sm ${pairing.clubId ? 'text-gray-600' : 'text-amber-600 italic'}">${pairing.clubName || '⚡ Vereins-übergreifend'}</td>` : ''}
+                ${isGlobal ? `<td class="px-4 py-3 text-sm ${
+                    pairing.clubType === 'same' ? 'text-gray-600' :
+                    pairing.clubType === 'none' ? 'text-amber-600 italic' :
+                    'text-blue-600 font-medium'
+                }">${pairing.clubDisplay}</td>` : ''}
                 <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
                 <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
                 <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
@@ -704,8 +729,16 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
 
                 ${isGlobal ? `
                 <!-- Club Info -->
-                <div class="mb-3 text-xs ${pairing.clubId ? 'text-gray-500' : 'text-amber-600 font-medium'}">
-                    <i class="fas fa-${pairing.clubId ? 'building' : 'bolt'} mr-1"></i>${pairing.clubName || '⚡ Vereins-übergreifend'}
+                <div class="mb-3 text-xs ${
+                    pairing.clubType === 'same' ? 'text-gray-500' :
+                    pairing.clubType === 'none' ? 'text-amber-600 font-medium' :
+                    'text-blue-600 font-semibold'
+                }">
+                    <i class="fas fa-${
+                        pairing.clubType === 'same' ? 'building' :
+                        pairing.clubType === 'none' ? 'user-slash' :
+                        'users'
+                    } mr-1"></i>${pairing.clubDisplay}
                 </div>
                 ` : ''}
 
