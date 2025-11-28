@@ -6,12 +6,19 @@ import {
     onSnapshot,
     getDocs,
     limit,
+    getDoc,
+    doc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
 
 // Module state for subgroup filtering
 let currentLeaderboardSubgroupFilter = 'all';
+
+// Cache for clubs data
+let clubsCache = null;
+let clubsCacheTimestamp = null;
+const CLUBS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Module state for leaderboard limits
 const DEFAULT_LIMIT = 15;
@@ -23,6 +30,37 @@ let showFullLeaderboards = {
     seasonClub: false,
     seasonGlobal: false,
 };
+
+/**
+ * Load all clubs and return as Map (with caching)
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<Map>} Map of clubId -> club data
+ */
+async function loadClubsMap(db) {
+    // Return cached data if still valid
+    if (clubsCache && clubsCacheTimestamp && (Date.now() - clubsCacheTimestamp) < CLUBS_CACHE_TTL) {
+        return clubsCache;
+    }
+
+    try {
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+        const clubsMap = new Map();
+
+        clubsSnapshot.forEach(doc => {
+            clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        // Update cache
+        clubsCache = clubsMap;
+        clubsCacheTimestamp = Date.now();
+
+        return clubsMap;
+    } catch (error) {
+        console.error('Error loading clubs:', error);
+        // Return empty map on error
+        return new Map();
+    }
+}
 
 /**
  * Helper function to get display name for a player (handles deleted accounts)
@@ -49,6 +87,63 @@ function getPlayerInitials(player) {
         return displayName.substring(0, 2).toUpperCase();
     }
     return (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+}
+
+/**
+ * Filter players based on privacy settings (showInLeaderboards)
+ * @param {Array} players - Array of player objects
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @returns {Array} Filtered players
+ */
+function filterPlayersByPrivacy(players, currentUserData) {
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserData.id) return true;
+
+        // Coaches and admins can see all players from their club
+        if ((currentUserData.role === 'coach' || currentUserData.role === 'admin') &&
+            currentUserData.clubId && player.clubId === currentUserData.clubId) {
+            return true;
+        }
+
+        // Show players who have showInLeaderboards enabled (default: true)
+        return player.privacySettings?.showInLeaderboards !== false;
+    });
+}
+
+/**
+ * Filter out players from test clubs (unless viewer is from a test club)
+ * @param {Array} players - Array of player objects
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @param {Map} clubsMap - Map of clubId -> club data
+ * @returns {Array} Filtered players
+ */
+function filterTestClubPlayers(players, currentUserData, clubsMap) {
+    // Check if current user is from a test club
+    const currentUserClub = clubsMap.get(currentUserData.clubId);
+    if (currentUserClub && currentUserClub.isTestClub) {
+        // Test club members (players/coaches/admins) see everyone
+        return players;
+    }
+
+    // Current user is NOT from a test club
+    // Filter out all test club players
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserData.id) return true;
+
+        // If player has no club, show them
+        if (!player.clubId) return true;
+
+        // Get player's club data
+        const club = clubsMap.get(player.clubId);
+
+        // If club doesn't exist or is not a test club, show player
+        if (!club || !club.isTestClub) return true;
+
+        // Player is from a test club - hide from non-test-club users
+        return false;
+    });
 }
 
 /**
@@ -134,41 +229,15 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-effort" class="leaderboard-tab-content hidden">
-                <div id="effort-club-container">
-                    <div id="effort-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
-                    </div>
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="effort-global-container" class="hidden">
-                        <div id="effort-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Fleiß-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-season" class="leaderboard-tab-content hidden">
-                <div id="season-club-container">
-                    <div id="season-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
-                    </div>
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="season-global-container" class="hidden">
-                        <div id="season-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Season-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-ranks" class="leaderboard-tab-content hidden">
@@ -178,9 +247,22 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-doubles" class="leaderboard-tab-content hidden">
-                <div id="doubles-list" class="mt-6">
-                    <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                <div id="doubles-club-container">
+                    <div id="doubles-list-club" class="mt-6">
+                        <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                    </div>
                 </div>
+                ${
+                    showToggle
+                        ? `
+                    <div id="doubles-global-container" class="hidden">
+                        <div id="doubles-list-global" class="mt-6">
+                            <p class="text-center text-gray-500 py-8">Lade globale Doppel-Rangliste...</p>
+                        </div>
+                    </div>
+                `
+                        : ''
+                }
             </div>
         </div>
     `;
@@ -249,12 +331,12 @@ export function setupLeaderboardTabs() {
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (Ranks and Doubles tabs don't have global view)
+        // Show/hide scope toggle based on tab (only Skill and Doubles have global view)
         if (scopeToggleContainer) {
-            if (tabName === 'ranks' || tabName === 'doubles') {
-                scopeToggleContainer.classList.add('hidden');
-            } else {
+            if (tabName === 'skill' || tabName === 'doubles') {
                 scopeToggleContainer.classList.remove('hidden');
+            } else {
+                scopeToggleContainer.classList.add('hidden');
             }
         }
     };
@@ -313,26 +395,28 @@ export function setupLeaderboardToggle() {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-export function loadLeaderboard(userData, db, unsubscribes) {
-    loadSkillLeaderboard(userData, db, unsubscribes);
-    loadEffortLeaderboard(userData, db, unsubscribes);
-    loadSeasonLeaderboard(userData, db, unsubscribes);
-    loadRanksView(userData, db, unsubscribes);
+export async function loadLeaderboard(userData, db, unsubscribes) {
+    await Promise.all([
+        loadSkillLeaderboard(userData, db, unsubscribes),
+        loadEffortLeaderboard(userData, db, unsubscribes),
+        loadSeasonLeaderboard(userData, db, unsubscribes),
+        loadRanksView(userData, db, unsubscribes),
+    ]);
     loadDoublesLeaderboardTab(userData, db, unsubscribes);
 }
 
 /**
- * Loads the Doubles leaderboard with real-time updates
+ * Loads the Doubles leaderboard with real-time updates (Club view)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
-    const listEl = document.getElementById('doubles-list');
+    const listEl = document.getElementById('doubles-list-club');
     if (!listEl) return;
 
     try {
-        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes);
+        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes, userData.id);
     } catch (error) {
         console.error('Error loading doubles leaderboard:', error);
         listEl.innerHTML =
@@ -346,9 +430,12 @@ function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadSkillLeaderboard(userData, db, unsubscribes) {
+async function loadSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-club');
     if (!listEl) return;
+
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
 
     const q = query(
         collection(db, 'users'),
@@ -371,6 +458,12 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -409,9 +502,12 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadEffortLeaderboard(userData, db, unsubscribes) {
+async function loadEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-club');
     if (!listEl) return;
+
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
 
     const q = query(
         collection(db, 'users'),
@@ -434,6 +530,12 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -472,9 +574,12 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadSeasonLeaderboard(userData, db, unsubscribes) {
+async function loadSeasonLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('season-list-club');
     if (!listEl) return;
+
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
 
     const q = query(
         collection(db, 'users'),
@@ -497,6 +602,12 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -535,9 +646,12 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadRanksView(userData, db, unsubscribes) {
+async function loadRanksView(userData, db, unsubscribes) {
     const listEl = document.getElementById('ranks-list');
     if (!listEl) return;
+
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
 
     const q = query(
         collection(db, 'users'),
@@ -559,6 +673,12 @@ function loadRanksView(userData, db, unsubscribes) {
                 p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
             );
         }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -621,23 +741,28 @@ function loadRanksView(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the global leaderboards (Skill, Effort, and Season)
+ * Loads the global leaderboards (only Skill and Doubles)
+ * Effort and Season are club-only
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-export function loadGlobalLeaderboard(userData, db, unsubscribes) {
-    loadGlobalSkillLeaderboard(userData, db, unsubscribes);
-    loadGlobalEffortLeaderboard(userData, db, unsubscribes);
-    loadGlobalSeasonLeaderboard(userData, db, unsubscribes);
+export async function loadGlobalLeaderboard(userData, db, unsubscribes) {
+    await Promise.all([
+        loadGlobalSkillLeaderboard(userData, db, unsubscribes),
+        loadGlobalDoublesLeaderboard(userData, db, unsubscribes),
+    ]);
 }
 
 /**
  * Loads the global Skill leaderboard (sorted by Elo)
  */
-function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
+async function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-global');
     if (!listEl) return;
+
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
 
     const q = query(
         collection(db, 'users'),
@@ -651,7 +776,14 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.skillGlobal
             ? players
@@ -693,7 +825,11 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.effortGlobal
             ? players
@@ -739,7 +875,11 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.seasonGlobal
             ? players
@@ -764,6 +904,29 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     });
 
     if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the global Doubles leaderboard (all clubs)
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadGlobalDoublesLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('doubles-list-global');
+    if (!listEl) return;
+
+    // Import loadDoublesLeaderboard from doubles-matches module
+    import('./doubles-matches.js').then(module => {
+        try {
+            // Load global doubles leaderboard (no clubId filter)
+            module.loadDoublesLeaderboard(null, db, listEl, unsubscribes, userData.id, true);
+        } catch (error) {
+            console.error('Error loading global doubles leaderboard:', error);
+            listEl.innerHTML =
+                '<p class="text-center text-red-500 py-8">Fehler beim Laden der globalen Doppel-Rangliste.</p>';
+        }
+    });
 }
 
 /**
@@ -838,6 +1001,17 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
@@ -871,6 +1045,17 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
@@ -904,6 +1089,17 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**

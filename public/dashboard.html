@@ -192,6 +192,32 @@
                 </div>
             </header>
 
+            <!-- Info Box for Players without Club (hidden by default, shown via JS) -->
+            <div id="no-club-info-box" class="hidden mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg shadow-sm">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="text-sm font-medium text-blue-800">
+                            Du bist noch keinem Verein beigetreten
+                        </h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>
+                                Möchtest du einem Verein beitreten? Du kannst in den
+                                <a href="/settings.html#club-management" class="font-semibold underline hover:text-blue-900">
+                                    Einstellungen
+                                </a>
+                                nach Vereinen suchen und eine Beitrittsanfrage stellen.
+                            </p>
+                        </div>
+                    </div>
+                    <button id="close-no-club-info" class="flex-shrink-0 ml-3 text-blue-400 hover:text-blue-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
             <div class="mb-6 border-b border-gray-200">
                 <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
                     <button
@@ -716,17 +742,23 @@
                                 <!-- Singles Opponent Selection (default) -->
                                 <div id="singles-opponent-container">
                                     <label
-                                        for="opponent-select"
+                                        for="opponent-search-input"
                                         class="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Gegner wählen
+                                        Gegner suchen
                                     </label>
-                                    <select
-                                        id="opponent-select"
+                                    <input
+                                        type="text"
+                                        id="opponent-search-input"
+                                        placeholder="Gegner suchen (Name eingeben)..."
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">Gegner wählen...</option>
-                                    </select>
+                                    />
+                                    <div id="opponent-search-results" class="mt-2 max-h-64 overflow-y-auto">
+                                        <!-- Dynamisch gefüllt -->
+                                    </div>
+                                    <!-- Hidden input to store selected opponent ID -->
+                                    <input type="hidden" id="selected-opponent-id" value="" />
+                                    <input type="hidden" id="selected-opponent-elo" value="" />
                                 </div>
 
                                 <!-- Doubles Players Selection (hidden by default) -->
@@ -739,17 +771,21 @@
                                         </h3>
                                         <div>
                                             <label
-                                                for="doubles-partner-select"
+                                                for="partner-search-input"
                                                 class="block text-sm font-medium text-gray-700 mb-2"
                                             >
                                                 Partner wählen
                                             </label>
-                                            <select
-                                                id="doubles-partner-select"
+                                            <input
+                                                type="text"
+                                                id="partner-search-input"
+                                                placeholder="Suche nach Partner..."
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            >
-                                                <option value="">Partner wählen...</option>
-                                            </select>
+                                                autocomplete="off"
+                                            />
+                                            <div id="partner-search-results" class="mt-2"></div>
+                                            <input type="hidden" id="selected-partner-id" value="" />
+                                            <input type="hidden" id="selected-partner-elo" value="" />
                                         </div>
                                     </div>
                                     <div
@@ -762,31 +798,39 @@
                                         <div class="space-y-3">
                                             <div>
                                                 <label
-                                                    for="doubles-opponent1-select"
+                                                    for="opponent1-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
                                                 >
                                                     Gegner 1
                                                 </label>
-                                                <select
-                                                    id="doubles-opponent1-select"
+                                                <input
+                                                    type="text"
+                                                    id="opponent1-search-input"
+                                                    placeholder="Suche nach Gegner 1..."
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                >
-                                                    <option value="">Gegner 1 wählen...</option>
-                                                </select>
+                                                    autocomplete="off"
+                                                />
+                                                <div id="opponent1-search-results" class="mt-2"></div>
+                                                <input type="hidden" id="selected-opponent1-id" value="" />
+                                                <input type="hidden" id="selected-opponent1-elo" value="" />
                                             </div>
                                             <div>
                                                 <label
-                                                    for="doubles-opponent2-select"
+                                                    for="opponent2-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
                                                 >
                                                     Gegner 2
                                                 </label>
-                                                <select
-                                                    id="doubles-opponent2-select"
+                                                <input
+                                                    type="text"
+                                                    id="opponent2-search-input"
+                                                    placeholder="Suche nach Gegner 2..."
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                >
-                                                    <option value="">Gegner 2 wählen...</option>
-                                                </select>
+                                                    autocomplete="off"
+                                                />
+                                                <div id="opponent2-search-results" class="mt-2"></div>
+                                                <input type="hidden" id="selected-opponent2-id" value="" />
+                                                <input type="hidden" id="selected-opponent2-elo" value="" />
                                             </div>
                                         </div>
                                     </div>

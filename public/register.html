@@ -75,13 +75,33 @@
             <div class="text-center mb-6">
                 <i class="fas fa-key text-4xl text-indigo-600"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-900 text-center">Einladung erforderlich</h1>
+            <h1 class="text-3xl font-bold text-gray-900 text-center">Willkommen bei TTV Champions!</h1>
             <p class="text-gray-600 mt-4 text-center">
-                Du benötigst einen persönlichen Einladungscode, um dich hier zu registrieren.
+                Du hast zwei Möglichkeiten, dich zu registrieren:
             </p>
-            <p class="text-gray-600 mt-2 text-center">
-                Bitte frage deinen Vereinstrainer nach dem Code.
-            </p>
+
+            <div class="mt-6 space-y-3">
+                <button
+                    id="register-without-code-btn"
+                    class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center"
+                >
+                    <i class="fas fa-user-plus mr-2"></i>
+                    Ohne Code registrieren
+                </button>
+
+                <div class="text-center text-gray-500 text-sm">oder</div>
+
+                <div class="border-2 border-gray-300 rounded-lg p-4">
+                    <p class="text-gray-700 text-sm text-center mb-2">
+                        <i class="fas fa-users text-indigo-600 mr-1"></i>
+                        Du hast bereits einen Einladungscode von deinem Verein?
+                    </p>
+                    <p class="text-gray-600 text-xs text-center">
+                        Nutze den Link, den dir dein Trainer geschickt hat.
+                    </p>
+                </div>
+            </div>
+
             <div class="mt-6 border-t border-gray-200 pt-6">
                 <p class="text-sm text-gray-500 text-center">
                     Möchtest du TTV Champions für deinen eigenen Verein nutzen?
@@ -89,16 +109,16 @@
                 <p class="text-sm text-gray-600 text-center mt-2">
                     Schreibe uns eine E-Mail an:<br />
                     <a
-                        href="mailto:twa27863@gmail.com"
+                        href="mailto:tommy.wang@ttv-champions.de"
                         class="font-medium text-indigo-600 hover:text-indigo-500"
                     >
-                        twa27863@gmail.com
+                        tommy.wang@ttv-champions.de
                     </a>
                 </p>
             </div>
             <a
                 href="/"
-                class="mt-8 block w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md text-center"
+                class="mt-8 block w-full bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors shadow-md text-center"
             >
                 Zur Startseite
             </a>
@@ -140,6 +160,28 @@
             </div>
 
             <form id="registration-form" class="space-y-4">
+                <div id="name-fields" class="space-y-4 hidden">
+                    <div>
+                        <label for="first-name" class="block text-sm font-medium text-gray-700 mb-1"
+                            >Vorname</label
+                        >
+                        <input
+                            type="text"
+                            id="first-name"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label for="last-name" class="block text-sm font-medium text-gray-700 mb-1"
+                            >Nachname</label
+                        >
+                        <input
+                            type="text"
+                            id="last-name"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                </div>
                 <div>
                     <label for="email-address" class="block text-sm font-medium text-gray-700 mb-1"
                         >E-Mail</label

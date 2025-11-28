@@ -140,6 +140,25 @@
                             <option value="diverse">Divers</option>
                         </select>
                     </div>
+                    <div>
+                        <label
+                            for="qttr-points"
+                            class="block text-sm font-medium text-gray-700 mb-1 px-3"
+                            >QTTR-Punkte (optional)</label
+                        >
+                        <input
+                            id="qttr-points"
+                            name="qttr-points"
+                            type="number"
+                            min="0"
+                            max="3500"
+                            placeholder="z.B. 1500"
+                            class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                        />
+                        <p class="mt-1 text-xs text-gray-500 px-3">
+                            Falls du bereits QTTR-Punkte (Q-TTR) hast, trage sie hier ein. Dies hilft bei der Elo-Berechnung.
+                        </p>
+                    </div>
                 </div>
                 <div>
                     <button
@@ -152,6 +171,71 @@
                 </div>
                 <p id="error-message" class="mt-2 text-center text-sm text-red-600"></p>
             </form>
+        </div>
+
+        <!-- Club Selection Dialog (nur für Spieler ohne clubId) -->
+        <div id="club-selection-dialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+            <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-2xl">
+                <div>
+                    <h2 class="text-center text-2xl font-bold text-gray-900">
+                        Bist du bereits in einem Tischtennisverein?
+                    </h2>
+                    <p class="mt-2 text-center text-sm text-gray-600">
+                        Du kannst später in den Einstellungen einem Verein beitreten.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <button
+                        id="has-club-btn"
+                        class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center"
+                    >
+                        <i class="fas fa-users mr-2"></i>
+                        Ja, ich bin in einem Verein
+                    </button>
+
+                    <button
+                        id="no-club-btn"
+                        class="w-full bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-colors shadow-md flex items-center justify-center"
+                    >
+                        <i class="fas fa-forward mr-2"></i>
+                        Nein, noch nicht
+                    </button>
+                </div>
+
+                <!-- Club Dropdown (wird nach Klick auf "Ja" angezeigt) -->
+                <div id="club-dropdown-container" class="hidden space-y-4">
+                    <div class="border-t border-gray-200 pt-4">
+                        <label for="club-select" class="block text-sm font-medium text-gray-700 mb-2">
+                            Wähle deinen Verein aus:
+                        </label>
+                        <select
+                            id="club-select"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">-- Verein auswählen --</option>
+                            <!-- Wird dynamisch gefüllt -->
+                        </select>
+                    </div>
+
+                    <button
+                        id="request-club-btn"
+                        class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Beitrittsanfrage senden
+                    </button>
+
+                    <button
+                        id="back-to-choice-btn"
+                        class="w-full bg-gray-100 text-gray-600 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                        Zurück
+                    </button>
+                </div>
+
+                <p id="club-error-message" class="text-center text-sm text-red-600"></p>
+            </div>
         </div>
 
         <script src="/js/update-checker.js"></script>

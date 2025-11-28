@@ -19,9 +19,9 @@ import { calculateRank, getRankProgress, formatRank } from './ranks.js';
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {Function} loadRivalDataCallback - Callback to load rival data
- * @param {Function} loadChallengesCallback - Callback to load challenges
- * @param {Function} loadPointsHistoryCallback - Callback to load points history
+ * @param {Function|null} loadRivalDataCallback - Callback to load rival data (optional)
+ * @param {Function|null} loadChallengesCallback - Callback to load challenges (optional)
+ * @param {Function|null} loadPointsHistoryCallback - Callback to load points history (optional)
  */
 export function loadOverviewData(
     userData,
@@ -55,8 +55,13 @@ export function loadOverviewData(
         loadRivalDataCallback(userData, db, unsubscribes);
     }
 
-    loadPointsHistoryCallback(userData, db, unsubscribes);
-    loadChallengesCallback(userData, db, unsubscribes);
+    if (typeof loadPointsHistoryCallback === 'function') {
+        loadPointsHistoryCallback(userData, db, unsubscribes);
+    }
+
+    if (typeof loadChallengesCallback === 'function') {
+        loadChallengesCallback(userData, db, unsubscribes);
+    }
 }
 
 /**
