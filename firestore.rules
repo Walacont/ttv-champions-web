@@ -434,16 +434,16 @@ service cloud.firestore {
     // Doubles Match Requests collection (Player-initiated doubles matches)
     match /doublesMatchRequests/{requestId} {
       // Players can read all pending requests in their club (to see opponent confirmations)
-      // Cross-club matches (clubId == null) can be read by all involved players
+      // Cross-club matches (clubId == null OR isCrossClub == true) can be read by all involved players
       // Once approved/rejected, only involved players and coaches can read
       allow read: if isAuthenticated() && (
-        ((resource.data.clubId == null || isSameClub(resource.data.clubId)) && resource.data.status in ['pending_opponent', 'pending_coach']) ||
+        ((resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)) && resource.data.status in ['pending_opponent', 'pending_coach']) ||
         resource.data.initiatedBy == request.auth.uid ||
         resource.data.teamA.player1Id == request.auth.uid ||
         resource.data.teamA.player2Id == request.auth.uid ||
         resource.data.teamB.player1Id == request.auth.uid ||
         resource.data.teamB.player2Id == request.auth.uid ||
-        (isCoachOrAdmin() && (resource.data.clubId == null || isSameClub(resource.data.clubId)))
+        (isCoachOrAdmin() && (resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)))
       );
 
       // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)
@@ -476,8 +476,10 @@ service cloud.firestore {
 
       // Coach can update (approve/reject) if pending_coach and (same club OR cross-club)
       // Can transition to: approved or rejected
+      // For cross-club matches (clubId == null OR isCrossClub == true), any coach can approve
+      // Frontend will filter which matches are shown to each coach
       allow update: if isCoachOrAdmin() &&
-        (resource.data.clubId == null || isSameClub(resource.data.clubId)) &&
+        (resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)) &&
         resource.data.status == 'pending_coach' &&
         request.resource.data.status in ['approved', 'rejected'];
 
@@ -488,7 +490,7 @@ service cloud.firestore {
 
       // Coaches can delete any request in their club OR cross-club requests
       allow delete: if isCoachOrAdmin() &&
-        (resource.data.clubId == null || isSameClub(resource.data.clubId));
+        (resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId));
     }
 
     // Doubles Pairings collection (Team statistics for leaderboard)
