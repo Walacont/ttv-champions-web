@@ -11,6 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
+import { showHeadToHeadModal } from './head-to-head.js';
 
 // Module state for subgroup filtering
 let currentLeaderboardSubgroupFilter = 'all';
@@ -514,7 +515,7 @@ async function loadSkillLeaderboard(userData, db, unsubscribes) {
             ? players
             : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
-            renderSkillRow(player, index, userData.id, listEl);
+            renderSkillRow(player, index, userData.id, listEl, false, db);
         });
 
         // Add "Show more/less" button if needed
@@ -828,7 +829,7 @@ async function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             ? players
             : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
-            renderSkillRow(player, index, userData.id, listEl, true);
+            renderSkillRow(player, index, userData.id, listEl, true, db);
         });
 
         // Add "Show more/less" button if needed
@@ -1012,7 +1013,7 @@ function renderShowMoreButton(container, leaderboardKey, totalCount, onClick, is
 /**
  * Renders a player row in the Skill leaderboard (shows Elo and Rank)
  */
-function renderSkillRow(player, index, currentUserId, container, isGlobal = false) {
+function renderSkillRow(player, index, currentUserId, container, isGlobal = false, db = null) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
@@ -1026,7 +1027,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
         ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>`
         : '';
 
-    playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
+    playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'} ${!isCurrentUser && db ? 'cursor-pointer hover:bg-indigo-50 transition-colors' : ''}`;
     playerDiv.innerHTML = `
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
@@ -1039,6 +1040,14 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
             <p class="text-xs text-gray-500">${playerRank.emoji} ${playerRank.name}</p>
         </div>
     `;
+
+    // Add click event listener for head-to-head modal (only for other players)
+    if (!isCurrentUser && db) {
+        playerDiv.addEventListener('click', () => {
+            showHeadToHeadModal(db, currentUserId, player.id);
+        });
+    }
+
     container.appendChild(playerDiv);
 
     // Add privacy notice if current user has disabled leaderboard visibility
