@@ -28,7 +28,8 @@ import {
  * @returns {boolean} True if player has no club (null, undefined, or empty string)
  */
 function hasNoClub(clubId) {
-    return !clubId || clubId === '';
+    // Check for null, undefined, empty string, or string values "null"/"undefined"
+    return !clubId || clubId === '' || clubId === 'null' || clubId === 'undefined';
 }
 
 // ========================================================================
@@ -1421,41 +1422,58 @@ async function approveMatchRequest(requestId, db, role) {
             const requestData = requestSnap.data();
 
             if (requestData) {
-                const [playerASnap, playerBSnap] = await Promise.all([
-                    getDoc(doc(db, 'users', requestData.playerAId)),
-                    getDoc(doc(db, 'users', requestData.playerBId)),
-                ]);
+                try {
+                    const [playerASnap, playerBSnap] = await Promise.all([
+                        getDoc(doc(db, 'users', requestData.playerAId)),
+                        getDoc(doc(db, 'users', requestData.playerBId)),
+                    ]);
 
-                const playerAData = playerASnap.exists() ? playerASnap.data() : null;
-                const playerBData = playerBSnap.exists() ? playerBSnap.data() : null;
+                    const playerAData = playerASnap.exists() ? playerASnap.data() : null;
+                    const playerBData = playerBSnap.exists() ? playerBSnap.data() : null;
 
-                // Debug logging
-                console.log('🔍 Match Approval Debug:');
-                console.log('PlayerA exists:', playerASnap.exists());
-                console.log('PlayerB exists:', playerBSnap.exists());
-                console.log('PlayerA data:', playerAData);
-                console.log('PlayerB data:', playerBData);
-                console.log('PlayerA clubId:', playerAData?.clubId);
-                console.log('PlayerB clubId:', playerBData?.clubId);
-                console.log('PlayerA hasNoClub:', hasNoClub(playerAData?.clubId));
-                console.log('PlayerB hasNoClub:', hasNoClub(playerBData?.clubId));
+                    // Debug logging
+                    console.log('🔍 Match Approval Debug:');
+                    console.log('Request ID:', requestId);
+                    console.log('PlayerA ID:', requestData.playerAId);
+                    console.log('PlayerB ID:', requestData.playerBId);
+                    console.log('PlayerA exists:', playerASnap.exists());
+                    console.log('PlayerB exists:', playerBSnap.exists());
+                    console.log('PlayerA data:', playerAData);
+                    console.log('PlayerB data:', playerBData);
+                    console.log('PlayerA clubId:', playerAData?.clubId, '(type:', typeof playerAData?.clubId, ')');
+                    console.log('PlayerB clubId:', playerBData?.clubId, '(type:', typeof playerBData?.clubId, ')');
+                    console.log('PlayerA clubId === null:', playerAData?.clubId === null);
+                    console.log('PlayerB clubId === null:', playerBData?.clubId === null);
+                    console.log('PlayerA clubId === undefined:', playerAData?.clubId === undefined);
+                    console.log('PlayerB clubId === undefined:', playerBData?.clubId === undefined);
+                    console.log('PlayerA clubId === "":', playerAData?.clubId === '');
+                    console.log('PlayerB clubId === "":', playerBData?.clubId === '');
+                    console.log('PlayerA hasNoClub:', hasNoClub(playerAData?.clubId));
+                    console.log('PlayerB hasNoClub:', hasNoClub(playerBData?.clubId));
 
-                // Check if both players exist
-                if (!playerAData || !playerBData) {
-                    console.log('⚠️ Player data missing, defaulting to pending_coach');
-                    updateData.status = 'pending_coach';
-                } else if (hasNoClub(playerAData.clubId) && hasNoClub(playerBData.clubId)) {
-                    // Auto-approve if both players have no club
-                    console.log('✅ Auto-approving: Both players have no club');
-                    updateData.status = 'approved'; // Auto-approved
-                    updateData['approvals.coach'] = {
-                        status: 'auto_approved',
-                        timestamp: serverTimestamp(),
-                        reason: 'Both players have no club',
-                    };
-                } else {
-                    console.log('⏳ Pending coach approval required');
-                    updateData.status = 'pending_coach'; // Move to coach approval
+                    // Check if both players exist
+                    if (!playerAData || !playerBData) {
+                        console.log('⚠️ Player data missing, defaulting to pending_coach');
+                        updateData.status = 'pending_coach';
+                    } else if (hasNoClub(playerAData.clubId) && hasNoClub(playerBData.clubId)) {
+                        // Auto-approve if both players have no club
+                        console.log('✅ Auto-approving: Both players have no club');
+                        updateData.status = 'approved'; // Auto-approved
+                        updateData['approvals.coach'] = {
+                            status: 'auto_approved',
+                            timestamp: serverTimestamp(),
+                            reason: 'Both players have no club',
+                        };
+                    } else {
+                        console.log('⏳ Pending coach approval required');
+                        console.log('PlayerA clubId final value:', playerAData.clubId);
+                        console.log('PlayerB clubId final value:', playerBData.clubId);
+                        updateData.status = 'pending_coach'; // Move to coach approval
+                    }
+                } catch (error) {
+                    console.error('❌ Error loading player data for auto-approval check:', error);
+                    console.log('⚠️ Defaulting to pending_coach due to error');
+                    updateData.status = 'pending_coach'; // Fallback on error
                 }
             } else {
                 console.log('⚠️ No request data found, defaulting to pending_coach');
