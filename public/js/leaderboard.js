@@ -113,27 +113,25 @@ function filterPlayersByPrivacy(players, currentUserData) {
 
 /**
  * Filter out players from test clubs (unless viewer is from a test club)
- * Coaches never see test club players, even if they are from a test club
+ * Coaches/admins see their own test club players, but not other test clubs
  * @param {Array} players - Array of player objects
  * @param {Object} currentUserData - Current user's data (with id, role, clubId)
  * @param {Map} clubsMap - Map of clubId -> club data
  * @returns {Array} Filtered players
  */
 function filterTestClubPlayers(players, currentUserData, clubsMap) {
-    // Coaches and admins never see test club players
     const isCoachOrAdmin = currentUserData.role === 'coach' || currentUserData.role === 'admin';
+    const currentUserClub = clubsMap.get(currentUserData.clubId);
 
     if (!isCoachOrAdmin) {
         // For regular players: check if current user is from a test club
-        const currentUserClub = clubsMap.get(currentUserData.clubId);
         if (currentUserClub && currentUserClub.isTestClub) {
             // Test club players see everyone
             return players;
         }
     }
 
-    // Current user is NOT from a test club OR is a coach/admin
-    // Filter out all test club players
+    // Filter test club players
     return players.filter(player => {
         // Always show current user
         if (player.id === currentUserData.id) return true;
@@ -147,7 +145,13 @@ function filterTestClubPlayers(players, currentUserData, clubsMap) {
         // If club doesn't exist or is not a test club, show player
         if (!club || !club.isTestClub) return true;
 
-        // Player is from a test club - hide
+        // Player is from a test club
+        // For coaches/admins: show if it's their own club, hide if it's another test club
+        if (isCoachOrAdmin) {
+            return player.clubId === currentUserData.clubId;
+        }
+
+        // For regular players from non-test clubs: hide all test club players
         return false;
     });
 }
