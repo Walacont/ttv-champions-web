@@ -407,7 +407,7 @@ async function initializeCoachPage(userData) {
     loadExercisesForDropdown(db);
     loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadExpiredChallenges(userData.clubId, db);
-    setExerciseContext(db, userData.id, userData.role);
+    setExerciseContext(db, userData.id, userData.role, userData.clubId);
     loadAllExercises(db);
 
     // Populate subgroup dropdowns for challenge forms

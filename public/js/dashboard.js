@@ -362,7 +362,7 @@ async function initializeDashboard(userData) {
         if (statsSection) statsSection.style.display = 'none';
     }
 
-    setExerciseContext(db, userData.id, userData.role);
+    setExerciseContext(db, userData.id, userData.role, userData.clubId);
     loadExercises(db, unsubscribes);
 
     // Setup tabs and toggle BEFORE loading data

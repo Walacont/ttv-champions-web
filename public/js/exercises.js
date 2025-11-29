@@ -27,6 +27,7 @@ let exerciseContext = {
     db: null,
     userId: null,
     userRole: null,
+    clubId: null,
 };
 
 /**
@@ -34,11 +35,13 @@ let exerciseContext = {
  * @param {Object} db - Firestore database instance
  * @param {string} userId - Current user ID
  * @param {string} userRole - Current user role (player, coach, admin)
+ * @param {string} clubId - Current user's club ID (optional)
  */
-export function setExerciseContext(db, userId, userRole) {
+export function setExerciseContext(db, userId, userRole, clubId = null) {
     exerciseContext.db = db;
     exerciseContext.userId = userId;
     exerciseContext.userRole = userRole;
+    exerciseContext.clubId = clubId;
 }
 
 // Season management functions removed - now using ui-utils.js functions
@@ -68,8 +71,28 @@ export async function loadExercises(db, unsubscribes) {
         const exercises = [];
         exercisesData = []; // Reset
 
-        // Process each exercise
-        for (const docSnap of snapshot.docs) {
+        // Filter by visibility
+        const userClubId = exerciseContext.clubId;
+        const visibleDocs = snapshot.docs.filter(docSnap => {
+            const exercise = docSnap.data();
+            // Global exercises (or legacy exercises without visibility) are visible to everyone
+            if (!exercise.visibility || exercise.visibility === 'global') {
+                return true;
+            }
+            // Club-only exercises are only visible to users from the same club
+            if (exercise.visibility === 'club') {
+                return userClubId && exercise.clubId === userClubId;
+            }
+            return false;
+        });
+
+        if (visibleDocs.length === 0) {
+            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
+            return;
+        }
+
+        // Process each visible exercise
+        for (const docSnap of visibleDocs) {
             const exercise = docSnap.data();
             const exerciseId = docSnap.id;
 
@@ -389,12 +412,30 @@ export function loadAllExercises(db) {
     onSnapshot(
         query(collection(db, 'exercises'), orderBy('createdAt', 'desc')),
         snapshot => {
-            const exercises = [];
+            const allExercises = [];
             const allTags = new Set();
 
             snapshot.forEach(doc => {
                 const exercise = { id: doc.id, ...doc.data() };
-                exercises.push(exercise);
+                allExercises.push(exercise);
+            });
+
+            // Filter exercises by visibility
+            const userClubId = exerciseContext.clubId;
+            const exercises = allExercises.filter(exercise => {
+                // Global exercises (or legacy exercises without visibility) are visible to everyone
+                if (!exercise.visibility || exercise.visibility === 'global') {
+                    return true;
+                }
+                // Club-only exercises are only visible to users from the same club
+                if (exercise.visibility === 'club') {
+                    return userClubId && exercise.clubId === userClubId;
+                }
+                return false;
+            });
+
+            // Collect tags from visible exercises only
+            exercises.forEach(exercise => {
                 (exercise.tags || []).forEach(tag => allTags.add(tag));
             });
 
@@ -593,6 +634,11 @@ function renderCoachExercises(exercises, filterTag) {
               ? `👤 ${exercise.createdByName}`
               : 'System';
 
+        // Show visibility badge
+        const visibilityBadge = exercise.visibility === 'club'
+            ? '<span class="inline-block bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">🏠 Nur Verein</span>'
+            : '<span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">🌍 Global</span>';
+
         // Image or subtle placeholder
         const imageHtml = exercise.imageUrl
             ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
@@ -612,14 +658,15 @@ function renderCoachExercises(exercises, filterTag) {
                     <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
                     <span class="ml-2 bg-gray-100 text-gray-700 text-sm font-bold px-2 py-1 rounded">${coachBadge}</span>
                 </div>
+                <div class="flex items-center gap-2 mb-2">${visibilityBadge}</div>
                 <div class="pt-2">${tagsHtml}</div>
                 ${canEdit ? `
                 <div class="mt-3 flex gap-2 pointer-events-auto">
                     <button onclick="editExercise('${exercise.id}')" class="flex-1 bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 transition-colors">
-                        ✏️ Bearbeiten
+                        Bearbeiten
                     </button>
                     <button onclick="deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors">
-                        🗑️ Löschen
+                        Löschen
                     </button>
                 </div>
                 ` : ''}
@@ -1209,6 +1256,10 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         .map(tag => tag.trim())
         .filter(tag => tag);
 
+    // Get visibility setting
+    const visibilityRadio = document.querySelector('input[name="exercise-visibility"]:checked');
+    const visibility = visibilityRadio?.value || 'global';
+
     // Check if milestones are enabled
     const milestonesEnabled =
         document.getElementById('exercise-milestones-enabled')?.checked || false;
@@ -1278,6 +1329,11 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             exerciseData.createdAt = serverTimestamp();
             exerciseData.createdBy = userData?.id || null;
             exerciseData.createdByName = userData ? `${userData.firstName} ${userData.lastName}` : 'Unbekannt';
+            exerciseData.visibility = visibility;
+            // If club-only, save the clubId
+            if (visibility === 'club' && userData?.clubId) {
+                exerciseData.clubId = userData.clubId;
+            }
         }
 
         // Add imageUrl only if provided

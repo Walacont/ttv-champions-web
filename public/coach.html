@@ -2316,6 +2316,48 @@
                                         class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                                     />
                                 </div>
+
+                                <!-- Visibility Selection -->
+                                <div class="border-t border-gray-200 pt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2"
+                                        >Sichtbarkeit</label
+                                    >
+                                    <div class="flex gap-2">
+                                        <label
+                                            class="flex-1 cursor-pointer"
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="exercise-visibility"
+                                                value="global"
+                                                checked
+                                                class="sr-only peer"
+                                            />
+                                            <div class="text-center px-3 py-2 border-2 border-gray-300 rounded-lg peer-checked:border-indigo-600 peer-checked:bg-indigo-50 hover:bg-gray-50 transition-colors">
+                                                <span class="block text-lg">🌍</span>
+                                                <span class="text-xs font-medium">Global</span>
+                                            </div>
+                                        </label>
+                                        <label
+                                            class="flex-1 cursor-pointer"
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="exercise-visibility"
+                                                value="club"
+                                                class="sr-only peer"
+                                            />
+                                            <div class="text-center px-3 py-2 border-2 border-gray-300 rounded-lg peer-checked:border-indigo-600 peer-checked:bg-indigo-50 hover:bg-gray-50 transition-colors">
+                                                <span class="block text-lg">🏠</span>
+                                                <span class="text-xs font-medium">Nur Verein</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Global = für alle sichtbar, Nur Verein = nur für deinen Verein
+                                    </p>
+                                </div>
+
                                 <button
                                     type="submit"
                                     id="create-exercise-submit"
