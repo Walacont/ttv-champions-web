@@ -54,11 +54,12 @@ service cloud.firestore {
       // Users can read their own data
       allow read: if isOwner(userId);
 
-      // All authenticated users can read player profiles
-      // This is necessary for: opponent search, leaderboards, match requests
+      // All authenticated users can read player profiles (including offline players)
+      // This is necessary for: opponent search, leaderboards, match requests, doubles
       // Privacy filtering is enforced in frontend queries (privacySettings.searchable)
       // TODO: Implement custom claims (clubId, role in auth token) to enforce privacy in rules
-      allow read: if isAuthenticated() && resource.data.role == 'player';
+      // Allow reading if role is 'player' OR if role field doesn't exist (offline players)
+      allow read: if isAuthenticated() && (!('role' in resource.data) || resource.data.role == 'player');
 
       // Coaches and admins can read all users
       allow read: if isCoachOrAdmin();
