@@ -508,6 +508,18 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
                 if (!player1ShowInLeaderboards || !player2ShowInLeaderboards) {
                     continue;
                 }
+
+                // For global leaderboard: Check if either player has searchable: club_only
+                // These players should only appear in their club leaderboard, not globally
+                if (isGlobal) {
+                    const player1Searchable = player1Data?.privacySettings?.searchable || 'global';
+                    const player2Searchable = player2Data?.privacySettings?.searchable || 'global';
+
+                    // If either player is club_only, skip this team in global leaderboard
+                    if (player1Searchable === 'club_only' || player2Searchable === 'club_only') {
+                        continue;
+                    }
+                }
             }
 
             // Test club filtering: Hide test club teams from non-test club users
