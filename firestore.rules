@@ -366,9 +366,14 @@ service cloud.firestore {
       allow create: if isCoachOrAdmin() &&
         request.resource.data.createdBy == request.auth.uid;
 
-      // Only the creator can update their exercise
-      allow update: if isCoachOrAdmin() &&
-        resource.data.createdBy == request.auth.uid;
+      // Coaches can update record holder fields on any exercise
+      // OR update their own exercise completely
+      allow update: if isCoachOrAdmin() && (
+        // Record holder updates (any coach can update these)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recordCount', 'recordHolderName', 'recordHolderClub', 'recordHolderId', 'recordUpdatedAt']) ||
+        // Full updates (only creator)
+        resource.data.createdBy == request.auth.uid
+      );
 
       // Only the creator can delete their exercise
       allow delete: if isCoachOrAdmin() &&

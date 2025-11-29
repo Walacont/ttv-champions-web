@@ -251,22 +251,27 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 // Check if challenge has milestones
                 const challengeHasMilestones = cOption.dataset.hasMilestones === 'true';
                 if (challengeHasMilestones) {
-                    const milestoneSelect = document.getElementById('milestone-select');
-                    const selectedMilestone =
-                        milestoneSelect.options[milestoneSelect.selectedIndex];
-                    if (
-                        !selectedMilestone ||
-                        selectedMilestone.value === '' ||
-                        !selectedMilestone.dataset.count
-                    ) {
-                        throw new Error('Bitte einen Meilenstein auswählen.');
+                    const milestoneCountInput = document.getElementById('milestone-count-input');
+                    const enteredCount = parseInt(milestoneCountInput?.value);
+
+                    if (!enteredCount || enteredCount <= 0) {
+                        throw new Error('Bitte gib die Anzahl der Wiederholungen ein.');
                     }
 
-                    // Get cumulative points
-                    points = parseInt(selectedMilestone.dataset.cumulativePoints);
+                    // Parse milestones from the option
+                    const milestones = JSON.parse(cOption.dataset.milestones || '[]');
+
+                    // Find all achieved milestones
+                    const achievedMilestones = milestones.filter(m => enteredCount >= m.count);
+
+                    if (achievedMilestones.length === 0) {
+                        throw new Error('Die eingegebene Anzahl erreicht keinen Meilenstein.');
+                    }
+
+                    // Calculate cumulative points
+                    points = achievedMilestones.reduce((sum, m) => sum + m.points, 0);
                     xpChange = points;
-                    const milestoneCount = parseInt(selectedMilestone.dataset.count);
-                    reason = `Challenge: ${cOption.dataset.title} (${milestoneCount}× Meilenstein)`;
+                    reason = `Challenge: ${cOption.dataset.title} (${enteredCount}×)`;
                 } else {
                     points = parseInt(cOption.dataset.points);
                     xpChange = points; // XP = points for challenges
@@ -284,22 +289,27 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 // Check if exercise has milestones
                 const exerciseHasMilestones = eOption.dataset.hasMilestones === 'true';
                 if (exerciseHasMilestones) {
-                    const milestoneSelect = document.getElementById('milestone-select');
-                    const selectedMilestone =
-                        milestoneSelect.options[milestoneSelect.selectedIndex];
-                    if (
-                        !selectedMilestone ||
-                        selectedMilestone.value === '' ||
-                        !selectedMilestone.dataset.count
-                    ) {
-                        throw new Error('Bitte einen Meilenstein auswählen.');
+                    const milestoneCountInput = document.getElementById('milestone-count-input');
+                    const enteredCount = parseInt(milestoneCountInput?.value);
+
+                    if (!enteredCount || enteredCount <= 0) {
+                        throw new Error('Bitte gib die Anzahl der Wiederholungen ein.');
                     }
 
-                    // Get cumulative points
-                    points = parseInt(selectedMilestone.dataset.cumulativePoints);
+                    // Parse milestones from the option
+                    const milestones = JSON.parse(eOption.dataset.milestones || '[]');
+
+                    // Find all achieved milestones
+                    const achievedMilestones = milestones.filter(m => enteredCount >= m.count);
+
+                    if (achievedMilestones.length === 0) {
+                        throw new Error('Die eingegebene Anzahl erreicht keinen Meilenstein.');
+                    }
+
+                    // Calculate cumulative points
+                    points = achievedMilestones.reduce((sum, m) => sum + m.points, 0);
                     xpChange = points;
-                    const milestoneCount = parseInt(selectedMilestone.dataset.count);
-                    reason = `Übung: ${eOption.dataset.title} (${milestoneCount}× Meilenstein)`;
+                    reason = `Übung: ${eOption.dataset.title} (${enteredCount}×)`;
                 } else {
                     points = parseInt(eOption.dataset.points);
                     xpChange = points; // XP = points for exercises
@@ -513,53 +523,45 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
             // Validate milestone progression (exercise)
             if (exerciseMilestoneDoc && reasonType === 'exercise') {
-                const milestoneSelect = document.getElementById('milestone-select');
-                const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
-                if (selectedMilestone && selectedMilestone.value) {
-                    const newMilestoneCount = parseInt(selectedMilestone.dataset.count);
+                const milestoneCountInput = document.getElementById('milestone-count-input');
+                const newCount = parseInt(milestoneCountInput?.value);
 
-                    if (exerciseMilestoneDoc.exists()) {
-                        const progressData = exerciseMilestoneDoc.data();
-                        const lastSeasonKey = progressData.lastSeasonUpdated || '';
+                if (newCount && exerciseMilestoneDoc.exists()) {
+                    const progressData = exerciseMilestoneDoc.data();
+                    const lastSeasonKey = progressData.lastSeasonUpdated || '';
 
-                        // If same season, validate that new milestone is higher
-                        if (lastSeasonKey === currentSeasonKey) {
-                            const currentCount = progressData.currentCount || 0;
-                            if (newMilestoneCount <= currentCount) {
-                                throw new Error(
-                                    `Du kannst nur höhere Meilensteine vergeben! Aktueller Fortschritt: ${currentCount}×, gewählt: ${newMilestoneCount}×`
-                                );
-                            }
+                    // If same season, validate that new count is higher
+                    if (lastSeasonKey === currentSeasonKey) {
+                        const currentCount = progressData.currentCount || 0;
+                        if (newCount <= currentCount) {
+                            throw new Error(
+                                `Du kannst nur eine höhere Anzahl vergeben! Aktueller Rekord: ${currentCount}×, eingegeben: ${newCount}×`
+                            );
                         }
-                        // If different season, milestone resets to 0 automatically (no validation needed)
                     }
-                    // If no previous progress, any milestone is allowed
+                    // If different season, count resets to 0 automatically (no validation needed)
                 }
             }
 
             // Validate milestone progression (challenge)
             if (challengeMilestoneDoc && reasonType === 'challenge') {
-                const milestoneSelect = document.getElementById('milestone-select');
-                const selectedMilestone = milestoneSelect.options[milestoneSelect.selectedIndex];
-                if (selectedMilestone && selectedMilestone.value) {
-                    const newMilestoneCount = parseInt(selectedMilestone.dataset.count);
+                const milestoneCountInput = document.getElementById('milestone-count-input');
+                const newCount = parseInt(milestoneCountInput?.value);
 
-                    if (challengeMilestoneDoc.exists()) {
-                        const progressData = challengeMilestoneDoc.data();
-                        const lastSeasonKey = progressData.lastSeasonUpdated || '';
+                if (newCount && challengeMilestoneDoc.exists()) {
+                    const progressData = challengeMilestoneDoc.data();
+                    const lastSeasonKey = progressData.lastSeasonUpdated || '';
 
-                        // If same season, validate that new milestone is higher
-                        if (lastSeasonKey === currentSeasonKey) {
-                            const currentCount = progressData.currentCount || 0;
-                            if (newMilestoneCount <= currentCount) {
-                                throw new Error(
-                                    `Du kannst nur höhere Meilensteine vergeben! Aktueller Fortschritt: ${currentCount}×, gewählt: ${newMilestoneCount}×`
-                                );
-                            }
+                    // If same season, validate that new count is higher
+                    if (lastSeasonKey === currentSeasonKey) {
+                        const currentCount = progressData.currentCount || 0;
+                        if (newCount <= currentCount) {
+                            throw new Error(
+                                `Du kannst nur eine höhere Anzahl vergeben! Aktueller Rekord: ${currentCount}×, eingegeben: ${newCount}×`
+                            );
                         }
-                        // If different season, milestone resets to 0 automatically (no validation needed)
                     }
-                    // If no previous progress, any milestone is allowed
+                    // If different season, count resets to 0 automatically (no validation needed)
                 }
             }
 
@@ -668,11 +670,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         document.getElementById('exercise-select').selectedIndex
                     ];
                 if (eOption?.dataset.hasMilestones === 'true') {
-                    const milestoneSelect = document.getElementById('milestone-select');
-                    const selectedMilestone =
-                        milestoneSelect.options[milestoneSelect.selectedIndex];
-                    if (selectedMilestone && selectedMilestone.value) {
-                        const milestoneCount = parseInt(selectedMilestone.dataset.count);
+                    const milestoneCountInput = document.getElementById('milestone-count-input');
+                    const enteredCount = parseInt(milestoneCountInput?.value);
+
+                    if (enteredCount) {
                         const progressRef = doc(
                             db,
                             `users/${playerId}/exerciseMilestones`,
@@ -682,12 +683,47 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         transaction.set(
                             progressRef,
                             {
-                                currentCount: milestoneCount,
+                                currentCount: enteredCount,
                                 lastUpdated: serverTimestamp(),
                                 lastSeasonUpdated: currentSeasonKey, // Track season
                             },
                             { merge: true }
                         );
+
+                        // Update global exercise record holder
+                        const exerciseRef = doc(db, 'exercises', exerciseId);
+                        const exerciseDoc = await transaction.get(exerciseRef);
+
+                        if (exerciseDoc.exists()) {
+                            const exerciseData = exerciseDoc.data();
+                            const currentRecord = exerciseData.recordCount || 0;
+
+                            // Check if this is a new record
+                            if (enteredCount > currentRecord) {
+                                // Get player info for record
+                                const playerName = `${playerData.firstName} ${playerData.lastName}`;
+                                const playerClubId = playerData.clubId || null;
+                                let clubName = null;
+
+                                // Get club name if player has a club
+                                if (playerClubId) {
+                                    const clubRef = doc(db, 'clubs', playerClubId);
+                                    const clubDoc = await transaction.get(clubRef);
+                                    if (clubDoc.exists()) {
+                                        clubName = clubDoc.data().name;
+                                    }
+                                }
+
+                                // Update exercise with new record holder
+                                transaction.update(exerciseRef, {
+                                    recordCount: enteredCount,
+                                    recordHolderName: playerName,
+                                    recordHolderClub: clubName,
+                                    recordHolderId: playerId,
+                                    recordUpdatedAt: serverTimestamp(),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -699,11 +735,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         document.getElementById('challenge-select').selectedIndex
                     ];
                 if (cOption?.dataset.hasMilestones === 'true') {
-                    const milestoneSelect = document.getElementById('milestone-select');
-                    const selectedMilestone =
-                        milestoneSelect.options[milestoneSelect.selectedIndex];
-                    if (selectedMilestone && selectedMilestone.value) {
-                        const milestoneCount = parseInt(selectedMilestone.dataset.count);
+                    const milestoneCountInput = document.getElementById('milestone-count-input');
+                    const enteredCount = parseInt(milestoneCountInput?.value);
+
+                    if (enteredCount) {
                         const progressRef = doc(
                             db,
                             `users/${playerId}/challengeMilestones`,
@@ -713,7 +748,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         transaction.set(
                             progressRef,
                             {
-                                currentCount: milestoneCount,
+                                currentCount: enteredCount,
                                 lastUpdated: serverTimestamp(),
                                 lastSeasonUpdated: currentSeasonKey, // Track season
                             },
@@ -953,17 +988,17 @@ async function handleExerciseChallengeChange(db, type) {
 
     const select = document.getElementById(`${type}-select`);
     const milestoneContainer = document.getElementById('milestone-select-container');
-    const milestoneSelect = document.getElementById('milestone-select');
+    const milestoneCountInput = document.getElementById('milestone-count-input');
     const playerSelect = document.getElementById('player-select');
 
     console.log('Elements found:', {
         select: !!select,
         milestoneContainer: !!milestoneContainer,
-        milestoneSelect: !!milestoneSelect,
+        milestoneCountInput: !!milestoneCountInput,
         playerSelect: !!playerSelect,
     });
 
-    if (!select || !milestoneContainer || !milestoneSelect) {
+    if (!select || !milestoneContainer || !milestoneCountInput) {
         console.log('❌ Missing elements, returning');
         return;
     }
@@ -1016,8 +1051,11 @@ async function handleExerciseChallengeChange(db, type) {
             console.log('⚠️ No player selected yet, showing milestones without progress');
         }
 
-        // Populate milestone dropdown
-        milestoneSelect.innerHTML = '<option value="">Meilenstein wählen...</option>';
+        // Clear input field
+        milestoneCountInput.value = '';
+
+        // Store milestones data in the input element for later use
+        milestoneCountInput.dataset.milestones = JSON.stringify(milestones);
 
         // Check if progress is from current season
         const currentSeasonKey = await getCurrentSeasonKey(db);
@@ -1025,28 +1063,14 @@ async function handleExerciseChallengeChange(db, type) {
         const isCurrentSeason = progressSeasonKey === currentSeasonKey;
         const currentCount = isCurrentSeason ? playerProgress.currentCount || 0 : 0;
 
-        milestones.forEach((milestone, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            const isCompleted = playerId && currentCount >= milestone.count;
-            const status = isCompleted ? '✅' : '';
-            option.textContent = `${milestone.count}× erreicht → ${milestone.points} P. ${status}`;
-            option.dataset.count = milestone.count;
-            option.dataset.points = milestone.points;
-            option.dataset.isCompleted = isCompleted;
-
-            // Calculate cumulative points up to this milestone
-            let cumulativePoints = 0;
-            for (let i = 0; i <= index; i++) {
-                cumulativePoints += milestones[i].points;
-            }
-            option.dataset.cumulativePoints = cumulativePoints;
-
-            milestoneSelect.appendChild(option);
-        });
+        // Store current progress in input element
+        milestoneCountInput.dataset.currentCount = currentCount;
 
         // Update progress display
         await updateMilestoneProgressDisplay(playerProgress, milestones, db);
+
+        // Setup input listener to calculate milestones
+        setupMilestoneCountInputListener(milestones, currentCount);
     }
 
     // Handle partner system
@@ -1114,6 +1138,59 @@ async function getMilestoneProgress(db, playerId, collectionName, itemId) {
 }
 
 /**
+ * Sets up input listener for milestone count to automatically calculate achieved milestones
+ * @param {Array} milestones - All milestones with count and points
+ * @param {number} currentCount - Player's current count for this exercise/challenge
+ */
+function setupMilestoneCountInputListener(milestones, currentCount) {
+    const milestoneCountInput = document.getElementById('milestone-count-input');
+    const progressText = document.getElementById('milestone-progress-text');
+    const pointsText = document.getElementById('milestone-points-text');
+
+    if (!milestoneCountInput) return;
+
+    // Remove existing listeners to prevent duplicates
+    const newInput = milestoneCountInput.cloneNode(true);
+    milestoneCountInput.parentNode.replaceChild(newInput, milestoneCountInput);
+
+    // Add input event listener
+    newInput.addEventListener('input', () => {
+        const enteredCount = parseInt(newInput.value) || 0;
+
+        if (enteredCount === 0 || !newInput.value) {
+            // Reset display
+            if (progressText) progressText.textContent = '-';
+            if (pointsText) pointsText.textContent = '0 P.';
+            return;
+        }
+
+        // Find all achieved milestones
+        const achievedMilestones = milestones.filter(m => enteredCount >= m.count);
+
+        // Calculate cumulative points for all achieved milestones
+        let totalPoints = achievedMilestones.reduce((sum, m) => sum + m.points, 0);
+
+        // Display achieved milestones
+        if (achievedMilestones.length > 0) {
+            const milestoneTexts = achievedMilestones.map(m => `${m.count}× (${m.points}P)`).join(', ');
+            if (progressText) {
+                progressText.textContent = `${enteredCount}× → Erreicht: ${milestoneTexts}`;
+            }
+            if (pointsText) {
+                pointsText.textContent = `${totalPoints} P.`;
+            }
+        } else {
+            if (progressText) {
+                progressText.textContent = `${enteredCount}× (kein Meilenstein erreicht)`;
+            }
+            if (pointsText) {
+                pointsText.textContent = '0 P.';
+            }
+        }
+    });
+}
+
+/**
  * Updates the milestone progress display
  * @param {Object} progress - Player's progress
  * @param {Array} milestones - All milestones
@@ -1144,19 +1221,6 @@ async function updateMilestoneProgressDisplay(progress, milestones, db) {
         }
     }
 
-    // Update milestone select change event to show points
-    const milestoneSelect = document.getElementById('milestone-select');
-    if (milestoneSelect) {
-        milestoneSelect.addEventListener('change', () => {
-            const selected = milestoneSelect.options[milestoneSelect.selectedIndex];
-            const pointsText = document.getElementById('milestone-points-text');
-
-            if (pointsText && selected && selected.value) {
-                const cumulativePoints = selected.dataset.cumulativePoints;
-                pointsText.textContent = `${cumulativePoints} P. (kumulativ)`;
-            }
-        });
-    }
 }
 
 /**

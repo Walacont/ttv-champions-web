@@ -796,6 +796,23 @@ export async function openExerciseModal(
                 const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
                 const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
 
+                // Global record holder display
+                let globalRecordHtml = '';
+                if (exercise.recordHolderName && exercise.recordCount) {
+                    const clubInfo = exercise.recordHolderClub ? ` (${exercise.recordHolderClub})` : '';
+                    globalRecordHtml = `
+                        <div class="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">🏆</span>
+                                <span class="font-bold text-gray-800">Globaler Rekordhalter</span>
+                            </div>
+                            <p class="text-base text-gray-700">
+                                <span class="font-bold text-amber-600">${exercise.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exercise.recordCount} Wiederholungen</span>
+                            </p>
+                        </div>
+                    `;
+                }
+
                 progressHtml = `
                     <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                         <div class="flex items-center gap-2 mb-2">
@@ -819,6 +836,7 @@ export async function openExerciseModal(
                         `
                         }
                     </div>
+                    ${globalRecordHtml}
                 `;
             }
 
