@@ -7,6 +7,8 @@ import {
     serverTimestamp,
     doc,
     getDoc,
+    deleteDoc,
+    updateDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
     ref,
@@ -246,12 +248,8 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         )
         .join('');
 
-    // Check if exercise has tiered points
-    const hasTieredPoints =
-        exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
-    const pointsBadge = hasTieredPoints
-        ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
-        : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
+    // Show coach name who created the exercise
+    const coachBadge = `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName || 'Unbekannt'}</span>`;
 
     // Generate progress circle SVG
     const progressCircle = generateProgressCircle(progressPercent);
@@ -276,7 +274,7 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
             <div class="mb-2">${tagsHtml}</div>
             <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
             <div class="mt-4 text-right">
-                ${pointsBadge}
+                ${coachBadge}
             </div>
         </div>`;
 
@@ -583,12 +581,12 @@ function renderCoachExercises(exercises, filterTag) {
             )
             .join('');
 
-        // Check if exercise has tiered points
-        const hasTieredPoints =
-            exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
-        const pointsBadge = hasTieredPoints
-            ? `🎯 Bis zu ${exercise.points} P.`
-            : `${exercise.points} P.`;
+        // Show coach name who created the exercise
+        const coachBadge = `👤 ${exercise.createdByName || 'Unbekannt'}`;
+
+        // Check if current user can edit/delete (only creator)
+        const currentUserId = exerciseContext.userId;
+        const canEdit = currentUserId && exercise.createdBy === currentUserId;
 
         // Image or subtle placeholder
         const imageHtml = exercise.imageUrl
@@ -607,9 +605,19 @@ function renderCoachExercises(exercises, filterTag) {
             <div class="p-4 flex flex-col flex-grow pointer-events-none">
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
-                    <span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${pointsBadge}</span>
+                    <span class="ml-2 bg-gray-100 text-gray-700 text-sm font-bold px-2 py-1 rounded">${coachBadge}</span>
                 </div>
                 <div class="pt-2">${tagsHtml}</div>
+                ${canEdit ? `
+                <div class="mt-3 flex gap-2 pointer-events-auto">
+                    <button onclick="editExercise('${exercise.id}')" class="flex-1 bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 transition-colors">
+                        ✏️ Bearbeiten
+                    </button>
+                    <button onclick="deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors">
+                        🗑️ Löschen
+                    </button>
+                </div>
+                ` : ''}
             </div>`;
         exercisesListCoachEl.appendChild(card);
     });
@@ -1146,8 +1154,9 @@ function updateExerciseTotalPoints() {
  * @param {Object} db - Firestore database instance
  * @param {Object} storage - Firebase storage instance
  * @param {Object} descriptionEditor - Description editor instance (optional)
+ * @param {Object} userData - Current user data (coach creating the exercise)
  */
-export async function handleCreateExercise(e, db, storage, descriptionEditor = null) {
+export async function handleCreateExercise(e, db, storage, descriptionEditor = null, userData = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
@@ -1224,6 +1233,8 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             points,
             createdAt: serverTimestamp(),
             tags,
+            createdBy: userData?.id || null,
+            createdByName: userData ? `${userData.firstName} ${userData.lastName}` : 'Unbekannt',
         };
 
         // Add imageUrl only if provided
@@ -1275,3 +1286,35 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         }, 4000);
     }
 }
+
+/**
+ * Deletes an exercise (only by creator)
+ * @param {string} exerciseId - Exercise ID to delete
+ */
+window.deleteExercise = async function(exerciseId) {
+    if (!exerciseContext.db) {
+        alert('Fehler: Datenbank nicht verfügbar');
+        return;
+    }
+
+    const confirmed = confirm('Möchtest du diese Übung wirklich löschen?');
+    if (!confirmed) return;
+
+    try {
+        await deleteDoc(doc(exerciseContext.db, 'exercises', exerciseId));
+        alert('Übung erfolgreich gelöscht!');
+    } catch (error) {
+        console.error('Error deleting exercise:', error);
+        alert('Fehler beim Löschen der Übung: ' + error.message);
+    }
+};
+
+/**
+ * Edits an exercise (only by creator)
+ * @param {string} exerciseId - Exercise ID to edit
+ */
+window.editExercise = async function(exerciseId) {
+    alert('Bearbeitungsfunktion kommt bald! (Exercise ID: ' + exerciseId + ')');
+    // TODO: Implement edit functionality
+    // This would open a modal with the exercise form pre-filled
+};

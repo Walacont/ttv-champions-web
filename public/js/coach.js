@@ -580,7 +580,7 @@ async function initializeCoachPage(userData) {
         );
     document
         .getElementById('create-exercise-form')
-        .addEventListener('submit', e => handleCreateExercise(e, db, storage, descriptionEditor));
+        .addEventListener('submit', e => handleCreateExercise(e, db, storage, descriptionEditor, userData));
     document.getElementById('match-form').addEventListener('submit', async e => {
         const matchType = getCurrentMatchType();
         if (matchType === 'doubles') {
