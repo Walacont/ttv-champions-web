@@ -251,9 +251,6 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     // Show coach name who created the exercise
     const coachBadge = `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName || 'Unbekannt'}</span>`;
 
-    // Generate progress circle SVG
-    const progressCircle = generateProgressCircle(progressPercent);
-
     // Image or subtle placeholder
     const imageHtml = exercise.imageUrl
         ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">`
@@ -267,7 +264,6 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
            </div>`;
 
     card.innerHTML = `
-        ${progressCircle}
         ${imageHtml}
         <div class="p-4 flex flex-col flex-grow">
             <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
@@ -1160,6 +1156,8 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
+    const form = e.target;
+    const isEditing = form.dataset.editingId;
     const title = document.getElementById('exercise-title-form').value;
     const level = document.getElementById('exercise-level-form').value;
     const difficulty = document.getElementById('exercise-difficulty-form').value;
@@ -1231,11 +1229,15 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             level,
             difficulty,
             points,
-            createdAt: serverTimestamp(),
             tags,
-            createdBy: userData?.id || null,
-            createdByName: userData ? `${userData.firstName} ${userData.lastName}` : 'Unbekannt',
         };
+
+        // For new exercises, add creator info and createdAt
+        if (!isEditing) {
+            exerciseData.createdAt = serverTimestamp();
+            exerciseData.createdBy = userData?.id || null;
+            exerciseData.createdByName = userData ? `${userData.firstName} ${userData.lastName}` : 'Unbekannt';
+        }
 
         // Add imageUrl only if provided
         if (imageUrl) {
@@ -1255,11 +1257,21 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             };
         }
 
-        await addDoc(collection(db, 'exercises'), exerciseData);
+        // Update or create
+        if (isEditing) {
+            await updateDoc(doc(db, 'exercises', isEditing), exerciseData);
+            feedbackEl.textContent = 'Übung erfolgreich aktualisiert!';
+        } else {
+            await addDoc(collection(db, 'exercises'), exerciseData);
+            feedbackEl.textContent = 'Übung erfolgreich erstellt!';
+        }
 
-        feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+
+        // Reset editing state
+        delete form.dataset.editingId;
+        submitBtn.textContent = 'Übung speichern';
 
         // Reset points field
         document.getElementById('exercise-points-form').value = '';
@@ -1275,8 +1287,10 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             descriptionEditor.clear();
         }
     } catch (error) {
-        console.error('Fehler beim Erstellen der Übung:', error);
-        feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
+        console.error('Fehler beim Speichern der Übung:', error);
+        feedbackEl.textContent = isEditing
+            ? 'Fehler: Übung konnte nicht aktualisiert werden.'
+            : 'Fehler: Übung konnte nicht erstellt werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     } finally {
         submitBtn.disabled = false;
@@ -1314,7 +1328,89 @@ window.deleteExercise = async function(exerciseId) {
  * @param {string} exerciseId - Exercise ID to edit
  */
 window.editExercise = async function(exerciseId) {
-    alert('Bearbeitungsfunktion kommt bald! (Exercise ID: ' + exerciseId + ')');
-    // TODO: Implement edit functionality
-    // This would open a modal with the exercise form pre-filled
+    if (!exerciseContext.db) {
+        alert('Fehler: Datenbank nicht verfügbar');
+        return;
+    }
+
+    try {
+        // Load exercise data
+        const exerciseDoc = await getDoc(doc(exerciseContext.db, 'exercises', exerciseId));
+        if (!exerciseDoc.exists()) {
+            alert('Übung nicht gefunden');
+            return;
+        }
+
+        const exerciseData = exerciseDoc.data();
+
+        // Pre-fill form
+        document.getElementById('exercise-title-form').value = exerciseData.title || '';
+        document.getElementById('exercise-level-form').value = exerciseData.level || '';
+        document.getElementById('exercise-difficulty-form').value = exerciseData.difficulty || '';
+        document.getElementById('exercise-tags-form').value = (exerciseData.tags || []).join(', ');
+
+        // Handle description content
+        let descriptionText = '';
+        try {
+            const descContent = JSON.parse(exerciseData.descriptionContent || '{}');
+            if (descContent.type === 'text') {
+                descriptionText = descContent.text || '';
+            } else if (descContent.type === 'table') {
+                descriptionText = descContent.additionalText || '';
+            }
+        } catch (e) {
+            descriptionText = exerciseData.description || '';
+        }
+        document.getElementById('exercise-description-form').value = descriptionText;
+
+        // Handle milestones or standard points
+        const hasMilestones = exerciseData.tieredPoints?.enabled && exerciseData.tieredPoints?.milestones?.length > 0;
+        const milestonesCheckbox = document.getElementById('exercise-milestones-enabled');
+
+        if (hasMilestones) {
+            milestonesCheckbox.checked = true;
+            document.getElementById('exercise-standard-points-container').classList.add('hidden');
+            document.getElementById('exercise-milestones-container').classList.remove('hidden');
+
+            // Clear and populate milestones
+            const milestonesList = document.getElementById('exercise-milestones-list');
+            milestonesList.innerHTML = '';
+
+            exerciseData.tieredPoints.milestones.forEach(milestone => {
+                const row = document.createElement('div');
+                row.className = 'flex gap-2 items-center bg-gray-50 p-2 rounded';
+                row.innerHTML = `
+                    <input type="number" class="exercise-milestone-count w-16 px-2 py-1 border border-gray-300 rounded text-sm" value="${milestone.count}" min="1" required>
+                    <span class="text-gray-600 text-xs whitespace-nowrap">× →</span>
+                    <input type="number" class="exercise-milestone-points w-16 px-2 py-1 border border-gray-300 rounded text-sm" value="${milestone.points}" min="1" required>
+                    <span class="text-gray-600 text-xs">P.</span>
+                    <button type="button" class="remove-exercise-milestone text-red-600 hover:text-red-800 px-1 text-sm flex-shrink-0">🗑️</button>
+                `;
+
+                row.querySelector('.remove-exercise-milestone').addEventListener('click', () => row.remove());
+                milestonesList.appendChild(row);
+            });
+        } else {
+            milestonesCheckbox.checked = false;
+            document.getElementById('exercise-standard-points-container').classList.remove('hidden');
+            document.getElementById('exercise-milestones-container').classList.add('hidden');
+            document.getElementById('exercise-points-form').value = exerciseData.points || 0;
+        }
+
+        // Store exercise ID for update
+        document.getElementById('create-exercise-form').dataset.editingId = exerciseId;
+        document.getElementById('create-exercise-submit').textContent = 'Übung aktualisieren';
+
+        // Scroll to form
+        document.getElementById('create-exercise-form').scrollIntoView({ behavior: 'smooth' });
+
+        // Show info message
+        const feedbackEl = document.getElementById('exercise-feedback');
+        feedbackEl.textContent = 'Bearbeitungsmodus: Übung wird aktualisiert statt neu erstellt';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-blue-600';
+
+    } catch (error) {
+        console.error('Error loading exercise for edit:', error);
+        alert('Fehler beim Laden der Übung: ' + error.message);
+    }
 };
