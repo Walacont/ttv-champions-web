@@ -158,23 +158,58 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
 function calculateStats(matches, currentUserId) {
     let wins = 0;
     let losses = 0;
+    let winsWithHandicap = 0;
+    let lossesWithHandicap = 0;
+    let winsWithoutHandicap = 0;
+    let lossesWithoutHandicap = 0;
 
     matches.forEach(match => {
-        if (match.winnerId === currentUserId) {
+        const isWinner = match.winnerId === currentUserId;
+        const handicapUsed = match.handicapUsed || false;
+
+        if (isWinner) {
             wins++;
+            if (handicapUsed) {
+                winsWithHandicap++;
+            } else {
+                winsWithoutHandicap++;
+            }
         } else {
             losses++;
+            if (handicapUsed) {
+                lossesWithHandicap++;
+            } else {
+                lossesWithoutHandicap++;
+            }
         }
     });
 
     const totalMatches = wins + losses;
     const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
 
+    const totalWithHandicap = winsWithHandicap + lossesWithHandicap;
+    const winRateWithHandicap = totalWithHandicap > 0 ? Math.round((winsWithHandicap / totalWithHandicap) * 100) : 0;
+
+    const totalWithoutHandicap = winsWithoutHandicap + lossesWithoutHandicap;
+    const winRateWithoutHandicap = totalWithoutHandicap > 0 ? Math.round((winsWithoutHandicap / totalWithoutHandicap) * 100) : 0;
+
     return {
         wins,
         losses,
         totalMatches,
         winRate,
+        handicap: {
+            wins: winsWithHandicap,
+            losses: lossesWithHandicap,
+            total: totalWithHandicap,
+            winRate: winRateWithHandicap,
+        },
+        regular: {
+            wins: winsWithoutHandicap,
+            losses: lossesWithoutHandicap,
+            total: totalWithoutHandicap,
+            winRate: winRateWithoutHandicap,
+        },
     };
 }
 
@@ -234,6 +269,54 @@ function renderHeadToHeadContent(container, opponentData, opponentName, stats, m
                     <p class="text-sm text-gray-600">Siegrate</p>
                 </div>
             </div>
+
+            ${(stats.handicap.total > 0 || stats.regular.total > 0) ? `
+                <!-- Handicap Split -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3 text-center">📊 Handicap-Split</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Regular Matches -->
+                        <div class="bg-gray-50 rounded-lg p-4 border-2 ${stats.regular.total > 0 ? 'border-gray-300' : 'border-gray-200 opacity-60'}">
+                            <div class="text-center mb-2">
+                                <p class="text-xs font-semibold text-gray-700 uppercase">Normal</p>
+                            </div>
+                            ${stats.regular.total > 0 ? `
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-green-600 font-semibold">${stats.regular.wins}S</span>
+                                    <span class="text-gray-400">-</span>
+                                    <span class="text-red-600 font-semibold">${stats.regular.losses}N</span>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold ${stats.regular.winRate >= 60 ? 'text-green-600' : stats.regular.winRate <= 40 ? 'text-red-600' : 'text-gray-600'}">${stats.regular.winRate}%</p>
+                                    <p class="text-xs text-gray-500">${stats.regular.total} Match${stats.regular.total !== 1 ? 'es' : ''}</p>
+                                </div>
+                            ` : `
+                                <p class="text-xs text-gray-400 text-center">Keine Matches</p>
+                            `}
+                        </div>
+
+                        <!-- Handicap Matches -->
+                        <div class="bg-blue-50 rounded-lg p-4 border-2 ${stats.handicap.total > 0 ? 'border-blue-300' : 'border-blue-200 opacity-60'}">
+                            <div class="text-center mb-2">
+                                <p class="text-xs font-semibold text-blue-700 uppercase">Handicap</p>
+                            </div>
+                            ${stats.handicap.total > 0 ? `
+                                <div class="flex justify-between text-sm mb-2">
+                                    <span class="text-green-600 font-semibold">${stats.handicap.wins}S</span>
+                                    <span class="text-gray-400">-</span>
+                                    <span class="text-red-600 font-semibold">${stats.handicap.losses}N</span>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-2xl font-bold ${stats.handicap.winRate >= 60 ? 'text-green-600' : stats.handicap.winRate <= 40 ? 'text-red-600' : 'text-gray-600'}">${stats.handicap.winRate}%</p>
+                                    <p class="text-xs text-gray-500">${stats.handicap.total} Match${stats.handicap.total !== 1 ? 'es' : ''}</p>
+                                </div>
+                            ` : `
+                                <p class="text-xs text-gray-400 text-center">Keine Matches</p>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
 
             <!-- Match History -->
             <div class="mb-4">
