@@ -785,6 +785,20 @@ export async function openExerciseModal(
 
     const currentCount = playerProgress?.currentCount || 0;
 
+    // Load exercise data for record holder info
+    let exerciseData = null;
+    if (hasTieredPoints && exerciseContext.db && exerciseId) {
+        try {
+            const exerciseRef = doc(exerciseContext.db, 'exercises', exerciseId);
+            const exerciseSnap = await getDoc(exerciseRef);
+            if (exerciseSnap.exists()) {
+                exerciseData = exerciseSnap.data();
+            }
+        } catch (error) {
+            console.log('Could not load exercise data:', error);
+        }
+    }
+
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
 
@@ -798,8 +812,8 @@ export async function openExerciseModal(
 
                 // Global record holder display
                 let globalRecordHtml = '';
-                if (exercise.recordHolderName && exercise.recordCount) {
-                    const clubInfo = exercise.recordHolderClub ? ` (${exercise.recordHolderClub})` : '';
+                if (exerciseData && exerciseData.recordHolderName && exerciseData.recordCount) {
+                    const clubInfo = exerciseData.recordHolderClub ? ` (${exerciseData.recordHolderClub})` : '';
                     globalRecordHtml = `
                         <div class="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
                             <div class="flex items-center gap-2 mb-2">
@@ -807,7 +821,7 @@ export async function openExerciseModal(
                                 <span class="font-bold text-gray-800">Globaler Rekordhalter</span>
                             </div>
                             <p class="text-base text-gray-700">
-                                <span class="font-bold text-amber-600">${exercise.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exercise.recordCount} Wiederholungen</span>
+                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} Wiederholungen</span>
                             </p>
                         </div>
                     `;
