@@ -9,6 +9,7 @@ import {
     increment,
     getDoc,
     getDocs,
+    updateDoc,
     where,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { getCurrentSeasonKey } from './ui-utils.js';
@@ -491,6 +492,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             // Read milestone progress documents (if milestones are being awarded)
             let exerciseMilestoneDoc = null;
             let challengeMilestoneDoc = null;
+            let exerciseDoc = null; // For record holder tracking
             const currentSeasonKey = await getCurrentSeasonKey(db);
 
             if (exerciseId && reasonType === 'exercise') {
@@ -501,6 +503,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 if (eOption?.dataset.hasMilestones === 'true') {
                     const progressRef = doc(db, `users/${playerId}/exerciseMilestones`, exerciseId);
                     exerciseMilestoneDoc = await transaction.get(progressRef);
+
+                    // Also load exercise doc for record holder tracking
+                    const exerciseRef = doc(db, 'exercises', exerciseId);
+                    exerciseDoc = await transaction.get(exerciseRef);
                 }
             }
 
@@ -691,10 +697,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                         );
 
                         // Update global exercise record holder
-                        const exerciseRef = doc(db, 'exercises', exerciseId);
-                        const exerciseDoc = await transaction.get(exerciseRef);
-
-                        if (exerciseDoc.exists()) {
+                        if (exerciseDoc && exerciseDoc.exists()) {
                             const exerciseData = exerciseDoc.data();
                             const currentRecord = exerciseData.recordCount || 0;
 
@@ -703,22 +706,17 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                                 // Get player info for record
                                 const playerName = `${playerData.firstName} ${playerData.lastName}`;
                                 const playerClubId = playerData.clubId || null;
-                                let clubName = null;
 
-                                // Get club name if player has a club
-                                if (playerClubId) {
-                                    const clubRef = doc(db, 'clubs', playerClubId);
-                                    const clubDoc = await transaction.get(clubRef);
-                                    if (clubDoc.exists()) {
-                                        clubName = clubDoc.data().name;
-                                    }
-                                }
+                                // Get club name from playerData if available
+                                // We need to read club separately since it's not in playerData
+                                const exerciseRef = doc(db, 'exercises', exerciseId);
 
                                 // Update exercise with new record holder
+                                // Note: clubName will be set via a separate update outside transaction
                                 transaction.update(exerciseRef, {
                                     recordCount: enteredCount,
                                     recordHolderName: playerName,
-                                    recordHolderClub: clubName,
+                                    recordHolderClubId: playerClubId,
                                     recordHolderId: playerId,
                                     recordUpdatedAt: serverTimestamp(),
                                 });
@@ -814,6 +812,40 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 });
             }
         });
+
+        // Post-transaction: Update club name for record holder if needed
+        if (exerciseId && reasonType === 'exercise') {
+            const eOption =
+                document.getElementById('exercise-select').options[
+                    document.getElementById('exercise-select').selectedIndex
+                ];
+            if (eOption?.dataset.hasMilestones === 'true') {
+                const milestoneCountInput = document.getElementById('milestone-count-input');
+                const enteredCount = parseInt(milestoneCountInput?.value);
+
+                if (enteredCount && exerciseDoc && exerciseDoc.exists()) {
+                    const exerciseData = exerciseDoc.data();
+                    const currentRecord = exerciseData.recordCount || 0;
+
+                    // If new record was set, update club name
+                    if (enteredCount > currentRecord) {
+                        const playerClubId = playerData.clubId;
+                        if (playerClubId) {
+                            const clubRef = doc(db, 'clubs', playerClubId);
+                            const clubSnap = await getDoc(clubRef);
+
+                            if (clubSnap.exists()) {
+                                const clubName = clubSnap.data().name;
+                                const exerciseRef = doc(db, 'exercises', exerciseId);
+                                await updateDoc(exerciseRef, {
+                                    recordHolderClub: clubName,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Build feedback message
         const sign = actualPointsChange >= 0 ? '+' : '';

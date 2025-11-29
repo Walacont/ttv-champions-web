@@ -370,7 +370,7 @@ service cloud.firestore {
       // OR update their own exercise completely
       allow update: if isCoachOrAdmin() && (
         // Record holder updates (any coach can update these)
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recordCount', 'recordHolderName', 'recordHolderClub', 'recordHolderId', 'recordUpdatedAt']) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recordCount', 'recordHolderName', 'recordHolderClub', 'recordHolderClubId', 'recordHolderId', 'recordUpdatedAt']) ||
         // Full updates (only creator)
         resource.data.createdBy == request.auth.uid
       );
