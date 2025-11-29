@@ -369,7 +369,18 @@ service cloud.firestore {
     // Exercises collection (global)
     match /exercises/{exerciseId} {
       allow read: if isAuthenticated();
-      allow write: if isCoachOrAdmin();
+
+      // Coaches can create exercises (with their own ID as creator)
+      allow create: if isCoachOrAdmin() &&
+        request.resource.data.createdBy == request.auth.uid;
+
+      // Only the creator can update their exercise
+      allow update: if isCoachOrAdmin() &&
+        resource.data.createdBy == request.auth.uid;
+
+      // Only the creator can delete their exercise
+      allow delete: if isCoachOrAdmin() &&
+        resource.data.createdBy == request.auth.uid;
     }
 
     // Invitations collection
