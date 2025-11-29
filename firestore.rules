@@ -132,8 +132,9 @@ service cloud.firestore {
 
       // Subcollection: exerciseMilestones (tracks completion count per exercise)
       match /exerciseMilestones/{exerciseId} {
-        allow read: if isOwner(userId);
-        allow read, write, delete: if isCoachOrAdmin();
+        // Players can read all exerciseMilestones (for leaderboards and comparing progress)
+        allow read: if isAuthenticated();
+        allow write, delete: if isCoachOrAdmin();
       }
 
       // Subcollection: challengeMilestones (tracks completion count per challenge)
