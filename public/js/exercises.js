@@ -248,8 +248,10 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         )
         .join('');
 
-    // Show coach name who created the exercise
-    const coachBadge = `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName || 'Unbekannt'}</span>`;
+    // Show coach name who created the exercise (only if known)
+    const coachBadge = exercise.createdByName
+        ? `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName}</span>`
+        : '';
 
     // Image or subtle placeholder
     const imageHtml = exercise.imageUrl
@@ -577,8 +579,8 @@ function renderCoachExercises(exercises, filterTag) {
             )
             .join('');
 
-        // Show coach name who created the exercise
-        const coachBadge = `👤 ${exercise.createdByName || 'Unbekannt'}`;
+        // Show coach name who created the exercise (only if known)
+        const coachBadge = exercise.createdByName ? `👤 ${exercise.createdByName}` : 'System';
 
         // Check if current user can edit/delete (only creator)
         const currentUserId = exerciseContext.userId;
