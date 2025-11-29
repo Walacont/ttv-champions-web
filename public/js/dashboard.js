@@ -278,6 +278,7 @@ async function initializeDashboard(userData) {
     // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {
         showToggle: true, // Show Club/Global toggle for Skill, Doubles, etc.
+        userData: userData, // Pass user data for tab visibility preferences
     });
 
     // Populate subgroup options in global filter dropdown

@@ -335,6 +335,7 @@ async function initializeCoachPage(userData) {
     // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
         showToggle: true,
+        userData: userData, // Pass user data for tab visibility preferences
     });
 
     setupTabs('statistics');

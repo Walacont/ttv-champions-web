@@ -86,6 +86,14 @@ const savePrivacySettingsBtn = document.getElementById('save-privacy-settings-bt
 const privacyFeedback = document.getElementById('privacy-feedback');
 const noClubWarning = document.getElementById('no-club-warning');
 
+// Leaderboard Preferences Elements
+const leaderboardPreferencesSection = document.getElementById('leaderboard-preferences-section');
+const showEffortTab = document.getElementById('show-effort-tab');
+const showRanksTab = document.getElementById('show-ranks-tab');
+const showSeasonTab = document.getElementById('show-season-tab');
+const saveLeaderboardPreferencesBtn = document.getElementById('save-leaderboard-preferences-btn');
+const leaderboardPreferencesFeedback = document.getElementById('leaderboard-preferences-feedback');
+
 let currentUser = null;
 let currentUserData = null;
 let selectedFile = null;
@@ -115,6 +123,9 @@ onAuthStateChanged(auth, async user => {
 
             // Privacy-Einstellungen laden
             loadPrivacySettings(currentUserData);
+
+            // Leaderboard-Präferenzen laden
+            loadLeaderboardPreferences(currentUserData);
 
             // Vereinsverwaltung initialisieren
             initializeClubManagement();
@@ -711,6 +722,88 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
 
         savePrivacySettingsBtn.disabled = false;
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Einstellungen speichern';
+    }
+});
+
+/**
+ * ===============================================
+ * LEADERBOARD PREFERENCES (TAB VISIBILITY)
+ * ===============================================
+ */
+
+/**
+ * Load leaderboard tab visibility preferences
+ * @param {Object} userData - User data with leaderboardPreferences
+ */
+function loadLeaderboardPreferences(userData) {
+    // Only show this section for club members
+    const hasClub = userData.clubId && userData.clubId !== '' && userData.clubId !== 'null';
+
+    if (!hasClub || !leaderboardPreferencesSection) {
+        if (leaderboardPreferencesSection) {
+            leaderboardPreferencesSection.classList.add('hidden');
+        }
+        return;
+    }
+
+    leaderboardPreferencesSection.classList.remove('hidden');
+
+    // Load tab visibility settings (default: true for existing users, false for new club members)
+    const showEffort = userData.leaderboardPreferences?.showEffortTab !== false;
+    const showRanks = userData.leaderboardPreferences?.showRanksTab !== false;
+    const showSeason = userData.leaderboardPreferences?.showSeasonTab !== false;
+
+    showEffortTab.checked = showEffort;
+    showRanksTab.checked = showRanks;
+    showSeasonTab.checked = showSeason;
+}
+
+/**
+ * Save leaderboard preferences
+ */
+saveLeaderboardPreferencesBtn?.addEventListener('click', async () => {
+    if (!currentUser || !currentUserData) {
+        leaderboardPreferencesFeedback.textContent = 'Fehler: Nicht angemeldet';
+        leaderboardPreferencesFeedback.className = 'text-sm mt-2 text-red-600';
+        return;
+    }
+
+    try {
+        saveLeaderboardPreferencesBtn.disabled = true;
+        saveLeaderboardPreferencesBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
+        leaderboardPreferencesFeedback.textContent = '';
+
+        // Get selected values
+        const updateData = {
+            'leaderboardPreferences.showEffortTab': showEffortTab.checked,
+            'leaderboardPreferences.showRanksTab': showRanksTab.checked,
+            'leaderboardPreferences.showSeasonTab': showSeasonTab.checked,
+        };
+
+        // Update Firestore
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, updateData);
+
+        // Update local data
+        if (!currentUserData.leaderboardPreferences) {
+            currentUserData.leaderboardPreferences = {};
+        }
+        currentUserData.leaderboardPreferences.showEffortTab = showEffortTab.checked;
+        currentUserData.leaderboardPreferences.showRanksTab = showRanksTab.checked;
+        currentUserData.leaderboardPreferences.showSeasonTab = showSeasonTab.checked;
+
+        leaderboardPreferencesFeedback.textContent = '✓ Einstellungen erfolgreich gespeichert';
+        leaderboardPreferencesFeedback.className = 'text-sm mt-2 text-green-600';
+
+        saveLeaderboardPreferencesBtn.disabled = false;
+        saveLeaderboardPreferencesBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Einstellungen speichern';
+    } catch (error) {
+        console.error('Error saving leaderboard preferences:', error);
+        leaderboardPreferencesFeedback.textContent = `Fehler beim Speichern: ${error.message}`;
+        leaderboardPreferencesFeedback.className = 'text-sm mt-2 text-red-600';
+
+        saveLeaderboardPreferencesBtn.disabled = false;
+        saveLeaderboardPreferencesBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Einstellungen speichern';
     }
 });
 

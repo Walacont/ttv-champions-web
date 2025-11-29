@@ -170,9 +170,17 @@ export function setLeaderboardSubgroupFilter(subgroupId) {
  * @param {string} containerId - ID of the container element
  * @param {Object} options - Configuration options
  * @param {boolean} options.showToggle - Show Club/Global toggle (default: true)
+ * @param {Object} options.userData - User data for tab visibility preferences (optional)
  */
 export function renderLeaderboardHTML(containerId, options = {}) {
-    const { showToggle = true } = options;
+    const { showToggle = true, userData = null } = options;
+
+    // Determine which tabs to show based on user preferences
+    // Default: all tabs visible (for users without preferences or non-club members)
+    const hasClub = userData?.clubId && userData.clubId !== '' && userData.clubId !== 'null';
+    const showEffortTab = hasClub ? (userData?.leaderboardPreferences?.showEffortTab !== false) : true;
+    const showRanksTab = hasClub ? (userData?.leaderboardPreferences?.showRanksTab !== false) : true;
+    const showSeasonTab = hasClub ? (userData?.leaderboardPreferences?.showSeasonTab !== false) : true;
 
     const container = document.getElementById(containerId);
     if (!container) {
@@ -186,24 +194,30 @@ export function renderLeaderboardHTML(containerId, options = {}) {
 
             <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <div class="flex justify-center min-w-max">
+                    ${showEffortTab ? `
                     <button id="tab-effort" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
-                        <div>💪 Fleiß</div>
+                        <div>Fleiß</div>
                         <div class="text-xs text-gray-500 font-normal">(XP)</div>
                     </button>
+                    ` : ''}
+                    ${showSeasonTab ? `
                     <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
-                        <div>⭐ Season</div>
+                        <div>Season</div>
                         <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
                     </button>
+                    ` : ''}
                     <button id="tab-skill" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
-                        <div>⚡ Skill</div>
+                        <div>Skill</div>
                         <div class="text-xs text-gray-500 font-normal">(Elo)</div>
                     </button>
+                    ${showRanksTab ? `
                     <button id="tab-ranks" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
-                        <div>🏆 Ränge</div>
+                        <div>Ränge</div>
                         <div class="text-xs text-gray-500 font-normal">(Level)</div>
                     </button>
+                    ` : ''}
                     <button id="tab-doubles" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
-                        <div>🎾 Doppel</div>
+                        <div>Doppel</div>
                         <div class="text-xs text-gray-500 font-normal">(Teams)</div>
                     </button>
                 </div>

@@ -2379,12 +2379,26 @@ exports.handleClubRequest = onCall({ region: CONFIG.REGION }, async request => {
 
         if (action === 'approve') {
             // Approve: Set clubId and update request
-            batch.update(playerRef, {
+            const playerData = playerDoc.data();
+            const wasWithoutClub = !playerData.clubId || playerData.clubId === '' || playerData.clubId === 'null';
+
+            const updateData = {
                 clubId: requestData.clubId,
                 clubRequestStatus: 'approved',
                 clubRequestId: null,
                 clubJoinedAt: now,
-            });
+            };
+
+            // If player was without club, set default tab visibility for new club members
+            // Fleiß, Ränge, and Season tabs are hidden by default
+            if (wasWithoutClub) {
+                updateData['leaderboardPreferences.showEffortTab'] = false;
+                updateData['leaderboardPreferences.showRanksTab'] = false;
+                updateData['leaderboardPreferences.showSeasonTab'] = false;
+                logger.info(`Player ${requestData.playerId} was without club - hiding Fleiß, Ränge, and Season tabs by default`);
+            }
+
+            batch.update(playerRef, updateData);
 
             batch.update(requestRef, {
                 status: 'approved',
