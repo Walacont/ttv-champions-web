@@ -661,11 +661,8 @@ function renderCoachExercises(exercises, filterTag) {
                 <div class="flex items-center gap-2 mb-2">${visibilityBadge}</div>
                 <div class="pt-2">${tagsHtml}</div>
                 ${canEdit ? `
-                <div class="mt-3 flex gap-2 pointer-events-auto">
-                    <button onclick="editExercise('${exercise.id}')" class="flex-1 bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 transition-colors">
-                        Bearbeiten
-                    </button>
-                    <button onclick="deleteExercise('${exercise.id}')" class="flex-1 bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors">
+                <div class="mt-3 pointer-events-auto">
+                    <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors">
                         Löschen
                     </button>
                 </div>
