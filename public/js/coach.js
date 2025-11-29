@@ -93,6 +93,7 @@ import {
     closeExerciseModal,
     setupExercisePointsCalculation,
     setupExerciseMilestones,
+    setExerciseContext,
 } from './exercises.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { calculateHandicap } from './validation-utils.js';
@@ -406,6 +407,7 @@ async function initializeCoachPage(userData) {
     loadExercisesForDropdown(db);
     loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadExpiredChallenges(userData.clubId, db);
+    setExerciseContext(db, userData.id, userData.role);
     loadAllExercises(db);
 
     // Populate subgroup dropdowns for challenge forms

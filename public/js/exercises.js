@@ -579,12 +579,19 @@ function renderCoachExercises(exercises, filterTag) {
             )
             .join('');
 
-        // Show coach name who created the exercise (only if known)
-        const coachBadge = exercise.createdByName ? `👤 ${exercise.createdByName}` : 'System';
-
-        // Check if current user can edit/delete (only creator)
+        // Check if current user can edit/delete (creator or admin)
         const currentUserId = exerciseContext.userId;
-        const canEdit = currentUserId && exercise.createdBy === currentUserId;
+        const isCreator = currentUserId && exercise.createdBy === currentUserId;
+        const isAdmin = exerciseContext.userRole === 'admin';
+        const canEdit = isCreator || isAdmin;
+
+        // Show coach name who created the exercise (only if known)
+        // Show "Von dir erstellt" if current user is the creator
+        const coachBadge = isCreator
+            ? '✨ Von dir erstellt'
+            : exercise.createdByName
+              ? `👤 ${exercise.createdByName}`
+              : 'System';
 
         // Image or subtle placeholder
         const imageHtml = exercise.imageUrl
