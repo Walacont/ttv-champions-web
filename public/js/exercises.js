@@ -629,7 +629,7 @@ function renderCoachExercises(exercises, filterTag) {
         // Show coach name who created the exercise (only if known)
         // Show "Von dir erstellt" if current user is the creator
         const coachBadge = isCreator
-            ? '✨ Von dir erstellt'
+            ? ' Von dir erstellt'
             : exercise.createdByName
               ? `👤 ${exercise.createdByName}`
               : 'System';
