@@ -99,6 +99,22 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
         const opponentData = opponentDoc.data();
         const opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim();
 
+        // Fetch opponent's club info if they have a club
+        let opponentClubName = null;
+        if (opponentData.clubId) {
+            try {
+                const clubDoc = await getDoc(doc(db, 'clubs', opponentData.clubId));
+                if (clubDoc.exists()) {
+                    opponentClubName = clubDoc.data().name || opponentData.clubId;
+                } else {
+                    opponentClubName = opponentData.clubId;
+                }
+            } catch (error) {
+                console.warn('Could not fetch club info:', error);
+                opponentClubName = opponentData.clubId;
+            }
+        }
+
         // Query all matches between these two players
         const matchesRef = collection(db, 'matches');
 
@@ -141,7 +157,7 @@ async function loadHeadToHeadStats(db, currentUserId, opponentId) {
         const stats = calculateStats(allMatches, currentUserId);
 
         // Render the modal content
-        renderHeadToHeadContent(contentEl, opponentData, opponentName, stats, allMatches, currentUserId);
+        renderHeadToHeadContent(contentEl, opponentData, opponentName, opponentClubName, stats, allMatches, currentUserId);
 
     } catch (error) {
         console.error('Error loading head-to-head stats:', error);
@@ -218,11 +234,12 @@ function calculateStats(matches, currentUserId) {
  * @param {HTMLElement} container - Container element
  * @param {Object} opponentData - Opponent's user data
  * @param {string} opponentName - Opponent's display name
+ * @param {string} opponentClubName - Opponent's club name (or null)
  * @param {Object} stats - Statistics object
  * @param {Array} matches - Array of matches
  * @param {string} currentUserId - Current user's ID
  */
-function renderHeadToHeadContent(container, opponentData, opponentName, stats, matches, currentUserId) {
+function renderHeadToHeadContent(container, opponentData, opponentName, opponentClubName, stats, matches, currentUserId) {
     const initials = `${opponentData.firstName?.[0] || ''}${opponentData.lastName?.[0] || ''}` || 'U';
     const avatarSrc = opponentData.photoURL || `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
 
@@ -241,6 +258,7 @@ function renderHeadToHeadContent(container, opponentData, opponentName, stats, m
                  class="h-20 w-20 rounded-full object-cover border-4 border-indigo-200 shadow-md mx-auto mb-3">
             <h3 class="text-xl font-bold text-gray-900">${opponentName}</h3>
             <p class="text-sm text-gray-500">Skill: ${opponentData.eloRating || 0} ELO</p>
+            ${opponentClubName ? `<p class="text-sm text-gray-500 mt-1">${opponentClubName}</p>` : `<p class="text-sm text-gray-400 mt-1">Kein Verein</p>`}
         </div>
 
         ${stats.totalMatches === 0 ? `
@@ -251,7 +269,7 @@ function renderHeadToHeadContent(container, opponentData, opponentName, stats, m
         ` : `
             <!-- Statistics -->
             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-6 mb-6">
-                <h4 class="text-lg font-semibold text-gray-900 mb-4 text-center">🏆 Deine Bilanz</h4>
+                <h4 class="text-lg font-semibold text-gray-900 mb-4 text-center">Deine Bilanz</h4>
 
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="bg-white rounded-lg p-4 text-center shadow">
@@ -273,7 +291,7 @@ function renderHeadToHeadContent(container, opponentData, opponentName, stats, m
             ${(stats.handicap.total > 0 || stats.regular.total > 0) ? `
                 <!-- Handicap Split -->
                 <div class="mb-6">
-                    <h4 class="text-lg font-semibold text-gray-900 mb-3 text-center">📊 Handicap-Split</h4>
+                    <h4 class="text-lg font-semibold text-gray-900 mb-3 text-center">Handicap-Split</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <!-- Regular Matches -->
                         <div class="bg-gray-50 rounded-lg p-4 border-2 ${stats.regular.total > 0 ? 'border-gray-300' : 'border-gray-200 opacity-60'}">
@@ -320,18 +338,40 @@ function renderHeadToHeadContent(container, opponentData, opponentName, stats, m
 
             <!-- Match History -->
             <div class="mb-4">
-                <h4 class="text-lg font-semibold text-gray-900 mb-3">📊 Match-Historie</h4>
-                <div class="space-y-2">
-                    ${renderMatchHistory(matches.slice(0, 10), currentUserId)}
+                <h4 class="text-lg font-semibold text-gray-900 mb-3">Match-Historie</h4>
+                <div id="h2h-match-list" class="space-y-2">
+                    ${renderMatchHistory(matches.slice(0, 3), currentUserId)}
                 </div>
-                ${matches.length > 10 ? `
-                    <p class="text-xs text-gray-500 text-center mt-3">
-                        ... und ${matches.length - 10} weitere Match${matches.length - 10 !== 1 ? 'es' : ''}
-                    </p>
+                ${matches.length > 3 ? `
+                    <div class="text-center mt-4">
+                        <button id="h2h-toggle-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium px-4 py-2 rounded-md hover:bg-indigo-50 transition-colors">
+                            + ${matches.length - 3} weitere Match${matches.length - 3 !== 1 ? 'es' : ''} anzeigen
+                        </button>
+                    </div>
                 ` : ''}
             </div>
         `}
     `;
+
+    // Add toggle functionality for match history
+    if (matches.length > 3) {
+        let showingAll = false;
+        const toggleBtn = document.getElementById('h2h-toggle-btn');
+        const matchList = document.getElementById('h2h-match-list');
+
+        if (toggleBtn && matchList) {
+            toggleBtn.addEventListener('click', () => {
+                showingAll = !showingAll;
+                if (showingAll) {
+                    matchList.innerHTML = renderMatchHistory(matches, currentUserId);
+                    toggleBtn.innerHTML = '− Weniger anzeigen';
+                } else {
+                    matchList.innerHTML = renderMatchHistory(matches.slice(0, 3), currentUserId);
+                    toggleBtn.innerHTML = `+ ${matches.length - 3} weitere Match${matches.length - 3 !== 1 ? 'es' : ''} anzeigen`;
+                }
+            });
+        }
+    }
 }
 
 /**
@@ -355,19 +395,18 @@ function renderMatchHistory(matches, currentUserId) {
         const setsDisplay = formatSets(match.sets, isPlayerA);
 
         return `
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl">${isWinner ? '🏆' : '😔'}</span>
-                    <div>
+            <div class="flex items-center justify-between p-3 ${isWinner ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'} rounded-lg">
+                <div class="flex-1">
+                    <div class="flex items-center justify-between">
                         <p class="text-sm font-semibold ${isWinner ? 'text-green-700' : 'text-red-700'}">
                             ${isWinner ? 'Sieg' : 'Niederlage'}
                         </p>
-                        <p class="text-xs text-gray-500">${formattedDate}</p>
+                        <p class="text-sm font-mono font-medium text-gray-800">${setsDisplay}</p>
                     </div>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm font-mono font-medium text-gray-800">${setsDisplay}</p>
-                    ${match.handicapUsed ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Handicap</span>' : ''}
+                    <div class="flex items-center justify-between mt-1">
+                        <p class="text-xs text-gray-500">${formattedDate}</p>
+                        ${match.handicapUsed ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Handicap</span>' : ''}
+                    </div>
                 </div>
             </div>
         `;
