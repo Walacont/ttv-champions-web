@@ -448,6 +448,8 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         let actualPartnerPointsChange = 0; // For partner feedback
         let actualPartnerXPChange = 0; // For partner feedback
         let partnerName = ''; // For feedback
+        let savedExerciseDoc = null; // For post-transaction club name update
+        let savedPlayerData = null; // For post-transaction club name update
 
         await runTransaction(db, async transaction => {
             // ===== PHASE 1: ALL READS FIRST =====
@@ -457,6 +459,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
             if (!playerDoc.exists()) throw new Error('Spieler nicht gefunden.');
 
             const playerData = playerDoc.data();
+            savedPlayerData = playerData; // Save for post-transaction use
             let grundlagenCount = playerData.grundlagenCompleted || 0;
             let isGrundlagenExercise = false;
 
@@ -507,6 +510,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                     // Also load exercise doc for record holder tracking
                     const exerciseRef = doc(db, 'exercises', exerciseId);
                     exerciseDoc = await transaction.get(exerciseRef);
+                    savedExerciseDoc = exerciseDoc; // Save for post-transaction use
                 }
             }
 
@@ -823,13 +827,13 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 const milestoneCountInput = document.getElementById('milestone-count-input');
                 const enteredCount = parseInt(milestoneCountInput?.value);
 
-                if (enteredCount && exerciseDoc && exerciseDoc.exists()) {
-                    const exerciseData = exerciseDoc.data();
+                if (enteredCount && savedExerciseDoc && savedExerciseDoc.exists()) {
+                    const exerciseData = savedExerciseDoc.data();
                     const currentRecord = exerciseData.recordCount || 0;
 
                     // If new record was set, update club name
                     if (enteredCount > currentRecord) {
-                        const playerClubId = playerData.clubId;
+                        const playerClubId = savedPlayerData?.clubId;
                         if (playerClubId) {
                             const clubRef = doc(db, 'clubs', playerClubId);
                             const clubSnap = await getDoc(clubRef);
