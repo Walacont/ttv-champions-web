@@ -857,11 +857,26 @@ async function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+        // Filter by age group or gender if selected (subgroups are club-specific, not applied globally)
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else if (isGenderFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByGender(players, currentLeaderboardSubgroupFilter);
+            }
+            // Note: subgroup filters are not applied to global leaderboards
+        }
+
         // Filter by privacy settings (showInLeaderboards)
         players = filterPlayersByPrivacy(players, userData);
 
         // Filter test club players
         players = filterTestClubPlayers(players, userData, clubsMap);
+
+        if (players.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
+            return;
+        }
 
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.skillGlobal
