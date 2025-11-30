@@ -17,6 +17,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { RANK_ORDER } from './ranks.js';
 import { loadCompetitionStatistics, cleanupCompetitionStatistics } from './competition-statistics.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
 
 // Chart instances (global to allow cleanup)
 let attendanceTrendChart = null;
@@ -218,20 +219,19 @@ async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
 
         let players = [];
         snapshot.forEach(doc => {
-            const playerData = { id: doc.id, ...doc.data() };
-
-            // Filter by subgroup
-            if (currentSubgroupFilter !== 'all') {
-                if (
-                    playerData.subgroupIDs &&
-                    playerData.subgroupIDs.includes(currentSubgroupFilter)
-                ) {
-                    players.push(playerData);
-                }
-            } else {
-                players.push(playerData);
-            }
+            players.push({ id: doc.id, ...doc.data() });
         });
+
+        // Filter by subgroup or age group
+        if (currentSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentSubgroupFilter)
+                );
+            }
+        }
 
         // Calculate team statistics
         const teamSize = players.length;

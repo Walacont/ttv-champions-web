@@ -118,11 +118,15 @@ export function handleGeneratePairings(
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup if not "all"
+    // Filter by subgroup or age group if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(
-            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-        );
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            matchReadyAndPresentPlayers = filterPlayersByAgeGroup(matchReadyAndPresentPlayers, currentSubgroupFilter);
+        } else {
+            matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
     }
 
     matchReadyAndPresentPlayers.sort((a, b) => (a.eloRating || 0) - (b.eloRating || 0));
@@ -382,11 +386,15 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup if not "all"
+    // Filter by subgroup or age group if not "all"
     if (currentSubgroupFilter !== 'all') {
-        eligiblePlayers = eligiblePlayers.filter(
-            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-        );
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            eligiblePlayers = filterPlayersByAgeGroup(eligiblePlayers, currentSubgroupFilter);
+        } else {
+            eligiblePlayers = eligiblePlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
     }
 
     const eligiblePlayerCount = eligiblePlayers.length;

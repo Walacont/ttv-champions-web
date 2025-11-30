@@ -6,6 +6,7 @@ import {
     getDocs,
     getDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
 
 /**
  * Match Suggestions Module
@@ -360,13 +361,17 @@ export async function loadMatchSuggestions(
             allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs }))
         );
 
-        // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
+        // Apply subgroup or age group filter in JavaScript if needed
         // Note: Players can be in multiple subgroups, so we check if the array includes the filter
         if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-            console.log('[Match Suggestions] Applying subgroup filter:', subgroupFilter);
-            allPlayers = allPlayers.filter(player =>
-                (player.subgroupIDs || []).includes(subgroupFilter)
-            );
+            console.log('[Match Suggestions] Applying filter:', subgroupFilter);
+            if (isAgeGroupFilter(subgroupFilter)) {
+                allPlayers = filterPlayersByAgeGroup(allPlayers, subgroupFilter);
+            } else {
+                allPlayers = allPlayers.filter(player =>
+                    (player.subgroupIDs || []).includes(subgroupFilter)
+                );
+            }
             console.log('[Match Suggestions] Players after filter:', allPlayers.length);
         }
 

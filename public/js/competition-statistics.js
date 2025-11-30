@@ -9,6 +9,7 @@ import {
     where,
     getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { isAgeGroupFilter, calculateAge, isInAgeGroup } from './ui-utils.js';
 
 // Chart instance (global to allow cleanup)
 let competitionActivityChart = null;
@@ -39,11 +40,21 @@ export async function loadCompetitionStatistics(userData, db, currentSubgroupFil
         const playerIds = [];
         const coachIds = [];
 
-        // Collect player IDs and coach IDs
+        // Collect player IDs based on filter
         usersSnapshot.forEach(doc => {
             const user = doc.data();
-            if (currentSubgroupFilter === 'all' ||
-                (user.subgroupIDs && user.subgroupIDs.includes(currentSubgroupFilter))) {
+            let includePlayer = false;
+
+            if (currentSubgroupFilter === 'all') {
+                includePlayer = true;
+            } else if (isAgeGroupFilter(currentSubgroupFilter)) {
+                const age = calculateAge(user.birthdate);
+                includePlayer = isInAgeGroup(age, currentSubgroupFilter);
+            } else {
+                includePlayer = user.subgroupIDs && user.subgroupIDs.includes(currentSubgroupFilter);
+            }
+
+            if (includePlayer) {
                 playerIds.push(doc.id);
             }
         });
