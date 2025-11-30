@@ -523,16 +523,35 @@ async function handleUpdateExercise(e) {
 
 async function loadStatistics() {
     try {
+        // Load clubs to identify test clubs
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+        const testClubIds = new Set();
+        clubsSnapshot.forEach(doc => {
+            const club = doc.data();
+            if (club.isTestClub === true) {
+                testClubIds.add(doc.id);
+            }
+        });
+
         const usersSnapshot = await getDocs(collection(db, 'users'));
-        const users = usersSnapshot.docs.map(doc => doc.data());
+        // Filter out users from test clubs
+        const users = usersSnapshot.docs
+            .map(doc => doc.data())
+            .filter(u => !u.clubId || !testClubIds.has(u.clubId));
 
         const attendanceSnapshot = await getDocs(collection(db, 'attendance'));
-        const attendances = attendanceSnapshot.docs.map(doc => doc.data());
+        // Filter out attendance from test clubs
+        const attendances = attendanceSnapshot.docs
+            .map(doc => doc.data())
+            .filter(a => !a.clubId || !testClubIds.has(a.clubId));
+
+        // Count non-test clubs
+        const realClubIds = new Set(
+            users.map(u => u.clubId).filter(id => id && !testClubIds.has(id))
+        );
 
         document.getElementById('stats-total-users').textContent = users.length;
-        document.getElementById('stats-total-clubs').textContent = new Set(
-            users.map(u => u.clubId).filter(Boolean)
-        ).size;
+        document.getElementById('stats-total-clubs').textContent = realClubIds.size;
         document.getElementById('stats-total-points').textContent = users.reduce(
             (sum, u) => sum + (u.points || 0),
             0
@@ -567,8 +586,8 @@ async function loadStatistics() {
         renderGenderChart(genderCounts);
         renderAttendanceChart(sortedMonths, attendanceByMonth);
 
-        // Load global competition statistics
-        await loadGlobalCompetitionStatistics();
+        // Load global competition statistics (pass test club IDs to exclude)
+        await loadGlobalCompetitionStatistics(testClubIds);
     } catch (error) {
         console.error('Fehler beim Laden der Statistiken:', error);
         document.getElementById('statistics-section').innerHTML =
@@ -621,9 +640,10 @@ function renderAttendanceChart(labels, data) {
 }
 
 /**
- * Load global competition statistics (all matches from all clubs)
+ * Load global competition statistics (all matches from all clubs, excluding test clubs)
+ * @param {Set} testClubIds - Set of test club IDs to exclude
  */
-async function loadGlobalCompetitionStatistics() {
+async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
     try {
         // Fetch all singles matches
         const matchesRef = collection(db, 'matches');
@@ -633,11 +653,13 @@ async function loadGlobalCompetitionStatistics() {
         const doublesMatchesRef = collection(db, 'doublesMatches');
         const doublesSnapshot = await getDocs(doublesMatchesRef);
 
-        // Process all matches
+        // Process all matches (exclude test clubs)
         competitionMatchData = [];
 
         singlesSnapshot.forEach(doc => {
             const data = doc.data();
+            // Skip matches from test clubs
+            if (data.clubId && testClubIds.has(data.clubId)) return;
             competitionMatchData.push({
                 date: data.createdAt?.toDate() || new Date(data.createdAt),
                 type: 'singles',
@@ -646,6 +668,8 @@ async function loadGlobalCompetitionStatistics() {
 
         doublesSnapshot.forEach(doc => {
             const data = doc.data();
+            // Skip matches from test clubs
+            if (data.clubId && testClubIds.has(data.clubId)) return;
             competitionMatchData.push({
                 date: data.createdAt?.toDate() || new Date(data.createdAt),
                 type: 'doubles',
@@ -901,6 +925,22 @@ function getWeekNumber(date) {
 }
 
 /**
+ * Calculate smart step size for Y-axis based on max value
+ * @param {number} maxValue - Maximum value in the data
+ * @returns {number} - Appropriate step size
+ */
+function calculateSmartStepSize(maxValue) {
+    if (maxValue <= 10) return 1;
+    if (maxValue <= 25) return 5;
+    if (maxValue <= 50) return 10;
+    if (maxValue <= 100) return 20;
+    if (maxValue <= 250) return 50;
+    if (maxValue <= 500) return 100;
+    if (maxValue <= 1000) return 200;
+    return Math.ceil(maxValue / 10 / 50) * 50; // Round to nearest 50
+}
+
+/**
  * Render competition activity chart
  */
 function renderCompetitionChart(labels, data) {
@@ -909,6 +949,10 @@ function renderCompetitionChart(labels, data) {
 
     const ctx = canvas.getContext('2d');
     if (competitionChartInstance) competitionChartInstance.destroy();
+
+    // Calculate smart step size based on max value
+    const maxValue = Math.max(...data, 0);
+    const stepSize = calculateSmartStepSize(maxValue);
 
     competitionChartInstance = new Chart(ctx, {
         type: 'bar',
@@ -928,7 +972,15 @@ function renderCompetitionChart(labels, data) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { stepSize: 1 },
+                    ticks: {
+                        stepSize: stepSize,
+                        callback: function(value) {
+                            // Only show whole numbers
+                            if (Math.floor(value) === value) {
+                                return value;
+                            }
+                        }
+                    },
                 },
             },
             plugins: {
