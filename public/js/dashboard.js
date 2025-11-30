@@ -834,9 +834,10 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
                 // Global view doesn't use subgroup filter
                 loadGlobalLB(userData, db, unsubscribes);
             } else {
-                // Specific subgroup - set the filter
+                // Specific subgroup (including age groups and gender) - set the filter
                 setLeaderboardSubgroupFilter(currentSubgroupFilter);
                 loadLB(userData, db, unsubscribes);
+                loadGlobalLB(userData, db, unsubscribes);
             }
         }
     );
