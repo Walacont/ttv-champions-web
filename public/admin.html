@@ -269,10 +269,12 @@
                             </div>
                         </div>
 
-                        <!-- Chart -->
+                        <!-- Chart (fixed height container) -->
                         <div class="bg-gray-50 p-4 rounded-lg">
                             <h3 class="text-lg font-semibold mb-4">Aktivitäts-Übersicht</h3>
-                            <canvas id="admin-competition-activity-chart" height="80"></canvas>
+                            <div style="height: 250px; max-height: 250px;">
+                                <canvas id="admin-competition-activity-chart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </section>
