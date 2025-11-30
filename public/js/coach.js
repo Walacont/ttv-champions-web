@@ -54,6 +54,7 @@ import {
     loadGlobalLeaderboard,
     renderLeaderboardHTML,
     setLeaderboardSubgroupFilter,
+    setLeaderboardGenderFilter,
 } from './leaderboard.js';
 import {
     renderCalendar,
@@ -192,6 +193,7 @@ let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
 let currentSubgroupFilter = 'all';
+let currentGenderFilter = 'all';
 let calendarUnsubscribe = null;
 let descriptionEditor = null;
 
@@ -805,6 +807,15 @@ async function initializeCoachPage(userData) {
         handleSubgroupFilterChange(userData);
     });
 
+    // Gender Filter
+    const genderFilterDropdown = document.getElementById('coach-gender-filter');
+    if (genderFilterDropdown) {
+        genderFilterDropdown.addEventListener('change', e => {
+            currentGenderFilter = e.target.value;
+            handleGenderFilterChange(userData);
+        });
+    }
+
     // Intervals
     updateSeasonCountdown('season-countdown-coach', false, db);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, db), 1000);
@@ -965,8 +976,9 @@ function handleSubgroupFilterChange(userData) {
     // Update attendance module's filter
     setAttendanceSubgroupFilter(currentSubgroupFilter);
 
-    // Update leaderboard module's filter
+    // Update leaderboard module's filters (both subgroup and gender)
     setLeaderboardSubgroupFilter(currentSubgroupFilter);
+    setLeaderboardGenderFilter(currentGenderFilter);
 
     // Reload calendar/attendance view
     if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -996,6 +1008,21 @@ function handleSubgroupFilterChange(userData) {
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, db, currentSubgroupFilter);
     }
+}
+
+/**
+ * Handles gender filter changes - reloads leaderboards with combined filters
+ * @param {Object} userData - Current user data
+ */
+function handleGenderFilterChange(userData) {
+    console.log(`[Coach] Gender filter changed to: ${currentGenderFilter}`);
+
+    // Update leaderboard module's gender filter
+    setLeaderboardGenderFilter(currentGenderFilter);
+
+    // Reload leaderboards with updated gender filter
+    loadLeaderboard(userData, db, []);
+    loadGlobalLeaderboard(userData, db, []);
 }
 
 // Global challenge handlers (called from onclick in HTML)
