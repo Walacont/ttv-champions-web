@@ -12,6 +12,7 @@ import {
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
 import { showHeadToHeadModal } from './head-to-head.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
 
 // Module state for subgroup filtering
 let currentLeaderboardSubgroupFilter = 'all';
@@ -506,11 +507,15 @@ async function loadSkillLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -578,11 +583,15 @@ async function loadEffortLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -650,11 +659,15 @@ async function loadSeasonLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -721,11 +734,15 @@ async function loadRanksView(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
 
         // Filter by privacy settings (showInLeaderboards)

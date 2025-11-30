@@ -40,7 +40,7 @@ import {
     closeExerciseModal,
     setExerciseContext,
 } from './exercises.js';
-import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
 import {
     loadOverviewData,
@@ -701,24 +701,45 @@ function populatePlayerSubgroupFilter(userData, db) {
                 );
 
                 // Update dropdown
-                const clubOption = createOption('club', '🏠 Mein Verein');
-                const globalOption = createOption('global', '🌍 Global');
                 dropdown.innerHTML = '';
 
-                // Add subgroup options first (if any)
+                // Add club and global options first
+                const clubOption = createOption('club', '🏠 Mein Verein');
+                const globalOption = createOption('global', '🌍 Global');
+                dropdown.appendChild(clubOption);
+                dropdown.appendChild(globalOption);
+
+                // Add Youth Age Groups
+                const youthGroup = document.createElement('optgroup');
+                youthGroup.label = '👶 Jugend (nach Alter)';
+                AGE_GROUPS.youth.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    youthGroup.appendChild(option);
+                });
+                dropdown.appendChild(youthGroup);
+
+                // Add Senior Age Groups
+                const seniorGroup = document.createElement('optgroup');
+                seniorGroup.label = '👴 Senioren (nach Alter)';
+                AGE_GROUPS.seniors.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    seniorGroup.appendChild(option);
+                });
+                dropdown.appendChild(seniorGroup);
+
+                // Add user's custom subgroups (if any)
                 if (userSubgroups.length > 0) {
+                    const customGroup = document.createElement('optgroup');
+                    customGroup.label = '📁 Meine Untergruppen';
                     userSubgroups.forEach(subgroup => {
                         const option = createOption(
                             `subgroup:${subgroup.id}`,
-                            `👥 ${subgroup.name}`
+                            subgroup.name
                         );
-                        dropdown.appendChild(option);
+                        customGroup.appendChild(option);
                     });
+                    dropdown.appendChild(customGroup);
                 }
-
-                // Add club and global options
-                dropdown.appendChild(clubOption);
-                dropdown.appendChild(globalOption);
 
                 // Restore selection if still valid
                 const validValues = Array.from(dropdown.options).map(opt => opt.value);
@@ -766,6 +787,9 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
         currentSubgroupFilter = 'global';
     } else if (selectedValue.startsWith('subgroup:')) {
         currentSubgroupFilter = selectedValue.replace('subgroup:', '');
+    } else {
+        // Age group filter (u11, u13, o40, etc.)
+        currentSubgroupFilter = selectedValue;
     }
 
     console.log(`[Player] Subgroup filter changed to: ${currentSubgroupFilter}`);

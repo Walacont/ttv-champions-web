@@ -610,3 +610,115 @@ export function throttle(fn, limit = 100) {
     };
 }
 
+// ============================================
+// AGE GROUP UTILITIES
+// ============================================
+
+/**
+ * Age group definitions for automatic filtering
+ * Youth groups (under X years) and Senior groups (over X years)
+ */
+export const AGE_GROUPS = {
+    youth: [
+        { id: 'u11', label: 'U11', maxAge: 10 },
+        { id: 'u13', label: 'U13', maxAge: 12 },
+        { id: 'u15', label: 'U15', maxAge: 14 },
+        { id: 'u17', label: 'U17', maxAge: 16 },
+        { id: 'u19', label: 'U19', maxAge: 18 },
+    ],
+    seniors: [
+        { id: 'o40', label: 'Ü40', minAge: 40 },
+        { id: 'o45', label: 'Ü45', minAge: 45 },
+        { id: 'o50', label: 'Ü50', minAge: 50 },
+        { id: 'o55', label: 'Ü55', minAge: 55 },
+        { id: 'o60', label: 'Ü60', minAge: 60 },
+        { id: 'o65', label: 'Ü65', minAge: 65 },
+        { id: 'o70', label: 'Ü70', minAge: 70 },
+        { id: 'o75', label: 'Ü75', minAge: 75 },
+        { id: 'o80', label: 'Ü80', minAge: 80 },
+        { id: 'o85', label: 'Ü85', minAge: 85 },
+    ],
+};
+
+/**
+ * Calculates age from birthdate
+ * @param {Object|Date|string} birthdate - Firestore timestamp, Date object, or date string
+ * @returns {number|null} Age in years, or null if birthdate is invalid
+ */
+export function calculateAge(birthdate) {
+    if (!birthdate) return null;
+
+    let date;
+    if (birthdate.toDate) {
+        // Firestore Timestamp
+        date = birthdate.toDate();
+    } else if (birthdate instanceof Date) {
+        date = birthdate;
+    } else {
+        date = new Date(birthdate);
+    }
+
+    if (isNaN(date.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - date.getFullYear();
+    const monthDiff = today.getMonth() - date.getMonth();
+
+    // Adjust if birthday hasn't occurred yet this year
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < date.getDate())) {
+        age--;
+    }
+
+    return age;
+}
+
+/**
+ * Checks if a player belongs to a specific age group
+ * @param {number} age - Player's age
+ * @param {string} ageGroupId - Age group ID (e.g., 'u15', 'o40')
+ * @returns {boolean} True if player belongs to the age group
+ */
+export function isInAgeGroup(age, ageGroupId) {
+    if (age === null || age === undefined) return false;
+
+    // Check youth groups
+    const youthGroup = AGE_GROUPS.youth.find(g => g.id === ageGroupId);
+    if (youthGroup) {
+        return age <= youthGroup.maxAge;
+    }
+
+    // Check senior groups
+    const seniorGroup = AGE_GROUPS.seniors.find(g => g.id === ageGroupId);
+    if (seniorGroup) {
+        return age >= seniorGroup.minAge;
+    }
+
+    return false;
+}
+
+/**
+ * Filters players by age group
+ * @param {Array} players - Array of player objects with birthdate field
+ * @param {string} ageGroupId - Age group ID (e.g., 'u15', 'o40')
+ * @returns {Array} Filtered players
+ */
+export function filterPlayersByAgeGroup(players, ageGroupId) {
+    return players.filter(player => {
+        const age = calculateAge(player.birthdate);
+        return isInAgeGroup(age, ageGroupId);
+    });
+}
+
+/**
+ * Checks if a filter value is an age group
+ * @param {string} filterValue - Filter value to check
+ * @returns {boolean} True if it's an age group filter
+ */
+export function isAgeGroupFilter(filterValue) {
+    if (!filterValue) return false;
+    return (
+        AGE_GROUPS.youth.some(g => g.id === filterValue) ||
+        AGE_GROUPS.seniors.some(g => g.id === filterValue)
+    );
+}
+

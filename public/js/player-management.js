@@ -16,6 +16,7 @@ import {
     handlePostPlayerCreationInvitation,
     openSendInvitationModal,
 } from './player-invitation-management.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
 
 /**
  * Player Management Module
@@ -460,22 +461,26 @@ export function loadPlayersForDropdown(clubId, db) {
 }
 
 /**
- * Updates the points player dropdown based on subgroup filter
+ * Updates the points player dropdown based on subgroup or age group filter
  * @param {Array} clubPlayers - Array of all club players
- * @param {string} subgroupFilter - Current subgroup filter ('all' or subgroup ID)
+ * @param {string} subgroupFilter - Current subgroup filter ('all', age group ID, or subgroup ID)
  */
 export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
     const select = document.getElementById('player-select');
     if (!select) return;
 
-    // Filter players based on subgroup
-    const filteredPlayers =
-        subgroupFilter === 'all'
-            ? clubPlayers
-            : clubPlayers.filter(p => {
-                  const subgroupIDs = p.subgroupIDs || [];
-                  return subgroupIDs.includes(subgroupFilter);
-              });
+    // Filter players based on subgroup or age group
+    let filteredPlayers;
+    if (subgroupFilter === 'all') {
+        filteredPlayers = clubPlayers;
+    } else if (isAgeGroupFilter(subgroupFilter)) {
+        filteredPlayers = filterPlayersByAgeGroup(clubPlayers, subgroupFilter);
+    } else {
+        filteredPlayers = clubPlayers.filter(p => {
+            const subgroupIDs = p.subgroupIDs || [];
+            return subgroupIDs.includes(subgroupFilter);
+        });
+    }
 
     // Populate dropdown with filtered players
     const currentValue = select.value; // Preserve selection if possible

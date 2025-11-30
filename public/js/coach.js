@@ -117,7 +117,7 @@ import {
     getCurrentMatchType,
     setDoublesSetScoreInput,
 } from './doubles-coach-ui.js';
-import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS } from './ui-utils.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -853,7 +853,7 @@ async function checkAndStartTutorial(userData) {
 }
 
 /**
- * Populates the subgroup filter dropdown
+ * Populates the subgroup filter dropdown with age groups and custom subgroups
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
  */
@@ -864,27 +864,63 @@ function populateSubgroupFilter(clubId, db) {
     const q = query(
         collection(db, 'subgroups'),
         where('clubId', '==', clubId),
-        orderBy('createdAt', 'asc') // 'createdAt' muss existieren
+        orderBy('createdAt', 'asc')
     );
 
     onSnapshot(
         q,
         snapshot => {
-            // Keep the "Alle" option
             const currentValue = select.value;
-            select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
+            select.innerHTML = '';
 
+            // Add "Alle" option
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Alle (Gesamtverein)';
+            select.appendChild(allOption);
+
+            // Add Youth Age Groups
+            const youthGroup = document.createElement('optgroup');
+            youthGroup.label = '👶 Jugend (nach Alter)';
+            AGE_GROUPS.youth.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
+                youthGroup.appendChild(option);
+            });
+            select.appendChild(youthGroup);
+
+            // Add Senior Age Groups
+            const seniorGroup = document.createElement('optgroup');
+            seniorGroup.label = '👴 Senioren (nach Alter)';
+            AGE_GROUPS.seniors.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
+                seniorGroup.appendChild(option);
+            });
+            select.appendChild(seniorGroup);
+
+            // Add Custom Subgroups
+            const customSubgroups = [];
             snapshot.forEach(doc => {
                 const subgroup = doc.data();
-                // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
-                if (subgroup.isDefault) {
-                    return;
+                if (!subgroup.isDefault) {
+                    customSubgroups.push({ id: doc.id, ...subgroup });
                 }
-                const option = document.createElement('option');
-                option.value = doc.id;
-                option.textContent = subgroup.name;
-                select.appendChild(option);
             });
+
+            if (customSubgroups.length > 0) {
+                const customGroup = document.createElement('optgroup');
+                customGroup.label = '📁 Untergruppen';
+                customSubgroups.forEach(subgroup => {
+                    const option = document.createElement('option');
+                    option.value = subgroup.id;
+                    option.textContent = subgroup.name;
+                    customGroup.appendChild(option);
+                });
+                select.appendChild(customGroup);
+            }
 
             // Restore previous selection if it still exists
             if (

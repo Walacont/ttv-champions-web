@@ -13,7 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { createSetScoreInput } from './player-matches.js';
 import { calculateHandicap } from './validation-utils.js';
-import { formatDate } from './ui-utils.js';
+import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
 
 /**
  * Matches Module
@@ -630,11 +630,17 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         return grundlagen < 5;
     });
 
-    // Filter by subgroup if not "all"
+    // Filter by subgroup or age group if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyPlayers = matchReadyPlayers.filter(
-            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-        );
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            // Filter by age group
+            matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+        } else {
+            // Filter by custom subgroup
+            matchReadyPlayers = matchReadyPlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
     }
 
     // Show warning if not enough match-ready players
