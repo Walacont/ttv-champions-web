@@ -4,7 +4,7 @@
  * Testet das neue Punktesystem:
  * - ELO startet bei 800
  * - Season Points = Elo-Gewinn × 0.2
- * - Elo-Gates: [850, 900, 1000, 1100, 1300, 1600]
+ * - Elo-Gates: [800, 850, 900, 1000, 1100, 1300, 1600] (800 is absolute floor)
  * - Handicap: ±8 Elo fix
  */
 
@@ -208,14 +208,14 @@ describe('ELO Calculation System', () => {
             // Player at 1600, loses massively → should go to 1500, but gate protects
             expect(applyEloGate(1500, 1600, 1600)).toBe(1600);
 
-            // Player at 800, no gate → can fall below
-            expect(applyEloGate(750, 800, 800)).toBe(750);
+            // Player at 800 → cannot fall below 800 (absolute floor)
+            expect(applyEloGate(750, 800, 800)).toBe(800);
         });
 
         test('should handle null/undefined highestElo', () => {
-            // New player at 800, no highestElo → no gate protection
-            expect(applyEloGate(784, 800, null)).toBe(784);
-            expect(applyEloGate(784, 800, undefined)).toBe(784);
+            // New player at 800, no highestElo → 800 gate still protects (absolute floor)
+            expect(applyEloGate(784, 800, null)).toBe(800);
+            expect(applyEloGate(784, 800, undefined)).toBe(800);
         });
     });
 
@@ -237,7 +237,7 @@ describe('ELO Calculation System', () => {
             const seasonPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
 
             expect(newWinnerElo).toBe(816);
-            expect(protectedLoserElo).toBe(784); // No gate protection
+            expect(protectedLoserElo).toBe(800); // 800 is absolute floor
             expect(seasonPoints).toBe(3); // 16 × 0.2 = 3.2 → 3
         });
 

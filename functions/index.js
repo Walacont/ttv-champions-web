@@ -29,7 +29,8 @@ const CONFIG = {
         SEASON_POINT_FACTOR: 0.2, // Season Points = Elo-Gewinn × 0.2
         HANDICAP_SEASON_POINTS: 8, // Feste Punktzahl für Handicap-Spiele
         // Elo Gates: Once reached, Elo can never fall below these thresholds
-        GATES: [850, 900, 1000, 1100, 1300, 1600],
+        // 800 is the absolute floor - no player can ever fall below
+        GATES: [800, 850, 900, 1000, 1100, 1300, 1600],
     },
     REGION: 'europe-west3',
 };
