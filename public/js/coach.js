@@ -117,7 +117,7 @@ import {
     getCurrentMatchType,
     setDoublesSetScoreInput,
 } from './doubles-coach-ui.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -908,6 +908,17 @@ function populateSubgroupFilter(clubId, db) {
                 seniorGroup.appendChild(option);
             });
             select.appendChild(seniorGroup);
+
+            // Add Gender Groups
+            const genderGroup = document.createElement('optgroup');
+            genderGroup.label = 'Geschlecht';
+            GENDER_GROUPS.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
+                genderGroup.appendChild(option);
+            });
+            select.appendChild(genderGroup);
 
             // Add Custom Subgroups
             const customSubgroups = [];

@@ -9,7 +9,7 @@ import {
     where,
     getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import { isAgeGroupFilter, calculateAge, isInAgeGroup } from './ui-utils.js';
+import { isAgeGroupFilter, calculateAge, isInAgeGroup, isGenderFilter } from './ui-utils.js';
 
 // Chart instance (global to allow cleanup)
 let competitionActivityChart = null;
@@ -50,6 +50,8 @@ export async function loadCompetitionStatistics(userData, db, currentSubgroupFil
             } else if (isAgeGroupFilter(currentSubgroupFilter)) {
                 const age = calculateAge(user.birthdate);
                 includePlayer = isInAgeGroup(age, currentSubgroupFilter);
+            } else if (isGenderFilter(currentSubgroupFilter)) {
+                includePlayer = user.gender === currentSubgroupFilter;
             } else {
                 includePlayer = user.subgroupIDs && user.subgroupIDs.includes(currentSubgroupFilter);
             }

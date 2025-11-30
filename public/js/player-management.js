@@ -16,7 +16,7 @@ import {
     handlePostPlayerCreationInvitation,
     openSendInvitationModal,
 } from './player-invitation-management.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
  * Player Management Module
@@ -469,12 +469,14 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
     const select = document.getElementById('player-select');
     if (!select) return;
 
-    // Filter players based on subgroup or age group
+    // Filter players based on subgroup, age group, or gender
     let filteredPlayers;
     if (subgroupFilter === 'all') {
         filteredPlayers = clubPlayers;
     } else if (isAgeGroupFilter(subgroupFilter)) {
         filteredPlayers = filterPlayersByAgeGroup(clubPlayers, subgroupFilter);
+    } else if (isGenderFilter(subgroupFilter)) {
+        filteredPlayers = filterPlayersByGender(clubPlayers, subgroupFilter);
     } else {
         filteredPlayers = clubPlayers.filter(p => {
             const subgroupIDs = p.subgroupIDs || [];

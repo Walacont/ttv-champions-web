@@ -13,7 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { createSetScoreInput } from './player-matches.js';
 import { calculateHandicap } from './validation-utils.js';
-import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
+import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
  * Matches Module
@@ -118,10 +118,12 @@ export function handleGeneratePairings(
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup or age group if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             matchReadyAndPresentPlayers = filterPlayersByAgeGroup(matchReadyAndPresentPlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            matchReadyAndPresentPlayers = filterPlayersByGender(matchReadyAndPresentPlayers, currentSubgroupFilter);
         } else {
             matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
@@ -386,10 +388,12 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup or age group if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             eligiblePlayers = filterPlayersByAgeGroup(eligiblePlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            eligiblePlayers = filterPlayersByGender(eligiblePlayers, currentSubgroupFilter);
         } else {
             eligiblePlayers = eligiblePlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
@@ -638,13 +642,13 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         return grundlagen < 5;
     });
 
-    // Filter by subgroup or age group if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
-            // Filter by age group
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
         } else {
-            // Filter by custom subgroup
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
             );

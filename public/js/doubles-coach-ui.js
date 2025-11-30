@@ -1,6 +1,6 @@
 import { saveDoublesMatch } from './doubles-matches.js';
 import { createSetScoreInput } from './player-matches.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
  * Doubles Coach UI Module
@@ -131,10 +131,12 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
         return isMatchReady;
     });
 
-    // Filter by subgroup or age group if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
         } else {
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)

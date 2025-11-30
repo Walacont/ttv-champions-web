@@ -17,7 +17,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { RANK_ORDER } from './ranks.js';
 import { loadCompetitionStatistics, cleanupCompetitionStatistics } from './competition-statistics.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 // Chart instances (global to allow cleanup)
 let attendanceTrendChart = null;
@@ -222,10 +222,12 @@ async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
             players.push({ id: doc.id, ...doc.data() });
         });
 
-        // Filter by subgroup or age group
+        // Filter by subgroup, age group, or gender
         if (currentSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentSubgroupFilter);
+            } else if (isGenderFilter(currentSubgroupFilter)) {
+                players = filterPlayersByGender(players, currentSubgroupFilter);
             } else {
                 players = players.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(currentSubgroupFilter)

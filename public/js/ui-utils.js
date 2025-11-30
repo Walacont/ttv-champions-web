@@ -644,6 +644,15 @@ export const AGE_GROUPS = {
 };
 
 /**
+ * Gender filter definitions
+ */
+export const GENDER_GROUPS = [
+    { id: 'male', label: 'Männlich', value: 'male' },
+    { id: 'female', label: 'Weiblich', value: 'female' },
+    { id: 'other', label: 'Divers', value: 'other' },
+];
+
+/**
  * Calculates age from birthdate
  * @param {Object|Date|string} birthdate - Firestore timestamp, Date object, or date string
  * @returns {number|null} Age in years, or null if birthdate is invalid
@@ -730,5 +739,28 @@ export function isAgeGroupFilter(filterValue) {
         AGE_GROUPS.adults.some(g => g.id === filterValue) ||
         AGE_GROUPS.seniors.some(g => g.id === filterValue)
     );
+}
+
+/**
+ * Checks if a filter value is a gender filter
+ * @param {string} filterValue - Filter value to check
+ * @returns {boolean} True if it's a gender filter
+ */
+export function isGenderFilter(filterValue) {
+    if (!filterValue) return false;
+    return GENDER_GROUPS.some(g => g.id === filterValue);
+}
+
+/**
+ * Filters players by gender
+ * @param {Array} players - Array of player objects with gender field
+ * @param {string} genderId - Gender ID ('male', 'female', 'other')
+ * @returns {Array} Filtered players
+ */
+export function filterPlayersByGender(players, genderId) {
+    const genderGroup = GENDER_GROUPS.find(g => g.id === genderId);
+    if (!genderGroup) return players;
+
+    return players.filter(player => player.gender === genderGroup.value);
 }
 

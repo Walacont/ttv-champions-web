@@ -40,7 +40,7 @@ import {
     closeExerciseModal,
     setExerciseContext,
 } from './exercises.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
 import {
     loadOverviewData,
@@ -732,6 +732,15 @@ function populatePlayerSubgroupFilter(userData, db) {
                     seniorGroup.appendChild(option);
                 });
                 dropdown.appendChild(seniorGroup);
+
+                // Add Gender Groups
+                const genderGroup = document.createElement('optgroup');
+                genderGroup.label = 'Geschlecht';
+                GENDER_GROUPS.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    genderGroup.appendChild(option);
+                });
+                dropdown.appendChild(genderGroup);
 
                 // Add user's custom subgroups (if any)
                 if (userSubgroups.length > 0) {
