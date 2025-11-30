@@ -647,9 +647,9 @@ export const AGE_GROUPS = {
  * Gender filter definitions
  */
 export const GENDER_GROUPS = [
+    { id: 'gender_all', label: 'Alle', value: null },
     { id: 'male', label: 'Männlich', value: 'male' },
     { id: 'female', label: 'Weiblich', value: 'female' },
-    { id: 'other', label: 'Divers', value: 'other' },
 ];
 
 /**
@@ -754,12 +754,15 @@ export function isGenderFilter(filterValue) {
 /**
  * Filters players by gender
  * @param {Array} players - Array of player objects with gender field
- * @param {string} genderId - Gender ID ('male', 'female', 'other')
+ * @param {string} genderId - Gender ID ('gender_all', 'male', 'female')
  * @returns {Array} Filtered players
  */
 export function filterPlayersByGender(players, genderId) {
+    // 'gender_all' returns all players (no filtering)
+    if (genderId === 'gender_all') return players;
+
     const genderGroup = GENDER_GROUPS.find(g => g.id === genderId);
-    if (!genderGroup) return players;
+    if (!genderGroup || !genderGroup.value) return players;
 
     return players.filter(player => player.gender === genderGroup.value);
 }
