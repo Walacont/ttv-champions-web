@@ -190,15 +190,16 @@
                     </div>
                 </div>
 
-                <!-- Second Row: Filter-Switcher (Full Width on Mobile) -->
+                <!-- Second Row: Filter-Switcher (Mobile-friendly stacked layout) -->
                 <div
                     id="player-subgroup-filter-container"
-                    class="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
+                    class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
                 >
                     <div class="flex items-center gap-2 flex-1 min-w-0">
                         <label
                             for="player-subgroup-filter"
-                            class="text-sm font-medium text-gray-700 whitespace-nowrap"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('player-subgroup-filter').focus(); document.getElementById('player-subgroup-filter').click();"
                         >
                             👥 Ansicht:
                         </label>
@@ -211,16 +212,17 @@
                             <!-- Subgroup options will be added dynamically -->
                         </select>
                     </div>
-                    <div id="gender-filter-container" class="flex items-center gap-2">
+                    <div id="gender-filter-container" class="flex items-center gap-2 flex-1 sm:flex-none">
                         <label
                             for="player-gender-filter"
-                            class="text-sm font-medium text-gray-700 whitespace-nowrap"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('player-gender-filter').focus(); document.getElementById('player-gender-filter').click();"
                         >
                             ⚧ Geschlecht:
                         </label>
                         <select
                             id="player-gender-filter"
-                            class="px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                            class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
                         >
                             <option value="all">Alle</option>
                             <option value="male">Jungen/Herren</option>
