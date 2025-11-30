@@ -704,14 +704,14 @@ function populatePlayerSubgroupFilter(userData, db) {
                 dropdown.innerHTML = '';
 
                 // Add club and global options first
-                const clubOption = createOption('club', '🏠 Mein Verein');
-                const globalOption = createOption('global', '🌍 Global');
+                const clubOption = createOption('club', 'Mein Verein');
+                const globalOption = createOption('global', 'Global');
                 dropdown.appendChild(clubOption);
                 dropdown.appendChild(globalOption);
 
                 // Add Youth Age Groups
                 const youthGroup = document.createElement('optgroup');
-                youthGroup.label = '👶 Jugend (nach Alter)';
+                youthGroup.label = 'Jugend (nach Alter)';
                 AGE_GROUPS.youth.forEach(group => {
                     const option = createOption(group.id, group.label);
                     youthGroup.appendChild(option);
@@ -720,7 +720,7 @@ function populatePlayerSubgroupFilter(userData, db) {
 
                 // Add Senior Age Groups
                 const seniorGroup = document.createElement('optgroup');
-                seniorGroup.label = '👴 Senioren (nach Alter)';
+                seniorGroup.label = 'Senioren (nach Alter)';
                 AGE_GROUPS.seniors.forEach(group => {
                     const option = createOption(group.id, group.label);
                     seniorGroup.appendChild(option);
@@ -730,7 +730,7 @@ function populatePlayerSubgroupFilter(userData, db) {
                 // Add user's custom subgroups (if any)
                 if (userSubgroups.length > 0) {
                     const customGroup = document.createElement('optgroup');
-                    customGroup.label = '📁 Meine Untergruppen';
+                    customGroup.label = 'Meine Untergruppen im Verein';
                     userSubgroups.forEach(subgroup => {
                         const option = createOption(
                             `subgroup:${subgroup.id}`,

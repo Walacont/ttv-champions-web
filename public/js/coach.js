@@ -881,7 +881,7 @@ function populateSubgroupFilter(clubId, db) {
 
             // Add Youth Age Groups
             const youthGroup = document.createElement('optgroup');
-            youthGroup.label = '👶 Jugend (nach Alter)';
+            youthGroup.label = 'Jugend (nach Alter)';
             AGE_GROUPS.youth.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group.id;
@@ -892,7 +892,7 @@ function populateSubgroupFilter(clubId, db) {
 
             // Add Senior Age Groups
             const seniorGroup = document.createElement('optgroup');
-            seniorGroup.label = '👴 Senioren (nach Alter)';
+            seniorGroup.label = 'Senioren (nach Alter)';
             AGE_GROUPS.seniors.forEach(group => {
                 const option = document.createElement('option');
                 option.value = group.id;
@@ -912,7 +912,7 @@ function populateSubgroupFilter(clubId, db) {
 
             if (customSubgroups.length > 0) {
                 const customGroup = document.createElement('optgroup');
-                customGroup.label = '📁 Untergruppen';
+                customGroup.label = 'Untergruppen im Verein';
                 customSubgroups.forEach(subgroup => {
                     const option = document.createElement('option');
                     option.value = subgroup.id;
