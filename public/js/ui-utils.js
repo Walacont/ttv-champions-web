@@ -189,3 +189,346 @@ export async function getCurrentSeasonKey(db) {
         return `${now.getMonth() + 1}-${now.getFullYear()}`;
     }
 }
+
+// ============================================
+// DATE FORMATTING UTILITIES
+// ============================================
+
+/**
+ * Formats a Firestore timestamp or Date to German date format
+ * @param {Object|Date} timestamp - Firestore timestamp or Date object
+ * @param {Object} options - Formatting options
+ * @param {boolean} options.includeTime - Include time in output (default: false)
+ * @param {boolean} options.shortFormat - Use short format like "15.12." (default: false)
+ * @returns {string} Formatted date string
+ */
+export function formatDate(timestamp, options = {}) {
+    const { includeTime = false, shortFormat = false } = options;
+
+    if (!timestamp) return '—';
+
+    try {
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+
+        if (isNaN(date.getTime())) return '—';
+
+        if (shortFormat) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            return `${day}.${month}.`;
+        }
+
+        const dateStr = date.toLocaleDateString('de-DE');
+
+        if (includeTime) {
+            const timeStr = date.toLocaleTimeString('de-DE', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            return `${dateStr}, ${timeStr}`;
+        }
+
+        return dateStr;
+    } catch (e) {
+        return '—';
+    }
+}
+
+/**
+ * Formats a timestamp to relative time (e.g., "vor 5 Minuten")
+ * @param {Object|Date} timestamp - Firestore timestamp or Date object
+ * @returns {string} Relative time string
+ */
+export function formatRelativeTime(timestamp) {
+    if (!timestamp) return '—';
+
+    try {
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHours = Math.floor(diffMin / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffSec < 60) return 'gerade eben';
+        if (diffMin < 60) return `vor ${diffMin} Min.`;
+        if (diffHours < 24) return `vor ${diffHours} Std.`;
+        if (diffDays === 1) return 'gestern';
+        if (diffDays < 7) return `vor ${diffDays} Tagen`;
+
+        return formatDate(timestamp);
+    } catch (e) {
+        return '—';
+    }
+}
+
+// ============================================
+// NUMBER FORMATTING UTILITIES
+// ============================================
+
+/**
+ * Formats points with sign prefix
+ * @param {number} points - Points value
+ * @param {boolean} alwaysShowSign - Always show + or - (default: true)
+ * @returns {string} Formatted points string (e.g., "+15", "-5")
+ */
+export function formatPoints(points, alwaysShowSign = true) {
+    if (points === null || points === undefined) return '0';
+    const num = Number(points);
+    if (isNaN(num)) return '0';
+
+    if (alwaysShowSign) {
+        return num >= 0 ? `+${num}` : `${num}`;
+    }
+    return `${num}`;
+}
+
+/**
+ * Formats XP with optional suffix
+ * @param {number} xp - XP value
+ * @param {boolean} showSuffix - Show "XP" suffix (default: true)
+ * @returns {string} Formatted XP string (e.g., "1.250 XP")
+ */
+export function formatXP(xp, showSuffix = true) {
+    if (xp === null || xp === undefined) return showSuffix ? '0 XP' : '0';
+    const num = Number(xp);
+    if (isNaN(num)) return showSuffix ? '0 XP' : '0';
+
+    const formatted = num.toLocaleString('de-DE');
+    return showSuffix ? `${formatted} XP` : formatted;
+}
+
+/**
+ * Formats Elo rating
+ * @param {number} elo - Elo value
+ * @returns {string} Formatted Elo string
+ */
+export function formatElo(elo) {
+    if (elo === null || elo === undefined) return '800';
+    const num = Number(elo);
+    if (isNaN(num)) return '800';
+    return Math.round(num).toString();
+}
+
+/**
+ * Formats percentage
+ * @param {number} value - Value (0-100 or 0-1)
+ * @param {boolean} isDecimal - If true, value is 0-1 and will be multiplied by 100
+ * @returns {string} Formatted percentage (e.g., "75%")
+ */
+export function formatPercent(value, isDecimal = false) {
+    if (value === null || value === undefined) return '0%';
+    let num = Number(value);
+    if (isNaN(num)) return '0%';
+    if (isDecimal) num *= 100;
+    return `${Math.round(num)}%`;
+}
+
+// ============================================
+// MATCH UTILITIES
+// ============================================
+
+/**
+ * Calculates wins from a sets array
+ * @param {Array} sets - Array of set objects with score properties
+ * @param {string} playerKey - Key for player score ('playerA', 'teamA', etc.)
+ * @param {string} opponentKey - Key for opponent score ('playerB', 'teamB', etc.)
+ * @returns {Object} { playerWins, opponentWins }
+ */
+export function calculateSetWins(sets, playerKey = 'playerA', opponentKey = 'playerB') {
+    if (!sets || !Array.isArray(sets)) {
+        return { playerWins: 0, opponentWins: 0 };
+    }
+
+    let playerWins = 0;
+    let opponentWins = 0;
+
+    sets.forEach(set => {
+        const playerScore = set[playerKey] || 0;
+        const opponentScore = set[opponentKey] || 0;
+
+        // A set is won if score >= 11 and lead >= 2
+        if (playerScore >= 11 && playerScore > opponentScore) {
+            playerWins++;
+        } else if (opponentScore >= 11 && opponentScore > playerScore) {
+            opponentWins++;
+        }
+    });
+
+    return { playerWins, opponentWins };
+}
+
+/**
+ * Formats a match result string
+ * @param {number} winsA - Wins for player/team A
+ * @param {number} winsB - Wins for player/team B
+ * @returns {string} Formatted result (e.g., "3:1")
+ */
+export function formatMatchResult(winsA, winsB) {
+    return `${winsA}:${winsB}`;
+}
+
+/**
+ * Determines match outcome for a player
+ * @param {number} playerWins - Player's set wins
+ * @param {number} opponentWins - Opponent's set wins
+ * @returns {string} 'win', 'loss', or 'draw'
+ */
+export function getMatchOutcome(playerWins, opponentWins) {
+    if (playerWins > opponentWins) return 'win';
+    if (playerWins < opponentWins) return 'loss';
+    return 'draw';
+}
+
+// ============================================
+// LISTENER MANAGER
+// ============================================
+
+/**
+ * Manages Firestore listeners to prevent memory leaks
+ */
+class ListenerManager {
+    constructor() {
+        this.listeners = new Map();
+    }
+
+    /**
+     * Adds a listener with a key
+     * @param {string} key - Unique identifier for the listener
+     * @param {Function} unsubscribe - The unsubscribe function returned by onSnapshot
+     */
+    add(key, unsubscribe) {
+        // Cleanup existing listener with same key
+        if (this.listeners.has(key)) {
+            this.remove(key);
+        }
+        this.listeners.set(key, unsubscribe);
+    }
+
+    /**
+     * Removes and unsubscribes a listener
+     * @param {string} key - The listener key to remove
+     */
+    remove(key) {
+        const unsubscribe = this.listeners.get(key);
+        if (unsubscribe && typeof unsubscribe === 'function') {
+            try {
+                unsubscribe();
+            } catch (e) {
+                console.warn(`Error unsubscribing listener ${key}:`, e);
+            }
+        }
+        this.listeners.delete(key);
+    }
+
+    /**
+     * Removes all listeners
+     */
+    clear() {
+        this.listeners.forEach((unsubscribe, key) => {
+            try {
+                if (typeof unsubscribe === 'function') {
+                    unsubscribe();
+                }
+            } catch (e) {
+                console.warn(`Error unsubscribing listener ${key}:`, e);
+            }
+        });
+        this.listeners.clear();
+    }
+
+    /**
+     * Gets the count of active listeners
+     * @returns {number}
+     */
+    get size() {
+        return this.listeners.size;
+    }
+}
+
+// Singleton instance
+export const listenerManager = new ListenerManager();
+
+// Cleanup on page unload
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        listenerManager.clear();
+    });
+}
+
+// ============================================
+// ERROR HANDLING UTILITIES
+// ============================================
+
+/**
+ * Wraps an async function with error handling
+ * @param {Function} fn - Async function to wrap
+ * @param {Object} options - Options
+ * @param {string} options.context - Context for error messages
+ * @param {Function} options.onError - Custom error handler
+ * @param {*} options.fallback - Fallback value on error
+ * @returns {Function} Wrapped function
+ */
+export function withErrorHandling(fn, options = {}) {
+    const { context = 'Operation', onError, fallback = null } = options;
+
+    return async (...args) => {
+        try {
+            return await fn(...args);
+        } catch (error) {
+            console.error(`[${context}] Error:`, error.message || error);
+
+            if (onError && typeof onError === 'function') {
+                onError(error);
+            }
+
+            return fallback;
+        }
+    };
+}
+
+/**
+ * Shows a user-friendly error message
+ * @param {string} message - Error message to display
+ * @param {string} elementId - ID of element to show error in (optional)
+ * @param {number} duration - How long to show the message in ms (default: 5000)
+ */
+export function showError(message, elementId = null, duration = 5000) {
+    if (elementId) {
+        const el = document.getElementById(elementId);
+        if (el) {
+            el.textContent = message;
+            el.className = 'text-red-600 text-sm font-medium';
+            if (duration > 0) {
+                setTimeout(() => {
+                    el.textContent = '';
+                }, duration);
+            }
+            return;
+        }
+    }
+
+    // Fallback: Show toast or console
+    console.error(message);
+}
+
+/**
+ * Shows a success message
+ * @param {string} message - Success message to display
+ * @param {string} elementId - ID of element to show message in
+ * @param {number} duration - How long to show the message in ms (default: 3000)
+ */
+export function showSuccess(message, elementId, duration = 3000) {
+    const el = document.getElementById(elementId);
+    if (el) {
+        el.textContent = message;
+        el.className = 'text-green-600 text-sm font-medium';
+        if (duration > 0) {
+            setTimeout(() => {
+                el.textContent = '';
+            }, duration);
+        }
+    }
+}
+
