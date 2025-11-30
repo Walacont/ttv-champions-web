@@ -225,22 +225,43 @@
                     </div>
                 </div>
 
-                <!-- Second Row: Gruppen-Switcher (Full Width on Mobile) -->
+                <!-- Second Row: Filter-Switcher (Mobile-friendly stacked layout) -->
                 <div
-                    class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
+                    id="coach-filter-container"
+                    class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
                 >
-                    <label
-                        for="subgroup-filter"
-                        class="text-sm font-medium text-gray-700 whitespace-nowrap"
-                    >
-                        👥 Ansicht:
-                    </label>
-                    <select
-                        id="subgroup-filter"
-                        class="flex-1 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                    >
-                        <option value="all">Alle (Gesamtverein)</option>
-                    </select>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <label
+                            for="subgroup-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('subgroup-filter').focus(); document.getElementById('subgroup-filter').click();"
+                        >
+                            👥 Ansicht:
+                        </label>
+                        <select
+                            id="subgroup-filter"
+                            class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="all">Alle (Gesamtverein)</option>
+                        </select>
+                    </div>
+                    <div id="coach-gender-filter-container" class="flex items-center gap-2 flex-1 sm:flex-none">
+                        <label
+                            for="coach-gender-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('coach-gender-filter').focus(); document.getElementById('coach-gender-filter').click();"
+                        >
+                            ⚧ Geschlecht:
+                        </label>
+                        <select
+                            id="coach-gender-filter"
+                            class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="all">Alle</option>
+                            <option value="male">Jungen/Herren</option>
+                            <option value="female">Mädchen/Damen</option>
+                        </select>
+                    </div>
                 </div>
             </header>
 
@@ -2582,130 +2603,6 @@
                             <div class="bg-gray-50 p-4 rounded-lg">
                                 <h3 class="text-lg font-semibold mb-4">Trend (Letzte 12 Wochen)</h3>
                                 <canvas id="attendance-trend-chart" height="80"></canvas>
-                            </div>
-                        </div>
-
-                        <!-- Competition Activity Statistics -->
-                        <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-2xl font-bold mb-6 flex items-center">
-                                <span class="mr-3">🏓</span> Wettkampf-Aktivität
-                            </h2>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                                <div class="bg-emerald-50 p-4 rounded-lg text-center">
-                                    <p id="stats-competition-total-label" class="text-sm text-gray-600 mb-1">
-                                        Gesamt (12 Monate)
-                                    </p>
-                                    <p
-                                        id="stats-competition-total"
-                                        class="text-3xl font-bold text-emerald-600"
-                                    >
-                                        -
-                                    </p>
-                                    <p class="text-xs text-gray-500 mt-1">Wettkämpfe</p>
-                                </div>
-                                <div class="bg-sky-50 p-4 rounded-lg text-center">
-                                    <p id="stats-competition-avg-label" class="text-sm text-gray-600 mb-1">
-                                        Ø pro Monat
-                                    </p>
-                                    <p
-                                        id="stats-competition-avg"
-                                        class="text-3xl font-bold text-sky-600"
-                                    >
-                                        -
-                                    </p>
-                                    <p class="text-xs text-gray-500 mt-1">Wettkämpfe</p>
-                                </div>
-                                <div class="bg-violet-50 p-4 rounded-lg text-center">
-                                    <p
-                                        id="stats-competition-active-period-label"
-                                        class="text-sm text-gray-600 mb-1"
-                                    >
-                                        Aktivster Monat
-                                    </p>
-                                    <p
-                                        id="stats-competition-active-period"
-                                        class="text-3xl font-bold text-violet-600"
-                                    >
-                                        -
-                                    </p>
-                                    <p class="text-xs text-gray-500 mt-1">Zeitraum (Anzahl)</p>
-                                </div>
-                                <div class="bg-amber-50 p-4 rounded-lg text-center">
-                                    <p class="text-sm text-gray-600 mb-1">Trend</p>
-                                    <p
-                                        id="stats-competition-trend"
-                                        class="text-3xl font-bold text-amber-600"
-                                    >
-                                        -
-                                    </p>
-                                    <p class="text-xs text-gray-500 mt-1">Veränderung</p>
-                                </div>
-                            </div>
-
-                            <!-- Period Filter Buttons -->
-                            <div class="mb-3">
-                                <p class="text-sm font-semibold text-gray-700 mb-2 text-center">
-                                    Zeitraum:
-                                </p>
-                                <div class="flex flex-wrap gap-2 justify-center">
-                                    <button
-                                        id="competition-period-week"
-                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
-                                    >
-                                        📅 Woche
-                                    </button>
-                                    <button
-                                        id="competition-period-month"
-                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white"
-                                    >
-                                        📆 Monat
-                                    </button>
-                                    <button
-                                        id="competition-period-year"
-                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
-                                    >
-                                        📊 Jahr
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Type Filter Buttons -->
-                            <div class="mb-4">
-                                <p class="text-sm font-semibold text-gray-700 mb-2 text-center">
-                                    Ansicht:
-                                </p>
-                                <div class="flex flex-wrap gap-2 justify-center">
-                                <button
-                                    id="competition-filter-all"
-                                    class="px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white"
-                                >
-                                    Alle (Einzel + Doppel)
-                                </button>
-                                <button
-                                    id="competition-filter-coach"
-                                    class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
-                                >
-                                    Nur von Trainern
-                                </button>
-                                <button
-                                    id="competition-filter-player"
-                                    class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
-                                >
-                                    Nur von Spielern
-                                </button>
-                                    <button
-                                        id="competition-filter-comparison"
-                                        class="px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700"
-                                    >
-                                        Trainer vs. Spieler
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Chart -->
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h3 class="text-lg font-semibold mb-4">Aktivitäts-Übersicht</h3>
-                                <canvas id="competition-activity-chart" height="80"></canvas>
                             </div>
                         </div>
 
