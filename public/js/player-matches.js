@@ -1756,7 +1756,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
 
             const usersRef = collection(db, 'users');
-            const q = query(usersRef, where('role', '==', 'player'));
+            // Include both players and coaches (coaches can participate as players)
+            const q = query(usersRef, where('role', 'in', ['player', 'coach']));
 
             // Use onSnapshot for real-time updates (ELO changes after matches)
             const unsubscribe = onSnapshot(q, (snapshot) => {

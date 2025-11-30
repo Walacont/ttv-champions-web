@@ -431,10 +431,11 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
 export function loadPlayersForDropdown(clubId, db) {
     const select = document.getElementById('player-select');
     if (!select) return;
+    // Include both players and coaches (coaches can also receive points as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', clubId),
-        where('role', '==', 'player')
+        where('role', 'in', ['player', 'coach'])
     );
 
     onSnapshot(

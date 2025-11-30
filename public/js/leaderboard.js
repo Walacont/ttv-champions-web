@@ -492,10 +492,11 @@ async function loadSkillLeaderboard(userData, db, unsubscribes) {
     // Load clubs map for test club filtering
     const clubsMap = await loadClubsMap(db);
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('eloRating', 'desc')
     );
 
@@ -570,10 +571,11 @@ async function loadEffortLeaderboard(userData, db, unsubscribes) {
     // Load clubs map for test club filtering
     const clubsMap = await loadClubsMap(db);
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('xp', 'desc')
     );
 
@@ -648,10 +650,11 @@ async function loadSeasonLeaderboard(userData, db, unsubscribes) {
     // Load clubs map for test club filtering
     const clubsMap = await loadClubsMap(db);
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('points', 'desc')
     );
 
@@ -726,10 +729,11 @@ async function loadRanksView(userData, db, unsubscribes) {
     // Load clubs map for test club filtering
     const clubsMap = await loadClubsMap(db);
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player')
+        where('role', 'in', ['player', 'coach'])
     );
 
     const listener = onSnapshot(q, snapshot => {
@@ -843,9 +847,10 @@ async function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
     // Load clubs map for test club filtering
     const clubsMap = await loadClubsMap(db);
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('eloRating', 'desc')
     );
 
@@ -911,7 +916,8 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-global');
     if (!listEl) return;
 
-    const q = query(collection(db, 'users'), where('role', '==', 'player'), orderBy('xp', 'desc'));
+    // Include both players and coaches (coaches can participate as players)
+    const q = query(collection(db, 'users'), where('role', 'in', ['player', 'coach']), orderBy('xp', 'desc'));
 
     const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
@@ -957,9 +963,10 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('season-list-global');
     if (!listEl) return;
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('points', 'desc')
     );
 

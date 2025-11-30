@@ -123,12 +123,12 @@ function filterTestClubPlayers(players, currentUserData, clubsMap) {
  */
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
     try {
-        // Filter eligible players
+        // Filter eligible players (include both players and coaches)
         const eligiblePlayers = allPlayers.filter(p => {
             const isNotSelf = p.id !== userData.id;
             const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
-            const isPlayer = p.role === 'player';
-            return isNotSelf && isMatchReady && isPlayer;
+            const isPlayerOrCoach = p.role === 'player' || p.role === 'coach';
+            return isNotSelf && isMatchReady && isPlayerOrCoach;
         });
 
         // Get all matches involving the current user

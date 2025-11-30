@@ -1386,10 +1386,11 @@ export async function handleAttendanceSave(
 export function loadPlayersForAttendance(clubId, db, onPlayersLoaded) {
     // PAGINATION: Limit to 300 players for performance (covers 99% of clubs)
     const PLAYER_LIMIT = 300;
+    // Include both players and coaches (coaches can also attend training)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('lastName', 'asc'), // Consistent ordering for pagination
         limit(PLAYER_LIMIT) // Limit for scalability
     );

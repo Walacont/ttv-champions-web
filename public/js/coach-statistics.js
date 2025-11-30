@@ -210,10 +210,11 @@ function getWeekNumber(date) {
 async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
     try {
         const usersRef = collection(db, 'users');
+        // Include both players and coaches (coaches can participate as players)
         const q = query(
             usersRef,
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
         const snapshot = await getDocs(q);
 
@@ -455,12 +456,13 @@ function renderRankDistributionChart(players) {
  */
 async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') {
     try {
-        // Get players with attendance data
+        // Get players and coaches with attendance data
         const usersRef = collection(db, 'users');
+        // Include both players and coaches (coaches can participate as players)
         const q = query(
             usersRef,
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
         const snapshot = await getDocs(q);
 

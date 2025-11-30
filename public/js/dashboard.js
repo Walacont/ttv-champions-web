@@ -105,7 +105,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userListener = onSnapshot(userDocRef, docSnap => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
-                        if (userData.role === 'player') {
+                        // Allow players and coaches to view the player dashboard
+                        // Coaches can switch between coach and player view
+                        if (userData.role === 'player' || userData.role === 'coach') {
                             const isFirstLoad = !currentUserData;
                             currentUserData = { id: docSnap.id, ...userData };
                             if (isFirstLoad) {
@@ -113,9 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else {
                                 updateDashboard(currentUserData);
                             }
-                        } else {
-                            window.location.href =
-                                userData.role === 'admin' ? '/admin.html' : '/coach.html';
+                        } else if (userData.role === 'admin') {
+                            // Only admins are redirected
+                            window.location.href = '/admin.html';
                         }
                     } else {
                         signOut(auth);
@@ -272,6 +274,12 @@ async function initializeDashboard(userData) {
 
     try {
         welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
+
+        // Show coach switch button if user is a coach
+        const switchToCoachBtn = document.getElementById('switch-to-coach-btn');
+        if (switchToCoachBtn && userData.role === 'coach') {
+            switchToCoachBtn.classList.remove('hidden');
+        }
 
     // Set header profile picture and club info
     await setHeaderProfileAndClub(userData, db);
@@ -869,15 +877,17 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
 
 /**
  * Loads club players for match request form
+ * Includes both players and coaches (coaches can also participate as players)
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  */
 async function loadClubPlayers(userData, db) {
     try {
+        // Load both players and coaches from the club
         const playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
         const snapshot = await getDocs(playersQuery);
         clubPlayers = snapshot.docs.map(doc => ({

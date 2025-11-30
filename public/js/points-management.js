@@ -1283,11 +1283,11 @@ async function populatePartnerDropdown(db, activePlayerId) {
 
         const clubId = activePlayerDoc.data().clubId;
 
-        // Query all players from the same club
+        // Query all players and coaches from the same club
         const playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
 
         const playersSnapshot = await getDocs(playersQuery);
@@ -1337,11 +1337,11 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
 
         const clubId = activePlayerDoc.data().clubId;
 
-        // Query all players from the same club
+        // Query all players and coaches from the same club
         const playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
 
         const playersSnapshot = await getDocs(playersQuery);

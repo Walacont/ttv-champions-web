@@ -22,11 +22,12 @@ export function loadTopXPPlayers(clubId, db) {
     const topXPElement = document.getElementById('top-xp-players');
     if (!topXPElement) return;
 
-    // Simplified query - get all players from club, then filter and sort in JS
+    // Simplified query - get all players and coaches from club, then filter and sort in JS
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', clubId),
-        where('role', '==', 'player')
+        where('role', 'in', ['player', 'coach'])
     );
 
     onSnapshot(
