@@ -12,7 +12,7 @@ import {
     updateDoc,
     where,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import { getCurrentSeasonKey } from './ui-utils.js';
+import { getCurrentSeasonKey, formatDate } from './ui-utils.js';
 
 /**
  * Points Management Module
@@ -42,9 +42,7 @@ export function loadPointsHistory(userData, db, unsubscribes) {
             // Fix: Use gray color for ±0 points instead of green
             const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
             const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
-            const date = entry.timestamp
-                ? entry.timestamp.toDate().toLocaleDateString('de-DE')
-                : '...';
+            const date = formatDate(entry.timestamp) || '...';
 
             // Build detailed points breakdown
             const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
@@ -128,9 +126,7 @@ export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
             // Fix: Use gray color for ±0 points instead of green
             const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
             const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
-            const date = entry.timestamp
-                ? entry.timestamp.toDate().toLocaleDateString('de-DE')
-                : '...';
+            const date = formatDate(entry.timestamp) || '...';
 
             // Build detailed points breakdown
             const xpChange = entry.xp !== undefined ? entry.xp : entry.points; // Fallback to points if xp not set
@@ -1438,8 +1434,7 @@ async function showCompletionStatus(db, type, itemId, playerId) {
 
             if (isCurrentSeason) {
                 // Completed in current season
-                const completedDate =
-                    data.completedAt?.toDate().toLocaleDateString('de-DE') || '(unbekannt)';
+                const completedDate = formatDate(data.completedAt) || '(unbekannt)';
                 statusText.innerHTML = `
                     <div class="flex items-start gap-2">
                         <span class="text-xl">✅</span>

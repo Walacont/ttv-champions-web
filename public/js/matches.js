@@ -13,6 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { createSetScoreInput } from './player-matches.js';
 import { calculateHandicap } from './validation-utils.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Matches Module
@@ -884,13 +885,7 @@ function renderCoachProcessedCards(requests, db) {
         const setsDisplay = formatSetsForCoach(request.sets);
         const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         // Get coach name who processed the request
         const coachName = request.approvals?.coach?.coachName || 'Ein Coach';
@@ -982,13 +977,7 @@ function renderCoachRequestCards(requests, db, userData) {
         const card = document.createElement('div');
         card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         let matchTypeTag, playersDisplay, setsDisplay, winnerDisplay, buttonsHtml;
 

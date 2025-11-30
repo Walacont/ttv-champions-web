@@ -12,6 +12,7 @@ import {
     setDoc,
     getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Doubles Matches Module
@@ -881,13 +882,7 @@ function renderCoachDoublesRequestCards(requests, db, userData, container) {
                 ? `${teamAName1} & ${teamAName2}`
                 : `${teamBName1} & ${teamBName2}`;
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         card.innerHTML = `
             <div class="mb-3">
@@ -1067,13 +1062,7 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
                 ? `${teamAName1} & ${teamAName2}`
                 : `${teamBName1} & ${teamBName2}`;
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">

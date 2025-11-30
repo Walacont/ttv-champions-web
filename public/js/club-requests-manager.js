@@ -22,6 +22,7 @@ import {
     connectFunctionsEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
 import { firebaseConfig } from './firebase-config.js';
+import { formatDate } from './ui-utils.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -103,7 +104,7 @@ function displayClubJoinRequests(requests) {
                     <h4 class="font-medium text-gray-900">${request.playerName}</h4>
                     <p class="text-sm text-gray-600">${request.playerEmail}</p>
                     <p class="text-xs text-gray-400 mt-1">
-                        Angefragt am: ${formatDate(request.createdAt)}
+                        Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
                     </p>
                 </div>
                 <div class="flex gap-2">
@@ -146,7 +147,7 @@ function displayLeaveRequests(requests) {
                     <h4 class="font-medium text-gray-900">${request.playerName}</h4>
                     <p class="text-sm text-gray-600">${request.playerEmail}</p>
                     <p class="text-xs text-gray-400 mt-1">
-                        Angefragt am: ${formatDate(request.createdAt)}
+                        Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
                     </p>
                 </div>
                 <div class="flex gap-2">
@@ -223,15 +224,3 @@ window.rejectLeaveRequest = async function (requestId) {
     }
 };
 
-// Helper function to format dates
-function formatDate(timestamp) {
-    if (!timestamp) return '';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}

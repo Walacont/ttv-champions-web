@@ -12,6 +12,7 @@ import {
     getDocs,
     orderBy,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Player Matches Module
@@ -2500,13 +2501,7 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
         const card = document.createElement('div');
         card.className = 'border border-gray-200 rounded-lg p-4 bg-gray-50';
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         if (request.type === 'doubles') {
             // Doubles request
