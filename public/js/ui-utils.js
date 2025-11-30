@@ -532,3 +532,81 @@ export function showSuccess(message, elementId, duration = 3000) {
     }
 }
 
+// ============================================
+// LAZY LOADING UTILITIES
+// ============================================
+
+// Cache for loaded modules
+const moduleCache = new Map();
+
+/**
+ * Lazy loads a module and caches it
+ * @param {string} modulePath - Path to the module
+ * @returns {Promise<Object>} The loaded module
+ */
+export async function lazyLoad(modulePath) {
+    if (moduleCache.has(modulePath)) {
+        return moduleCache.get(modulePath);
+    }
+
+    try {
+        const module = await import(modulePath);
+        moduleCache.set(modulePath, module);
+        return module;
+    } catch (error) {
+        console.error(`[LazyLoad] Failed to load module: ${modulePath}`, error);
+        throw error;
+    }
+}
+
+/**
+ * Preloads modules in the background
+ * @param {Array<string>} modulePaths - Array of module paths to preload
+ */
+export function preloadModules(modulePaths) {
+    modulePaths.forEach(path => {
+        // Use requestIdleCallback if available, otherwise setTimeout
+        const schedulePreload = window.requestIdleCallback || ((cb) => setTimeout(cb, 100));
+        schedulePreload(() => {
+            lazyLoad(path).catch(() => {
+                // Silently ignore preload errors
+            });
+        });
+    });
+}
+
+// ============================================
+// DEBOUNCE / THROTTLE UTILITIES
+// ============================================
+
+/**
+ * Debounces a function
+ * @param {Function} fn - Function to debounce
+ * @param {number} delay - Delay in milliseconds
+ * @returns {Function} Debounced function
+ */
+export function debounce(fn, delay = 300) {
+    let timeoutId;
+    return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+/**
+ * Throttles a function
+ * @param {Function} fn - Function to throttle
+ * @param {number} limit - Minimum time between calls in milliseconds
+ * @returns {Function} Throttled function
+ */
+export function throttle(fn, limit = 100) {
+    let inThrottle;
+    return function (...args) {
+        if (!inThrottle) {
+            fn.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => (inThrottle = false), limit);
+        }
+    };
+}
+

@@ -270,7 +270,8 @@ async function initializeDashboard(userData) {
     const welcomeMessage = document.getElementById('welcome-message');
     const logoutButton = document.getElementById('logout-button');
 
-    welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
+    try {
+        welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
 
     // Set header profile picture and club info
     await setHeaderProfileAndClub(userData, db);
@@ -569,6 +570,22 @@ async function initializeDashboard(userData) {
 
     // Check and start tutorial if needed
     checkAndStartTutorial(userData);
+    } catch (error) {
+        console.error('[Dashboard] Initialization error:', error);
+        // Show error message to user
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
+        errorContainer.innerHTML = `
+            <strong>Fehler beim Laden</strong>
+            <p class="text-sm">Bitte lade die Seite neu. Falls der Fehler bestehen bleibt, kontaktiere den Support.</p>
+            <button onclick="location.reload()" class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">Neu laden</button>
+        `;
+        document.body.appendChild(errorContainer);
+
+        // Still show content even if there was an error
+        pageLoader.style.display = 'none';
+        mainContent.style.display = 'block';
+    }
 }
 
 function updateDashboard(userData) {
