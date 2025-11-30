@@ -890,6 +890,14 @@ function populateSubgroupFilter(clubId, db) {
             });
             select.appendChild(youthGroup);
 
+            // Add Adults Age Group
+            AGE_GROUPS.adults.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
+                select.appendChild(option);
+            });
+
             // Add Senior Age Groups
             const seniorGroup = document.createElement('optgroup');
             seniorGroup.label = 'Senioren (nach Alter)';

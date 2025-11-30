@@ -626,6 +626,9 @@ export const AGE_GROUPS = {
         { id: 'u17', label: 'U17', maxAge: 16 },
         { id: 'u19', label: 'U19', maxAge: 18 },
     ],
+    adults: [
+        { id: 'adult', label: 'Erwachsene (18-39)', minAge: 18, maxAge: 39 },
+    ],
     seniors: [
         { id: 'o40', label: 'Ü40', minAge: 40 },
         { id: 'o45', label: 'Ü45', minAge: 45 },
@@ -687,6 +690,12 @@ export function isInAgeGroup(age, ageGroupId) {
         return age <= youthGroup.maxAge;
     }
 
+    // Check adults group (has both minAge and maxAge)
+    const adultGroup = AGE_GROUPS.adults.find(g => g.id === ageGroupId);
+    if (adultGroup) {
+        return age >= adultGroup.minAge && age <= adultGroup.maxAge;
+    }
+
     // Check senior groups
     const seniorGroup = AGE_GROUPS.seniors.find(g => g.id === ageGroupId);
     if (seniorGroup) {
@@ -718,6 +727,7 @@ export function isAgeGroupFilter(filterValue) {
     if (!filterValue) return false;
     return (
         AGE_GROUPS.youth.some(g => g.id === filterValue) ||
+        AGE_GROUPS.adults.some(g => g.id === filterValue) ||
         AGE_GROUPS.seniors.some(g => g.id === filterValue)
     );
 }

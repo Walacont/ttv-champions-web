@@ -718,6 +718,12 @@ function populatePlayerSubgroupFilter(userData, db) {
                 });
                 dropdown.appendChild(youthGroup);
 
+                // Add Adults Age Group
+                AGE_GROUPS.adults.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    dropdown.appendChild(option);
+                });
+
                 // Add Senior Age Groups
                 const seniorGroup = document.createElement('optgroup');
                 seniorGroup.label = 'Senioren (nach Alter)';
