@@ -344,12 +344,12 @@ export async function loadMatchSuggestions(
         // Load clubs map for test club filtering
         const clubsMap = await loadClubsMap(db);
 
-        // Get all players based on filter (club only)
+        // Get all players and coaches based on filter (club only)
         let playersQuery;
         playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
 
         const snapshot = await getDocs(playersQuery);

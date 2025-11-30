@@ -217,21 +217,21 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     // 1. Determine query based on filter
     let q;
     if (currentSubgroupFilter === 'club') {
-        // Show all players in club
+        // Show all players and coaches in club
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
     } else if (currentSubgroupFilter === 'global') {
-        // Show all players globally
-        q = query(collection(db, 'users'), where('role', '==', 'player'));
+        // Show all players and coaches globally
+        q = query(collection(db, 'users'), where('role', 'in', ['player', 'coach']));
     } else {
-        // Show players in specific subgroup
+        // Show players and coaches in specific subgroup
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player'),
+            where('role', 'in', ['player', 'coach']),
             where('subgroupIDs', 'array-contains', currentSubgroupFilter)
         );
     }

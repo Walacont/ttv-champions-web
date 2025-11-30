@@ -158,7 +158,8 @@ export async function initializeDoublesPlayerSearch(db, userData) {
         const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
 
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('role', '==', 'player'));
+        // Include both players and coaches (coaches can participate as players)
+        const q = query(usersRef, where('role', 'in', ['player', 'coach']));
 
         // Use onSnapshot for real-time updates (Doubles ELO changes after matches)
         onSnapshot(q, (snapshot) => {

@@ -920,7 +920,10 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     );
 
     // Query for SINGLES pending coach approval (own club)
-    const singlesCoachQuery = userData.clubId ? query(
+    // Only show coach approvals for players, not for coaches viewing the player dashboard
+    // Coaches should approve matches in the coach dashboard, not the player dashboard
+    const isCoach = userData.role === 'coach';
+    const singlesCoachQuery = (userData.clubId && !isCoach) ? query(
         collection(db, 'matchRequests'),
         where('clubId', '==', userData.clubId),
         where('status', '==', 'pending_coach')
@@ -934,14 +937,16 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
     );
 
     // Query for DOUBLES pending coach approval (own club)
-    const doublesCoachQuery = userData.clubId ? query(
+    // Only show for players, not for coaches in player dashboard
+    const doublesCoachQuery = (userData.clubId && !isCoach) ? query(
         collection(db, 'doublesMatchRequests'),
         where('clubId', '==', userData.clubId),
         where('status', '==', 'pending_coach')
     ) : null;
 
     // Query for DOUBLES pending coach approval (cross-club, clubId = null)
-    const doublesCrossClubQuery = userData.clubId ? query(
+    // Only show for players, not for coaches in player dashboard
+    const doublesCrossClubQuery = (userData.clubId && !isCoach) ? query(
         collection(db, 'doublesMatchRequests'),
         where('clubId', '==', null),
         where('status', '==', 'pending_coach')
