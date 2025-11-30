@@ -74,6 +74,7 @@ let clubPlayers = []; // Store club players for match request form
 let unsubscribes = [];
 let currentDisplayDate = new Date();
 let currentSubgroupFilter = 'club'; // Default: show club view
+let currentGenderFilter = 'all'; // Default: show all genders
 let matchSuggestionsUnsubscribes = []; // Array to store match suggestions listeners
 let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
 let calendarListener = null; // Separate listener for calendar (needs to be updated on filter change)
@@ -383,9 +384,10 @@ async function initializeDashboard(userData) {
     initializeLeaderboardPreferences(userData, db);
     applyPreferences();
 
-    // Set leaderboard filter to 'all' for initial load (club view)
-    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
+    // Set leaderboard filters to 'all' for initial load (club view)
+    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, setLeaderboardGenderFilter }) => {
         setLeaderboardSubgroupFilter('all');
+        setLeaderboardGenderFilter('all');
     });
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
@@ -442,6 +444,14 @@ async function initializeDashboard(userData) {
     if (subgroupFilterDropdown) {
         subgroupFilterDropdown.addEventListener('change', () => {
             handlePlayerSubgroupFilterChange(userData, db, unsubscribes);
+        });
+    }
+
+    // Setup gender filter change handler
+    const genderFilterDropdown = document.getElementById('player-gender-filter');
+    if (genderFilterDropdown) {
+        genderFilterDropdown.addEventListener('change', () => {
+            handleGenderFilterChange(userData, db, unsubscribes);
         });
     }
 
@@ -741,14 +751,7 @@ function populatePlayerSubgroupFilter(userData, db) {
                 });
                 dropdown.appendChild(seniorGroup);
 
-                // Add Gender Groups
-                const genderGroup = document.createElement('optgroup');
-                genderGroup.label = 'Geschlecht';
-                GENDER_GROUPS.forEach(group => {
-                    const option = createOption(group.id, group.label);
-                    genderGroup.appendChild(option);
-                });
-                dropdown.appendChild(genderGroup);
+                // Note: Gender filter is now handled by a separate dropdown
 
                 // Add user's custom subgroups (if any)
                 if (userSubgroups.length > 0) {
@@ -831,18 +834,23 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     import('./leaderboard.js').then(
         ({
             setLeaderboardSubgroupFilter,
+            setLeaderboardGenderFilter,
             loadLeaderboard: loadLB,
             loadGlobalLeaderboard: loadGlobalLB,
         }) => {
+            // Always set both filters
+            setLeaderboardGenderFilter(currentGenderFilter);
+
             if (currentSubgroupFilter === 'club') {
                 // Reset to 'all' for club view
                 setLeaderboardSubgroupFilter('all');
                 loadLB(userData, db, unsubscribes);
             } else if (currentSubgroupFilter === 'global') {
                 // Global view doesn't use subgroup filter
+                setLeaderboardSubgroupFilter('all');
                 loadGlobalLB(userData, db, unsubscribes);
             } else {
-                // Specific subgroup (including age groups and gender) - set the filter
+                // Specific subgroup (including age groups) - set the filter
                 setLeaderboardSubgroupFilter(currentSubgroupFilter);
                 loadLB(userData, db, unsubscribes);
                 loadGlobalLB(userData, db, unsubscribes);
@@ -873,6 +881,47 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
 
     // Reload with new filter
     loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
+}
+
+/**
+ * Handles gender filter change - reloads leaderboard with combined filters
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array of unsubscribe functions
+ */
+function handleGenderFilterChange(userData, db, unsubscribes) {
+    const dropdown = document.getElementById('player-gender-filter');
+    if (!dropdown) return;
+
+    const selectedValue = dropdown.value;
+    currentGenderFilter = selectedValue;
+
+    console.log(`[Player] Gender filter changed to: ${currentGenderFilter}`);
+
+    // Reload leaderboard with updated gender filter
+    import('./leaderboard.js').then(
+        ({
+            setLeaderboardSubgroupFilter,
+            setLeaderboardGenderFilter,
+            loadLeaderboard: loadLB,
+            loadGlobalLeaderboard: loadGlobalLB,
+        }) => {
+            // Set both filters
+            setLeaderboardGenderFilter(currentGenderFilter);
+
+            if (currentSubgroupFilter === 'club') {
+                setLeaderboardSubgroupFilter('all');
+                loadLB(userData, db, unsubscribes);
+            } else if (currentSubgroupFilter === 'global') {
+                setLeaderboardSubgroupFilter('all');
+                loadGlobalLB(userData, db, unsubscribes);
+            } else {
+                setLeaderboardSubgroupFilter(currentSubgroupFilter);
+                loadLB(userData, db, unsubscribes);
+                loadGlobalLB(userData, db, unsubscribes);
+            }
+        }
+    );
 }
 
 /**

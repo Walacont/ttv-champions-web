@@ -190,25 +190,43 @@
                     </div>
                 </div>
 
-                <!-- Second Row: Gruppen-Switcher (Full Width on Mobile) -->
+                <!-- Second Row: Filter-Switcher (Full Width on Mobile) -->
                 <div
                     id="player-subgroup-filter-container"
-                    class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
+                    class="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
                 >
-                    <label
-                        for="player-subgroup-filter"
-                        class="text-sm font-medium text-gray-700 whitespace-nowrap"
-                    >
-                        👥 Ansicht:
-                    </label>
-                    <select
-                        id="player-subgroup-filter"
-                        class="flex-1 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                    >
-                        <option value="club">🏠 Mein Verein</option>
-                        <option value="global">🌍 Global</option>
-                        <!-- Subgroup options will be added dynamically -->
-                    </select>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <label
+                            for="player-subgroup-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap"
+                        >
+                            👥 Ansicht:
+                        </label>
+                        <select
+                            id="player-subgroup-filter"
+                            class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="club">🏠 Mein Verein</option>
+                            <option value="global">🌍 Global</option>
+                            <!-- Subgroup options will be added dynamically -->
+                        </select>
+                    </div>
+                    <div id="gender-filter-container" class="flex items-center gap-2">
+                        <label
+                            for="player-gender-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap"
+                        >
+                            ⚧ Geschlecht:
+                        </label>
+                        <select
+                            id="player-gender-filter"
+                            class="px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="all">Alle</option>
+                            <option value="male">Jungen/Herren</option>
+                            <option value="female">Mädchen/Damen</option>
+                        </select>
+                    </div>
                 </div>
             </header>
 

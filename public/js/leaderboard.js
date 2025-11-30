@@ -14,8 +14,9 @@ import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matc
 import { showHeadToHeadModal } from './head-to-head.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
-// Module state for subgroup filtering
+// Module state for subgroup filtering (supports combined age + gender filters)
 let currentLeaderboardSubgroupFilter = 'all';
+let currentLeaderboardGenderFilter = 'all';
 
 // Cache for clubs data
 let clubsCache = null;
@@ -164,6 +165,14 @@ function filterTestClubPlayers(players, currentUserData, clubsMap) {
  */
 export function setLeaderboardSubgroupFilter(subgroupId) {
     currentLeaderboardSubgroupFilter = subgroupId || 'all';
+}
+
+/**
+ * Sets the current gender filter for leaderboard
+ * @param {string} genderId - Gender ID ('all', 'male', 'female')
+ */
+export function setLeaderboardGenderFilter(genderId) {
+    currentLeaderboardGenderFilter = genderId || 'all';
 }
 
 /**
@@ -508,17 +517,20 @@ async function loadSkillLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup, age group, or gender if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
-            } else if (isGenderFilter(currentLeaderboardSubgroupFilter)) {
-                players = filterPlayersByGender(players, currentLeaderboardSubgroupFilter);
             } else {
                 players = players.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
                 );
             }
+        }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -587,17 +599,20 @@ async function loadEffortLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup, age group, or gender if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
-            } else if (isGenderFilter(currentLeaderboardSubgroupFilter)) {
-                players = filterPlayersByGender(players, currentLeaderboardSubgroupFilter);
             } else {
                 players = players.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
                 );
             }
+        }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -666,17 +681,20 @@ async function loadSeasonLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup, age group, or gender if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
-            } else if (isGenderFilter(currentLeaderboardSubgroupFilter)) {
-                players = filterPlayersByGender(players, currentLeaderboardSubgroupFilter);
             } else {
                 players = players.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
                 );
             }
+        }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -744,17 +762,20 @@ async function loadRanksView(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup, age group, or gender if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
-            } else if (isGenderFilter(currentLeaderboardSubgroupFilter)) {
-                players = filterPlayersByGender(players, currentLeaderboardSubgroupFilter);
             } else {
                 players = players.filter(
                     p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
                 );
             }
+        }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
         // Filter by privacy settings (showInLeaderboards)
@@ -862,14 +883,17 @@ async function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by age group or gender if selected (subgroups are club-specific, not applied globally)
+        // Filter by age group if selected (subgroups are club-specific, not applied globally)
         if (currentLeaderboardSubgroupFilter !== 'all') {
             if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
                 players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
-            } else if (isGenderFilter(currentLeaderboardSubgroupFilter)) {
-                players = filterPlayersByGender(players, currentLeaderboardSubgroupFilter);
             }
             // Note: subgroup filters are not applied to global leaderboards
+        }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
         // Filter by privacy settings (showInLeaderboards)
