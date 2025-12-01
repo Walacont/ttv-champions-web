@@ -46,39 +46,39 @@ nav,
     padding-top: max(env(safe-area-inset-top), 24px);
 }
 
-/* Fix for Capacitor native app - simple padding approach */
+/* Fix for Capacitor native app */
 html.plt-capacitor body,
 html.plt-android body {
-    padding-top: 32px !important;
-}
-
-/* Disable default header padding for Capacitor - body padding handles it */
-html.plt-capacitor header,
-html.plt-android header,
-html.plt-capacitor nav,
-html.plt-android nav {
     padding-top: 0 !important;
 }
 
-/* Sticky headers need to account for status bar */
+/* Header gets padding inside to push content below status bar, but stays at top:0 */
 html.plt-capacitor header.sticky,
 html.plt-android header.sticky,
 html.plt-capacitor .sticky.top-0,
-html.plt-android .sticky.top-0,
-html.plt-capacitor header[class*="sticky"],
-html.plt-android header[class*="sticky"] {
-    top: 32px !important;
+html.plt-android .sticky.top-0 {
+    top: 0 !important;
+    padding-top: 32px !important;
+}
+
+/* Content below sticky header needs margin to not be hidden */
+html.plt-capacitor header.sticky + *,
+html.plt-android header.sticky + *,
+html.plt-capacitor .sticky.top-0 + *,
+html.plt-android .sticky.top-0 + * {
+    margin-top: 0;
+}
+
+/* Non-sticky headers just need padding */
+html.plt-capacitor header:not(.sticky),
+html.plt-android header:not(.sticky) {
+    padding-top: 32px !important;
 }
 
 /* Make sure touch events work */
-html.plt-capacitor header,
-html.plt-android header {
-    pointer-events: auto;
-}
-
 html.plt-capacitor header *,
 html.plt-android header * {
-    pointer-events: auto;
+    pointer-events: auto !important;
 }
 
 /* Fix modal overlays - ensure they're below status bar */
