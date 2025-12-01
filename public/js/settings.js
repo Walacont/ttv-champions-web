@@ -32,7 +32,7 @@ import {
     getDownloadURL,
     connectStorageEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
 
 const app = initializeApp(firebaseConfig);
@@ -42,22 +42,12 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// NEU: Der Emulator-Block
-// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft (aber NICHT in Capacitor).
-const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
-if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('Settings.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
-
-    // Functions Emulator
     connectFunctionsEmulator(functions, 'localhost', 5001);
 }
 

@@ -22,7 +22,7 @@ import {
     httpsCallable,
     connectFunctionsEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import { isCodeExpired, validateCodeFormat } from './invitation-code-utils.js';
 
 // ===== INITIALISIERUNG =====
@@ -32,9 +32,8 @@ const db = getFirestore(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// Emulator-Block (aber NICHT in Capacitor)
-const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
-if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('Register.js: Verbinde mit lokalen Firebase Emulatoren...');
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
