@@ -1,21 +1,44 @@
 {
-  "type": "module",
-  "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "devDependencies": {
-    "firebase-admin": "^13.6.0",
-    "firebase-tools": "^14.24.1",
-    "happy-dom": "^20.0.10",
-    "prettier": "^3.4.2",
-    "vitest": "^4.0.8"
-  },
-  "dependencies": {
-    "firebase-functions": "^7.0.0"
-  }
+    "name": "ttv-champions",
+    "version": "3.0.2",
+    "description": "TTV Champions - Digitales Tischtennis-Training & Wettkampfsystem",
+    "type": "module",
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "test:ui": "vitest --ui",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "cap:sync": "npx cap sync",
+        "cap:copy": "npx cap copy",
+        "cap:open:android": "npx cap open android",
+        "cap:open:ios": "npx cap open ios",
+        "cap:run:android": "npx cap run android",
+        "cap:run:ios": "npx cap run ios",
+        "cap:build:android": "npx cap sync android && cd android && ./gradlew assembleRelease",
+        "android": "npx cap sync android && npx cap open android",
+        "ios": "npx cap sync ios && npx cap open ios"
+    },
+    "devDependencies": {
+        "firebase-admin": "^13.6.0",
+        "firebase-tools": "^14.24.1",
+        "happy-dom": "^20.0.10",
+        "prettier": "^3.4.2",
+        "vitest": "^4.0.8"
+    },
+    "dependencies": {
+        "@capacitor/android": "^7.4.4",
+        "@capacitor/app": "^7.1.0",
+        "@capacitor/cli": "^7.4.4",
+        "@capacitor/core": "^7.4.4",
+        "@capacitor/haptics": "^7.0.2",
+        "@capacitor/ios": "^7.4.4",
+        "@capacitor/keyboard": "^7.0.3",
+        "@capacitor/preferences": "^7.0.2",
+        "@capacitor/push-notifications": "^7.0.3",
+        "@capacitor/splash-screen": "^7.0.3",
+        "@capacitor/status-bar": "^7.0.3",
+        "firebase-functions": "^7.0.0"
+    }
 }
