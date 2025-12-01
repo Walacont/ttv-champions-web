@@ -12,6 +12,7 @@ import {
     deleteDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { getChallengePartnerSettings } from './milestone-management.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Challenges Module
@@ -610,7 +611,7 @@ export function loadExpiredChallenges(clubId, db) {
                 <div class="flex justify-between items-center text-sm mt-3 pt-3 border-t">
                     <span class="font-bold text-gray-600">+${challenge.points} Punkte</span>
                     <span class="text-xs text-gray-500">
-                        ${wasManuallyEnded ? 'Vorzeitig beendet' : 'Abgelaufen am ' + expiresAt.toLocaleDateString('de-DE')}
+                        ${wasManuallyEnded ? 'Vorzeitig beendet' : 'Abgelaufen am ' + formatDate(expiresAt)}
                     </span>
                 </div>
                 <div class="flex gap-2 mt-3">

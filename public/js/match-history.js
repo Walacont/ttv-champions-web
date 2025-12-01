@@ -44,121 +44,204 @@ export function loadMatchHistory(db, userData, matchType = 'all') {
     container.innerHTML =
         '<p class="text-gray-400 text-center py-4 text-sm">Lade Wettkampf-Historie...</p>';
 
-    // Query SINGLES matches for this club
-    const singlesMatchesRef = collection(db, 'matches');
-    const singlesQuery = query(
-        singlesMatchesRef,
-        where('clubId', '==', userData.clubId),
-        where('processed', '==', true),
-        limit(100)
-    );
+    // Query by playerA/playerB for ALL players (with or without club)
+    // This ensures we find:
+    // - Same club matches (clubId = club)
+    // - Cross-club matches (clubId = null)
+    // - Club vs no-club matches (clubId = club)
+    // - No-club vs no-club matches (clubId = null)
+    {
+        // Query by playerA/playerB
+        // Since we can't do OR queries, we need separate queries for playerA and playerB
+        const singlesMatchesRef = collection(db, 'matches');
 
-    // Query DOUBLES matches for this club
-    const doublesMatchesRef = collection(db, 'doublesMatches');
-    const doublesQuery = query(
-        doublesMatchesRef,
-        where('clubId', '==', userData.clubId),
-        where('processed', '==', true),
-        limit(100)
-    );
+        const singlesAsPlayerAQuery = query(
+            singlesMatchesRef,
+            where('playerAId', '==', userData.id),
+            where('processed', '==', true),
+            limit(100)
+        );
 
-    // Set up real-time listeners for BOTH singles and doubles
-    const unsubscribeSingles = onSnapshot(
-        singlesQuery,
-        async singlesSnapshot => {
-            // Wait for doubles snapshot as well
-            const unsubscribeDoubles = onSnapshot(
-                doublesQuery,
-                async doublesSnapshot => {
-                    // Combine and filter singles matches
-                    const singlesMatches = singlesSnapshot.docs
-                        .map(doc => ({ id: doc.id, type: 'singles', ...doc.data() }))
-                        .filter(match => {
-                            // Check if user is involved in this singles match
-                            return (
-                                match.playerAId === userData.id ||
-                                match.playerBId === userData.id ||
-                                match.winnerId === userData.id ||
-                                match.loserId === userData.id ||
-                                (match.playerIds && match.playerIds.includes(userData.id))
+        const singlesAsPlayerBQuery = query(
+            singlesMatchesRef,
+            where('playerBId', '==', userData.id),
+            where('processed', '==', true),
+            limit(100)
+        );
+
+        // For doubles: Query matches from own club AND null clubId (cross-club/mixed)
+        const doublesMatchesRef = collection(db, 'doublesMatches');
+        const hasClub = userData.clubId !== null && userData.clubId !== undefined && userData.clubId !== '';
+
+        const doublesOwnClubQuery = hasClub ? query(
+            doublesMatchesRef,
+            where('clubId', '==', userData.clubId),
+            where('processed', '==', true),
+            limit(100)
+        ) : null;
+
+        const doublesNullClubQuery = query(
+            doublesMatchesRef,
+            where('clubId', '==', null),
+            where('processed', '==', true),
+            limit(100)
+        );
+
+        // Set up real-time listeners
+        const unsubscribeSinglesA = onSnapshot(
+            singlesAsPlayerAQuery,
+            async singlesASnapshot => {
+                const unsubscribeSinglesB = onSnapshot(
+                    singlesAsPlayerBQuery,
+                    async singlesBSnapshot => {
+                        // Set up doubles listeners (one or two queries depending on club status)
+                        const processDoublesData = async (doublesOwnClubSnapshot, doublesNullClubSnapshot) => {
+                            // Combine singles matches from both queries
+                            const singlesAMatches = singlesASnapshot.docs.map(doc => ({
+                                id: doc.id,
+                                type: 'singles',
+                                ...doc.data()
+                            }));
+                            const singlesBMatches = singlesBSnapshot.docs.map(doc => ({
+                                id: doc.id,
+                                type: 'singles',
+                                ...doc.data()
+                            }));
+
+                            // Remove duplicates (shouldn't happen, but just in case)
+                            const singlesMatchesMap = new Map();
+                            [...singlesAMatches, ...singlesBMatches].forEach(match => {
+                                singlesMatchesMap.set(match.id, match);
+                            });
+                            const singlesMatches = Array.from(singlesMatchesMap.values());
+
+                            // Combine doubles matches from both queries (if applicable)
+                            const doublesMatchesMap = new Map();
+                            if (doublesOwnClubSnapshot) {
+                                doublesOwnClubSnapshot.docs.forEach(doc => {
+                                    doublesMatchesMap.set(doc.id, { id: doc.id, type: 'doubles', ...doc.data() });
+                                });
+                            }
+                            doublesNullClubSnapshot.docs.forEach(doc => {
+                                doublesMatchesMap.set(doc.id, { id: doc.id, type: 'doubles', ...doc.data() });
+                            });
+
+                            // Filter doubles matches where user is involved
+                            const doublesMatches = Array.from(doublesMatchesMap.values()).filter(match => {
+                                return (
+                                    match.teamA?.player1Id === userData.id ||
+                                    match.teamA?.player2Id === userData.id ||
+                                    match.teamB?.player1Id === userData.id ||
+                                    match.teamB?.player2Id === userData.id
+                                );
+                            });
+
+                            // Filter matches based on matchType parameter
+                            let filteredMatches = [];
+                            if (matchType === 'singles') {
+                                filteredMatches = singlesMatches;
+                            } else if (matchType === 'doubles') {
+                                filteredMatches = doublesMatches;
+                            } else {
+                                // 'all' - combine both
+                                filteredMatches = [...singlesMatches, ...doublesMatches];
+                            }
+
+                            // Limit to 50 matches
+                            const allMatches = filteredMatches.slice(0, 50);
+
+                            if (allMatches.length === 0) {
+                                const emptyMessage =
+                                    matchType === 'singles'
+                                        ? 'Noch keine Einzel-Wettkämpfe gespielt'
+                                        : matchType === 'doubles'
+                                          ? 'Noch keine Doppel-Wettkämpfe gespielt'
+                                          : 'Noch keine Wettkämpfe gespielt';
+                                container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">${emptyMessage}</p>`;
+                                return;
+                            }
+
+                            // Sort by timestamp descending
+                            allMatches.sort((a, b) => {
+                                const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
+                                const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
+                                return timeB - timeA;
+                            });
+
+                            // Get player names and ELO changes for all matches
+                            const matchesWithDetails = await Promise.all(
+                                allMatches.map(match => enrichMatchData(db, match, userData))
                             );
-                        });
 
-                    // Filter doubles matches where user is involved
-                    const doublesMatches = doublesSnapshot.docs
-                        .map(doc => ({ id: doc.id, type: 'doubles', ...doc.data() }))
-                        .filter(match => {
-                            // Check if user is in any team
-                            return (
-                                match.teamA?.player1Id === userData.id ||
-                                match.teamA?.player2Id === userData.id ||
-                                match.teamB?.player1Id === userData.id ||
-                                match.teamB?.player2Id === userData.id
+                            // Render matches with toggle button
+                            renderMatchesWithToggle(container, matchesWithDetails, userData);
+                        };
+
+                        // Set up doubles listeners based on club status
+                        if (hasClub && doublesOwnClubQuery) {
+                            // Player has club: listen to both own club and null club matches
+                            const unsubscribeDoublesOwn = onSnapshot(
+                                doublesOwnClubQuery,
+                                async doublesOwnSnapshot => {
+                                    const unsubscribeDoublesNull = onSnapshot(
+                                        doublesNullClubQuery,
+                                        async doublesNullSnapshot => {
+                                            await processDoublesData(doublesOwnSnapshot, doublesNullSnapshot);
+                                        },
+                                        error => {
+                                            console.error('[Match History] Error loading cross-club doubles:', error);
+                                        }
+                                    );
+
+                                    // Store cleanup function
+                                    matchHistoryUnsubscribe = () => {
+                                        unsubscribeDoublesNull();
+                                        unsubscribeDoublesOwn();
+                                    };
+                                },
+                                error => {
+                                    console.error('[Match History] Error loading own club doubles:', error);
+                                }
                             );
-                        });
+                        } else {
+                            // Player has no club: only listen to null club matches
+                            const unsubscribeDoublesNull = onSnapshot(
+                                doublesNullClubQuery,
+                                async doublesNullSnapshot => {
+                                    await processDoublesData(null, doublesNullSnapshot);
+                                },
+                                error => {
+                                    console.error('[Match History] Error loading doubles (no club):', error);
+                                    container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie</p>`;
+                                }
+                            );
 
-                    // Filter matches based on matchType parameter
-                    let filteredMatches = [];
-                    if (matchType === 'singles') {
-                        filteredMatches = singlesMatches;
-                    } else if (matchType === 'doubles') {
-                        filteredMatches = doublesMatches;
-                    } else {
-                        // 'all' - combine both
-                        filteredMatches = [...singlesMatches, ...doublesMatches];
+                            // Store cleanup function
+                            matchHistoryUnsubscribe = () => {
+                                unsubscribeDoublesNull();
+                            };
+                        }
+                    },
+                    error => {
+                        console.error('[Match History] Error loading singles history as playerB:', error);
+                        container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>`;
                     }
+                );
+            },
+            error => {
+                console.error('[Match History] Error loading singles history as playerA:', error);
+                container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>`;
+            }
+        );
 
-                    // Limit to 50 matches
-                    const allMatches = filteredMatches.slice(0, 50);
-
-                    if (allMatches.length === 0) {
-                        const emptyMessage =
-                            matchType === 'singles'
-                                ? 'Noch keine Einzel-Wettkämpfe gespielt'
-                                : matchType === 'doubles'
-                                  ? 'Noch keine Doppel-Wettkämpfe gespielt'
-                                  : 'Noch keine Wettkämpfe gespielt';
-                        container.innerHTML = `<p class="text-gray-400 text-center py-4 text-sm">${emptyMessage}</p>`;
-                        return;
-                    }
-
-                    // Sort by timestamp descending
-                    allMatches.sort((a, b) => {
-                        const timeA = a.timestamp?.toMillis() || a.createdAt?.toMillis() || 0;
-                        const timeB = b.timestamp?.toMillis() || b.createdAt?.toMillis() || 0;
-                        return timeB - timeA;
-                    });
-
-                    // Get player names and ELO changes for all matches
-                    const matchesWithDetails = await Promise.all(
-                        allMatches.map(match => enrichMatchData(db, match, userData))
-                    );
-
-                    // Render matches with toggle button
-                    renderMatchesWithToggle(container, matchesWithDetails, userData);
-                },
-                error => {
-                    console.error('[Match History] Error loading doubles history');
-                    container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Doppel-Historie</p>`;
-                }
-            );
-
-            // Store the doubles unsubscribe function
-            matchHistoryUnsubscribe = unsubscribeDoubles;
-        },
-        error => {
-            console.error('[Match History] Error loading singles history');
-            container.innerHTML = `<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden der Singles-Historie</p>`;
-        }
-    );
-
-    // Return cleanup function that unsubscribes from both listeners
-    return () => {
-        if (matchHistoryUnsubscribe) {
-            matchHistoryUnsubscribe();
-        }
-        unsubscribeSingles();
-    };
+        // Return cleanup function
+        return () => {
+            if (matchHistoryUnsubscribe) {
+                matchHistoryUnsubscribe();
+            }
+            unsubscribeSinglesA();
+        };
+    }
 }
 
 /**

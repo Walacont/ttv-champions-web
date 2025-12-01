@@ -23,7 +23,7 @@ npm install firebase-admin
 ### Migration ausführen
 
 ```bash
-node scripts/migrate-elo-to-800.js
+node scripts/migrate-elo-to-800.cjs
 ```
 
 ### Was passiert?
@@ -69,18 +69,120 @@ Nachher:
 
 ---
 
-## Weitere Migrationen
+## Clubs Collection Migration
 
-### Season-System (zukünftig)
+### Overview
 
-Wenn das Saison-System implementiert wird, wird ein weiteres Script benötigt:
+Erstellt eine `clubs` Collection aus bestehenden `clubId` Feldern der Benutzer.
+
+### Migration ausführen
 
 ```bash
-node scripts/init-season-system.js
+node scripts/migrate-clubs.cjs
 ```
 
-Dieses Script wird:
+### Was passiert?
 
-- Eine `seasons` Collection erstellen
-- Die erste Saison initialisieren
-- Alle Benutzer der ersten Saison zuweisen
+- **Liest alle Benutzer** mit `clubId` aus Firestore
+- **Gruppiert sie** nach Vereins-ID
+- **Erstellt Club-Dokumente** für jeden eindeutigen Club:
+  - `name`: Standard = clubId
+  - `createdAt`: Aktueller Zeitstempel
+  - `isTestClub`: false (muss manuell geändert werden für Test-Clubs)
+  - `memberCount`: Anzahl der Mitglieder
+  - `ownerId`: Erster Coach/Admin des Clubs
+
+### Sicherheit
+
+- ✅ **Idempotent:** Überspringt bereits existierende Clubs
+- ✅ **Error Handling:** Fehler bei einzelnen Clubs stoppen nicht die Migration
+- ⚠️ **Test-Clubs:** Müssen manuell in Firestore auf `isTestClub: true` gesetzt werden
+
+---
+
+## Auto-Approve Matches Without Club
+
+### Overview
+
+Migriert bestehende `pending_coach` Match-Anfragen für Spieler ohne Verein. Seit dem Fix vom November 2024 werden Matches zwischen Spielern ohne Club automatisch genehmigt. Dieses Script aktualisiert bestehende Anfragen, die vor dem Fix erstellt wurden.
+
+### Vorbereitung
+
+1. **Service Account Key erstellen** (falls noch nicht vorhanden):
+    - Siehe Anleitung oben bei "ELO Migration"
+    - Speichere `serviceAccountKey.json` im Projekt-Root
+
+2. **Dependencies installieren**:
+
+```bash
+npm install firebase-admin
+```
+
+### Migration ausführen
+
+```bash
+node scripts/migrate-auto-approve-no-club.cjs
+```
+
+### Was passiert?
+
+**Singles Matches:**
+- Findet alle Anfragen mit Status `pending_coach`
+- Prüft für jede Anfrage, ob beide Spieler keinen Club haben (`clubId` ist `null`, `undefined`, oder `""`)
+- Setzt Status auf `approved` mit `approvals.coach.status = 'auto_approved'`
+
+**Doubles Matches:**
+- Findet alle Doppel-Anfragen mit Status `pending_coach`
+- Prüft, ob mindestens ein ganzes Team (beide Spieler) keinen Club haben
+- Setzt Status auf `approved` mit `approvedBy = 'auto_approved'`
+
+### Beispiel Output
+
+```
+📋 Checking singles match requests...
+Found 5 singles matches with status 'pending_coach'
+  ✅ Match abc123: Auto-approved (both players without club)
+  ⏭️  Match def456: At least one player has club, skipping
+  ✅ Match ghi789: Auto-approved (both players without club)
+
+✨ Singles migration complete:
+   - Approved: 2
+   - Skipped: 3
+   - Errors: 0
+
+📋 Checking doubles match requests...
+Found 3 doubles matches with status 'pending_coach'
+  ✅ Match xyz123: Auto-approved (Both teams have no club (migrated))
+  ✅ Match uvw456: Auto-approved (One team has no club (migrated))
+  ⏭️  Match rst789: Both teams have at least one club player, skipping
+
+✨ Doubles migration complete:
+   - Approved: 2
+   - Skipped: 1
+   - Errors: 0
+```
+
+### Sicherheit
+
+- ✅ **Selektiv:** Nur Matches ohne Club werden genehmigt
+- ✅ **Error Handling:** Fehler bei einzelnen Matches stoppen nicht die Migration
+- ✅ **Idempotent:** Kann mehrfach ausgeführt werden (bereits genehmigte Matches haben nicht mehr den Status `pending_coach`)
+- ✅ **Logging:** Detaillierte Ausgabe für jedes verarbeitete Match
+
+### Nach der Migration
+
+Die betroffenen Spieler sehen in ihrer Match-Historie nun "✓ Automatisch genehmigt" statt "⏳ Wartet auf Coach".
+
+---
+
+## Weitere Migrationen
+
+### Season-System
+
+Initialize the season reset configuration:
+
+```bash
+node scripts/init-season-reset.cjs
+```
+
+Dieses Script erstellt die `config/seasonReset` Konfiguration für den 6-Wochen Saison-Zyklus.

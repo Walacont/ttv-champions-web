@@ -6,12 +6,22 @@ import {
     onSnapshot,
     getDocs,
     limit,
+    getDoc,
+    doc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { calculateRank, formatRank, groupPlayersByRank, RANK_ORDER } from './ranks.js';
 import { loadDoublesLeaderboard, renderDoublesLeaderboard } from './doubles-matches.js';
+import { showHeadToHeadModal } from './head-to-head.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
-// Module state for subgroup filtering
+// Module state for subgroup filtering (supports combined age + gender filters)
 let currentLeaderboardSubgroupFilter = 'all';
+let currentLeaderboardGenderFilter = 'all';
+
+// Cache for clubs data
+let clubsCache = null;
+let clubsCacheTimestamp = null;
+const CLUBS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Module state for leaderboard limits
 const DEFAULT_LIMIT = 15;
@@ -23,6 +33,37 @@ let showFullLeaderboards = {
     seasonClub: false,
     seasonGlobal: false,
 };
+
+/**
+ * Load all clubs and return as Map (with caching)
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<Map>} Map of clubId -> club data
+ */
+async function loadClubsMap(db) {
+    // Return cached data if still valid
+    if (clubsCache && clubsCacheTimestamp && (Date.now() - clubsCacheTimestamp) < CLUBS_CACHE_TTL) {
+        return clubsCache;
+    }
+
+    try {
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+        const clubsMap = new Map();
+
+        clubsSnapshot.forEach(doc => {
+            clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        // Update cache
+        clubsCache = clubsMap;
+        clubsCacheTimestamp = Date.now();
+
+        return clubsMap;
+    } catch (error) {
+        console.error('Error loading clubs:', error);
+        // Return empty map on error
+        return new Map();
+    }
+}
 
 /**
  * Helper function to get display name for a player (handles deleted accounts)
@@ -52,6 +93,73 @@ function getPlayerInitials(player) {
 }
 
 /**
+ * Filter players based on privacy settings (showInLeaderboards)
+ * @param {Array} players - Array of player objects
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @returns {Array} Filtered players
+ */
+function filterPlayersByPrivacy(players, currentUserData) {
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserData.id) return true;
+
+        // Coaches and admins can see all players from their club
+        if ((currentUserData.role === 'coach' || currentUserData.role === 'admin') &&
+            currentUserData.clubId && player.clubId === currentUserData.clubId) {
+            return true;
+        }
+
+        // Show players who have showInLeaderboards enabled (default: true)
+        return player.privacySettings?.showInLeaderboards !== false;
+    });
+}
+
+/**
+ * Filter out players from test clubs (unless viewer is from a test club)
+ * Coaches/admins see their own test club players, but not other test clubs
+ * @param {Array} players - Array of player objects
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @param {Map} clubsMap - Map of clubId -> club data
+ * @returns {Array} Filtered players
+ */
+function filterTestClubPlayers(players, currentUserData, clubsMap) {
+    const isCoachOrAdmin = currentUserData.role === 'coach' || currentUserData.role === 'admin';
+    const currentUserClub = clubsMap.get(currentUserData.clubId);
+
+    if (!isCoachOrAdmin) {
+        // For regular players: check if current user is from a test club
+        if (currentUserClub && currentUserClub.isTestClub) {
+            // Test club players see everyone
+            return players;
+        }
+    }
+
+    // Filter test club players
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserData.id) return true;
+
+        // If player has no club, show them
+        if (!player.clubId) return true;
+
+        // Get player's club data
+        const club = clubsMap.get(player.clubId);
+
+        // If club doesn't exist or is not a test club, show player
+        if (!club || !club.isTestClub) return true;
+
+        // Player is from a test club
+        // For coaches/admins: show if it's their own club, hide if it's another test club
+        if (isCoachOrAdmin) {
+            return player.clubId === currentUserData.clubId;
+        }
+
+        // For regular players from non-test clubs: hide all test club players
+        return false;
+    });
+}
+
+/**
  * Sets the current subgroup filter for leaderboard
  * @param {string} subgroupId - Subgroup ID or 'all'
  */
@@ -60,13 +168,29 @@ export function setLeaderboardSubgroupFilter(subgroupId) {
 }
 
 /**
+ * Sets the current gender filter for leaderboard
+ * @param {string} genderId - Gender ID ('all', 'male', 'female')
+ */
+export function setLeaderboardGenderFilter(genderId) {
+    currentLeaderboardGenderFilter = genderId || 'all';
+}
+
+/**
  * Renders the new 3-tab leaderboard HTML into a container
  * @param {string} containerId - ID of the container element
  * @param {Object} options - Configuration options
  * @param {boolean} options.showToggle - Show Club/Global toggle (default: true)
+ * @param {Object} options.userData - User data for tab visibility preferences (optional)
  */
 export function renderLeaderboardHTML(containerId, options = {}) {
-    const { showToggle = true } = options;
+    const { showToggle = true, userData = null } = options;
+
+    // Determine which tabs to show based on user preferences
+    // Default: all tabs visible (for users without preferences or non-club members)
+    const hasClub = userData?.clubId && userData.clubId !== '' && userData.clubId !== 'null';
+    const showEffortTab = hasClub ? (userData?.leaderboardPreferences?.showEffortTab !== false) : true;
+    const showRanksTab = hasClub ? (userData?.leaderboardPreferences?.showRanksTab !== false) : true;
+    const showSeasonTab = hasClub ? (userData?.leaderboardPreferences?.showSeasonTab !== false) : true;
 
     const container = document.getElementById(containerId);
     if (!container) {
@@ -80,24 +204,30 @@ export function renderLeaderboardHTML(containerId, options = {}) {
 
             <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <div class="flex justify-center min-w-max">
+                    ${showEffortTab ? `
                     <button id="tab-effort" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
-                        <div>💪 Fleiß</div>
+                        <div>Fleiß</div>
                         <div class="text-xs text-gray-500 font-normal">(XP)</div>
                     </button>
+                    ` : ''}
+                    ${showSeasonTab ? `
                     <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
-                        <div>⭐ Season</div>
+                        <div>Season</div>
                         <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
                     </button>
+                    ` : ''}
                     <button id="tab-skill" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
-                        <div>⚡ Skill</div>
+                        <div>Skill</div>
                         <div class="text-xs text-gray-500 font-normal">(Elo)</div>
                     </button>
+                    ${showRanksTab ? `
                     <button id="tab-ranks" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
-                        <div>🏆 Ränge</div>
+                        <div>Ränge</div>
                         <div class="text-xs text-gray-500 font-normal">(Level)</div>
                     </button>
+                    ` : ''}
                     <button id="tab-doubles" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
-                        <div>🎾 Doppel</div>
+                        <div>Doppel</div>
                         <div class="text-xs text-gray-500 font-normal">(Teams)</div>
                     </button>
                 </div>
@@ -134,41 +264,15 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-effort" class="leaderboard-tab-content hidden">
-                <div id="effort-club-container">
-                    <div id="effort-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
-                    </div>
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="effort-global-container" class="hidden">
-                        <div id="effort-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Fleiß-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-season" class="leaderboard-tab-content hidden">
-                <div id="season-club-container">
-                    <div id="season-list-club" class="mt-6 space-y-2">
-                        <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
-                    </div>
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
                 </div>
-                ${
-                    showToggle
-                        ? `
-                    <div id="season-global-container" class="hidden">
-                        <div id="season-list-global" class="mt-6 space-y-2">
-                            <p class="text-center text-gray-500 py-8">Lade globale Season-Rangliste...</p>
-                        </div>
-                    </div>
-                `
-                        : ''
-                }
             </div>
 
             <div id="content-ranks" class="leaderboard-tab-content hidden">
@@ -178,9 +282,22 @@ export function renderLeaderboardHTML(containerId, options = {}) {
             </div>
 
             <div id="content-doubles" class="leaderboard-tab-content hidden">
-                <div id="doubles-list" class="mt-6">
-                    <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                <div id="doubles-club-container">
+                    <div id="doubles-list-club" class="mt-6">
+                        <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                    </div>
                 </div>
+                ${
+                    showToggle
+                        ? `
+                    <div id="doubles-global-container" class="hidden">
+                        <div id="doubles-list-global" class="mt-6">
+                            <p class="text-center text-gray-500 py-8">Lade globale Doppel-Rangliste...</p>
+                        </div>
+                    </div>
+                `
+                        : ''
+                }
             </div>
         </div>
     `;
@@ -213,8 +330,9 @@ let currentActiveTab = 'effort'; // GEÄNDERT: Standard-Tab ist jetzt 'effort'
 
 /**
  * Sets up the tab navigation for the new 3-tab leaderboard
+ * @param {Object} userData - Current user data (optional, for checking club membership)
  */
-export function setupLeaderboardTabs() {
+export function setupLeaderboardTabs(userData = null) {
     const tabSkillBtn = document.getElementById('tab-skill');
     const tabEffortBtn = document.getElementById('tab-effort');
     const tabSeasonBtn = document.getElementById('tab-season');
@@ -223,6 +341,8 @@ export function setupLeaderboardTabs() {
     const scopeToggleContainer = document.getElementById('scope-toggle-container');
 
     if (!tabSkillBtn || !tabEffortBtn || !tabSeasonBtn || !tabRanksBtn || !tabDoublesBtn) return;
+
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
 
     const switchTab = tabName => {
         currentActiveTab = tabName;
@@ -249,13 +369,27 @@ export function setupLeaderboardTabs() {
             selectedTab.classList.remove('border-transparent', 'text-gray-600');
         }
 
-        // Show/hide scope toggle based on tab (Ranks and Doubles tabs don't have global view)
+        // Show/hide scope toggle based on tab (only Skill and Doubles have global view)
         if (scopeToggleContainer) {
-            if (tabName === 'ranks' || tabName === 'doubles') {
-                scopeToggleContainer.classList.add('hidden');
-            } else {
+            if (tabName === 'skill' || tabName === 'doubles') {
                 scopeToggleContainer.classList.remove('hidden');
+            } else {
+                scopeToggleContainer.classList.add('hidden');
             }
+        }
+
+        // For players without club, automatically show global view for Skill and Doubles tabs
+        if (!hasClub && (tabName === 'skill' || tabName === 'doubles')) {
+            const clubContainer = document.getElementById(`${tabName}-club-container`);
+            const globalContainer = document.getElementById(`${tabName}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+
+            // Update toggle button states
+            const toggleClubBtn = document.getElementById('toggle-club');
+            const toggleGlobalBtn = document.getElementById('toggle-global');
+            if (toggleClubBtn) toggleClubBtn.classList.remove('toggle-btn-active');
+            if (toggleGlobalBtn) toggleGlobalBtn.classList.add('toggle-btn-active');
         }
     };
 
@@ -265,23 +399,35 @@ export function setupLeaderboardTabs() {
     tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
     tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
 
-    // Activate first tab by default
-    switchTab('effort'); // GEÄNDERT: Standard-Tab ist jetzt 'effort'
+    // Determine default tab based on club membership
+    const defaultTab = hasClub ? 'effort' : 'skill'; // Players without club start at Skill tab
+
+    // Activate default tab
+    switchTab(defaultTab);
 }
 
 /**
  * Sets up the club/global toggle for Skill and Effort tabs
+ * @param {Object} userData - Current user data (optional, for checking club membership)
  */
-export function setupLeaderboardToggle() {
+export function setupLeaderboardToggle(userData = null) {
     const toggleClubBtn = document.getElementById('toggle-club');
     const toggleGlobalBtn = document.getElementById('toggle-global');
 
     if (!toggleClubBtn || !toggleGlobalBtn) return;
 
+    // Check if user has a club
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
+    // If user has no club, hide the "Mein Verein" button
+    if (!hasClub) {
+        toggleClubBtn.style.display = 'none';
+    }
+
     const switchScope = scope => {
         const tab = currentActiveTab;
 
-        if (scope === 'club') {
+        if (scope === 'club' && hasClub) {
             toggleClubBtn.classList.add('toggle-btn-active');
             toggleGlobalBtn.classList.remove('toggle-btn-active');
 
@@ -303,8 +449,8 @@ export function setupLeaderboardToggle() {
     toggleClubBtn.addEventListener('click', () => switchScope('club'));
     toggleGlobalBtn.addEventListener('click', () => switchScope('global'));
 
-    // Activate club view by default
-    switchScope('club');
+    // Activate global view by default if user has no club, otherwise club view
+    switchScope(hasClub ? 'club' : 'global');
 }
 
 /**
@@ -313,26 +459,28 @@ export function setupLeaderboardToggle() {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-export function loadLeaderboard(userData, db, unsubscribes) {
-    loadSkillLeaderboard(userData, db, unsubscribes);
-    loadEffortLeaderboard(userData, db, unsubscribes);
-    loadSeasonLeaderboard(userData, db, unsubscribes);
-    loadRanksView(userData, db, unsubscribes);
+export async function loadLeaderboard(userData, db, unsubscribes) {
+    await Promise.all([
+        loadSkillLeaderboard(userData, db, unsubscribes),
+        loadEffortLeaderboard(userData, db, unsubscribes),
+        loadSeasonLeaderboard(userData, db, unsubscribes),
+        loadRanksView(userData, db, unsubscribes),
+    ]);
     loadDoublesLeaderboardTab(userData, db, unsubscribes);
 }
 
 /**
- * Loads the Doubles leaderboard with real-time updates
+ * Loads the Doubles leaderboard with real-time updates (Club view)
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
 function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
-    const listEl = document.getElementById('doubles-list');
+    const listEl = document.getElementById('doubles-list-club');
     if (!listEl) return;
 
     try {
-        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes);
+        loadDoublesLeaderboard(userData.clubId, db, listEl, unsubscribes, userData.id);
     } catch (error) {
         console.error('Error loading doubles leaderboard:', error);
         listEl.innerHTML =
@@ -346,14 +494,18 @@ function loadDoublesLeaderboardTab(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadSkillLeaderboard(userData, db, unsubscribes) {
+async function loadSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-club');
     if (!listEl) return;
 
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
+
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('eloRating', 'desc')
     );
 
@@ -365,12 +517,27 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -382,7 +549,7 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
             ? players
             : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
-            renderSkillRow(player, index, userData.id, listEl);
+            renderSkillRow(player, index, userData.id, listEl, false, db);
         });
 
         // Add "Show more/less" button if needed
@@ -409,14 +576,18 @@ function loadSkillLeaderboard(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadEffortLeaderboard(userData, db, unsubscribes) {
+async function loadEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-club');
     if (!listEl) return;
 
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
+
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('xp', 'desc')
     );
 
@@ -428,12 +599,27 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -472,14 +658,18 @@ function loadEffortLeaderboard(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadSeasonLeaderboard(userData, db, unsubscribes) {
+async function loadSeasonLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('season-list-club');
     if (!listEl) return;
 
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
+
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('points', 'desc')
     );
 
@@ -491,12 +681,27 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -535,14 +740,18 @@ function loadSeasonLeaderboard(userData, db, unsubscribes) {
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-function loadRanksView(userData, db, unsubscribes) {
+async function loadRanksView(userData, db, unsubscribes) {
     const listEl = document.getElementById('ranks-list');
     if (!listEl) return;
 
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
+
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', userData.clubId),
-        where('role', '==', 'player')
+        where('role', 'in', ['player', 'coach'])
     );
 
     const listener = onSnapshot(q, snapshot => {
@@ -553,12 +762,27 @@ function loadRanksView(userData, db, unsubscribes) {
 
         let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Filter by subgroup if not "all"
+        // Filter by subgroup or age group if not "all"
         if (currentLeaderboardSubgroupFilter !== 'all') {
-            players = players.filter(
-                p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
-            );
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentLeaderboardSubgroupFilter)
+                );
+            }
         }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
 
         if (players.length === 0) {
             listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
@@ -621,27 +845,33 @@ function loadRanksView(userData, db, unsubscribes) {
 }
 
 /**
- * Loads the global leaderboards (Skill, Effort, and Season)
+ * Loads the global leaderboards (only Skill and Doubles)
+ * Effort and Season are club-only
  * @param {Object} userData - The current user's data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
  */
-export function loadGlobalLeaderboard(userData, db, unsubscribes) {
-    loadGlobalSkillLeaderboard(userData, db, unsubscribes);
-    loadGlobalEffortLeaderboard(userData, db, unsubscribes);
-    loadGlobalSeasonLeaderboard(userData, db, unsubscribes);
+export async function loadGlobalLeaderboard(userData, db, unsubscribes) {
+    await Promise.all([
+        loadGlobalSkillLeaderboard(userData, db, unsubscribes),
+        loadGlobalDoublesLeaderboard(userData, db, unsubscribes),
+    ]);
 }
 
 /**
  * Loads the global Skill leaderboard (sorted by Elo)
  */
-function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
+async function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('skill-list-global');
     if (!listEl) return;
 
+    // Load clubs map for test club filtering
+    const clubsMap = await loadClubsMap(db);
+
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('eloRating', 'desc')
     );
 
@@ -651,13 +881,38 @@ function loadGlobalSkillLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by age group if selected (subgroups are club-specific, not applied globally)
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            }
+            // Note: subgroup filters are not applied to global leaderboards
+        }
+
+        // Apply gender filter separately (can be combined with age filter)
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
+        // Filter test club players
+        players = filterTestClubPlayers(players, userData, clubsMap);
+
+        if (players.length === 0) {
+            listEl.innerHTML = `<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>`;
+            return;
+        }
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.skillGlobal
             ? players
             : players.slice(0, DEFAULT_LIMIT);
         playersToShow.forEach((player, index) => {
-            renderSkillRow(player, index, userData.id, listEl, true);
+            renderSkillRow(player, index, userData.id, listEl, true, db);
         });
 
         // Add "Show more/less" button if needed
@@ -685,7 +940,8 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('effort-list-global');
     if (!listEl) return;
 
-    const q = query(collection(db, 'users'), where('role', '==', 'player'), orderBy('xp', 'desc'));
+    // Include both players and coaches (coaches can participate as players)
+    const q = query(collection(db, 'users'), where('role', 'in', ['player', 'coach']), orderBy('xp', 'desc'));
 
     const listener = onSnapshot(q, snapshot => {
         if (snapshot.empty) {
@@ -693,7 +949,11 @@ function loadGlobalEffortLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.effortGlobal
             ? players
@@ -727,9 +987,10 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     const listEl = document.getElementById('season-list-global');
     if (!listEl) return;
 
+    // Include both players and coaches (coaches can participate as players)
     const q = query(
         collection(db, 'users'),
-        where('role', '==', 'player'),
+        where('role', 'in', ['player', 'coach']),
         orderBy('points', 'desc')
     );
 
@@ -739,7 +1000,11 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
             return;
         }
 
-        const players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let players = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // Filter by privacy settings (showInLeaderboards)
+        players = filterPlayersByPrivacy(players, userData);
+
         listEl.innerHTML = '';
         const playersToShow = showFullLeaderboards.seasonGlobal
             ? players
@@ -764,6 +1029,29 @@ function loadGlobalSeasonLeaderboard(userData, db, unsubscribes) {
     });
 
     if (unsubscribes) unsubscribes.push(listener);
+}
+
+/**
+ * Loads the global Doubles leaderboard (all clubs)
+ * @param {Object} userData - The current user's data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+function loadGlobalDoublesLeaderboard(userData, db, unsubscribes) {
+    const listEl = document.getElementById('doubles-list-global');
+    if (!listEl) return;
+
+    // Import loadDoublesLeaderboard from doubles-matches module
+    import('./doubles-matches.js').then(module => {
+        try {
+            // Load global doubles leaderboard (no clubId filter)
+            module.loadDoublesLeaderboard(null, db, listEl, unsubscribes, userData.id, true);
+        } catch (error) {
+            console.error('Error loading global doubles leaderboard:', error);
+            listEl.innerHTML =
+                '<p class="text-center text-red-500 py-8">Fehler beim Laden der globalen Doppel-Rangliste.</p>';
+        }
+    });
 }
 
 /**
@@ -810,7 +1098,7 @@ function renderShowMoreButton(container, leaderboardKey, totalCount, onClick, is
 /**
  * Renders a player row in the Skill leaderboard (shows Elo and Rank)
  */
-function renderSkillRow(player, index, currentUserId, container, isGlobal = false) {
+function renderSkillRow(player, index, currentUserId, container, isGlobal = false, db = null) {
     const isCurrentUser = player.id === currentUserId;
     const rank = index + 1;
     const playerRank = calculateRank(player.eloRating, player.xp, player.grundlagenCompleted || 0);
@@ -824,7 +1112,7 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
         ? `<p class="text-xs text-gray-400">${player.clubId || 'Kein Verein'}</p>`
         : '';
 
-    playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}`;
+    playerDiv.className = `flex items-center p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'} ${!isCurrentUser && db ? 'cursor-pointer hover:bg-indigo-50 transition-colors' : ''}`;
     playerDiv.innerHTML = `
         <div class="w-10 text-center font-bold text-lg">${rankDisplay}</div>
         <img src="${avatarSrc}" alt="Avatar" class="flex-shrink-0 h-10 w-10 rounded-full object-cover mr-4">
@@ -837,7 +1125,26 @@ function renderSkillRow(player, index, currentUserId, container, isGlobal = fals
             <p class="text-xs text-gray-500">${playerRank.emoji} ${playerRank.name}</p>
         </div>
     `;
+
+    // Add click event listener for head-to-head modal (only for other players)
+    if (!isCurrentUser && db) {
+        playerDiv.addEventListener('click', () => {
+            showHeadToHeadModal(db, currentUserId, player.id);
+        });
+    }
+
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
@@ -871,6 +1178,17 @@ function renderEffortRow(player, index, currentUserId, container, isGlobal = fal
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**
@@ -904,6 +1222,17 @@ function renderSeasonRow(player, index, currentUserId, container, isGlobal = fal
         </div>
     `;
     container.appendChild(playerDiv);
+
+    // Add privacy notice if current user has disabled leaderboard visibility
+    if (isCurrentUser && player.privacySettings?.showInLeaderboards === false) {
+        const noticeDiv = document.createElement('div');
+        noticeDiv.className = 'bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs text-amber-800';
+        noticeDiv.innerHTML = `
+            <i class="fas fa-eye-slash mr-1"></i>
+            <strong>Privatsphäre:</strong> Andere Spieler können dich nicht in dieser Rangliste sehen.
+        `;
+        container.appendChild(noticeDiv);
+    }
 }
 
 /**

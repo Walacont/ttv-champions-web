@@ -12,6 +12,7 @@ import {
     setDoc,
     getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Doubles Matches Module
@@ -21,6 +22,15 @@ import {
 // ========================================================================
 // ===== HELPER FUNCTIONS =====
 // ========================================================================
+
+/**
+ * Checks if a player has no club
+ * @param {string|null|undefined} clubId - The club ID to check
+ * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ */
+function hasNoClub(clubId) {
+    return !clubId || clubId === '';
+}
 
 /**
  * Creates a sorted pairing ID from two player IDs
@@ -75,6 +85,30 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
     }
 
+    // Load all 4 players to check their clubIds
+    const [player1Doc, player2Doc, player3Doc, player4Doc] = await Promise.all([
+        getDoc(doc(db, 'users', teamA_player1Id)),
+        getDoc(doc(db, 'users', teamA_player2Id)),
+        getDoc(doc(db, 'users', teamB_player1Id)),
+        getDoc(doc(db, 'users', teamB_player2Id)),
+    ]);
+
+    const player1ClubId = player1Doc.exists() ? player1Doc.data().clubId : null;
+    const player2ClubId = player2Doc.exists() ? player2Doc.data().clubId : null;
+    const player3ClubId = player3Doc.exists() ? player3Doc.data().clubId : null;
+    const player4ClubId = player4Doc.exists() ? player4Doc.data().clubId : null;
+
+    // Determine clubId: Only set if all 4 players are from the same club
+    let matchClubId = null;
+    if (
+        player1ClubId &&
+        player1ClubId === player2ClubId &&
+        player1ClubId === player3ClubId &&
+        player1ClubId === player4ClubId
+    ) {
+        matchClubId = player1ClubId;
+    }
+
     // Create pairing IDs
     const teamAPairingId = createPairingId(teamA_player1Id, teamA_player2Id);
     const teamBPairingId = createPairingId(teamB_player1Id, teamB_player2Id);
@@ -98,14 +132,15 @@ export async function saveDoublesMatch(matchData, db, currentUserData) {
         handicapUsed: handicapUsed || false,
         matchMode: matchMode,
         reportedBy: currentUserData.id,
-        clubId: currentUserData.clubId,
+        clubId: matchClubId, // null if players are from different clubs
+        isCrossClub: matchClubId === null, // Flag to indicate cross-club team
         createdAt: serverTimestamp(),
         processed: false,
         source: 'coach',
     });
 
-    console.log('Doubles match saved:', doublesMatchRef.id);
-    return { success: true, matchId: doublesMatchRef.id };
+    console.log('Doubles match saved:', doublesMatchRef.id, 'clubId:', matchClubId, 'isCrossClub:', matchClubId === null);
+    return { success: true, matchId: doublesMatchRef.id, isCrossClub: matchClubId === null };
 }
 
 // ========================================================================
@@ -135,6 +170,30 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
     const allPlayerIds = [initiatorId, partnerId, opponent1Id, opponent2Id];
     if (new Set(allPlayerIds).size !== 4) {
         throw new Error('Alle 4 Spieler müssen unterschiedlich sein!');
+    }
+
+    // Load all 4 players to check their clubIds
+    const [initiatorDoc, partnerDoc, opponent1Doc, opponent2Doc] = await Promise.all([
+        getDoc(doc(db, 'users', initiatorId)),
+        getDoc(doc(db, 'users', partnerId)),
+        getDoc(doc(db, 'users', opponent1Id)),
+        getDoc(doc(db, 'users', opponent2Id)),
+    ]);
+
+    const initiatorClubId = initiatorDoc.exists() ? initiatorDoc.data().clubId : null;
+    const partnerClubId = partnerDoc.exists() ? partnerDoc.data().clubId : null;
+    const opponent1ClubId = opponent1Doc.exists() ? opponent1Doc.data().clubId : null;
+    const opponent2ClubId = opponent2Doc.exists() ? opponent2Doc.data().clubId : null;
+
+    // Determine clubId: Only set if all 4 players are from the same club
+    let matchClubId = null;
+    if (
+        initiatorClubId &&
+        initiatorClubId === partnerClubId &&
+        initiatorClubId === opponent1ClubId &&
+        initiatorClubId === opponent2ClubId
+    ) {
+        matchClubId = initiatorClubId;
     }
 
     // Determine required sets to win based on match mode
@@ -206,7 +265,8 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
             [opponent2Id]: false, // Needs confirmation
         },
         status: 'pending_opponent', // pending_opponent → pending_coach → approved
-        clubId: currentUserData.clubId,
+        clubId: matchClubId, // null if players are from different clubs
+        isCrossClub: matchClubId === null, // Flag to indicate cross-club team
         createdAt: serverTimestamp(),
     };
 
@@ -216,7 +276,8 @@ export async function createDoublesMatchRequest(requestData, db, currentUserData
         opponents: [opponent1Id, opponent2Id],
         winningTeam,
         status: 'pending_opponent',
-        clubId: currentUserData.clubId,
+        clubId: matchClubId,
+        isCrossClub: matchClubId === null,
     });
 
     const requestRef = await addDoc(collection(db, 'doublesMatchRequests'), doublesRequestData);
@@ -249,16 +310,47 @@ export async function confirmDoublesMatchRequest(requestId, playerId, db) {
         throw new Error('Du bist kein Gegner in diesem Match');
     }
 
-    // Update confirmation
-    await updateDoc(requestRef, {
+    // Load all 4 players to check club status
+    const [player1Doc, player2Doc, player3Doc, player4Doc] = await Promise.all([
+        getDoc(doc(db, 'users', requestData.teamA.player1Id)),
+        getDoc(doc(db, 'users', requestData.teamA.player2Id)),
+        getDoc(doc(db, 'users', requestData.teamB.player1Id)),
+        getDoc(doc(db, 'users', requestData.teamB.player2Id)),
+    ]);
+
+    const player1Data = player1Doc.data();
+    const player2Data = player2Doc.data();
+    const player3Data = player3Doc.data();
+    const player4Data = player4Doc.data();
+
+    // Check if at least one team has no club → auto-approve
+    const teamANoClub = hasNoClub(player1Data?.clubId) && hasNoClub(player2Data?.clubId);
+    const teamBNoClub = hasNoClub(player3Data?.clubId) && hasNoClub(player4Data?.clubId);
+    const shouldAutoApprove = teamANoClub || teamBNoClub;
+
+    const updateData = {
         [`confirmations.${playerId}`]: true,
-        status: 'pending_coach', // Move to coach approval
         confirmedBy: playerId,
         confirmedAt: serverTimestamp(),
-    });
+    };
 
-    console.log('Doubles match request confirmed by opponent:', playerId);
-    return { success: true };
+    if (shouldAutoApprove) {
+        // Auto-approve if at least one team has no club
+        updateData.status = 'approved';
+        updateData.approvedBy = 'auto_approved';
+        updateData.approvedAt = serverTimestamp();
+        updateData.approvalReason = teamANoClub && teamBNoClub
+            ? 'Both teams have no club'
+            : 'One team has no club';
+    } else {
+        // Move to coach approval
+        updateData.status = 'pending_coach';
+    }
+
+    await updateDoc(requestRef, updateData);
+
+    console.log('Doubles match request confirmed by opponent:', playerId, 'Auto-approved:', shouldAutoApprove);
+    return { success: true, autoApproved: shouldAutoApprove };
 }
 
 /**
@@ -308,29 +400,71 @@ export async function rejectDoublesMatchRequest(requestId, reason, db, currentUs
 // ========================================================================
 
 /**
- * Loads doubles pairings leaderboard for a club with real-time updates
- * @param {string} clubId - Club ID
+ * Loads doubles pairings leaderboard with real-time updates
+ * @param {string} clubId - Club ID (null for global leaderboard)
  * @param {Object} db - Firestore database instance
  * @param {HTMLElement} container - Container element to render leaderboard
  * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
+ * @param {string} currentUserId - Current user's ID (for privacy filtering)
+ * @param {boolean} isGlobal - Whether this is the global leaderboard (default: false)
  */
-export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
+export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, currentUserId, isGlobal = false) {
     if (!container) return;
 
-    const pairingsQuery = query(
-        collection(db, 'doublesPairings'),
-        where('clubId', '==', clubId),
-        orderBy('matchesWon', 'desc')
-    );
+    // Build query based on whether it's global or club-specific
+    let pairingsQuery;
+    if (isGlobal || clubId === null) {
+        // Global leaderboard: no clubId filter
+        pairingsQuery = query(
+            collection(db, 'doublesPairings'),
+            orderBy('matchesWon', 'desc')
+        );
+    } else {
+        // Club leaderboard: filter by clubId
+        pairingsQuery = query(
+            collection(db, 'doublesPairings'),
+            where('clubId', '==', clubId),
+            orderBy('matchesWon', 'desc')
+        );
+    }
 
     const listener = onSnapshot(pairingsQuery, async snapshot => {
         const pairings = [];
+
+        // Load clubs map (needed for test club filtering and global leaderboard)
+        let clubsMap = new Map();
+        try {
+            const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+            clubsSnapshot.forEach(doc => {
+                clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+            });
+        } catch (error) {
+            console.error('Error loading clubs:', error);
+        }
+
+        // Load current user data (for test club filtering)
+        let currentUserData = null;
+        if (currentUserId) {
+            try {
+                const currentUserDoc = await getDoc(doc(db, 'users', currentUserId));
+                if (currentUserDoc.exists()) {
+                    currentUserData = { id: currentUserId, ...currentUserDoc.data() };
+                }
+            } catch (error) {
+                console.error('Error loading current user:', error);
+            }
+        }
+
+        // Check if current user is from a test club
+        const currentUserClub = currentUserData ? clubsMap.get(currentUserData.clubId) : null;
+        const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
+        const isCoachOrAdmin = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'admin');
 
         // Fetch player data for each pairing
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data();
 
-            // Try to fetch player data for profile pictures
+            // Try to fetch player data for profile pictures and privacy settings
             let player1Data = null;
             let player2Data = null;
 
@@ -362,9 +496,82 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
                 }
             }
 
+            // Privacy filtering: Check if either player has disabled leaderboard visibility
+            // If current user is one of the players, always show the team
+            const isCurrentUserInTeam = (currentUserId && (data.player1Id === currentUserId || data.player2Id === currentUserId));
+
+            if (!isCurrentUserInTeam) {
+                // Check privacy settings for both players
+                const player1ShowInLeaderboards = player1Data?.privacySettings?.showInLeaderboards !== false;
+                const player2ShowInLeaderboards = player2Data?.privacySettings?.showInLeaderboards !== false;
+
+                // If either player has disabled leaderboard visibility, skip this pairing
+                if (!player1ShowInLeaderboards || !player2ShowInLeaderboards) {
+                    continue;
+                }
+
+                // For global leaderboard: Check if either player has searchable: club_only
+                // These players should only appear in their club leaderboard, not globally
+                if (isGlobal) {
+                    const player1Searchable = player1Data?.privacySettings?.searchable || 'global';
+                    const player2Searchable = player2Data?.privacySettings?.searchable || 'global';
+
+                    // If either player is club_only, skip this team in global leaderboard
+                    if (player1Searchable === 'club_only' || player2Searchable === 'club_only') {
+                        continue;
+                    }
+                }
+            }
+
+            // Test club filtering: Hide test club teams from non-test club users
+            // Coaches/admins see their own test club teams, but not other test clubs
+            if (!isCurrentUserInTeam) {
+                // Check if this team's club is a test club
+                if (data.clubId) {
+                    const teamClub = clubsMap.get(data.clubId);
+                    if (teamClub && teamClub.isTestClub) {
+                        // If user is NOT from a test club, or is a coach/admin from a different club, hide this team
+                        if (!isCurrentUserFromTestClub || (isCoachOrAdmin && data.clubId !== currentUserData.clubId)) {
+                            continue;
+                        }
+                    }
+                }
+            }
+
             // Check if players are deleted
             const player1Deleted = player1Data?.deleted || !player1Data?.firstName || !player1Data?.lastName;
             const player2Deleted = player2Data?.deleted || !player2Data?.firstName || !player2Data?.lastName;
+
+            // Determine club display (3 states for global leaderboard)
+            let clubDisplay = 'Kein Verein';
+            let clubType = 'none'; // 'none', 'same', 'mix'
+
+            if (isGlobal) {
+                // Use stored clubIds from match time if available, otherwise fall back to current clubIds
+                const p1ClubId = data.player1ClubIdAtMatch !== undefined
+                    ? data.player1ClubIdAtMatch
+                    : player1Data?.clubId;
+                const p2ClubId = data.player2ClubIdAtMatch !== undefined
+                    ? data.player2ClubIdAtMatch
+                    : player2Data?.clubId;
+
+                // Check if both have the same club
+                if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
+                    // Both in the SAME club
+                    clubType = 'same';
+                    clubDisplay = clubsMap.has(p1ClubId)
+                        ? clubsMap.get(p1ClubId).name
+                        : p1ClubId;
+                } else if (!p1ClubId && !p2ClubId) {
+                    // Both have NO club
+                    clubType = 'none';
+                    clubDisplay = 'Kein Verein';
+                } else {
+                    // Mixed team (club & no-club OR different clubs)
+                    clubType = 'mix';
+                    clubDisplay = 'Mix';
+                }
+            }
 
             pairings.push({
                 id: docSnap.id,
@@ -388,12 +595,14 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
                 player2LastName: player2Deleted
                     ? ''
                     : (player2Data?.lastName || data.player2Name?.split(' ')[1] || 'N'),
+                clubDisplay: clubDisplay, // New: 3-state club display
+                clubType: clubType, // New: type for styling
                 ...data,
             });
         }
 
         // Render the leaderboard with updated data
-        renderDoublesLeaderboard(pairings, container);
+        renderDoublesLeaderboard(pairings, container, isGlobal);
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -403,8 +612,9 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes) {
  * Renders the doubles leaderboard in the UI
  * @param {Array} pairings - Array of pairing objects
  * @param {HTMLElement} container - Container element
+ * @param {boolean} isGlobal - Whether this is the global leaderboard (shows club info)
  */
-export function renderDoublesLeaderboard(pairings, container) {
+export function renderDoublesLeaderboard(pairings, container, isGlobal = false) {
     if (!container) return;
 
     if (pairings.length === 0) {
@@ -420,12 +630,13 @@ export function renderDoublesLeaderboard(pairings, container) {
             <table class="min-w-full bg-white border border-gray-200 rounded-lg">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Rang</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Team</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siege</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Niederlagen</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Siegrate</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Elo</th>
+                        <th class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase w-16">Rang</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase ${isGlobal ? 'w-64' : 'w-80'}">Team</th>
+                        ${isGlobal ? '<th class="px-3 py-3 text-left text-xs font-medium text-gray-600 uppercase w-40">Verein</th>' : ''}
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-20">Siege</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-24">Niederl.</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-24">Siegrate</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-600 uppercase w-20">Elo</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -453,27 +664,32 @@ export function renderDoublesLeaderboard(pairings, container) {
         // Desktop Table Row
         html += `
             <tr class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm font-bold text-gray-900">#${rank}</td>
-                <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
-                        <div class="flex -space-x-2">
+                <td class="px-2 py-3 text-sm font-bold text-gray-900 w-16">#${rank}</td>
+                <td class="px-4 py-3 ${isGlobal ? 'w-64' : 'w-80'}">
+                    <div class="flex flex-col gap-2">
+                        <div class="flex items-center gap-2">
                             <img src="${p1Avatar}" alt="${pairing.player1Name}"
-                                 class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
+                                 class="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
                                  title="${pairing.player1Name}">
-                            <img src="${p2Avatar}" alt="${pairing.player2Name}"
-                                 class="h-10 w-10 rounded-full object-cover border-2 border-white shadow-sm"
-                                 title="${pairing.player2Name}">
-                        </div>
-                        <div class="flex flex-col">
                             <span class="font-semibold text-indigo-700 text-sm">${pairing.player1Name}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <img src="${p2Avatar}" alt="${pairing.player2Name}"
+                                 class="h-8 w-8 rounded-full object-cover border-2 border-white shadow-sm flex-shrink-0"
+                                 title="${pairing.player2Name}">
                             <span class="font-semibold text-indigo-700 text-sm">${pairing.player2Name}</span>
                         </div>
                     </div>
                 </td>
-                <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">${pairing.matchesWon}</td>
-                <td class="px-4 py-3 text-sm text-center text-red-600">${pairing.matchesLost}</td>
-                <td class="px-4 py-3 text-sm text-center font-medium">${winRate}%</td>
-                <td class="px-4 py-3 text-sm text-center font-bold">${Math.round(pairing.currentEloRating)}</td>
+                ${isGlobal ? `<td class="px-3 py-3 text-sm w-40 ${
+                    pairing.clubType === 'same' ? 'text-gray-600' :
+                    pairing.clubType === 'none' ? 'text-amber-600 italic' :
+                    'text-blue-600 font-medium'
+                }">${pairing.clubDisplay}</td>` : ''}
+                <td class="px-3 py-3 text-sm text-center text-green-600 font-medium w-20">${pairing.matchesWon}</td>
+                <td class="px-3 py-3 text-sm text-center text-red-600 w-24">${pairing.matchesLost}</td>
+                <td class="px-3 py-3 text-sm text-center font-medium w-24">${winRate}%</td>
+                <td class="px-3 py-3 text-sm text-center font-bold w-20">${Math.round(pairing.currentEloRating)}</td>
             </tr>
         `;
     });
@@ -531,6 +747,21 @@ export function renderDoublesLeaderboard(pairings, container) {
                         <span class="font-semibold text-indigo-700 text-sm">${pairing.player2Name}</span>
                     </div>
                 </div>
+
+                ${isGlobal ? `
+                <!-- Club Info -->
+                <div class="mb-3 text-xs ${
+                    pairing.clubType === 'same' ? 'text-gray-500' :
+                    pairing.clubType === 'none' ? 'text-amber-600 font-medium' :
+                    'text-blue-600 font-semibold'
+                }">
+                    <i class="fas fa-${
+                        pairing.clubType === 'same' ? 'building' :
+                        pairing.clubType === 'none' ? 'user-slash' :
+                        'users'
+                    } mr-1"></i>${pairing.clubDisplay}
+                </div>
+                ` : ''}
 
                 <!-- Stats Grid -->
                 <div class="grid grid-cols-3 gap-2 text-center pt-3 border-t border-gray-200">
@@ -651,13 +882,7 @@ function renderCoachDoublesRequestCards(requests, db, userData, container) {
                 ? `${teamAName1} & ${teamAName2}`
                 : `${teamBName1} & ${teamBName2}`;
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         card.innerHTML = `
             <div class="mb-3">
@@ -837,13 +1062,7 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
                 ? `${teamAName1} & ${teamAName2}`
                 : `${teamBName1} & ${teamBName2}`;
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
@@ -897,8 +1116,12 @@ function renderPendingDoublesRequestsForOpponent(requests, container, db, userDa
             if (!confirm('Möchtest du dieses Doppel-Match bestätigen?')) return;
 
             try {
-                await confirmDoublesMatchRequest(request.id, userData.id, db);
-                alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
+                const result = await confirmDoublesMatchRequest(request.id, userData.id, db);
+                if (result.autoApproved) {
+                    alert('✅ Doppel-Match bestätigt und automatisch genehmigt! Da mindestens ein Team keinem Verein angehört, wurde das Match direkt freigegeben.');
+                } else {
+                    alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
+                }
             } catch (error) {
                 console.error('Error confirming doubles request:', error);
                 alert('Fehler beim Bestätigen: ' + error.message);

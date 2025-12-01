@@ -12,6 +12,7 @@ import {
     serverTimestamp,
     writeBatch,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Subgroups Management Module
@@ -74,7 +75,7 @@ export function loadSubgroupsList(clubId, db, setUnsubscribe) {
                                 ${isDefault ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
                             </div>
                             <p class="text-sm text-gray-500 ml-7">ID: ${subgroup.id}</p>
-                            <p class="text-xs text-gray-400 ml-7 mt-1">Erstellt: ${subgroup.createdAt ? new Date(subgroup.createdAt.toDate()).toLocaleDateString('de-DE') : 'Unbekannt'}</p>
+                            <p class="text-xs text-gray-400 ml-7 mt-1">Erstellt: ${formatDate(subgroup.createdAt) || 'Unbekannt'}</p>
                         </div>
                         <div class="flex gap-2">
                             <button

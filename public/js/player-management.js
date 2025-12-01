@@ -16,6 +16,7 @@ import {
     handlePostPlayerCreationInvitation,
     openSendInvitationModal,
 } from './player-invitation-management.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
  * Player Management Module
@@ -430,10 +431,11 @@ export function loadPlayerList(clubId, db, setUnsubscribe) {
 export function loadPlayersForDropdown(clubId, db) {
     const select = document.getElementById('player-select');
     if (!select) return;
+    // Include both players and coaches (coaches can also receive points as players)
     const q = query(
         collection(db, 'users'),
         where('clubId', '==', clubId),
-        where('role', '==', 'player')
+        where('role', 'in', ['player', 'coach'])
     );
 
     onSnapshot(
@@ -460,22 +462,28 @@ export function loadPlayersForDropdown(clubId, db) {
 }
 
 /**
- * Updates the points player dropdown based on subgroup filter
+ * Updates the points player dropdown based on subgroup or age group filter
  * @param {Array} clubPlayers - Array of all club players
- * @param {string} subgroupFilter - Current subgroup filter ('all' or subgroup ID)
+ * @param {string} subgroupFilter - Current subgroup filter ('all', age group ID, or subgroup ID)
  */
 export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
     const select = document.getElementById('player-select');
     if (!select) return;
 
-    // Filter players based on subgroup
-    const filteredPlayers =
-        subgroupFilter === 'all'
-            ? clubPlayers
-            : clubPlayers.filter(p => {
-                  const subgroupIDs = p.subgroupIDs || [];
-                  return subgroupIDs.includes(subgroupFilter);
-              });
+    // Filter players based on subgroup, age group, or gender
+    let filteredPlayers;
+    if (subgroupFilter === 'all') {
+        filteredPlayers = clubPlayers;
+    } else if (isAgeGroupFilter(subgroupFilter)) {
+        filteredPlayers = filterPlayersByAgeGroup(clubPlayers, subgroupFilter);
+    } else if (isGenderFilter(subgroupFilter)) {
+        filteredPlayers = filterPlayersByGender(clubPlayers, subgroupFilter);
+    } else {
+        filteredPlayers = clubPlayers.filter(p => {
+            const subgroupIDs = p.subgroupIDs || [];
+            return subgroupIDs.includes(subgroupFilter);
+        });
+    }
 
     // Populate dropdown with filtered players
     const currentValue = select.value; // Preserve selection if possible
