@@ -1,15 +1,12 @@
 /**
  * Mobile App Fixes for Capacitor
  * Fixes touch scrolling, click issues, and status bar overlap
+ * These styles only apply to Capacitor native apps (plt-capacitor, plt-android)
  */
 
 /* Enable smooth scrolling on iOS */
 html, body {
     -webkit-overflow-scrolling: touch;
-    overflow-y: auto;
-    overflow-x: hidden;
-    height: 100%;
-    touch-action: manipulation;
 }
 
 /* Fix for touch events */
@@ -30,26 +27,18 @@ button, a, input, select, textarea, [onclick], [role="button"] {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Safe area padding for notched devices and status bar */
-body {
-    padding-top: max(env(safe-area-inset-top), 24px);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-}
+/* ============================================
+   CAPACITOR/MOBILE ONLY STYLES
+   These only apply when running as native app
+   ============================================ */
 
-/* Android status bar fix - add padding to header/nav */
-header,
-nav,
-.sticky.top-0,
-[class*="sticky"][class*="top-0"] {
-    padding-top: max(env(safe-area-inset-top), 24px);
-}
-
-/* Fix for Capacitor native app */
+/* Safe area padding for Capacitor native apps only */
 html.plt-capacitor body,
 html.plt-android body {
     padding-top: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
 }
 
 /* Header gets padding inside to push content below status bar, but stays at top:0 */
@@ -59,14 +48,6 @@ html.plt-capacitor .sticky.top-0,
 html.plt-android .sticky.top-0 {
     top: 0 !important;
     padding-top: 32px !important;
-}
-
-/* Content below sticky header needs margin to not be hidden */
-html.plt-capacitor header.sticky + *,
-html.plt-android header.sticky + *,
-html.plt-capacitor .sticky.top-0 + *,
-html.plt-android .sticky.top-0 + * {
-    margin-top: 0;
 }
 
 /* Non-sticky headers just need padding */
@@ -81,14 +62,15 @@ html.plt-android header * {
     pointer-events: auto !important;
 }
 
-/* Fix modal overlays - ensure they're below status bar */
-.fixed {
-    touch-action: auto;
+/* Fix modal overlays in Capacitor */
+html.plt-capacitor .fixed.inset-0,
+html.plt-android .fixed.inset-0 {
+    padding-top: 32px;
 }
 
-.fixed.inset-0 {
-    padding-top: max(env(safe-area-inset-top), 24px);
-}
+/* ============================================
+   GENERAL MOBILE STYLES (Web + Native)
+   ============================================ */
 
 /* Prevent text selection on buttons */
 button {
@@ -96,8 +78,9 @@ button {
     user-select: none;
 }
 
-/* Fix for keyboard showing */
-.keyboard-visible {
+/* Fix for keyboard showing (Capacitor only) */
+html.plt-capacitor .keyboard-visible,
+html.plt-android .keyboard-visible {
     height: calc(100% - var(--keyboard-height, 0px));
 }
 
