@@ -114,25 +114,35 @@ invitationCodeInput?.addEventListener('input', e => {
 // *** VEREINFACHTE LOGIK ***
 // Dieser Listener ist jetzt NUR für bereits eingeloggte Nutzer, die die Seite neu laden.
 onAuthStateChanged(auth, async user => {
+    console.log('[INDEX] onAuthStateChanged triggered, user:', user ? user.email : 'null');
     if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-            const userData = userDoc.data();
-            // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
-            if (!userData.onboardingComplete) {
-                console.log('[LOGIN] User not onboarded, redirecting to onboarding');
-                window.location.href = '/onboarding.html';
-                return;
-            }
-            // Ansonsten, normale Weiterleitung basierend auf der Rolle.
-            let targetUrl;
-            if (userData.role === 'admin') targetUrl = '/admin.html';
-            else if (userData.role === 'coach') targetUrl = '/coach.html';
-            else targetUrl = '/dashboard.html';
+        try {
+            console.log('[INDEX] Fetching user document for uid:', user.uid);
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            console.log('[INDEX] User document exists:', userDoc.exists());
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                console.log('[INDEX] User data:', JSON.stringify({ role: userData.role, onboardingComplete: userData.onboardingComplete }));
+                // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
+                if (!userData.onboardingComplete) {
+                    console.log('[INDEX] User not onboarded, redirecting to onboarding');
+                    window.location.href = '/onboarding.html';
+                    return;
+                }
+                // Ansonsten, normale Weiterleitung basierend auf der Rolle.
+                let targetUrl;
+                if (userData.role === 'admin') targetUrl = '/admin.html';
+                else if (userData.role === 'coach') targetUrl = '/coach.html';
+                else targetUrl = '/dashboard.html';
 
-            console.log('[LOGIN] User already logged in, redirecting to:', targetUrl);
-            // Use normal navigation for initial login redirect (not SPA navigation)
-            window.location.href = targetUrl;
+                console.log('[INDEX] Redirecting to:', targetUrl);
+                // Use normal navigation for initial login redirect (not SPA navigation)
+                window.location.href = targetUrl;
+            } else {
+                console.error('[INDEX] User document does not exist in Firestore!');
+            }
+        } catch (error) {
+            console.error('[INDEX] Error fetching user document:', error);
         }
     }
 });
@@ -152,11 +162,12 @@ if (loginForm) {
 
         try {
             console.log('[INDEX] Calling signInWithEmailAndPassword...');
-            await signInWithEmailAndPassword(auth, email, password);
-            console.log('[INDEX] Login successful');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('[INDEX] Login successful! User:', userCredential.user.email);
+            console.log('[INDEX] Waiting for onAuthStateChanged to handle redirect...');
             // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
         } catch (error) {
-            console.error('Login-Fehler:', error);
+            console.error('[INDEX] Login error:', error.code, error.message);
             feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
             feedbackMessage.classList.add('text-red-600');
             submitButton.disabled = false;
