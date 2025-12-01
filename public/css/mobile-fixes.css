@@ -46,17 +46,23 @@ nav,
     padding-top: max(env(safe-area-inset-top), 24px);
 }
 
-/* Fix for Capacitor native app */
+/* Fix for Capacitor native app - increased padding for modern Android status bars */
 html.plt-capacitor body,
 html.plt-android body {
-    padding-top: 28px;
+    padding-top: 48px;
 }
 
 html.plt-capacitor header,
 html.plt-android header,
 html.plt-capacitor nav,
 html.plt-android nav {
-    padding-top: 28px;
+    padding-top: 48px;
+}
+
+/* Additional fix for sticky headers */
+html.plt-capacitor .sticky.top-0,
+html.plt-android .sticky.top-0 {
+    top: 48px;
 }
 
 /* Fix modal overlays - ensure they're below status bar */
