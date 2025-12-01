@@ -25,8 +25,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 // NEU: Der Emulator-Block
-// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft.
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft (aber NICHT in Capacitor).
+const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
+if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     console.log('Login-Script: Verbinde mit lokalen Firebase Emulatoren...');
 
     // Auth Emulator

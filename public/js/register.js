@@ -32,8 +32,9 @@ const db = getFirestore(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// Emulator-Block
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// Emulator-Block (aber NICHT in Capacitor)
+const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
+if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     console.log('Register.js: Verbinde mit lokalen Firebase Emulatoren...');
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);

@@ -17,8 +17,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// NEU: Der Emulator-Block
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// NEU: Der Emulator-Block (aber NICHT in Capacitor)
+const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
+if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     console.log('faq.js: Verbinde mit lokalen Firebase Emulatoren...');
     // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
