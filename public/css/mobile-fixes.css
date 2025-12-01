@@ -49,20 +49,51 @@ nav,
 /* Fix for Capacitor native app - increased padding for modern Android status bars */
 html.plt-capacitor body,
 html.plt-android body {
-    padding-top: 48px;
+    padding-top: 0 !important;
 }
 
-html.plt-capacitor header,
-html.plt-android header,
-html.plt-capacitor nav,
-html.plt-android nav {
-    padding-top: 48px;
+/* Push ALL content down with a spacer instead of body padding */
+html.plt-capacitor body::before,
+html.plt-android body::before {
+    content: '';
+    display: block;
+    height: 48px;
+    width: 100%;
+    background: #1e3a5f;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
 }
 
-/* Additional fix for sticky headers */
+/* Make sticky headers appear below the status bar spacer */
+html.plt-capacitor header.sticky,
+html.plt-android header.sticky,
 html.plt-capacitor .sticky.top-0,
-html.plt-android .sticky.top-0 {
-    top: 48px;
+html.plt-android .sticky.top-0,
+html.plt-capacitor header[class*="sticky"],
+html.plt-android header[class*="sticky"] {
+    top: 48px !important;
+    margin-top: 0 !important;
+}
+
+/* Ensure the main content starts below status bar */
+html.plt-capacitor main,
+html.plt-android main {
+    margin-top: 48px;
+}
+
+/* Make sure nothing blocks touch events */
+html.plt-capacitor header,
+html.plt-android header {
+    position: relative;
+    z-index: 100;
+    pointer-events: auto;
+}
+
+html.plt-capacitor header *,
+html.plt-android header * {
+    pointer-events: auto;
 }
 
 /* Fix modal overlays - ensure they're below status bar */
