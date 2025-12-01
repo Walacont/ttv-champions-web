@@ -60,8 +60,9 @@ const functions = getFunctions(app);
 
 // NEU: Der Emulator-Block
 // Dieser Code verbindet sich nur dann mit den Emulatoren,
-// wenn die Seite lokal (z.B. über Live Server) ausgeführt wird.
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// wenn die Seite lokal (z.B. über Live Server) ausgeführt wird (aber NICHT in Capacitor).
+const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
+if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     console.log('Admin.js: Verbinde mit lokalen Firebase Emulatoren...');
 
     // Auth Emulator

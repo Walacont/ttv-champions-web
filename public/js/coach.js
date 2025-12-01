@@ -175,8 +175,9 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// NEU: Der Emulator-Block
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// NEU: Der Emulator-Block (aber NICHT in Capacitor)
+const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
+if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     console.log('Coach.js: Verbinde mit lokalen Firebase Emulatoren...');
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
