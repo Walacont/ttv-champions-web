@@ -20,9 +20,13 @@ import {
 import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import { validateCodeFormat, formatCode, isCodeExpired } from './invitation-code-utils.js';
 
+console.log('[INDEX] Script starting...');
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+console.log('[INDEX] Firebase initialized');
 
 // Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
 if (shouldUseEmulators()) {
@@ -43,6 +47,14 @@ const forgotPasswordButton = document.getElementById('forgot-password-button');
 const backToLoginButton = document.getElementById('back-to-login-button');
 const invitationCodeInput = document.getElementById('invitation-code');
 
+console.log('[INDEX] DOM elements:', {
+    loginForm: !!loginForm,
+    resetForm: !!resetForm,
+    codeForm: !!codeForm,
+    emailLoginTab: !!emailLoginTab,
+    codeLoginTab: !!codeLoginTab
+});
+
 // Check URL for code parameter (direct link from WhatsApp/etc)
 const urlParams = new URLSearchParams(window.location.search);
 const codeFromUrl = urlParams.get('code');
@@ -59,8 +71,8 @@ if (codeFromUrl) {
 }
 
 // Tab Switching
-emailLoginTab.addEventListener('click', switchToEmailTab);
-codeLoginTab.addEventListener('click', switchToCodeTab);
+if (emailLoginTab) emailLoginTab.addEventListener('click', switchToEmailTab);
+if (codeLoginTab) codeLoginTab.addEventListener('click', switchToCodeTab);
 
 function switchToEmailTab() {
     emailLoginTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-indigo-50');
@@ -125,7 +137,7 @@ onAuthStateChanged(auth, async user => {
     }
 });
 
-loginForm.addEventListener('submit', async e => {
+loginForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('email-address').value;
     const password = document.getElementById('password').value;
@@ -145,21 +157,21 @@ loginForm.addEventListener('submit', async e => {
     }
 });
 
-forgotPasswordButton.addEventListener('click', () => {
+forgotPasswordButton?.addEventListener('click', () => {
     loginForm.classList.add('hidden');
     resetForm.classList.remove('hidden');
     formTitle.textContent = 'Passwort zurücksetzen';
     feedbackMessage.textContent = '';
 });
 
-backToLoginButton.addEventListener('click', () => {
+backToLoginButton?.addEventListener('click', () => {
     resetForm.classList.add('hidden');
     loginForm.classList.remove('hidden');
     formTitle.textContent = 'Anmelden';
     feedbackMessage.textContent = '';
 });
 
-resetForm.addEventListener('submit', async e => {
+resetForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('reset-email-address').value;
     feedbackMessage.textContent = '';
@@ -179,7 +191,7 @@ resetForm.addEventListener('submit', async e => {
 });
 
 // Code Form Handler
-codeForm.addEventListener('submit', async e => {
+codeForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const code = invitationCodeInput.value.trim().toUpperCase();
     feedbackMessage.textContent = '';
