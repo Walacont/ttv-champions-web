@@ -365,6 +365,140 @@ exports.setCustomUserClaims = onDocumentWritten(
 );
 
 // ========================================================================
+// ===== FUNKTION 3b: Validate Invitation Code (Für nicht-authentifizierte Benutzer) =====
+// ========================================================================
+// Diese Funktion validiert einen Einladungscode OHNE Authentifizierung.
+// Sie gibt nur begrenzte Informationen zurück (keine sensiblen Daten).
+// Wird verwendet, bevor der Benutzer sich registriert.
+exports.validateInvitationCode = onCall({ region: CONFIG.REGION }, async request => {
+    const { code } = request.data;
+
+    // Input validation
+    if (!code || typeof code !== 'string') {
+        throw new HttpsError('invalid-argument', 'Code ist erforderlich.');
+    }
+
+    // Normalize code
+    const normalizedCode = code.trim().toUpperCase();
+
+    // Validate code format (6 alphanumeric characters)
+    if (!/^[A-Z0-9]{6}$/.test(normalizedCode)) {
+        throw new HttpsError('invalid-argument', 'Ungültiges Code-Format.');
+    }
+
+    try {
+        // Query for the code (without exposing the full collection)
+        const codesRef = db.collection(CONFIG.COLLECTIONS.INVITATION_CODES);
+        const snapshot = await codesRef.where('code', '==', normalizedCode).limit(1).get();
+
+        if (snapshot.empty) {
+            // Don't reveal if code exists or not (security measure)
+            return {
+                valid: false,
+                reason: 'invalid',
+                message: 'Dieser Code ist ungültig oder existiert nicht.',
+            };
+        }
+
+        const codeDoc = snapshot.docs[0];
+        const codeData = codeDoc.data();
+
+        // Check if code was already used
+        if (codeData.used) {
+            return {
+                valid: false,
+                reason: 'used',
+                message: 'Dieser Code wurde bereits verwendet.',
+            };
+        }
+
+        // Check if code was superseded by a newer code
+        if (codeData.superseded) {
+            return {
+                valid: false,
+                reason: 'superseded',
+                message: 'Dieser Code wurde durch einen neueren Code ersetzt.',
+            };
+        }
+
+        // Check if code is expired
+        const now = admin.firestore.Timestamp.now();
+        if (codeData.expiresAt && codeData.expiresAt.toMillis() < now.toMillis()) {
+            return {
+                valid: false,
+                reason: 'expired',
+                message: 'Dieser Code ist abgelaufen.',
+            };
+        }
+
+        // Code is valid - return limited information for the registration form
+        // DO NOT return: codeId, full codeData, or other sensitive information
+        return {
+            valid: true,
+            // Only return what's needed for the welcome message
+            firstName: codeData.firstName || null,
+            clubId: codeData.clubId || null,
+            // Return the codeId so it can be used in claimInvitationCode
+            codeId: codeDoc.id,
+        };
+    } catch (error) {
+        logger.error('Error validating invitation code:', error);
+        throw new HttpsError('internal', 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.');
+    }
+});
+
+// ========================================================================
+// ===== FUNKTION 3c: Validate Invitation Token (Für nicht-authentifizierte Benutzer) =====
+// ========================================================================
+// Diese Funktion validiert einen Einladungstoken OHNE Authentifizierung.
+exports.validateInvitationToken = onCall({ region: CONFIG.REGION }, async request => {
+    const { tokenId } = request.data;
+
+    // Input validation
+    if (!tokenId || typeof tokenId !== 'string') {
+        throw new HttpsError('invalid-argument', 'Token-ID ist erforderlich.');
+    }
+
+    // Validate tokenId format (basic check)
+    if (tokenId.length < 10 || tokenId.length > 50) {
+        throw new HttpsError('invalid-argument', 'Ungültiges Token-Format.');
+    }
+
+    try {
+        const tokenRef = db.collection(CONFIG.COLLECTIONS.INVITATION_TOKENS).doc(tokenId);
+        const tokenDoc = await tokenRef.get();
+
+        if (!tokenDoc.exists) {
+            return {
+                valid: false,
+                reason: 'invalid',
+                message: 'Dieser Einladungslink ist ungültig.',
+            };
+        }
+
+        const tokenData = tokenDoc.data();
+
+        // Check if token was already used
+        if (tokenData.isUsed) {
+            return {
+                valid: false,
+                reason: 'used',
+                message: 'Dieser Einladungslink wurde bereits verwendet.',
+            };
+        }
+
+        // Token is valid - return limited information
+        return {
+            valid: true,
+            clubId: tokenData.clubId || null,
+        };
+    } catch (error) {
+        logger.error('Error validating invitation token:', error);
+        throw new HttpsError('internal', 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.');
+    }
+});
+
+// ========================================================================
 // ===== FUNKTION 4: Claim Invitation Code (Code-basierte Registrierung) =====
 // ========================================================================
 exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request => {

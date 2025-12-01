@@ -8,13 +8,6 @@ import {
 import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import {
     getFirestore,
-    doc,
-    getDoc,
-    query,
-    collection,
-    where,
-    getDocs,
-    updateDoc,
     connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
@@ -23,7 +16,7 @@ import {
     connectFunctionsEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
 import { firebaseConfig } from './firebase-config.js';
-import { isCodeExpired, validateCodeFormat } from './invitation-code-utils.js';
+import { validateCodeFormat } from './invitation-code-utils.js';
 
 // ===== INITIALISIERUNG =====
 const app = initializeApp(firebaseConfig);
@@ -80,32 +73,27 @@ async function initializeRegistration() {
             registrationType = 'code';
             invitationCode = invitationCode.trim().toUpperCase();
 
-            // Validiere Format
+            // Validiere Format lokal (schnelle Prüfung)
             if (!validateCodeFormat(invitationCode)) {
-                return displayError('Ungültiges Code-Format.'); // Nutzt neue displayError
+                return displayError('Ungültiges Code-Format.');
             }
 
-            // Suche Code in Firestore
-            const q = query(collection(db, 'invitationCodes'), where('code', '==', invitationCode));
-            const snapshot = await getDocs(q);
+            // Validiere Code über Cloud Function (sicher, ohne direkte Firestore-Abfrage)
+            const validateInvitationCode = httpsCallable(functions, 'validateInvitationCode');
+            const result = await validateInvitationCode({ code: invitationCode });
 
-            if (snapshot.empty) {
-                return displayError('Dieser Code existiert nicht.');
+            if (!result.data.valid) {
+                return displayError(result.data.message);
             }
 
-            invitationCodeData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+            // Code gültig - Speichere die Daten für die Registrierung
+            invitationCodeData = {
+                id: result.data.codeId,
+                firstName: result.data.firstName,
+                clubId: result.data.clubId,
+            };
 
-            // Prüfe ob Code bereits verwendet wurde
-            if (invitationCodeData.used) {
-                return displayError('Dieser Code wurde bereits verwendet.');
-            }
-
-            // Prüfe ob Code abgelaufen ist
-            if (isCodeExpired(invitationCodeData.expiresAt)) {
-                return displayError('Dieser Code ist abgelaufen.');
-            }
-
-            // Code gültig - Zeige Formular mit vorausgefüllten Daten
+            // Zeige Formular mit vorausgefüllten Daten
             const welcomeName = invitationCodeData.firstName
                 ? invitationCodeData.firstName
                 : 'Coach';
@@ -113,22 +101,25 @@ async function initializeRegistration() {
             loader.classList.add('hidden');
             registrationFormContainer.classList.remove('hidden');
         }
-        // ===== TOKEN-FLOW (Bisheriger Flow) =====
+        // ===== TOKEN-FLOW =====
         else if (tokenId) {
             registrationType = 'token';
-            const tokenDocRef = doc(db, 'invitationTokens', tokenId);
-            const tokenDocSnap = await getDoc(tokenDocRef);
 
-            if (tokenDocSnap.exists() && !tokenDocSnap.data().isUsed) {
-                const tokenData = tokenDocSnap.data();
-                formSubtitle.textContent = `Willkommen im Verein ${tokenData.clubId}!`;
-                loader.classList.add('hidden');
-                registrationFormContainer.classList.remove('hidden');
-            } else {
-                displayError('Dieser Einladungslink ist ungültig oder wurde bereits verwendet.');
+            // Validiere Token über Cloud Function (sicher, ohne direkte Firestore-Abfrage)
+            const validateInvitationToken = httpsCallable(functions, 'validateInvitationToken');
+            const result = await validateInvitationToken({ tokenId });
+
+            if (!result.data.valid) {
+                return displayError(result.data.message);
             }
+
+            // Token gültig - Zeige Formular
+            formSubtitle.textContent = `Willkommen im Verein ${result.data.clubId}!`;
+            loader.classList.add('hidden');
+            registrationFormContainer.classList.remove('hidden');
         }
     } catch (error) {
+        console.error('Fehler bei der Validierung:', error);
         displayError('Fehler beim Überprüfen der Einladung. Bitte versuche es erneut.');
     }
 }
