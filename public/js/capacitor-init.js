@@ -7,12 +7,17 @@
     // Check if running in Capacitor
     const isCapacitor = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
 
-    if (!isCapacitor) {
+    // Add platform classes to HTML element immediately
+    if (isCapacitor) {
+        const platform = window.Capacitor.getPlatform();
+        document.documentElement.classList.add('plt-capacitor');
+        document.documentElement.classList.add('plt-' + platform);
+        console.log('[Capacitor] Running as native app on', platform);
+    } else {
+        document.documentElement.classList.add('plt-web');
         console.log('[Capacitor] Running in browser mode');
         return;
     }
-
-    console.log('[Capacitor] Running as native app on', window.Capacitor.getPlatform());
 
     // Wait for Capacitor plugins to be ready
     document.addEventListener('DOMContentLoaded', async () => {

@@ -1,6 +1,6 @@
 /**
  * Mobile App Fixes for Capacitor
- * Fixes touch scrolling and click issues
+ * Fixes touch scrolling, click issues, and status bar overlap
  */
 
 /* Enable smooth scrolling on iOS */
@@ -30,17 +30,42 @@ button, a, input, select, textarea, [onclick], [role="button"] {
     -webkit-overflow-scrolling: touch;
 }
 
-/* Safe area padding for notched devices */
+/* Safe area padding for notched devices and status bar */
 body {
-    padding-top: env(safe-area-inset-top);
+    padding-top: max(env(safe-area-inset-top), 24px);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
 }
 
-/* Fix modal overlays */
+/* Android status bar fix - add padding to header/nav */
+header,
+nav,
+.sticky.top-0,
+[class*="sticky"][class*="top-0"] {
+    padding-top: max(env(safe-area-inset-top), 24px);
+}
+
+/* Fix for Capacitor native app */
+html.plt-capacitor body,
+html.plt-android body {
+    padding-top: 28px;
+}
+
+html.plt-capacitor header,
+html.plt-android header,
+html.plt-capacitor nav,
+html.plt-android nav {
+    padding-top: 28px;
+}
+
+/* Fix modal overlays - ensure they're below status bar */
 .fixed {
     touch-action: auto;
+}
+
+.fixed.inset-0 {
+    padding-top: max(env(safe-area-inset-top), 24px);
 }
 
 /* Prevent text selection on buttons */
