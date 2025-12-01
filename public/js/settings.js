@@ -541,7 +541,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `ttv-champions-datenexport-${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `sc-champions-datenexport-${new Date().toISOString().split('T')[0]}.json`;
         link.click();
         URL.revokeObjectURL(url);
 

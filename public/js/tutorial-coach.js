@@ -332,7 +332,7 @@ export const coachTutorialSteps = [
         element: 'body',
         title: '🎉 Tutorial abgeschlossen!',
         description:
-            'Du kennst jetzt alle wichtigen Funktionen für Coaches! Falls du etwas vergessen hast, kannst du das Tutorial jederzeit in den Einstellungen neu starten. Viel Spaß mit TTV Champions!!!',
+            'Du kennst jetzt alle wichtigen Funktionen für Coaches! Falls du etwas vergessen hast, kannst du das Tutorial jederzeit in den Einstellungen neu starten. Viel Spaß mit SC Champions!!!',
         category: 'Abschluss',
         position: 'auto',
         noSpotlight: true,

@@ -1,6 +1,6 @@
-# TTV Champions Mobile App Setup
+# SC Champions Mobile App Setup
 
-Diese Anleitung erklärt, wie du die TTV Champions App für Android und iOS bauen kannst.
+Diese Anleitung erklärt, wie du die SC Champions App für Android und iOS bauen kannst.
 
 ## Voraussetzungen
 
@@ -60,15 +60,15 @@ npm run cap:build:android
 
 1. Erstelle einen Keystore:
 ```bash
-keytool -genkey -v -keystore ttv-champions.keystore -alias ttv-champions -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore sc-champions.keystore -alias sc-champions -keyalg RSA -keysize 2048 -validity 10000
 ```
 
 2. Erstelle `android/keystore.properties`:
 ```properties
 storePassword=dein_passwort
 keyPassword=dein_passwort
-keyAlias=ttv-champions
-storeFile=../ttv-champions.keystore
+keyAlias=sc-champions
+storeFile=../sc-champions.keystore
 ```
 
 3. In Android Studio: Build → Generate Signed Bundle/APK

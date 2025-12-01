@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-    appId: 'de.ttvchampions.app',
-    appName: 'TTV Champions',
+    appId: 'de.scchampions.app',
+    appName: 'SC Champions',
     webDir: 'public',
     server: {
         androidScheme: 'https',

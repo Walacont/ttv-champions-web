@@ -1,5 +1,5 @@
 /**
- * SPA Enhancer for TTV Champions
+ * SPA Enhancer for SC Champions
  * Converts multi-page application into SPA by intercepting navigation
  * and loading pages dynamically without full page reloads
  */

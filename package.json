@@ -1,7 +1,7 @@
 {
-    "name": "ttv-champions",
+    "name": "sc-champions",
     "version": "3.0.2",
-    "description": "TTV Champions - Digitales Tischtennis-Training & Wettkampfsystem",
+    "description": "SC Champions - Digitales Sport-Training & Wettkampfsystem",
     "type": "module",
     "scripts": {
         "test": "vitest run",
