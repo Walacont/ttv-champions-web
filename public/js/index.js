@@ -139,15 +139,19 @@ onAuthStateChanged(auth, async user => {
 
 loginForm?.addEventListener('submit', async e => {
     e.preventDefault();
+    console.log('[INDEX] Login form submitted');
     const email = document.getElementById('email-address').value;
     const password = document.getElementById('password').value;
     const submitButton = document.getElementById('login-submit-button');
+    console.log('[INDEX] Attempting login for:', email);
     feedbackMessage.textContent = '';
     feedbackMessage.className = 'mt-2 text-center text-sm';
     submitButton.disabled = true;
 
     try {
+        console.log('[INDEX] Calling signInWithEmailAndPassword...');
         await signInWithEmailAndPassword(auth, email, password);
+        console.log('[INDEX] Login successful');
         // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
     } catch (error) {
         console.error('Login-Fehler:', error);
