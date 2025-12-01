@@ -137,25 +137,34 @@ onAuthStateChanged(auth, async user => {
     }
 });
 
-loginForm?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = document.getElementById('email-address').value;
-    const password = document.getElementById('password').value;
-    const submitButton = document.getElementById('login-submit-button');
-    feedbackMessage.textContent = '';
-    feedbackMessage.className = 'mt-2 text-center text-sm';
-    submitButton.disabled = true;
+if (loginForm) {
+    console.log('[INDEX] Setting up login form submit handler');
+    loginForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        console.log('[INDEX] Login form submitted!');
+        const email = document.getElementById('email-address').value;
+        const password = document.getElementById('password').value;
+        const submitButton = document.getElementById('login-submit-button');
+        console.log('[INDEX] Attempting login for:', email);
+        feedbackMessage.textContent = '';
+        feedbackMessage.className = 'mt-2 text-center text-sm';
+        submitButton.disabled = true;
 
-    try {
-        await signInWithEmailAndPassword(auth, email, password);
-        // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
-    } catch (error) {
-        console.error('Login-Fehler:', error);
-        feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
-        feedbackMessage.classList.add('text-red-600');
-        submitButton.disabled = false;
-    }
-});
+        try {
+            console.log('[INDEX] Calling signInWithEmailAndPassword...');
+            await signInWithEmailAndPassword(auth, email, password);
+            console.log('[INDEX] Login successful');
+            // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
+        } catch (error) {
+            console.error('Login-Fehler:', error);
+            feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
+            feedbackMessage.classList.add('text-red-600');
+            submitButton.disabled = false;
+        }
+    });
+} else {
+    console.error('[INDEX] loginForm NOT found - cannot set up submit handler!');
+}
 
 forgotPasswordButton?.addEventListener('click', () => {
     loginForm.classList.add('hidden');
@@ -265,14 +274,24 @@ const loginModal = document.getElementById('login-modal');
 const openLoginBtn = document.getElementById('open-login-modal');
 const closeLoginBtn = document.getElementById('close-login-modal');
 
+console.log('[INDEX] Modal elements:', {
+    loginModal: !!loginModal,
+    openLoginBtn: !!openLoginBtn,
+    closeLoginBtn: !!closeLoginBtn
+});
+
 if (loginModal && openLoginBtn && closeLoginBtn) {
+    console.log('[INDEX] Setting up modal event listeners');
+
     // Modal öffnen (Klick auf "Login" im Header)
     openLoginBtn.addEventListener('click', () => {
+        console.log('[INDEX] Open login button clicked - opening modal');
         loginModal.classList.remove('hidden');
     });
 
     // Modal schließen (Klick auf 'X' im Modal)
     closeLoginBtn.addEventListener('click', () => {
+        console.log('[INDEX] Close button clicked - closing modal');
         loginModal.classList.add('hidden');
     });
 
@@ -281,7 +300,19 @@ if (loginModal && openLoginBtn && closeLoginBtn) {
         // Prüfen, ob der Klick direkt auf den Hintergrund (loginModal)
         // und nicht auf ein Kind-Element (das weiße Panel) erfolgte.
         if (e.target === loginModal) {
+            console.log('[INDEX] Background clicked - closing modal');
             loginModal.classList.add('hidden');
         }
+    });
+} else {
+    console.error('[INDEX] Modal elements NOT found - cannot set up modal!');
+}
+
+// Also add a direct click listener on the submit button for debugging
+const loginSubmitBtn = document.getElementById('login-submit-button');
+if (loginSubmitBtn) {
+    console.log('[INDEX] Adding click listener to submit button');
+    loginSubmitBtn.addEventListener('click', (e) => {
+        console.log('[INDEX] Submit button clicked directly');
     });
 }
