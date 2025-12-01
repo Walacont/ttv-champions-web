@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC Champions - Icon Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #1e293b;
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 { text-align: center; margin-bottom: 30px; }
+
+        .controls {
+            background: #334155;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #1e293b;
+            color: white;
+        }
+
+        .preview-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .preview-card {
+            background: #334155;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .preview-card h3 {
+            margin-bottom: 15px;
+            color: #94a3b8;
+        }
+        .preview-container {
+            display: inline-block;
+            position: relative;
+        }
+        .preview-container canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .circle-mask {
+            border-radius: 50%;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .squircle-mask {
+            border-radius: 22%;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .download-section {
+            background: #334155;
+            padding: 20px;
+            border-radius: 12px;
+        }
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .download-btn {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .download-btn:hover {
+            background: #4338ca;
+        }
+        .download-btn.secondary {
+            background: #059669;
+        }
+        .download-btn.secondary:hover {
+            background: #047857;
+        }
+
+        .safe-zone-indicator {
+            position: absolute;
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .info-box {
+            background: #1e40af;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-trophy"></i> SC Champions Icon Generator</h1>
+
+        <div class="info-box">
+            <strong>Android Safe Zone:</strong> Das Logo wird automatisch in der inneren 66% platziert,
+            damit es bei runden Icons nicht abgeschnitten wird.
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Hintergrundfarbe</label>
+                <input type="color" id="bgColor" value="#1e40af">
+            </div>
+            <div class="control-group">
+                <label>Text/Icon Farbe</label>
+                <input type="color" id="fgColor" value="#ffffff">
+            </div>
+            <div class="control-group">
+                <label>Icon Größe (%)</label>
+                <input type="range" id="iconScale" min="30" max="60" value="45">
+            </div>
+            <div class="control-group">
+                <label>Text</label>
+                <input type="text" id="iconText" value="SCC" maxlength="4">
+            </div>
+            <div class="control-group">
+                <label>Design</label>
+                <select id="iconDesign">
+                    <option value="trophy-text">Trophäe + Text</option>
+                    <option value="trophy-only">Nur Trophäe</option>
+                    <option value="text-only">Nur Text</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <div class="preview-card">
+                <h3>Quadratisch (Original)</h3>
+                <div class="preview-container">
+                    <canvas id="previewSquare" width="512" height="512"></canvas>
+                </div>
+            </div>
+            <div class="preview-card">
+                <h3>Rund (Android Circle)</h3>
+                <div class="preview-container circle-mask">
+                    <canvas id="previewCircle" width="512" height="512"></canvas>
+                </div>
+            </div>
+            <div class="preview-card">
+                <h3>Squircle (Android Default)</h3>
+                <div class="preview-container squircle-mask">
+                    <canvas id="previewSquircle" width="512" height="512"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="download-section">
+            <h3>Downloads</h3>
+            <p style="color: #94a3b8; margin-bottom: 15px;">PWA Icons (public/icons/)</p>
+            <div class="download-grid">
+                <button class="download-btn" onclick="downloadIcon(512)">512x512</button>
+                <button class="download-btn" onclick="downloadIcon(384)">384x384</button>
+                <button class="download-btn" onclick="downloadIcon(192)">192x192</button>
+                <button class="download-btn" onclick="downloadIcon(152)">152x152</button>
+                <button class="download-btn" onclick="downloadIcon(144)">144x144</button>
+                <button class="download-btn" onclick="downloadIcon(128)">128x128</button>
+                <button class="download-btn" onclick="downloadIcon(96)">96x96</button>
+                <button class="download-btn" onclick="downloadIcon(72)">72x72</button>
+                <button class="download-btn" onclick="downloadIcon(48)">48x48</button>
+            </div>
+
+            <p style="color: #94a3b8; margin: 20px 0 15px;">Android Launcher Icons (mipmap/)</p>
+            <div class="download-grid">
+                <button class="download-btn secondary" onclick="downloadAndroidIcon('xxxhdpi', 192)">xxxhdpi (192)</button>
+                <button class="download-btn secondary" onclick="downloadAndroidIcon('xxhdpi', 144)">xxhdpi (144)</button>
+                <button class="download-btn secondary" onclick="downloadAndroidIcon('xhdpi', 96)">xhdpi (96)</button>
+                <button class="download-btn secondary" onclick="downloadAndroidIcon('hdpi', 72)">hdpi (72)</button>
+                <button class="download-btn secondary" onclick="downloadAndroidIcon('mdpi', 48)">mdpi (48)</button>
+            </div>
+
+            <p style="color: #94a3b8; margin: 20px 0 15px;">Alle auf einmal</p>
+            <div class="download-grid">
+                <button class="download-btn" onclick="downloadAllPWA()" style="background: #7c3aed;">Alle PWA Icons</button>
+                <button class="download-btn secondary" onclick="downloadAllAndroid()">Alle Android Icons</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bgColorInput = document.getElementById('bgColor');
+        const fgColorInput = document.getElementById('fgColor');
+        const iconScaleInput = document.getElementById('iconScale');
+        const iconTextInput = document.getElementById('iconText');
+        const iconDesignInput = document.getElementById('iconDesign');
+
+        const previewSquare = document.getElementById('previewSquare');
+        const previewCircle = document.getElementById('previewCircle');
+        const previewSquircle = document.getElementById('previewSquircle');
+
+        function drawIcon(canvas, size = 512) {
+            const ctx = canvas.getContext('2d');
+            const bgColor = bgColorInput.value;
+            const fgColor = fgColorInput.value;
+            const scale = iconScaleInput.value / 100;
+            const text = iconTextInput.value;
+            const design = iconDesignInput.value;
+
+            // Clear and draw background
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, size, size);
+
+            // Calculate safe zone (66% of icon for Android adaptive icons)
+            const safeZoneSize = size * 0.66;
+            const safeZoneOffset = (size - safeZoneSize) / 2;
+
+            // Content area within safe zone
+            const contentSize = safeZoneSize * scale * 1.5;
+            const centerX = size / 2;
+            const centerY = size / 2;
+
+            ctx.fillStyle = fgColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            if (design === 'trophy-text') {
+                // Trophy icon
+                const trophySize = contentSize * 0.5;
+                ctx.font = `900 ${trophySize}px "Font Awesome 6 Free"`;
+                ctx.fillText('\uf091', centerX, centerY - contentSize * 0.15);
+
+                // Text below
+                const textSize = contentSize * 0.28;
+                ctx.font = `800 ${textSize}px Inter, sans-serif`;
+                ctx.fillText(text, centerX, centerY + contentSize * 0.28);
+            } else if (design === 'trophy-only') {
+                // Just trophy, bigger
+                const trophySize = contentSize * 0.7;
+                ctx.font = `900 ${trophySize}px "Font Awesome 6 Free"`;
+                ctx.fillText('\uf091', centerX, centerY);
+            } else if (design === 'text-only') {
+                // Just text, bigger
+                const textSize = contentSize * 0.45;
+                ctx.font = `900 ${textSize}px Inter, sans-serif`;
+                ctx.fillText(text, centerX, centerY);
+            }
+
+            return canvas;
+        }
+
+        function updatePreviews() {
+            drawIcon(previewSquare, 512);
+            drawIcon(previewCircle, 512);
+            drawIcon(previewSquircle, 512);
+        }
+
+        function downloadIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            drawIcon(canvas, size);
+
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function downloadAndroidIcon(density, size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            drawIcon(canvas, size);
+
+            const link = document.createElement('a');
+            link.download = `ic_launcher_${density}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function downloadAllPWA() {
+            const sizes = [512, 384, 192, 152, 144, 128, 96, 72, 48];
+            sizes.forEach((size, i) => {
+                setTimeout(() => downloadIcon(size), i * 200);
+            });
+        }
+
+        function downloadAllAndroid() {
+            const densities = [
+                ['xxxhdpi', 192],
+                ['xxhdpi', 144],
+                ['xhdpi', 96],
+                ['hdpi', 72],
+                ['mdpi', 48]
+            ];
+            densities.forEach(([density, size], i) => {
+                setTimeout(() => downloadAndroidIcon(density, size), i * 200);
+            });
+        }
+
+        // Event listeners
+        [bgColorInput, fgColorInput, iconScaleInput, iconTextInput, iconDesignInput].forEach(input => {
+            input.addEventListener('input', updatePreviews);
+        });
+
+        // Wait for fonts to load
+        document.fonts.ready.then(() => {
+            updatePreviews();
+        });
+
+        // Initial render
+        setTimeout(updatePreviews, 500);
+    </script>
+</body>
+</html>
