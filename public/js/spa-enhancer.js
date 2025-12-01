@@ -11,10 +11,92 @@ class SPAEnhancer {
         this.isNavigating = false;
         this.loadingIndicator = null;
         this.eventCallbacks = {};
+        // Allowed origins for security (same-origin only)
+        this.allowedOrigin = window.location.origin;
 
         // Initialize
         this.init();
         this.createLoadingIndicator();
+    }
+
+    /**
+     * Validate that a URL is safe to navigate to (same-origin only)
+     * Prevents open redirect and SSRF attacks
+     */
+    isValidInternalUrl(url) {
+        try {
+            const parsedUrl = new URL(url, this.allowedOrigin);
+            // Only allow same-origin navigation
+            if (parsedUrl.origin !== this.allowedOrigin) {
+                console.warn('[SPA] Blocked navigation to external origin:', parsedUrl.origin);
+                return false;
+            }
+            // Block dangerous protocols
+            if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+                console.warn('[SPA] Blocked navigation with unsafe protocol:', parsedUrl.protocol);
+                return false;
+            }
+            // Validate path doesn't contain suspicious patterns
+            const suspiciousPatterns = [
+                /\.\.\//,           // Path traversal
+                /<script/i,         // Script injection in URL
+                /javascript:/i,     // JavaScript protocol
+                /data:/i,           // Data URLs
+                /vbscript:/i,       // VBScript protocol
+            ];
+            const fullPath = parsedUrl.pathname + parsedUrl.search;
+            for (const pattern of suspiciousPatterns) {
+                if (pattern.test(fullPath)) {
+                    console.warn('[SPA] Blocked suspicious URL pattern:', fullPath);
+                    return false;
+                }
+            }
+            return true;
+        } catch (e) {
+            console.warn('[SPA] Invalid URL:', url);
+            return false;
+        }
+    }
+
+    /**
+     * Sanitize HTML content to remove potentially dangerous elements
+     * This is a defense-in-depth measure alongside CSP
+     */
+    sanitizeHtmlContent(doc) {
+        // Remove dangerous elements that could execute scripts
+        const dangerousSelectors = [
+            'script[src*="://"]', // External scripts (non-same-origin)
+            'iframe[src*="://"]', // External iframes
+            'object',
+            'embed',
+            'link[rel="import"]',
+            'meta[http-equiv="refresh"]',
+        ];
+
+        dangerousSelectors.forEach(selector => {
+            doc.querySelectorAll(selector).forEach(el => {
+                // Only remove if it's pointing to external origin
+                const src = el.getAttribute('src') || el.getAttribute('href') || '';
+                if (src.startsWith('http') && !src.startsWith(this.allowedOrigin)) {
+                    console.warn('[SPA] Removed potentially dangerous element:', el.tagName, src);
+                    el.remove();
+                }
+            });
+        });
+
+        // Remove inline event handlers from all elements
+        const allElements = doc.body.querySelectorAll('*');
+        allElements.forEach(el => {
+            // Get all attributes that start with 'on' (event handlers)
+            Array.from(el.attributes).forEach(attr => {
+                if (attr.name.startsWith('on')) {
+                    console.warn('[SPA] Removed inline event handler:', attr.name);
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+
+        return doc;
     }
 
     init() {
@@ -116,6 +198,12 @@ class SPAEnhancer {
 
         console.log('[SPA] navigateTo called with:', url);
 
+        // Security: Validate URL before navigation
+        if (!this.isValidInternalUrl(url)) {
+            console.error('[SPA] Navigation blocked - invalid or unsafe URL:', url);
+            return;
+        }
+
         // Parse URL to separate path and query string
         const urlObj = new URL(url, window.location.origin);
         const fullPath = urlObj.pathname + urlObj.search + urlObj.hash;
@@ -172,7 +260,10 @@ class SPAEnhancer {
 
             // Parse HTML
             const parser = new DOMParser();
-            const newDoc = parser.parseFromString(html, 'text/html');
+            let newDoc = parser.parseFromString(html, 'text/html');
+
+            // Security: Sanitize the loaded HTML content
+            newDoc = this.sanitizeHtmlContent(newDoc);
 
             // Update title
             document.title = newDoc.title;
@@ -183,10 +274,16 @@ class SPAEnhancer {
             // Trigger navigation start event
             this.trigger('navigationStart', { url });
 
-            // Replace body
+            // Replace body content safely
             const newBody = newDoc.body;
             document.body.className = newBody.className;
-            document.body.innerHTML = newBody.innerHTML;
+            // Use cloneNode to avoid potential reference issues
+            while (document.body.firstChild) {
+                document.body.removeChild(document.body.firstChild);
+            }
+            while (newBody.firstChild) {
+                document.body.appendChild(newBody.firstChild);
+            }
 
             // Add page transition animation
             const mainContent =

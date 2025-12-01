@@ -304,10 +304,11 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && resource.data.email == request.auth.token.email;
     }
 
-    // Invitation Codes collection - WICHTIG: Öffentlich lesbar!
+    // Invitation Codes collection - Validierung über Cloud Function
     match /invitationCodes/{codeId} {
-      // Jeder kann Codes lesen (für Login-Validierung)
-      allow read: if true;
+      // Nur authentifizierte Benutzer können Codes lesen (verhindert Enumeration)
+      // Nicht-authentifizierte Validierung erfolgt über Cloud Function
+      allow read: if isAuthenticated();
 
       // ADMIN kann Codes für JEDEN Club erstellen
       allow create: if isAdmin();
@@ -328,11 +329,14 @@ service cloud.firestore {
       allow delete: if isCoachOfClub(resource.data.clubId);
     }
 
-    // Invitation Tokens collection - WICHTIG: Öffentlich lesbar!
+    // Invitation Tokens collection - Validierung über Cloud Function
     match /invitationTokens/{tokenId} {
-      allow read: if true;
+      // Nur authentifizierte Benutzer können Tokens lesen (verhindert Enumeration)
+      // Nicht-authentifizierte Validierung erfolgt über Cloud Function
+      allow read: if isAuthenticated();
       allow create: if isCoachOrAdmin();
-      allow delete: if true;
+      // Tokens können nur von Coaches/Admins oder über Cloud Functions gelöscht werden
+      allow delete: if isCoachOrAdmin();
     }
 
     // Config collection (for season reset tracking, etc.)

@@ -909,7 +909,7 @@ exports.autoGenerateTrainingSessions = onSchedule(
 exports.migrateAttendanceToSessions = onCall(
     {
         region: CONFIG.REGION,
-        enforceAppCheck: false, // Set to true in production
+        enforceAppCheck: true, // App Check enabled for production security
     },
     async request => {
         logger.info('🔄 Starting attendance migration to sessions...');
