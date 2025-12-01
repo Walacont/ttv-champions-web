@@ -1307,6 +1307,26 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
 
         // Upload image only if provided
         if (file) {
+            // Validate file type - only allow images
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+            if (!allowedTypes.includes(file.type)) {
+                feedbackEl.textContent = 'Nur Bilddateien sind erlaubt (JPG, PNG, GIF, WebP, SVG).';
+                feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Übung speichern';
+                return;
+            }
+
+            // Also check file size (max 5MB)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                feedbackEl.textContent = 'Die Bilddatei darf maximal 5MB groß sein.';
+                feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Übung speichern';
+                return;
+            }
+
             const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
             const snapshot = await uploadBytes(storageRef, file);
             imageUrl = await getDownloadURL(snapshot.ref);
