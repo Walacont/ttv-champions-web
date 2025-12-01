@@ -21,7 +21,7 @@ import {
     httpsCallable,
     connectFunctionsEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import { formatDate } from './ui-utils.js';
 
 const app = initializeApp(firebaseConfig);
@@ -29,9 +29,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// Emulator setup (aber NICHT in Capacitor)
-const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
-if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
     connectFunctionsEmulator(functions, 'localhost', 5001);

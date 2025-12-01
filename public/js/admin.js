@@ -39,7 +39,7 @@ import {
     connectFunctionsEmulator,
     httpsCallable,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import {
@@ -58,23 +58,12 @@ const analytics = getAnalytics(app);
 // NEU: Functions-Dienst initialisieren
 const functions = getFunctions(app);
 
-// NEU: Der Emulator-Block
-// Dieser Code verbindet sich nur dann mit den Emulatoren,
-// wenn die Seite lokal (z.B. über Live Server) ausgeführt wird (aber NICHT in Capacitor).
-const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
-if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('Admin.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Functions Emulator
     connectFunctionsEmulator(functions, 'localhost', 5001);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
 }
 
