@@ -18,13 +18,15 @@
         "cap:run:ios": "npx cap run ios",
         "cap:build:android": "npx cap sync android && cd android && ./gradlew assembleRelease",
         "android": "npx cap sync android && npx cap open android",
-        "ios": "npx cap sync ios && npx cap open ios"
+        "ios": "npx cap sync ios && npx cap open ios",
+        "icons:ios": "node scripts/generate-ios-icons.js"
     },
     "devDependencies": {
         "firebase-admin": "^13.6.0",
         "firebase-tools": "^14.24.1",
         "happy-dom": "^20.0.10",
         "prettier": "^3.4.2",
+        "sharp": "^0.34.5",
         "vitest": "^4.0.8"
     },
     "dependencies": {
