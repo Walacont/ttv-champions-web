@@ -1,4 +1,4 @@
-package de.ttvchampions.app;
+package de.scchampions.app;
 
 import com.getcapacitor.BridgeActivity;
 

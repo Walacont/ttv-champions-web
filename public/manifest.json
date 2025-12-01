@@ -1,7 +1,7 @@
 {
-    "name": "TTV Champions",
-    "short_name": "TTV Champions",
-    "description": "Digitales Tischtennis-Training & Wettkampfsystem mit Elo-Rankings, XP und Gamification",
+    "name": "SC Champions",
+    "short_name": "SC Champions",
+    "description": "Digitales Sport-Training & Wettkampfsystem mit Elo-Rankings, XP und Gamification",
     "start_url": "/dashboard.html",
     "display": "standalone",
     "background_color": "#1e3a5f",

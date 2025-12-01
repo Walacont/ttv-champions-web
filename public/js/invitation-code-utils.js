@@ -111,8 +111,8 @@ export function getRemainingDays(expiresAt) {
 export function createWhatsAppShareUrl(code, firstName = '') {
     const baseUrl = window.location.origin;
     const message = firstName
-        ? `Hallo ${firstName}! Hier ist dein TTV Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`
-        : `Hier ist dein TTV Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`;
+        ? `Hallo ${firstName}! Hier ist dein SC Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`
+        : `Hier ist dein SC Champions Einladungscode: ${code}\n\nMelde dich an unter: ${baseUrl}?code=${code}`;
 
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }
