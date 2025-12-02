@@ -15,9 +15,10 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { randomUUID } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,6 +49,54 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
         persistSession: false
     }
 });
+
+// ============================================
+// ID MAPPING (Firebase Text IDs → Supabase UUIDs)
+// ============================================
+
+const idMappings = {
+    clubs: {},
+    users: {},
+    subgroups: {},
+    exercises: {},
+    challenges: {},
+    matches: {},
+    attendance: {},
+    trainingSessions: {},
+    invitationCodes: {},
+    doublesMatches: {}
+};
+
+function isValidUUID(str) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+}
+
+function getOrCreateUUID(oldId, collection) {
+    if (!oldId) return null;
+
+    // If already a valid UUID, use it
+    if (isValidUUID(oldId)) {
+        idMappings[collection][oldId] = oldId;
+        return oldId;
+    }
+
+    // If we already mapped this ID, return the mapping
+    if (idMappings[collection][oldId]) {
+        return idMappings[collection][oldId];
+    }
+
+    // Generate new UUID
+    const newUUID = randomUUID();
+    idMappings[collection][oldId] = newUUID;
+    return newUUID;
+}
+
+function getMappedId(oldId, collection) {
+    if (!oldId) return null;
+    if (isValidUUID(oldId)) return oldId;
+    return idMappings[collection][oldId] || null;
+}
 
 // ============================================
 // HELPER FUNCTIONS
@@ -93,19 +142,23 @@ async function migrateClubs() {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'clubs');
+
         clubs.push({
-            id: doc.id,
+            id: newId,
             name: data.name || 'Unknown Club',
             description: data.description || null,
             logo_url: data.logoUrl || null,
             settings: data.settings || {},
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
+
+        log(`  Club: ${doc.id} → ${newId}`, 'info');
     }
 
     if (clubs.length === 0) {
         log('No clubs found', 'warn');
-        return {};
+        return idMappings.clubs;
     }
 
     const { error } = await supabase.from('clubs').upsert(clubs, { onConflict: 'id' });
@@ -115,9 +168,7 @@ async function migrateClubs() {
     }
 
     log(`Migrated ${clubs.length} clubs`, 'success');
-
-    // Return mapping of old ID to new ID (same in this case)
-    return Object.fromEntries(clubs.map(c => [c.id, c.id]));
+    return idMappings.clubs;
 }
 
 async function migrateUsers(clubIdMap) {
@@ -125,44 +176,54 @@ async function migrateUsers(clubIdMap) {
 
     const snapshot = await firestore.collection('users').get();
     const profiles = [];
-    const userIdMap = {};
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
-        const odlId = doc.id;
+        let newUserId = null;
 
-        // Create user in Supabase Auth (if they have email)
-        let newUserId = doc.id;
-
+        // For online users with email: create in Supabase Auth
         if (data.email && !data.isOffline) {
             try {
-                // Check if user already exists in Supabase Auth
-                const { data: existingUser } = await supabase.auth.admin.getUserById(doc.id);
-
-                if (!existingUser?.user) {
-                    // Create user in Supabase Auth
-                    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                        id: doc.id, // Keep same ID
-                        email: data.email,
-                        email_confirm: true,
-                        password: 'TempPassword123!', // User muss Passwort zurücksetzen
-                        user_metadata: {
-                            display_name: data.displayName || data.name || 'Unknown'
-                        }
-                    });
-
-                    if (authError) {
-                        log(`Auth error for ${data.email}: ${authError.message}`, 'warn');
-                    } else {
-                        newUserId = authData.user.id;
+                // Create user in Supabase Auth (generates UUID automatically)
+                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                    email: data.email,
+                    email_confirm: true,
+                    password: 'TempPassword123!', // User muss Passwort zurücksetzen
+                    user_metadata: {
+                        display_name: data.displayName || data.name || 'Unknown'
                     }
+                });
+
+                if (authError) {
+                    if (authError.message.includes('already been registered')) {
+                        // User exists, get their ID
+                        const { data: users } = await supabase.auth.admin.listUsers();
+                        const existingUser = users?.users?.find(u => u.email === data.email);
+                        if (existingUser) {
+                            newUserId = existingUser.id;
+                            log(`  User exists: ${data.email} → ${newUserId}`, 'info');
+                        }
+                    } else {
+                        log(`  Auth error for ${data.email}: ${authError.message}`, 'warn');
+                    }
+                } else {
+                    newUserId = authData.user.id;
+                    log(`  Created auth: ${data.email} → ${newUserId}`, 'info');
                 }
             } catch (e) {
-                log(`Error creating auth user ${data.email}: ${e.message}`, 'warn');
+                log(`  Error creating auth user ${data.email}: ${e.message}`, 'warn');
             }
         }
 
-        userIdMap[doc.id] = newUserId;
+        // For offline users or if auth failed: generate UUID
+        if (!newUserId) {
+            newUserId = getOrCreateUUID(doc.id, 'users');
+            log(`  Offline user: ${doc.id} → ${newUserId}`, 'info');
+        } else {
+            idMappings.users[doc.id] = newUserId;
+        }
+
+        const mappedClubId = getMappedId(data.clubId, 'clubs');
 
         profiles.push({
             id: newUserId,
@@ -170,7 +231,7 @@ async function migrateUsers(clubIdMap) {
             display_name: data.displayName || data.name || 'Unknown Player',
             avatar_url: data.avatarUrl || data.photoURL || null,
             role: data.role || 'player',
-            club_id: data.clubId ? (clubIdMap[data.clubId] || data.clubId) : null,
+            club_id: mappedClubId,
             xp: data.xp || 0,
             points: data.points || 0,
             elo_rating: data.eloRating || data.elo || 1000,
@@ -186,7 +247,7 @@ async function migrateUsers(clubIdMap) {
 
     if (profiles.length === 0) {
         log('No users found', 'warn');
-        return {};
+        return idMappings.users;
     }
 
     // Insert in batches of 100
@@ -199,7 +260,7 @@ async function migrateUsers(clubIdMap) {
     }
 
     log(`Migrated ${profiles.length} users`, 'success');
-    return userIdMap;
+    return idMappings.users;
 }
 
 async function migrateSubgroups(clubIdMap) {
@@ -207,15 +268,15 @@ async function migrateSubgroups(clubIdMap) {
 
     const snapshot = await firestore.collection('subgroups').get();
     const subgroups = [];
-    const subgroupIdMap = {};
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
-        subgroupIdMap[doc.id] = doc.id;
+        const newId = getOrCreateUUID(doc.id, 'subgroups');
+        const mappedClubId = getMappedId(data.clubId, 'clubs');
 
         subgroups.push({
-            id: doc.id,
-            club_id: clubIdMap[data.clubId] || data.clubId,
+            id: newId,
+            club_id: mappedClubId,
             name: data.name || 'Unknown Subgroup',
             description: data.description || null,
             color: data.color || null,
@@ -226,7 +287,7 @@ async function migrateSubgroups(clubIdMap) {
 
     if (subgroups.length === 0) {
         log('No subgroups found', 'warn');
-        return {};
+        return idMappings.subgroups;
     }
 
     const { error } = await supabase.from('subgroups').upsert(subgroups, { onConflict: 'id' });
@@ -236,7 +297,7 @@ async function migrateSubgroups(clubIdMap) {
         log(`Migrated ${subgroups.length} subgroups`, 'success');
     }
 
-    return subgroupIdMap;
+    return idMappings.subgroups;
 }
 
 async function migrateMatches(clubIdMap, userIdMap) {
@@ -247,14 +308,15 @@ async function migrateMatches(clubIdMap, userIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'matches');
 
         matches.push({
-            id: doc.id,
-            club_id: clubIdMap[data.clubId] || data.clubId,
-            player_a_id: userIdMap[data.playerAId] || data.playerAId,
-            player_b_id: userIdMap[data.playerBId] || data.playerBId,
-            winner_id: data.winnerId ? (userIdMap[data.winnerId] || data.winnerId) : null,
-            loser_id: data.loserId ? (userIdMap[data.loserId] || data.loserId) : null,
+            id: newId,
+            club_id: getMappedId(data.clubId, 'clubs'),
+            player_a_id: getMappedId(data.playerAId, 'users'),
+            player_b_id: getMappedId(data.playerBId, 'users'),
+            winner_id: getMappedId(data.winnerId, 'users'),
+            loser_id: getMappedId(data.loserId, 'users'),
             sets: data.sets || null,
             player_a_sets_won: data.playerASetsWon || 0,
             player_b_sets_won: data.playerBSetsWon || 0,
@@ -264,7 +326,7 @@ async function migrateMatches(clubIdMap, userIdMap) {
             player_a_elo_after: data.playerAEloAfter || null,
             player_b_elo_after: data.playerBEloAfter || null,
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
-            created_by: data.createdBy ? (userIdMap[data.createdBy] || data.createdBy) : null,
+            created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -294,17 +356,18 @@ async function migrateAttendance(clubIdMap, userIdMap, subgroupIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'attendance');
 
         attendance.push({
-            id: doc.id,
-            club_id: clubIdMap[data.clubId] || data.clubId,
-            subgroup_id: data.subgroupId ? (subgroupIdMap[data.subgroupId] || data.subgroupId) : null,
-            user_id: userIdMap[data.userId] || data.userId,
+            id: newId,
+            club_id: getMappedId(data.clubId, 'clubs'),
+            subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
+            user_id: getMappedId(data.userId, 'users'),
             date: convertDate(data.date) || new Date().toISOString().split('T')[0],
             present: data.present !== false,
             xp_awarded: data.xpAwarded || 0,
             notes: data.notes || null,
-            recorded_by: data.recordedBy ? (userIdMap[data.recordedBy] || data.recordedBy) : null,
+            recorded_by: getMappedId(data.recordedBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -333,17 +396,18 @@ async function migrateChallenges(clubIdMap, userIdMap, subgroupIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'challenges');
 
         challenges.push({
-            id: doc.id,
-            club_id: clubIdMap[data.clubId] || data.clubId,
-            subgroup_id: data.subgroupId ? (subgroupIdMap[data.subgroupId] || data.subgroupId) : null,
+            id: newId,
+            club_id: getMappedId(data.clubId, 'clubs'),
+            subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
             title: data.title || 'Challenge',
             description: data.description || null,
             xp_reward: data.xpReward || 10,
             date: convertDate(data.date) || new Date().toISOString().split('T')[0],
             is_active: data.isActive !== false,
-            created_by: data.createdBy ? (userIdMap[data.createdBy] || data.createdBy) : null,
+            created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -369,21 +433,22 @@ async function migrateExercises(userIdMap, clubIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'exercises');
 
         exercises.push({
-            id: doc.id,
+            id: newId,
             name: data.name || 'Exercise',
             description: data.description || null,
             category: data.category || null,
             difficulty: data.difficulty || 1,
             xp_reward: data.xpReward || 10,
             record_count: data.recordCount || null,
-            record_holder_id: data.recordHolderId ? (userIdMap[data.recordHolderId] || data.recordHolderId) : null,
+            record_holder_id: getMappedId(data.recordHolderId, 'users'),
             record_holder_name: data.recordHolderName || null,
             record_holder_club: data.recordHolderClub || null,
-            record_holder_club_id: data.recordHolderClubId ? (clubIdMap[data.recordHolderClubId] || data.recordHolderClubId) : null,
+            record_holder_club_id: getMappedId(data.recordHolderClubId, 'clubs'),
             record_updated_at: convertTimestamp(data.recordUpdatedAt),
-            created_by: data.createdBy ? (userIdMap[data.createdBy] || data.createdBy) : null,
+            created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -409,17 +474,18 @@ async function migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'trainingSessions');
 
         sessions.push({
-            id: doc.id,
-            club_id: clubIdMap[data.clubId] || data.clubId,
-            subgroup_id: data.subgroupId ? (subgroupIdMap[data.subgroupId] || data.subgroupId) : null,
+            id: newId,
+            club_id: getMappedId(data.clubId, 'clubs'),
+            subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
             title: data.title || null,
             date: convertDate(data.date) || new Date().toISOString().split('T')[0],
             start_time: data.startTime || null,
             end_time: data.endTime || null,
             notes: data.notes || null,
-            created_by: data.createdBy ? (userIdMap[data.createdBy] || data.createdBy) : null,
+            created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -445,17 +511,18 @@ async function migrateInvitationCodes(clubIdMap, userIdMap, subgroupIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'invitationCodes');
 
         codes.push({
-            id: doc.id,
+            id: newId,
             code: data.code,
-            club_id: clubIdMap[data.clubId] || data.clubId,
-            subgroup_id: data.subgroupId ? (subgroupIdMap[data.subgroupId] || data.subgroupId) : null,
+            club_id: getMappedId(data.clubId, 'clubs'),
+            subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
             max_uses: data.maxUses || null,
             use_count: data.useCount || 0,
             expires_at: convertTimestamp(data.expiresAt),
             is_active: data.isActive !== false && !data.used,
-            created_by: data.createdBy ? (userIdMap[data.createdBy] || data.createdBy) : null,
+            created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -481,21 +548,22 @@ async function migrateDoublesMatches(clubIdMap, userIdMap) {
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
+        const newId = getOrCreateUUID(doc.id, 'doublesMatches');
 
         matches.push({
-            id: doc.id,
-            club_id: data.clubId ? (clubIdMap[data.clubId] || data.clubId) : null,
-            team_a_player1_id: userIdMap[data.teamA?.player1Id] || data.teamA?.player1Id,
-            team_a_player2_id: userIdMap[data.teamA?.player2Id] || data.teamA?.player2Id,
-            team_b_player1_id: userIdMap[data.teamB?.player1Id] || data.teamB?.player1Id,
-            team_b_player2_id: userIdMap[data.teamB?.player2Id] || data.teamB?.player2Id,
+            id: newId,
+            club_id: getMappedId(data.clubId, 'clubs'),
+            team_a_player1_id: getMappedId(data.teamA?.player1Id, 'users'),
+            team_a_player2_id: getMappedId(data.teamA?.player2Id, 'users'),
+            team_b_player1_id: getMappedId(data.teamB?.player1Id, 'users'),
+            team_b_player2_id: getMappedId(data.teamB?.player2Id, 'users'),
             winning_team: data.winningTeam || null,
             sets: data.sets || null,
             team_a_sets_won: data.teamASetsWon || 0,
             team_b_sets_won: data.teamBSetsWon || 0,
             is_cross_club: data.isCrossClub || false,
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
-            created_by: data.createdBy ? (userIdMap[data.createdBy] || data.createdBy) : null,
+            created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
@@ -521,9 +589,12 @@ async function migrateUserSubcollections(userIdMap) {
     log('Migrating user subcollections...', 'progress');
 
     const usersSnapshot = await firestore.collection('users').get();
+    let totalPoints = 0;
+    let totalXp = 0;
 
     for (const userDoc of usersSnapshot.docs) {
-        const userId = userIdMap[userDoc.id] || userDoc.id;
+        const userId = getMappedId(userDoc.id, 'users');
+        if (!userId) continue;
 
         // Points History
         const pointsSnapshot = await firestore.collection('users').doc(userDoc.id).collection('pointsHistory').get();
@@ -531,13 +602,14 @@ async function migrateUserSubcollections(userIdMap) {
             user_id: userId,
             points: doc.data().points || 0,
             reason: doc.data().reason || null,
-            awarded_by: doc.data().awardedBy ? (userIdMap[doc.data().awardedBy] || doc.data().awardedBy) : null,
+            awarded_by: getMappedId(doc.data().awardedBy, 'users'),
             created_at: convertTimestamp(doc.data().createdAt) || new Date().toISOString()
         }));
 
         if (pointsHistory.length > 0) {
             const { error } = await supabase.from('points_history').insert(pointsHistory);
-            if (error) log(`Points history error for ${userId}: ${error.message}`, 'warn');
+            if (error) log(`Points history error for ${userDoc.id}: ${error.message}`, 'warn');
+            else totalPoints += pointsHistory.length;
         }
 
         // XP History
@@ -547,17 +619,18 @@ async function migrateUserSubcollections(userIdMap) {
             xp: doc.data().xp || 0,
             reason: doc.data().reason || null,
             source: doc.data().source || null,
-            awarded_by: doc.data().awardedBy ? (userIdMap[doc.data().awardedBy] || doc.data().awardedBy) : null,
+            awarded_by: getMappedId(doc.data().awardedBy, 'users'),
             created_at: convertTimestamp(doc.data().createdAt) || new Date().toISOString()
         }));
 
         if (xpHistory.length > 0) {
             const { error } = await supabase.from('xp_history').insert(xpHistory);
-            if (error) log(`XP history error for ${userId}: ${error.message}`, 'warn');
+            if (error) log(`XP history error for ${userDoc.id}: ${error.message}`, 'warn');
+            else totalXp += xpHistory.length;
         }
     }
 
-    log('Migrated user subcollections', 'success');
+    log(`Migrated ${totalPoints} points history + ${totalXp} xp history records`, 'success');
 }
 
 // ============================================
@@ -603,12 +676,18 @@ async function runMigration() {
         // Step 11: Migrate user subcollections (history, etc.)
         await migrateUserSubcollections(userIdMap);
 
+        // Save ID mappings to file for reference
+        const mappingFile = join(__dirname, 'id-mappings.json');
+        writeFileSync(mappingFile, JSON.stringify(idMappings, null, 2));
+        log(`ID mappings saved to: ${mappingFile}`, 'info');
+
         console.log('\n========================================');
         log('Migration completed successfully!', 'success');
         console.log('========================================\n');
 
         console.log('⚠️  WICHTIG: Alle migrierten User haben ein temporäres Passwort.');
         console.log('   Sie müssen "Passwort vergessen" nutzen um ein neues zu setzen.\n');
+        console.log('📁 ID-Mappings wurden gespeichert in: scripts/id-mappings.json\n');
 
     } catch (error) {
         console.error('\n❌ Migration failed:', error);
