@@ -250,16 +250,21 @@ async function migrateUsers(clubIdMap) {
         return idMappings.users;
     }
 
-    // Insert in batches of 100
-    for (let i = 0; i < profiles.length; i += 100) {
-        const batch = profiles.slice(i, i + 100);
-        const { error } = await supabase.from('profiles').upsert(batch, { onConflict: 'id' });
+    // Insert profiles one by one for better error handling
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const profile of profiles) {
+        const { error } = await supabase.from('profiles').upsert(profile, { onConflict: 'id' });
         if (error) {
-            log(`Error migrating users batch ${i}: ${error.message}`, 'error');
+            log(`  Profile error for ${profile.display_name}: ${error.message}`, 'warn');
+            errorCount++;
+        } else {
+            successCount++;
         }
     }
 
-    log(`Migrated ${profiles.length} users`, 'success');
+    log(`Migrated ${successCount} profiles (${errorCount} errors)`, successCount > 0 ? 'success' : 'warn');
     return idMappings.users;
 }
 
@@ -267,14 +272,15 @@ async function migrateSubgroups(clubIdMap) {
     log('Migrating subgroups...', 'progress');
 
     const snapshot = await firestore.collection('subgroups').get();
-    const subgroups = [];
+    let successCount = 0;
+    let errorCount = 0;
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
         const newId = getOrCreateUUID(doc.id, 'subgroups');
         const mappedClubId = getMappedId(data.clubId, 'clubs');
 
-        subgroups.push({
+        const subgroup = {
             id: newId,
             club_id: mappedClubId,
             name: data.name || 'Unknown Subgroup',
@@ -282,21 +288,19 @@ async function migrateSubgroups(clubIdMap) {
             color: data.color || null,
             training_days: data.trainingDays || null,
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
-        });
+        };
+
+        const { error } = await supabase.from('subgroups').upsert(subgroup, { onConflict: 'id' });
+        if (error) {
+            log(`  Subgroup error for "${data.name}": ${error.message}`, 'warn');
+            errorCount++;
+        } else {
+            log(`  Subgroup: ${data.name} → ${newId}`, 'info');
+            successCount++;
+        }
     }
 
-    if (subgroups.length === 0) {
-        log('No subgroups found', 'warn');
-        return idMappings.subgroups;
-    }
-
-    const { error } = await supabase.from('subgroups').upsert(subgroups, { onConflict: 'id' });
-    if (error) {
-        log(`Error migrating subgroups: ${error.message}`, 'error');
-    } else {
-        log(`Migrated ${subgroups.length} subgroups`, 'success');
-    }
-
+    log(`Migrated ${successCount} subgroups (${errorCount} errors)`, successCount > 0 ? 'success' : 'warn');
     return idMappings.subgroups;
 }
 
@@ -304,17 +308,30 @@ async function migrateMatches(clubIdMap, userIdMap) {
     log('Migrating matches...', 'progress');
 
     const snapshot = await firestore.collection('matches').get();
-    const matches = [];
+    let successCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
         const newId = getOrCreateUUID(doc.id, 'matches');
 
-        matches.push({
+        const playerAId = getMappedId(data.playerAId, 'users');
+        const playerBId = getMappedId(data.playerBId, 'users');
+        const clubId = getMappedId(data.clubId, 'clubs');
+
+        // Skip matches with missing required fields
+        if (!playerAId || !playerBId || !clubId) {
+            log(`  Skipping match ${doc.id}: missing player or club ID`, 'warn');
+            skippedCount++;
+            continue;
+        }
+
+        const match = {
             id: newId,
-            club_id: getMappedId(data.clubId, 'clubs'),
-            player_a_id: getMappedId(data.playerAId, 'users'),
-            player_b_id: getMappedId(data.playerBId, 'users'),
+            club_id: clubId,
+            player_a_id: playerAId,
+            player_b_id: playerBId,
             winner_id: getMappedId(data.winnerId, 'users'),
             loser_id: getMappedId(data.loserId, 'users'),
             sets: data.sets || null,
@@ -328,64 +345,63 @@ async function migrateMatches(clubIdMap, userIdMap) {
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
             created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
-        });
-    }
+        };
 
-    if (matches.length === 0) {
-        log('No matches found', 'warn');
-        return;
-    }
-
-    // Insert in batches
-    for (let i = 0; i < matches.length; i += 100) {
-        const batch = matches.slice(i, i + 100);
-        const { error } = await supabase.from('matches').upsert(batch, { onConflict: 'id' });
+        const { error } = await supabase.from('matches').upsert(match, { onConflict: 'id' });
         if (error) {
-            log(`Error migrating matches batch ${i}: ${error.message}`, 'error');
+            log(`  Match error: ${error.message}`, 'warn');
+            errorCount++;
+        } else {
+            successCount++;
         }
     }
 
-    log(`Migrated ${matches.length} matches`, 'success');
+    log(`Migrated ${successCount} matches (${errorCount} errors, ${skippedCount} skipped)`, successCount > 0 ? 'success' : 'warn');
 }
 
 async function migrateAttendance(clubIdMap, userIdMap, subgroupIdMap) {
     log('Migrating attendance...', 'progress');
 
     const snapshot = await firestore.collection('attendance').get();
-    const attendance = [];
+    let successCount = 0;
+    let errorCount = 0;
+    let skippedCount = 0;
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
         const newId = getOrCreateUUID(doc.id, 'attendance');
 
-        attendance.push({
+        const userId = getMappedId(data.userId, 'users');
+        const clubId = getMappedId(data.clubId, 'clubs');
+
+        // Skip attendance with missing required fields
+        if (!userId || !clubId) {
+            skippedCount++;
+            continue;
+        }
+
+        const record = {
             id: newId,
-            club_id: getMappedId(data.clubId, 'clubs'),
+            club_id: clubId,
             subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
-            user_id: getMappedId(data.userId, 'users'),
+            user_id: userId,
             date: convertDate(data.date) || new Date().toISOString().split('T')[0],
             present: data.present !== false,
             xp_awarded: data.xpAwarded || 0,
             notes: data.notes || null,
             recorded_by: getMappedId(data.recordedBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
-        });
-    }
+        };
 
-    if (attendance.length === 0) {
-        log('No attendance found', 'warn');
-        return;
-    }
-
-    for (let i = 0; i < attendance.length; i += 100) {
-        const batch = attendance.slice(i, i + 100);
-        const { error } = await supabase.from('attendance').upsert(batch, { onConflict: 'id' });
+        const { error } = await supabase.from('attendance').upsert(record, { onConflict: 'id' });
         if (error) {
-            log(`Error migrating attendance batch ${i}: ${error.message}`, 'error');
+            errorCount++;
+        } else {
+            successCount++;
         }
     }
 
-    log(`Migrated ${attendance.length} attendance records`, 'success');
+    log(`Migrated ${successCount} attendance (${errorCount} errors, ${skippedCount} skipped)`, successCount > 0 ? 'success' : 'warn');
 }
 
 async function migrateChallenges(clubIdMap, userIdMap, subgroupIdMap) {
@@ -425,6 +441,27 @@ async function migrateChallenges(clubIdMap, userIdMap, subgroupIdMap) {
     }
 }
 
+// Konvertiert Text-Difficulty zu Integer
+function convertDifficulty(diff) {
+    if (typeof diff === 'number') return diff;
+    if (!diff) return 1;
+
+    const mapping = {
+        'easy': 1,
+        'leicht': 1,
+        'normal': 2,
+        'mittel': 2,
+        'medium': 2,
+        'hard': 3,
+        'schwer': 3,
+        'difficult': 3,
+        'expert': 4,
+        'experte': 4
+    };
+
+    return mapping[diff.toLowerCase()] || 1;
+}
+
 async function migrateExercises(userIdMap, clubIdMap) {
     log('Migrating exercises...', 'progress');
 
@@ -440,7 +477,7 @@ async function migrateExercises(userIdMap, clubIdMap) {
             name: data.name || 'Exercise',
             description: data.description || null,
             category: data.category || null,
-            difficulty: data.difficulty || 1,
+            difficulty: convertDifficulty(data.difficulty),
             xp_reward: data.xpReward || 10,
             record_count: data.recordCount || null,
             record_holder_id: getMappedId(data.recordHolderId, 'users'),
