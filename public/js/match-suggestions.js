@@ -6,11 +6,108 @@ import {
     getDocs,
     getDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
  * Match Suggestions Module
  * Provides opponent suggestions based on match history and player ratings
  */
+
+// Cache for clubs data
+let clubsCache = null;
+let clubsCacheTimestamp = null;
+const CLUBS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Load all clubs and return as Map (with caching)
+ * @param {Object} db - Firestore database instance
+ * @returns {Promise<Map>} Map of clubId -> club data
+ */
+async function loadClubsMap(db) {
+    // Return cached data if still valid
+    if (clubsCache && clubsCacheTimestamp && (Date.now() - clubsCacheTimestamp) < CLUBS_CACHE_TTL) {
+        return clubsCache;
+    }
+
+    try {
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+        const clubsMap = new Map();
+
+        clubsSnapshot.forEach(doc => {
+            clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        // Update cache
+        clubsCache = clubsMap;
+        clubsCacheTimestamp = Date.now();
+
+        return clubsMap;
+    } catch (error) {
+        console.error('Error loading clubs:', error);
+        // Return empty map on error
+        return new Map();
+    }
+}
+
+/**
+ * Filter players based on privacy settings (searchable)
+ * @param {Array} players - Array of player objects
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @returns {Array} Filtered players
+ */
+function filterPlayersByPrivacy(players, currentUserData) {
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserData.id) return true;
+
+        // Show players who are searchable globally or within the same club
+        const searchable = player.privacySettings?.searchable || 'global';
+
+        if (searchable === 'global') return true;
+
+        // club_only: only show to players in the same club
+        if (searchable === 'club_only' && currentUserData.clubId === player.clubId) {
+            return true;
+        }
+
+        return false;
+    });
+}
+
+/**
+ * Filter out players from test clubs (unless viewer is from a test club)
+ * @param {Array} players - Array of player objects
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @param {Map} clubsMap - Map of clubId -> club data
+ * @returns {Array} Filtered players
+ */
+function filterTestClubPlayers(players, currentUserData, clubsMap) {
+    // Check if current user is from a test club
+    const currentUserClub = clubsMap.get(currentUserData.clubId);
+    if (currentUserClub && currentUserClub.isTestClub) {
+        // Test club members (players/coaches/admins) see everyone
+        return players;
+    }
+
+    // Current user is NOT from a test club
+    // Filter out all test club players
+    return players.filter(player => {
+        // Always show current user
+        if (player.id === currentUserData.id) return true;
+
+        // If player has no club, show them
+        if (!player.clubId) return true;
+
+        // Get player's club data
+        const club = clubsMap.get(player.clubId);
+
+        // If club doesn't exist or is not a test club, show player
+        if (!club || !club.isTestClub) return true;
+
+        // Player is from a test club - hide from non-test-club users
+        return false;
+    });
+}
 
 // ========================================================================
 // ===== MATCH SUGGESTIONS ALGORITHM =====
@@ -26,12 +123,12 @@ import {
  */
 export async function calculateMatchSuggestions(userData, allPlayers, db) {
     try {
-        // Filter eligible players
+        // Filter eligible players (include both players and coaches)
         const eligiblePlayers = allPlayers.filter(p => {
             const isNotSelf = p.id !== userData.id;
             const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
-            const isPlayer = p.role === 'player';
-            return isNotSelf && isMatchReady && isPlayer;
+            const isPlayerOrCoach = p.role === 'player' || p.role === 'coach';
+            return isNotSelf && isMatchReady && isPlayerOrCoach;
         });
 
         // Get all matches involving the current user
@@ -164,6 +261,30 @@ export async function loadMatchSuggestions(
     const container = document.getElementById('match-suggestions-list');
     if (!container) return;
 
+    // Check if player is in a club
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
+
+    if (!hasClub) {
+        container.innerHTML = `
+      <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-yellow-700">
+              <strong>🔒 Match-Vorschläge nur für Vereinsmitglieder!</strong><br>
+              Diese Funktion ist nur für Spieler verfügbar, die einem Verein angehören.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+        return; // Exit early
+    }
+
     // Check if player has completed Grundlagen requirement
     const grundlagenCompleted = userData.grundlagenCompleted || 0;
     const isMatchReady = grundlagenCompleted >= 5;
@@ -220,12 +341,15 @@ export async function loadMatchSuggestions(
             return;
         }
 
-        // Get all players based on filter (club only)
+        // Load clubs map for test club filtering
+        const clubsMap = await loadClubsMap(db);
+
+        // Get all players and coaches based on filter (club only)
         let playersQuery;
         playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
 
         const snapshot = await getDocs(playersQuery);
@@ -237,15 +361,29 @@ export async function loadMatchSuggestions(
             allPlayers.slice(0, 3).map(p => ({ name: p.firstName, subgroupIDs: p.subgroupIDs }))
         );
 
-        // Apply subgroup filter in JavaScript if needed (to avoid Firebase composite index requirement)
+        // Apply subgroup, age group, or gender filter in JavaScript if needed
         // Note: Players can be in multiple subgroups, so we check if the array includes the filter
         if (subgroupFilter !== 'club' && subgroupFilter !== 'global') {
-            console.log('[Match Suggestions] Applying subgroup filter:', subgroupFilter);
-            allPlayers = allPlayers.filter(player =>
-                (player.subgroupIDs || []).includes(subgroupFilter)
-            );
+            console.log('[Match Suggestions] Applying filter:', subgroupFilter);
+            if (isAgeGroupFilter(subgroupFilter)) {
+                allPlayers = filterPlayersByAgeGroup(allPlayers, subgroupFilter);
+            } else if (isGenderFilter(subgroupFilter)) {
+                allPlayers = filterPlayersByGender(allPlayers, subgroupFilter);
+            } else {
+                allPlayers = allPlayers.filter(player =>
+                    (player.subgroupIDs || []).includes(subgroupFilter)
+                );
+            }
             console.log('[Match Suggestions] Players after filter:', allPlayers.length);
         }
+
+        // Filter by privacy settings (searchable)
+        allPlayers = filterPlayersByPrivacy(allPlayers, userData);
+        console.log('[Match Suggestions] Players after privacy filter:', allPlayers.length);
+
+        // Filter test club players
+        allPlayers = filterTestClubPlayers(allPlayers, userData, clubsMap);
+        console.log('[Match Suggestions] Players after test club filter:', allPlayers.length);
 
         // Function to calculate and render suggestions
         const renderSuggestions = async () => {

@@ -43,7 +43,7 @@ import {
     httpsCallable,
     connectFunctionsEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import {
     LEAGUES,
     PROMOTION_COUNT,
@@ -54,6 +54,7 @@ import {
     loadGlobalLeaderboard,
     renderLeaderboardHTML,
     setLeaderboardSubgroupFilter,
+    setLeaderboardGenderFilter,
 } from './leaderboard.js';
 import {
     renderCalendar,
@@ -70,6 +71,7 @@ import {
     exportAttendanceToExcel,
     exportAttendanceSummary,
 } from './attendance-export.js';
+import { initClubRequestsManager } from './club-requests-manager.js';
 import {
     handleCreateChallenge,
     loadActiveChallenges,
@@ -92,6 +94,7 @@ import {
     closeExerciseModal,
     setupExercisePointsCalculation,
     setupExerciseMilestones,
+    setExerciseContext,
 } from './exercises.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { calculateHandicap } from './validation-utils.js';
@@ -115,7 +118,7 @@ import {
     getCurrentMatchType,
     setDoublesSetScoreInput,
 } from './doubles-coach-ui.js';
-import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -172,8 +175,8 @@ const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
-// NEU: Der Emulator-Block
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('Coach.js: Verbinde mit lokalen Firebase Emulatoren...');
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
@@ -190,6 +193,7 @@ let unsubscribeSubgroups = null;
 let currentCalendarDate = new Date();
 let clubPlayers = [];
 let currentSubgroupFilter = 'all';
+let currentGenderFilter = 'all';
 let calendarUnsubscribe = null;
 let descriptionEditor = null;
 
@@ -239,6 +243,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+/**
+ * Sets the header profile picture and club information
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+async function setHeaderProfileAndClub(userData, db) {
+    const headerProfilePic = document.getElementById('header-profile-pic');
+    const headerClubName = document.getElementById('header-club-name');
+
+    // Set profile picture
+    if (userData.photoURL) {
+        headerProfilePic.src = userData.photoURL;
+    } else {
+        // Generate initials
+        const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}` || 'U';
+        headerProfilePic.src = `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
+    }
+
+    // Set club information
+    if (userData.clubId) {
+        try {
+            const clubDoc = await getDoc(doc(db, 'clubs', userData.clubId));
+            if (clubDoc.exists()) {
+                headerClubName.textContent = clubDoc.data().name || userData.clubId;
+            } else {
+                headerClubName.textContent = userData.clubId;
+            }
+        } catch (error) {
+            console.error('Error loading club info:', error);
+            headerClubName.textContent = 'Fehler beim Laden';
+        }
+    } else {
+        headerClubName.textContent = 'Kein Verein';
+        // Hide icon for "no club" state
+        const headerClubInfo = document.getElementById('header-club-info');
+        if (headerClubInfo) {
+            const icon = headerClubInfo.querySelector('i');
+            if (icon) {
+                icon.style.display = 'none';
+            }
+        }
+    }
+}
+
 async function initializeCoachPage(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
@@ -268,7 +316,10 @@ async function initializeCoachPage(userData) {
     mainContent.style.display = 'block';
 
     document.getElementById('welcome-message').textContent =
-        `Willkommen, ${userData.firstName || userData.email}! (Verein: ${userData.clubId})`;
+        `Willkommen, ${userData.firstName || userData.email}!`;
+
+    // Set header profile picture and club info
+    await setHeaderProfileAndClub(userData, db);
 
     // Track page view in Google Analytics
     logEvent(analytics, 'page_view', {
@@ -280,14 +331,19 @@ async function initializeCoachPage(userData) {
     });
     console.log('[Analytics] Coach page view tracked');
 
+    // Initialize Club Requests Manager
+    await initClubRequestsManager(userData);
+    console.log('[Coach] Club requests manager initialized');
+
     // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
         showToggle: true,
+        userData: userData, // Pass user data for tab visibility preferences
     });
 
     setupTabs('statistics');
-    setupLeaderboardTabs();
-    setupLeaderboardToggle();
+    setupLeaderboardTabs(userData);
+    setupLeaderboardToggle(userData);
 
     // Add event listener for tab changes to load saved pairings when Wettkampf tab is opened
     document.querySelectorAll('.tab-button').forEach(button => {
@@ -353,6 +409,7 @@ async function initializeCoachPage(userData) {
     loadExercisesForDropdown(db);
     loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
     loadExpiredChallenges(userData.clubId, db);
+    setExerciseContext(db, userData.id, userData.role, userData.clubId);
     loadAllExercises(db);
 
     // Populate subgroup dropdowns for challenge forms
@@ -527,7 +584,7 @@ async function initializeCoachPage(userData) {
         );
     document
         .getElementById('create-exercise-form')
-        .addEventListener('submit', e => handleCreateExercise(e, db, storage, descriptionEditor));
+        .addEventListener('submit', e => handleCreateExercise(e, db, storage, descriptionEditor, userData));
     document.getElementById('match-form').addEventListener('submit', async e => {
         const matchType = getCurrentMatchType();
         if (matchType === 'doubles') {
@@ -750,6 +807,15 @@ async function initializeCoachPage(userData) {
         handleSubgroupFilterChange(userData);
     });
 
+    // Gender Filter
+    const genderFilterDropdown = document.getElementById('coach-gender-filter');
+    if (genderFilterDropdown) {
+        genderFilterDropdown.addEventListener('change', e => {
+            currentGenderFilter = e.target.value;
+            handleGenderFilterChange(userData);
+        });
+    }
+
     // Intervals
     updateSeasonCountdown('season-countdown-coach', false, db);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, db), 1000);
@@ -798,7 +864,7 @@ async function checkAndStartTutorial(userData) {
 }
 
 /**
- * Populates the subgroup filter dropdown
+ * Populates the subgroup filter dropdown with age groups and custom subgroups
  * @param {string} clubId - Club ID
  * @param {Object} db - Firestore database instance
  */
@@ -809,27 +875,82 @@ function populateSubgroupFilter(clubId, db) {
     const q = query(
         collection(db, 'subgroups'),
         where('clubId', '==', clubId),
-        orderBy('createdAt', 'asc') // 'createdAt' muss existieren
+        orderBy('createdAt', 'asc')
     );
 
     onSnapshot(
         q,
         snapshot => {
-            // Keep the "Alle" option
             const currentValue = select.value;
-            select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
+            select.innerHTML = '';
 
-            snapshot.forEach(doc => {
-                const subgroup = doc.data();
-                // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
-                if (subgroup.isDefault) {
-                    return;
-                }
+            // Add "Alle" option
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'Alle (Gesamtverein)';
+            select.appendChild(allOption);
+
+            // Add Youth Age Groups
+            const youthGroup = document.createElement('optgroup');
+            youthGroup.label = 'Jugend (nach Alter)';
+            AGE_GROUPS.youth.forEach(group => {
                 const option = document.createElement('option');
-                option.value = doc.id;
-                option.textContent = subgroup.name;
+                option.value = group.id;
+                option.textContent = group.label;
+                youthGroup.appendChild(option);
+            });
+            select.appendChild(youthGroup);
+
+            // Add Adults Age Group
+            AGE_GROUPS.adults.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
                 select.appendChild(option);
             });
+
+            // Add Senior Age Groups
+            const seniorGroup = document.createElement('optgroup');
+            seniorGroup.label = 'Senioren (nach Alter)';
+            AGE_GROUPS.seniors.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
+                seniorGroup.appendChild(option);
+            });
+            select.appendChild(seniorGroup);
+
+            // Add Gender Groups
+            const genderGroup = document.createElement('optgroup');
+            genderGroup.label = 'Geschlecht';
+            GENDER_GROUPS.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.label;
+                genderGroup.appendChild(option);
+            });
+            select.appendChild(genderGroup);
+
+            // Add Custom Subgroups
+            const customSubgroups = [];
+            snapshot.forEach(doc => {
+                const subgroup = doc.data();
+                if (!subgroup.isDefault) {
+                    customSubgroups.push({ id: doc.id, ...subgroup });
+                }
+            });
+
+            if (customSubgroups.length > 0) {
+                const customGroup = document.createElement('optgroup');
+                customGroup.label = 'Untergruppen im Verein';
+                customSubgroups.forEach(subgroup => {
+                    const option = document.createElement('option');
+                    option.value = subgroup.id;
+                    option.textContent = subgroup.name;
+                    customGroup.appendChild(option);
+                });
+                select.appendChild(customGroup);
+            }
 
             // Restore previous selection if it still exists
             if (
@@ -855,8 +976,9 @@ function handleSubgroupFilterChange(userData) {
     // Update attendance module's filter
     setAttendanceSubgroupFilter(currentSubgroupFilter);
 
-    // Update leaderboard module's filter
+    // Update leaderboard module's filters (both subgroup and gender)
     setLeaderboardSubgroupFilter(currentSubgroupFilter);
+    setLeaderboardGenderFilter(currentGenderFilter);
 
     // Reload calendar/attendance view
     if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
@@ -886,6 +1008,21 @@ function handleSubgroupFilterChange(userData) {
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
         loadStatistics(userData, db, currentSubgroupFilter);
     }
+}
+
+/**
+ * Handles gender filter changes - reloads leaderboards with combined filters
+ * @param {Object} userData - Current user data
+ */
+function handleGenderFilterChange(userData) {
+    console.log(`[Coach] Gender filter changed to: ${currentGenderFilter}`);
+
+    // Update leaderboard module's gender filter
+    setLeaderboardGenderFilter(currentGenderFilter);
+
+    // Reload leaderboards with updated gender filter
+    loadLeaderboard(userData, db, []);
+    loadGlobalLeaderboard(userData, db, []);
 }
 
 // Global challenge handlers (called from onclick in HTML)

@@ -22,6 +22,7 @@ import {
     copyToClipboard,
     CODE_CONFIG,
 } from './invitation-code-utils.js';
+import { formatDate } from './ui-utils.js';
 
 let db;
 let currentClubId;
@@ -378,13 +379,13 @@ function renderCodeItem(codeData) {
                         <strong>${codeData.firstName} ${codeData.lastName}</strong>
                     </p>
                     <p class="text-xs text-gray-500 mt-1">
-                        Erstellt: ${formatDate(codeData.createdAt)}
+                        Erstellt: ${formatDate(codeData.createdAt, { includeTime: true })}
                     </p>
                     ${
                         codeData.used
                             ? `
                         <p class="text-xs text-gray-500">
-                            Verwendet: ${formatDate(codeData.usedAt)}
+                            Verwendet: ${formatDate(codeData.usedAt, { includeTime: true })}
                         </p>
                     `
                             : ''
@@ -393,7 +394,7 @@ function renderCodeItem(codeData) {
                         codeData.superseded
                             ? `
                         <p class="text-xs text-orange-600 mt-1">
-                            <i class="fas fa-info-circle mr-1"></i>Durch neueren Code ersetzt am ${formatDate(codeData.supersededAt)}
+                            <i class="fas fa-info-circle mr-1"></i>Durch neueren Code ersetzt am ${formatDate(codeData.supersededAt, { includeTime: true })}
                         </p>
                     `
                             : ''
@@ -422,17 +423,3 @@ async function deleteInvitationCode(codeId) {
     }
 }
 
-/**
- * Formatiert ein Firestore Timestamp zu lesbarem Datum
- */
-function formatDate(timestamp) {
-    if (!timestamp) return 'Unbekannt';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}

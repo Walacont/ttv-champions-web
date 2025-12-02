@@ -4,7 +4,7 @@
  * Testet das neue Punktesystem:
  * - ELO startet bei 800
  * - Season Points = Elo-Gewinn × 0.2
- * - Elo-Gates: [850, 900, 1000, 1100, 1300, 1600]
+ * - Elo-Gates: [800, 850, 900, 1000, 1100, 1300, 1600] (800 is absolute floor)
  * - Handicap: ±8 Elo fix
  */
 
@@ -87,37 +87,42 @@ describe('ELO Calculation System', () => {
     });
 
     describe('getHighestEloGate()', () => {
-        const gates = CONFIG.ELO.GATES; // [850, 900, 1000, 1100, 1300, 1600]
+        const gates = CONFIG.ELO.GATES; // [800, 850, 900, 1000, 1100, 1300, 1600]
 
-        test('should return 0 when no gate reached (below 850)', () => {
-            expect(getHighestEloGate(800, 800)).toBe(0);
-            expect(getHighestEloGate(849, 849)).toBe(0);
-            expect(getHighestEloGate(800, 840)).toBe(0);
+        test('should return 0 when no gate reached (below 800)', () => {
+            expect(getHighestEloGate(799, 799)).toBe(0);
+            expect(getHighestEloGate(750, 750)).toBe(0);
         });
 
-        test('should return first gate (850) when reached', () => {
+        test('should return first gate (800) when at starting ELO', () => {
+            expect(getHighestEloGate(800, 800)).toBe(800);
+            expect(getHighestEloGate(849, 849)).toBe(800);
+            expect(getHighestEloGate(800, 840)).toBe(800);
+        });
+
+        test('should return second gate (850) when reached', () => {
             expect(getHighestEloGate(850, 850)).toBe(850);
             expect(getHighestEloGate(899, 899)).toBe(850);
             expect(getHighestEloGate(800, 850)).toBe(850); // highestElo matters
         });
 
-        test('should return second gate (900) when reached', () => {
+        test('should return third gate (900) when reached', () => {
             expect(getHighestEloGate(900, 900)).toBe(900);
             expect(getHighestEloGate(950, 950)).toBe(900);
             expect(getHighestEloGate(850, 900)).toBe(900);
         });
 
-        test('should return third gate (1000) when reached', () => {
+        test('should return fourth gate (1000) when reached', () => {
             expect(getHighestEloGate(1000, 1000)).toBe(1000);
             expect(getHighestEloGate(1050, 1050)).toBe(1000);
         });
 
-        test('should return fourth gate (1100) when reached', () => {
+        test('should return fifth gate (1100) when reached', () => {
             expect(getHighestEloGate(1100, 1100)).toBe(1100);
             expect(getHighestEloGate(1200, 1200)).toBe(1100);
         });
 
-        test('should return fifth gate (1300) when reached', () => {
+        test('should return sixth gate (1300) when reached', () => {
             expect(getHighestEloGate(1300, 1300)).toBe(1300);
             expect(getHighestEloGate(1500, 1500)).toBe(1300);
         });
@@ -136,22 +141,32 @@ describe('ELO Calculation System', () => {
         });
 
         test('should handle null/undefined highestElo (new players)', () => {
-            expect(getHighestEloGate(800, null)).toBe(0);
-            expect(getHighestEloGate(800, undefined)).toBe(0);
+            expect(getHighestEloGate(800, null)).toBe(800); // 800 is now a gate
+            expect(getHighestEloGate(800, undefined)).toBe(800);
             expect(getHighestEloGate(900, null)).toBe(900);
+            expect(getHighestEloGate(799, null)).toBe(0); // Below first gate
         });
 
         test('should handle edge cases at gate boundaries', () => {
-            expect(getHighestEloGate(849, 849)).toBe(0); // Just below
-            expect(getHighestEloGate(850, 850)).toBe(850); // Exactly at gate
-            expect(getHighestEloGate(851, 851)).toBe(850); // Just above
+            expect(getHighestEloGate(799, 799)).toBe(0); // Just below 800
+            expect(getHighestEloGate(800, 800)).toBe(800); // Exactly at first gate
+            expect(getHighestEloGate(849, 849)).toBe(800); // Below 850, above 800
+            expect(getHighestEloGate(850, 850)).toBe(850); // Exactly at second gate
+            expect(getHighestEloGate(851, 851)).toBe(850); // Just above 850
         });
     });
 
     describe('applyEloGate()', () => {
         test('should not protect Elo if no gate reached', () => {
-            // Player at 800, loses match → 784, no gate protection
-            expect(applyEloGate(784, 800, 800)).toBe(784);
+            // Player below 800 (hypothetically), loses match → no gate protection
+            expect(applyEloGate(750, 799, 799)).toBe(750);
+        });
+
+        test('should protect Elo at absolute floor gate (800)', () => {
+            // Player at 800, loses match → 784, but gate protects at 800
+            expect(applyEloGate(784, 800, 800)).toBe(800);
+            // Player at 820, loses match → 790, but gate protects at 800
+            expect(applyEloGate(790, 820, 820)).toBe(800);
         });
 
         test('should protect Elo at first gate (850)', () => {
@@ -208,14 +223,14 @@ describe('ELO Calculation System', () => {
             // Player at 1600, loses massively → should go to 1500, but gate protects
             expect(applyEloGate(1500, 1600, 1600)).toBe(1600);
 
-            // Player at 800, no gate → can fall below
-            expect(applyEloGate(750, 800, 800)).toBe(750);
+            // Player at 800 → cannot fall below 800 (absolute floor)
+            expect(applyEloGate(750, 800, 800)).toBe(800);
         });
 
         test('should handle null/undefined highestElo', () => {
-            // New player at 800, no highestElo → no gate protection
-            expect(applyEloGate(784, 800, null)).toBe(784);
-            expect(applyEloGate(784, 800, undefined)).toBe(784);
+            // New player at 800, no highestElo → 800 gate still protects (absolute floor)
+            expect(applyEloGate(784, 800, null)).toBe(800);
+            expect(applyEloGate(784, 800, undefined)).toBe(800);
         });
     });
 
@@ -237,7 +252,7 @@ describe('ELO Calculation System', () => {
             const seasonPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
 
             expect(newWinnerElo).toBe(816);
-            expect(protectedLoserElo).toBe(784); // No gate protection
+            expect(protectedLoserElo).toBe(800); // 800 is absolute floor
             expect(seasonPoints).toBe(3); // 16 × 0.2 = 3.2 → 3
         });
 
@@ -414,7 +429,7 @@ describe('ELO Calculation System', () => {
         });
 
         test('CONFIG.ELO.GATES should match expected gates', () => {
-            expect(CONFIG.ELO.GATES).toEqual([850, 900, 1000, 1100, 1300, 1600]);
+            expect(CONFIG.ELO.GATES).toEqual([800, 850, 900, 1000, 1100, 1300, 1600]);
         });
     });
 });

@@ -1,5 +1,5 @@
 /**
- * SPA Enhancer for TTV Champions
+ * SPA Enhancer for SC Champions
  * Converts multi-page application into SPA by intercepting navigation
  * and loading pages dynamically without full page reloads
  */
@@ -38,6 +38,25 @@ class SPAEnhancer {
         // Handle browser back/forward
         window.addEventListener('popstate', e => {
             if (e.state && e.state.url) {
+                // Check if this page requires a full reload
+                const url = e.state.url.split('?')[0]; // Remove query params
+                const noInterceptPages = [
+                    '/index.html',
+                    '/',
+                    '/dashboard.html',
+                    '/coach.html',
+                    '/admin.html',
+                    '/onboarding.html',
+                    '/register.html',
+                ];
+
+                if (noInterceptPages.includes(url)) {
+                    // Do a full page reload for these pages
+                    console.log('[SPA] popstate - full reload required for:', url);
+                    window.location.href = e.state.url;
+                    return;
+                }
+
                 this.loadPage(e.state.url, false);
             }
         });

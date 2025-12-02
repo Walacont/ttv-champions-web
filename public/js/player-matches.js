@@ -12,11 +12,26 @@ import {
     getDocs,
     orderBy,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
+import { formatDate } from './ui-utils.js';
 
 /**
  * Player Matches Module
  * Handles player-initiated match requests with approval workflow
  */
+
+// ========================================================================
+// ===== HELPER FUNCTIONS =====
+// ========================================================================
+
+/**
+ * Checks if a player has no club
+ * @param {string|null|undefined} clubId - The club ID to check
+ * @returns {boolean} True if player has no club (null, undefined, or empty string)
+ */
+function hasNoClub(clubId) {
+    // Check for null, undefined, empty string, or string values "null"/"undefined"
+    return !clubId || clubId === '' || clubId === 'null' || clubId === 'undefined';
+}
 
 // ========================================================================
 // ===== SET SCORE INPUT COMPONENT =====
@@ -572,13 +587,15 @@ export function loadPlayerMatchRequests(userData, db, unsubscribes) {
         debouncedRenderAll();
     });
 
-    unsubscribes.push(
-        myRequestsUnsubscribe,
-        incomingRequestsUnsubscribe,
-        processedRequestsUnsubscribe,
-        myDoublesUnsubscribe,
-        doublesInvolvedUnsubscribe
-    );
+    if (Array.isArray(unsubscribes)) {
+        unsubscribes.push(
+            myRequestsUnsubscribe,
+            incomingRequestsUnsubscribe,
+            processedRequestsUnsubscribe,
+            myDoublesUnsubscribe,
+            doublesInvolvedUnsubscribe
+        );
+    }
 }
 
 /**
@@ -905,6 +922,10 @@ function getProcessedStatusBadge(status, approvals) {
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (players without club)
+        if (approvals?.coach?.status === 'auto_approved') {
+            return '<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Automatisch genehmigt</span>';
+        }
         const coachName = approvals?.coach?.coachName || 'Coach';
         return `<span class="text-xs bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Genehmigt von ${coachName}</span>`;
     }
@@ -930,6 +951,10 @@ function getStatusDescription(status, approvals) {
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (players without club)
+        if (approvals?.coach?.status === 'auto_approved') {
+            return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde automatisch genehmigt, da beide Spieler keinem Verein angehören. Das Match wurde erstellt.</p>';
+        }
         const coachName = approvals?.coach?.coachName || 'Coach';
         return `<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Anfrage wurde von ${coachName} genehmigt und das Match wurde erstellt.</p>`;
     }
@@ -1000,7 +1025,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
     const timeAgo = formatTimestamp(request.createdAt);
 
     // Get status badge
-    const statusBadge = getDoublesStatusBadge(request.status);
+    const statusBadge = getDoublesStatusBadge(request.status, request.approvedBy);
 
     // Build HTML
     div.innerHTML = `
@@ -1026,7 +1051,7 @@ function createDoublesHistoryCard(request, playersData, userData, db) {
         ${statusBadge}
       </div>
 
-      ${getDoublesStatusDescription(request.status)}
+      ${getDoublesStatusDescription(request.status, request.approvedBy)}
     </div>
   `;
 
@@ -1155,11 +1180,11 @@ function createPendingDoublesCard(request, playersData, userData, db) {
             approveBtn.addEventListener('click', async () => {
                 const { confirmDoublesMatchRequest } = await import('./doubles-matches.js');
                 try {
-                    await confirmDoublesMatchRequest(request.id, userData.id, db);
-                    showFeedback(
-                        'Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.',
-                        'success'
-                    );
+                    const result = await confirmDoublesMatchRequest(request.id, userData.id, db);
+                    const message = result.autoApproved
+                        ? 'Doppel-Match bestätigt und automatisch genehmigt! Da mindestens ein Team keinem Verein angehört, wurde das Match direkt erstellt.'
+                        : 'Doppel-Match bestätigt! Wartet auf Coach-Genehmigung.';
+                    showFeedback(message, 'success');
                 } catch (error) {
                     console.error('Error confirming doubles request:', error);
                     showFeedback(`Fehler: ${error.message}`, 'error');
@@ -1256,7 +1281,7 @@ function getDoublesWinner(sets, p1Name, p2Name, p3Name, p4Name, matchMode = 'bes
 /**
  * Gets status badge for doubles requests
  */
-function getDoublesStatusBadge(status) {
+function getDoublesStatusBadge(status, approvedBy = null) {
     if (status === 'pending_opponent') {
         return '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">⏳ Wartet auf Gegner</span>';
     }
@@ -1266,6 +1291,10 @@ function getDoublesStatusBadge(status) {
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (all 4 players without club)
+        if (approvedBy === 'auto_approved') {
+            return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Automatisch genehmigt</span>';
+        }
         return '<span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">✓ Genehmigt</span>';
     }
 
@@ -1279,12 +1308,16 @@ function getDoublesStatusBadge(status) {
 /**
  * Gets status description for doubles requests
  */
-function getDoublesStatusDescription(status) {
+function getDoublesStatusDescription(status, approvedBy = null) {
     if (status === 'pending_coach') {
         return '<p class="text-xs text-blue-700 mt-2"><i class="fas fa-info-circle mr-1"></i> Wartet auf Coach-Genehmigung.</p>';
     }
 
     if (status === 'approved') {
+        // Check if it was auto-approved (at least one team without club)
+        if (approvedBy === 'auto_approved') {
+            return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde automatisch genehmigt, da mindestens ein Team keinem Verein angehört. Das Match wurde erstellt.</p>';
+        }
         return '<p class="text-xs text-green-700 mt-2"><i class="fas fa-check-circle mr-1"></i> Diese Doppel-Anfrage wurde genehmigt und das Match wurde erstellt.</p>';
     }
 
@@ -1384,7 +1417,69 @@ async function approveMatchRequest(requestId, db, role) {
                 status: 'approved',
                 timestamp: serverTimestamp(),
             };
-            updateData.status = 'pending_coach'; // Move to coach approval
+
+            // Check if both players have no club → auto-approve
+            const requestSnap = await getDoc(requestRef);
+            const requestData = requestSnap.data();
+
+            if (requestData) {
+                try {
+                    const [playerASnap, playerBSnap] = await Promise.all([
+                        getDoc(doc(db, 'users', requestData.playerAId)),
+                        getDoc(doc(db, 'users', requestData.playerBId)),
+                    ]);
+
+                    const playerAData = playerASnap.exists() ? playerASnap.data() : null;
+                    const playerBData = playerBSnap.exists() ? playerBSnap.data() : null;
+
+                    // Debug logging
+                    console.log('🔍 Match Approval Debug:');
+                    console.log('Request ID:', requestId);
+                    console.log('PlayerA ID:', requestData.playerAId);
+                    console.log('PlayerB ID:', requestData.playerBId);
+                    console.log('PlayerA exists:', playerASnap.exists());
+                    console.log('PlayerB exists:', playerBSnap.exists());
+                    console.log('PlayerA data:', playerAData);
+                    console.log('PlayerB data:', playerBData);
+                    console.log('PlayerA clubId:', playerAData?.clubId, '(type:', typeof playerAData?.clubId, ')');
+                    console.log('PlayerB clubId:', playerBData?.clubId, '(type:', typeof playerBData?.clubId, ')');
+                    console.log('PlayerA clubId === null:', playerAData?.clubId === null);
+                    console.log('PlayerB clubId === null:', playerBData?.clubId === null);
+                    console.log('PlayerA clubId === undefined:', playerAData?.clubId === undefined);
+                    console.log('PlayerB clubId === undefined:', playerBData?.clubId === undefined);
+                    console.log('PlayerA clubId === "":', playerAData?.clubId === '');
+                    console.log('PlayerB clubId === "":', playerBData?.clubId === '');
+                    console.log('PlayerA hasNoClub:', hasNoClub(playerAData?.clubId));
+                    console.log('PlayerB hasNoClub:', hasNoClub(playerBData?.clubId));
+
+                    // Check if both players exist
+                    if (!playerAData || !playerBData) {
+                        console.log('⚠️ Player data missing, defaulting to pending_coach');
+                        updateData.status = 'pending_coach';
+                    } else if (hasNoClub(playerAData.clubId) && hasNoClub(playerBData.clubId)) {
+                        // Auto-approve if both players have no club
+                        console.log('✅ Auto-approving: Both players have no club');
+                        updateData.status = 'approved'; // Auto-approved
+                        updateData['approvals.coach'] = {
+                            status: 'auto_approved',
+                            timestamp: serverTimestamp(),
+                            reason: 'Both players have no club',
+                        };
+                    } else {
+                        console.log('⏳ Pending coach approval required');
+                        console.log('PlayerA clubId final value:', playerAData.clubId);
+                        console.log('PlayerB clubId final value:', playerBData.clubId);
+                        updateData.status = 'pending_coach'; // Move to coach approval
+                    }
+                } catch (error) {
+                    console.error('❌ Error loading player data for auto-approval check:', error);
+                    console.log('⚠️ Defaulting to pending_coach due to error');
+                    updateData.status = 'pending_coach'; // Fallback on error
+                }
+            } else {
+                console.log('⚠️ No request data found, defaulting to pending_coach');
+                updateData.status = 'pending_coach'; // Fallback
+            }
         } else if (role === 'coach') {
             updateData['approvals.coach'] = {
                 status: 'approved',
@@ -1397,7 +1492,12 @@ async function approveMatchRequest(requestId, db, role) {
 
         await updateDoc(requestRef, updateData);
 
-        showFeedback('Anfrage akzeptiert!', 'success');
+        // Show appropriate message based on approval flow
+        let message = 'Anfrage akzeptiert!';
+        if (role === 'playerB' && updateData.status === 'approved') {
+            message += ' ✅ Das Match wurde automatisch genehmigt, da ihr beide keinem Verein angehört.';
+        }
+        showFeedback(message, 'success');
     } catch (error) {
         console.error('Error approving request:', error);
         showFeedback('Fehler beim Akzeptieren der Anfrage.', 'error');
@@ -1575,12 +1675,19 @@ function showFeedback(message, type = 'success') {
 
 /**
  * Initializes the match request form
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} clubPlayers - List of club players
+ * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
  */
-export function initializeMatchRequestForm(userData, db, clubPlayers) {
+export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscribes = []) {
     const form = document.getElementById('match-request-form');
     if (!form) return;
 
-    const opponentSelect = document.getElementById('opponent-select');
+    const opponentSearchInput = document.getElementById('opponent-search-input');
+    const opponentSearchResults = document.getElementById('opponent-search-results');
+    const selectedOpponentId = document.getElementById('selected-opponent-id');
+    const selectedOpponentElo = document.getElementById('selected-opponent-elo');
     const handicapToggle = document.getElementById('match-handicap-toggle');
     const handicapInfo = document.getElementById('match-handicap-info');
     const setScoreContainer = document.getElementById('set-score-container');
@@ -1630,21 +1737,171 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         return; // Exit early, don't initialize form
     }
 
-    // Populate opponent dropdown (only match-ready players)
-    opponentSelect.innerHTML = '<option value="">Gegner wählen...</option>';
-    clubPlayers
-        .filter(p => {
-            // Filter: not self, is player role, and has completed Grundlagen
-            const playerGrundlagen = p.grundlagenCompleted || 0;
-            return p.id !== userData.id && p.role === 'player' && playerGrundlagen >= 5;
-        })
-        .forEach(player => {
-            const option = document.createElement('option');
-            option.value = player.id;
-            option.textContent = `${player.firstName} ${player.lastName} (Elo: ${Math.round(player.eloRating || 0)})`;
-            option.dataset.elo = player.eloRating || 0;
-            opponentSelect.appendChild(option);
+    // Opponent Search Functionality
+    let allPlayers = []; // Will store all searchable players
+    let selectedOpponent = null;
+
+    // Function to load all searchable players (with privacy filter) - with real-time updates
+    async function loadSearchablePlayers() {
+        try {
+            // Load clubs for test club filtering
+            const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+            const clubsMap = new Map();
+            clubsSnapshot.forEach(doc => {
+                clubsMap.set(doc.id, { id: doc.id, ...doc.data() });
+            });
+
+            // Check if current user is from a test club
+            const currentUserClub = userData.clubId ? clubsMap.get(userData.clubId) : null;
+            const isCurrentUserFromTestClub = currentUserClub && currentUserClub.isTestClub;
+
+            const usersRef = collection(db, 'users');
+            // Include both players and coaches (coaches can participate as players)
+            const q = query(usersRef, where('role', 'in', ['player', 'coach']));
+
+            // Use onSnapshot for real-time updates (ELO changes after matches)
+            const unsubscribe = onSnapshot(q, (snapshot) => {
+                allPlayers = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(p => {
+                        // Filter: not self, match-ready, and privacy check
+                        const playerGrundlagen = p.grundlagenCompleted || 0;
+                        const isMatchReady = playerGrundlagen >= 5;
+                        const isSelf = p.id === userData.id;
+
+                        if (isSelf || !isMatchReady) return false;
+
+                        // Test club filtering
+                        if (!isCurrentUserFromTestClub && p.clubId) {
+                            const playerClub = clubsMap.get(p.clubId);
+                            if (playerClub && playerClub.isTestClub) {
+                                return false; // Hide test club players from non-test club users
+                            }
+                        }
+
+                        // Privacy check
+                        // Special case: Both players have no club → always visible to each other
+                        if (hasNoClub(userData.clubId) && hasNoClub(p.clubId)) {
+                            return true;
+                        }
+
+                        // Get searchable setting (default: global)
+                        const searchable = p.privacySettings?.searchable || 'global';
+
+                        // Global: visible to everyone
+                        if (searchable === 'global') {
+                            return true;
+                        }
+
+                        // Club only: only visible to players in the same club
+                        if (searchable === 'club_only' && userData.clubId && p.clubId === userData.clubId) {
+                            return true;
+                        }
+
+                        return false;
+                    });
+
+                // Update playersMap for easy lookup
+                playersMap.clear();
+                allPlayers.forEach(player => {
+                    playersMap.set(player.id, player);
+                });
+
+                console.log('[Player Search] Players list updated with', allPlayers.length, 'players');
+            });
+
+            // Store unsubscribe function for cleanup
+            if (unsubscribes) {
+                unsubscribes.push(unsubscribe);
+            }
+        } catch (error) {
+            console.error('Error loading players:', error);
+        }
+    }
+
+    // Function to display search results
+    function displayOpponentResults(players) {
+        if (players.length === 0) {
+            opponentSearchResults.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden.</p>';
+            return;
+        }
+
+        opponentSearchResults.innerHTML = players.map(player => {
+            // clubId IS the club name (e.g., "TuRa Harksheide")
+            const clubName = player.clubId || 'Kein Verein';
+            const isSameClub = player.clubId === userData.clubId;
+
+            return `
+            <div class="opponent-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                 data-player-id="${player.id}"
+                 data-player-elo="${player.eloRating || 0}"
+                 data-player-name="${player.firstName} ${player.lastName}">
+                <div class="flex justify-between items-center">
+                    <div class="flex-1">
+                        <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
+                        <p class="text-sm text-gray-600">Elo: ${Math.round(player.eloRating || 0)}</p>
+                        <p class="text-xs text-gray-500 mt-1">
+                            <i class="fas fa-users mr-1"></i>${clubName}
+                        </p>
+                    </div>
+                    ${!isSameClub && player.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
+                </div>
+            </div>
+        `;
+        }).join('');
+
+        // Add click handlers to results
+        document.querySelectorAll('.opponent-result').forEach(result => {
+            result.addEventListener('click', () => {
+                const playerId = result.dataset.playerId;
+                const playerName = result.dataset.playerName;
+                const playerElo = result.dataset.playerElo;
+
+                // Set selected opponent
+                selectedOpponentId.value = playerId;
+                selectedOpponentElo.value = playerElo;
+                selectedOpponent = allPlayers.find(p => p.id === playerId);
+
+                // Update search input to show selected player
+                opponentSearchInput.value = playerName;
+
+                // Clear search results
+                opponentSearchResults.innerHTML = '';
+
+                // Trigger handicap calculation
+                calculateHandicap();
+            });
         });
+    }
+
+    // Search input event listener
+    if (opponentSearchInput) {
+        opponentSearchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            // Clear selection if input changes
+            selectedOpponentId.value = '';
+            selectedOpponentElo.value = '';
+            selectedOpponent = null;
+
+            if (searchTerm.length < 2) {
+                opponentSearchResults.innerHTML = '';
+                hideHandicap();
+                return;
+            }
+
+            // Filter players by name
+            const filteredPlayers = allPlayers.filter(p =>
+                p.firstName?.toLowerCase().includes(searchTerm) ||
+                p.lastName?.toLowerCase().includes(searchTerm)
+            );
+
+            displayOpponentResults(filteredPlayers);
+        });
+    }
+
+    // Load searchable players on initialization
+    loadSearchablePlayers();
 
     // Initialize set score input with current mode
     let currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
@@ -1695,23 +1952,28 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
     // Store current handicap data
     let currentHandicapData = null;
 
-    // Handicap calculation
-    opponentSelect.addEventListener('change', () => {
-        const selectedOption = opponentSelect.selectedOptions[0];
-        if (!selectedOption || !selectedOption.value) {
+    // Function to hide handicap info
+    function hideHandicap() {
+        if (handicapInfo) {
             handicapInfo.classList.add('hidden');
-            currentHandicapData = null;
+        }
+        currentHandicapData = null;
+    }
+
+    // Function to calculate and display handicap
+    function calculateHandicap() {
+        if (!selectedOpponent || !selectedOpponentElo.value) {
+            hideHandicap();
             return;
         }
 
-        const opponentElo = parseFloat(selectedOption.dataset.elo) || 0;
+        const opponentElo = parseFloat(selectedOpponentElo.value) || 0;
         const myElo = userData.eloRating || 0;
         const eloDiff = Math.abs(myElo - opponentElo);
 
         if (eloDiff >= 25) {
             const handicapPoints = Math.min(Math.round(eloDiff / 50), 10);
-            const weakerPlayer =
-                myElo < opponentElo ? 'Du' : selectedOption.textContent.split(' (')[0];
+            const weakerPlayer = myElo < opponentElo ? 'Du' : `${selectedOpponent.firstName} ${selectedOpponent.lastName}`;
             const weakerPlayerSide = myElo < opponentElo ? 'A' : 'B'; // A = me, B = opponent
 
             // Store handicap data
@@ -1720,19 +1982,20 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 points: handicapPoints,
             };
 
-            document.getElementById('match-handicap-text').textContent =
-                `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
-            handicapInfo.classList.remove('hidden');
+            if (handicapInfo) {
+                document.getElementById('match-handicap-text').textContent =
+                    `${weakerPlayer} startet mit ${handicapPoints} Punkten Vorsprung pro Satz.`;
+                handicapInfo.classList.remove('hidden');
 
-            // Apply handicap if toggle is checked
-            if (handicapToggle && handicapToggle.checked) {
-                setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+                // Apply handicap if toggle is checked
+                if (handicapToggle && handicapToggle.checked) {
+                    setScoreInput.setHandicap(currentHandicapData.player, currentHandicapData.points);
+                }
             }
         } else {
-            handicapInfo.classList.add('hidden');
-            currentHandicapData = null;
+            hideHandicap();
         }
-    });
+    }
 
     // Handicap toggle event listener
     handicapToggle.addEventListener('change', () => {
@@ -1769,7 +2032,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
 
         // Handle singles match request (existing logic)
 
-        const opponentId = opponentSelect.value;
+        const opponentId = selectedOpponentId.value;
         const handicapUsed = handicapToggle.checked;
 
         if (!opponentId) {
@@ -1790,6 +2053,25 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
         // Get opponent data from the map
         const opponentData = playersMap.get(opponentId);
 
+        // Determine clubId based on both players
+        let matchClubId;
+        if (hasNoClub(userData.clubId) && hasNoClub(opponentData?.clubId)) {
+            // Both without club → null (auto-approve)
+            matchClubId = null;
+        } else if (!hasNoClub(userData.clubId) && !hasNoClub(opponentData?.clubId) && userData.clubId === opponentData.clubId) {
+            // Same club → use that club
+            matchClubId = userData.clubId;
+        } else if (!hasNoClub(userData.clubId) && hasNoClub(opponentData?.clubId)) {
+            // Only PlayerA has club → use PlayerA's club
+            matchClubId = userData.clubId;
+        } else if (hasNoClub(userData.clubId) && !hasNoClub(opponentData?.clubId)) {
+            // Only PlayerB has club → use PlayerB's club
+            matchClubId = opponentData.clubId;
+        } else {
+            // Different clubs → null (cross-club, any coach can approve)
+            matchClubId = null;
+        }
+
         try {
             await addDoc(collection(db, 'matchRequests'), {
                 status: 'pending_player',
@@ -1803,7 +2085,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 loserId,
                 handicapUsed,
                 matchMode: currentMode || 'best-of-5',
-                clubId: userData.clubId,
+                clubId: matchClubId,
                 sets,
                 approvals: {
                     playerB: { status: null, timestamp: null },
@@ -1814,8 +2096,27 @@ export function initializeMatchRequestForm(userData, db, clubPlayers) {
                 requestedBy: userData.id,
             });
 
-            showFeedback('Anfrage erfolgreich erstellt! Warte auf Bestätigung.', 'success');
+            // Show appropriate message based on club status
+            let message = 'Anfrage erfolgreich erstellt! Warte auf Bestätigung.';
+            if (matchClubId === null && !userData.clubId && !opponentData?.clubId) {
+                // Both without club → auto-approve
+                message += ' ℹ️ Da ihr beide keinem Verein angehört, wird das Match automatisch genehmigt, sobald dein Gegner bestätigt.';
+            } else if (matchClubId === null && userData.clubId && opponentData?.clubId) {
+                // Different clubs → cross-club
+                message += ' ℹ️ Cross-Club Match: Ein Coach kann das Match genehmigen, nachdem dein Gegner bestätigt hat.';
+            } else if (matchClubId) {
+                // Same club or one with club
+                message += ' Nach Bestätigung deines Gegners muss ein Coach das Match genehmigen.';
+            }
+            showFeedback(message, 'success');
             form.reset();
+
+            // Reset opponent search fields
+            if (opponentSearchInput) opponentSearchInput.value = '';
+            if (opponentSearchResults) opponentSearchResults.innerHTML = '';
+            if (selectedOpponentId) selectedOpponentId.value = '';
+            if (selectedOpponentElo) selectedOpponentElo.value = '';
+            selectedOpponent = null;
 
             // Reset match mode dropdown to default (form.reset() sets it to the selected value in HTML)
             if (matchModeSelect) {
@@ -2201,13 +2502,7 @@ function renderCombinedPendingRequests(requests, container, db, userData) {
         const card = document.createElement('div');
         card.className = 'border border-gray-200 rounded-lg p-4 bg-gray-50';
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         if (request.type === 'doubles') {
             // Doubles request

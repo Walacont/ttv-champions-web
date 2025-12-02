@@ -2,8 +2,21 @@
 <html lang="de">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Einstellungen - TTV Champions</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <script src="/js/capacitor-init.js"></script>
+        <title>Einstellungen - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
 
         <!-- Google tag (gtag.js) -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
@@ -26,6 +39,7 @@
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
         <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <link rel="stylesheet" href="/css/tutorial.css" />
         <style>
             body {
@@ -293,6 +307,154 @@
                         Datenschutz & Konto
                     </h2>
 
+                    <!-- Privacy Settings -->
+                    <div class="bg-white border border-gray-200 p-4 rounded-lg mb-4">
+                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-user-shield text-indigo-600"></i>
+                            Privatsphäre-Einstellungen
+                        </h3>
+
+                        <div class="space-y-4">
+                            <!-- Searchability Setting -->
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Sichtbarkeit in Spielersuche
+                                </label>
+                                <p class="text-xs text-gray-500 mb-3">
+                                    Bestimme, wer dich bei der Gegnerwahl für Wettkämpfe finden kann.
+                                </p>
+
+                                <div class="space-y-2">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="searchable"
+                                            value="global"
+                                            id="searchable-global"
+                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                        />
+                                        <span class="ml-3 text-sm">
+                                            <span class="font-medium text-gray-900">Global sichtbar</span>
+                                            <span class="block text-xs text-gray-500 mt-0.5">
+                                                Alle Spieler auf der Plattform können dich finden
+                                            </span>
+                                        </span>
+                                    </label>
+
+                                    <label class="flex items-center cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="searchable"
+                                            value="club_only"
+                                            id="searchable-club-only"
+                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                                        />
+                                        <span class="ml-3 text-sm">
+                                            <span class="font-medium text-gray-900">Nur Vereinsmitglieder</span>
+                                            <span class="block text-xs text-gray-500 mt-0.5">
+                                                Nur Spieler aus deinem Verein können dich finden
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div id="no-club-warning" class="hidden mt-3 bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                                    <p class="text-xs text-amber-800">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        Du bist aktuell keinem Verein zugeordnet. Die Einstellung "Nur Vereinsmitglieder" bedeutet, dass dich niemand finden kann.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Leaderboard Visibility -->
+                            <div class="bg-gray-50 p-4 rounded-lg">
+                                <label class="flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        id="show-in-leaderboards"
+                                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <span class="ml-3 text-sm">
+                                        <span class="font-medium text-gray-900">In Ranglisten anzeigen</span>
+                                        <span class="block text-xs text-gray-500 mt-0.5">
+                                            Deine Statistiken werden in öffentlichen Ranglisten angezeigt
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <button
+                                id="save-privacy-settings-btn"
+                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                            >
+                                <i class="fas fa-save mr-2"></i>
+                                Einstellungen speichern
+                            </button>
+                            <p id="privacy-feedback" class="text-sm mt-2"></p>
+                        </div>
+                    </div>
+
+                    <!-- Club Management Section -->
+                    <div class="bg-white border border-gray-200 p-4 rounded-lg mb-4">
+                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fas fa-users text-indigo-600"></i>
+                            Vereinsverwaltung
+                        </h3>
+
+                        <!-- Current Club Status -->
+                        <div id="current-club-status" class="mb-4"></div>
+
+                        <!-- Pending Request Status -->
+                        <div id="pending-request-status" class="mb-4"></div>
+
+                        <!-- Club Search (only shown if no club and no pending request) -->
+                        <div id="club-search-section" class="hidden">
+                            <label for="club-search-input" class="block text-sm font-medium text-gray-700 mb-2">
+                                Verein suchen
+                            </label>
+                            <div class="flex gap-2 mb-3">
+                                <input
+                                    type="text"
+                                    id="club-search-input"
+                                    placeholder="Vereinsname eingeben..."
+                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                                <button
+                                    id="club-search-btn"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition"
+                                >
+                                    <i class="fas fa-search mr-2"></i>
+                                    Suchen
+                                </button>
+                            </div>
+
+                            <!-- Search Results -->
+                            <div id="club-search-results" class="space-y-2"></div>
+
+                            <p class="text-xs text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Nach dem Senden einer Beitrittsanfrage muss ein Coach deines Wunschvereins diese genehmigen.
+                            </p>
+                        </div>
+
+                        <!-- Leave Club Button (only shown if in club and no pending leave request) -->
+                        <div id="leave-club-section" class="hidden">
+                            <button
+                                id="leave-club-btn"
+                                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition"
+                            >
+                                <i class="fas fa-sign-out-alt mr-2"></i>
+                                Austrittsanfrage senden
+                            </button>
+                            <p class="text-xs text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Nach dem Senden einer Austrittsanfrage muss ein Coach deines Vereins diese genehmigen.
+                            </p>
+                        </div>
+
+                        <p id="club-management-feedback" class="text-sm mt-3"></p>
+                    </div>
+
                     <!-- Data Export Section (GDPR Art. 20) -->
                     <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
                         <h3 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">
@@ -353,6 +515,7 @@
         </div>
 
         <script src="/js/update-checker.js"></script>
+        <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <script type="module" src="/js/settings.js"></script>

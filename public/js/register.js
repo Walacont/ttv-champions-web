@@ -1,13 +1,8 @@
 // ===== IMPORTS =====
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
-    getAuth,
     createUserWithEmailAndPassword,
-    connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import {
-    getFirestore,
     doc,
     getDoc,
     query,
@@ -15,30 +10,21 @@ import {
     where,
     getDocs,
     updateDoc,
-    connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
-    getFunctions,
     httpsCallable,
-    connectFunctionsEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js';
+import { initFirebase } from './firebase-init.js';
 import { isCodeExpired, validateCodeFormat } from './invitation-code-utils.js';
 
-// ===== INITIALISIERUNG =====
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const analytics = getAnalytics(app);
-const functions = getFunctions(app, 'europe-west3');
+console.log('[REGISTER] Script starting...');
 
-// Emulator-Block
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log('Register.js: Verbinde mit lokalen Firebase Emulatoren...');
-    connectAuthEmulator(auth, 'http://localhost:9099');
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    connectFunctionsEmulator(functions, 'localhost', 5001);
-}
+// ===== INITIALISIERUNG =====
+// Use shared Firebase instance (singleton)
+// Using top-level await (supported in ES modules)
+const { auth, db, functions } = await initFirebase();
+
+console.log('[REGISTER] Firebase initialized via shared instance');
 
 // ===== UI ELEMENTE =====
 const loader = document.getElementById('loader');
@@ -52,7 +38,7 @@ const tokenRequiredMessageContainer = document.getElementById('token-required-me
 let tokenId = null;
 let invitationCode = null;
 let invitationCodeData = null;
-let registrationType = null; // 'token' or 'code'
+let registrationType = null; // 'token', 'code', or 'no-code'
 
 // ===== TOKEN ODER CODE BEIM SEITENLADEN PRÜFEN (ANGEPASSTE LOGIK) =====
 // Function to initialize registration (works for both normal load and SPA navigation)
@@ -145,6 +131,31 @@ if (document.readyState === 'loading') {
     initializeRegistration();
 }
 
+// ===== REGISTRIERUNG OHNE CODE =====
+const registerWithoutCodeBtn = document.getElementById('register-without-code-btn');
+if (registerWithoutCodeBtn) {
+    registerWithoutCodeBtn.addEventListener('click', () => {
+        registrationType = 'no-code';
+
+        // Hide welcome message, show registration form
+        tokenRequiredMessageContainer.classList.add('hidden');
+        loader.classList.add('hidden');
+        registrationFormContainer.classList.remove('hidden');
+
+        // Show name fields (required for no-code registration)
+        const nameFields = document.getElementById('name-fields');
+        if (nameFields) {
+            nameFields.classList.remove('hidden');
+            // Make name fields required
+            document.getElementById('first-name').required = true;
+            document.getElementById('last-name').required = true;
+        }
+
+        // Update subtitle
+        formSubtitle.textContent = 'Erstelle deinen Account und trete später einem Verein bei.';
+    });
+}
+
 // ===== REGISTRIERUNG (MIT NEUER CHECKBOX-VALIDIERUNG) =====
 registrationForm.addEventListener('submit', async e => {
     e.preventDefault();
@@ -177,26 +188,36 @@ registrationForm.addEventListener('submit', async e => {
 
     try {
         // 1️⃣ Firebase User erstellen
+        console.log('[REGISTER] Step 1: Creating user...');
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+        console.log('[REGISTER] Step 1 complete: User created:', user.email);
 
         // 2️⃣ Kurz warten, bis Auth-State vollständig aktiv ist
+        console.log('[REGISTER] Step 2: Waiting for auth state...');
         await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('[REGISTER] Step 2 complete');
 
         // 3️⃣ Sicherheitshalber frisches Auth-Token abrufen
+        console.log('[REGISTER] Step 3: Getting ID token...');
         await user.getIdToken(true);
+        console.log('[REGISTER] Step 3 complete: Got ID token');
 
         // ===== CODE-FLOW =====
         if (registrationType === 'code') {
+            console.log('[REGISTER] Using CODE flow');
             // 4️⃣ Callable Cloud Function aufrufen für Code-basierte Registrierung
+            console.log('[REGISTER] Step 4: Calling claimInvitationCode...');
             const claimInvitationCode = httpsCallable(functions, 'claimInvitationCode');
             const result = await claimInvitationCode({
                 code: invitationCode,
                 codeId: invitationCodeData.id,
             });
+            console.log('[REGISTER] Step 4 complete:', result.data);
 
             if (result.data.success) {
                 // 5️⃣ Weiterleitung zum Onboarding
+                console.log('[REGISTER] Step 5: Redirecting to onboarding...');
                 // Use SPA navigation if available
                 if (window.spaNavigate) {
                     window.spaNavigate('/onboarding.html');
@@ -209,12 +230,52 @@ registrationForm.addEventListener('submit', async e => {
         }
         // ===== TOKEN-FLOW (Bisheriger Flow) =====
         else if (registrationType === 'token') {
+            console.log('[REGISTER] Using TOKEN flow');
             // 4️⃣ Callable Cloud Function aufrufen
+            console.log('[REGISTER] Step 4: Calling claimInvitationToken...');
             const claimInvitationToken = httpsCallable(functions, 'claimInvitationToken');
             const result = await claimInvitationToken({ tokenId });
+            console.log('[REGISTER] Step 4 complete:', result.data);
 
             if (result.data.success) {
                 // 5️⃣ Weiterleitung zum Onboarding
+                console.log('[REGISTER] Step 5: Redirecting to onboarding...');
+                // Use SPA navigation if available
+                if (window.spaNavigate) {
+                    window.spaNavigate('/onboarding.html');
+                } else {
+                    window.location.href = '/onboarding.html';
+                }
+            } else {
+                throw new Error('Ein unbekannter Fehler ist aufgetreten.');
+            }
+        }
+        // ===== NO-CODE FLOW (Neu: Registrierung ohne Einladung) =====
+        else if (registrationType === 'no-code') {
+            console.log('[REGISTER] Using NO-CODE flow');
+            // Get name fields
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+
+            if (!firstName || !lastName) {
+                errorMessage.textContent = 'Bitte gib deinen Vor- und Nachnamen ein.';
+                submitButton.disabled = false;
+                submitButton.textContent = 'Registrierung abschließen';
+                return;
+            }
+
+            // 4️⃣ Callable Cloud Function aufrufen für Registrierung ohne Code
+            console.log('[REGISTER] Step 4: Calling registerWithoutCode...');
+            const registerWithoutCode = httpsCallable(functions, 'registerWithoutCode');
+            const result = await registerWithoutCode({
+                firstName,
+                lastName,
+            });
+            console.log('[REGISTER] Step 4 complete:', result.data);
+
+            if (result.data.success) {
+                // 5️⃣ Weiterleitung zum Onboarding
+                console.log('[REGISTER] Step 5: Redirecting to onboarding...');
                 // Use SPA navigation if available
                 if (window.spaNavigate) {
                     window.spaNavigate('/onboarding.html');
@@ -226,6 +287,7 @@ registrationForm.addEventListener('submit', async e => {
             }
         }
     } catch (error) {
+        console.error('[REGISTER] Error:', error);
         let displayMsg = error.message;
         if (error.code === 'auth/email-already-in-use') {
             displayMsg = 'Diese E-Mail-Adresse wird bereits verwendet.';

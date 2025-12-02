@@ -1,5 +1,5 @@
 /**
- * TTV Champions SPA - Main Application Entry Point
+ * SC Champions SPA - Main Application Entry Point
  * Initializes the router and defines all routes
  */
 
@@ -250,7 +250,7 @@ router.afterNavigate(async path => {
 
 // Initialize the app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('TTV Champions SPA initialized');
+    console.log('SC Champions SPA initialized');
     router.start();
 });
 

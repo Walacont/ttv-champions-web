@@ -2,8 +2,21 @@
 <html lang="de">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Mein Dashboard - TTV Champions</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <script src="/js/capacitor-init.js"></script>
+        <title>Mein Dashboard - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
 
         <!-- Google tag (gtag.js) -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
@@ -26,6 +39,7 @@
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
         <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <link rel="stylesheet" href="/css/tutorial.css" />
         <style>
             body {
@@ -126,15 +140,35 @@
 
         <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
             <header class="mb-6">
-                <!-- Top Row: Title + Settings/Logout -->
+                <!-- Top Row: Profile + Title + Settings/Logout -->
                 <div class="flex justify-between items-start mb-4">
-                    <div class="flex-1">
-                        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
-                        <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
-                            Willkommen zurück!
-                        </p>
+                    <div class="flex items-start gap-3 flex-1">
+                        <!-- Profile Picture -->
+                        <img id="header-profile-pic" src="" alt="Profilbild"
+                             class="h-14 w-14 rounded-full object-cover border-2 border-indigo-200 shadow-md flex-shrink-0">
+
+                        <!-- Title and Club Info -->
+                        <div class="flex-1">
+                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
+                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
+                                Willkommen zurück!
+                            </p>
+                            <p id="header-club-info" class="text-xs sm:text-sm text-gray-500 mt-1">
+                                <i class="fas fa-building mr-1"></i><span id="header-club-name">Lade...</span>
+                            </p>
+                        </div>
                     </div>
                     <div class="flex items-center space-x-3 sm:space-x-4">
+                        <!-- Coach Switch Button (hidden by default, shown for coaches) -->
+                        <a
+                            id="switch-to-coach-btn"
+                            href="/coach.html"
+                            class="hidden bg-purple-500 hover:bg-purple-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
+                            title="Zur Coach-Ansicht wechseln"
+                        >
+                            <i class="fas fa-user-shield mr-1"></i>
+                            <span class="hidden sm:inline">Coach</span>
+                        </a>
                         <a
                             href="/settings.html"
                             class="text-gray-500 hover:text-gray-800 transition-colors"
@@ -170,27 +204,73 @@
                     </div>
                 </div>
 
-                <!-- Second Row: Gruppen-Switcher (Full Width on Mobile) -->
+                <!-- Second Row: Filter-Switcher (Mobile-friendly stacked layout) -->
                 <div
                     id="player-subgroup-filter-container"
-                    class="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
+                    class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
                 >
-                    <label
-                        for="player-subgroup-filter"
-                        class="text-sm font-medium text-gray-700 whitespace-nowrap"
-                    >
-                        👥 Ansicht:
-                    </label>
-                    <select
-                        id="player-subgroup-filter"
-                        class="flex-1 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                    >
-                        <option value="club">🏠 Mein Verein</option>
-                        <option value="global">🌍 Global</option>
-                        <!-- Subgroup options will be added dynamically -->
-                    </select>
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <label
+                            for="player-subgroup-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('player-subgroup-filter').focus(); document.getElementById('player-subgroup-filter').click();"
+                        >
+                            👥 Ansicht:
+                        </label>
+                        <select
+                            id="player-subgroup-filter"
+                            class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="club">🏠 Mein Verein</option>
+                            <option value="global">🌍 Global</option>
+                            <!-- Subgroup options will be added dynamically -->
+                        </select>
+                    </div>
+                    <div id="gender-filter-container" class="flex items-center gap-2 flex-1 sm:flex-none">
+                        <label
+                            for="player-gender-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('player-gender-filter').focus(); document.getElementById('player-gender-filter').click();"
+                        >
+                            ⚧ Geschlecht:
+                        </label>
+                        <select
+                            id="player-gender-filter"
+                            class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <option value="all">Alle</option>
+                            <option value="male">Jungen/Herren</option>
+                            <option value="female">Mädchen/Damen</option>
+                        </select>
+                    </div>
                 </div>
             </header>
+
+            <!-- Info Box for Players without Club (hidden by default, shown via JS) -->
+            <div id="no-club-info-box" class="hidden mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg shadow-sm">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-blue-400 text-2xl"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <h3 class="text-sm font-medium text-blue-800">
+                            Du bist noch keinem Verein beigetreten
+                        </h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>
+                                Möchtest du einem Verein beitreten? Du kannst in den
+                                <a href="/settings.html#club-management" class="font-semibold underline hover:text-blue-900">
+                                    Einstellungen
+                                </a>
+                                nach Vereinen suchen und eine Beitrittsanfrage stellen.
+                            </p>
+                        </div>
+                    </div>
+                    <button id="close-no-club-info" class="flex-shrink-0 ml-3 text-blue-400 hover:text-blue-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
 
             <div class="mb-6 border-b border-gray-200">
                 <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
@@ -716,17 +796,23 @@
                                 <!-- Singles Opponent Selection (default) -->
                                 <div id="singles-opponent-container">
                                     <label
-                                        for="opponent-select"
+                                        for="opponent-search-input"
                                         class="block text-sm font-medium text-gray-700 mb-2"
                                     >
-                                        Gegner wählen
+                                        Gegner suchen
                                     </label>
-                                    <select
-                                        id="opponent-select"
+                                    <input
+                                        type="text"
+                                        id="opponent-search-input"
+                                        placeholder="Gegner suchen (Name eingeben)..."
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">Gegner wählen...</option>
-                                    </select>
+                                    />
+                                    <div id="opponent-search-results" class="mt-2 max-h-64 overflow-y-auto">
+                                        <!-- Dynamisch gefüllt -->
+                                    </div>
+                                    <!-- Hidden input to store selected opponent ID -->
+                                    <input type="hidden" id="selected-opponent-id" value="" />
+                                    <input type="hidden" id="selected-opponent-elo" value="" />
                                 </div>
 
                                 <!-- Doubles Players Selection (hidden by default) -->
@@ -739,17 +825,21 @@
                                         </h3>
                                         <div>
                                             <label
-                                                for="doubles-partner-select"
+                                                for="partner-search-input"
                                                 class="block text-sm font-medium text-gray-700 mb-2"
                                             >
                                                 Partner wählen
                                             </label>
-                                            <select
-                                                id="doubles-partner-select"
+                                            <input
+                                                type="text"
+                                                id="partner-search-input"
+                                                placeholder="Suche nach Partner..."
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                            >
-                                                <option value="">Partner wählen...</option>
-                                            </select>
+                                                autocomplete="off"
+                                            />
+                                            <div id="partner-search-results" class="mt-2"></div>
+                                            <input type="hidden" id="selected-partner-id" value="" />
+                                            <input type="hidden" id="selected-partner-elo" value="" />
                                         </div>
                                     </div>
                                     <div
@@ -762,31 +852,39 @@
                                         <div class="space-y-3">
                                             <div>
                                                 <label
-                                                    for="doubles-opponent1-select"
+                                                    for="opponent1-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
                                                 >
                                                     Gegner 1
                                                 </label>
-                                                <select
-                                                    id="doubles-opponent1-select"
+                                                <input
+                                                    type="text"
+                                                    id="opponent1-search-input"
+                                                    placeholder="Suche nach Gegner 1..."
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                >
-                                                    <option value="">Gegner 1 wählen...</option>
-                                                </select>
+                                                    autocomplete="off"
+                                                />
+                                                <div id="opponent1-search-results" class="mt-2"></div>
+                                                <input type="hidden" id="selected-opponent1-id" value="" />
+                                                <input type="hidden" id="selected-opponent1-elo" value="" />
                                             </div>
                                             <div>
                                                 <label
-                                                    for="doubles-opponent2-select"
+                                                    for="opponent2-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
                                                 >
                                                     Gegner 2
                                                 </label>
-                                                <select
-                                                    id="doubles-opponent2-select"
+                                                <input
+                                                    type="text"
+                                                    id="opponent2-search-input"
+                                                    placeholder="Suche nach Gegner 2..."
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                                >
-                                                    <option value="">Gegner 2 wählen...</option>
-                                                </select>
+                                                    autocomplete="off"
+                                                />
+                                                <div id="opponent2-search-results" class="mt-2"></div>
+                                                <input type="hidden" id="selected-opponent2-id" value="" />
+                                                <input type="hidden" id="selected-opponent2-elo" value="" />
                                             </div>
                                         </div>
                                     </div>
@@ -1247,7 +1345,48 @@
             </div>
         </div>
 
+        <!-- Footer -->
+        <footer class="mt-12 pb-6 px-4">
+            <div class="max-w-4xl mx-auto">
+                <!-- Bug Report Notice -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-bug text-blue-600 text-xl mt-1"></i>
+                        <div class="flex-1">
+                            <h3 class="text-sm font-semibold text-blue-900 mb-1">Bug gefunden?</h3>
+                            <p class="text-xs text-blue-800">
+                                Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an
+                                <a href="mailto:support@sc-champions.de" class="font-semibold underline hover:text-blue-900">
+                                    support@sc-champions.de
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Links -->
+                <div class="text-center text-xs text-gray-600 space-y-2">
+                    <div class="flex justify-center items-center gap-4">
+                        <a href="/docs/impressum.html" class="hover:text-indigo-600 transition-colors">
+                            Impressum
+                        </a>
+                        <span class="text-gray-400">•</span>
+                        <a href="/docs/datenschutz.html" class="hover:text-indigo-600 transition-colors">
+                            Datenschutzerklärung
+                        </a>
+                    </div>
+                    <p class="text-gray-500">
+                        © 2025 SC Champions. Alle Rechte vorbehalten.
+                    </p>
+                    <p class="text-gray-400 text-xs italic mt-2">
+                        Hinweis: SC Champions ist derzeit ein Forschungsprojekt im Rahmen einer Bachelorarbeit und befindet sich in der Testphase.
+                    </p>
+                </div>
+            </div>
+        </footer>
+
         <script src="/js/update-checker.js"></script>
+        <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <script type="module" src="/js/dashboard.js"></script>

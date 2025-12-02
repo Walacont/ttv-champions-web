@@ -2,7 +2,23 @@
 <html lang="de">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <script src="/js/capacitor-init.js"></script>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="SC Champions" />
+        <meta name="msapplication-TileColor" content="#1e3a5f" />
+        <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
 
         <!-- Google tag (gtag.js) -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
@@ -15,27 +31,27 @@
             gtag('config', 'G-H2R9ZJYQ06');
         </script>
 
-        <title>TTV Champions - Digitales Tischtennis-Training & Wettkampfsystem</title>
+        <title>SC Champions - Digitales Sport-Training & Wettkampfsystem</title>
         <meta
             name="title"
-            content="TTV Champions - Digitales Tischtennis-Training & Wettkampfsystem"
+            content="SC Champions - Digitales Sport-Training & Wettkampfsystem"
         />
         <meta
             name="description"
-            content="TTV Champions ist das moderne Gamification-System für Tischtennisvereine. Verwalte Training, Matches und Elo-Rankings digital. Spieler sammeln XP, steigen in Rängen auf und tracken ihre Fortschritte."
+            content="SC Champions ist das moderne Gamification-System für Tischtennisvereine. Verwalte Training, Matches und Elo-Rankings digital. Spieler sammeln XP, steigen in Rängen auf und tracken ihre Fortschritte."
         />
         <meta
             name="keywords"
             content="Tischtennis, TTV, Training, Elo-System, Gamification, Verein, Wettkampf, Ranking, QTTR"
         />
-        <meta name="author" content="TTV Champions" />
-        <link rel="canonical" href="https://ttv-champions.de/" />
+        <meta name="author" content="SC Champions" />
+        <link rel="canonical" href="https://sc-champions.de/" />
 
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://ttv-champions.de/" />
+        <meta property="og:url" content="https://sc-champions.de/" />
         <meta
             property="og:title"
-            content="TTV Champions - Digitales Tischtennis-Training & Wettkampfsystem"
+            content="SC Champions - Digitales Sport-Training & Wettkampfsystem"
         />
         <meta
             property="og:description"
@@ -44,10 +60,10 @@
         <meta property="og:locale" content="de_DE" />
 
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://ttv-champions.de/" />
+        <meta property="twitter:url" content="https://sc-champions.de/" />
         <meta
             property="twitter:title"
-            content="TTV Champions - Digitales Tischtennis-Training & Wettkampfsystem"
+            content="SC Champions - Digitales Sport-Training & Wettkampfsystem"
         />
         <meta
             property="twitter:description"
@@ -63,6 +79,7 @@
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <style>
             body {
                 font-family: 'Inter', sans-serif;
@@ -81,7 +98,7 @@
             <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
                 <div class="text-2xl font-bold text-indigo-600">
                     <i class="fas fa-trophy mr-2"></i>
-                    TTV Champions
+                    SC Champions
                 </div>
                 <div>
                     <button
@@ -98,7 +115,7 @@
             <div class="container mx-auto px-6 flex items-center justify-center">
                 <i class="fas fa-info-circle mr-3 text-lg text-blue-700"></i>
                 <div class="text-center">
-                    <strong>Hinweis:</strong> TTV Champions ist derzeit ein Forschungsprojekt im
+                    <strong>Hinweis:</strong> SC Champions ist derzeit ein Forschungsprojekt im
                     Rahmen einer Bachelorarbeit und befindet sich in der Testphase.
                 </div>
             </div>
@@ -112,8 +129,8 @@
                         Mach dein Training zum Spiel.
                     </h1>
                     <p class="text-lg md:text-xl text-indigo-100 max-w-3xl mx-auto">
-                        Willkommen bei TTV Champions – der Gamification-Plattform, die dein
-                        Tischtennis-Training im Verein auf ein neues Level hebt.
+                        Willkommen bei SC Champions – der Gamification-Plattform, die dein
+                        Sport-Training im Verein auf ein neues Level hebt.
                     </p>
                     <a
                         href="#features"
@@ -474,10 +491,24 @@
                     </div>
                 </form>
 
+                <!-- Registrierungs-Link -->
+                <div class="mt-6 text-center border-t border-gray-200 pt-6">
+                    <p class="text-sm text-gray-600">
+                        Noch kein Account?
+                        <a
+                            href="/register.html"
+                            class="font-medium text-indigo-600 hover:text-indigo-500"
+                        >
+                            Jetzt registrieren
+                        </a>
+                    </p>
+                </div>
+
                 <p id="feedback-message" class="mt-2 text-center text-sm"></p>
             </div>
         </div>
         <script src="/js/update-checker.js"></script>
+        <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <script type="module" src="/js/index.js"></script>
     </body>

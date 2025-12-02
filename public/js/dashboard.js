@@ -40,7 +40,7 @@ import {
     closeExerciseModal,
     setExerciseContext,
 } from './exercises.js';
-import { setupTabs, updateSeasonCountdown } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
 import { loadPointsHistory } from './points-management.js';
 import {
     loadOverviewData,
@@ -54,8 +54,8 @@ import { renderCalendar, loadTodaysMatches } from './calendar.js';
 import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
 // Season reset import removed - now handled by Cloud Function
 import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
-import { initializeDoublesPlayerUI, populateDoublesPlayerDropdowns } from './doubles-player-ui.js';
-import { confirmDoublesMatchRequest, rejectDoublesMatchRequest } from './doubles-matches.js';
+import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui.js';
+import { confirmDoublesMatchRequest, rejectDoublesMatchRequest, approveDoublesMatchRequest } from './doubles-matches.js';
 import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
@@ -74,6 +74,7 @@ let clubPlayers = []; // Store club players for match request form
 let unsubscribes = [];
 let currentDisplayDate = new Date();
 let currentSubgroupFilter = 'club'; // Default: show club view
+let currentGenderFilter = 'all'; // Default: show all genders
 let matchSuggestionsUnsubscribes = []; // Array to store match suggestions listeners
 let rivalListener = null; // Separate listener for rivals (needs to be updated on filter change)
 let calendarListener = null; // Separate listener for calendar (needs to be updated on filter change)
@@ -105,7 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userListener = onSnapshot(userDocRef, docSnap => {
                     if (docSnap.exists()) {
                         const userData = docSnap.data();
-                        if (userData.role === 'player') {
+                        // Allow players and coaches to view the player dashboard
+                        // Coaches can switch between coach and player view
+                        if (userData.role === 'player' || userData.role === 'coach') {
                             const isFirstLoad = !currentUserData;
                             currentUserData = { id: docSnap.id, ...userData };
                             if (isFirstLoad) {
@@ -113,9 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             } else {
                                 updateDashboard(currentUserData);
                             }
-                        } else {
-                            window.location.href =
-                                userData.role === 'admin' ? '/admin.html' : '/coach.html';
+                        } else if (userData.role === 'admin') {
+                            // Only admins are redirected
+                            window.location.href = '/admin.html';
                         }
                     } else {
                         signOut(auth);
@@ -132,6 +135,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+/**
+ * Checks if user has access to a specific feature
+ * @param {string} feature - Feature name to check
+ * @param {Object} userData - Current user data
+ * @returns {Object} { allowed: boolean, message: string }
+ */
+function checkFeatureAccess(feature, userData) {
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
+
+    const clubOnlyFeatures = ['challenges', 'attendance', 'subgroups'];
+
+    if (clubOnlyFeatures.includes(feature) && !hasClub) {
+        return {
+            allowed: false,
+            message: 'Diese Funktion ist nur für Vereinsmitglieder verfügbar. Tritt einem Verein bei, um diese Funktion zu nutzen.',
+        };
+    }
+
+    return { allowed: true };
+}
+
+/**
+ * Shows info box for players without club
+ */
+function showNoClubInfoIfNeeded(userData) {
+    const noClubInfoBox = document.getElementById('no-club-info-box');
+    const closeBtn = document.getElementById('close-no-club-info');
+
+    if (!noClubInfoBox) return;
+
+    // Check if user has no club and hasn't dismissed the info box
+    const hasClub = userData.clubId && userData.clubId !== null;
+    const hasDismissed = localStorage.getItem('noClubInfoDismissed') === 'true';
+
+    if (!hasClub && !hasDismissed) {
+        noClubInfoBox.classList.remove('hidden');
+    }
+
+    // Close button handler
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            noClubInfoBox.classList.add('hidden');
+            localStorage.setItem('noClubInfoDismissed', 'true');
+        });
+    }
+}
 
 /**
  * Check and start player tutorial if not completed
@@ -173,56 +223,171 @@ window.startPlayerTutorial = function () {
     tutorial.start();
 };
 
+/**
+ * Sets the header profile picture and club information
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ */
+async function setHeaderProfileAndClub(userData, db) {
+    const headerProfilePic = document.getElementById('header-profile-pic');
+    const headerClubName = document.getElementById('header-club-name');
+
+    // Set profile picture
+    if (userData.photoURL) {
+        headerProfilePic.src = userData.photoURL;
+    } else {
+        // Generate initials
+        const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}` || 'U';
+        headerProfilePic.src = `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
+    }
+
+    // Set club information
+    if (userData.clubId) {
+        try {
+            const clubDoc = await getDoc(doc(db, 'clubs', userData.clubId));
+            if (clubDoc.exists()) {
+                headerClubName.textContent = clubDoc.data().name || userData.clubId;
+            } else {
+                headerClubName.textContent = userData.clubId;
+            }
+        } catch (error) {
+            console.error('Error loading club info:', error);
+            headerClubName.textContent = 'Fehler beim Laden';
+        }
+    } else {
+        headerClubName.textContent = 'Kein Verein';
+        // Hide icon for "no club" state
+        const headerClubInfo = document.getElementById('header-club-info');
+        if (headerClubInfo) {
+            const icon = headerClubInfo.querySelector('i');
+            if (icon) {
+                icon.style.display = 'none';
+            }
+        }
+    }
+}
+
 async function initializeDashboard(userData) {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
     const welcomeMessage = document.getElementById('welcome-message');
     const logoutButton = document.getElementById('logout-button');
 
-    welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
+    try {
+        welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
+
+        // Show coach switch button if user is a coach
+        const switchToCoachBtn = document.getElementById('switch-to-coach-btn');
+        if (switchToCoachBtn && userData.role === 'coach') {
+            switchToCoachBtn.classList.remove('hidden');
+        }
+
+    // Set header profile picture and club info
+    await setHeaderProfileAndClub(userData, db);
 
     // Render leaderboard HTML (new 3-tab system) into wrapper
     renderLeaderboardHTML('leaderboard-content-wrapper', {
-        showToggle: false, // No toggle needed, global filter controls everything
+        showToggle: true, // Show Club/Global toggle for Skill, Doubles, etc.
+        userData: userData, // Pass user data for tab visibility preferences
     });
 
     // Populate subgroup options in global filter dropdown
     await populatePlayerSubgroupFilter(userData, db);
 
+    // Check if user has access to challenges feature
+    const challengesAccess = checkFeatureAccess('challenges', userData);
+    const challengesLoader = challengesAccess.allowed ? loadChallenges : null;
+
     // Diese Funktionen richten ALLE Echtzeit-Listener (onSnapshot) ein
-    loadOverviewData(userData, db, unsubscribes, null, loadChallenges, loadPointsHistory);
+    loadOverviewData(userData, db, unsubscribes, null, challengesLoader, loadPointsHistory);
+
+    // If challenges not allowed, show blocked message
+    if (!challengesAccess.allowed) {
+        const challengesList = document.getElementById('challenges-list');
+        if (challengesList) {
+            challengesList.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <i class="fas fa-lock text-yellow-600 text-3xl mb-3"></i>
+                    <p class="text-yellow-800 font-medium">${challengesAccess.message}</p>
+                    <a href="/settings.html#club-management" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                        Verein suchen
+                    </a>
+                </div>
+            `;
+        }
+    }
 
     // Initialize widget system (customizable dashboard)
-    initializeWidgetSystem(db, userData.id);
+    initializeWidgetSystem(db, userData.id, userData);
 
     // Load rivals with current subgroup filter and store listener separately
     rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
 
-    // Load profile data and setup calendar with real-time listener
-    streaksListener = loadProfileData(
-        userData,
-        date => {
-            // Unsubscribe old calendar listener if exists
-            if (calendarListener && typeof calendarListener === 'function') {
-                try {
-                    calendarListener();
-                } catch (e) {
-                    console.error('Error unsubscribing calendar listener:', e);
-                }
-            }
-            // Setup new calendar listener
-            calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
-        },
-        currentDisplayDate,
-        db
-    );
+    // Check if user has access to attendance/calendar feature
+    const attendanceAccess = checkFeatureAccess('attendance', userData);
 
-    setExerciseContext(db, userData.id, userData.role);
+    // Load profile data and setup calendar with real-time listener
+    if (attendanceAccess.allowed) {
+        streaksListener = loadProfileData(
+            userData,
+            date => {
+                // Unsubscribe old calendar listener if exists
+                if (calendarListener && typeof calendarListener === 'function') {
+                    try {
+                        calendarListener();
+                    } catch (e) {
+                        console.error('Error unsubscribing calendar listener:', e);
+                    }
+                }
+                // Setup new calendar listener
+                calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
+            },
+            currentDisplayDate,
+            db
+        );
+    } else {
+        // Show blocked message for attendance
+        const calendarGrid = document.getElementById('calendar-grid');
+        if (calendarGrid) {
+            calendarGrid.innerHTML = `
+                <div class="col-span-7 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                    <i class="fas fa-lock text-yellow-600 text-3xl mb-3"></i>
+                    <p class="text-yellow-800 font-medium">${attendanceAccess.message}</p>
+                    <a href="/settings.html#club-management" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                        Verein suchen
+                    </a>
+                </div>
+            `;
+        }
+
+        // Also hide calendar navigation and stats
+        const monthYearDisplay = document.getElementById('calendar-month-year');
+        const prevMonthBtn = document.getElementById('prev-month');
+        const nextMonthBtn = document.getElementById('next-month');
+        const statsSection = document.querySelector('#tab-content-profile .mt-6.pt-6.border-t');
+
+        if (monthYearDisplay) monthYearDisplay.style.display = 'none';
+        if (prevMonthBtn) prevMonthBtn.style.display = 'none';
+        if (nextMonthBtn) nextMonthBtn.style.display = 'none';
+        if (statsSection) statsSection.style.display = 'none';
+    }
+
+    setExerciseContext(db, userData.id, userData.role, userData.clubId);
     loadExercises(db, unsubscribes);
 
-    // Set leaderboard filter to 'all' for initial load (club view)
-    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter }) => {
+    // Setup tabs and toggle BEFORE loading data
+    setupTabs('overview'); // 'overview' is default tab for dashboard
+    setupLeaderboardTabs(userData); // Setup 3-tab navigation
+    setupLeaderboardToggle(userData); // Setup Club/Global toggle - MUST be before loadLeaderboard
+
+    // Initialize leaderboard preferences
+    initializeLeaderboardPreferences(userData, db);
+    applyPreferences();
+
+    // Set leaderboard filters to 'all' for initial load (club view)
+    import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, setLeaderboardGenderFilter }) => {
         setLeaderboardSubgroupFilter('all');
+        setLeaderboardGenderFilter('all');
     });
     loadLeaderboard(userData, db, unsubscribes);
     loadGlobalLeaderboard(userData, db, unsubscribes);
@@ -236,11 +401,11 @@ async function initializeDashboard(userData) {
     await loadClubPlayers(userData, db);
 
     // Initialize match request functionality
-    initializeMatchRequestForm(userData, db, clubPlayers);
+    initializeMatchRequestForm(userData, db, clubPlayers, unsubscribes);
 
     // Initialize doubles match UI
     initializeDoublesPlayerUI();
-    populateDoublesPlayerDropdowns(clubPlayers, userData.id);
+    initializeDoublesPlayerSearch(db, userData);
 
     loadPlayerMatchRequests(userData, db, unsubscribes);
     loadOverviewMatchRequests(userData, db, unsubscribes);
@@ -273,18 +438,20 @@ async function initializeDashboard(userData) {
             console.error('Logout error:', error);
         }
     });
-    setupTabs('overview'); // 'overview' is default tab for dashboard
-    setupLeaderboardTabs(); // Setup 3-tab navigation
-
-    // Initialize leaderboard preferences
-    initializeLeaderboardPreferences(userData, db);
-    applyPreferences();
 
     // Setup global subgroup filter change handler
     const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
     if (subgroupFilterDropdown) {
         subgroupFilterDropdown.addEventListener('change', () => {
             handlePlayerSubgroupFilterChange(userData, db, unsubscribes);
+        });
+    }
+
+    // Setup gender filter change handler
+    const genderFilterDropdown = document.getElementById('player-gender-filter');
+    if (genderFilterDropdown) {
+        genderFilterDropdown.addEventListener('change', () => {
+            handleGenderFilterChange(userData, db, unsubscribes);
         });
     }
 
@@ -362,42 +529,46 @@ async function initializeDashboard(userData) {
     }
 
     // Calendar listeners with proper listener management
-    document.getElementById('prev-month').addEventListener('click', () => {
-        currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
-        // Unsubscribe old listener
-        if (calendarListener && typeof calendarListener === 'function') {
-            try {
-                calendarListener();
-            } catch (e) {
-                console.error('Error unsubscribing calendar listener:', e);
+    // Only add listeners if user has a club (attendance feature is allowed)
+    const hasClubForCalendar = currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+    if (hasClubForCalendar) {
+        document.getElementById('prev-month').addEventListener('click', () => {
+            currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
+            // Unsubscribe old listener
+            if (calendarListener && typeof calendarListener === 'function') {
+                try {
+                    calendarListener();
+                } catch (e) {
+                    console.error('Error unsubscribing calendar listener:', e);
+                }
             }
-        }
-        // Setup new listener
-        calendarListener = renderCalendar(
-            currentDisplayDate,
-            currentUserData,
-            db,
-            currentSubgroupFilter
-        );
-    });
-    document.getElementById('next-month').addEventListener('click', () => {
-        currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
-        // Unsubscribe old listener
-        if (calendarListener && typeof calendarListener === 'function') {
-            try {
-                calendarListener();
-            } catch (e) {
-                console.error('Error unsubscribing calendar listener:', e);
+            // Setup new listener
+            calendarListener = renderCalendar(
+                currentDisplayDate,
+                currentUserData,
+                db,
+                currentSubgroupFilter
+            );
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
+            // Unsubscribe old listener
+            if (calendarListener && typeof calendarListener === 'function') {
+                try {
+                    calendarListener();
+                } catch (e) {
+                    console.error('Error unsubscribing calendar listener:', e);
+                }
             }
-        }
-        // Setup new listener
-        calendarListener = renderCalendar(
-            currentDisplayDate,
-            currentUserData,
-            db,
-            currentSubgroupFilter
-        );
-    });
+            // Setup new listener
+            calendarListener = renderCalendar(
+                currentDisplayDate,
+                currentUserData,
+                db,
+                currentSubgroupFilter
+            );
+        });
+    }
 
     // Track page view in Google Analytics
     logEvent(analytics, 'page_view', {
@@ -412,8 +583,27 @@ async function initializeDashboard(userData) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
 
+    // Check and show no-club info box if needed
+    showNoClubInfoIfNeeded(userData);
+
     // Check and start tutorial if needed
     checkAndStartTutorial(userData);
+    } catch (error) {
+        console.error('[Dashboard] Initialization error:', error);
+        // Show error message to user
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
+        errorContainer.innerHTML = `
+            <strong>Fehler beim Laden</strong>
+            <p class="text-sm">Bitte lade die Seite neu. Falls der Fehler bestehen bleibt, kontaktiere den Support.</p>
+            <button onclick="location.reload()" class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">Neu laden</button>
+        `;
+        document.body.appendChild(errorContainer);
+
+        // Still show content even if there was an error
+        pageLoader.style.display = 'none';
+        mainContent.style.display = 'block';
+    }
 }
 
 function updateDashboard(userData) {
@@ -469,6 +659,7 @@ function populatePlayerSubgroupFilter(userData, db) {
     const dropdown = document.getElementById('player-subgroup-filter');
     if (!dropdown) return;
 
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
     const subgroupIDs = userData.subgroupIDs || [];
 
     // Save current selection
@@ -481,6 +672,15 @@ function populatePlayerSubgroupFilter(userData, db) {
         } catch (e) {
             console.error('Error unsubscribing subgroup filter listener:', e);
         }
+    }
+
+    // If user has no club, show only Global option
+    if (!hasClub) {
+        const globalOption = createOption('global', '🌍 Global');
+        dropdown.innerHTML = '';
+        dropdown.appendChild(globalOption);
+        dropdown.value = 'global';
+        return;
     }
 
     if (subgroupIDs.length === 0) {
@@ -519,24 +719,53 @@ function populatePlayerSubgroupFilter(userData, db) {
                 );
 
                 // Update dropdown
-                const clubOption = createOption('club', '🏠 Mein Verein');
-                const globalOption = createOption('global', '🌍 Global');
                 dropdown.innerHTML = '';
 
-                // Add subgroup options first (if any)
+                // Add club and global options first
+                const clubOption = createOption('club', 'Mein Verein');
+                const globalOption = createOption('global', 'Global');
+                dropdown.appendChild(clubOption);
+                dropdown.appendChild(globalOption);
+
+                // Add Youth Age Groups
+                const youthGroup = document.createElement('optgroup');
+                youthGroup.label = 'Jugend (nach Alter)';
+                AGE_GROUPS.youth.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    youthGroup.appendChild(option);
+                });
+                dropdown.appendChild(youthGroup);
+
+                // Add Adults Age Group
+                AGE_GROUPS.adults.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    dropdown.appendChild(option);
+                });
+
+                // Add Senior Age Groups
+                const seniorGroup = document.createElement('optgroup');
+                seniorGroup.label = 'Senioren (nach Alter)';
+                AGE_GROUPS.seniors.forEach(group => {
+                    const option = createOption(group.id, group.label);
+                    seniorGroup.appendChild(option);
+                });
+                dropdown.appendChild(seniorGroup);
+
+                // Note: Gender filter is now handled by a separate dropdown
+
+                // Add user's custom subgroups (if any)
                 if (userSubgroups.length > 0) {
+                    const customGroup = document.createElement('optgroup');
+                    customGroup.label = 'Meine Untergruppen im Verein';
                     userSubgroups.forEach(subgroup => {
                         const option = createOption(
                             `subgroup:${subgroup.id}`,
-                            `👥 ${subgroup.name}`
+                            subgroup.name
                         );
-                        dropdown.appendChild(option);
+                        customGroup.appendChild(option);
                     });
+                    dropdown.appendChild(customGroup);
                 }
-
-                // Add club and global options
-                dropdown.appendChild(clubOption);
-                dropdown.appendChild(globalOption);
 
                 // Restore selection if still valid
                 const validValues = Array.from(dropdown.options).map(opt => opt.value);
@@ -584,6 +813,9 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
         currentSubgroupFilter = 'global';
     } else if (selectedValue.startsWith('subgroup:')) {
         currentSubgroupFilter = selectedValue.replace('subgroup:', '');
+    } else {
+        // Age group filter (u11, u13, o40, etc.)
+        currentSubgroupFilter = selectedValue;
     }
 
     console.log(`[Player] Subgroup filter changed to: ${currentSubgroupFilter}`);
@@ -602,20 +834,26 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
     import('./leaderboard.js').then(
         ({
             setLeaderboardSubgroupFilter,
+            setLeaderboardGenderFilter,
             loadLeaderboard: loadLB,
             loadGlobalLeaderboard: loadGlobalLB,
         }) => {
+            // Always set both filters
+            setLeaderboardGenderFilter(currentGenderFilter);
+
             if (currentSubgroupFilter === 'club') {
                 // Reset to 'all' for club view
                 setLeaderboardSubgroupFilter('all');
                 loadLB(userData, db, unsubscribes);
             } else if (currentSubgroupFilter === 'global') {
                 // Global view doesn't use subgroup filter
+                setLeaderboardSubgroupFilter('all');
                 loadGlobalLB(userData, db, unsubscribes);
             } else {
-                // Specific subgroup - set the filter
+                // Specific subgroup (including age groups) - set the filter
                 setLeaderboardSubgroupFilter(currentSubgroupFilter);
                 loadLB(userData, db, unsubscribes);
+                loadGlobalLB(userData, db, unsubscribes);
             }
         }
     );
@@ -646,16 +884,59 @@ function handlePlayerSubgroupFilterChange(userData, db, unsubscribes) {
 }
 
 /**
+ * Handles gender filter change - reloads leaderboard with combined filters
+ * @param {Object} userData - Current user data
+ * @param {Object} db - Firestore database instance
+ * @param {Array} unsubscribes - Array of unsubscribe functions
+ */
+function handleGenderFilterChange(userData, db, unsubscribes) {
+    const dropdown = document.getElementById('player-gender-filter');
+    if (!dropdown) return;
+
+    const selectedValue = dropdown.value;
+    currentGenderFilter = selectedValue;
+
+    console.log(`[Player] Gender filter changed to: ${currentGenderFilter}`);
+
+    // Reload leaderboard with updated gender filter
+    import('./leaderboard.js').then(
+        ({
+            setLeaderboardSubgroupFilter,
+            setLeaderboardGenderFilter,
+            loadLeaderboard: loadLB,
+            loadGlobalLeaderboard: loadGlobalLB,
+        }) => {
+            // Set both filters
+            setLeaderboardGenderFilter(currentGenderFilter);
+
+            if (currentSubgroupFilter === 'club') {
+                setLeaderboardSubgroupFilter('all');
+                loadLB(userData, db, unsubscribes);
+            } else if (currentSubgroupFilter === 'global') {
+                setLeaderboardSubgroupFilter('all');
+                loadGlobalLB(userData, db, unsubscribes);
+            } else {
+                setLeaderboardSubgroupFilter(currentSubgroupFilter);
+                loadLB(userData, db, unsubscribes);
+                loadGlobalLB(userData, db, unsubscribes);
+            }
+        }
+    );
+}
+
+/**
  * Loads club players for match request form
+ * Includes both players and coaches (coaches can also participate as players)
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  */
 async function loadClubPlayers(userData, db) {
     try {
+        // Load both players and coaches from the club
         const playersQuery = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
         const snapshot = await getDocs(playersQuery);
         clubPlayers = snapshot.docs.map(doc => ({
@@ -687,6 +968,16 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'pending_player')
     );
 
+    // Query for SINGLES pending coach approval (own club)
+    // Only show coach approvals for players, not for coaches viewing the player dashboard
+    // Coaches should approve matches in the coach dashboard, not the player dashboard
+    const isCoach = userData.role === 'coach';
+    const singlesCoachQuery = (userData.clubId && !isCoach) ? query(
+        collection(db, 'matchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_coach')
+    ) : null;
+
     // Query for DOUBLES requests where user is opponent (teamB)
     const doublesRequestsQuery = query(
         collection(db, 'doublesMatchRequests'),
@@ -694,9 +985,27 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         where('status', '==', 'pending_opponent')
     );
 
-    // Store data from both listeners
+    // Query for DOUBLES pending coach approval (own club)
+    // Only show for players, not for coaches in player dashboard
+    const doublesCoachQuery = (userData.clubId && !isCoach) ? query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', userData.clubId),
+        where('status', '==', 'pending_coach')
+    ) : null;
+
+    // Query for DOUBLES pending coach approval (cross-club, clubId = null)
+    // Only show for players, not for coaches in player dashboard
+    const doublesCrossClubQuery = (userData.clubId && !isCoach) ? query(
+        collection(db, 'doublesMatchRequests'),
+        where('clubId', '==', null),
+        where('status', '==', 'pending_coach')
+    ) : null;
+
+    // Store data from all listeners
     let singlesData = [];
+    let singlesCoachData = [];
     let doublesData = [];
+    let doublesCoachData = [];
 
     // Real-time listener for singles requests
     const unsubSingles = onSnapshot(incomingRequestsQuery, async singlesSnapshot => {
@@ -720,6 +1029,31 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         // Combine and render
         combineAndRender();
     });
+
+    // Real-time listener for singles coach approvals
+    const unsubSinglesCoach = singlesCoachQuery ? onSnapshot(singlesCoachQuery, async snapshot => {
+        singlesCoachData = [];
+
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const [playerADoc, playerBDoc] = await Promise.all([
+                getDoc(doc(db, 'users', data.playerAId)),
+                getDoc(doc(db, 'users', data.playerBId))
+            ]);
+
+            singlesCoachData.push({
+                type: 'coach-approval',
+                matchType: 'singles',
+                id: docSnap.id,
+                data,
+                playerAData: playerADoc.exists() ? playerADoc.data() : null,
+                playerBData: playerBDoc.exists() ? playerBDoc.data() : null,
+                createdAt: data.createdAt,
+            });
+        }
+
+        combineAndRender();
+    }) : null;
 
     // Real-time listener for doubles requests (PARALLEL, not nested!)
     const unsubDoubles = onSnapshot(doublesRequestsQuery, async doublesSnapshot => {
@@ -756,9 +1090,84 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         combineAndRender();
     });
 
-    // Function to combine both data sources and render
+    // Real-time listener for doubles coach approvals (own club + cross-club)
+    const unsubDoublesCoach = doublesCoachQuery ? onSnapshot(doublesCoachQuery, async snapshot => {
+        doublesCoachData = [];
+
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                getDoc(doc(db, 'users', data.teamA.player1Id)),
+                getDoc(doc(db, 'users', data.teamA.player2Id)),
+                getDoc(doc(db, 'users', data.teamB.player1Id)),
+                getDoc(doc(db, 'users', data.teamB.player2Id)),
+            ]);
+
+            doublesCoachData.push({
+                type: 'coach-approval',
+                matchType: 'doubles',
+                id: docSnap.id,
+                data,
+                teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
+                teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
+                teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
+                teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
+                createdAt: data.createdAt,
+            });
+        }
+
+        combineAndRender();
+    }) : null;
+
+    // Real-time listener for cross-club doubles coach approvals
+    const unsubCrossClub = doublesCrossClubQuery ? onSnapshot(doublesCrossClubQuery, async snapshot => {
+        const crossClubData = [];
+
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data();
+            const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
+                getDoc(doc(db, 'users', data.teamA.player1Id)),
+                getDoc(doc(db, 'users', data.teamA.player2Id)),
+                getDoc(doc(db, 'users', data.teamB.player1Id)),
+                getDoc(doc(db, 'users', data.teamB.player2Id)),
+            ]);
+
+            const p1Data = p1Doc.exists() ? p1Doc.data() : null;
+            const p2Data = p2Doc.exists() ? p2Doc.data() : null;
+            const p3Data = p3Doc.exists() ? p3Doc.data() : null;
+            const p4Data = p4Doc.exists() ? p4Doc.data() : null;
+
+            // Only show if at least one of the 4 players is in the coach's club
+            const isRelevant =
+                p1Data?.clubId === userData.clubId ||
+                p2Data?.clubId === userData.clubId ||
+                p3Data?.clubId === userData.clubId ||
+                p4Data?.clubId === userData.clubId;
+
+            if (isRelevant) {
+                crossClubData.push({
+                    type: 'coach-approval',
+                    matchType: 'doubles',
+                    id: docSnap.id,
+                    data,
+                    teamAPlayer1: p1Data,
+                    teamAPlayer2: p2Data,
+                    teamBPlayer1: p3Data,
+                    teamBPlayer2: p4Data,
+                    createdAt: data.createdAt,
+                    isCrossClub: true,
+                });
+            }
+        }
+
+        // Merge cross-club data into doublesCoachData
+        doublesCoachData = [...doublesCoachData.filter(item => !item.isCrossClub), ...crossClubData];
+        combineAndRender();
+    }) : null;
+
+    // Function to combine all data sources and render
     function combineAndRender() {
-        allItems = [...singlesData, ...doublesData];
+        allItems = [...singlesData, ...singlesCoachData, ...doublesData, ...doublesCoachData];
 
         // Sort by creation date (newest first)
         allItems.sort((a, b) => {
@@ -771,7 +1180,14 @@ function loadOverviewMatchRequests(userData, db, unsubscribes) {
         updateMatchRequestBadge(allItems.length);
     }
 
-    unsubscribes.push(unsubSingles, unsubDoubles);
+    const unsubs = [unsubSingles, unsubDoubles];
+    if (unsubSinglesCoach) unsubs.push(unsubSinglesCoach);
+    if (unsubDoublesCoach) unsubs.push(unsubDoublesCoach);
+    if (unsubCrossClub) unsubs.push(unsubCrossClub);
+
+    if (Array.isArray(unsubscribes)) {
+        unsubscribes.push(...unsubs);
+    }
 }
 
 /**
@@ -794,12 +1210,15 @@ function renderCombinedOverview(items, userData, db, showAll) {
 
     itemsToShow.forEach(item => {
         const card = document.createElement('div');
-        card.className = 'bg-white border-2 border-blue-300 bg-blue-50 rounded-lg p-3 shadow-sm';
+
+        // Different styling for coach-approval vs match-request
+        const isCoachApproval = item.type === 'coach-approval';
+        card.className = isCoachApproval
+            ? 'bg-white border-2 border-yellow-300 bg-yellow-50 rounded-lg p-3 shadow-sm'
+            : 'bg-white border-2 border-blue-300 bg-blue-50 rounded-lg p-3 shadow-sm';
 
         if (item.matchType === 'doubles') {
-            // Doubles match request
-            // Convert teamA/teamB to playerA/playerB for formatSetsDisplaySimple
-            // Support both old (playerA/playerB) and new (teamA/teamB) format
+            // Doubles match request or coach approval
             const convertedSets = item.data.sets
                 ? item.data.sets.map(s => ({
                       playerA: s.teamA !== undefined ? s.teamA : s.playerA,
@@ -812,9 +1231,13 @@ function renderCombinedOverview(items, userData, db, showAll) {
             const teamBName1 = item.teamBPlayer1?.firstName || 'Unbekannt';
             const teamBName2 = item.teamBPlayer2?.firstName || 'Unbekannt';
 
+            const badgeColor = isCoachApproval ? 'yellow' : 'green';
+            const badgeText = isCoachApproval ? 'Coach-Genehmigung' : 'Doppel';
+            const approveText = isCoachApproval ? 'Genehmigen' : 'Bestätigen';
+
             card.innerHTML = `
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs font-semibold text-green-700 bg-green-200 px-2 py-1 rounded"><i class="fas fa-users mr-1"></i>Doppel</span>
+                    <span class="text-xs font-semibold text-${badgeColor}-700 bg-${badgeColor}-200 px-2 py-1 rounded"><i class="fas fa-users mr-1"></i>${badgeText}</span>
                 </div>
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
@@ -823,34 +1246,39 @@ function renderCombinedOverview(items, userData, db, showAll) {
                     </div>
                 </div>
                 <div class="flex gap-2 mt-2">
-                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles">
-                        <i class="fas fa-check"></i> Bestätigen
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles" data-item-type="${item.type}">
+                        <i class="fas fa-check"></i> ${approveText}
                     </button>
-                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles">
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="doubles" data-item-type="${item.type}">
                         <i class="fas fa-times"></i> Ablehnen
                     </button>
                 </div>
             `;
         } else {
-            // Singles match request
+            // Singles match request or coach approval
             const setsDisplay = formatSetsDisplaySimple(item.data.sets);
-            const playerName = item.playerAData?.firstName || 'Unbekannt';
+            const playerAName = item.playerAData?.firstName || 'Unbekannt';
+            const playerBName = item.playerBData?.firstName || userData.firstName || 'Unbekannt';
+
+            const badgeColor = isCoachApproval ? 'yellow' : 'blue';
+            const badgeText = isCoachApproval ? 'Coach-Genehmigung' : 'Einzel';
+            const approveText = isCoachApproval ? 'Genehmigen' : 'Akzeptieren';
 
             card.innerHTML = `
                 <div class="flex items-center gap-2 mb-2">
-                    <span class="text-xs font-semibold text-blue-700 bg-blue-200 px-2 py-1 rounded"><i class="fas fa-user mr-1"></i>Einzel</span>
+                    <span class="text-xs font-semibold text-${badgeColor}-700 bg-${badgeColor}-200 px-2 py-1 rounded"><i class="fas fa-user mr-1"></i>${badgeText}</span>
                 </div>
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
-                        <p class="font-semibold text-gray-800 text-sm">${playerName} vs ${userData.firstName}</p>
+                        <p class="font-semibold text-gray-800 text-sm">${playerAName} vs ${playerBName}</p>
                         <p class="text-xs text-gray-600">${setsDisplay}</p>
                     </div>
                 </div>
                 <div class="flex gap-2 mt-2">
-                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles">
-                        <i class="fas fa-check"></i> Akzeptieren
+                    <button class="approve-overview-btn flex-1 bg-green-500 hover:bg-green-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles" data-item-type="${item.type}">
+                        <i class="fas fa-check"></i> ${approveText}
                     </button>
-                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles">
+                    <button class="reject-overview-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-xs py-1.5 px-2 rounded-md transition" data-request-id="${item.id}" data-match-type="singles" data-item-type="${item.type}">
                         <i class="fas fa-times"></i> Ablehnen
                     </button>
                 </div>
@@ -862,19 +1290,43 @@ function renderCombinedOverview(items, userData, db, showAll) {
 
         approveBtn.addEventListener('click', async () => {
             const matchType = approveBtn.getAttribute('data-match-type');
-            if (matchType === 'doubles') {
-                await approveDoublesOverviewRequest(item.id, userData.id, db);
+            const itemType = approveBtn.getAttribute('data-item-type');
+
+            if (itemType === 'coach-approval') {
+                // Coach approving a match
+                if (matchType === 'doubles') {
+                    await approveDoublesCoachRequest(item.id, db, userData);
+                } else {
+                    await approveSinglesCoachRequest(item.id, db);
+                }
             } else {
-                await approveOverviewRequest(item.id, db);
+                // Player confirming a match request
+                if (matchType === 'doubles') {
+                    await approveDoublesOverviewRequest(item.id, userData.id, db);
+                } else {
+                    await approveOverviewRequest(item.id, db);
+                }
             }
         });
 
         rejectBtn.addEventListener('click', async () => {
             const matchType = rejectBtn.getAttribute('data-match-type');
-            if (matchType === 'doubles') {
-                await rejectDoublesOverviewRequest(item.id, db);
+            const itemType = rejectBtn.getAttribute('data-item-type');
+
+            if (itemType === 'coach-approval') {
+                // Coach rejecting a match
+                if (matchType === 'doubles') {
+                    await rejectDoublesCoachRequest(item.id, db, userData);
+                } else {
+                    await rejectSinglesCoachRequest(item.id, db);
+                }
             } else {
-                await rejectOverviewRequest(item.id, db);
+                // Player rejecting a match request
+                if (matchType === 'doubles') {
+                    await rejectDoublesOverviewRequest(item.id, db);
+                } else {
+                    await rejectOverviewRequest(item.id, db);
+                }
             }
         });
 
@@ -991,5 +1443,75 @@ function updateMatchRequestBadge(count) {
         badge.classList.remove('hidden');
     } else {
         badge.classList.add('hidden');
+    }
+}
+
+/**
+ * Approves singles coach request from overview
+ */
+async function approveSinglesCoachRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.coach': {
+                status: 'approved',
+                timestamp: serverTimestamp(),
+            },
+            status: 'approved',
+            updatedAt: serverTimestamp(),
+        });
+        console.log('Singles match request approved by coach');
+    } catch (error) {
+        console.error('Error approving singles request:', error);
+        alert('Fehler beim Genehmigen der Anfrage.');
+    }
+}
+
+/**
+ * Rejects singles coach request from overview
+ */
+async function rejectSinglesCoachRequest(requestId, db) {
+    try {
+        await updateDoc(doc(db, 'matchRequests', requestId), {
+            'approvals.coach': {
+                status: 'rejected',
+                timestamp: serverTimestamp(),
+            },
+            status: 'rejected',
+            rejectedBy: 'coach',
+            updatedAt: serverTimestamp(),
+        });
+        console.log('Singles match request rejected by coach');
+    } catch (error) {
+        console.error('Error rejecting singles request:', error);
+        alert('Fehler beim Ablehnen der Anfrage.');
+    }
+}
+
+/**
+ * Approves doubles coach request from overview
+ */
+async function approveDoublesCoachRequest(requestId, db, userData) {
+    try {
+        await approveDoublesMatchRequest(requestId, db, userData);
+        console.log('Doubles match request approved by coach');
+    } catch (error) {
+        console.error('Error approving doubles request:', error);
+        alert('Fehler beim Genehmigen der Doppel-Anfrage.');
+    }
+}
+
+/**
+ * Rejects doubles coach request from overview
+ */
+async function rejectDoublesCoachRequest(requestId, db, userData) {
+    try {
+        const reason = prompt('Grund für die Ablehnung (optional):');
+        if (reason === null) return; // User cancelled
+
+        await rejectDoublesMatchRequest(requestId, reason || 'Keine Angabe', db, userData);
+        console.log('Doubles match request rejected by coach');
+    } catch (error) {
+        console.error('Error rejecting doubles request:', error);
+        alert('Fehler beim Ablehnen der Doppel-Anfrage.');
     }
 }

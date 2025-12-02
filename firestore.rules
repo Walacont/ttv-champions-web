@@ -47,32 +47,32 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // Users can read their own data
-      allow read: if isOwner(userId);
+      // All authenticated users can read all user profiles
+      // This is necessary for: opponent search, leaderboards, match requests, doubles
+      // (including when coaches participate as players in matches)
+      // Privacy filtering is enforced in frontend queries (privacySettings.searchable)
+      // TODO: Implement custom claims (clubId, role in auth token) to enforce privacy in rules
+      allow read: if isAuthenticated();
 
-      // Players can read other players in their club (for leaderboard, rivals, etc.)
-      allow read: if isAuthenticated() &&
-        resource.data.role == 'player' &&
-        isSameClub(resource.data.clubId);
-
-      // Players can also read coaches/admins in their club (for match history partner/opponent names)
-      allow read: if isAuthenticated() &&
-        resource.data.role in ['coach', 'admin'] &&
-        isSameClub(resource.data.clubId);
-
-      // Coaches and admins can read all users in their club
-      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
-
-      // ADMIN can read ALL users (for statistics and club management)
-      allow read: if isAdmin();
-
-      // Users can update their own profile (limited fields)
+      // Users can update their own profile during onboarding (completing for first time)
+      // Allow setting eloRating and highestElo only when completing onboarding with QTTR points
       allow update: if isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo']);
+        resource.data.get('onboardingComplete', false) == false &&
+        request.resource.data.onboardingComplete == true &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['eloRating', 'highestElo']) ||
+         (request.resource.data.eloRating == request.resource.data.highestElo)) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'clubRequestStatus', 'clubRequestId']);
+
+      // Users can update their own profile (limited fields, NOT role, clubId, points, xp, elo)
+      // Users CAN update privacySettings, but clubId changes require Cloud Function
+      allow update: if isOwner(userId) &&
+        resource.data.get('onboardingComplete', false) == true &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'clubId', 'points', 'xp', 'eloRating', 'highestElo', 'clubRequestStatus', 'clubRequestId']);
 
       // Coaches can update players in their club (including points, xp, eloRating, etc.)
+      // Also allow coaches to update players without club (for approval process)
       allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId) &&
+        (resource.data.clubId == null || isSameClub(resource.data.clubId)) &&
         resource.data.role == 'player';
 
       // Coaches can promote players to coach in their club
@@ -128,8 +128,9 @@ service cloud.firestore {
 
       // Subcollection: exerciseMilestones (tracks completion count per exercise)
       match /exerciseMilestones/{exerciseId} {
-        allow read: if isOwner(userId);
-        allow read, write, delete: if isCoachOrAdmin();
+        // Players can read all exerciseMilestones (for leaderboards and comparing progress)
+        allow read: if isAuthenticated();
+        allow write, delete: if isCoachOrAdmin();
       }
 
       // Subcollection: challengeMilestones (tracks completion count per challenge)
@@ -147,10 +148,67 @@ service cloud.firestore {
 
     // Clubs collection
     match /clubs/{clubId} {
-      allow read: if isAuthenticated() && isSameClub(clubId);
-      allow read: if isAdmin();
-      allow write: if isCoachOfClub(clubId);
-      allow write: if isAdmin();
+      // Everyone can read club information (for club selection, search, etc.)
+      allow read: if isAuthenticated();
+
+      // Only admins can create clubs (typically via migration or admin panel)
+      allow create: if isAdmin();
+
+      // Coaches and admins can update their own club
+      allow update: if isCoachOrAdmin() && isSameClub(clubId);
+
+      // Only admins can delete clubs
+      allow delete: if isAdmin();
+    }
+
+    // Club Join Requests collection
+    match /clubRequests/{requestId} {
+      // Players can read their own requests
+      allow read: if isAuthenticated() && resource.data.playerId == request.auth.uid;
+
+      // Coaches can read requests for their club
+      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+
+      // Players can create requests (only for themselves)
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+
+      // Players can delete their own pending or rejected requests
+      allow delete: if isAuthenticated() &&
+        resource.data.playerId == request.auth.uid &&
+        (resource.data.status == 'pending' || resource.data.status == 'rejected');
+
+      // Coaches can update requests for their club (approve/reject)
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending';
+    }
+
+    // Leave Club Requests collection
+    match /leaveClubRequests/{requestId} {
+      // Players can read their own requests
+      allow read: if isAuthenticated() && resource.data.playerId == request.auth.uid;
+
+      // Coaches can read requests for their club
+      allow read: if isCoachOrAdmin() && isSameClub(resource.data.clubId);
+
+      // Players can create requests (only for themselves, must have clubId)
+      allow create: if isAuthenticated() &&
+        request.resource.data.playerId == request.auth.uid &&
+        request.resource.data.clubId == getUserData().clubId &&
+        getUserData().clubId != null &&
+        request.resource.data.status == 'pending';
+
+      // Players can delete their own pending or rejected requests
+      allow delete: if isAuthenticated() &&
+        resource.data.playerId == request.auth.uid &&
+        (resource.data.status == 'pending' || resource.data.status == 'rejected');
+
+      // Coaches can update requests for their club (approve/reject)
+      allow update: if isCoachOrAdmin() &&
+        isSameClub(resource.data.clubId) &&
+        resource.data.status == 'pending';
     }
 
     // Subgroups collection
@@ -198,27 +256,30 @@ service cloud.firestore {
     // Match Requests collection (Player-initiated matches)
     match /matchRequests/{requestId} {
       // Players can read requests they're involved in or requests in their club
+      // Coaches can read cross-club matches (clubId == null) to approve them
       allow read: if isAuthenticated() && (
         resource.data.playerAId == request.auth.uid ||
         resource.data.playerBId == request.auth.uid ||
-        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+        (isCoachOrAdmin() && (resource.data.clubId == null || isSameClub(resource.data.clubId)))
       );
 
       // Players can create requests for themselves (as playerA)
       // Must include proper initial approvals structure
       // Must have completed 5 Grundlagen exercises (match-ready)
+      // Can be same club OR cross-club (if both players are globally searchable or one has no club)
       allow create: if isAuthenticated() &&
         request.resource.data.playerAId == request.auth.uid &&
-        isSameClub(request.resource.data.clubId) &&
         request.resource.data.status == 'pending_player' &&
-        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'clubId', 'status', 'approvals', 'sets']) &&
+        request.resource.data.keys().hasAll(['playerAId', 'playerBId', 'winnerId', 'loserId', 'status', 'approvals', 'sets']) &&
         playerIsMatchReady(request.resource.data.playerAId) &&
         playerIsMatchReady(request.resource.data.playerBId);
 
       // PlayerB can update (approve/reject) if they are playerB and status is pending_player
+      // Can transition to: pending_coach (needs coach), approved (auto-approved), or rejected
       allow update: if isAuthenticated() &&
         resource.data.playerBId == request.auth.uid &&
-        resource.data.status == 'pending_player';
+        resource.data.status == 'pending_player' &&
+        request.resource.data.status in ['pending_coach', 'approved', 'rejected'];
 
       // PlayerA can update (edit/cancel) their own request if nobody has responded yet
       allow update: if isAuthenticated() &&
@@ -229,10 +290,13 @@ service cloud.firestore {
          !('status' in resource.data.approvals.playerB) ||
          resource.data.approvals.playerB.status == null);
 
-      // Coach can update (approve/reject) if pending_coach and same club
+      // Coach can update (approve/reject) if pending_coach and (same club OR cross-club)
+      // Can transition to: approved or rejected
+      // Cross-club matches (clubId == null) can be approved by any coach
       allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId) &&
-        resource.data.status == 'pending_coach';
+        (resource.data.clubId == null || isSameClub(resource.data.clubId)) &&
+        resource.data.status == 'pending_coach' &&
+        request.resource.data.status in ['approved', 'rejected'];
 
       // PlayerA can delete their own request if nobody has responded yet
       allow delete: if isAuthenticated() &&
@@ -294,7 +358,23 @@ service cloud.firestore {
     // Exercises collection (global)
     match /exercises/{exerciseId} {
       allow read: if isAuthenticated();
-      allow write: if isCoachOrAdmin();
+
+      // Coaches can create exercises (with their own ID as creator)
+      allow create: if isCoachOrAdmin() &&
+        request.resource.data.createdBy == request.auth.uid;
+
+      // Coaches can update record holder fields on any exercise
+      // OR update their own exercise completely
+      allow update: if isCoachOrAdmin() && (
+        // Record holder updates (any coach can update these)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recordCount', 'recordHolderName', 'recordHolderClub', 'recordHolderClubId', 'recordHolderId', 'recordUpdatedAt']) ||
+        // Full updates (only creator)
+        resource.data.createdBy == request.auth.uid
+      );
+
+      // Only the creator can delete their exercise
+      allow delete: if isCoachOrAdmin() &&
+        resource.data.createdBy == request.auth.uid;
     }
 
     // Invitations collection
@@ -346,36 +426,44 @@ service cloud.firestore {
 
     // Doubles Matches collection
     match /doublesMatches/{matchId} {
-      // Players can read matches in their club
-      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+      // Players can read matches in their club OR cross-club matches (clubId == null)
+      // Admins can read all matches (for global statistics)
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.clubId == null ||
+        isSameClub(resource.data.clubId)
+      );
 
-      // Coaches can create matches in their club
-      allow create: if isCoachOrAdmin() && isSameClub(request.resource.data.clubId);
+      // Coaches can create matches in their club OR cross-club matches (clubId == null)
+      allow create: if isCoachOrAdmin() && (request.resource.data.clubId == null || isSameClub(request.resource.data.clubId));
 
-      // Only coaches can update/delete matches
-      allow update, delete: if isCoachOfClub(resource.data.clubId);
+      // Only coaches can update/delete matches (same club OR cross-club if coach has a club)
+      allow update, delete: if isCoachOrAdmin() && (resource.data.clubId == null || isCoachOfClub(resource.data.clubId));
     }
 
     // Doubles Match Requests collection (Player-initiated doubles matches)
     match /doublesMatchRequests/{requestId} {
       // Players can read all pending requests in their club (to see opponent confirmations)
+      // Cross-club matches (clubId == null OR isCrossClub == true) can be read by all involved players
       // Once approved/rejected, only involved players and coaches can read
+      // Coaches can read ALL pending_coach requests (filtering happens in frontend)
       allow read: if isAuthenticated() && (
-        (isSameClub(resource.data.clubId) && resource.data.status in ['pending_opponent', 'pending_coach']) ||
+        ((resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)) && resource.data.status in ['pending_opponent', 'pending_coach']) ||
         resource.data.initiatedBy == request.auth.uid ||
         resource.data.teamA.player1Id == request.auth.uid ||
         resource.data.teamA.player2Id == request.auth.uid ||
         resource.data.teamB.player1Id == request.auth.uid ||
         resource.data.teamB.player2Id == request.auth.uid ||
-        (isCoachOrAdmin() && isSameClub(resource.data.clubId))
+        (isCoachOrAdmin() && resource.data.status == 'pending_coach')
       );
 
       // Players can create doubles requests for themselves (as initiator with partner vs 2 opponents)
       // All 4 players must be match-ready (5+ grundlagen completed)
       // At least one opponent must be an online player (not both offline)
+      // Cross-club matches (clubId == null) are allowed
       allow create: if isAuthenticated() &&
         request.resource.data.initiatedBy == request.auth.uid &&
-        isSameClub(request.resource.data.clubId) &&
+        (request.resource.data.clubId == null || isSameClub(request.resource.data.clubId)) &&
         request.resource.data.status == 'pending_opponent' &&
         'teamA' in request.resource.data &&
         'teamB' in request.resource.data &&
@@ -390,30 +478,37 @@ service cloud.firestore {
         atLeastOneOpponentIsOnline(request.resource.data.teamB.player1Id, request.resource.data.teamB.player2Id);
 
       // Opponents can update (approve/reject) if they are one of the opponents and status is pending_opponent
+      // Can transition to: pending_coach (needs coach), approved (auto-approved), or rejected
       allow update: if isAuthenticated() &&
         (resource.data.teamB.player1Id == request.auth.uid ||
          resource.data.teamB.player2Id == request.auth.uid) &&
-        resource.data.status == 'pending_opponent';
+        resource.data.status == 'pending_opponent' &&
+        request.resource.data.status in ['pending_coach', 'approved', 'rejected'];
 
-      // Coach can update (approve/reject) if pending_coach and same club
+      // Coach can update (approve/reject) if pending_coach and (same club OR cross-club)
+      // Can transition to: approved or rejected
+      // For cross-club matches (clubId == null OR isCrossClub == true), any coach can approve
+      // Frontend will filter which matches are shown to each coach
       allow update: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId) &&
-        resource.data.status == 'pending_coach';
+        (resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId)) &&
+        resource.data.status == 'pending_coach' &&
+        request.resource.data.status in ['approved', 'rejected'];
 
       // Initiator can delete their own request if still pending (before approved/rejected)
       allow delete: if isAuthenticated() &&
         resource.data.initiatedBy == request.auth.uid &&
         resource.data.status in ['pending_opponent', 'pending_coach'];
 
-      // Coaches can delete any request in their club
+      // Coaches can delete any request in their club OR cross-club requests
       allow delete: if isCoachOrAdmin() &&
-        isSameClub(resource.data.clubId);
+        (resource.data.clubId == null || resource.data.get('isCrossClub', false) == true || isSameClub(resource.data.clubId));
     }
 
     // Doubles Pairings collection (Team statistics for leaderboard)
     match /doublesPairings/{pairingId} {
-      // All authenticated players can read pairings in their club
-      allow read: if isAuthenticated() && isSameClub(resource.data.clubId);
+      // All authenticated players can read all pairings (for global leaderboard)
+      // Privacy filtering is handled in frontend queries
+      allow read: if isAuthenticated();
 
       // Only Cloud Functions can write (computed/aggregate data)
       allow write: if false;

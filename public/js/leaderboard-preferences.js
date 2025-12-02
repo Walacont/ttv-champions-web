@@ -9,7 +9,7 @@ import {
  * Handles user preferences for which leaderboard tabs to show/hide
  */
 
-// Default preferences - all enabled
+// Default preferences - all enabled (for club members)
 const DEFAULT_PREFERENCES = {
     effort: true,
     season: true,
@@ -18,13 +18,53 @@ const DEFAULT_PREFERENCES = {
     doubles: true,
 };
 
+// Default preferences for players without club
+const DEFAULT_PREFERENCES_NO_CLUB = {
+    effort: false,    // Hidden for club-less players
+    season: false,    // Hidden for club-less players
+    skill: true,      // Visible (global skill ranking)
+    ranks: false,     // Hidden for club-less players
+    doubles: true,    // Visible (global doubles ranking)
+};
+
+/**
+ * Gets default preferences based on user's club status
+ * @param {Object} userData - Current user data
+ * @returns {Object} Default preferences
+ */
+function getDefaultPreferences(userData) {
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
+    return hasClub ? DEFAULT_PREFERENCES : DEFAULT_PREFERENCES_NO_CLUB;
+}
+
 /**
  * Initializes leaderboard preferences UI and event listeners
  * @param {Object} userData - Current user data
  * @param {Object} db - Firestore database instance
  */
 export function initializeLeaderboardPreferences(userData, db) {
-    // Load saved preferences
+    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
+
+    // Disable checkboxes for club-only features if user has no club
+    if (!hasClub) {
+        // Disable and uncheck club-only tabs (Skill is available globally)
+        const clubOnlyCheckboxes = ['pref-effort', 'pref-season', 'pref-ranks'];
+        clubOnlyCheckboxes.forEach(id => {
+            const checkbox = document.getElementById(id);
+            if (checkbox) {
+                checkbox.disabled = true;
+                checkbox.checked = false;
+                // Add visual indicator
+                const label = checkbox.closest('label');
+                if (label) {
+                    label.classList.add('opacity-50', 'cursor-not-allowed');
+                    label.title = 'Nur für Vereinsmitglieder verfügbar';
+                }
+            }
+        });
+    }
+
+    // Load saved preferences (or set defaults if first time)
     loadPreferences(userData);
 
     // Add change listeners to all checkboxes
@@ -45,7 +85,8 @@ export function initializeLeaderboardPreferences(userData, db) {
  * @param {Object} userData - User data containing preferences
  */
 function loadPreferences(userData) {
-    const prefs = userData.leaderboardPreferences || DEFAULT_PREFERENCES;
+    const defaultPrefs = getDefaultPreferences(userData);
+    const prefs = userData.leaderboardPreferences || defaultPrefs;
 
     // Update checkboxes
     document.getElementById('pref-effort').checked = prefs.effort !== false;

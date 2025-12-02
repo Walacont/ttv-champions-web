@@ -13,6 +13,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { createSetScoreInput } from './player-matches.js';
 import { calculateHandicap } from './validation-utils.js';
+import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
  * Matches Module
@@ -117,11 +118,17 @@ export function handleGeneratePairings(
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(
-            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-        );
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            matchReadyAndPresentPlayers = filterPlayersByAgeGroup(matchReadyAndPresentPlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            matchReadyAndPresentPlayers = filterPlayersByGender(matchReadyAndPresentPlayers, currentSubgroupFilter);
+        } else {
+            matchReadyAndPresentPlayers = matchReadyAndPresentPlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
     }
 
     matchReadyAndPresentPlayers.sort((a, b) => (a.eloRating || 0) - (b.eloRating || 0));
@@ -381,11 +388,17 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
         return presentPlayerIds.includes(player.id) && grundlagen >= 5;
     });
 
-    // Filter by subgroup if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
-        eligiblePlayers = eligiblePlayers.filter(
-            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-        );
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            eligiblePlayers = filterPlayersByAgeGroup(eligiblePlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            eligiblePlayers = filterPlayersByGender(eligiblePlayers, currentSubgroupFilter);
+        } else {
+            eligiblePlayers = eligiblePlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
     }
 
     const eligiblePlayerCount = eligiblePlayers.length;
@@ -629,11 +642,17 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         return grundlagen < 5;
     });
 
-    // Filter by subgroup if not "all"
+    // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
-        matchReadyPlayers = matchReadyPlayers.filter(
-            player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
-        );
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
+        } else {
+            matchReadyPlayers = matchReadyPlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
     }
 
     // Show warning if not enough match-ready players
@@ -683,6 +702,8 @@ export async function loadCoachMatchRequests(userData, db) {
     const badge = document.getElementById('coach-match-request-badge');
     if (!container) return;
 
+    console.log('[COACH MATCH REQUESTS] Loading match requests for coach clubId:', userData.clubId);
+
     // Query for SINGLES requests awaiting coach approval
     const singlesQuery = query(
         collection(db, 'matchRequests'),
@@ -691,17 +712,21 @@ export async function loadCoachMatchRequests(userData, db) {
         orderBy('createdAt', 'desc')
     );
 
-    // Query for DOUBLES requests awaiting coach approval
+    // Query for ALL DOUBLES requests awaiting coach approval
+    // We load ALL pending_coach doubles and filter by club in code
     const doublesQuery = query(
         collection(db, 'doublesMatchRequests'),
-        where('clubId', '==', userData.clubId),
         where('status', '==', 'pending_coach'),
         orderBy('createdAt', 'desc')
     );
 
-    // Listen to both singles and doubles requests
+    // Listen to singles and doubles requests
     const unsubscribe1 = onSnapshot(singlesQuery, async singlesSnapshot => {
         const unsubscribe2 = onSnapshot(doublesQuery, async doublesSnapshot => {
+            console.log('[COACH MATCH REQUESTS] Snapshots received:');
+            console.log('  - Singles:', singlesSnapshot.docs.length);
+            console.log('  - Doubles (all pending_coach, before filtering):', doublesSnapshot.docs.length);
+
             const allRequests = [];
 
             // Process singles requests
@@ -719,9 +744,14 @@ export async function loadCoachMatchRequests(userData, db) {
                 });
             }
 
-            // Process doubles requests
+            // Process ALL doubles requests and filter by coach's club
             for (const docSnap of doublesSnapshot.docs) {
                 const data = docSnap.data();
+                console.log('[DOUBLES] Processing request:', docSnap.id);
+                console.log('  - clubId:', data.clubId);
+                console.log('  - isCrossClub:', data.isCrossClub);
+                console.log('  - status:', data.status);
+
                 const [p1Doc, p2Doc, p3Doc, p4Doc] = await Promise.all([
                     getDoc(doc(db, 'users', data.teamA.player1Id)),
                     getDoc(doc(db, 'users', data.teamA.player2Id)),
@@ -729,15 +759,35 @@ export async function loadCoachMatchRequests(userData, db) {
                     getDoc(doc(db, 'users', data.teamB.player2Id)),
                 ]);
 
-                allRequests.push({
-                    id: docSnap.id,
-                    type: 'doubles',
-                    ...data,
-                    teamAPlayer1: p1Doc.exists() ? p1Doc.data() : null,
-                    teamAPlayer2: p2Doc.exists() ? p2Doc.data() : null,
-                    teamBPlayer1: p3Doc.exists() ? p3Doc.data() : null,
-                    teamBPlayer2: p4Doc.exists() ? p4Doc.data() : null,
-                });
+                const p1Data = p1Doc.exists() ? p1Doc.data() : null;
+                const p2Data = p2Doc.exists() ? p2Doc.data() : null;
+                const p3Data = p3Doc.exists() ? p3Doc.data() : null;
+                const p4Data = p4Doc.exists() ? p4Doc.data() : null;
+
+                // Check if at least one player is from the coach's club
+                const playerClubIds = [
+                    p1Data?.clubId,
+                    p2Data?.clubId,
+                    p3Data?.clubId,
+                    p4Data?.clubId,
+                ];
+
+                console.log('  - Player club IDs:', playerClubIds);
+                console.log('  - Coach club ID:', userData.clubId);
+                console.log('  - Match:', playerClubIds.includes(userData.clubId) ? 'YES - Adding to requests' : 'NO - Skipping');
+
+                // Only show to coach if at least one player is from their club
+                if (playerClubIds.includes(userData.clubId)) {
+                    allRequests.push({
+                        id: docSnap.id,
+                        type: 'doubles',
+                        ...data,
+                        teamAPlayer1: p1Data,
+                        teamAPlayer2: p2Data,
+                        teamBPlayer1: p3Data,
+                        teamBPlayer2: p4Data,
+                    });
+                }
             }
 
             // Sort by createdAt
@@ -745,6 +795,12 @@ export async function loadCoachMatchRequests(userData, db) {
                 const aTime = a.createdAt?.toMillis?.() || 0;
                 const bTime = b.createdAt?.toMillis?.() || 0;
                 return bTime - aTime;
+            });
+
+            console.log('[COACH MATCH REQUESTS] Total requests to display:', allRequests.length);
+            console.log('  - Breakdown by type:', {
+                singles: allRequests.filter(r => r.type === 'singles').length,
+                doubles: allRequests.filter(r => r.type === 'doubles').length
             });
 
             if (allRequests.length === 0) {
@@ -847,13 +903,7 @@ function renderCoachProcessedCards(requests, db) {
         const setsDisplay = formatSetsForCoach(request.sets);
         const winner = getWinnerName(request.sets, request.playerAData, request.playerBData);
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         // Get coach name who processed the request
         const coachName = request.approvals?.coach?.coachName || 'Ein Coach';
@@ -945,13 +995,7 @@ function renderCoachRequestCards(requests, db, userData) {
         const card = document.createElement('div');
         card.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm';
 
-        const createdDate = request.createdAt?.toDate
-            ? request.createdAt.toDate().toLocaleDateString('de-DE', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-              })
-            : 'Unbekannt';
+        const createdDate = formatDate(request.createdAt) || 'Unbekannt';
 
         let matchTypeTag, playersDisplay, setsDisplay, winnerDisplay, buttonsHtml;
 

@@ -1,5 +1,5 @@
 /**
- * Simple Client-Side Router for TTV Champions SPA
+ * Simple Client-Side Router for SC Champions SPA
  * Handles navigation and view loading without page reloads
  */
 

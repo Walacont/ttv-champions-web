@@ -39,7 +39,7 @@ import {
     connectFunctionsEmulator,
     httpsCallable,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 import { generateInvitationCode, getExpirationDate } from './invitation-code-utils.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import {
@@ -58,22 +58,12 @@ const analytics = getAnalytics(app);
 // NEU: Functions-Dienst initialisieren
 const functions = getFunctions(app);
 
-// NEU: Der Emulator-Block
-// Dieser Code verbindet sich nur dann mit den Emulatoren,
-// wenn die Seite lokal (z.B. über Live Server) ausgeführt wird.
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('Admin.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Functions Emulator
     connectFunctionsEmulator(functions, 'localhost', 5001);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
 }
 
@@ -114,6 +104,12 @@ const closeEditExerciseModalButton = document.getElementById('close-edit-exercis
 
 let genderChartInstance = null;
 let attendanceChartInstance = null;
+let competitionChartInstance = null;
+
+// Competition statistics state
+let competitionMatchData = [];
+let competitionPeriod = 'month';
+let competitionTypeFilter = 'all';
 let descriptionEditor = null;
 let editDescriptionEditor = null;
 
@@ -517,16 +513,35 @@ async function handleUpdateExercise(e) {
 
 async function loadStatistics() {
     try {
+        // Load clubs to identify test clubs
+        const clubsSnapshot = await getDocs(collection(db, 'clubs'));
+        const testClubIds = new Set();
+        clubsSnapshot.forEach(doc => {
+            const club = doc.data();
+            if (club.isTestClub === true) {
+                testClubIds.add(doc.id);
+            }
+        });
+
         const usersSnapshot = await getDocs(collection(db, 'users'));
-        const users = usersSnapshot.docs.map(doc => doc.data());
+        // Filter out users from test clubs
+        const users = usersSnapshot.docs
+            .map(doc => doc.data())
+            .filter(u => !u.clubId || !testClubIds.has(u.clubId));
 
         const attendanceSnapshot = await getDocs(collection(db, 'attendance'));
-        const attendances = attendanceSnapshot.docs.map(doc => doc.data());
+        // Filter out attendance from test clubs
+        const attendances = attendanceSnapshot.docs
+            .map(doc => doc.data())
+            .filter(a => !a.clubId || !testClubIds.has(a.clubId));
+
+        // Count non-test clubs
+        const realClubIds = new Set(
+            users.map(u => u.clubId).filter(id => id && !testClubIds.has(id))
+        );
 
         document.getElementById('stats-total-users').textContent = users.length;
-        document.getElementById('stats-total-clubs').textContent = new Set(
-            users.map(u => u.clubId).filter(Boolean)
-        ).size;
+        document.getElementById('stats-total-clubs').textContent = realClubIds.size;
         document.getElementById('stats-total-points').textContent = users.reduce(
             (sum, u) => sum + (u.points || 0),
             0
@@ -560,6 +575,9 @@ async function loadStatistics() {
 
         renderGenderChart(genderCounts);
         renderAttendanceChart(sortedMonths, attendanceByMonth);
+
+        // Load global competition statistics (pass test club IDs to exclude)
+        await loadGlobalCompetitionStatistics(testClubIds);
     } catch (error) {
         console.error('Fehler beim Laden der Statistiken:', error);
         document.getElementById('statistics-section').innerHTML =
@@ -607,6 +625,357 @@ function renderAttendanceChart(labels, data) {
             scales: { y: { beginAtZero: true } },
             responsive: true,
             plugins: { legend: { display: false } },
+        },
+    });
+}
+
+/**
+ * Load global competition statistics (all matches from all clubs, excluding test clubs)
+ * @param {Set} testClubIds - Set of test club IDs to exclude
+ */
+async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
+    try {
+        // Fetch all singles matches
+        const matchesRef = collection(db, 'matches');
+        const singlesSnapshot = await getDocs(matchesRef);
+
+        // Fetch all doubles matches
+        const doublesMatchesRef = collection(db, 'doublesMatches');
+        const doublesSnapshot = await getDocs(doublesMatchesRef);
+
+        // Process all matches (exclude test clubs)
+        competitionMatchData = [];
+
+        singlesSnapshot.forEach(doc => {
+            const data = doc.data();
+            // Skip matches from test clubs
+            if (data.clubId && testClubIds.has(data.clubId)) return;
+            competitionMatchData.push({
+                date: data.createdAt?.toDate() || new Date(data.createdAt),
+                type: 'singles',
+            });
+        });
+
+        doublesSnapshot.forEach(doc => {
+            const data = doc.data();
+            // Skip matches from test clubs
+            if (data.clubId && testClubIds.has(data.clubId)) return;
+            competitionMatchData.push({
+                date: data.createdAt?.toDate() || new Date(data.createdAt),
+                type: 'doubles',
+            });
+        });
+
+        // Initial render with current filters
+        renderCompetitionStatistics();
+
+        // Setup filter button event listeners
+        setupCompetitionFilterListeners();
+    } catch (error) {
+        console.error('Error loading global competition statistics:', error);
+    }
+}
+
+/**
+ * Setup event listeners for competition filter buttons
+ */
+function setupCompetitionFilterListeners() {
+    // Period filters
+    const periodWeek = document.getElementById('admin-competition-period-week');
+    const periodMonth = document.getElementById('admin-competition-period-month');
+    const periodYear = document.getElementById('admin-competition-period-year');
+
+    if (periodWeek) {
+        periodWeek.addEventListener('click', () => {
+            competitionPeriod = 'week';
+            updatePeriodButtonStyles();
+            renderCompetitionStatistics();
+        });
+    }
+    if (periodMonth) {
+        periodMonth.addEventListener('click', () => {
+            competitionPeriod = 'month';
+            updatePeriodButtonStyles();
+            renderCompetitionStatistics();
+        });
+    }
+    if (periodYear) {
+        periodYear.addEventListener('click', () => {
+            competitionPeriod = 'year';
+            updatePeriodButtonStyles();
+            renderCompetitionStatistics();
+        });
+    }
+
+    // Type filters
+    const filterAll = document.getElementById('admin-competition-filter-all');
+    const filterSingles = document.getElementById('admin-competition-filter-singles');
+    const filterDoubles = document.getElementById('admin-competition-filter-doubles');
+
+    if (filterAll) {
+        filterAll.addEventListener('click', () => {
+            competitionTypeFilter = 'all';
+            updateTypeButtonStyles();
+            renderCompetitionStatistics();
+        });
+    }
+    if (filterSingles) {
+        filterSingles.addEventListener('click', () => {
+            competitionTypeFilter = 'singles';
+            updateTypeButtonStyles();
+            renderCompetitionStatistics();
+        });
+    }
+    if (filterDoubles) {
+        filterDoubles.addEventListener('click', () => {
+            competitionTypeFilter = 'doubles';
+            updateTypeButtonStyles();
+            renderCompetitionStatistics();
+        });
+    }
+}
+
+/**
+ * Update period button styles based on current selection
+ */
+function updatePeriodButtonStyles() {
+    const buttons = {
+        week: document.getElementById('admin-competition-period-week'),
+        month: document.getElementById('admin-competition-period-month'),
+        year: document.getElementById('admin-competition-period-year'),
+    };
+
+    Object.entries(buttons).forEach(([key, btn]) => {
+        if (btn) {
+            if (key === competitionPeriod) {
+                btn.className = 'px-4 py-2 rounded-lg font-medium transition-colors bg-blue-600 text-white';
+            } else {
+                btn.className = 'px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700';
+            }
+        }
+    });
+}
+
+/**
+ * Update type button styles based on current selection
+ */
+function updateTypeButtonStyles() {
+    const buttons = {
+        all: document.getElementById('admin-competition-filter-all'),
+        singles: document.getElementById('admin-competition-filter-singles'),
+        doubles: document.getElementById('admin-competition-filter-doubles'),
+    };
+
+    Object.entries(buttons).forEach(([key, btn]) => {
+        if (btn) {
+            if (key === competitionTypeFilter) {
+                btn.className = 'px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white';
+            } else {
+                btn.className = 'px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700';
+            }
+        }
+    });
+}
+
+/**
+ * Render competition statistics based on current filters
+ */
+function renderCompetitionStatistics() {
+    // Filter matches by type
+    let filteredMatches = competitionMatchData;
+    if (competitionTypeFilter === 'singles') {
+        filteredMatches = competitionMatchData.filter(m => m.type === 'singles');
+    } else if (competitionTypeFilter === 'doubles') {
+        filteredMatches = competitionMatchData.filter(m => m.type === 'doubles');
+    }
+
+    // Group by period
+    const now = new Date();
+    const periodData = {};
+    let periodFormat, periodCount, periodLabel;
+
+    if (competitionPeriod === 'week') {
+        periodCount = 12; // Last 12 weeks
+        periodLabel = 'Wochen';
+        for (let i = periodCount - 1; i >= 0; i--) {
+            const weekStart = new Date(now);
+            weekStart.setDate(weekStart.getDate() - (i * 7));
+            const weekKey = `KW ${getWeekNumber(weekStart)}`;
+            periodData[weekKey] = 0;
+        }
+
+        filteredMatches.forEach(match => {
+            if (match.date) {
+                const matchDate = new Date(match.date);
+                const weeksSince = Math.floor((now - matchDate) / (7 * 24 * 60 * 60 * 1000));
+                if (weeksSince >= 0 && weeksSince < periodCount) {
+                    const weekKey = `KW ${getWeekNumber(matchDate)}`;
+                    if (periodData[weekKey] !== undefined) {
+                        periodData[weekKey]++;
+                    }
+                }
+            }
+        });
+    } else if (competitionPeriod === 'month') {
+        periodCount = 12; // Last 12 months
+        periodLabel = 'Monate';
+        for (let i = periodCount - 1; i >= 0; i--) {
+            const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthKey = monthDate.toLocaleString('de-DE', { month: 'short', year: '2-digit' });
+            periodData[monthKey] = 0;
+        }
+
+        filteredMatches.forEach(match => {
+            if (match.date) {
+                const matchDate = new Date(match.date);
+                const monthKey = matchDate.toLocaleString('de-DE', { month: 'short', year: '2-digit' });
+                if (periodData[monthKey] !== undefined) {
+                    periodData[monthKey]++;
+                }
+            }
+        });
+    } else {
+        periodCount = 3; // Last 3 years
+        periodLabel = 'Jahre';
+        for (let i = periodCount - 1; i >= 0; i--) {
+            const year = now.getFullYear() - i;
+            periodData[year.toString()] = 0;
+        }
+
+        filteredMatches.forEach(match => {
+            if (match.date) {
+                const matchDate = new Date(match.date);
+                const yearKey = matchDate.getFullYear().toString();
+                if (periodData[yearKey] !== undefined) {
+                    periodData[yearKey]++;
+                }
+            }
+        });
+    }
+
+    // Calculate statistics
+    const values = Object.values(periodData);
+    const total = values.reduce((sum, v) => sum + v, 0);
+    const avg = values.length > 0 ? (total / values.length).toFixed(1) : 0;
+
+    // Find most active period
+    let maxPeriod = '-';
+    let maxCount = 0;
+    Object.entries(periodData).forEach(([period, count]) => {
+        if (count > maxCount) {
+            maxCount = count;
+            maxPeriod = period;
+        }
+    });
+
+    // Calculate trend (compare last period to previous)
+    const periodsArray = Object.values(periodData);
+    let trend = '-';
+    if (periodsArray.length >= 2) {
+        const current = periodsArray[periodsArray.length - 1];
+        const previous = periodsArray[periodsArray.length - 2];
+        if (previous > 0) {
+            const change = ((current - previous) / previous * 100).toFixed(0);
+            trend = change >= 0 ? `+${change}%` : `${change}%`;
+        } else if (current > 0) {
+            trend = '+∞';
+        }
+    }
+
+    // Update DOM
+    const totalLabel = document.getElementById('admin-stats-competition-total-label');
+    const totalEl = document.getElementById('admin-stats-competition-total');
+    const avgLabel = document.getElementById('admin-stats-competition-avg-label');
+    const avgEl = document.getElementById('admin-stats-competition-avg');
+    const activePeriodLabel = document.getElementById('admin-stats-competition-active-period-label');
+    const activePeriodEl = document.getElementById('admin-stats-competition-active-period');
+    const trendEl = document.getElementById('admin-stats-competition-trend');
+
+    if (totalLabel) totalLabel.textContent = `Gesamt (${periodCount} ${periodLabel})`;
+    if (totalEl) totalEl.textContent = total;
+    if (avgLabel) avgLabel.textContent = `Ø pro ${competitionPeriod === 'week' ? 'Woche' : competitionPeriod === 'month' ? 'Monat' : 'Jahr'}`;
+    if (avgEl) avgEl.textContent = avg;
+    if (activePeriodLabel) activePeriodLabel.textContent = `Aktivster ${competitionPeriod === 'week' ? 'Woche' : competitionPeriod === 'month' ? 'Monat' : 'Jahr'}`;
+    if (activePeriodEl) activePeriodEl.textContent = maxCount > 0 ? `${maxPeriod} (${maxCount})` : '-';
+    if (trendEl) trendEl.textContent = trend;
+
+    // Render chart
+    renderCompetitionChart(Object.keys(periodData), Object.values(periodData));
+}
+
+/**
+ * Get ISO week number
+ */
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+/**
+ * Calculate smart step size for Y-axis based on max value
+ * @param {number} maxValue - Maximum value in the data
+ * @returns {number} - Appropriate step size
+ */
+function calculateSmartStepSize(maxValue) {
+    if (maxValue <= 10) return 1;
+    if (maxValue <= 25) return 5;
+    if (maxValue <= 50) return 10;
+    if (maxValue <= 100) return 20;
+    if (maxValue <= 250) return 50;
+    if (maxValue <= 500) return 100;
+    if (maxValue <= 1000) return 200;
+    return Math.ceil(maxValue / 10 / 50) * 50; // Round to nearest 50
+}
+
+/**
+ * Render competition activity chart
+ */
+function renderCompetitionChart(labels, data) {
+    const canvas = document.getElementById('admin-competition-activity-chart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (competitionChartInstance) competitionChartInstance.destroy();
+
+    // Calculate smart step size based on max value
+    const maxValue = Math.max(...data, 0);
+    const stepSize = calculateSmartStepSize(maxValue);
+
+    competitionChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Wettkämpfe',
+                data: data,
+                backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                borderColor: 'rgba(99, 102, 241, 1)',
+                borderWidth: 1,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: stepSize,
+                        callback: function(value) {
+                            // Only show whole numbers
+                            if (Math.floor(value) === value) {
+                                return value;
+                            }
+                        }
+                    },
+                },
+            },
+            plugins: {
+                legend: { display: false },
+            },
         },
     });
 }

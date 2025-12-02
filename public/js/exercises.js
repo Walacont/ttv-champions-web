@@ -7,6 +7,8 @@ import {
     serverTimestamp,
     doc,
     getDoc,
+    deleteDoc,
+    updateDoc,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import {
     ref,
@@ -25,6 +27,7 @@ let exerciseContext = {
     db: null,
     userId: null,
     userRole: null,
+    clubId: null,
 };
 
 /**
@@ -32,11 +35,13 @@ let exerciseContext = {
  * @param {Object} db - Firestore database instance
  * @param {string} userId - Current user ID
  * @param {string} userRole - Current user role (player, coach, admin)
+ * @param {string} clubId - Current user's club ID (optional)
  */
-export function setExerciseContext(db, userId, userRole) {
+export function setExerciseContext(db, userId, userRole, clubId = null) {
     exerciseContext.db = db;
     exerciseContext.userId = userId;
     exerciseContext.userRole = userRole;
+    exerciseContext.clubId = clubId;
 }
 
 // Season management functions removed - now using ui-utils.js functions
@@ -66,8 +71,28 @@ export async function loadExercises(db, unsubscribes) {
         const exercises = [];
         exercisesData = []; // Reset
 
-        // Process each exercise
-        for (const docSnap of snapshot.docs) {
+        // Filter by visibility
+        const userClubId = exerciseContext.clubId;
+        const visibleDocs = snapshot.docs.filter(docSnap => {
+            const exercise = docSnap.data();
+            // Global exercises (or legacy exercises without visibility) are visible to everyone
+            if (!exercise.visibility || exercise.visibility === 'global') {
+                return true;
+            }
+            // Club-only exercises are only visible to users from the same club
+            if (exercise.visibility === 'club') {
+                return userClubId && exercise.clubId === userClubId;
+            }
+            return false;
+        });
+
+        if (visibleDocs.length === 0) {
+            exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
+            return;
+        }
+
+        // Process each visible exercise
+        for (const docSnap of visibleDocs) {
             const exercise = docSnap.data();
             const exerciseId = docSnap.id;
 
@@ -246,15 +271,10 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         )
         .join('');
 
-    // Check if exercise has tiered points
-    const hasTieredPoints =
-        exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
-    const pointsBadge = hasTieredPoints
-        ? `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">🎯 Bis zu ${exercise.points} P.</span>`
-        : `<span class="font-bold text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full text-sm">+${exercise.points} P.</span>`;
-
-    // Generate progress circle SVG
-    const progressCircle = generateProgressCircle(progressPercent);
+    // Show coach name who created the exercise (only if known)
+    const coachBadge = exercise.createdByName
+        ? `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName}</span>`
+        : '';
 
     // Image or subtle placeholder
     const imageHtml = exercise.imageUrl
@@ -269,14 +289,13 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
            </div>`;
 
     card.innerHTML = `
-        ${progressCircle}
         ${imageHtml}
         <div class="p-4 flex flex-col flex-grow">
             <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
             <div class="mb-2">${tagsHtml}</div>
             <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
             <div class="mt-4 text-right">
-                ${pointsBadge}
+                ${coachBadge}
             </div>
         </div>`;
 
@@ -393,12 +412,30 @@ export function loadAllExercises(db) {
     onSnapshot(
         query(collection(db, 'exercises'), orderBy('createdAt', 'desc')),
         snapshot => {
-            const exercises = [];
+            const allExercises = [];
             const allTags = new Set();
 
             snapshot.forEach(doc => {
                 const exercise = { id: doc.id, ...doc.data() };
-                exercises.push(exercise);
+                allExercises.push(exercise);
+            });
+
+            // Filter exercises by visibility
+            const userClubId = exerciseContext.clubId;
+            const exercises = allExercises.filter(exercise => {
+                // Global exercises (or legacy exercises without visibility) are visible to everyone
+                if (!exercise.visibility || exercise.visibility === 'global') {
+                    return true;
+                }
+                // Club-only exercises are only visible to users from the same club
+                if (exercise.visibility === 'club') {
+                    return userClubId && exercise.clubId === userClubId;
+                }
+                return false;
+            });
+
+            // Collect tags from visible exercises only
+            exercises.forEach(exercise => {
                 (exercise.tags || []).forEach(tag => allTags.add(tag));
             });
 
@@ -583,12 +620,24 @@ function renderCoachExercises(exercises, filterTag) {
             )
             .join('');
 
-        // Check if exercise has tiered points
-        const hasTieredPoints =
-            exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
-        const pointsBadge = hasTieredPoints
-            ? `🎯 Bis zu ${exercise.points} P.`
-            : `${exercise.points} P.`;
+        // Check if current user can edit/delete (creator or admin)
+        const currentUserId = exerciseContext.userId;
+        const isCreator = currentUserId && exercise.createdBy === currentUserId;
+        const isAdmin = exerciseContext.userRole === 'admin';
+        const canEdit = isCreator || isAdmin;
+
+        // Show coach name who created the exercise (only if known)
+        // Show "Von dir erstellt" if current user is the creator
+        const coachBadge = isCreator
+            ? ' Von dir erstellt'
+            : exercise.createdByName
+              ? `👤 ${exercise.createdByName}`
+              : 'System';
+
+        // Show visibility badge
+        const visibilityBadge = exercise.visibility === 'club'
+            ? '<span class="inline-block bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">🏠 Nur Verein</span>'
+            : '<span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">🌍 Global</span>';
 
         // Image or subtle placeholder
         const imageHtml = exercise.imageUrl
@@ -607,9 +656,17 @@ function renderCoachExercises(exercises, filterTag) {
             <div class="p-4 flex flex-col flex-grow pointer-events-none">
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
-                    <span class="ml-2 bg-indigo-100 text-indigo-800 text-sm font-bold px-2 py-1 rounded">${pointsBadge}</span>
+                    <span class="ml-2 bg-gray-100 text-gray-700 text-sm font-bold px-2 py-1 rounded">${coachBadge}</span>
                 </div>
+                <div class="flex items-center gap-2 mb-2">${visibilityBadge}</div>
                 <div class="pt-2">${tagsHtml}</div>
+                ${canEdit ? `
+                <div class="mt-3 pointer-events-auto">
+                    <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors">
+                        Löschen
+                    </button>
+                </div>
+                ` : ''}
             </div>`;
         exercisesListCoachEl.appendChild(card);
     });
@@ -779,6 +836,20 @@ export async function openExerciseModal(
 
     const currentCount = playerProgress?.currentCount || 0;
 
+    // Load exercise data for record holder info
+    let exerciseData = null;
+    if (hasTieredPoints && exerciseContext.db && exerciseId) {
+        try {
+            const exerciseRef = doc(exerciseContext.db, 'exercises', exerciseId);
+            const exerciseSnap = await getDoc(exerciseRef);
+            if (exerciseSnap.exists()) {
+                exerciseData = exerciseSnap.data();
+            }
+        } catch (error) {
+            console.log('Could not load exercise data:', error);
+        }
+    }
+
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
 
@@ -789,6 +860,23 @@ export async function openExerciseModal(
             if (exerciseContext.userRole === 'player') {
                 const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
                 const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+
+                // Global record holder display
+                let globalRecordHtml = '';
+                if (exerciseData && exerciseData.recordHolderName && exerciseData.recordCount) {
+                    const clubInfo = exerciseData.recordHolderClub ? ` (${exerciseData.recordHolderClub})` : '';
+                    globalRecordHtml = `
+                        <div class="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">🏆</span>
+                                <span class="font-bold text-gray-800">Globaler Rekordhalter</span>
+                            </div>
+                            <p class="text-base text-gray-700">
+                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} Wiederholungen</span>
+                            </p>
+                        </div>
+                    `;
+                }
 
                 progressHtml = `
                     <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -813,6 +901,7 @@ export async function openExerciseModal(
                         `
                         }
                     </div>
+                    ${globalRecordHtml}
                 `;
             }
 
@@ -1146,11 +1235,14 @@ function updateExerciseTotalPoints() {
  * @param {Object} db - Firestore database instance
  * @param {Object} storage - Firebase storage instance
  * @param {Object} descriptionEditor - Description editor instance (optional)
+ * @param {Object} userData - Current user data (coach creating the exercise)
  */
-export async function handleCreateExercise(e, db, storage, descriptionEditor = null) {
+export async function handleCreateExercise(e, db, storage, descriptionEditor = null, userData = null) {
     e.preventDefault();
     const feedbackEl = document.getElementById('exercise-feedback');
     const submitBtn = document.getElementById('create-exercise-submit');
+    const form = e.target;
+    const isEditing = form.dataset.editingId;
     const title = document.getElementById('exercise-title-form').value;
     const level = document.getElementById('exercise-level-form').value;
     const difficulty = document.getElementById('exercise-difficulty-form').value;
@@ -1160,6 +1252,10 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         .split(',')
         .map(tag => tag.trim())
         .filter(tag => tag);
+
+    // Get visibility setting
+    const visibilityRadio = document.querySelector('input[name="exercise-visibility"]:checked');
+    const visibility = visibilityRadio?.value || 'global';
 
     // Check if milestones are enabled
     const milestonesEnabled =
@@ -1211,6 +1307,26 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
 
         // Upload image only if provided
         if (file) {
+            // Validate file type - only allow images
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+            if (!allowedTypes.includes(file.type)) {
+                feedbackEl.textContent = 'Nur Bilddateien sind erlaubt (JPG, PNG, GIF, WebP, SVG).';
+                feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Übung speichern';
+                return;
+            }
+
+            // Also check file size (max 5MB)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                feedbackEl.textContent = 'Die Bilddatei darf maximal 5MB groß sein.';
+                feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Übung speichern';
+                return;
+            }
+
             const storageRef = ref(storage, `exercises/${Date.now()}_${file.name}`);
             const snapshot = await uploadBytes(storageRef, file);
             imageUrl = await getDownloadURL(snapshot.ref);
@@ -1222,9 +1338,20 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             level,
             difficulty,
             points,
-            createdAt: serverTimestamp(),
             tags,
         };
+
+        // For new exercises, add creator info and createdAt
+        if (!isEditing) {
+            exerciseData.createdAt = serverTimestamp();
+            exerciseData.createdBy = userData?.id || null;
+            exerciseData.createdByName = userData ? `${userData.firstName} ${userData.lastName}` : 'Unbekannt';
+            exerciseData.visibility = visibility;
+            // If club-only, save the clubId
+            if (visibility === 'club' && userData?.clubId) {
+                exerciseData.clubId = userData.clubId;
+            }
+        }
 
         // Add imageUrl only if provided
         if (imageUrl) {
@@ -1244,11 +1371,21 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             };
         }
 
-        await addDoc(collection(db, 'exercises'), exerciseData);
+        // Update or create
+        if (isEditing) {
+            await updateDoc(doc(db, 'exercises', isEditing), exerciseData);
+            feedbackEl.textContent = 'Übung erfolgreich aktualisiert!';
+        } else {
+            await addDoc(collection(db, 'exercises'), exerciseData);
+            feedbackEl.textContent = 'Übung erfolgreich erstellt!';
+        }
 
-        feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         e.target.reset();
+
+        // Reset editing state
+        delete form.dataset.editingId;
+        submitBtn.textContent = 'Übung speichern';
 
         // Reset points field
         document.getElementById('exercise-points-form').value = '';
@@ -1264,8 +1401,10 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             descriptionEditor.clear();
         }
     } catch (error) {
-        console.error('Fehler beim Erstellen der Übung:', error);
-        feedbackEl.textContent = 'Fehler: Übung konnte nicht erstellt werden.';
+        console.error('Fehler beim Speichern der Übung:', error);
+        feedbackEl.textContent = isEditing
+            ? 'Fehler: Übung konnte nicht aktualisiert werden.'
+            : 'Fehler: Übung konnte nicht erstellt werden.';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
     } finally {
         submitBtn.disabled = false;
@@ -1275,3 +1414,117 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         }, 4000);
     }
 }
+
+/**
+ * Deletes an exercise (only by creator)
+ * @param {string} exerciseId - Exercise ID to delete
+ */
+window.deleteExercise = async function(exerciseId) {
+    if (!exerciseContext.db) {
+        alert('Fehler: Datenbank nicht verfügbar');
+        return;
+    }
+
+    const confirmed = confirm('Möchtest du diese Übung wirklich löschen?');
+    if (!confirmed) return;
+
+    try {
+        await deleteDoc(doc(exerciseContext.db, 'exercises', exerciseId));
+        alert('Übung erfolgreich gelöscht!');
+    } catch (error) {
+        console.error('Error deleting exercise:', error);
+        alert('Fehler beim Löschen der Übung: ' + error.message);
+    }
+};
+
+/**
+ * Edits an exercise (only by creator)
+ * @param {string} exerciseId - Exercise ID to edit
+ */
+window.editExercise = async function(exerciseId) {
+    if (!exerciseContext.db) {
+        alert('Fehler: Datenbank nicht verfügbar');
+        return;
+    }
+
+    try {
+        // Load exercise data
+        const exerciseDoc = await getDoc(doc(exerciseContext.db, 'exercises', exerciseId));
+        if (!exerciseDoc.exists()) {
+            alert('Übung nicht gefunden');
+            return;
+        }
+
+        const exerciseData = exerciseDoc.data();
+
+        // Pre-fill form
+        document.getElementById('exercise-title-form').value = exerciseData.title || '';
+        document.getElementById('exercise-level-form').value = exerciseData.level || '';
+        document.getElementById('exercise-difficulty-form').value = exerciseData.difficulty || '';
+        document.getElementById('exercise-tags-form').value = (exerciseData.tags || []).join(', ');
+
+        // Handle description content
+        let descriptionText = '';
+        try {
+            const descContent = JSON.parse(exerciseData.descriptionContent || '{}');
+            if (descContent.type === 'text') {
+                descriptionText = descContent.text || '';
+            } else if (descContent.type === 'table') {
+                descriptionText = descContent.additionalText || '';
+            }
+        } catch (e) {
+            descriptionText = exerciseData.description || '';
+        }
+        document.getElementById('exercise-description-form').value = descriptionText;
+
+        // Handle milestones or standard points
+        const hasMilestones = exerciseData.tieredPoints?.enabled && exerciseData.tieredPoints?.milestones?.length > 0;
+        const milestonesCheckbox = document.getElementById('exercise-milestones-enabled');
+
+        if (hasMilestones) {
+            milestonesCheckbox.checked = true;
+            document.getElementById('exercise-standard-points-container').classList.add('hidden');
+            document.getElementById('exercise-milestones-container').classList.remove('hidden');
+
+            // Clear and populate milestones
+            const milestonesList = document.getElementById('exercise-milestones-list');
+            milestonesList.innerHTML = '';
+
+            exerciseData.tieredPoints.milestones.forEach(milestone => {
+                const row = document.createElement('div');
+                row.className = 'flex gap-2 items-center bg-gray-50 p-2 rounded';
+                row.innerHTML = `
+                    <input type="number" class="exercise-milestone-count w-16 px-2 py-1 border border-gray-300 rounded text-sm" value="${milestone.count}" min="1" required>
+                    <span class="text-gray-600 text-xs whitespace-nowrap">× →</span>
+                    <input type="number" class="exercise-milestone-points w-16 px-2 py-1 border border-gray-300 rounded text-sm" value="${milestone.points}" min="1" required>
+                    <span class="text-gray-600 text-xs">P.</span>
+                    <button type="button" class="remove-exercise-milestone text-red-600 hover:text-red-800 px-1 text-sm flex-shrink-0">🗑️</button>
+                `;
+
+                row.querySelector('.remove-exercise-milestone').addEventListener('click', () => row.remove());
+                milestonesList.appendChild(row);
+            });
+        } else {
+            milestonesCheckbox.checked = false;
+            document.getElementById('exercise-standard-points-container').classList.remove('hidden');
+            document.getElementById('exercise-milestones-container').classList.add('hidden');
+            document.getElementById('exercise-points-form').value = exerciseData.points || 0;
+        }
+
+        // Store exercise ID for update
+        document.getElementById('create-exercise-form').dataset.editingId = exerciseId;
+        document.getElementById('create-exercise-submit').textContent = 'Übung aktualisieren';
+
+        // Scroll to form
+        document.getElementById('create-exercise-form').scrollIntoView({ behavior: 'smooth' });
+
+        // Show info message
+        const feedbackEl = document.getElementById('exercise-feedback');
+        feedbackEl.textContent = 'Bearbeitungsmodus: Übung wird aktualisiert statt neu erstellt';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-blue-600';
+
+    } catch (error) {
+        console.error('Error loading exercise for edit:', error);
+        alert('Fehler beim Laden der Übung: ' + error.message);
+    }
+};

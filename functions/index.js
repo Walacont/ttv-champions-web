@@ -21,6 +21,7 @@ const CONFIG = {
         INVITATION_TOKENS: 'invitationTokens',
         INVITATION_CODES: 'invitationCodes',
         POINTS_HISTORY: 'pointsHistory',
+        CLUBS: 'clubs',
     },
     ELO: {
         DEFAULT_RATING: 800, // Start at 800 Elo (new system)
@@ -28,7 +29,8 @@ const CONFIG = {
         SEASON_POINT_FACTOR: 0.2, // Season Points = Elo-Gewinn × 0.2
         HANDICAP_SEASON_POINTS: 8, // Feste Punktzahl für Handicap-Spiele
         // Elo Gates: Once reached, Elo can never fall below these thresholds
-        GATES: [850, 900, 1000, 1100, 1300, 1600],
+        // 800 is the absolute floor - no player can ever fall below
+        GATES: [800, 850, 900, 1000, 1100, 1300, 1600],
     },
     REGION: 'europe-west3',
 };
@@ -523,11 +525,18 @@ exports.claimInvitationCode = onCall({ region: CONFIG.REGION }, async request =>
                 highestElo: CONFIG.ELO.DEFAULT_RATING,
                 wins: 0,
                 losses: 0,
-                grundlagenCompleted: 0,
+                grundlagenCompleted: 0, // Muss Grundlagenübungen erst abschließen
                 onboardingComplete: false,
                 isOffline: true, // User is offline until they complete onboarding
                 createdAt: now,
                 photoURL: '',
+                clubRequestStatus: null,
+                clubRequestId: null,
+                privacySettings: {
+                    searchable: 'global', // Default: globally searchable
+                    showInLeaderboards: true,
+                },
+                clubJoinedAt: now,
             };
 
             await userRef.set(userData);
@@ -620,7 +629,7 @@ exports.claimInvitationToken = onCall({ region: CONFIG.REGION }, async request =
             highestElo: CONFIG.ELO.DEFAULT_RATING,
             wins: 0,
             losses: 0,
-            grundlagenCompleted: 0,
+            grundlagenCompleted: 0, // Muss Grundlagenübungen erst abschließen
             onboardingComplete: false,
             isOffline: true, // User is offline until they complete onboarding
             createdAt: now,
@@ -1614,6 +1623,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     player2Id: winningPlayerIds[1],
                     player1Name: `${winner1Data.firstName} ${winner1Data.lastName}`,
                     player2Name: `${winner2Data.firstName} ${winner2Data.lastName}`,
+                    player1ClubIdAtMatch: winner1Data.clubId || null,
+                    player2ClubIdAtMatch: winner2Data.clubId || null,
                     pairingId: winningPairingId,
                     matchesPlayed: 1,
                     matchesWon: 1,
@@ -1645,6 +1656,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     player2Id: losingPlayerIds[1],
                     player1Name: `${loser1Data.firstName} ${loser1Data.lastName}`,
                     player2Name: `${loser2Data.firstName} ${loser2Data.lastName}`,
+                    player1ClubIdAtMatch: loser1Data.clubId || null,
+                    player2ClubIdAtMatch: loser2Data.clubId || null,
                     pairingId: losingPairingId,
                     matchesPlayed: 1,
                     matchesWon: 0,
@@ -2221,3 +2234,592 @@ exports.anonymizeAccount = onCall({ region: CONFIG.REGION }, async request => {
         );
     }
 });
+
+// ========================================================================
+// ===== FUNKTION: Registrierung ohne Einladungscode =====
+// ========================================================================
+exports.registerWithoutCode = onCall({ region: CONFIG.REGION }, async request => {
+    // 1. Check if user is authenticated
+    if (!request.auth) {
+        throw new HttpsError(
+            'unauthenticated',
+            'Du musst angemeldet sein, um dich zu registrieren.'
+        );
+    }
+
+    const userId = request.auth.uid;
+    const { firstName, lastName } = request.data;
+
+    if (!firstName || !lastName) {
+        throw new HttpsError('invalid-argument', 'Vor- und Nachname sind erforderlich.');
+    }
+
+    try {
+        // 2. Check if user document already exists
+        const userRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(userId);
+        const userDoc = await userRef.get();
+
+        if (userDoc.exists) {
+            throw new HttpsError(
+                'already-exists',
+                'Ein Profil für diesen Benutzer existiert bereits.'
+            );
+        }
+
+        // 3. Create new user document WITHOUT clubId
+        const now = admin.firestore.Timestamp.now();
+        const userData = {
+            email: request.auth.token.email || '',
+            firstName: firstName,
+            lastName: lastName,
+            clubId: null, // No club yet
+            role: 'player',
+            subgroupIds: [],
+            points: 0,
+            xp: 0,
+            eloRating: CONFIG.ELO.DEFAULT_RATING,
+            highestElo: CONFIG.ELO.DEFAULT_RATING,
+            wins: 0,
+            losses: 0,
+            grundlagenCompleted: 5, // Direkt wettkampfsbereit
+            onboardingComplete: false,
+            isOffline: true, // Will be set to false after onboarding
+            createdAt: now,
+            photoURL: '',
+            clubRequestStatus: null,
+            clubRequestId: null,
+            privacySettings: {
+                searchable: 'global', // Default: globally searchable
+                showInLeaderboards: true,
+            },
+        };
+
+        await userRef.set(userData);
+        logger.info(`New user created without club: ${userId} (${firstName} ${lastName})`);
+
+        return {
+            success: true,
+            message: 'Registrierung erfolgreich!',
+        };
+    } catch (error) {
+        logger.error(`Error registering user ${userId}:`, error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+    }
+});
+
+// ========================================================================
+// ===== FUNKTION: Club-Beitrittsanfrage bearbeiten =====
+// ========================================================================
+exports.handleClubRequest = onCall({ region: CONFIG.REGION }, async request => {
+    // 1. Check if user is authenticated and is a coach/admin
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Du musst angemeldet sein.');
+    }
+
+    const coachId = request.auth.uid;
+    const { requestId, action } = request.data; // action: 'approve' | 'reject'
+
+    if (!requestId || !action) {
+        throw new HttpsError('invalid-argument', 'Request-ID und Aktion sind erforderlich.');
+    }
+
+    if (!['approve', 'reject'].includes(action)) {
+        throw new HttpsError('invalid-argument', 'Ungültige Aktion. Verwende "approve" oder "reject".');
+    }
+
+    try {
+        // 2. Get coach data
+        const coachRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(coachId);
+        const coachDoc = await coachRef.get();
+
+        if (!coachDoc.exists) {
+            throw new HttpsError('not-found', 'Coach nicht gefunden.');
+        }
+
+        const coachData = coachDoc.data();
+
+        if (!['coach', 'admin'].includes(coachData.role)) {
+            throw new HttpsError('permission-denied', 'Nur Coaches und Admins können Anfragen bearbeiten.');
+        }
+
+        // 3. Get club request
+        const requestRef = db.collection('clubRequests').doc(requestId);
+        const requestDoc = await requestRef.get();
+
+        if (!requestDoc.exists) {
+            throw new HttpsError('not-found', 'Anfrage nicht gefunden.');
+        }
+
+        const requestData = requestDoc.data();
+
+        // 4. Verify coach is from the same club
+        if (coachData.clubId !== requestData.clubId) {
+            throw new HttpsError('permission-denied', 'Du kannst nur Anfragen für deinen eigenen Verein bearbeiten.');
+        }
+
+        // 5. Verify request is still pending
+        if (requestData.status !== 'pending') {
+            throw new HttpsError('failed-precondition', 'Diese Anfrage wurde bereits bearbeitet.');
+        }
+
+        // 6. Get player data
+        const playerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(requestData.playerId);
+        const playerDoc = await playerRef.get();
+
+        if (!playerDoc.exists) {
+            throw new HttpsError('not-found', 'Spieler nicht gefunden.');
+        }
+
+        const now = admin.firestore.Timestamp.now();
+        const batch = db.batch();
+
+        if (action === 'approve') {
+            // Approve: Set clubId and update request
+            const playerData = playerDoc.data();
+            const wasWithoutClub = !playerData.clubId || playerData.clubId === '' || playerData.clubId === 'null';
+
+            const updateData = {
+                clubId: requestData.clubId,
+                clubRequestStatus: 'approved',
+                clubRequestId: null,
+                clubJoinedAt: now,
+            };
+
+            // If player was without club, set default tab visibility for new club members
+            // Fleiß, Ränge, and Season tabs are hidden by default
+            if (wasWithoutClub) {
+                updateData['leaderboardPreferences.showEffortTab'] = false;
+                updateData['leaderboardPreferences.showRanksTab'] = false;
+                updateData['leaderboardPreferences.showSeasonTab'] = false;
+                logger.info(`Player ${requestData.playerId} was without club - hiding Fleiß, Ränge, and Season tabs by default`);
+            }
+
+            batch.update(playerRef, updateData);
+
+            batch.update(requestRef, {
+                status: 'approved',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Club request approved: ${requestId} by coach ${coachId}`);
+        } else {
+            // Reject: Update request only
+            batch.update(playerRef, {
+                clubRequestStatus: null,
+                clubRequestId: null,
+            });
+
+            batch.update(requestRef, {
+                status: 'rejected',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Club request rejected: ${requestId} by coach ${coachId}`);
+        }
+
+        await batch.commit();
+
+        return {
+            success: true,
+            message: action === 'approve' ? 'Spieler erfolgreich genehmigt!' : 'Anfrage abgelehnt.',
+        };
+    } catch (error) {
+        logger.error(`Error handling club request ${requestId}:`, error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+    }
+});
+
+// ========================================================================
+// ===== FUNKTION: Austrittsanfrage bearbeiten =====
+// ========================================================================
+exports.handleLeaveRequest = onCall({ region: CONFIG.REGION }, async request => {
+    // 1. Check if user is authenticated and is a coach/admin
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Du musst angemeldet sein.');
+    }
+
+    const coachId = request.auth.uid;
+    const { requestId, action } = request.data; // action: 'approve' | 'reject'
+
+    if (!requestId || !action) {
+        throw new HttpsError('invalid-argument', 'Request-ID und Aktion sind erforderlich.');
+    }
+
+    if (!['approve', 'reject'].includes(action)) {
+        throw new HttpsError('invalid-argument', 'Ungültige Aktion. Verwende "approve" oder "reject".');
+    }
+
+    try {
+        // 2. Get coach data
+        const coachRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(coachId);
+        const coachDoc = await coachRef.get();
+
+        if (!coachDoc.exists) {
+            throw new HttpsError('not-found', 'Coach nicht gefunden.');
+        }
+
+        const coachData = coachDoc.data();
+
+        if (!['coach', 'admin'].includes(coachData.role)) {
+            throw new HttpsError('permission-denied', 'Nur Coaches und Admins können Anfragen bearbeiten.');
+        }
+
+        // 3. Get leave request
+        const requestRef = db.collection('leaveClubRequests').doc(requestId);
+        const requestDoc = await requestRef.get();
+
+        if (!requestDoc.exists) {
+            throw new HttpsError('not-found', 'Anfrage nicht gefunden.');
+        }
+
+        const requestData = requestDoc.data();
+
+        // 4. Verify coach is from the same club
+        if (coachData.clubId !== requestData.clubId) {
+            throw new HttpsError('permission-denied', 'Du kannst nur Anfragen für deinen eigenen Verein bearbeiten.');
+        }
+
+        // 5. Verify request is still pending
+        if (requestData.status !== 'pending') {
+            throw new HttpsError('failed-precondition', 'Diese Anfrage wurde bereits bearbeitet.');
+        }
+
+        // 6. Get player data
+        const playerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(requestData.playerId);
+        const playerDoc = await playerRef.get();
+
+        if (!playerDoc.exists) {
+            throw new HttpsError('not-found', 'Spieler nicht gefunden.');
+        }
+
+        const playerData = playerDoc.data();
+        const now = admin.firestore.Timestamp.now();
+        const batch = db.batch();
+
+        if (action === 'approve') {
+            // Approve: Remove clubId, reset season points, keep xp/elo
+            batch.update(playerRef, {
+                previousClubId: playerData.clubId,
+                clubId: null,
+                points: 0, // Reset season points
+                subgroupIds: [], // Remove from subgroups
+                // Keep: xp, eloRating, highestElo, wins, losses
+            });
+
+            batch.update(requestRef, {
+                status: 'approved',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Leave request approved: ${requestId} by coach ${coachId}`);
+        } else {
+            // Reject: Keep player in club
+            batch.update(requestRef, {
+                status: 'rejected',
+                processedBy: coachId,
+                processedAt: now,
+            });
+
+            logger.info(`Leave request rejected: ${requestId} by coach ${coachId}`);
+        }
+
+        await batch.commit();
+
+        return {
+            success: true,
+            message: action === 'approve' ? 'Spieler hat den Verein verlassen.' : 'Austrittsanfrage abgelehnt.',
+        };
+    } catch (error) {
+        logger.error(`Error handling leave request ${requestId}:`, error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Ein unerwarteter Fehler ist aufgetreten.');
+    }
+});
+
+// ========================================================================
+// ===== MIGRATION: Create clubs collection from existing clubId values =====
+// ========================================================================
+exports.migrateClubsCollection = onCall({ region: CONFIG.REGION }, async request => {
+    // Only admins can run this migration
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Du musst angemeldet sein.');
+    }
+
+    const callerRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(request.auth.uid);
+    const callerDoc = await callerRef.get();
+
+    if (!callerDoc.exists || callerDoc.data().role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Nur Admins können diese Migration ausführen.');
+    }
+
+    try {
+        logger.info('Starting clubs collection migration...');
+
+        // 1. Get all users with a clubId
+        const usersSnapshot = await db
+            .collection(CONFIG.COLLECTIONS.USERS)
+            .where('clubId', '!=', null)
+            .get();
+
+        if (usersSnapshot.empty) {
+            return {
+                success: true,
+                message: 'Keine Spieler mit Vereinszugehörigkeit gefunden.',
+                clubsCreated: 0,
+            };
+        }
+
+        // 2. Group users by clubId and collect club info
+        const clubsMap = new Map();
+
+        usersSnapshot.docs.forEach(doc => {
+            const userData = doc.data();
+            const clubId = userData.clubId;
+
+            if (!clubId) return;
+
+            if (!clubsMap.has(clubId)) {
+                clubsMap.set(clubId, {
+                    id: clubId,
+                    name: clubId, // Default: use clubId as name
+                    members: [],
+                    coaches: [],
+                    createdAt: admin.firestore.Timestamp.now(),
+                    isTestClub: false, // Default: not a test club (must be set manually later)
+                });
+            }
+
+            const club = clubsMap.get(clubId);
+            club.members.push({
+                userId: doc.id,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: userData.role,
+            });
+
+            if (userData.role === 'coach' || userData.role === 'admin') {
+                club.coaches.push(doc.id);
+            }
+        });
+
+        // 3. Create clubs collection entries
+        const batch = db.batch();
+        let clubsCreated = 0;
+
+        clubsMap.forEach((clubData, clubId) => {
+            const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
+
+            const clubDocument = {
+                name: clubData.name,
+                createdAt: clubData.createdAt,
+                isTestClub: clubData.isTestClub,
+                memberCount: clubData.members.length,
+                // Optional: Add first coach as owner
+                ownerId: clubData.coaches.length > 0 ? clubData.coaches[0] : null,
+            };
+
+            batch.set(clubRef, clubDocument);
+            clubsCreated++;
+
+            logger.info(
+                `Creating club: ${clubId} with ${clubData.members.length} members, ${clubData.coaches.length} coaches`
+            );
+        });
+
+        await batch.commit();
+
+        logger.info(`Migration complete. Created ${clubsCreated} clubs.`);
+
+        return {
+            success: true,
+            message: `Migration erfolgreich! ${clubsCreated} Vereine erstellt.`,
+            clubsCreated: clubsCreated,
+            clubs: Array.from(clubsMap.keys()),
+        };
+    } catch (error) {
+        logger.error('Error during clubs migration:', error);
+
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+
+        throw new HttpsError('internal', 'Fehler bei der Migration: ' + error.message);
+    }
+});
+
+// ========================================================================
+// ===== AUTO-CREATE CLUB: When invitation code is created by admin with new clubId =====
+// ========================================================================
+exports.autoCreateClubOnInvitation = onDocumentCreated(
+    { document: 'invitationCodes/{codeId}', region: CONFIG.REGION },
+    async event => {
+        const codeData = event.data.data();
+        const clubId = codeData.clubId;
+        const createdBy = codeData.createdBy;
+
+        if (!clubId) {
+            logger.info('Invitation code created without clubId, skipping club creation');
+            return;
+        }
+
+        if (!createdBy) {
+            logger.info('Invitation code created without createdBy, skipping club creation');
+            return;
+        }
+
+        try {
+            // Check if the creator is an admin
+            const creatorRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(createdBy);
+            const creatorDoc = await creatorRef.get();
+
+            if (!creatorDoc.exists) {
+                logger.info(`Creator ${createdBy} does not exist, skipping club creation`);
+                return;
+            }
+
+            const creatorData = creatorDoc.data();
+            if (creatorData.role !== 'admin') {
+                logger.info(`Creator ${createdBy} is not an admin (role: ${creatorData.role}), skipping club creation`);
+                return;
+            }
+
+            // Only admins can create clubs
+            logger.info(`Admin ${createdBy} creating invitation for club ${clubId}`);
+
+            // Check if club already exists
+            const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
+            const clubDoc = await clubRef.get();
+
+            if (clubDoc.exists) {
+                logger.info(`Club ${clubId} already exists, no need to create`);
+                return;
+            }
+
+            // Club doesn't exist yet - create it
+            logger.info(`Creating new club: ${clubId}`);
+
+            // Find a coach for this club to set as owner
+            const coachQuery = await db
+                .collection(CONFIG.COLLECTIONS.USERS)
+                .where('clubId', '==', clubId)
+                .where('role', 'in', ['coach', 'admin'])
+                .limit(1)
+                .get();
+
+            let ownerId = null;
+            if (!coachQuery.empty) {
+                ownerId = coachQuery.docs[0].id;
+            }
+
+            const newClub = {
+                name: clubId, // Default name is the clubId
+                createdAt: admin.firestore.Timestamp.now(),
+                isTestClub: false, // Default: not a test club
+                memberCount: 0, // Will be updated as members join
+                ownerId: ownerId,
+            };
+
+            await clubRef.set(newClub);
+            logger.info(`Successfully created club: ${clubId} with owner: ${ownerId || 'none'}`);
+        } catch (error) {
+            logger.error(`Error auto-creating club ${clubId}:`, error);
+            // Don't throw - let the invitation code creation succeed even if club creation fails
+        }
+    }
+);
+
+// Similar trigger for invitation tokens
+exports.autoCreateClubOnToken = onDocumentCreated(
+    { document: 'invitationTokens/{tokenId}', region: CONFIG.REGION },
+    async event => {
+        const tokenData = event.data.data();
+        const clubId = tokenData.clubId;
+        const createdBy = tokenData.createdBy;
+
+        if (!clubId) {
+            logger.info('Invitation token created without clubId, skipping club creation');
+            return;
+        }
+
+        if (!createdBy) {
+            logger.info('Invitation token created without createdBy, skipping club creation');
+            return;
+        }
+
+        try {
+            // Check if the creator is an admin
+            const creatorRef = db.collection(CONFIG.COLLECTIONS.USERS).doc(createdBy);
+            const creatorDoc = await creatorRef.get();
+
+            if (!creatorDoc.exists) {
+                logger.info(`Creator ${createdBy} does not exist, skipping club creation`);
+                return;
+            }
+
+            const creatorData = creatorDoc.data();
+            if (creatorData.role !== 'admin') {
+                logger.info(`Creator ${createdBy} is not an admin (role: ${creatorData.role}), skipping club creation`);
+                return;
+            }
+
+            // Only admins can create clubs
+            logger.info(`Admin ${createdBy} creating invitation token for club ${clubId}`);
+
+            // Check if club already exists
+            const clubRef = db.collection(CONFIG.COLLECTIONS.CLUBS).doc(clubId);
+            const clubDoc = await clubRef.get();
+
+            if (clubDoc.exists) {
+                logger.info(`Club ${clubId} already exists, no need to create`);
+                return;
+            }
+
+            // Club doesn't exist yet - create it
+            logger.info(`Creating new club from token: ${clubId}`);
+
+            // Find a coach for this club to set as owner
+            const coachQuery = await db
+                .collection(CONFIG.COLLECTIONS.USERS)
+                .where('clubId', '==', clubId)
+                .where('role', 'in', ['coach', 'admin'])
+                .limit(1)
+                .get();
+
+            let ownerId = null;
+            if (!coachQuery.empty) {
+                ownerId = coachQuery.docs[0].id;
+            }
+
+            const newClub = {
+                name: clubId, // Default name is the clubId
+                createdAt: admin.firestore.Timestamp.now(),
+                isTestClub: false, // Default: not a test club
+                memberCount: 0, // Will be updated as members join
+                ownerId: ownerId,
+            };
+
+            await clubRef.set(newClub);
+            logger.info(`Successfully created club from token: ${clubId} with owner: ${ownerId || 'none'}`);
+        } catch (error) {
+            logger.error(`Error auto-creating club from token ${clubId}:`, error);
+            // Don't throw - let the invitation token creation succeed even if club creation fails
+        }
+    }
+);

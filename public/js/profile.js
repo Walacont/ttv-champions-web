@@ -19,9 +19,9 @@ import { calculateRank, getRankProgress, formatRank } from './ranks.js';
  * @param {Object} userData - User data
  * @param {Object} db - Firestore database instance
  * @param {Array} unsubscribes - Array to store unsubscribe functions
- * @param {Function} loadRivalDataCallback - Callback to load rival data
- * @param {Function} loadChallengesCallback - Callback to load challenges
- * @param {Function} loadPointsHistoryCallback - Callback to load points history
+ * @param {Function|null} loadRivalDataCallback - Callback to load rival data (optional)
+ * @param {Function|null} loadChallengesCallback - Callback to load challenges (optional)
+ * @param {Function|null} loadPointsHistoryCallback - Callback to load points history (optional)
  */
 export function loadOverviewData(
     userData,
@@ -55,8 +55,13 @@ export function loadOverviewData(
         loadRivalDataCallback(userData, db, unsubscribes);
     }
 
-    loadPointsHistoryCallback(userData, db, unsubscribes);
-    loadChallengesCallback(userData, db, unsubscribes);
+    if (typeof loadPointsHistoryCallback === 'function') {
+        loadPointsHistoryCallback(userData, db, unsubscribes);
+    }
+
+    if (typeof loadChallengesCallback === 'function') {
+        loadChallengesCallback(userData, db, unsubscribes);
+    }
 }
 
 /**
@@ -212,21 +217,21 @@ export function loadRivalData(userData, db, currentSubgroupFilter = 'club') {
     // 1. Determine query based on filter
     let q;
     if (currentSubgroupFilter === 'club') {
-        // Show all players in club
+        // Show all players and coaches in club
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
     } else if (currentSubgroupFilter === 'global') {
-        // Show all players globally
-        q = query(collection(db, 'users'), where('role', '==', 'player'));
+        // Show all players and coaches globally
+        q = query(collection(db, 'users'), where('role', 'in', ['player', 'coach']));
     } else {
-        // Show players in specific subgroup
+        // Show players and coaches in specific subgroup
         q = query(
             collection(db, 'users'),
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player'),
+            where('role', 'in', ['player', 'coach']),
             where('subgroupIDs', 'array-contains', currentSubgroupFilter)
         );
     }

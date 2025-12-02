@@ -1,10 +1,11 @@
 /**
  * Coach Statistics Module
- * Handles the Statistics tab for coaches with 4 main sections:
+ * Handles the Statistics tab for coaches with 3 main sections:
  * 1. 📈 Trainings-Analyse (Training Analysis)
- * 2. 🏓 Wettkampf-Aktivität (Competition Activity)
- * 3. 👥 Team-Übersicht (Team Overview)
- * 4. 🔥 Aktivitäts-Monitor (Activity Monitor)
+ * 2. 👥 Team-Übersicht (Team Overview)
+ * 3. 🔥 Aktivitäts-Monitor (Activity Monitor)
+ *
+ * Note: Wettkampf-Aktivität was moved to admin dashboard for global view
  */
 
 import {
@@ -16,7 +17,7 @@ import {
     limit,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { RANK_ORDER } from './ranks.js';
-import { loadCompetitionStatistics, cleanupCompetitionStatistics } from './competition-statistics.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 // Chart instances (global to allow cleanup)
 let attendanceTrendChart = null;
@@ -35,7 +36,6 @@ export async function loadStatistics(userData, db, currentSubgroupFilter = 'all'
         // Load all statistics sections
         await Promise.all([
             loadTrainingAnalysis(userData, db, currentSubgroupFilter),
-            loadCompetitionStatistics(userData, db, currentSubgroupFilter),
             loadTeamOverview(userData, db, currentSubgroupFilter),
             loadActivityMonitor(userData, db, currentSubgroupFilter),
         ]);
@@ -209,29 +209,31 @@ function getWeekNumber(date) {
 async function loadTeamOverview(userData, db, currentSubgroupFilter = 'all') {
     try {
         const usersRef = collection(db, 'users');
+        // Include both players and coaches (coaches can participate as players)
         const q = query(
             usersRef,
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
         const snapshot = await getDocs(q);
 
         let players = [];
         snapshot.forEach(doc => {
-            const playerData = { id: doc.id, ...doc.data() };
-
-            // Filter by subgroup
-            if (currentSubgroupFilter !== 'all') {
-                if (
-                    playerData.subgroupIDs &&
-                    playerData.subgroupIDs.includes(currentSubgroupFilter)
-                ) {
-                    players.push(playerData);
-                }
-            } else {
-                players.push(playerData);
-            }
+            players.push({ id: doc.id, ...doc.data() });
         });
+
+        // Filter by subgroup, age group, or gender
+        if (currentSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentSubgroupFilter);
+            } else if (isGenderFilter(currentSubgroupFilter)) {
+                players = filterPlayersByGender(players, currentSubgroupFilter);
+            } else {
+                players = players.filter(
+                    p => p.subgroupIDs && p.subgroupIDs.includes(currentSubgroupFilter)
+                );
+            }
+        }
 
         // Calculate team statistics
         const teamSize = players.length;
@@ -453,12 +455,13 @@ function renderRankDistributionChart(players) {
  */
 async function loadActivityMonitor(userData, db, currentSubgroupFilter = 'all') {
     try {
-        // Get players with attendance data
+        // Get players and coaches with attendance data
         const usersRef = collection(db, 'users');
+        // Include both players and coaches (coaches can participate as players)
         const q = query(
             usersRef,
             where('clubId', '==', userData.clubId),
-            where('role', '==', 'player')
+            where('role', 'in', ['player', 'coach'])
         );
         const snapshot = await getDocs(q);
 

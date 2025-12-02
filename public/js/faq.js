@@ -11,18 +11,16 @@ import {
     getDoc,
     connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// NEU: Der Emulator-Block
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('faq.js: Verbinde mit lokalen Firebase Emulatoren...');
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
 }
 
