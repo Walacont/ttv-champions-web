@@ -1,39 +1,27 @@
-// NEU: Zusätzliche Imports für die Emulatoren
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+// Use shared Firebase instance to avoid duplicate initialization
 import {
-    getAuth,
     signInWithEmailAndPassword,
     onAuthStateChanged,
     sendPasswordResetEmail,
-    connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 import {
-    getFirestore,
     doc,
     getDoc,
     query,
     collection,
     where,
     getDocs,
-    connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
+import { initFirebase } from './firebase-init.js';
 import { validateCodeFormat, formatCode, isCodeExpired } from './invitation-code-utils.js';
 
 console.log('[INDEX] Script starting...');
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Use shared Firebase instance (singleton) - this ensures we use the same
+// auth/db instances as other parts of the app
+const { auth, db } = initFirebase();
 
-console.log('[INDEX] Firebase initialized');
-
-// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
-if (shouldUseEmulators()) {
-    console.log('Login-Script: Verbinde mit lokalen Firebase Emulatoren...');
-    connectAuthEmulator(auth, 'http://localhost:9099');
-    connectFirestoreEmulator(db, 'localhost', 8080);
-}
+console.log('[INDEX] Firebase initialized via shared instance');
 
 const loginForm = document.getElementById('login-form');
 const resetForm = document.getElementById('reset-form');
