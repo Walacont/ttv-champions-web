@@ -1,0 +1,109 @@
+/**
+ * Mobile App Fixes for Capacitor
+ * Fixes touch scrolling, click issues, and status bar overlap
+ */
+
+/* Enable smooth scrolling on iOS */
+html, body {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    touch-action: manipulation;
+}
+
+/* Fix for touch events */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure buttons and links are clickable */
+button, a, input, select, textarea, [onclick], [role="button"] {
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
+/* Fix scrollable containers */
+.overflow-y-auto,
+.overflow-auto,
+[style*="overflow"] {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area padding for notched devices and status bar */
+body {
+    padding-top: max(env(safe-area-inset-top), 24px);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
+/* Android status bar fix - add padding to header/nav */
+header,
+nav,
+.sticky.top-0,
+[class*="sticky"][class*="top-0"] {
+    padding-top: max(env(safe-area-inset-top), 24px);
+}
+
+/* Fix for Capacitor native app */
+html.plt-capacitor body,
+html.plt-android body {
+    padding-top: 0 !important;
+}
+
+/* Header gets padding inside to push content below status bar, but stays at top:0 */
+html.plt-capacitor header.sticky,
+html.plt-android header.sticky,
+html.plt-capacitor .sticky.top-0,
+html.plt-android .sticky.top-0 {
+    top: 0 !important;
+    padding-top: 32px !important;
+}
+
+/* Content below sticky header needs margin to not be hidden */
+html.plt-capacitor header.sticky + *,
+html.plt-android header.sticky + *,
+html.plt-capacitor .sticky.top-0 + *,
+html.plt-android .sticky.top-0 + * {
+    margin-top: 0;
+}
+
+/* Non-sticky headers just need padding */
+html.plt-capacitor header:not(.sticky),
+html.plt-android header:not(.sticky) {
+    padding-top: 32px !important;
+}
+
+/* Make sure touch events work */
+html.plt-capacitor header *,
+html.plt-android header * {
+    pointer-events: auto !important;
+}
+
+/* Fix modal overlays - ensure they're below status bar */
+.fixed {
+    touch-action: auto;
+}
+
+.fixed.inset-0 {
+    padding-top: max(env(safe-area-inset-top), 24px);
+}
+
+/* Prevent text selection on buttons */
+button {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Fix for keyboard showing */
+.keyboard-visible {
+    height: calc(100% - var(--keyboard-height, 0px));
+}
+
+/* Ensure main content is scrollable */
+main,
+section,
+.container {
+    touch-action: pan-y;
+}

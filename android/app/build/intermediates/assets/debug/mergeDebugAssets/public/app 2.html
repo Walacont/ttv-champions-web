@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <!-- Meta Tags -->
+        <meta
+            name="description"
+            content="SC Champions - Digitales Sport-Training & Wettkampfsystem"
+        />
+        <meta name="author" content="SC Champions" />
+
+        <!-- Styles -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+
+            /* Global SPA Loader */
+            #spa-loader {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: rgba(243, 244, 246, 0.95);
+                z-index: 9999;
+                transition: opacity 0.3s ease;
+            }
+
+            #spa-loader.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            /* Smooth transitions */
+            #app {
+                animation: fadeIn 0.3s ease;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                }
+                to {
+                    opacity: 1;
+                }
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100">
+        <!-- Global SPA Loader -->
+        <div id="spa-loader" class="hidden">
+            <div class="text-center">
+                <svg
+                    class="animate-spin h-10 w-10 text-indigo-600 mx-auto"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                >
+                    <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                    ></circle>
+                    <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                </svg>
+                <p class="mt-4 text-sm font-medium text-gray-600">Lädt...</p>
+            </div>
+        </div>
+
+        <!-- Main App Container -->
+        <div id="app">
+            <!-- Content will be dynamically loaded here -->
+        </div>
+
+        <!-- Initialize SPA -->
+        <script type="module" src="/js/app.js"></script>
+    </body>
+</html>
