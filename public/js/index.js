@@ -19,7 +19,8 @@ console.log('[INDEX] Script starting...');
 
 // Use shared Firebase instance (singleton) - this ensures we use the same
 // auth/db instances as other parts of the app
-const { auth, db } = initFirebase();
+// Using top-level await (supported in ES modules)
+const { auth, db } = await initFirebase();
 
 console.log('[INDEX] Firebase initialized via shared instance');
 

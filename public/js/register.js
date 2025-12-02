@@ -21,7 +21,8 @@ console.log('[REGISTER] Script starting...');
 
 // ===== INITIALISIERUNG =====
 // Use shared Firebase instance (singleton)
-const { auth, db, functions } = initFirebase();
+// Using top-level await (supported in ES modules)
+const { auth, db, functions } = await initFirebase();
 
 console.log('[REGISTER] Firebase initialized via shared instance');
 
