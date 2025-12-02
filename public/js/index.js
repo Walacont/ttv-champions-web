@@ -150,13 +150,33 @@ if (loginForm) {
 
         try {
             console.log('[INDEX] Calling signInWithEmailAndPassword...');
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('[INDEX] Auth object:', auth ? 'exists' : 'null');
+            console.log('[INDEX] Auth app name:', auth?.app?.name);
+
+            // Add timeout wrapper to detect hanging calls
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Login timeout after 15 seconds')), 15000)
+            );
+
+            const loginPromise = signInWithEmailAndPassword(auth, email, password);
+
+            console.log('[INDEX] Login promise created, waiting...');
+
+            const userCredential = await Promise.race([loginPromise, timeoutPromise]);
             console.log('[INDEX] Login successful! User:', userCredential.user.email);
             console.log('[INDEX] Waiting for onAuthStateChanged to handle redirect...');
             // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
         } catch (error) {
-            console.error('[INDEX] Login error:', error.code, error.message);
-            feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
+            console.error('[INDEX] Login error:', error);
+            console.error('[INDEX] Error name:', error.name);
+            console.error('[INDEX] Error code:', error.code);
+            console.error('[INDEX] Error message:', error.message);
+
+            if (error.message === 'Login timeout after 15 seconds') {
+                feedbackMessage.textContent = 'Login-Timeout. Bitte prüfe deine Internetverbindung.';
+            } else {
+                feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
+            }
             feedbackMessage.classList.add('text-red-600');
             submitButton.disabled = false;
         }
