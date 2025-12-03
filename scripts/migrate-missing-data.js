@@ -261,19 +261,21 @@ async function migrateMatchRequests() {
             const loserId = mapUserId(data.loserId);
 
             // Map Firebase status to Supabase enum values
-            // Valid values: pending, confirmed, rejected, completed, cancelled
+            // Valid values: pending_player, pending_coach, approved, rejected
             const statusMap = {
-                'pending': 'pending',
-                'accepted': 'confirmed',
-                'confirmed': 'confirmed',
-                'approved': 'confirmed',
+                'pending': 'pending_player',
+                'pending_player': 'pending_player',
+                'pending_coach': 'pending_coach',
+                'accepted': 'approved',
+                'confirmed': 'approved',
+                'approved': 'approved',
+                'completed': 'approved',
                 'rejected': 'rejected',
                 'declined': 'rejected',
-                'completed': 'completed',
-                'cancelled': 'cancelled',
-                'canceled': 'cancelled'
+                'cancelled': 'rejected',
+                'canceled': 'rejected'
             };
-            const status = statusMap[data.status?.toLowerCase()] || 'pending';
+            const status = statusMap[data.status?.toLowerCase()] || 'pending_player';
 
             const requestData = {
                 id: isValidUUID(doc.id) ? doc.id : randomUUID(),
