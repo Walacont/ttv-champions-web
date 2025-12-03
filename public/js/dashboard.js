@@ -113,10 +113,59 @@ async function initializeWithUser(supabaseUser) {
 
     try {
         const userDocRef = doc(db, 'users', user.uid);
-        const initialDocSnap = await getDoc(userDocRef);
+        let initialDocSnap = await getDoc(userDocRef);
+
+        // If user doesn't exist in Firebase Firestore, sync from Supabase
         if (!initialDocSnap.exists()) {
-            await supabase.auth.signOut();
-            return;
+            console.log('[DASHBOARD] User not in Firestore, syncing from Supabase...');
+
+            // Get profile from Supabase
+            const { data: supabaseProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.uid)
+                .single();
+
+            if (profileError || !supabaseProfile) {
+                console.error('[DASHBOARD] No profile found in Supabase:', profileError);
+                await supabase.auth.signOut();
+                return;
+            }
+
+            // Check if onboarding is complete
+            if (!supabaseProfile.onboarding_complete) {
+                console.log('[DASHBOARD] Onboarding not complete, redirecting...');
+                window.location.href = '/onboarding.html';
+                return;
+            }
+
+            // Create Firebase Firestore document from Supabase profile
+            const { setDoc } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+
+            const firestoreUserData = {
+                email: supabaseProfile.email || user.email,
+                firstName: supabaseProfile.first_name || '',
+                lastName: supabaseProfile.last_name || '',
+                displayName: supabaseProfile.display_name || '',
+                role: supabaseProfile.role || 'player',
+                clubId: supabaseProfile.club_id || null,
+                xp: supabaseProfile.xp || 0,
+                points: supabaseProfile.points || 0,
+                eloRating: supabaseProfile.elo_rating || 1000,
+                highestElo: supabaseProfile.highest_elo || 1000,
+                gender: supabaseProfile.gender || null,
+                birthdate: supabaseProfile.birthdate || null,
+                photoURL: supabaseProfile.avatar_url || null,
+                onboardingComplete: true,
+                isOffline: false,
+                createdAt: new Date()
+            };
+
+            await setDoc(userDocRef, firestoreUserData);
+            console.log('[DASHBOARD] Created Firestore user from Supabase profile');
+
+            // Reload the document
+            initialDocSnap = await getDoc(userDocRef);
         }
 
         // Season resets are now handled by Cloud Function (every 6 weeks)
