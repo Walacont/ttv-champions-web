@@ -149,3 +149,44 @@ export function calculateHandicap(playerA, playerB) {
         points: handicapPoints,
     };
 }
+
+/**
+ * Calculates handicap points for doubles based on average team Elo
+ * @param {Object} teamA - Team A with player1 and player2 (both have eloRating)
+ * @param {Object} teamB - Team B with player1 and player2 (both have eloRating)
+ * @returns {{team: 'A'|'B', averageEloA: number, averageEloB: number, points: number}|null} Handicap info or null
+ */
+export function calculateDoublesHandicap(teamA, teamB) {
+    // Calculate average Elo for each team
+    const eloA1 = teamA.player1?.eloRating || 0;
+    const eloA2 = teamA.player2?.eloRating || 0;
+    const eloB1 = teamB.player1?.eloRating || 0;
+    const eloB2 = teamB.player2?.eloRating || 0;
+
+    const averageEloA = (eloA1 + eloA2) / 2;
+    const averageEloB = (eloB1 + eloB2) / 2;
+
+    const eloDiff = Math.abs(averageEloA - averageEloB);
+
+    if (eloDiff < 25) {
+        return null;
+    }
+
+    let handicapPoints = Math.round(eloDiff / 50);
+
+    if (handicapPoints > 10) {
+        handicapPoints = 10;
+    }
+
+    if (handicapPoints < 1) {
+        return null;
+    }
+
+    const weakerTeam = averageEloA < averageEloB ? 'A' : 'B';
+    return {
+        team: weakerTeam,
+        averageEloA: Math.round(averageEloA),
+        averageEloB: Math.round(averageEloB),
+        points: handicapPoints,
+    };
+}
