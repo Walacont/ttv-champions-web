@@ -92,16 +92,19 @@ function isValidUUID(str) {
     return uuidRegex.test(str);
 }
 
-// Load subgroup mappings
-const subgroupMappings = {};
+// Load subgroup mappings - maps club_id to first subgroup
+const clubToSubgroupId = {};
 async function loadSubgroupMappings() {
     const { data: subgroups } = await supabase.from('subgroups').select('id, club_id');
-    // We'll match by checking existing subgroups
     if (subgroups) {
         subgroups.forEach(s => {
-            subgroupMappings[s.id] = s.id; // UUID to UUID
+            // Store first subgroup for each club as default
+            if (!clubToSubgroupId[s.club_id]) {
+                clubToSubgroupId[s.club_id] = s.id;
+            }
         });
     }
+    console.log(`   Loaded ${Object.keys(clubToSubgroupId).length} club->subgroup mappings`);
 }
 
 // Load training session mappings
@@ -152,10 +155,18 @@ async function migrateAttendance() {
                     .filter(c => c.id !== null);
             }
 
-            // Get subgroup ID
+            // Map club ID first (needed for subgroup fallback)
+            let clubId = data.clubId;
+            if (clubId && !isValidUUID(clubId)) {
+                const { data: clubs } = await supabase.from('clubs').select('id').limit(1);
+                clubId = clubs?.[0]?.id || null;
+            }
+
+            // Get subgroup ID - use default from club if not valid
             let subgroupId = data.subgroupId;
-            if (subgroupId && !isValidUUID(subgroupId)) {
-                subgroupId = null;
+            if (!subgroupId || !isValidUUID(subgroupId)) {
+                // Use first subgroup from the club as fallback
+                subgroupId = clubId ? clubToSubgroupId[clubId] : null;
             }
 
             // Get session ID if exists
@@ -164,14 +175,7 @@ async function migrateAttendance() {
                 sessionId = data.sessionId;
             }
 
-            // Map club ID
-            let clubId = data.clubId;
-            if (clubId && !isValidUUID(clubId)) {
-                const { data: clubs } = await supabase.from('clubs').select('id').limit(1);
-                clubId = clubs?.[0]?.id || null;
-            }
-
-            if (!clubId || presentPlayerIds.length === 0) {
+            if (!clubId || !subgroupId || presentPlayerIds.length === 0) {
                 skipped++;
                 continue;
             }
@@ -256,6 +260,21 @@ async function migrateMatchRequests() {
             const winnerId = mapUserId(data.winnerId);
             const loserId = mapUserId(data.loserId);
 
+            // Map Firebase status to Supabase enum values
+            // Valid values: pending, confirmed, rejected, completed, cancelled
+            const statusMap = {
+                'pending': 'pending',
+                'accepted': 'confirmed',
+                'confirmed': 'confirmed',
+                'approved': 'confirmed',
+                'rejected': 'rejected',
+                'declined': 'rejected',
+                'completed': 'completed',
+                'cancelled': 'cancelled',
+                'canceled': 'cancelled'
+            };
+            const status = statusMap[data.status?.toLowerCase()] || 'pending';
+
             const requestData = {
                 id: isValidUUID(doc.id) ? doc.id : randomUUID(),
                 player_a_id: playerAId,
@@ -263,7 +282,7 @@ async function migrateMatchRequests() {
                 club_id: clubId,
                 winner_id: winnerId,
                 loser_id: loserId,
-                status: data.status || 'pending',
+                status: status,
                 sets: data.sets || null,
                 approvals: data.approvals || null,
                 is_cross_club: data.isCrossClub || false,
