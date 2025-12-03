@@ -185,6 +185,8 @@ onboardingForm?.addEventListener('submit', async e => {
             first_name: document.getElementById('firstName')?.value || '',
             last_name: document.getElementById('lastName')?.value || '',
             display_name: `${document.getElementById('firstName')?.value || ''} ${document.getElementById('lastName')?.value || ''}`.trim(),
+            birthdate: birthdate,
+            gender: document.getElementById('gender')?.value || null,
             avatar_url: photoURL,
             onboarding_complete: true,
             is_offline: false,
