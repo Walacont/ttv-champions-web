@@ -18,6 +18,7 @@ import ExercisesList from '@/components/ExercisesList.vue'
 import MatchRequestForm from '@/components/MatchRequestForm.vue'
 import PendingRequests from '@/components/PendingRequests.vue'
 import AttendanceCalendar from '@/components/AttendanceCalendar.vue'
+import MobileNavigation from '@/components/MobileNavigation.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -95,55 +96,59 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 pb-6">
+  <div class="min-h-screen bg-gray-100 pb-20 md:pb-6">
     <!-- Header -->
-    <header class="bg-white shadow-sm safe-top">
-      <div class="container mx-auto px-4 py-4 max-w-7xl">
-        <div class="flex justify-between items-start mb-4">
-          <div class="flex items-start gap-3 flex-1">
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+      <div class="container mx-auto px-4 py-3 sm:py-4 max-w-7xl">
+        <!-- Mobile Header -->
+        <div class="flex justify-between items-center gap-2 mb-3 sm:mb-4">
+          <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <!-- Profile Picture -->
             <div
               @click="goToProfile"
-              class="h-14 w-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl cursor-pointer shadow-md flex-shrink-0"
+              class="h-10 w-10 sm:h-14 sm:w-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-base sm:text-xl cursor-pointer shadow-md flex-shrink-0"
             >
               {{ authStore.displayName?.charAt(0)?.toUpperCase() || 'S' }}
             </div>
 
             <!-- Title and Club Info -->
-            <div class="flex-1">
-              <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
-              <p class="text-sm sm:text-base text-gray-600">
-                Willkommen zurück, {{ authStore.displayName }}!
+            <div class="flex-1 min-w-0">
+              <h1 class="text-lg sm:text-2xl md:text-3xl font-bold text-gray-900 truncate">Mein Dashboard</h1>
+              <p class="text-xs sm:text-sm text-gray-600 truncate">
+                Willkommen, {{ authStore.displayName }}!
               </p>
-              <p v-if="authStore.club" class="text-xs sm:text-sm text-gray-500 mt-1">
+              <p v-if="authStore.club" class="text-xs text-gray-500 truncate hidden sm:block">
                 <i class="fas fa-building mr-1"></i>{{ authStore.club.name }}
               </p>
             </div>
           </div>
 
-          <div class="flex items-center space-x-3">
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <!-- Coach Button -->
             <button
               v-if="isCoach"
               @click="goToCoach"
-              class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-1.5 px-3 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
+              class="bg-purple-500 hover:bg-purple-600 text-white font-bold p-2 sm:py-1.5 sm:px-3 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
+              title="Coach-Bereich"
             >
-              <i class="fas fa-user-shield mr-1"></i>
-              <span class="hidden sm:inline">Coach</span>
+              <i class="fas fa-user-shield"></i>
+              <span class="hidden sm:inline ml-1">Coach</span>
             </button>
 
             <!-- Settings -->
             <button
               @click="goToSettings"
               class="text-gray-500 hover:text-gray-800 transition-colors p-2"
+              title="Einstellungen"
             >
-              <i class="fas fa-cog text-xl"></i>
+              <i class="fas fa-cog text-lg sm:text-xl"></i>
             </button>
 
-            <!-- Logout -->
+            <!-- Logout (hidden on mobile, shown in profile) -->
             <button
               @click="handleLogout"
-              class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
+              class="hidden sm:flex bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
             >
               Logout
             </button>
@@ -370,7 +375,7 @@ onMounted(async () => {
     </Teleport>
 
     <!-- Footer -->
-    <footer class="mt-12 pb-6 px-4">
+    <footer class="mt-12 pb-6 px-4 hidden md:block">
       <div class="max-w-4xl mx-auto">
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div class="flex items-start gap-3">
@@ -395,5 +400,8 @@ onMounted(async () => {
         </div>
       </div>
     </footer>
+
+    <!-- Mobile Navigation -->
+    <MobileNavigation />
   </div>
 </template>

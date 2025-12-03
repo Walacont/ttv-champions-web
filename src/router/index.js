@@ -9,6 +9,8 @@ const DashboardView = () => import('@/views/DashboardView.vue')
 const CoachView = () => import('@/views/CoachView.vue')
 const AdminView = () => import('@/views/AdminView.vue')
 const ProfileView = () => import('@/views/ProfileView.vue')
+const SettingsView = () => import('@/views/SettingsView.vue')
+const FAQView = () => import('@/views/FAQView.vue')
 
 const routes = [
   {
@@ -56,6 +58,18 @@ const routes = [
     name: 'Profile',
     component: ProfileView,
     meta: { requiresAuth: true, requiresOnboarding: true }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: SettingsView,
+    meta: { requiresAuth: true, requiresOnboarding: true }
+  },
+  {
+    path: '/faq',
+    name: 'FAQ',
+    component: FAQView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/:pathMatch(.*)*',
