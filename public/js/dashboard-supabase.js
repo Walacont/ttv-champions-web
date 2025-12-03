@@ -71,10 +71,10 @@ async function loadUserProfile() {
     try {
         const { data: profile, error } = await supabase
             .from('profiles')
-            .select(\`
+            .select(`
                 *,
                 club:clubs(id, name, sport_id)
-            \`)
+            `)
             .eq('id', currentUser.id)
             .single();
 
@@ -174,7 +174,7 @@ function setupHeader() {
     const welcomeMsg = document.getElementById('welcome-message');
     if (welcomeMsg) {
         const name = currentUserData.first_name || currentUserData.display_name || 'Spieler';
-        welcomeMsg.textContent = \`Willkommen zurück, \${name}!\`;
+        welcomeMsg.textContent = `Willkommen zurück, ${name}!`;
     }
 
     // Club name
@@ -199,7 +199,7 @@ function setupTabs() {
 
             tabContents.forEach(content => {
                 content.classList.add('hidden');
-                if (content.id === \`tab-content-\${tabId}\`) {
+                if (content.id === `tab-content-${tabId}`) {
                     content.classList.remove('hidden');
                 }
             });
@@ -275,7 +275,7 @@ async function loadSubgroupsForFilter(selectElement) {
             subgroups.forEach(sg => {
                 const option = document.createElement('option');
                 option.value = sg.id;
-                option.textContent = \`📁 \${sg.name}\`;
+                option.textContent = `📁 ${sg.name}`;
                 selectElement.appendChild(option);
             });
         }
@@ -312,26 +312,26 @@ function updateRankDisplay() {
         }
     }
 
-    let html = \`
+    let html = `
         <div class="text-center">
-            <p class="text-4xl mb-2">\${currentRank.icon}</p>
-            <p class="text-xl font-bold text-indigo-600">\${currentRank.name}</p>
-            <p class="text-sm text-gray-500">\${xp} XP</p>
-    \`;
+            <p class="text-4xl mb-2">${currentRank.icon}</p>
+            <p class="text-xl font-bold text-indigo-600">${currentRank.name}</p>
+            <p class="text-sm text-gray-500">${xp} XP</p>
+    `;
 
     if (nextRank) {
         const progress = ((xp - currentRank.minXP) / (nextRank.minXP - currentRank.minXP)) * 100;
-        html += \`
+        html += `
             <div class="mt-4">
-                <p class="text-xs text-gray-500 mb-1">Nächster Rang: \${nextRank.icon} \${nextRank.name}</p>
+                <p class="text-xs text-gray-500 mb-1">Nächster Rang: ${nextRank.icon} ${nextRank.name}</p>
                 <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-indigo-600 h-2 rounded-full" style="width: \${Math.min(progress, 100)}%"></div>
+                    <div class="bg-indigo-600 h-2 rounded-full" style="width: ${Math.min(progress, 100)}%"></div>
                 </div>
-                <p class="text-xs text-gray-400 mt-1">\${nextRank.minXP - xp} XP bis zum Aufstieg</p>
+                <p class="text-xs text-gray-400 mt-1">${nextRank.minXP - xp} XP bis zum Aufstieg</p>
             </div>
-        \`;
+        `;
     } else {
-        html += \`<p class="text-sm text-green-600 mt-2">Höchster Rang erreicht!</p>\`;
+        html += `<p class="text-sm text-green-600 mt-2">Höchster Rang erreicht!</p>`;
     }
 
     html += '</div>';
@@ -366,13 +366,13 @@ async function loadLeaderboards() {
 
         if (error) throw error;
 
-        container.innerHTML = \`
+        container.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                \${renderLeaderboard('Skill (Elo)', players, 'elo_rating', '⚡')}
-                \${renderLeaderboard('Fleiß (XP)', [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0)), 'xp', '💪')}
-                \${renderLeaderboard('Season (Punkte)', [...players].sort((a, b) => (b.points || 0) - (a.points || 0)), 'points', '🏆')}
+                ${renderLeaderboard('Skill (Elo)', players, 'elo_rating', '⚡')}
+                ${renderLeaderboard('Fleiß (XP)', [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0)), 'xp', '💪')}
+                ${renderLeaderboard('Season (Punkte)', [...players].sort((a, b) => (b.points || 0) - (a.points || 0)), 'points', '🏆')}
             </div>
-        \`;
+        `;
 
     } catch (error) {
         console.error('Error loading leaderboards:', error);
@@ -384,44 +384,44 @@ function renderLeaderboard(title, players, field, icon) {
     const top10 = players.slice(0, 10);
     const currentUserRank = players.findIndex(p => p.id === currentUser.id) + 1;
 
-    let html = \`
+    let html = `
         <div class="bg-white p-4 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold mb-3">\${icon} \${title}</h3>
+            <h3 class="text-lg font-semibold mb-3">${icon} ${title}</h3>
             <div class="space-y-2">
-    \`;
+    `;
 
     top10.forEach((player, index) => {
         const isCurrentUser = player.id === currentUser.id;
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : \`\${index + 1}.\`;
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
 
-        html += \`
-            <div class="flex items-center justify-between p-2 rounded \${isCurrentUser ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'}">
+        html += `
+            <div class="flex items-center justify-between p-2 rounded ${isCurrentUser ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'}">
                 <div class="flex items-center gap-2">
-                    <span class="w-6 text-center">\${medal}</span>
-                    <img src="\${player.avatar_url || '/images/default-avatar.png'}"
+                    <span class="w-6 text-center">${medal}</span>
+                    <img src="${player.avatar_url || '/images/default-avatar.png'}"
                          class="w-8 h-8 rounded-full object-cover"
                          onerror="this.src='/images/default-avatar.png'">
-                    <span class="\${isCurrentUser ? 'font-semibold' : ''}">\${player.display_name || 'Unbekannt'}</span>
+                    <span class="${isCurrentUser ? 'font-semibold' : ''}">${player.display_name || 'Unbekannt'}</span>
                 </div>
-                <span class="font-bold text-indigo-600">\${player[field] || 0}</span>
+                <span class="font-bold text-indigo-600">${player[field] || 0}</span>
             </div>
-        \`;
+        `;
     });
 
     // Show current user's rank if not in top 10
     if (currentUserRank > 10) {
         const currentPlayer = players[currentUserRank - 1];
-        html += \`
+        html += `
             <div class="border-t mt-2 pt-2">
                 <div class="flex items-center justify-between p-2 bg-indigo-50 border border-indigo-200 rounded">
                     <div class="flex items-center gap-2">
-                        <span class="w-6 text-center">\${currentUserRank}.</span>
+                        <span class="w-6 text-center">${currentUserRank}.</span>
                         <span class="font-semibold">Du</span>
                     </div>
-                    <span class="font-bold text-indigo-600">\${currentPlayer[field] || 0}</span>
+                    <span class="font-bold text-indigo-600">${currentPlayer[field] || 0}</span>
                 </div>
             </div>
-        \`;
+        `;
     }
 
     html += '</div></div>';
@@ -448,17 +448,17 @@ async function loadPointsHistory() {
             return;
         }
 
-        container.innerHTML = history.map(entry => \`
+        container.innerHTML = history.map(entry => `
             <li class="flex justify-between items-center p-2 bg-gray-50 rounded">
                 <div>
-                    <span class="text-sm">\${entry.description || entry.reason || 'Punkte'}</span>
-                    <span class="text-xs text-gray-400 block">\${formatDate(entry.created_at)}</span>
+                    <span class="text-sm">${entry.description || entry.reason || 'Punkte'}</span>
+                    <span class="text-xs text-gray-400 block">${formatDate(entry.created_at)}</span>
                 </div>
-                <span class="font-bold \${entry.points >= 0 ? 'text-green-600' : 'text-red-600'}">
-                    \${entry.points >= 0 ? '+' : ''}\${entry.points}
+                <span class="font-bold ${entry.points >= 0 ? 'text-green-600' : 'text-red-600'}">
+                    ${entry.points >= 0 ? '+' : ''}${entry.points}
                 </span>
             </li>
-        \`).join('');
+        `).join('');
 
     } catch (error) {
         console.error('Error loading points history:', error);
@@ -486,17 +486,17 @@ async function loadChallenges() {
             return;
         }
 
-        container.innerHTML = challenges.map(challenge => \`
+        container.innerHTML = challenges.map(challenge => `
             <div class="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-200 cursor-pointer hover:shadow-md transition"
-                 onclick="openChallengeModal('\${challenge.id}')">
-                <h4 class="font-semibold text-purple-800">\${challenge.name}</h4>
-                <p class="text-sm text-gray-600 mt-1 line-clamp-2">\${challenge.description || ''}</p>
+                 onclick="openChallengeModal('${challenge.id}')">
+                <h4 class="font-semibold text-purple-800">${challenge.name}</h4>
+                <p class="text-sm text-gray-600 mt-1 line-clamp-2">${challenge.description || ''}</p>
                 <div class="flex justify-between items-center mt-3">
-                    <span class="text-xs text-purple-600">\${challenge.xp_reward || 0} XP</span>
-                    <span class="text-xs text-gray-400">\${formatDate(challenge.expires_at)}</span>
+                    <span class="text-xs text-purple-600">${challenge.xp_reward || 0} XP</span>
+                    <span class="text-xs text-gray-400">${formatDate(challenge.expires_at)}</span>
                 </div>
             </div>
-        \`).join('');
+        `).join('');
 
     } catch (error) {
         console.error('Error loading challenges:', error);
@@ -523,22 +523,22 @@ async function loadExercises() {
             return;
         }
 
-        container.innerHTML = exercises.map(exercise => \`
+        container.innerHTML = exercises.map(exercise => `
             <div class="bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer"
-                 onclick="openExerciseModal('\${exercise.id}')">
+                 onclick="openExerciseModal('${exercise.id}')">
                 <div class="aspect-video bg-gray-100 rounded mb-3 overflow-hidden">
-                    <img src="\${exercise.image_url || '/images/exercise-placeholder.png'}"
-                         alt="\${exercise.name}"
+                    <img src="${exercise.image_url || '/images/exercise-placeholder.png'}"
+                         alt="${exercise.name}"
                          class="w-full h-full object-cover"
                          onerror="this.src='/images/exercise-placeholder.png'">
                 </div>
-                <h4 class="font-semibold">\${exercise.name}</h4>
-                <p class="text-sm text-gray-600 mt-1 line-clamp-2">\${exercise.description || ''}</p>
+                <h4 class="font-semibold">${exercise.name}</h4>
+                <p class="text-sm text-gray-600 mt-1 line-clamp-2">${exercise.description || ''}</p>
                 <div class="flex justify-between items-center mt-2">
-                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">\${exercise.xp_reward || 0} XP</span>
+                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">${exercise.xp_reward || 0} XP</span>
                 </div>
             </div>
-        \`).join('');
+        `).join('');
 
     } catch (error) {
         console.error('Error loading exercises:', error);
@@ -555,12 +555,12 @@ async function loadMatchRequests() {
         // Get pending requests where user is involved
         const { data: requests, error } = await supabase
             .from('match_requests')
-            .select(\`
+            .select(`
                 *,
                 requester:profiles!match_requests_requester_id_fkey(id, display_name, avatar_url),
                 opponent:profiles!match_requests_opponent_id_fkey(id, display_name, avatar_url)
-            \`)
-            .or(\`requester_id.eq.\${currentUser.id},opponent_id.eq.\${currentUser.id}\`)
+            `)
+            .or(`requester_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
             .limit(5);
@@ -577,30 +577,30 @@ async function loadMatchRequests() {
             const otherPlayer = isRequester ? req.opponent : req.requester;
             const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
 
-            return \`
+            return `
                 <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
                     <div class="flex items-center gap-3">
-                        <img src="\${otherPlayer?.avatar_url || '/images/default-avatar.png'}"
+                        <img src="${otherPlayer?.avatar_url || '/images/default-avatar.png'}"
                              class="w-10 h-10 rounded-full object-cover">
                         <div>
-                            <p class="font-medium">\${isRequester ? 'Anfrage an' : 'Anfrage von'} \${otherPlayer?.display_name || 'Unbekannt'}</p>
-                            <p class="text-xs text-gray-500">\${statusText}</p>
+                            <p class="font-medium">${isRequester ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
+                            <p class="text-xs text-gray-500">${statusText}</p>
                         </div>
                     </div>
-                    \${!isRequester && req.status === 'pending_player' ? \`
+                    ${!isRequester && req.status === 'pending_player' ? `
                         <div class="flex gap-2">
-                            <button onclick="respondToMatchRequest('\${req.id}', true)"
+                            <button onclick="respondToMatchRequest('${req.id}', true)"
                                     class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
                                 Annehmen
                             </button>
-                            <button onclick="respondToMatchRequest('\${req.id}', false)"
+                            <button onclick="respondToMatchRequest('${req.id}', false)"
                                     class="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
                                 Ablehnen
                             </button>
                         </div>
-                    \` : ''}
+                    ` : ''}
                 </div>
-            \`;
+            `;
         }).join('');
 
         // Update badge
@@ -634,7 +634,7 @@ async function loadCalendar() {
     // Update month display
     const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
                         'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-    if (monthYearEl) monthYearEl.textContent = \`\${monthNames[month]} \${year}\`;
+    if (monthYearEl) monthYearEl.textContent = `${monthNames[month]} ${year}`;
 
     // Get first and last day of month
     const firstDay = new Date(year, month, 1);
@@ -669,17 +669,17 @@ async function loadCalendar() {
 
     // Days of month
     for (let day = 1; day <= lastDay.getDate(); day++) {
-        const dateStr = \`\${year}-\${String(month + 1).padStart(2, '0')}-\${String(day).padStart(2, '0')}\`;
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isPresent = attendanceDates.includes(dateStr);
         const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
 
-        html += \`
+        html += `
             <div class="aspect-square flex items-center justify-center text-sm rounded-lg border
-                        \${isPresent ? 'calendar-day-present' : 'bg-white'}
-                        \${isToday ? 'ring-2 ring-indigo-500' : ''}">
-                \${day}
+                        ${isPresent ? 'calendar-day-present' : 'bg-white'}
+                        ${isToday ? 'ring-2 ring-indigo-500' : ''}">
+                ${day}
             </div>
-        \`;
+        `;
     }
 
     grid.innerHTML = html;
@@ -704,7 +704,7 @@ function updateSeasonCountdown() {
     const currentSeasonWeek = weeksSinceStart % 6;
     const daysLeft = (6 - currentSeasonWeek) * 7 - now.getDay();
 
-    countdownEl.textContent = \`\${Math.max(0, daysLeft)} Tage\`;
+    countdownEl.textContent = `${Math.max(0, daysLeft)} Tage`;
 }
 
 // --- Realtime Subscriptions ---
@@ -716,7 +716,7 @@ function setupRealtimeSubscriptions() {
             event: 'UPDATE',
             schema: 'public',
             table: 'profiles',
-            filter: \`id=eq.\${currentUser.id}\`
+            filter: `id=eq.${currentUser.id}`
         }, payload => {
             console.log('[DASHBOARD-SUPABASE] Profile updated:', payload.new);
             currentUserData = { ...currentUserData, ...payload.new };
@@ -735,7 +735,7 @@ function setupRealtimeSubscriptions() {
                 event: '*',
                 schema: 'public',
                 table: 'match_requests',
-                filter: \`club_id=eq.\${currentUserData.club_id}\`
+                filter: `club_id=eq.${currentUserData.club_id}`
             }, () => {
                 loadMatchRequests();
             })
@@ -755,15 +755,15 @@ function formatDate(dateStr) {
 function showError(message) {
     const pageLoader = document.getElementById('page-loader');
     if (pageLoader) {
-        pageLoader.innerHTML = \`
+        pageLoader.innerHTML = `
             <div class="text-center">
                 <p class="text-red-500 text-xl mb-4">❌</p>
-                <p class="text-red-600">\${message}</p>
+                <p class="text-red-600">${message}</p>
                 <button onclick="window.location.reload()" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded">
                     Neu laden
                 </button>
             </div>
-        \`;
+        `;
     }
 }
 
