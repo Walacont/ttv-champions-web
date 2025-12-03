@@ -2,6 +2,8 @@
 // Komplett neue Version ohne Firebase-Abhängigkeiten
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { RANK_ORDER, groupPlayersByRank, calculateRank } from './ranks.js';
+import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -425,19 +427,29 @@ async function loadLeaderboards() {
             <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
 
             <!-- Tabs -->
-            <div class="flex justify-center border-b border-gray-200 mb-4">
-                <button id="lb-tab-xp" class="lb-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    <div>Fleiß</div>
-                    <div class="text-xs text-gray-500 font-normal">(XP)</div>
-                </button>
-                <button id="lb-tab-elo" class="lb-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    <div>Skill</div>
-                    <div class="text-xs text-gray-500 font-normal">(Elo)</div>
-                </button>
-                <button id="lb-tab-points" class="lb-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
-                    <div>Season</div>
-                    <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
-                </button>
+            <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6">
+                <div class="flex justify-center min-w-max">
+                    <button id="lb-tab-xp" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                        <div>Fleiß</div>
+                        <div class="text-xs text-gray-500 font-normal">(XP)</div>
+                    </button>
+                    <button id="lb-tab-points" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                        <div>Season</div>
+                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                    </button>
+                    <button id="lb-tab-elo" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                        <div>Skill</div>
+                        <div class="text-xs text-gray-500 font-normal">(Elo)</div>
+                    </button>
+                    <button id="lb-tab-ranks" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                        <div>Ränge</div>
+                        <div class="text-xs text-gray-500 font-normal">(Level)</div>
+                    </button>
+                    <button id="lb-tab-doubles" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                        <div>Doppel</div>
+                        <div class="text-xs text-gray-500 font-normal">(Teams)</div>
+                    </button>
+                </div>
             </div>
 
             <!-- Club/Global Toggle -->
@@ -452,6 +464,16 @@ async function loadLeaderboards() {
             <div id="leaderboard-list" class="mt-4 space-y-2">
                 <p class="text-center text-gray-500 py-8">Lade Rangliste...</p>
             </div>
+
+            <!-- Ranks Content (hidden by default) -->
+            <div id="ranks-list" class="mt-4 space-y-4 hidden">
+                <p class="text-center text-gray-500 py-8">Lade Ränge...</p>
+            </div>
+
+            <!-- Doubles Content (hidden by default) -->
+            <div id="doubles-list" class="mt-4 hidden">
+                <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+            </div>
         </div>
     `;
 
@@ -461,7 +483,7 @@ async function loadLeaderboards() {
             const tab = btn.id.replace('lb-tab-', '');
             currentLeaderboardTab = tab;
             updateLeaderboardTabs();
-            renderLeaderboardList();
+            updateLeaderboardContent();
         });
     });
 
@@ -471,7 +493,7 @@ async function loadLeaderboards() {
             const scope = btn.id.replace('lb-scope-', '');
             currentLeaderboardScope = scope;
             updateLeaderboardScope();
-            renderLeaderboardList();
+            updateLeaderboardContent();
         });
     });
 
@@ -481,7 +503,10 @@ async function loadLeaderboards() {
 
     // Load data
     await fetchLeaderboardData();
-    renderLeaderboardList();
+    updateLeaderboardContent();
+
+    // Load doubles leaderboard
+    loadDoublesLeaderboardTab();
 }
 
 function updateLeaderboardTabs() {
@@ -508,6 +533,122 @@ function updateLeaderboardScope() {
             btn.classList.add('text-gray-600');
         }
     });
+}
+
+// Switch between different leaderboard content views
+function updateLeaderboardContent() {
+    const leaderboardList = document.getElementById('leaderboard-list');
+    const ranksList = document.getElementById('ranks-list');
+    const doublesList = document.getElementById('doubles-list');
+    const scopeToggle = document.getElementById('lb-scope-club')?.parentElement;
+
+    // Hide all content first
+    if (leaderboardList) leaderboardList.classList.add('hidden');
+    if (ranksList) ranksList.classList.add('hidden');
+    if (doublesList) doublesList.classList.add('hidden');
+
+    // Show/hide scope toggle based on tab
+    if (scopeToggle) {
+        if (currentLeaderboardTab === 'elo' || currentLeaderboardTab === 'doubles') {
+            scopeToggle.classList.remove('hidden');
+        } else {
+            scopeToggle.classList.add('hidden');
+        }
+    }
+
+    // Show appropriate content
+    if (currentLeaderboardTab === 'ranks') {
+        if (ranksList) ranksList.classList.remove('hidden');
+        renderRanksList();
+    } else if (currentLeaderboardTab === 'doubles') {
+        if (doublesList) doublesList.classList.remove('hidden');
+        // Doubles content is loaded separately
+    } else {
+        if (leaderboardList) leaderboardList.classList.remove('hidden');
+        renderLeaderboardList();
+    }
+}
+
+// Load doubles leaderboard tab
+function loadDoublesLeaderboardTab() {
+    const container = document.getElementById('doubles-list');
+    if (!container) return;
+
+    // Use the imported function from doubles-matches-supabase.js
+    const clubId = currentUserData.club_id;
+    const isGlobal = currentLeaderboardScope === 'global' || !clubId;
+
+    loadDoublesLeaderboard(
+        isGlobal ? null : clubId,
+        supabase,
+        container,
+        realtimeSubscriptions,
+        currentUser.id,
+        isGlobal
+    );
+}
+
+// Render ranks grouped by level
+function renderRanksList() {
+    const container = document.getElementById('ranks-list');
+    if (!container) return;
+
+    const players = leaderboardCache[currentLeaderboardScope] || leaderboardCache.global || [];
+
+    if (players.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine Spieler gefunden</p>';
+        return;
+    }
+
+    // Group players by rank using the imported function
+    const grouped = groupPlayersByRank(players.map(p => ({
+        ...p,
+        eloRating: p.elo_rating,
+        xp: p.xp
+    })));
+
+    let html = '';
+
+    // Display ranks from highest to lowest
+    for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
+        const rank = RANK_ORDER[i];
+        const playersInRank = grouped[rank.id] || [];
+
+        if (playersInRank.length === 0) continue;
+
+        // Sort by XP within rank
+        playersInRank.sort((a, b) => (b.xp || 0) - (a.xp || 0));
+
+        html += `
+            <div class="rank-section">
+                <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: ${rank.color}20; border-left: 4px solid ${rank.color};">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl">${rank.emoji}</span>
+                        <span class="font-bold text-lg" style="color: ${rank.color};">${rank.name}</span>
+                    </div>
+                    <span class="text-sm text-gray-600">${playersInRank.length} Spieler</span>
+                </div>
+                <div class="mt-2 space-y-1 pl-4">
+                    ${playersInRank.map(player => {
+                        const isCurrentUser = player.id === currentUser.id;
+                        return `
+                        <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
+                            <img src="${player.avatar_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <div class="flex-grow">
+                                <p class="text-sm">${player.display_name || 'Unbekannt'}</p>
+                            </div>
+                            <div class="text-xs text-gray-600">
+                                ${player.elo_rating || 0} Elo | ${player.xp || 0} XP
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html || '<p class="text-center text-gray-500 py-8">Keine Spieler gefunden</p>';
 }
 
 async function fetchLeaderboardData() {
