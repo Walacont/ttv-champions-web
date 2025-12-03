@@ -63,13 +63,62 @@ function convertTimestamp(firestoreTimestamp) {
 }
 
 async function clearProfiles() {
-    log('Clearing existing profiles...', 'progress');
+    log('Clearing existing profiles and related data...', 'progress');
 
-    // Delete all profiles (cascades to related data)
+    // Delete dependent tables first (in correct order due to foreign keys)
+    const tablesToClear = [
+        'completed_exercises',
+        'completed_challenges',
+        'exercise_milestones',
+        'xp_history',
+        'points_history',
+        'streaks',
+        'attendance',
+        'match_requests',
+        'match_proposals',
+        'doubles_match_requests',
+        'matches',
+        'doubles_matches',
+        'doubles_pairings',
+        'club_requests',
+        'leave_club_requests',
+        'subgroup_members'
+    ];
+
+    for (const table of tablesToClear) {
+        const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error && error.code !== 'PGRST116') {
+            log(`  Warning: Could not clear ${table}: ${error.message}`, 'warn');
+        } else {
+            log(`  Cleared ${table}`, 'info');
+        }
+    }
+
+    // Clear exercises created_by reference (set to null instead of delete)
+    const { error: exerciseError } = await supabase
+        .from('exercises')
+        .update({ created_by: null })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (exerciseError) {
+        log(`  Warning: Could not clear exercises.created_by: ${exerciseError.message}`, 'warn');
+    }
+
+    // Clear challenges created_by reference
+    const { error: challengeError } = await supabase
+        .from('challenges')
+        .update({ created_by: null })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (challengeError) {
+        log(`  Warning: Could not clear challenges.created_by: ${challengeError.message}`, 'warn');
+    }
+
+    // Now delete all profiles
     const { error } = await supabase
         .from('profiles')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+        .neq('id', '00000000-0000-0000-0000-000000000000');
 
     if (error) {
         log(`Error clearing profiles: ${error.message}`, 'error');
