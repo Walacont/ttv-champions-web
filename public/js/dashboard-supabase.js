@@ -341,94 +341,200 @@ function updateRankDisplay() {
     rankInfo.innerHTML = html;
 }
 
+// --- Leaderboard State ---
+let currentLeaderboardTab = 'xp'; // 'xp', 'elo', 'points'
+let currentLeaderboardScope = 'club'; // 'club', 'global'
+let leaderboardCache = { club: null, global: null };
+
 // --- Load Leaderboards ---
 async function loadLeaderboards() {
     const container = document.getElementById('leaderboard-content-wrapper');
     if (!container) return;
 
+    // Render the leaderboard structure
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
+
+            <!-- Tabs -->
+            <div class="flex justify-center border-b border-gray-200 mb-4">
+                <button id="lb-tab-xp" class="lb-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <div>Fleiß</div>
+                    <div class="text-xs text-gray-500 font-normal">(XP)</div>
+                </button>
+                <button id="lb-tab-elo" class="lb-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <div>Skill</div>
+                    <div class="text-xs text-gray-500 font-normal">(Elo)</div>
+                </button>
+                <button id="lb-tab-points" class="lb-tab-btn px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <div>Season</div>
+                    <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                </button>
+            </div>
+
+            <!-- Club/Global Toggle -->
+            ${currentUserData.club_id ? `
+            <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100 mb-4">
+                <button id="lb-scope-club" class="lb-scope-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors">Mein Verein</button>
+                <button id="lb-scope-global" class="lb-scope-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors">Global</button>
+            </div>
+            ` : ''}
+
+            <!-- Leaderboard Content -->
+            <div id="leaderboard-list" class="mt-4 space-y-2">
+                <p class="text-center text-gray-500 py-8">Lade Rangliste...</p>
+            </div>
+        </div>
+    `;
+
+    // Setup tab listeners
+    document.querySelectorAll('.lb-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.id.replace('lb-tab-', '');
+            currentLeaderboardTab = tab;
+            updateLeaderboardTabs();
+            renderLeaderboardList();
+        });
+    });
+
+    // Setup scope listeners
+    document.querySelectorAll('.lb-scope-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const scope = btn.id.replace('lb-scope-', '');
+            currentLeaderboardScope = scope;
+            updateLeaderboardScope();
+            renderLeaderboardList();
+        });
+    });
+
+    // Initial state
+    updateLeaderboardTabs();
+    updateLeaderboardScope();
+
+    // Load data
+    await fetchLeaderboardData();
+    renderLeaderboardList();
+}
+
+function updateLeaderboardTabs() {
+    document.querySelectorAll('.lb-tab-btn').forEach(btn => {
+        const tab = btn.id.replace('lb-tab-', '');
+        if (tab === currentLeaderboardTab) {
+            btn.classList.add('border-indigo-500', 'text-indigo-600');
+            btn.classList.remove('border-transparent');
+        } else {
+            btn.classList.remove('border-indigo-500', 'text-indigo-600');
+            btn.classList.add('border-transparent');
+        }
+    });
+}
+
+function updateLeaderboardScope() {
+    document.querySelectorAll('.lb-scope-btn').forEach(btn => {
+        const scope = btn.id.replace('lb-scope-', '');
+        if (scope === currentLeaderboardScope) {
+            btn.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            btn.classList.remove('text-gray-600');
+        } else {
+            btn.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            btn.classList.add('text-gray-600');
+        }
+    });
+}
+
+async function fetchLeaderboardData() {
     try {
-        let query = supabase
+        // Fetch club data
+        if (currentUserData.club_id) {
+            const { data: clubPlayers } = await supabase
+                .from('profiles')
+                .select('id, display_name, avatar_url, xp, elo_rating, points, role')
+                .eq('club_id', currentUserData.club_id)
+                .neq('role', 'admin')
+                .limit(100);
+            leaderboardCache.club = clubPlayers || [];
+        }
+
+        // Fetch global data
+        const { data: globalPlayers } = await supabase
             .from('profiles')
             .select('id, display_name, avatar_url, xp, elo_rating, points, role')
-            .neq('role', 'admin');
-
-        // Apply filters
-        if (currentSubgroupFilter === 'club' && currentUserData.club_id) {
-            query = query.eq('club_id', currentUserData.club_id);
-        } else if (currentSubgroupFilter === 'global') {
-            // No filter for global
-        } else if (currentSubgroupFilter && currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
-            query = query.eq('subgroup_id', currentSubgroupFilter);
-        }
-
-        if (currentGenderFilter !== 'all') {
-            query = query.eq('gender', currentGenderFilter);
-        }
-
-        const { data: players, error } = await query.order('elo_rating', { ascending: false }).limit(50);
-
-        if (error) throw error;
-
-        container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                ${renderLeaderboard('Skill (Elo)', players, 'elo_rating', '⚡')}
-                ${renderLeaderboard('Fleiß (XP)', [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0)), 'xp', '💪')}
-                ${renderLeaderboard('Season (Punkte)', [...players].sort((a, b) => (b.points || 0) - (a.points || 0)), 'points', '🏆')}
-            </div>
-        `;
+            .neq('role', 'admin')
+            .limit(100);
+        leaderboardCache.global = globalPlayers || [];
 
     } catch (error) {
-        console.error('Error loading leaderboards:', error);
-        container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Ranglisten</p>';
+        console.error('Error fetching leaderboard data:', error);
     }
 }
 
-function renderLeaderboard(title, players, field, icon) {
-    const top10 = players.slice(0, 10);
-    const currentUserRank = players.findIndex(p => p.id === currentUser.id) + 1;
+function renderLeaderboardList() {
+    const container = document.getElementById('leaderboard-list');
+    if (!container) return;
 
-    let html = `
-        <div class="bg-white p-4 rounded-xl shadow-md">
-            <h3 class="text-lg font-semibold mb-3">${icon} ${title}</h3>
-            <div class="space-y-2">
-    `;
+    const players = leaderboardCache[currentLeaderboardScope] || [];
 
-    top10.forEach((player, index) => {
+    // Sort by current tab
+    const fieldMap = { xp: 'xp', elo: 'elo_rating', points: 'points' };
+    const field = fieldMap[currentLeaderboardTab];
+    const sorted = [...players].sort((a, b) => (b[field] || 0) - (a[field] || 0));
+
+    const top15 = sorted.slice(0, 15);
+    const currentUserRank = sorted.findIndex(p => p.id === currentUser.id) + 1;
+    const currentPlayerData = sorted.find(p => p.id === currentUser.id);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine Spieler gefunden</p>';
+        return;
+    }
+
+    let html = '';
+
+    top15.forEach((player, index) => {
         const isCurrentUser = player.id === currentUser.id;
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+        const rank = index + 1;
+        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+        const value = player[field] || 0;
 
         html += `
-            <div class="flex items-center justify-between p-2 rounded ${isCurrentUser ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'}">
-                <div class="flex items-center gap-2">
-                    <span class="w-6 text-center">${medal}</span>
+            <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-gray-500'}">${medal}</span>
                     <img src="${player.avatar_url || DEFAULT_AVATAR}"
-                         class="w-8 h-8 rounded-full object-cover"
+                         class="w-10 h-10 rounded-full object-cover border-2 ${isCurrentUser ? 'border-indigo-400' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
-                    <span class="${isCurrentUser ? 'font-semibold' : ''}">${player.display_name || 'Unbekannt'}</span>
+                    <div>
+                        <span class="${isCurrentUser ? 'font-bold text-indigo-700' : 'font-medium'}">${player.display_name || 'Unbekannt'}</span>
+                        ${isCurrentUser ? '<span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>' : ''}
+                    </div>
                 </div>
-                <span class="font-bold text-indigo-600">${player[field] || 0}</span>
+                <span class="font-bold text-lg ${currentLeaderboardTab === 'xp' ? 'text-purple-600' : currentLeaderboardTab === 'elo' ? 'text-blue-600' : 'text-yellow-600'}">${value}</span>
             </div>
         `;
     });
 
-    // Show current user's rank if not in top 10
-    if (currentUserRank > 10) {
-        const currentPlayer = players[currentUserRank - 1];
+    // Show current user if not in top 15
+    if (currentUserRank > 15 && currentPlayerData) {
         html += `
-            <div class="border-t mt-2 pt-2">
-                <div class="flex items-center justify-between p-2 bg-indigo-50 border border-indigo-200 rounded">
-                    <div class="flex items-center gap-2">
-                        <span class="w-6 text-center">${currentUserRank}.</span>
-                        <span class="font-semibold">Du</span>
+            <div class="border-t-2 border-dashed border-gray-300 mt-4 pt-4">
+                <div class="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border-2 border-indigo-300">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 text-center font-bold text-gray-500">${currentUserRank}.</span>
+                        <img src="${currentPlayerData.avatar_url || DEFAULT_AVATAR}"
+                             class="w-10 h-10 rounded-full object-cover border-2 border-indigo-400"
+                             onerror="this.src='${DEFAULT_AVATAR}'">
+                        <div>
+                            <span class="font-bold text-indigo-700">${currentPlayerData.display_name || 'Du'}</span>
+                            <span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>
+                        </div>
                     </div>
-                    <span class="font-bold text-indigo-600">${currentPlayer[field] || 0}</span>
+                    <span class="font-bold text-lg ${currentLeaderboardTab === 'xp' ? 'text-purple-600' : currentLeaderboardTab === 'elo' ? 'text-blue-600' : 'text-yellow-600'}">${currentPlayerData[field] || 0}</span>
                 </div>
             </div>
         `;
     }
 
-    html += '</div></div>';
-    return html;
+    container.innerHTML = html;
 }
 
 // --- Load Points History ---
