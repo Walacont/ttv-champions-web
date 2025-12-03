@@ -1,0 +1,269 @@
+// SC Champions - Registration Page (Supabase Version)
+// Ersetzt register.js für die Supabase-Migration
+
+import { getSupabase } from './supabase-init.js';
+
+console.log('[REGISTER-SUPABASE] Script starting...');
+
+const supabase = getSupabase();
+
+// ===== UI ELEMENTE =====
+const loader = document.getElementById('loader');
+const registrationFormContainer = document.getElementById('registration-form-container');
+const registrationForm = document.getElementById('registration-form');
+const errorMessage = document.getElementById('error-message');
+const formSubtitle = document.getElementById('form-subtitle');
+const submitButton = document.getElementById('submit-button');
+const tokenRequiredMessageContainer = document.getElementById('token-required-message');
+
+let invitationCode = null;
+let invitationCodeData = null;
+let registrationType = null; // 'code' or 'no-code'
+
+// ===== INITIALISIERUNG =====
+async function initializeRegistration() {
+    const urlParams = new URLSearchParams(window.location.search);
+    invitationCode = urlParams.get('code');
+
+    if (!invitationCode) {
+        // Kein Code - zeige Standard-Nachricht
+        return;
+    }
+
+    // Code gefunden - verstecke Standard-Nachricht
+    if (tokenRequiredMessageContainer) {
+        tokenRequiredMessageContainer.classList.add('hidden');
+    }
+    loader.classList.remove('hidden');
+
+    try {
+        invitationCode = invitationCode.trim().toUpperCase();
+
+        // Validiere Format
+        const codeRegex = /^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/;
+        if (!codeRegex.test(invitationCode)) {
+            return displayError('Ungültiges Code-Format.');
+        }
+
+        // Suche Code in Supabase
+        const { data: codeData, error } = await supabase
+            .from('invitation_codes')
+            .select('*')
+            .eq('code', invitationCode)
+            .single();
+
+        if (error || !codeData) {
+            return displayError('Dieser Code existiert nicht.');
+        }
+
+        invitationCodeData = codeData;
+
+        // Prüfe ob Code aktiv ist
+        if (!codeData.is_active) {
+            return displayError('Dieser Code ist nicht mehr aktiv.');
+        }
+
+        // Prüfe ob Code abgelaufen ist
+        if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
+            return displayError('Dieser Code ist abgelaufen.');
+        }
+
+        // Prüfe max uses
+        if (codeData.max_uses && codeData.use_count >= codeData.max_uses) {
+            return displayError('Dieser Code wurde bereits zu oft verwendet.');
+        }
+
+        // Code gültig - Zeige Formular
+        registrationType = 'code';
+        formSubtitle.textContent = 'Willkommen! Vervollständige deine Registrierung.';
+        loader.classList.add('hidden');
+        registrationFormContainer.classList.remove('hidden');
+
+    } catch (error) {
+        console.error('[REGISTER-SUPABASE] Init error:', error);
+        displayError('Fehler beim Überprüfen der Einladung.');
+    }
+}
+
+// Initialize on load
+initializeRegistration();
+
+// ===== REGISTRIERUNG OHNE CODE =====
+const registerWithoutCodeBtn = document.getElementById('register-without-code-btn');
+if (registerWithoutCodeBtn) {
+    registerWithoutCodeBtn.addEventListener('click', () => {
+        registrationType = 'no-code';
+
+        tokenRequiredMessageContainer?.classList.add('hidden');
+        loader.classList.add('hidden');
+        registrationFormContainer.classList.remove('hidden');
+
+        // Zeige Name-Felder
+        const nameFields = document.getElementById('name-fields');
+        if (nameFields) {
+            nameFields.classList.remove('hidden');
+            document.getElementById('first-name').required = true;
+            document.getElementById('last-name').required = true;
+        }
+
+        formSubtitle.textContent = 'Erstelle deinen Account und trete später einem Verein bei.';
+    });
+}
+
+// ===== REGISTRIERUNG =====
+registrationForm?.addEventListener('submit', async e => {
+    e.preventDefault();
+    errorMessage.textContent = '';
+
+    const email = document.getElementById('email-address').value;
+    const password = document.getElementById('password').value;
+    const passwordConfirm = document.getElementById('password-confirm').value;
+
+    const consentStudy = document.getElementById('consent-study')?.checked;
+    const consentPrivacy = document.getElementById('consent-privacy')?.checked;
+
+    // Validierungen
+    if (password !== passwordConfirm) {
+        errorMessage.textContent = 'Die Passwörter stimmen nicht überein.';
+        return;
+    }
+
+    if (!consentStudy || !consentPrivacy) {
+        errorMessage.textContent = 'Du musst der Studie und der Datenschutzerklärung zustimmen.';
+        return;
+    }
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Registriere...';
+
+    try {
+        console.log('[REGISTER-SUPABASE] Creating user...');
+
+        // 1. User in Supabase Auth erstellen
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: `${window.location.origin}/onboarding.html`
+            }
+        });
+
+        if (authError) {
+            throw authError;
+        }
+
+        const user = authData.user;
+        console.log('[REGISTER-SUPABASE] User created:', user.email);
+
+        // 2. Profil erstellen
+        let profileData = {
+            id: user.id,
+            email: user.email,
+            role: 'player',
+            onboarding_complete: false,
+            is_offline: false,
+            xp: 0,
+            points: 0,
+            elo_rating: 1000,
+            highest_elo: 1000
+        };
+
+        // Bei Code-Registrierung: Club-ID aus Code übernehmen
+        if (registrationType === 'code' && invitationCodeData) {
+            profileData.club_id = invitationCodeData.club_id;
+            if (invitationCodeData.subgroup_id) {
+                // subgroup_id könnte auch relevant sein
+            }
+        }
+
+        // Bei No-Code: Namen aus Formular
+        if (registrationType === 'no-code') {
+            const firstName = document.getElementById('first-name')?.value?.trim() || '';
+            const lastName = document.getElementById('last-name')?.value?.trim() || '';
+            profileData.first_name = firstName;
+            profileData.last_name = lastName;
+            profileData.display_name = `${firstName} ${lastName}`.trim();
+        }
+
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert(profileData);
+
+        if (profileError) {
+            console.error('[REGISTER-SUPABASE] Profile error:', profileError);
+            // Profil könnte schon durch Trigger existieren - versuche Update
+            if (profileError.code === '23505') { // Duplicate key
+                await supabase
+                    .from('profiles')
+                    .update(profileData)
+                    .eq('id', user.id);
+            } else {
+                throw profileError;
+            }
+        }
+
+        // 3. Invitation Code aktualisieren (use_count erhöhen)
+        if (registrationType === 'code' && invitationCodeData) {
+            await supabase
+                .from('invitation_codes')
+                .update({ use_count: (invitationCodeData.use_count || 0) + 1 })
+                .eq('id', invitationCodeData.id);
+        }
+
+        console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
+
+        // 4. Weiterleitung zum Onboarding
+        window.location.href = '/onboarding.html';
+
+    } catch (error) {
+        console.error('[REGISTER-SUPABASE] Error:', error);
+
+        let displayMsg = error.message;
+        if (error.message.includes('already registered')) {
+            displayMsg = 'Diese E-Mail-Adresse wird bereits verwendet.';
+        } else if (error.message.includes('invalid')) {
+            displayMsg = 'Ungültige E-Mail-Adresse.';
+        } else if (error.message.includes('weak') || error.message.includes('password')) {
+            displayMsg = 'Das Passwort muss mindestens 6 Zeichen haben.';
+        }
+
+        errorMessage.textContent = 'Fehler bei der Registrierung: ' + displayMsg;
+        submitButton.disabled = false;
+        submitButton.textContent = 'Registrieren';
+    }
+});
+
+// ===== FEHLERANZEIGE =====
+function displayError(message) {
+    loader.classList.add('hidden');
+    registrationFormContainer.classList.add('hidden');
+
+    if (tokenRequiredMessageContainer) {
+        const icon = tokenRequiredMessageContainer.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-exclamation-triangle text-4xl text-red-600';
+        }
+
+        const title = tokenRequiredMessageContainer.querySelector('h1');
+        if (title) {
+            title.textContent = 'Ein Fehler ist aufgetreten';
+            title.classList.remove('text-gray-900');
+            title.classList.add('text-red-600');
+        }
+
+        const paragraphs = tokenRequiredMessageContainer.querySelectorAll('p');
+        if (paragraphs[0]) {
+            paragraphs[0].textContent = message;
+            paragraphs[0].classList.remove('text-gray-600');
+            paragraphs[0].classList.add('text-gray-800', 'font-medium');
+        }
+
+        if (paragraphs[1]) paragraphs[1].classList.add('hidden');
+        const divider = tokenRequiredMessageContainer.querySelector('div.border-t');
+        if (divider) divider.classList.add('hidden');
+
+        tokenRequiredMessageContainer.classList.remove('hidden');
+    }
+}
+
+console.log('[REGISTER-SUPABASE] Setup complete');
