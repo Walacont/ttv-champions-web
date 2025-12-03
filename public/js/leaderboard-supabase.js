@@ -66,7 +66,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
     try {
         let query = supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, elo_rating, highest_elo, avatar_url, role, subgroup_ids, xp, points')
+            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
@@ -77,12 +77,11 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
 
         let players = (data || []).map(p => ({
             id: p.id,
-            displayName: p.display_name,
             firstName: p.first_name,
             lastName: p.last_name,
             eloRating: p.elo_rating || 1000,
             highestElo: p.highest_elo,
-            photoURL: p.avatar_url,
+            photoURL: p.photo_url,
             role: p.role,
             subgroupIDs: p.subgroup_ids || [],
             xp: p.xp || 0,
@@ -129,7 +128,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, xp, avatar_url, role, subgroup_ids')
+            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('xp', { ascending: false });
@@ -138,11 +137,10 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
 
         let players = (data || []).map(p => ({
             id: p.id,
-            displayName: p.display_name,
             firstName: p.first_name,
             lastName: p.last_name,
             xp: p.xp || 0,
-            photoURL: p.avatar_url,
+            photoURL: p.photo_url,
             role: p.role,
             subgroupIDs: p.subgroup_ids || []
         }));
@@ -187,7 +185,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, points, avatar_url, role, subgroup_ids')
+            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('points', { ascending: false });
@@ -196,11 +194,10 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
 
         let players = (data || []).map(p => ({
             id: p.id,
-            displayName: p.display_name,
             firstName: p.first_name,
             lastName: p.last_name,
             points: p.points || 0,
-            photoURL: p.avatar_url,
+            photoURL: p.photo_url,
             role: p.role,
             subgroupIDs: p.subgroup_ids || []
         }));
@@ -246,7 +243,7 @@ export async function loadGlobalLeaderboard(currentUserId, containerId = 'skill-
         const { data, error } = await supabase
             .from('profiles')
             .select(`
-                id, display_name, first_name, last_name, elo_rating, highest_elo, avatar_url, role,
+                id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
                 club_id, clubs(name)
             `)
             .in('role', ['player', 'coach'])
@@ -257,12 +254,11 @@ export async function loadGlobalLeaderboard(currentUserId, containerId = 'skill-
 
         const players = (data || []).map(p => ({
             id: p.id,
-            displayName: p.display_name,
             firstName: p.first_name,
             lastName: p.last_name,
             eloRating: p.elo_rating || 1000,
             highestElo: p.highest_elo,
-            photoURL: p.avatar_url,
+            photoURL: p.photo_url,
             role: p.role,
             clubId: p.club_id,
             clubName: p.clubs?.name || 'Kein Verein'
@@ -312,11 +308,11 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
                     ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
                 </span>
                 <img src="${player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(player.firstName?.[0] || '?')}`}"
-                     alt="${player.displayName || player.firstName}"
+                     alt="${player.firstName || ''} ${player.lastName || ''}"
                      class="w-10 h-10 rounded-full object-cover">
                 <div>
                     <p class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-800'}">
-                        ${player.firstName} ${player.lastName || ''}
+                        ${player.firstName || ''} ${player.lastName || ''}
                         ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
                     </p>
                     ${league ? `<p class="text-xs ${league.color}">${league.icon} ${league.name}</p>` : ''}
@@ -353,11 +349,11 @@ function renderGlobalLeaderboardList(container, players, currentUserId) {
                     ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
                 </span>
                 <img src="${player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(player.firstName?.[0] || '?')}`}"
-                     alt="${player.displayName || player.firstName}"
+                     alt="${player.firstName || ''} ${player.lastName || ''}"
                      class="w-10 h-10 rounded-full object-cover">
                 <div>
                     <p class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-800'}">
-                        ${player.firstName} ${player.lastName || ''}
+                        ${player.firstName || ''} ${player.lastName || ''}
                         ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
                     </p>
                     <p class="text-xs text-gray-500">${player.clubName}</p>
