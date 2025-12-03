@@ -184,13 +184,22 @@ async function migrateUsers(clubIdMap) {
         // For online users with email: create in Supabase Auth
         if (data.email && !data.isOffline) {
             try {
+                // Build display name for auth metadata
+                let authDisplayName = data.displayName || data.name;
+                if (!authDisplayName && (data.firstName || data.lastName)) {
+                    authDisplayName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+                }
+                if (!authDisplayName) {
+                    authDisplayName = 'Unknown';
+                }
+
                 // Create user in Supabase Auth (generates UUID automatically)
                 const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                     email: data.email,
                     email_confirm: true,
                     password: 'TempPassword123!', // User muss Passwort zurücksetzen
                     user_metadata: {
-                        display_name: data.displayName || data.name || 'Unknown'
+                        display_name: authDisplayName
                     }
                 });
 
@@ -225,10 +234,19 @@ async function migrateUsers(clubIdMap) {
 
         const mappedClubId = getMappedId(data.clubId, 'clubs');
 
+        // Build display name from firstName + lastName, or use displayName/name as fallback
+        let displayName = data.displayName || data.name;
+        if (!displayName && (data.firstName || data.lastName)) {
+            displayName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+        }
+        if (!displayName) {
+            displayName = 'Unknown Player';
+        }
+
         profiles.push({
             id: newUserId,
             email: data.email || null,
-            display_name: data.displayName || data.name || 'Unknown Player',
+            display_name: displayName,
             avatar_url: data.avatarUrl || data.photoURL || null,
             role: data.role || 'player',
             club_id: mappedClubId,
