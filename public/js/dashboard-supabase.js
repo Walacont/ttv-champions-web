@@ -2,7 +2,7 @@
 // Komplett neue Version ohne Firebase-Abhängigkeiten
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
-import { RANK_ORDER, groupPlayersByRank, calculateRank } from './ranks.js';
+import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
@@ -139,6 +139,7 @@ function initializeDashboard() {
     // Load data
     updateStatsDisplay();
     updateRankDisplay();
+    loadRivalData();
     loadLeaderboards();
     loadPointsHistory();
     loadChallenges();
@@ -268,6 +269,7 @@ function setupFilters() {
         subgroupFilter.addEventListener('change', () => {
             currentSubgroupFilter = subgroupFilter.value;
             loadLeaderboards();
+            loadRivalData(); // Update rivals when filter changes
         });
     }
 
@@ -395,42 +397,175 @@ function updateRankDisplay() {
     const rankInfo = document.getElementById('rank-info');
     if (!rankInfo) return;
 
-    const xp = currentUserData.xp || 0;
-    let currentRank = RANKS[0];
-    let nextRank = RANKS[1];
-
-    for (let i = RANKS.length - 1; i >= 0; i--) {
-        if (xp >= RANKS[i].minXP) {
-            currentRank = RANKS[i];
-            nextRank = RANKS[i + 1] || null;
-            break;
-        }
-    }
+    const grundlagenCount = currentUserData.grundlagen_completed || 0;
+    const progress = getRankProgress(currentUserData.elo_rating, currentUserData.xp, grundlagenCount);
+    const { currentRank, nextRank, eloProgress, xpProgress, grundlagenProgress, eloNeeded, xpNeeded, grundlagenNeeded, isMaxRank } = progress;
 
     let html = `
-        <div class="text-center">
-            <p class="text-4xl mb-2">${currentRank.icon}</p>
-            <p class="text-xl font-bold text-indigo-600">${currentRank.name}</p>
-            <p class="text-sm text-gray-500">${xp} XP</p>
+        <div class="flex items-center justify-center space-x-2 mb-2">
+            <span class="text-4xl">${currentRank.emoji}</span>
+            <div>
+                <p class="font-bold text-xl" style="color: ${currentRank.color};">${currentRank.name}</p>
+                <p class="text-xs text-gray-500">${currentRank.description}</p>
+            </div>
+        </div>
     `;
 
-    if (nextRank) {
-        const progress = ((xp - currentRank.minXP) / (nextRank.minXP - currentRank.minXP)) * 100;
+    if (!isMaxRank && nextRank) {
         html += `
-            <div class="mt-4">
-                <p class="text-xs text-gray-500 mb-1">Nächster Rang: ${nextRank.icon} ${nextRank.name}</p>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div class="bg-indigo-600 h-2 rounded-full" style="width: ${Math.min(progress, 100)}%"></div>
+            <div class="mt-3 text-sm">
+                <p class="text-gray-600 font-medium mb-2">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
+
+                <!-- ELO Progress -->
+                ${nextRank.minElo > 0 ? `
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Elo: ${currentUserData.elo_rating || 0}/${nextRank.minElo}</span>
+                        <span>${eloProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-blue-600 h-2 rounded-full transition-all" style="width: ${eloProgress}%"></div>
+                    </div>
+                    ${eloNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${eloNeeded} Elo benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ Elo-Anforderung erfüllt</p>`}
                 </div>
-                <p class="text-xs text-gray-400 mt-1">${nextRank.minXP - xp} XP bis zum Aufstieg</p>
+                ` : ''}
+
+                <!-- XP Progress -->
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>XP: ${currentUserData.xp || 0}/${nextRank.minXP}</span>
+                        <span>${xpProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-purple-600 h-2 rounded-full transition-all" style="width: ${xpProgress}%"></div>
+                    </div>
+                    ${xpNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>` : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
+                </div>
+
+                <!-- Grundlagen Progress -->
+                ${nextRank.requiresGrundlagen ? `
+                <div>
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
+                        <span>${grundlagenProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
+                    </div>
+                    ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
+                </div>
+                ` : ''}
             </div>
         `;
     } else {
-        html += `<p class="text-sm text-green-600 mt-2">Höchster Rang erreicht!</p>`;
+        html += `<p class="text-sm text-green-600 font-medium mt-2">🏆 Höchster Rang erreicht!</p>`;
     }
 
-    html += '</div>';
     rankInfo.innerHTML = html;
+}
+
+// --- Load Rival Data ---
+let rivalSubscription = null;
+
+async function loadRivalData() {
+    const rivalSkillEl = document.getElementById('rival-skill-info');
+    const rivalEffortEl = document.getElementById('rival-effort-info');
+
+    if (!rivalSkillEl && !rivalEffortEl) return;
+
+    // Unsubscribe from previous subscription
+    if (rivalSubscription) {
+        rivalSubscription.unsubscribe();
+        rivalSubscription = null;
+    }
+
+    try {
+        // Build query based on filter
+        let query = supabase
+            .from('profiles')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, xp, club_id, subgroup_ids')
+            .in('role', ['player', 'coach']);
+
+        // Apply club/subgroup filter
+        if (currentSubgroupFilter === 'club' && currentUserData.club_id) {
+            query = query.eq('club_id', currentUserData.club_id);
+        } else if (currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
+            // Subgroup filter - use contains for array
+            query = query.eq('club_id', currentUserData.club_id)
+                         .contains('subgroup_ids', [currentSubgroupFilter]);
+        }
+        // For 'global', no filter is applied
+
+        const { data: players, error } = await query;
+        if (error) throw error;
+
+        updateRivalDisplay(players || [], rivalSkillEl, rivalEffortEl);
+
+        // Set up real-time subscription for rival updates
+        const channel = supabase
+            .channel('rival-updates')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'profiles'
+            }, () => {
+                // Reload rival data on any profile change
+                loadRivalData();
+            })
+            .subscribe();
+
+        rivalSubscription = channel;
+
+    } catch (error) {
+        console.error('Error loading rival data:', error);
+        if (rivalSkillEl) rivalSkillEl.innerHTML = '<p class="text-gray-500">Rivalen konnten nicht geladen werden</p>';
+        if (rivalEffortEl) rivalEffortEl.innerHTML = '<p class="text-gray-500">Rivalen konnten nicht geladen werden</p>';
+    }
+}
+
+function updateRivalDisplay(players, rivalSkillEl, rivalEffortEl) {
+    // Skill ranking (sorted by elo)
+    const skillRanking = [...players].sort((a, b) => (b.elo_rating || 0) - (a.elo_rating || 0));
+    const mySkillIndex = skillRanking.findIndex(p => p.id === currentUser.id);
+
+    displayRivalInfo('Skill', skillRanking, mySkillIndex, rivalSkillEl, currentUserData.elo_rating || 0, 'Elo');
+
+    // Effort ranking (sorted by xp)
+    const effortRanking = [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0));
+    const myEffortIndex = effortRanking.findIndex(p => p.id === currentUser.id);
+
+    displayRivalInfo('Fleiß', effortRanking, myEffortIndex, rivalEffortEl, currentUserData.xp || 0, 'XP');
+}
+
+function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
+    if (!el) return;
+
+    if (myRankIndex === 0) {
+        el.innerHTML = `
+            <p class="text-lg text-green-600 font-semibold">🎉 Glückwunsch!</p>
+            <p class="text-sm">Du bist auf dem 1. Platz in ${metric}!</p>
+        `;
+    } else if (myRankIndex > 0) {
+        const rival = ranking[myRankIndex - 1];
+        const rivalValue = unit === 'Elo' ? (rival.elo_rating || 0) : (rival.xp || 0);
+        const diff = rivalValue - myValue;
+        const displayName = rival.display_name || `${rival.first_name} ${rival.last_name}`;
+
+        el.innerHTML = `
+            <div class="flex items-center space-x-3">
+                <img src="${rival.avatar_url || DEFAULT_AVATAR}" alt="Rivale"
+                     class="h-12 w-12 rounded-full object-cover border-2 border-orange-400"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div>
+                    <p class="font-semibold text-orange-600">${displayName}</p>
+                    <p class="text-sm text-gray-600">${rivalValue} ${unit}</p>
+                    <p class="text-xs text-gray-500">Nur noch ${diff} ${unit} zum Überholen!</p>
+                </div>
+            </div>
+        `;
+    } else {
+        el.innerHTML = `<p class="text-gray-500">Keine Rivalen gefunden</p>`;
+    }
 }
 
 // --- Leaderboard State ---
@@ -597,22 +732,50 @@ function updateLeaderboardContent() {
 }
 
 // Load doubles leaderboard tab
-function loadDoublesLeaderboardTab() {
+async function loadDoublesLeaderboardTab() {
     const container = document.getElementById('doubles-list');
     if (!container) return;
 
-    // Use the imported function from doubles-matches-supabase.js
-    const clubId = currentUserData.club_id;
-    const isGlobal = currentLeaderboardScope === 'global' || !clubId;
+    try {
+        // Check if doubles_pairings table exists by making a simple query
+        const { error } = await supabase
+            .from('doubles_pairings')
+            .select('id')
+            .limit(1);
 
-    loadDoublesLeaderboard(
-        isGlobal ? null : clubId,
-        supabase,
-        container,
-        realtimeSubscriptions,
-        currentUser.id,
-        isGlobal
-    );
+        if (error && error.message.includes('does not exist')) {
+            // Table doesn't exist - show helpful message
+            container.innerHTML = `
+                <div class="text-center py-8">
+                    <p class="text-4xl mb-2">🏓</p>
+                    <p class="text-gray-600 font-medium">Doppel-Rangliste</p>
+                    <p class="text-sm text-gray-500 mt-2">Die Doppel-Rangliste wird basierend auf gespielten Doppel-Matches erstellt.</p>
+                    <p class="text-xs text-gray-400 mt-4">Spiele Doppel-Matches um in der Rangliste zu erscheinen!</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Table exists, use the imported function
+        const clubId = currentUserData.club_id;
+        const isGlobal = currentLeaderboardScope === 'global' || !clubId;
+
+        loadDoublesLeaderboard(
+            isGlobal ? null : clubId,
+            supabase,
+            container,
+            realtimeSubscriptions,
+            currentUser.id,
+            isGlobal
+        );
+    } catch (err) {
+        console.error('Error loading doubles leaderboard:', err);
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <p>Doppel-Rangliste konnte nicht geladen werden</p>
+            </div>
+        `;
+    }
 }
 
 // Render ranks grouped by level
