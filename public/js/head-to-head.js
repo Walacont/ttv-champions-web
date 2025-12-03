@@ -178,10 +178,27 @@ function calculateStats(matches, currentUserId) {
     let lossesWithHandicap = 0;
     let winsWithoutHandicap = 0;
     let lossesWithoutHandicap = 0;
+    let setsWon = 0;
+    let setsLost = 0;
 
     matches.forEach(match => {
         const isWinner = match.winnerId === currentUserId;
         const handicapUsed = match.handicapUsed || false;
+        const isPlayerA = match.playerAId === currentUserId;
+
+        // Count sets won and lost
+        if (match.sets && Array.isArray(match.sets)) {
+            match.sets.forEach(set => {
+                const myScore = isPlayerA ? parseInt(set.playerA) || 0 : parseInt(set.playerB) || 0;
+                const oppScore = isPlayerA ? parseInt(set.playerB) || 0 : parseInt(set.playerA) || 0;
+
+                if (myScore > oppScore) {
+                    setsWon++;
+                } else if (oppScore > myScore) {
+                    setsLost++;
+                }
+            });
+        }
 
         if (isWinner) {
             wins++;
@@ -214,6 +231,8 @@ function calculateStats(matches, currentUserId) {
         losses,
         totalMatches,
         winRate,
+        setsWon,
+        setsLost,
         handicap: {
             wins: winsWithHandicap,
             losses: lossesWithHandicap,
@@ -286,6 +305,16 @@ function renderHeadToHeadContent(container, opponentData, opponentName, opponent
                     <p class="text-4xl font-bold ${winRateColor}">${stats.winRate}%</p>
                     <p class="text-sm text-gray-600">Siegrate</p>
                 </div>
+            </div>
+
+            <!-- Sets Ratio -->
+            <div class="bg-white rounded-lg p-4 text-center shadow mb-6">
+                <div class="flex items-center justify-center gap-2">
+                    <p class="text-3xl font-bold text-indigo-600">${stats.setsWon}</p>
+                    <p class="text-2xl text-gray-400">:</p>
+                    <p class="text-3xl font-bold text-purple-600">${stats.setsLost}</p>
+                </div>
+                <p class="text-sm text-gray-600 mt-2">Satzverhältnis</p>
             </div>
 
             ${(stats.handicap.total > 0 || stats.regular.total > 0) ? `
