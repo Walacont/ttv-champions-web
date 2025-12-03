@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 // Views (lazy loaded)
+const HomeView = () => import('@/views/HomeView.vue')
 const LoginView = () => import('@/views/LoginView.vue')
 const RegisterView = () => import('@/views/RegisterView.vue')
 const OnboardingView = () => import('@/views/OnboardingView.vue')
@@ -15,7 +16,9 @@ const FAQView = () => import('@/views/FAQView.vue')
 const routes = [
   {
     path: '/',
-    redirect: '/login'
+    name: 'Home',
+    component: HomeView,
+    meta: { requiresGuest: true }
   },
   {
     path: '/login',
@@ -68,12 +71,12 @@ const routes = [
   {
     path: '/faq',
     name: 'FAQ',
-    component: FAQView,
-    meta: { requiresAuth: true }
+    component: FAQView
+    // Public page, no auth required
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/login'
+    redirect: '/'
   }
 ]
 

@@ -1,9 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const activeSection = ref('rules')
+
+const isLoggedIn = computed(() => authStore.isAuthenticated)
 
 const sections = [
   { id: 'rules', label: 'Spielregeln', icon: '📋' },
@@ -59,7 +63,11 @@ function toggleFaq(index) {
 }
 
 function goBack() {
-  router.push('/dashboard')
+  if (isLoggedIn.value) {
+    router.push('/dashboard')
+  } else {
+    router.push('/')
+  }
 }
 </script>
 
