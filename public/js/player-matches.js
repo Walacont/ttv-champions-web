@@ -42,9 +42,10 @@ function hasNoClub(clubId) {
  * @param {HTMLElement} container - Container element for set inputs
  * @param {Array} existingSets - Existing set scores (for edit mode)
  * @param {String} mode - Match mode ('single-set', 'best-of-3', 'best-of-5', 'best-of-7')
+ * @param {Function} onScoreChange - Optional callback when scores change
  * @returns {Object} Object with getSets() and validate() methods
  */
-export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
+export function createSetScoreInput(container, existingSets = [], mode = 'best-of-5', onScoreChange = null) {
     container.innerHTML = '';
 
     const sets = existingSets.length > 0 ? [...existingSets] : [];
@@ -244,6 +245,11 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
                 }
             }
         }
+
+        // Call the onScoreChange callback if provided
+        if (onScoreChange && typeof onScoreChange === 'function') {
+            onScoreChange();
+        }
     }
 
     function getSets() {
@@ -360,6 +366,40 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
+    // Function to get current match winner (or null if no winner yet)
+    function getMatchWinner() {
+        const filledSets = getSets();
+
+        if (filledSets.length === 0) {
+            return null;
+        }
+
+        // Calculate wins
+        let playerAWins = 0;
+        let playerBWins = 0;
+
+        filledSets.forEach(set => {
+            const winner = getSetWinner(set.playerA, set.playerB);
+            if (winner === 'A') playerAWins++;
+            if (winner === 'B') playerBWins++;
+        });
+
+        // Check if someone has won
+        if (playerAWins >= setsToWin) {
+            return { winner: 'A', setsA: playerAWins, setsB: playerBWins };
+        }
+        if (playerBWins >= setsToWin) {
+            return { winner: 'B', setsA: playerAWins, setsB: playerBWins };
+        }
+
+        // No winner yet, but return current score if there are any wins
+        if (playerAWins > 0 || playerBWins > 0) {
+            return { winner: null, setsA: playerAWins, setsB: playerBWins };
+        }
+
+        return null;
+    }
+
     renderSets();
 
     return {
@@ -369,6 +409,7 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         reset,
         setHandicap,
         clearHandicap,
+        getMatchWinner,
     };
 }
 
@@ -1693,6 +1734,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
     const setScoreContainer = document.getElementById('set-score-container');
     const matchModeSelect = document.getElementById('match-mode-select');
     const setScoreLabel = document.getElementById('set-score-label');
+    const matchWinnerInfo = document.getElementById('match-winner-info');
+    const matchWinnerText = document.getElementById('match-winner-text');
 
     // Create a map of player IDs to player data for easy lookup
     const playersMap = new Map();
@@ -1903,9 +1946,30 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
     // Load searchable players on initialization
     loadSearchablePlayers();
 
+    // Function to update the winner display
+    function updateWinnerDisplay() {
+        if (!setScoreInput || !matchWinnerInfo || !matchWinnerText) return;
+
+        const winnerData = setScoreInput.getMatchWinner();
+
+        if (winnerData && winnerData.winner) {
+            // We have a winner
+            const winnerName = winnerData.winner === 'A' ? 'Spieler A (Du)' : 'Spieler B (Gegner)';
+            matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
+            matchWinnerInfo.classList.remove('hidden');
+        } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
+            // Match in progress, show current score
+            matchWinnerText.textContent = `Aktueller Stand: ${winnerData.setsA}:${winnerData.setsB} Sätze`;
+            matchWinnerInfo.classList.remove('hidden');
+        } else {
+            // No valid sets yet
+            matchWinnerInfo.classList.add('hidden');
+        }
+    }
+
     // Initialize set score input with current mode
     let currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
-    let setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
+    let setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode, updateWinnerDisplay);
 
     // Function to update label text based on mode
     function updateSetScoreLabel(mode) {
@@ -1936,7 +2000,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
         matchModeSelect.addEventListener('change', () => {
             currentMode = matchModeSelect.value;
             // Recreate the set score input with new mode
-            setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
+            setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode, updateWinnerDisplay);
             updateSetScoreLabel(currentMode);
 
             // Update global reference for doubles to use
@@ -2125,7 +2189,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
 
             // Recreate set score input with default mode to keep fields and dropdown in sync
             currentMode = 'best-of-5';
-            setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode);
+            setScoreInput = createSetScoreInput(setScoreContainer, [], currentMode, updateWinnerDisplay);
             updateSetScoreLabel(currentMode);
 
             // Update global reference for doubles-player-ui

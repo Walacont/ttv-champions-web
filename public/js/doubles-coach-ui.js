@@ -1,5 +1,6 @@
 import { saveDoublesMatch } from './doubles-matches.js';
 import { createSetScoreInput } from './player-matches.js';
+import { updateCoachWinnerDisplay } from './matches.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 /**
@@ -269,7 +270,7 @@ export async function handleDoublesMatchSave(e, db, currentUserData) {
 
             // Recreate doubles set score input with default mode
             if (container) {
-                doublesSetScoreInput = createSetScoreInput(container, [], 'best-of-5');
+                doublesSetScoreInput = createSetScoreInput(container, [], 'best-of-5', () => updateCoachWinnerDisplay(doublesSetScoreInput));
                 if (setScoreLabel) {
                     setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
                 }
