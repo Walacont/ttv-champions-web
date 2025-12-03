@@ -426,12 +426,16 @@ service cloud.firestore {
 
     // Doubles Matches collection
     match /doublesMatches/{matchId} {
-      // Players can read matches in their club OR cross-club matches (clubId == null)
+      // Players can read matches they participated in OR matches in their club OR cross-club matches (clubId == null)
       // Admins can read all matches (for global statistics)
       allow read: if isAuthenticated() && (
         isAdmin() ||
         resource.data.clubId == null ||
-        isSameClub(resource.data.clubId)
+        isSameClub(resource.data.clubId) ||
+        resource.data.teamAPlayer1Id == request.auth.uid ||
+        resource.data.teamAPlayer2Id == request.auth.uid ||
+        resource.data.teamBPlayer1Id == request.auth.uid ||
+        resource.data.teamBPlayer2Id == request.auth.uid
       );
 
       // Coaches can create matches in their club OR cross-club matches (clubId == null)
