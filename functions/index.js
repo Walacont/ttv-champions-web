@@ -1401,12 +1401,21 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 : [teamA.player1Id, teamA.player2Id];
 
         try {
-            // Fetch all 4 players
-            const [winner1Doc, winner2Doc, loser1Doc, loser2Doc] = await Promise.all([
+            // Fetch all 4 players AND both pairings
+            const [
+                winner1Doc,
+                winner2Doc,
+                loser1Doc,
+                loser2Doc,
+                winningPairingDoc,
+                losingPairingDoc,
+            ] = await Promise.all([
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(winningPlayerIds[0]).get(),
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(winningPlayerIds[1]).get(),
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(losingPlayerIds[0]).get(),
                 db.collection(CONFIG.COLLECTIONS.USERS).doc(losingPlayerIds[1]).get(),
+                db.collection('doublesPairings').doc(winningPairingId).get(),
+                db.collection('doublesPairings').doc(losingPairingId).get(),
             ]);
 
             if (
@@ -1423,57 +1432,75 @@ exports.processDoublesMatchResult = onDocumentCreated(
             const loser1Data = loser1Doc.data();
             const loser2Data = loser2Doc.data();
 
-            // Get doubles Elo ratings (separate from singles Elo!)
-            const winner1Elo = winner1Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
-            const winner2Elo = winner2Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
-            const loser1Elo = loser1Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
-            const loser2Elo = loser2Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
+            // Get individual doubles Elo ratings (used as fallback for new pairings)
+            const winner1IndividualElo = winner1Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
+            const winner2IndividualElo = winner2Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
+            const loser1IndividualElo = loser1Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
+            const loser2IndividualElo = loser2Data.doublesEloRating ?? CONFIG.ELO.DEFAULT_RATING;
 
-            // Calculate team Elos
-            const winningTeamElo = Math.round((winner1Elo + winner2Elo) / 2);
-            const losingTeamElo = Math.round((loser1Elo + loser2Elo) / 2);
+            // Determine team Elos: Use pairing ELO if exists, otherwise average of individual ELOs
+            let winningTeamElo;
+            let losingTeamElo;
+
+            if (winningPairingDoc.exists && winningPairingDoc.data().pairingEloRating) {
+                winningTeamElo = winningPairingDoc.data().pairingEloRating;
+                logger.info(
+                    `Using existing pairing ELO for winners: ${winningTeamElo}`
+                );
+            } else {
+                winningTeamElo = Math.round((winner1IndividualElo + winner2IndividualElo) / 2);
+                logger.info(
+                    `New winning pairing, using average of individual ELOs: ${winningTeamElo}`
+                );
+            }
+
+            if (losingPairingDoc.exists && losingPairingDoc.data().pairingEloRating) {
+                losingTeamElo = losingPairingDoc.data().pairingEloRating;
+                logger.info(`Using existing pairing ELO for losers: ${losingTeamElo}`);
+            } else {
+                losingTeamElo = Math.round((loser1IndividualElo + loser2IndividualElo) / 2);
+                logger.info(
+                    `New losing pairing, using average of individual ELOs: ${losingTeamElo}`
+                );
+            }
 
             logger.info(
                 `Doubles match ${matchId}: Team Elos - Winners: ${winningTeamElo}, Losers: ${losingTeamElo}`
             );
 
-            let winner1NewElo, winner2NewElo, loser1NewElo, loser2NewElo;
+            // Calculate new PAIRING ELOs (not individual player ELOs)
+            let newWinningTeamElo;
+            let newLosingTeamElo;
             let seasonPointChange;
             let winnerXPGain = 0;
             let matchTypeReason = 'Doppel-Wettkampf';
 
             if (handicapUsed) {
-                // Handicap matches: Fixed changes
+                // Handicap matches: Fixed changes to PAIRING ELO
                 seasonPointChange = CONFIG.ELO.HANDICAP_SEASON_POINTS; // 8
 
-                // Each player gets +4/-4 (half of 8)
-                const eloChangePerPlayer = CONFIG.ELO.HANDICAP_SEASON_POINTS / 2;
+                // Pairing ELO changes: Fixed +4/-4
+                const pairingEloChange = CONFIG.ELO.HANDICAP_SEASON_POINTS / 2;
 
-                winner1NewElo = winner1Elo + eloChangePerPlayer;
-                winner2NewElo = winner2Elo + eloChangePerPlayer;
-                loser1NewElo = loser1Elo - eloChangePerPlayer;
-                loser2NewElo = loser2Elo - eloChangePerPlayer;
+                newWinningTeamElo = winningTeamElo + pairingEloChange;
+                newLosingTeamElo = losingTeamElo - pairingEloChange;
 
                 // No XP for handicap matches
                 winnerXPGain = 0;
 
-                logger.info(`Handicap Doubles Match: Fixed ±${eloChangePerPlayer} Elo per player`);
+                logger.info(
+                    `Handicap Doubles Match: Fixed ±${pairingEloChange} Pairing ELO change`
+                );
             } else {
-                // Standard matches: Calculate Elo dynamically based on team averages
-                const {
-                    newWinnerElo: calculatedWinningTeamElo,
-                    newLoserElo: calculatedLosingTeamElo,
-                    eloDelta,
-                } = calculateElo(winningTeamElo, losingTeamElo, CONFIG.ELO.K_FACTOR);
+                // Standard matches: Calculate Elo dynamically based on pairing ELOs
+                const { newWinnerElo, newLoserElo, eloDelta } = calculateElo(
+                    winningTeamElo,
+                    losingTeamElo,
+                    CONFIG.ELO.K_FACTOR
+                );
 
-                // Distribute Elo changes equally among team members
-                const winningEloChange = calculatedWinningTeamElo - winningTeamElo;
-                const losingEloChange = calculatedLosingTeamElo - losingTeamElo;
-
-                winner1NewElo = Math.round(winner1Elo + winningEloChange / 2);
-                winner2NewElo = Math.round(winner2Elo + winningEloChange / 2);
-                loser1NewElo = Math.round(loser1Elo + losingEloChange / 2);
-                loser2NewElo = Math.round(loser2Elo + losingEloChange / 2);
+                newWinningTeamElo = newWinnerElo;
+                newLosingTeamElo = newLoserElo;
 
                 // Season points: eloDelta × 0.2 × 0.5 (half for each player)
                 const fullPoints = Math.round(eloDelta * CONFIG.ELO.SEASON_POINT_FACTOR);
@@ -1483,35 +1510,36 @@ exports.processDoublesMatchResult = onDocumentCreated(
                 winnerXPGain = seasonPointChange;
 
                 logger.info(
-                    `Standard Doubles Match: Season points per player: ${seasonPointChange}, XP: ${winnerXPGain}`
+                    `Standard Doubles Match: Pairing ELO change - Winners: ${newWinningTeamElo - winningTeamElo}, Losers: ${newLosingTeamElo - losingTeamElo}`
+                );
+                logger.info(
+                    `Season points per player: ${seasonPointChange}, XP: ${winnerXPGain}`
                 );
             }
 
-            // Apply Elo gates for losers (doubles Elo gates)
-            const loser1HighestDoublesElo = loser1Data.highestDoublesElo || loser1Elo;
-            const loser2HighestDoublesElo = loser2Data.highestDoublesElo || loser2Elo;
+            // Get highest pairing ELOs for gate logic
+            const winningPairingHighestElo = winningPairingDoc.exists
+                ? winningPairingDoc.data().highestPairingElo || winningTeamElo
+                : winningTeamElo;
+            const losingPairingHighestElo = losingPairingDoc.exists
+                ? losingPairingDoc.data().highestPairingElo || losingTeamElo
+                : losingTeamElo;
 
-            loser1NewElo = applyEloGate(loser1NewElo, loser1Elo, loser1HighestDoublesElo);
-            loser2NewElo = applyEloGate(loser2NewElo, loser2Elo, loser2HighestDoublesElo);
+            // Apply Elo gate for losing pairing
+            newLosingTeamElo = applyEloGate(
+                newLosingTeamElo,
+                losingTeamElo,
+                losingPairingHighestElo
+            );
 
-            // Update highest doubles Elo if new records are set
-            const winner1HighestDoublesElo = Math.max(
-                winner1NewElo,
-                winner1Data.highestDoublesElo || winner1Elo
-            );
-            const winner2HighestDoublesElo = Math.max(
-                winner2NewElo,
-                winner2Data.highestDoublesElo || winner2Elo
-            );
-            const loser1HighestDoublesEloNew = Math.max(loser1NewElo, loser1HighestDoublesElo);
-            const loser2HighestDoublesEloNew = Math.max(loser2NewElo, loser2HighestDoublesElo);
+            // Update highest pairing Elos if new records are set
+            const newWinningPairingHighestElo = Math.max(newWinningTeamElo, winningPairingHighestElo);
+            const newLosingPairingHighestElo = Math.max(newLosingTeamElo, losingPairingHighestElo);
 
             const batch = db.batch();
 
-            // Update winner 1
+            // Update winner 1 (stats and points, NO individual ELO)
             const winner1Update = {
-                doublesEloRating: winner1NewElo,
-                highestDoublesElo: winner1HighestDoublesElo,
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesWon: admin.firestore.FieldValue.increment(1),
                 points: admin.firestore.FieldValue.increment(seasonPointChange),
@@ -1521,10 +1549,8 @@ exports.processDoublesMatchResult = onDocumentCreated(
             }
             batch.update(winner1Doc.ref, winner1Update);
 
-            // Update winner 2
+            // Update winner 2 (stats and points, NO individual ELO)
             const winner2Update = {
-                doublesEloRating: winner2NewElo,
-                highestDoublesElo: winner2HighestDoublesElo,
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesWon: admin.firestore.FieldValue.increment(1),
                 points: admin.firestore.FieldValue.increment(seasonPointChange),
@@ -1534,30 +1560,27 @@ exports.processDoublesMatchResult = onDocumentCreated(
             }
             batch.update(winner2Doc.ref, winner2Update);
 
-            // Update loser 1 (only Elo changes, no points deduction)
+            // Update loser 1 (only stats, no points deduction, NO individual ELO)
             batch.update(loser1Doc.ref, {
-                doublesEloRating: loser1NewElo,
-                highestDoublesElo: loser1HighestDoublesEloNew,
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesLost: admin.firestore.FieldValue.increment(1),
             });
 
-            // Update loser 2 (only Elo changes, no points deduction)
+            // Update loser 2 (only stats, no points deduction, NO individual ELO)
             batch.update(loser2Doc.ref, {
-                doublesEloRating: loser2NewElo,
-                highestDoublesElo: loser2HighestDoublesEloNew,
                 doublesMatchesPlayed: admin.firestore.FieldValue.increment(1),
                 doublesMatchesLost: admin.firestore.FieldValue.increment(1),
             });
 
-            // Create points history entries for winners
+            // Create points history entries for winners (showing PAIRING ELO change)
+            const pairingEloChange = newWinningTeamElo - winningTeamElo;
             const winner1HistoryRef = winner1Doc.ref
                 .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
                 .doc();
             batch.set(winner1HistoryRef, {
                 points: seasonPointChange,
                 xp: winnerXPGain,
-                eloChange: winner1NewElo - winner1Elo,
+                pairingEloChange: pairingEloChange, // Pairing ELO change (shared by both)
                 reason: `Sieg im ${matchTypeReason} (Partner: ${winner2Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
@@ -1570,21 +1593,22 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(winner2HistoryRef, {
                 points: seasonPointChange,
                 xp: winnerXPGain,
-                eloChange: winner2NewElo - winner2Elo,
+                pairingEloChange: pairingEloChange, // Pairing ELO change (shared by both)
                 reason: `Sieg im ${matchTypeReason} (Partner: ${winner1Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
                 isPartner: true,
             });
 
-            // Create history entries for losers
+            // Create history entries for losers (showing PAIRING ELO change)
+            const losingPairingEloChange = newLosingTeamElo - losingTeamElo;
             const loser1HistoryRef = loser1Doc.ref
                 .collection(CONFIG.COLLECTIONS.POINTS_HISTORY)
                 .doc();
             batch.set(loser1HistoryRef, {
                 points: 0,
                 xp: 0,
-                eloChange: loser1NewElo - loser1Elo,
+                pairingEloChange: losingPairingEloChange, // Pairing ELO change (shared by both)
                 reason: `Niederlage im ${matchTypeReason} (Partner: ${loser2Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
@@ -1597,7 +1621,7 @@ exports.processDoublesMatchResult = onDocumentCreated(
             batch.set(loser2HistoryRef, {
                 points: 0,
                 xp: 0,
-                eloChange: loser2NewElo - loser2Elo,
+                pairingEloChange: losingPairingEloChange, // Pairing ELO change (shared by both)
                 reason: `Niederlage im ${matchTypeReason} (Partner: ${loser1Data.firstName})`,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
                 awardedBy: 'System (Doppel)',
@@ -1605,18 +1629,11 @@ exports.processDoublesMatchResult = onDocumentCreated(
             });
 
             // Update doublesPairings collection for both teams
+            // Note: We already fetched these docs earlier in the function
             const winningPairingRef = db.collection('doublesPairings').doc(winningPairingId);
             const losingPairingRef = db.collection('doublesPairings').doc(losingPairingId);
 
-            // Check if pairings exist, create if not
-            const [winningPairingDoc, losingPairingDoc] = await Promise.all([
-                winningPairingRef.get(),
-                losingPairingRef.get(),
-            ]);
-
-            const newWinningTeamElo = Math.round((winner1NewElo + winner2NewElo) / 2);
-            const newLosingTeamElo = Math.round((loser1NewElo + loser2NewElo) / 2);
-
+            // Create or update winning pairing
             if (!winningPairingDoc.exists) {
                 batch.set(winningPairingRef, {
                     player1Id: winningPlayerIds[0],
@@ -1630,7 +1647,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesWon: 1,
                     matchesLost: 0,
                     winRate: 1.0,
-                    currentEloRating: newWinningTeamElo,
+                    pairingEloRating: newWinningTeamElo, // Pairing-specific ELO
+                    highestPairingElo: newWinningTeamElo,
+                    currentEloRating: newWinningTeamElo, // Keep for backwards compatibility
                     clubId: matchData.clubId,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1645,11 +1664,14 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesPlayed: newMatchesPlayed,
                     matchesWon: newMatchesWon,
                     winRate: newMatchesWon / newMatchesPlayed,
-                    currentEloRating: newWinningTeamElo,
+                    pairingEloRating: newWinningTeamElo, // Update pairing ELO
+                    highestPairingElo: newWinningPairingHighestElo,
+                    currentEloRating: newWinningTeamElo, // Keep for backwards compatibility
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
 
+            // Create or update losing pairing
             if (!losingPairingDoc.exists) {
                 batch.set(losingPairingRef, {
                     player1Id: losingPlayerIds[0],
@@ -1663,7 +1685,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesWon: 0,
                     matchesLost: 1,
                     winRate: 0.0,
-                    currentEloRating: newLosingTeamElo,
+                    pairingEloRating: newLosingTeamElo, // Pairing-specific ELO
+                    highestPairingElo: newLosingTeamElo,
+                    currentEloRating: newLosingTeamElo, // Keep for backwards compatibility
                     clubId: matchData.clubId,
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1679,7 +1703,9 @@ exports.processDoublesMatchResult = onDocumentCreated(
                     matchesPlayed: newMatchesPlayed,
                     matchesLost: newMatchesLost,
                     winRate: newMatchesPlayed > 0 ? newMatchesWon / newMatchesPlayed : 0,
-                    currentEloRating: newLosingTeamElo,
+                    pairingEloRating: newLosingTeamElo, // Update pairing ELO
+                    highestPairingElo: newLosingPairingHighestElo,
+                    currentEloRating: newLosingTeamElo, // Keep for backwards compatibility
                     lastPlayed: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
