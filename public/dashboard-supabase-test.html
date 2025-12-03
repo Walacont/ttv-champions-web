@@ -195,7 +195,7 @@
             // Load Leaderboard
             document.getElementById('load-leaderboard').addEventListener('click', async () => {
                 const resultEl = document.getElementById('leaderboard-result');
-                if (!currentProfile?.club_id) {
+                if (!currentUser) {
                     resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
                     return;
                 }
@@ -204,17 +204,24 @@
                 log('Loading leaderboard...');
 
                 try {
-                    const { data, error } = await supabase
+                    // Load club data if user has club, otherwise global
+                    let query = supabase
                         .from('profiles')
                         .select('id, display_name, first_name, last_name, elo_rating, xp, points')
-                        .eq('club_id', currentProfile.club_id)
                         .in('role', ['player', 'coach'])
                         .order('elo_rating', { ascending: false })
                         .limit(10);
 
+                    if (currentProfile?.club_id) {
+                        query = query.eq('club_id', currentProfile.club_id);
+                    }
+
+                    const { data, error } = await query;
+
                     if (error) throw error;
 
-                    log(`Loaded ${data.length} players`);
+                    const scope = currentProfile?.club_id ? 'Verein' : 'Global';
+                    log(`Loaded ${data.length} players (${scope})`);
 
                     resultEl.innerHTML = data.map((p, i) => `
                         <div class="flex justify-between items-center p-2 ${i % 2 === 0 ? 'bg-gray-50' : ''} rounded">
@@ -231,7 +238,7 @@
             // Load Matches
             document.getElementById('load-matches').addEventListener('click', async () => {
                 const resultEl = document.getElementById('matches-result');
-                if (!currentProfile?.club_id) {
+                if (!currentUser) {
                     resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
                     return;
                 }
@@ -240,6 +247,7 @@
                 log('Loading matches...');
 
                 try {
+                    // Load user's matches (where they are player_a or player_b)
                     const { data, error } = await supabase
                         .from('matches')
                         .select(`
@@ -247,7 +255,7 @@
                             player_a:profiles!matches_player_a_id_fkey(first_name, last_name),
                             player_b:profiles!matches_player_b_id_fkey(first_name, last_name)
                         `)
-                        .eq('club_id', currentProfile.club_id)
+                        .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
                         .order('played_at', { ascending: false })
                         .limit(10);
 
@@ -270,8 +278,13 @@
             // Load Challenges
             document.getElementById('load-challenges').addEventListener('click', async () => {
                 const resultEl = document.getElementById('challenges-result');
-                if (!currentProfile?.club_id) {
+                if (!currentUser) {
                     resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
+                    return;
+                }
+
+                if (!currentProfile?.club_id) {
+                    resultEl.innerHTML = '<p class="text-gray-500">Challenges sind nur für Vereinsmitglieder verfügbar</p>';
                     return;
                 }
 
@@ -305,8 +318,13 @@
             // Load Training Sessions
             document.getElementById('load-training').addEventListener('click', async () => {
                 const resultEl = document.getElementById('training-result');
-                if (!currentProfile?.club_id) {
+                if (!currentUser) {
                     resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
+                    return;
+                }
+
+                if (!currentProfile?.club_id) {
+                    resultEl.innerHTML = '<p class="text-gray-500">Trainings sind nur für Vereinsmitglieder verfügbar</p>';
                     return;
                 }
 

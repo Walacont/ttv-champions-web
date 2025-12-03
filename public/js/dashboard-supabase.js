@@ -414,6 +414,11 @@ async function loadLeaderboards() {
     const container = document.getElementById('leaderboard-content-wrapper');
     if (!container) return;
 
+    // Set default scope to 'global' if user has no club
+    if (!currentUserData.club_id) {
+        currentLeaderboardScope = 'global';
+    }
+
     // Render the leaderboard structure
     container.innerHTML = `
         <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
@@ -1422,31 +1427,56 @@ function setupMatchForm() {
 
 // --- Search Opponents ---
 async function searchOpponents(query, resultsContainer) {
-    if (!currentUserData.club_id) {
-        resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Du musst einem Verein beitreten um Wettkämpfe zu melden.</p>';
-        return;
-    }
-
     try {
+        // Load all matching players (global search with privacy filter)
         const { data: players, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating')
-            .eq('club_id', currentUserData.club_id)
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, grundlagen_completed')
             .neq('id', currentUser.id)
-            .ilike('display_name', `%${query}%`)
-            .limit(10);
+            .in('role', ['player', 'coach'])
+            .or(`display_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+            .limit(50);
 
         if (error) throw error;
 
-        if (!players || players.length === 0) {
+        // Filter by privacy settings and match-readiness (like original)
+        const filteredPlayers = (players || []).filter(player => {
+            // Must have completed at least 5 Grundlagen
+            const grundlagenCompleted = player.grundlagen_completed || 0;
+            if (grundlagenCompleted < 5) return false;
+
+            // Privacy check
+            const userHasNoClub = !currentUserData.club_id;
+            const playerHasNoClub = !player.club_id;
+
+            // Both without club → always visible
+            if (userHasNoClub && playerHasNoClub) return true;
+
+            // Get searchable setting (default: global)
+            const searchable = player.privacy_settings?.searchable || 'global';
+
+            // Global: visible to everyone
+            if (searchable === 'global') return true;
+
+            // Club only: only visible to same club members
+            if (searchable === 'club_only' && currentUserData.club_id && player.club_id === currentUserData.club_id) {
+                return true;
+            }
+
+            return false;
+        }).slice(0, 10); // Limit to 10 results
+
+        if (filteredPlayers.length === 0) {
             resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';
             return;
         }
 
-        resultsContainer.innerHTML = players.map(player => `
+        resultsContainer.innerHTML = filteredPlayers.map(player => {
+            const isSameClub = player.club_id && player.club_id === currentUserData.club_id;
+            return `
             <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
                  data-id="${player.id}"
-                 data-name="${player.display_name}"
+                 data-name="${player.display_name || `${player.first_name} ${player.last_name}`}"
                  data-elo="${player.elo_rating || 1000}">
                 <img src="${player.avatar_url || DEFAULT_AVATAR}"
                      class="w-10 h-10 rounded-full object-cover"
@@ -1455,9 +1485,11 @@ async function searchOpponents(query, resultsContainer) {
                     <p class="font-medium">${player.display_name || `${player.first_name} ${player.last_name}`}</p>
                     <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
                 </div>
+                ${!isSameClub && player.club_id ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">Anderer Verein</span>' : ''}
                 <i class="fas fa-chevron-right text-gray-400"></i>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         // Add click handlers
         resultsContainer.querySelectorAll('.opponent-option').forEach(option => {
