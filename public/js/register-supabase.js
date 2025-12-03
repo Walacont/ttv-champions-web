@@ -155,50 +155,36 @@ registrationForm?.addEventListener('submit', async e => {
         const user = authData.user;
         console.log('[REGISTER-SUPABASE] User created:', user.email);
 
-        // 2. Profil erstellen
-        let profileData = {
-            id: user.id,
-            email: user.email,
-            role: 'player',
-            onboarding_complete: false,
-            is_offline: false,
-            xp: 0,
-            points: 0,
-            elo_rating: 1000,
-            highest_elo: 1000
-        };
+        // Warte kurz, damit der Trigger das Profil erstellen kann
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 2. Profil updaten (Trigger hat es bereits erstellt)
+        let profileUpdates = {};
 
         // Bei Code-Registrierung: Club-ID aus Code übernehmen
         if (registrationType === 'code' && invitationCodeData) {
-            profileData.club_id = invitationCodeData.club_id;
-            if (invitationCodeData.subgroup_id) {
-                // subgroup_id könnte auch relevant sein
-            }
+            profileUpdates.club_id = invitationCodeData.club_id;
         }
 
         // Bei No-Code: Namen aus Formular
         if (registrationType === 'no-code') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
-            profileData.first_name = firstName;
-            profileData.last_name = lastName;
-            profileData.display_name = `${firstName} ${lastName}`.trim();
+            profileUpdates.first_name = firstName;
+            profileUpdates.last_name = lastName;
+            profileUpdates.display_name = `${firstName} ${lastName}`.trim();
         }
 
-        const { error: profileError } = await supabase
-            .from('profiles')
-            .insert(profileData);
+        // Update Profil falls nötig
+        if (Object.keys(profileUpdates).length > 0) {
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update(profileUpdates)
+                .eq('id', user.id);
 
-        if (profileError) {
-            console.error('[REGISTER-SUPABASE] Profile error:', profileError);
-            // Profil könnte schon durch Trigger existieren - versuche Update
-            if (profileError.code === '23505') { // Duplicate key
-                await supabase
-                    .from('profiles')
-                    .update(profileData)
-                    .eq('id', user.id);
-            } else {
-                throw profileError;
+            if (updateError) {
+                console.error('[REGISTER-SUPABASE] Profile update error:', updateError);
+                // Nicht kritisch - weiter zum Onboarding
             }
         }
 
