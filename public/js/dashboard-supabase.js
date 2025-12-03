@@ -279,17 +279,31 @@ function setupFilters() {
     }
 
     if (ageGroupFilter) {
-        // Populate age groups
+        // Populate age groups - full list like original
         ageGroupFilter.innerHTML = `
             <option value="all">Alle Altersgruppen</option>
-            <option value="U11">U11 (unter 11)</option>
-            <option value="U13">U13 (unter 13)</option>
-            <option value="U15">U15 (unter 15)</option>
-            <option value="U18">U18 (unter 18)</option>
-            <option value="adults">Erwachsene (18+)</option>
-            <option value="seniors40">Senioren 40+</option>
-            <option value="seniors50">Senioren 50+</option>
-            <option value="seniors60">Senioren 60+</option>
+            <optgroup label="Jugend (nach Alter)">
+                <option value="u11">U11</option>
+                <option value="u13">U13</option>
+                <option value="u15">U15</option>
+                <option value="u17">U17</option>
+                <option value="u19">U19</option>
+            </optgroup>
+            <optgroup label="Erwachsene">
+                <option value="adult">Erwachsene (18-39)</option>
+            </optgroup>
+            <optgroup label="Senioren (nach Alter)">
+                <option value="o40">Ü40</option>
+                <option value="o45">Ü45</option>
+                <option value="o50">Ü50</option>
+                <option value="o55">Ü55</option>
+                <option value="o60">Ü60</option>
+                <option value="o65">Ü65</option>
+                <option value="o70">Ü70</option>
+                <option value="o75">Ü75</option>
+                <option value="o80">Ü80</option>
+                <option value="o85">Ü85</option>
+            </optgroup>
         `;
 
         ageGroupFilter.addEventListener('change', () => {
@@ -318,15 +332,28 @@ function matchesAgeGroup(birthdate, ageGroupFilter) {
     const age = calculateAge(birthdate);
     if (age === null) return true; // Include players without birthdate
 
+    // Youth groups (under X years) - stichtag-basiert like table tennis rules
+    // U11 means player turns 11 or younger in current year
     switch (ageGroupFilter) {
-        case 'U11': return age < 11;
-        case 'U13': return age < 13;
-        case 'U15': return age < 15;
-        case 'U18': return age < 18;
-        case 'adults': return age >= 18;
-        case 'seniors40': return age >= 40;
-        case 'seniors50': return age >= 50;
-        case 'seniors60': return age >= 60;
+        // Youth groups
+        case 'u11': return age <= 10;
+        case 'u13': return age <= 12;
+        case 'u15': return age <= 14;
+        case 'u17': return age <= 16;
+        case 'u19': return age <= 18;
+        // Adults
+        case 'adult': return age >= 18 && age <= 39;
+        // Seniors
+        case 'o40': return age >= 40;
+        case 'o45': return age >= 45;
+        case 'o50': return age >= 50;
+        case 'o55': return age >= 55;
+        case 'o60': return age >= 60;
+        case 'o65': return age >= 65;
+        case 'o70': return age >= 70;
+        case 'o75': return age >= 75;
+        case 'o80': return age >= 80;
+        case 'o85': return age >= 85;
         default: return true;
     }
 }
