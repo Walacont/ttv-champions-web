@@ -665,11 +665,12 @@ async function loadMatchRequests() {
     if (!container) return;
 
     try {
-        // Get pending requests where user is involved - simplified query without joins
+        // Get pending requests where user is involved
+        // Schema uses player_a_id and player_b_id (not requester_id/opponent_id)
         const { data: requests, error } = await supabase
             .from('match_requests')
             .select('*')
-            .or(`requester_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
+            .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
             .limit(5);
@@ -682,7 +683,7 @@ async function loadMatchRequests() {
         }
 
         // Get unique user IDs to fetch profiles
-        const userIds = [...new Set(requests.flatMap(r => [r.requester_id, r.opponent_id]))];
+        const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
         const { data: profiles } = await supabase
             .from('profiles')
             .select('id, display_name, avatar_url')
@@ -692,8 +693,9 @@ async function loadMatchRequests() {
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
         container.innerHTML = requests.map(req => {
-            const isRequester = req.requester_id === currentUser.id;
-            const otherPlayerId = isRequester ? req.opponent_id : req.requester_id;
+            // player_a is usually the one who created the request
+            const isPlayerA = req.player_a_id === currentUser.id;
+            const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
             const otherPlayer = profileMap[otherPlayerId];
             const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
 
@@ -704,11 +706,11 @@ async function loadMatchRequests() {
                              class="w-10 h-10 rounded-full object-cover"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
-                            <p class="font-medium">${isRequester ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
+                            <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
                             <p class="text-xs text-gray-500">${statusText}</p>
                         </div>
                     </div>
-                    ${!isRequester && req.status === 'pending_player' ? `
+                    ${!isPlayerA && req.status === 'pending_player' ? `
                         <div class="flex gap-2">
                             <button onclick="respondToMatchRequest('${req.id}', true)"
                                     class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
@@ -727,7 +729,7 @@ async function loadMatchRequests() {
         // Update badge
         const badge = document.getElementById('match-request-badge');
         if (badge) {
-            const pendingCount = requests.filter(r => r.opponent_id === currentUser.id && r.status === 'pending_player').length;
+            const pendingCount = requests.filter(r => r.player_b_id === currentUser.id && r.status === 'pending_player').length;
             if (pendingCount > 0) {
                 badge.textContent = pendingCount;
                 badge.classList.remove('hidden');
