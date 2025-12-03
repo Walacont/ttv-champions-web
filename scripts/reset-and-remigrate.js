@@ -66,14 +66,28 @@ async function clearProfiles() {
     log('Clearing existing profiles and related data...', 'progress');
 
     // Delete dependent tables first (in correct order due to foreign keys)
-    const tablesToClear = [
+    // Tables with composite primary keys or user_id column
+    const tablesWithUserId = [
         'completed_exercises',
         'completed_challenges',
         'exercise_milestones',
         'xp_history',
         'points_history',
         'streaks',
-        'attendance',
+        'attendance'
+    ];
+
+    for (const table of tablesWithUserId) {
+        const { error } = await supabase.from(table).delete().neq('user_id', '00000000-0000-0000-0000-000000000000');
+        if (error && error.code !== 'PGRST116') {
+            log(`  Warning: Could not clear ${table}: ${error.message}`, 'warn');
+        } else {
+            log(`  Cleared ${table}`, 'info');
+        }
+    }
+
+    // Tables with id column
+    const tablesWithId = [
         'match_requests',
         'match_proposals',
         'doubles_match_requests',
@@ -82,16 +96,27 @@ async function clearProfiles() {
         'doubles_pairings',
         'club_requests',
         'leave_club_requests',
-        'subgroup_members'
+        'training_sessions'
     ];
 
-    for (const table of tablesToClear) {
+    for (const table of tablesWithId) {
         const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (error && error.code !== 'PGRST116') {
             log(`  Warning: Could not clear ${table}: ${error.message}`, 'warn');
         } else {
             log(`  Cleared ${table}`, 'info');
         }
+    }
+
+    // subgroup_members has composite primary key (subgroup_id, user_id)
+    const { error: sgError } = await supabase
+        .from('subgroup_members')
+        .delete()
+        .neq('user_id', '00000000-0000-0000-0000-000000000000');
+    if (sgError && sgError.code !== 'PGRST116') {
+        log(`  Warning: Could not clear subgroup_members: ${sgError.message}`, 'warn');
+    } else {
+        log(`  Cleared subgroup_members`, 'info');
     }
 
     // Clear exercises created_by reference (set to null instead of delete)
