@@ -120,13 +120,19 @@ async function loadDoublesHeadToHeadStats(db, currentUserId, opponentTeam) {
 
         matchesMap.forEach(match => {
             // Check if this match involves current user and the opponent team
-            const teamAPlayers = [match.teamAPlayer1Id, match.teamAPlayer2Id].sort();
-            const teamBPlayers = [match.teamBPlayer1Id, match.teamBPlayer2Id].sort();
+            const teamAPlayers = [match.teamAPlayer1Id, match.teamAPlayer2Id];
+            const teamBPlayers = [match.teamBPlayer1Id, match.teamBPlayer2Id];
 
             const currentUserInTeamA = teamAPlayers.includes(currentUserId);
             const currentUserInTeamB = teamBPlayers.includes(currentUserId);
-            const opponentTeamInTeamA = teamAPlayers.every(p => opponentPlayers.includes(p));
-            const opponentTeamInTeamB = teamBPlayers.every(p => opponentPlayers.includes(p));
+
+            // Check if opponent team is exactly in teamA or teamB
+            const opponentTeamInTeamA =
+                teamAPlayers.includes(opponentPlayer1Id) &&
+                teamAPlayers.includes(opponentPlayer2Id);
+            const opponentTeamInTeamB =
+                teamBPlayers.includes(opponentPlayer1Id) &&
+                teamBPlayers.includes(opponentPlayer2Id);
 
             // Match is relevant if:
             // - Current user is in one team AND opponent team is in the other team
