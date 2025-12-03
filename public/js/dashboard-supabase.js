@@ -492,16 +492,27 @@ async function loadRivalData() {
         // Build query based on filter
         let query = supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, xp, club_id, subgroup_ids')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, xp, club_id')
             .in('role', ['player', 'coach']);
 
         // Apply club/subgroup filter
         if (currentSubgroupFilter === 'club' && currentUserData.club_id) {
             query = query.eq('club_id', currentUserData.club_id);
         } else if (currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
-            // Subgroup filter - use contains for array
-            query = query.eq('club_id', currentUserData.club_id)
-                         .contains('subgroup_ids', [currentSubgroupFilter]);
+            // Subgroup filter - need to get member IDs from subgroup_members table
+            const { data: subgroupMembers } = await supabase
+                .from('subgroup_members')
+                .select('profile_id')
+                .eq('subgroup_id', currentSubgroupFilter);
+
+            const memberIds = (subgroupMembers || []).map(m => m.profile_id);
+            if (memberIds.length > 0) {
+                query = query.in('id', memberIds);
+            } else {
+                // No members in subgroup, return empty
+                updateRivalDisplay([], rivalSkillEl, rivalEffortEl);
+                return;
+            }
         }
         // For 'global', no filter is applied
 
