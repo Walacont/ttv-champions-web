@@ -162,12 +162,15 @@ function initializeDashboard() {
 }
 
 // --- Setup Header ---
+// Default avatar as data URL (simple gray circle with user icon)
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOTRhM2I4Ii8+PHBhdGggZD0iTTIwIDg1YzAtMjAgMTMtMzAgMzAtMzBzMzAgMTAgMzAgMzAiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=';
+
 function setupHeader() {
     // Profile picture
     const headerPic = document.getElementById('header-profile-pic');
     if (headerPic) {
-        headerPic.src = currentUserData.avatar_url || '/images/default-avatar.png';
-        headerPic.onerror = () => { headerPic.src = '/images/default-avatar.png'; };
+        headerPic.src = currentUserData.avatar_url || DEFAULT_AVATAR;
+        headerPic.onerror = () => { headerPic.src = DEFAULT_AVATAR; };
     }
 
     // Welcome message
@@ -398,9 +401,9 @@ function renderLeaderboard(title, players, field, icon) {
             <div class="flex items-center justify-between p-2 rounded ${isCurrentUser ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'}">
                 <div class="flex items-center gap-2">
                     <span class="w-6 text-center">${medal}</span>
-                    <img src="${player.avatar_url || '/images/default-avatar.png'}"
+                    <img src="${player.avatar_url || DEFAULT_AVATAR}"
                          class="w-8 h-8 rounded-full object-cover"
-                         onerror="this.src='/images/default-avatar.png'">
+                         onerror="this.src='${DEFAULT_AVATAR}'">
                     <span class="${isCurrentUser ? 'font-semibold' : ''}">${player.display_name || 'Unbekannt'}</span>
                 </div>
                 <span class="font-bold text-indigo-600">${player[field] || 0}</span>
@@ -471,12 +474,17 @@ async function loadChallenges() {
     const container = document.getElementById('challenges-list');
     if (!container) return;
 
+    // Skip if user has no club
+    if (!currentUserData.club_id) {
+        container.innerHTML = '<p class="text-gray-500 col-span-full text-center">Tritt einem Verein bei um Challenges zu sehen</p>';
+        return;
+    }
+
     try {
         const { data: challenges, error } = await supabase
             .from('challenges')
             .select('*')
             .eq('club_id', currentUserData.club_id)
-            .eq('is_active', true)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -513,7 +521,6 @@ async function loadExercises() {
         const { data: exercises, error } = await supabase
             .from('exercises')
             .select('*')
-            .eq('is_active', true)
             .order('name');
 
         if (error) throw error;
@@ -527,10 +534,10 @@ async function loadExercises() {
             <div class="bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer"
                  onclick="openExerciseModal('${exercise.id}')">
                 <div class="aspect-video bg-gray-100 rounded mb-3 overflow-hidden">
-                    <img src="${exercise.image_url || '/images/exercise-placeholder.png'}"
+                    <img src="${exercise.image_url || ''}"
                          alt="${exercise.name}"
                          class="w-full h-full object-cover"
-                         onerror="this.src='/images/exercise-placeholder.png'">
+                         onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-4xl\\'>🏓</div>'">
                 </div>
                 <h4 class="font-semibold">${exercise.name}</h4>
                 <p class="text-sm text-gray-600 mt-1 line-clamp-2">${exercise.description || ''}</p>
@@ -552,14 +559,10 @@ async function loadMatchRequests() {
     if (!container) return;
 
     try {
-        // Get pending requests where user is involved
+        // Get pending requests where user is involved - simplified query without joins
         const { data: requests, error } = await supabase
             .from('match_requests')
-            .select(`
-                *,
-                requester:profiles!match_requests_requester_id_fkey(id, display_name, avatar_url),
-                opponent:profiles!match_requests_opponent_id_fkey(id, display_name, avatar_url)
-            `)
+            .select('*')
             .or(`requester_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
@@ -572,16 +575,28 @@ async function loadMatchRequests() {
             return;
         }
 
+        // Get unique user IDs to fetch profiles
+        const userIds = [...new Set(requests.flatMap(r => [r.requester_id, r.opponent_id]))];
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, display_name, avatar_url')
+            .in('id', userIds);
+
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
         container.innerHTML = requests.map(req => {
             const isRequester = req.requester_id === currentUser.id;
-            const otherPlayer = isRequester ? req.opponent : req.requester;
+            const otherPlayerId = isRequester ? req.opponent_id : req.requester_id;
+            const otherPlayer = profileMap[otherPlayerId];
             const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
 
             return `
                 <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
                     <div class="flex items-center gap-3">
-                        <img src="${otherPlayer?.avatar_url || '/images/default-avatar.png'}"
-                             class="w-10 h-10 rounded-full object-cover">
+                        <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
+                             class="w-10 h-10 rounded-full object-cover"
+                             onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
                             <p class="font-medium">${isRequester ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
                             <p class="text-xs text-gray-500">${statusText}</p>
