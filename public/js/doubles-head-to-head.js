@@ -91,25 +91,37 @@ async function loadDoublesHeadToHeadStats(db, currentUserId, opponentTeam) {
         // - Opponent team (both players) is in the other team
         const matchesRef = collection(db, 'doublesMatches');
 
-        // Get all processed doubles matches
-        const allMatchesQuery = query(
-            matchesRef,
-            where('processed', '==', true)
-        );
+        // Query matches where current user is in any of the 4 player positions
+        // We need 4 separate queries because Firestore doesn't support OR across different fields
+        const queries = [
+            query(matchesRef, where('teamAPlayer1Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamAPlayer2Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamBPlayer1Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamBPlayer2Id', '==', currentUserId), where('processed', '==', true)),
+        ];
 
-        const snapshot = await getDocs(allMatchesQuery);
+        // Execute all queries in parallel
+        const snapshots = await Promise.all(queries.map(q => getDocs(q)));
+
+        // Merge results and deduplicate by match ID
+        const matchesMap = new Map();
+        snapshots.forEach(snapshot => {
+            snapshot.docs.forEach(docSnap => {
+                if (!matchesMap.has(docSnap.id)) {
+                    matchesMap.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+                }
+            });
+        });
 
         // Filter matches where current user played against this specific opponent team
         const relevantMatches = [];
         const pairingHistory = new Map(); // Track which pairings I used
+        const opponentPlayers = [opponentPlayer1Id, opponentPlayer2Id].sort();
 
-        snapshot.docs.forEach(docSnap => {
-            const match = { id: docSnap.id, ...docSnap.data() };
-
+        matchesMap.forEach(match => {
             // Check if this match involves current user and the opponent team
             const teamAPlayers = [match.teamAPlayer1Id, match.teamAPlayer2Id].sort();
             const teamBPlayers = [match.teamBPlayer1Id, match.teamBPlayer2Id].sort();
-            const opponentPlayers = [opponentPlayer1Id, opponentPlayer2Id].sort();
 
             const currentUserInTeamA = teamAPlayers.includes(currentUserId);
             const currentUserInTeamB = teamBPlayers.includes(currentUserId);
