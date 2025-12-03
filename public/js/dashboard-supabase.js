@@ -1,726 +1,798 @@
-// Dashboard - Supabase Version
-// SC Champions - Migration von Firebase zu Supabase
+// SC Champions - Dashboard (Supabase Version)
+// Komplett neue Version ohne Firebase-Abhängigkeiten
 
-import { getSupabase, onAuthStateChange, signOut } from './supabase-init.js';
-import {
-    doc,
-    getDoc,
-    getDocs,
-    collection,
-    query,
-    where,
-    orderBy,
-    limit,
-    onSnapshot,
-    updateDoc,
-    writeBatch,
-    serverTimestamp
-} from './db-supabase.js';
-import {
-    LEAGUES,
-    PROMOTION_COUNT,
-    DEMOTION_COUNT,
-    setupLeaderboardTabs,
-    setupLeaderboardToggle,
-    loadLeaderboard,
-    loadGlobalLeaderboard,
-    renderLeaderboardHTML,
-} from './leaderboard.js';
-import {
-    loadExercises,
-    handleExerciseClick,
-    closeExerciseModal,
-    setExerciseContext,
-} from './exercises.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
-import { loadPointsHistory } from './points-management.js';
-import {
-    loadOverviewData,
-    loadRivalData,
-    loadProfileData,
-    updateRankDisplay,
-    updateGrundlagenDisplay,
-} from './profile.js';
-import { loadTopXPPlayers, loadTopWinsPlayers } from './season-stats.js';
-import { renderCalendar, loadTodaysMatches } from './calendar.js';
-import { loadChallenges, openChallengeModal } from './challenges-dashboard.js';
-import { initializeMatchRequestForm, loadPlayerMatchRequests } from './player-matches.js';
-import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui.js';
-import { confirmDoublesMatchRequest, rejectDoublesMatchRequest, approveDoublesMatchRequest } from './doubles-matches.js';
-import { loadMatchSuggestions } from './match-suggestions.js';
-import { loadMatchHistory } from './match-history.js';
-import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
-import { initializeWidgetSystem } from './dashboard-widgets.js';
-import TutorialManager from './tutorial.js';
-import { playerTutorialSteps } from './tutorial-player.js';
+import { getSupabase, onAuthStateChange } from './supabase-init.js';
 
-// Initialize Supabase
+console.log('[DASHBOARD-SUPABASE] Script starting...');
+
 const supabase = getSupabase();
 
-// Fake db object for compatibility with existing modules
-// They expect a Firestore db instance
-const db = {
-    _supabase: true,
-    // This allows existing code that passes db to still work
-    // The individual modules will need to be updated gradually
-};
-
 // --- State ---
+let currentUser = null;
 let currentUserData = null;
-let clubPlayers = [];
-let unsubscribes = [];
-let currentDisplayDate = new Date();
+let currentClubData = null;
+let realtimeSubscriptions = [];
 let currentSubgroupFilter = 'club';
 let currentGenderFilter = 'all';
-let matchSuggestionsUnsubscribes = [];
-let rivalListener = null;
-let calendarListener = null;
-let subgroupFilterListener = null;
-let streaksListener = null;
 
-// --- Main App Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
-    // Use Supabase auth state change
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session && session.user) {
-            const user = session.user;
+// --- Constants ---
+const RANKS = [
+    { name: 'Rekrut', minXP: 0, icon: '🔰' },
+    { name: 'Lehrling', minXP: 100, icon: '📘' },
+    { name: 'Geselle', minXP: 300, icon: '⚒️' },
+    { name: 'Adept', minXP: 600, icon: '🎯' },
+    { name: 'Veteran', minXP: 1000, icon: '⚔️' },
+    { name: 'Experte', minXP: 1500, icon: '🛡️' },
+    { name: 'Meister', minXP: 2500, icon: '👑' },
+    { name: 'Großmeister', minXP: 4000, icon: '🏆' },
+    { name: 'Champion', minXP: 6000, icon: '💎' },
+];
 
-            // Clean up old listeners
-            unsubscribes.forEach(unsub => {
-                if (typeof unsub === 'function') unsub();
-            });
-            unsubscribes = [];
-            matchSuggestionsUnsubscribes.forEach(unsub => {
-                if (typeof unsub === 'function') unsub();
-            });
-            matchSuggestionsUnsubscribes = [];
+// --- Main Initialization ---
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('[DASHBOARD-SUPABASE] DOM loaded, checking session...');
 
-            try {
-                // Get user profile from Supabase
-                const userDocRef = doc('profiles', user.id);
-                const initialDocSnap = await getDoc(userDocRef);
+    const { data: { session } } = await supabase.auth.getSession();
 
-                if (!initialDocSnap.exists()) {
-                    await signOut();
-                    return;
-                }
+    if (!session || !session.user) {
+        console.log('[DASHBOARD-SUPABASE] No session, redirecting to login');
+        window.location.replace('/index.html');
+        return;
+    }
 
-                // Setup real-time listener for user profile
-                const userListener = onSnapshot(userDocRef, docSnap => {
-                    if (docSnap.exists()) {
-                        const userData = docSnap.data();
-                        if (userData.role === 'player' || userData.role === 'coach') {
-                            const isFirstLoad = !currentUserData;
-                            currentUserData = { id: docSnap.id, ...userData };
-                            if (isFirstLoad) {
-                                initializeDashboard(currentUserData);
-                            } else {
-                                updateDashboard(currentUserData);
-                            }
-                        } else if (userData.role === 'admin') {
-                            window.location.href = '/admin.html';
-                        }
-                    } else {
-                        signOut();
-                    }
-                });
-                unsubscribes.push(userListener);
-            } catch (error) {
-                console.error('Initial load error:', error);
-                await signOut();
-            }
-        } else {
+    currentUser = session.user;
+    console.log('[DASHBOARD-SUPABASE] User:', currentUser.email);
+
+    // Load user profile
+    await loadUserProfile();
+
+    // Listen for auth changes
+    onAuthStateChange((event, session) => {
+        console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
+        if (event === 'SIGNED_OUT' || !session) {
+            cleanupSubscriptions();
             window.location.replace('/index.html');
         }
     });
 });
 
-function checkFeatureAccess(feature, userData) {
-    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
-    const clubOnlyFeatures = ['challenges', 'attendance', 'subgroups'];
-
-    if (clubOnlyFeatures.includes(feature) && !hasClub) {
-        return {
-            allowed: false,
-            message: 'Diese Funktion ist nur für Vereinsmitglieder verfügbar. Tritt einem Verein bei, um diese Funktion zu nutzen.',
-        };
-    }
-
-    return { allowed: true };
-}
-
-function showNoClubInfoIfNeeded(userData) {
-    const noClubInfoBox = document.getElementById('no-club-info-box');
-    const closeBtn = document.getElementById('close-no-club-info');
-
-    if (!noClubInfoBox) return;
-
-    const hasClub = userData.clubId && userData.clubId !== null;
-    const hasDismissed = localStorage.getItem('noClubInfoDismissed') === 'true';
-
-    if (!hasClub && !hasDismissed) {
-        noClubInfoBox.classList.remove('hidden');
-    }
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            noClubInfoBox.classList.add('hidden');
-            localStorage.setItem('noClubInfoDismissed', 'true');
-        });
-    }
-}
-
-async function checkAndStartTutorial(userData) {
-    const startTutorialFlag = sessionStorage.getItem('startTutorial');
-    if (startTutorialFlag === 'player') {
-        sessionStorage.removeItem('startTutorial');
-        setTimeout(() => window.startPlayerTutorial(), 1000);
-        return;
-    }
-
-    const tutorialCompleted = userData.tutorialCompleted?.player || false;
-
-    if (!tutorialCompleted) {
-        setTimeout(() => {
-            const tutorial = new TutorialManager(playerTutorialSteps, {
-                tutorialKey: 'player',
-                autoScroll: true,
-                scrollOffset: 100,
-            });
-            tutorial.start();
-        }, 1000);
-    }
-}
-
-window.startPlayerTutorial = function () {
-    const tutorial = new TutorialManager(playerTutorialSteps, {
-        tutorialKey: 'player',
-        autoScroll: true,
-        scrollOffset: 100,
+// --- Cleanup ---
+function cleanupSubscriptions() {
+    realtimeSubscriptions.forEach(sub => {
+        if (sub && typeof sub.unsubscribe === 'function') {
+            sub.unsubscribe();
+        }
     });
-    tutorial.start();
-};
+    realtimeSubscriptions = [];
+}
 
-async function setHeaderProfileAndClub(userData) {
-    const headerProfilePic = document.getElementById('header-profile-pic');
-    const headerClubName = document.getElementById('header-club-name');
+// --- Load User Profile ---
+async function loadUserProfile() {
+    try {
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select(\`
+                *,
+                club:clubs(id, name, sport_id)
+            \`)
+            .eq('id', currentUser.id)
+            .single();
 
-    if (userData.photoURL || userData.avatarUrl) {
-        headerProfilePic.src = userData.photoURL || userData.avatarUrl;
-    } else {
-        const initials = `${userData.firstName?.[0] || ''}${userData.lastName?.[0] || ''}` || 'U';
-        headerProfilePic.src = `https://placehold.co/80x80/e2e8f0/64748b?text=${initials}`;
-    }
+        if (error) throw error;
 
-    if (userData.clubId) {
-        try {
-            const clubDoc = await getDoc(doc('clubs', userData.clubId));
-            if (clubDoc.exists()) {
-                headerClubName.textContent = clubDoc.data().name || userData.clubId;
-            } else {
-                headerClubName.textContent = userData.clubId;
-            }
-        } catch (error) {
-            console.error('Error loading club info:', error);
-            headerClubName.textContent = 'Fehler beim Laden';
+        if (!profile) {
+            console.error('[DASHBOARD-SUPABASE] No profile found');
+            await supabase.auth.signOut();
+            return;
         }
-    } else {
-        headerClubName.textContent = 'Kein Verein';
-        const headerClubInfo = document.getElementById('header-club-info');
-        if (headerClubInfo) {
-            const icon = headerClubInfo.querySelector('i');
-            if (icon) {
-                icon.style.display = 'none';
-            }
+
+        // Check onboarding
+        if (!profile.onboarding_complete) {
+            console.log('[DASHBOARD-SUPABASE] Onboarding not complete');
+            window.location.href = '/onboarding.html';
+            return;
         }
+
+        // Check role - redirect admins
+        if (profile.role === 'admin') {
+            window.location.href = '/admin.html';
+            return;
+        }
+
+        currentUserData = profile;
+        currentClubData = profile.club;
+
+        console.log('[DASHBOARD-SUPABASE] Profile loaded:', {
+            name: profile.display_name,
+            role: profile.role,
+            club: currentClubData?.name
+        });
+
+        // Initialize dashboard
+        initializeDashboard();
+
+    } catch (error) {
+        console.error('[DASHBOARD-SUPABASE] Error loading profile:', error);
+        showError('Profil konnte nicht geladen werden: ' + error.message);
     }
 }
 
-async function initializeDashboard(userData) {
+// --- Initialize Dashboard ---
+function initializeDashboard() {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
-    const welcomeMessage = document.getElementById('welcome-message');
-    const logoutButton = document.getElementById('logout-button');
 
-    try {
-        welcomeMessage.textContent = `Willkommen, ${userData.firstName || userData.email}!`;
+    // Hide loader, show content
+    if (pageLoader) pageLoader.style.display = 'none';
+    if (mainContent) mainContent.style.display = 'block';
 
-        const switchToCoachBtn = document.getElementById('switch-to-coach-btn');
-        if (switchToCoachBtn && userData.role === 'coach') {
-            switchToCoachBtn.classList.remove('hidden');
+    // Setup UI
+    setupHeader();
+    setupTabs();
+    setupLogout();
+    setupFilters();
+
+    // Load data
+    updateStatsDisplay();
+    updateRankDisplay();
+    loadLeaderboards();
+    loadPointsHistory();
+    loadChallenges();
+    loadExercises();
+    loadMatchRequests();
+    loadCalendar();
+    updateSeasonCountdown();
+
+    // Show coach switch button if coach
+    if (currentUserData.role === 'coach') {
+        const switchBtn = document.getElementById('switch-to-coach-btn');
+        if (switchBtn) switchBtn.classList.remove('hidden');
+    }
+
+    // Show no-club info if needed
+    if (!currentUserData.club_id) {
+        const noClubBox = document.getElementById('no-club-info-box');
+        if (noClubBox && localStorage.getItem('noClubInfoDismissed') !== 'true') {
+            noClubBox.classList.remove('hidden');
         }
+    }
 
-        await setHeaderProfileAndClub(userData);
+    // Setup realtime subscriptions
+    setupRealtimeSubscriptions();
+}
 
-        renderLeaderboardHTML('leaderboard-content-wrapper', {
-            showToggle: true,
-            userData: userData,
-        });
+// --- Setup Header ---
+function setupHeader() {
+    // Profile picture
+    const headerPic = document.getElementById('header-profile-pic');
+    if (headerPic) {
+        headerPic.src = currentUserData.avatar_url || '/images/default-avatar.png';
+        headerPic.onerror = () => { headerPic.src = '/images/default-avatar.png'; };
+    }
 
-        await populatePlayerSubgroupFilter(userData);
+    // Welcome message
+    const welcomeMsg = document.getElementById('welcome-message');
+    if (welcomeMsg) {
+        const name = currentUserData.first_name || currentUserData.display_name || 'Spieler';
+        welcomeMsg.textContent = \`Willkommen zurück, \${name}!\`;
+    }
 
-        const challengesAccess = checkFeatureAccess('challenges', userData);
-        const challengesLoader = challengesAccess.allowed ? loadChallenges : null;
+    // Club name
+    const clubName = document.getElementById('header-club-name');
+    if (clubName) {
+        clubName.textContent = currentClubData?.name || 'Kein Verein';
+    }
+}
 
-        // Note: These functions still expect Firebase db
-        // They will need to be updated to use Supabase directly
-        loadOverviewData(userData, db, unsubscribes, null, challengesLoader, loadPointsHistory);
+// --- Setup Tabs ---
+function setupTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-        if (!challengesAccess.allowed) {
-            const challengesList = document.getElementById('challenges-list');
-            if (challengesList) {
-                challengesList.innerHTML = `
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                        <i class="fas fa-lock text-yellow-600 text-3xl mb-3"></i>
-                        <p class="text-yellow-800 font-medium">${challengesAccess.message}</p>
-                        <a href="/settings.html#club-management" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-                            Verein suchen
-                        </a>
-                    </div>
-                `;
-            }
-        }
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tabId = button.dataset.tab;
 
-        initializeWidgetSystem(db, userData.id, userData);
+            // Update active states
+            tabButtons.forEach(btn => btn.classList.remove('tab-active'));
+            button.classList.add('tab-active');
 
-        rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
-
-        const attendanceAccess = checkFeatureAccess('attendance', userData);
-
-        if (attendanceAccess.allowed) {
-            streaksListener = loadProfileData(
-                userData,
-                date => {
-                    if (calendarListener && typeof calendarListener === 'function') {
-                        try {
-                            calendarListener();
-                        } catch (e) {
-                            console.error('Error unsubscribing calendar listener:', e);
-                        }
-                    }
-                    calendarListener = renderCalendar(date, userData, db, currentSubgroupFilter);
-                },
-                currentDisplayDate,
-                db
-            );
-        } else {
-            const calendarGrid = document.getElementById('calendar-grid');
-            if (calendarGrid) {
-                calendarGrid.innerHTML = `
-                    <div class="col-span-7 bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                        <i class="fas fa-lock text-yellow-600 text-3xl mb-3"></i>
-                        <p class="text-yellow-800 font-medium">${attendanceAccess.message}</p>
-                        <a href="/settings.html#club-management" class="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-                            Verein suchen
-                        </a>
-                    </div>
-                `;
-            }
-        }
-
-        setExerciseContext(db, userData.id, userData.role, userData.clubId);
-        loadExercises(db, unsubscribes);
-
-        setupTabs('overview');
-        setupLeaderboardTabs(userData);
-        setupLeaderboardToggle(userData);
-
-        initializeLeaderboardPreferences(userData, db);
-        applyPreferences();
-
-        import('./leaderboard.js').then(({ setLeaderboardSubgroupFilter, setLeaderboardGenderFilter }) => {
-            setLeaderboardSubgroupFilter('all');
-            setLeaderboardGenderFilter('all');
-        });
-
-        loadLeaderboard(userData, db, unsubscribes);
-        loadGlobalLeaderboard(userData, db, unsubscribes);
-        loadTodaysMatches(userData, db, unsubscribes);
-
-        loadTopXPPlayers(userData.clubId, db);
-        loadTopWinsPlayers(userData.clubId, db);
-
-        await loadClubPlayers(userData);
-
-        initializeMatchRequestForm(userData, db, clubPlayers, unsubscribes);
-        initializeDoublesPlayerUI();
-        initializeDoublesPlayerSearch(db, userData);
-
-        loadPlayerMatchRequests(userData, db, unsubscribes);
-        loadOverviewMatchRequests(userData, unsubscribes);
-
-        loadMatchHistory(db, userData, 'singles');
-
-        window.reloadMatchHistory = matchType => {
-            loadMatchHistory(db, userData, matchType);
-        };
-
-        loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
-
-        updateSeasonCountdown('season-countdown', true, db);
-        setInterval(() => updateSeasonCountdown('season-countdown', true, db), 1000);
-
-        logoutButton.addEventListener('click', async () => {
-            try {
-                await signOut();
-                if (window.spaEnhancer) {
-                    window.spaEnhancer.clearCache();
+            tabContents.forEach(content => {
+                content.classList.add('hidden');
+                if (content.id === \`tab-content-\${tabId}\`) {
+                    content.classList.remove('hidden');
                 }
+            });
+        });
+    });
+
+    // Activate first tab
+    if (tabButtons.length > 0) {
+        tabButtons[0].click();
+    }
+}
+
+// --- Setup Logout ---
+function setupLogout() {
+    const logoutBtn = document.getElementById('logout-button');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                cleanupSubscriptions();
+                await supabase.auth.signOut();
+                if (window.spaEnhancer) window.spaEnhancer.clearCache();
                 window.location.replace('/index.html');
             } catch (error) {
                 console.error('Logout error:', error);
             }
         });
+    }
 
-        const subgroupFilterDropdown = document.getElementById('player-subgroup-filter');
-        if (subgroupFilterDropdown) {
-            subgroupFilterDropdown.addEventListener('change', () => {
-                handlePlayerSubgroupFilterChange(userData, unsubscribes);
-            });
-        }
-
-        const genderFilterDropdown = document.getElementById('player-gender-filter');
-        if (genderFilterDropdown) {
-            genderFilterDropdown.addEventListener('change', () => {
-                handleGenderFilterChange(userData, unsubscribes);
-            });
-        }
-
-        document.getElementById('exercises-list').addEventListener('click', handleExerciseClick);
-        document.getElementById('close-exercise-modal').addEventListener('click', closeExerciseModal);
-        document.getElementById('exercise-modal').addEventListener('click', e => {
-            if (e.target === document.getElementById('exercise-modal')) closeExerciseModal();
+    // Close no-club info
+    const closeNoClubBtn = document.getElementById('close-no-club-info');
+    if (closeNoClubBtn) {
+        closeNoClubBtn.addEventListener('click', () => {
+            document.getElementById('no-club-info-box')?.classList.add('hidden');
+            localStorage.setItem('noClubInfoDismissed', 'true');
         });
-
-        const toggleAbbreviations = document.getElementById('toggle-abbreviations');
-        const abbreviationsContent = document.getElementById('abbreviations-content');
-        if (toggleAbbreviations && abbreviationsContent) {
-            toggleAbbreviations.addEventListener('click', () => {
-                const isHidden = abbreviationsContent.classList.contains('hidden');
-                abbreviationsContent.classList.toggle('hidden');
-            });
-        }
-
-        document.getElementById('challenges-list').addEventListener('click', e => {
-            const card = e.target.closest('.challenge-card');
-            if (card) {
-                openChallengeModal(card.dataset);
-            }
-        });
-
-        document.getElementById('close-challenge-modal').addEventListener('click', () =>
-            document.getElementById('challenge-modal').classList.add('hidden')
-        );
-
-        document.getElementById('toggle-match-suggestions').addEventListener('click', () => {
-            const content = document.getElementById('match-suggestions-content');
-            const chevron = document.getElementById('suggestions-chevron');
-            const isHidden = content.classList.contains('hidden');
-
-            content.classList.toggle('hidden');
-            chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-        });
-
-        const togglePreferencesBtn = document.getElementById('toggle-leaderboard-preferences');
-        if (togglePreferencesBtn) {
-            togglePreferencesBtn.addEventListener('click', () => {
-                const content = document.getElementById('leaderboard-preferences-content');
-                const chevron = document.getElementById('preferences-chevron');
-                content.classList.toggle('hidden');
-                chevron.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
-            });
-        }
-
-        const hasClubForCalendar = currentUserData.clubId !== null && currentUserData.clubId !== undefined;
-        if (hasClubForCalendar) {
-            document.getElementById('prev-month').addEventListener('click', () => {
-                currentDisplayDate.setMonth(currentDisplayDate.getMonth() - 1);
-                if (calendarListener && typeof calendarListener === 'function') {
-                    try { calendarListener(); } catch (e) {}
-                }
-                calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
-            });
-            document.getElementById('next-month').addEventListener('click', () => {
-                currentDisplayDate.setMonth(currentDisplayDate.getMonth() + 1);
-                if (calendarListener && typeof calendarListener === 'function') {
-                    try { calendarListener(); } catch (e) {}
-                }
-                calendarListener = renderCalendar(currentDisplayDate, currentUserData, db, currentSubgroupFilter);
-            });
-        }
-
-        console.log('[Dashboard] Supabase version initialized');
-
-        pageLoader.style.display = 'none';
-        mainContent.style.display = 'block';
-
-        showNoClubInfoIfNeeded(userData);
-        checkAndStartTutorial(userData);
-
-    } catch (error) {
-        console.error('[Dashboard] Initialization error:', error);
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
-        errorContainer.innerHTML = `
-            <strong>Fehler beim Laden</strong>
-            <p class="text-sm">Bitte lade die Seite neu.</p>
-            <button onclick="location.reload()" class="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm">Neu laden</button>
-        `;
-        document.body.appendChild(errorContainer);
-
-        pageLoader.style.display = 'none';
-        mainContent.style.display = 'block';
     }
 }
 
-function updateDashboard(userData) {
-    const playerPointsEl = document.getElementById('player-points');
-    const playerXpEl = document.getElementById('player-xp');
-    const playerEloEl = document.getElementById('player-elo');
+// --- Setup Filters ---
+function setupFilters() {
+    const subgroupFilter = document.getElementById('player-subgroup-filter');
+    const genderFilter = document.getElementById('player-gender-filter');
 
-    if (playerPointsEl) playerPointsEl.textContent = userData.points || 0;
-    if (playerXpEl) playerXpEl.textContent = userData.xp || 0;
-    if (playerEloEl) playerEloEl.textContent = userData.eloRating || 0;
+    if (subgroupFilter) {
+        // Load subgroups if user has a club
+        if (currentUserData.club_id) {
+            loadSubgroupsForFilter(subgroupFilter);
+        }
 
-    updateRankDisplay(userData);
-    updateGrundlagenDisplay(userData);
-    populatePlayerSubgroupFilter(userData);
+        subgroupFilter.addEventListener('change', () => {
+            currentSubgroupFilter = subgroupFilter.value;
+            loadLeaderboards();
+        });
+    }
+
+    if (genderFilter) {
+        genderFilter.addEventListener('change', () => {
+            currentGenderFilter = genderFilter.value;
+            loadLeaderboards();
+        });
+    }
 }
 
-async function populatePlayerSubgroupFilter(userData) {
-    const dropdown = document.getElementById('player-subgroup-filter');
-    if (!dropdown) return;
-
-    const hasClub = userData.clubId !== null && userData.clubId !== undefined;
-    const subgroupIDs = userData.subgroupIDs || [];
-    const currentSelection = dropdown.value;
-
-    if (subgroupFilterListener && typeof subgroupFilterListener === 'function') {
-        try { subgroupFilterListener(); } catch (e) {}
-    }
-
-    if (!hasClub) {
-        dropdown.innerHTML = '';
-        dropdown.appendChild(createOption('global', 'Global'));
-        dropdown.value = 'global';
-        return;
-    }
-
-    if (subgroupIDs.length === 0) {
-        dropdown.innerHTML = '';
-        dropdown.appendChild(createOption('club', 'Mein Verein'));
-        dropdown.appendChild(createOption('global', 'Global'));
-        dropdown.value = currentSelection || 'club';
-        return;
-    }
-
+async function loadSubgroupsForFilter(selectElement) {
     try {
-        // Query subgroups using Supabase directly
-        const { data: allSubgroups, error } = await supabase
+        const { data: subgroups } = await supabase
             .from('subgroups')
-            .select('*')
-            .eq('club_id', userData.clubId)
-            .order('created_at', { ascending: true });
+            .select('id, name')
+            .eq('club_id', currentUserData.club_id)
+            .order('name');
 
-        if (error) throw error;
-
-        const userSubgroups = (allSubgroups || []).filter(
-            sg => subgroupIDs.includes(sg.id) && !sg.is_default
-        );
-
-        dropdown.innerHTML = '';
-        dropdown.appendChild(createOption('club', 'Mein Verein'));
-        dropdown.appendChild(createOption('global', 'Global'));
-
-        const youthGroup = document.createElement('optgroup');
-        youthGroup.label = 'Jugend (nach Alter)';
-        AGE_GROUPS.youth.forEach(group => {
-            youthGroup.appendChild(createOption(group.id, group.label));
-        });
-        dropdown.appendChild(youthGroup);
-
-        AGE_GROUPS.adults.forEach(group => {
-            dropdown.appendChild(createOption(group.id, group.label));
-        });
-
-        const seniorGroup = document.createElement('optgroup');
-        seniorGroup.label = 'Senioren (nach Alter)';
-        AGE_GROUPS.seniors.forEach(group => {
-            seniorGroup.appendChild(createOption(group.id, group.label));
-        });
-        dropdown.appendChild(seniorGroup);
-
-        if (userSubgroups.length > 0) {
-            const customGroup = document.createElement('optgroup');
-            customGroup.label = 'Meine Untergruppen im Verein';
-            userSubgroups.forEach(subgroup => {
-                customGroup.appendChild(createOption(`subgroup:${subgroup.id}`, subgroup.name));
+        if (subgroups && subgroups.length > 0) {
+            subgroups.forEach(sg => {
+                const option = document.createElement('option');
+                option.value = sg.id;
+                option.textContent = \`📁 \${sg.name}\`;
+                selectElement.appendChild(option);
             });
-            dropdown.appendChild(customGroup);
         }
-
-        const validValues = Array.from(dropdown.options).map(opt => opt.value);
-        dropdown.value = validValues.includes(currentSelection) ? currentSelection : 'club';
-
     } catch (error) {
-        console.error('Error populating subgroup filter:', error);
+        console.error('Error loading subgroups:', error);
     }
 }
 
-function createOption(value, text) {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = text;
-    return option;
+// --- Update Stats Display ---
+function updateStatsDisplay() {
+    const xpEl = document.getElementById('player-xp');
+    const eloEl = document.getElementById('player-elo');
+    const pointsEl = document.getElementById('player-points');
+
+    if (xpEl) xpEl.textContent = currentUserData.xp || 0;
+    if (eloEl) eloEl.textContent = currentUserData.elo_rating || 1000;
+    if (pointsEl) pointsEl.textContent = currentUserData.points || 0;
 }
 
-function handlePlayerSubgroupFilterChange(userData, unsubscribes) {
-    const dropdown = document.getElementById('player-subgroup-filter');
-    if (!dropdown) return;
+// --- Update Rank Display ---
+function updateRankDisplay() {
+    const rankInfo = document.getElementById('rank-info');
+    if (!rankInfo) return;
 
-    const selectedValue = dropdown.value;
+    const xp = currentUserData.xp || 0;
+    let currentRank = RANKS[0];
+    let nextRank = RANKS[1];
 
-    if (selectedValue === 'club') {
-        currentSubgroupFilter = 'club';
-    } else if (selectedValue === 'global') {
-        currentSubgroupFilter = 'global';
-    } else if (selectedValue.startsWith('subgroup:')) {
-        currentSubgroupFilter = selectedValue.replace('subgroup:', '');
+    for (let i = RANKS.length - 1; i >= 0; i--) {
+        if (xp >= RANKS[i].minXP) {
+            currentRank = RANKS[i];
+            nextRank = RANKS[i + 1] || null;
+            break;
+        }
+    }
+
+    let html = \`
+        <div class="text-center">
+            <p class="text-4xl mb-2">\${currentRank.icon}</p>
+            <p class="text-xl font-bold text-indigo-600">\${currentRank.name}</p>
+            <p class="text-sm text-gray-500">\${xp} XP</p>
+    \`;
+
+    if (nextRank) {
+        const progress = ((xp - currentRank.minXP) / (nextRank.minXP - currentRank.minXP)) * 100;
+        html += \`
+            <div class="mt-4">
+                <p class="text-xs text-gray-500 mb-1">Nächster Rang: \${nextRank.icon} \${nextRank.name}</p>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-indigo-600 h-2 rounded-full" style="width: \${Math.min(progress, 100)}%"></div>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">\${nextRank.minXP - xp} XP bis zum Aufstieg</p>
+            </div>
+        \`;
     } else {
-        currentSubgroupFilter = selectedValue;
+        html += \`<p class="text-sm text-green-600 mt-2">Höchster Rang erreicht!</p>\`;
     }
 
-    console.log(`[Player] Subgroup filter changed to: ${currentSubgroupFilter}`);
-
-    if (rivalListener && typeof rivalListener === 'function') {
-        try { rivalListener(); } catch (e) {}
-    }
-    rivalListener = loadRivalData(userData, db, currentSubgroupFilter);
-
-    import('./leaderboard.js').then(({
-        setLeaderboardSubgroupFilter,
-        setLeaderboardGenderFilter,
-        loadLeaderboard: loadLB,
-        loadGlobalLeaderboard: loadGlobalLB,
-    }) => {
-        setLeaderboardGenderFilter(currentGenderFilter);
-
-        if (currentSubgroupFilter === 'club') {
-            setLeaderboardSubgroupFilter('all');
-            loadLB(userData, db, unsubscribes);
-        } else if (currentSubgroupFilter === 'global') {
-            setLeaderboardSubgroupFilter('all');
-            loadGlobalLB(userData, db, unsubscribes);
-        } else {
-            setLeaderboardSubgroupFilter(currentSubgroupFilter);
-            loadLB(userData, db, unsubscribes);
-            loadGlobalLB(userData, db, unsubscribes);
-        }
-    });
-
-    if (calendarListener && typeof calendarListener === 'function') {
-        try { calendarListener(); } catch (e) {}
-    }
-    calendarListener = renderCalendar(currentDisplayDate, userData, db, currentSubgroupFilter);
-
-    matchSuggestionsUnsubscribes.forEach(unsub => {
-        try { if (typeof unsub === 'function') unsub(); } catch (e) {}
-    });
-    matchSuggestionsUnsubscribes = [];
-    loadMatchSuggestions(userData, db, matchSuggestionsUnsubscribes, currentSubgroupFilter);
+    html += '</div>';
+    rankInfo.innerHTML = html;
 }
 
-function handleGenderFilterChange(userData, unsubscribes) {
-    const dropdown = document.getElementById('player-gender-filter');
-    if (!dropdown) return;
+// --- Load Leaderboards ---
+async function loadLeaderboards() {
+    const container = document.getElementById('leaderboard-content-wrapper');
+    if (!container) return;
 
-    currentGenderFilter = dropdown.value;
-    console.log(`[Player] Gender filter changed to: ${currentGenderFilter}`);
-
-    import('./leaderboard.js').then(({
-        setLeaderboardSubgroupFilter,
-        setLeaderboardGenderFilter,
-        loadLeaderboard: loadLB,
-        loadGlobalLeaderboard: loadGlobalLB,
-    }) => {
-        setLeaderboardGenderFilter(currentGenderFilter);
-
-        if (currentSubgroupFilter === 'club') {
-            setLeaderboardSubgroupFilter('all');
-            loadLB(userData, db, unsubscribes);
-        } else if (currentSubgroupFilter === 'global') {
-            setLeaderboardSubgroupFilter('all');
-            loadGlobalLB(userData, db, unsubscribes);
-        } else {
-            setLeaderboardSubgroupFilter(currentSubgroupFilter);
-            loadLB(userData, db, unsubscribes);
-            loadGlobalLB(userData, db, unsubscribes);
-        }
-    });
-}
-
-async function loadClubPlayers(userData) {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('profiles')
-            .select('*')
-            .eq('club_id', userData.clubId)
-            .in('role', ['player', 'coach']);
+            .select('id, display_name, avatar_url, xp, elo_rating, points, role')
+            .neq('role', 'admin');
+
+        // Apply filters
+        if (currentSubgroupFilter === 'club' && currentUserData.club_id) {
+            query = query.eq('club_id', currentUserData.club_id);
+        } else if (currentSubgroupFilter === 'global') {
+            // No filter for global
+        } else if (currentSubgroupFilter && currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
+            query = query.eq('subgroup_id', currentSubgroupFilter);
+        }
+
+        if (currentGenderFilter !== 'all') {
+            query = query.eq('gender', currentGenderFilter);
+        }
+
+        const { data: players, error } = await query.order('elo_rating', { ascending: false }).limit(50);
 
         if (error) throw error;
 
-        clubPlayers = (data || []).map(p => ({
-            id: p.id,
-            ...p,
-            // Map snake_case to camelCase for compatibility
-            firstName: p.first_name,
-            lastName: p.last_name,
-            displayName: p.display_name,
-            clubId: p.club_id,
-            eloRating: p.elo_rating
-        }));
+        container.innerHTML = \`
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                \${renderLeaderboard('Skill (Elo)', players, 'elo_rating', '⚡')}
+                \${renderLeaderboard('Fleiß (XP)', [...players].sort((a, b) => (b.xp || 0) - (a.xp || 0)), 'xp', '💪')}
+                \${renderLeaderboard('Season (Punkte)', [...players].sort((a, b) => (b.points || 0) - (a.points || 0)), 'points', '🏆')}
+            </div>
+        \`;
+
     } catch (error) {
-        console.error('Error loading club players:', error);
+        console.error('Error loading leaderboards:', error);
+        container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Ranglisten</p>';
     }
 }
 
-async function loadOverviewMatchRequests(userData, unsubscribes) {
+function renderLeaderboard(title, players, field, icon) {
+    const top10 = players.slice(0, 10);
+    const currentUserRank = players.findIndex(p => p.id === currentUser.id) + 1;
+
+    let html = \`
+        <div class="bg-white p-4 rounded-xl shadow-md">
+            <h3 class="text-lg font-semibold mb-3">\${icon} \${title}</h3>
+            <div class="space-y-2">
+    \`;
+
+    top10.forEach((player, index) => {
+        const isCurrentUser = player.id === currentUser.id;
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : \`\${index + 1}.\`;
+
+        html += \`
+            <div class="flex items-center justify-between p-2 rounded \${isCurrentUser ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-gray-50'}">
+                <div class="flex items-center gap-2">
+                    <span class="w-6 text-center">\${medal}</span>
+                    <img src="\${player.avatar_url || '/images/default-avatar.png'}"
+                         class="w-8 h-8 rounded-full object-cover"
+                         onerror="this.src='/images/default-avatar.png'">
+                    <span class="\${isCurrentUser ? 'font-semibold' : ''}">\${player.display_name || 'Unbekannt'}</span>
+                </div>
+                <span class="font-bold text-indigo-600">\${player[field] || 0}</span>
+            </div>
+        \`;
+    });
+
+    // Show current user's rank if not in top 10
+    if (currentUserRank > 10) {
+        const currentPlayer = players[currentUserRank - 1];
+        html += \`
+            <div class="border-t mt-2 pt-2">
+                <div class="flex items-center justify-between p-2 bg-indigo-50 border border-indigo-200 rounded">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 text-center">\${currentUserRank}.</span>
+                        <span class="font-semibold">Du</span>
+                    </div>
+                    <span class="font-bold text-indigo-600">\${currentPlayer[field] || 0}</span>
+                </div>
+            </div>
+        \`;
+    }
+
+    html += '</div></div>';
+    return html;
+}
+
+// --- Load Points History ---
+async function loadPointsHistory() {
+    const container = document.getElementById('points-history');
+    if (!container) return;
+
+    try {
+        const { data: history, error } = await supabase
+            .from('points_history')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (error) throw error;
+
+        if (!history || history.length === 0) {
+            container.innerHTML = '<li class="text-gray-500 text-center">Noch keine Punkte-Historie</li>';
+            return;
+        }
+
+        container.innerHTML = history.map(entry => \`
+            <li class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                <div>
+                    <span class="text-sm">\${entry.description || entry.reason || 'Punkte'}</span>
+                    <span class="text-xs text-gray-400 block">\${formatDate(entry.created_at)}</span>
+                </div>
+                <span class="font-bold \${entry.points >= 0 ? 'text-green-600' : 'text-red-600'}">
+                    \${entry.points >= 0 ? '+' : ''}\${entry.points}
+                </span>
+            </li>
+        \`).join('');
+
+    } catch (error) {
+        console.error('Error loading points history:', error);
+        container.innerHTML = '<li class="text-red-500">Fehler beim Laden</li>';
+    }
+}
+
+// --- Load Challenges ---
+async function loadChallenges() {
+    const container = document.getElementById('challenges-list');
+    if (!container) return;
+
+    try {
+        const { data: challenges, error } = await supabase
+            .from('challenges')
+            .select('*')
+            .eq('club_id', currentUserData.club_id)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!challenges || challenges.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 col-span-full text-center">Keine aktiven Challenges</p>';
+            return;
+        }
+
+        container.innerHTML = challenges.map(challenge => \`
+            <div class="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-200 cursor-pointer hover:shadow-md transition"
+                 onclick="openChallengeModal('\${challenge.id}')">
+                <h4 class="font-semibold text-purple-800">\${challenge.name}</h4>
+                <p class="text-sm text-gray-600 mt-1 line-clamp-2">\${challenge.description || ''}</p>
+                <div class="flex justify-between items-center mt-3">
+                    <span class="text-xs text-purple-600">\${challenge.xp_reward || 0} XP</span>
+                    <span class="text-xs text-gray-400">\${formatDate(challenge.expires_at)}</span>
+                </div>
+            </div>
+        \`).join('');
+
+    } catch (error) {
+        console.error('Error loading challenges:', error);
+        container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Challenges</p>';
+    }
+}
+
+// --- Load Exercises ---
+async function loadExercises() {
+    const container = document.getElementById('exercises-list');
+    if (!container) return;
+
+    try {
+        const { data: exercises, error } = await supabase
+            .from('exercises')
+            .select('*')
+            .eq('is_active', true)
+            .order('name');
+
+        if (error) throw error;
+
+        if (!exercises || exercises.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 col-span-full text-center">Keine Übungen verfügbar</p>';
+            return;
+        }
+
+        container.innerHTML = exercises.map(exercise => \`
+            <div class="bg-white p-4 rounded-lg border hover:shadow-md transition cursor-pointer"
+                 onclick="openExerciseModal('\${exercise.id}')">
+                <div class="aspect-video bg-gray-100 rounded mb-3 overflow-hidden">
+                    <img src="\${exercise.image_url || '/images/exercise-placeholder.png'}"
+                         alt="\${exercise.name}"
+                         class="w-full h-full object-cover"
+                         onerror="this.src='/images/exercise-placeholder.png'">
+                </div>
+                <h4 class="font-semibold">\${exercise.name}</h4>
+                <p class="text-sm text-gray-600 mt-1 line-clamp-2">\${exercise.description || ''}</p>
+                <div class="flex justify-between items-center mt-2">
+                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded">\${exercise.xp_reward || 0} XP</span>
+                </div>
+            </div>
+        \`).join('');
+
+    } catch (error) {
+        console.error('Error loading exercises:', error);
+        container.innerHTML = '<p class="text-red-500">Fehler beim Laden der Übungen</p>';
+    }
+}
+
+// --- Load Match Requests ---
+async function loadMatchRequests() {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
 
-    // Simplified version - just show a message for now
-    // Full implementation requires updating all match request logic
     try {
-        const { data: matchRequests, error } = await supabase
+        // Get pending requests where user is involved
+        const { data: requests, error } = await supabase
             .from('match_requests')
-            .select('*')
-            .eq('player_b_id', userData.id)
-            .eq('status', 'pending_player');
+            .select(\`
+                *,
+                requester:profiles!match_requests_requester_id_fkey(id, display_name, avatar_url),
+                opponent:profiles!match_requests_opponent_id_fkey(id, display_name, avatar_url)
+            \`)
+            .or(\`requester_id.eq.\${currentUser.id},opponent_id.eq.\${currentUser.id}\`)
+            .in('status', ['pending_player', 'pending_coach'])
+            .order('created_at', { ascending: false })
+            .limit(5);
 
         if (error) throw error;
 
-        if (!matchRequests || matchRequests.length === 0) {
+        if (!requests || requests.length === 0) {
             container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
             return;
         }
 
-        container.innerHTML = `<p class="text-gray-700 text-center py-4">${matchRequests.length} Anfrage(n) ausstehend</p>`;
-        updateMatchRequestBadge(matchRequests.length);
+        container.innerHTML = requests.map(req => {
+            const isRequester = req.requester_id === currentUser.id;
+            const otherPlayer = isRequester ? req.opponent : req.requester;
+            const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
+
+            return \`
+                <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div class="flex items-center gap-3">
+                        <img src="\${otherPlayer?.avatar_url || '/images/default-avatar.png'}"
+                             class="w-10 h-10 rounded-full object-cover">
+                        <div>
+                            <p class="font-medium">\${isRequester ? 'Anfrage an' : 'Anfrage von'} \${otherPlayer?.display_name || 'Unbekannt'}</p>
+                            <p class="text-xs text-gray-500">\${statusText}</p>
+                        </div>
+                    </div>
+                    \${!isRequester && req.status === 'pending_player' ? \`
+                        <div class="flex gap-2">
+                            <button onclick="respondToMatchRequest('\${req.id}', true)"
+                                    class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                                Annehmen
+                            </button>
+                            <button onclick="respondToMatchRequest('\${req.id}', false)"
+                                    class="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                                Ablehnen
+                            </button>
+                        </div>
+                    \` : ''}
+                </div>
+            \`;
+        }).join('');
+
+        // Update badge
+        const badge = document.getElementById('match-request-badge');
+        if (badge) {
+            const pendingCount = requests.filter(r => r.opponent_id === currentUser.id && r.status === 'pending_player').length;
+            if (pendingCount > 0) {
+                badge.textContent = pendingCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
 
     } catch (error) {
         console.error('Error loading match requests:', error);
-        container.innerHTML = '<p class="text-red-500 text-center py-4">Fehler beim Laden</p>';
+        container.innerHTML = '<p class="text-red-500">Fehler beim Laden</p>';
     }
 }
 
-function updateMatchRequestBadge(count) {
-    const badge = document.getElementById('match-request-badge');
-    if (!badge) return;
+// --- Load Calendar ---
+async function loadCalendar() {
+    const grid = document.getElementById('calendar-grid');
+    const monthYearEl = document.getElementById('calendar-month-year');
+    if (!grid) return;
 
-    if (count > 0) {
-        badge.textContent = count;
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    // Update month display
+    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+                        'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    if (monthYearEl) monthYearEl.textContent = \`\${monthNames[month]} \${year}\`;
+
+    // Get first and last day of month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    // Load attendance for this month
+    let attendanceDates = [];
+    if (currentUserData.club_id) {
+        try {
+            const { data } = await supabase
+                .from('attendance')
+                .select('date')
+                .eq('user_id', currentUser.id)
+                .eq('present', true)
+                .gte('date', firstDay.toISOString().split('T')[0])
+                .lte('date', lastDay.toISOString().split('T')[0]);
+
+            attendanceDates = (data || []).map(a => a.date);
+        } catch (error) {
+            console.error('Error loading attendance:', error);
+        }
+    }
+
+    // Build calendar grid
+    let html = '';
+
+    // Empty cells for days before first of month
+    const startDay = (firstDay.getDay() + 6) % 7; // Monday = 0
+    for (let i = 0; i < startDay; i++) {
+        html += '<div></div>';
+    }
+
+    // Days of month
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = \`\${year}-\${String(month + 1).padStart(2, '0')}-\${String(day).padStart(2, '0')}\`;
+        const isPresent = attendanceDates.includes(dateStr);
+        const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+
+        html += \`
+            <div class="aspect-square flex items-center justify-center text-sm rounded-lg border
+                        \${isPresent ? 'calendar-day-present' : 'bg-white'}
+                        \${isToday ? 'ring-2 ring-indigo-500' : ''}">
+                \${day}
+            </div>
+        \`;
+    }
+
+    grid.innerHTML = html;
+
+    // Update stats
+    const trainingDaysEl = document.getElementById('stats-training-days');
+    if (trainingDaysEl) trainingDaysEl.textContent = attendanceDates.length;
+
+    const statsMonthEl = document.getElementById('stats-month-name');
+    if (statsMonthEl) statsMonthEl.textContent = monthNames[month];
+}
+
+// --- Season Countdown ---
+function updateSeasonCountdown() {
+    const countdownEl = document.getElementById('season-countdown');
+    if (!countdownEl) return;
+
+    // Season ends every 6 weeks from a fixed start date
+    const seasonStart = new Date('2024-01-01');
+    const now = new Date();
+    const weeksSinceStart = Math.floor((now - seasonStart) / (7 * 24 * 60 * 60 * 1000));
+    const currentSeasonWeek = weeksSinceStart % 6;
+    const daysLeft = (6 - currentSeasonWeek) * 7 - now.getDay();
+
+    countdownEl.textContent = \`\${Math.max(0, daysLeft)} Tage\`;
+}
+
+// --- Realtime Subscriptions ---
+function setupRealtimeSubscriptions() {
+    // Subscribe to profile changes
+    const profileSub = supabase
+        .channel('profile_changes')
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: \`id=eq.\${currentUser.id}\`
+        }, payload => {
+            console.log('[DASHBOARD-SUPABASE] Profile updated:', payload.new);
+            currentUserData = { ...currentUserData, ...payload.new };
+            updateStatsDisplay();
+            updateRankDisplay();
+        })
+        .subscribe();
+
+    realtimeSubscriptions.push(profileSub);
+
+    // Subscribe to match requests
+    if (currentUserData.club_id) {
+        const matchRequestSub = supabase
+            .channel('match_request_changes')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'match_requests',
+                filter: \`club_id=eq.\${currentUserData.club_id}\`
+            }, () => {
+                loadMatchRequests();
+            })
+            .subscribe();
+
+        realtimeSubscriptions.push(matchRequestSub);
     }
 }
+
+// --- Helper Functions ---
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function showError(message) {
+    const pageLoader = document.getElementById('page-loader');
+    if (pageLoader) {
+        pageLoader.innerHTML = \`
+            <div class="text-center">
+                <p class="text-red-500 text-xl mb-4">❌</p>
+                <p class="text-red-600">\${message}</p>
+                <button onclick="window.location.reload()" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded">
+                    Neu laden
+                </button>
+            </div>
+        \`;
+    }
+}
+
+// --- Global Functions for onclick handlers ---
+window.openExerciseModal = async (exerciseId) => {
+    // TODO: Implement exercise modal
+    console.log('Open exercise:', exerciseId);
+};
+
+window.openChallengeModal = async (challengeId) => {
+    // TODO: Implement challenge modal
+    console.log('Open challenge:', challengeId);
+};
+
+window.respondToMatchRequest = async (requestId, accept) => {
+    try {
+        const newStatus = accept ? 'pending_coach' : 'rejected';
+        const { error } = await supabase
+            .from('match_requests')
+            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .eq('id', requestId);
+
+        if (error) throw error;
+
+        loadMatchRequests();
+    } catch (error) {
+        console.error('Error responding to match request:', error);
+        alert('Fehler beim Verarbeiten der Anfrage');
+    }
+};
+
+console.log('[DASHBOARD-SUPABASE] Script loaded');
