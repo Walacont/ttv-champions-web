@@ -4,6 +4,7 @@
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
+import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -135,6 +136,14 @@ function initializeDashboard() {
     setupLogout();
     setupFilters();
     setupModalHandlers();
+
+    // Initialize leaderboard preferences (must be after tabs are set up)
+    const userData = {
+        id: currentUser.id,
+        clubId: currentUserData.club_id,
+        leaderboardPreferences: currentUserData.leaderboard_preferences
+    };
+    initializeLeaderboardPreferences(userData, supabase);
 
     // Load data
     updateStatsDisplay();
@@ -1225,44 +1234,92 @@ async function loadCalendar() {
 }
 
 // --- Season Countdown ---
-function updateSeasonCountdown() {
+// Cache for season config
+let cachedSeasonEnd = null;
+let lastSeasonFetchTime = null;
+const SEASON_CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+
+async function fetchSeasonEndDate() {
+    try {
+        // Check cache first
+        if (cachedSeasonEnd && lastSeasonFetchTime && Date.now() - lastSeasonFetchTime < SEASON_CACHE_DURATION) {
+            return cachedSeasonEnd;
+        }
+
+        // Fetch season_reset config from Supabase
+        const { data: configData, error } = await supabase
+            .from('config')
+            .select('value')
+            .eq('key', 'season_reset')
+            .single();
+
+        if (!error && configData && configData.value) {
+            const lastResetDate = new Date(configData.value.lastResetDate);
+            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+            const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
+
+            // Cache the result
+            cachedSeasonEnd = seasonEnd;
+            lastSeasonFetchTime = Date.now();
+
+            console.log('📅 Season end date loaded from Supabase:', seasonEnd.toLocaleString('de-DE'));
+            return seasonEnd;
+        } else {
+            // Fallback: If no config exists, use current_season config
+            const { data: currentSeasonData } = await supabase
+                .from('config')
+                .select('value')
+                .eq('key', 'current_season')
+                .single();
+
+            if (currentSeasonData && currentSeasonData.value && currentSeasonData.value.end) {
+                const seasonEnd = new Date(currentSeasonData.value.end);
+                cachedSeasonEnd = seasonEnd;
+                lastSeasonFetchTime = Date.now();
+                return seasonEnd;
+            }
+
+            // Final fallback: 6 weeks from now
+            console.warn('⚠️ No season config found, using fallback calculation');
+            const now = new Date();
+            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+            const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
+
+            cachedSeasonEnd = fallbackEnd;
+            lastSeasonFetchTime = Date.now();
+
+            return fallbackEnd;
+        }
+    } catch (error) {
+        console.error('Error fetching season end date:', error);
+
+        // Fallback calculation
+        const now = new Date();
+        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+        return new Date(now.getTime() + sixWeeksInMs);
+    }
+}
+
+async function updateSeasonCountdown() {
     const countdownEl = document.getElementById('season-countdown');
-    const seasonTitleEl = document.getElementById('season-title');
     if (!countdownEl) return;
 
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-indexed (0 = January, 11 = December)
+    const endOfSeason = await fetchSeasonEndDate();
 
-    // German table tennis seasons:
-    // Winter season: September to March (ends ~March 31)
-    // Summer season: April to August (ends ~August 31)
+    const diff = endOfSeason - now;
 
-    let seasonEnd;
-    let seasonName;
-
-    if (currentMonth >= 8) {
-        // September - December: Winter season ends next year March 31
-        seasonEnd = new Date(currentYear + 1, 2, 31); // March 31 next year
-        seasonName = `Wintersaison ${currentYear}/${currentYear + 1}`;
-    } else if (currentMonth >= 3 && currentMonth <= 7) {
-        // April - August: Summer season ends August 31
-        seasonEnd = new Date(currentYear, 7, 31); // August 31
-        seasonName = `Sommersaison ${currentYear}`;
-    } else {
-        // January - March: Still in winter season, ends March 31
-        seasonEnd = new Date(currentYear, 2, 31); // March 31
-        seasonName = `Wintersaison ${currentYear - 1}/${currentYear}`;
+    if (diff <= 0) {
+        countdownEl.textContent = 'Saison beendet!';
+        return;
     }
 
-    const diffTime = seasonEnd - now;
-    const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    countdownEl.textContent = `${Math.max(0, daysLeft)} Tage`;
-
-    if (seasonTitleEl) {
-        seasonTitleEl.textContent = seasonName;
-    }
+    countdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
 }
 
 // --- Realtime Subscriptions ---

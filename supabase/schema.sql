@@ -85,6 +85,7 @@ CREATE TABLE profiles (
     is_offline BOOLEAN DEFAULT false,
     onboarding_complete BOOLEAN DEFAULT false,
     privacy_settings JSONB DEFAULT '{"searchable": true, "showElo": true}',
+    leaderboard_preferences JSONB DEFAULT '{"effort": true, "season": true, "skill": true, "ranks": true, "doubles": true}',
 
     -- Club Request (wenn pending)
     club_request_status request_status,
@@ -322,6 +323,37 @@ CREATE TABLE doubles_match_requests (
 );
 
 -- ============================================
+-- DOUBLES PAIRINGS (Doppel-Paarungen Statistiken)
+-- ============================================
+
+CREATE TABLE doubles_pairings (
+    id TEXT PRIMARY KEY, -- Pairing ID format: "player1_player2" (sorted UUIDs)
+    player1_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    player2_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    player1_name TEXT,
+    player2_name TEXT,
+    player1_club_id_at_match UUID REFERENCES clubs(id) ON DELETE SET NULL,
+    player2_club_id_at_match UUID REFERENCES clubs(id) ON DELETE SET NULL,
+
+    club_id UUID REFERENCES clubs(id) ON DELETE SET NULL,
+
+    matches_played INTEGER DEFAULT 0,
+    matches_won INTEGER DEFAULT 0,
+    matches_lost INTEGER DEFAULT 0,
+    win_rate REAL DEFAULT 0.0,
+    current_elo_rating INTEGER DEFAULT 1000,
+
+    last_played TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for fast lookups by player
+CREATE INDEX idx_doubles_pairings_player1 ON doubles_pairings(player1_id);
+CREATE INDEX idx_doubles_pairings_player2 ON doubles_pairings(player2_id);
+CREATE INDEX idx_doubles_pairings_club ON doubles_pairings(club_id);
+CREATE INDEX idx_doubles_pairings_wins ON doubles_pairings(matches_won DESC);
+
+-- ============================================
 -- CHALLENGES (Tägliche Challenges)
 -- ============================================
 
@@ -472,7 +504,8 @@ CREATE TABLE config (
 
 -- Season config einfügen
 INSERT INTO config (key, value) VALUES
-    ('current_season', '{"name": "2024-Q4", "start": "2024-10-01", "end": "2024-12-31"}');
+    ('current_season', '{"name": "2024-Q4", "start": "2024-10-01", "end": "2024-12-31"}'),
+    ('season_reset', '{"lastResetDate": "2024-11-13T00:00:00.000Z"}');
 
 -- ============================================
 -- INDEXES für Performance

@@ -670,6 +670,96 @@ async function migrateUserSubcollections(userIdMap) {
     log(`Migrated ${totalPoints} points history + ${totalXp} xp history records`, 'success');
 }
 
+async function migrateConfig() {
+    log('Migrating config...', 'progress');
+
+    try {
+        // Migrate seasonReset config
+        const seasonResetDoc = await firestore.collection('config').doc('seasonReset').get();
+
+        if (seasonResetDoc.exists) {
+            const data = seasonResetDoc.data();
+            const configValue = {
+                lastResetDate: convertTimestamp(data.lastResetDate)
+            };
+
+            const { error } = await supabase.from('config').upsert({
+                key: 'season_reset',
+                value: configValue,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+            if (error) {
+                log(`Error migrating seasonReset config: ${error.message}`, 'warn');
+            } else {
+                log('Migrated seasonReset config', 'success');
+            }
+        } else {
+            log('No seasonReset config found in Firebase', 'warn');
+        }
+    } catch (error) {
+        log(`Error migrating config: ${error.message}`, 'error');
+    }
+}
+
+async function migrateDoublesPairings(clubIdMap, userIdMap) {
+    log('Migrating doubles pairings...', 'progress');
+
+    const snapshot = await firestore.collection('doublesPairings').get();
+    const pairings = [];
+
+    for (const doc of snapshot.docs) {
+        const data = doc.data();
+
+        // Map player IDs
+        const player1Id = getMappedId(data.player1Id, 'users');
+        const player2Id = getMappedId(data.player2Id, 'users');
+        const clubId = getMappedId(data.clubId, 'clubs');
+
+        if (!player1Id || !player2Id) {
+            log(`  Skipping pairing ${doc.id}: missing player IDs`, 'warn');
+            continue;
+        }
+
+        // Create sorted pairing ID
+        const sortedIds = [player1Id, player2Id].sort();
+        const pairingId = `${sortedIds[0]}_${sortedIds[1]}`;
+
+        pairings.push({
+            id: pairingId,
+            player1_id: sortedIds[0],
+            player2_id: sortedIds[1],
+            player1_name: data.player1Name || null,
+            player2_name: data.player2Name || null,
+            player1_club_id_at_match: getMappedId(data.player1ClubIdAtMatch, 'clubs'),
+            player2_club_id_at_match: getMappedId(data.player2ClubIdAtMatch, 'clubs'),
+            club_id: clubId,
+            matches_played: data.matchesPlayed || 0,
+            matches_won: data.matchesWon || 0,
+            matches_lost: data.matchesLost || 0,
+            win_rate: data.winRate || 0.0,
+            current_elo_rating: data.currentEloRating || 1000,
+            last_played: convertTimestamp(data.lastPlayed),
+            created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
+        });
+
+        log(`  Pairing: ${doc.id} → ${pairingId}`, 'info');
+    }
+
+    if (pairings.length === 0) {
+        log('No doubles pairings found', 'warn');
+        return;
+    }
+
+    const { error } = await supabase.from('doubles_pairings').upsert(pairings, { onConflict: 'id' });
+    if (error) {
+        log(`Error migrating doubles pairings: ${error.message}`, 'error');
+        throw error;
+    }
+
+    log(`Migrated ${pairings.length} doubles pairings`, 'success');
+}
+
 // ============================================
 // MAIN MIGRATION
 // ============================================
@@ -712,6 +802,12 @@ async function runMigration() {
 
         // Step 11: Migrate user subcollections (history, etc.)
         await migrateUserSubcollections(userIdMap);
+
+        // Step 12: Migrate doubles pairings
+        await migrateDoublesPairings(clubIdMap, userIdMap);
+
+        // Step 13: Migrate config (seasonReset, etc.)
+        await migrateConfig();
 
         // Save ID mappings to file for reference
         const mappingFile = join(__dirname, 'id-mappings.json');

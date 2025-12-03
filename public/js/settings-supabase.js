@@ -108,8 +108,13 @@ async function initializeAuth() {
     }
 }
 
-// Initialize on DOMContentLoaded
-document.addEventListener('DOMContentLoaded', initializeAuth);
+// Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAuth);
+} else {
+    // Document is already loaded (SPA navigation), initialize immediately
+    initializeAuth();
+}
 
 // Listen for auth state changes
 onAuthStateChange((event, session) => {
