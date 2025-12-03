@@ -92,8 +92,21 @@ function isValidUUID(str) {
     return uuidRegex.test(str);
 }
 
-// Load subgroup mappings - maps club_id to first subgroup
+// Load club mappings - maps club name to UUID
+const clubNameToId = {};
 const clubToSubgroupId = {};
+
+async function loadClubMappings() {
+    const { data: clubs } = await supabase.from('clubs').select('id, name');
+    if (clubs) {
+        clubs.forEach(c => {
+            clubNameToId[c.name.toLowerCase()] = c.id;
+        });
+    }
+    console.log(`   Loaded ${Object.keys(clubNameToId).length} club name mappings`);
+}
+
+// Load subgroup mappings - maps club_id to first subgroup
 async function loadSubgroupMappings() {
     const { data: subgroups } = await supabase.from('subgroups').select('id, club_id');
     if (subgroups) {
@@ -156,10 +169,11 @@ async function migrateAttendance() {
             }
 
             // Map club ID first (needed for subgroup fallback)
+            // Firebase uses club NAME, not UUID
             let clubId = data.clubId;
             if (clubId && !isValidUUID(clubId)) {
-                const { data: clubs } = await supabase.from('clubs').select('id').limit(1);
-                clubId = clubs?.[0]?.id || null;
+                // Try to match by club name
+                clubId = clubNameToId[clubId.toLowerCase()] || null;
             }
 
             // Get subgroup ID - use default from club if not valid
@@ -249,11 +263,10 @@ async function migrateMatchRequests() {
                 continue;
             }
 
-            // Map club ID
+            // Map club ID - Firebase uses club NAME
             let clubId = data.clubId;
             if (clubId && !isValidUUID(clubId)) {
-                const { data: clubs } = await supabase.from('clubs').select('id').limit(1);
-                clubId = clubs?.[0]?.id || null;
+                clubId = clubNameToId[clubId.toLowerCase()] || null;
             }
 
             // Map winner/loser if they exist
@@ -341,11 +354,10 @@ async function migrateDoublesMatches() {
                 continue;
             }
 
-            // Map club ID
+            // Map club ID - Firebase uses club NAME
             let clubId = data.clubId;
             if (clubId && !isValidUUID(clubId)) {
-                const { data: clubs } = await supabase.from('clubs').select('id').limit(1);
-                clubId = clubs?.[0]?.id || null;
+                clubId = clubNameToId[clubId.toLowerCase()] || null;
             }
 
             // Winner team (A=1, B=2)
@@ -399,6 +411,7 @@ async function main() {
 
     try {
         await loadIdMappings();
+        await loadClubMappings();
         await loadSubgroupMappings();
         await loadSessionMappings();
 
