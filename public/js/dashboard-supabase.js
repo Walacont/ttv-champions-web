@@ -131,6 +131,7 @@ function initializeDashboard() {
     setupTabs();
     setupLogout();
     setupFilters();
+    setupModalHandlers();
 
     // Load data
     updateStatsDisplay();
@@ -890,15 +891,345 @@ function showError(message) {
     }
 }
 
+// --- Helper: Escape HTML ---
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// --- Helper: Render Table for Display ---
+function renderTableForDisplay(tableData) {
+    if (!tableData || !tableData.headers || !tableData.rows) {
+        return '';
+    }
+
+    let html = '<table class="exercise-display-table border-collapse w-full my-3">';
+
+    // Headers
+    html += '<thead><tr>';
+    tableData.headers.forEach(header => {
+        html += `<th class="border border-gray-400 bg-gray-100 px-3 py-2 font-semibold text-left">${escapeHtml(header)}</th>`;
+    });
+    html += '</tr></thead>';
+
+    // Rows
+    html += '<tbody>';
+    tableData.rows.forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => {
+            html += `<td class="border border-gray-300 px-3 py-2">${escapeHtml(cell)}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    return html;
+}
+
+// --- Setup Modal Handlers ---
+function setupModalHandlers() {
+    // Exercise modal close
+    const closeExerciseModal = document.getElementById('close-exercise-modal');
+    if (closeExerciseModal) {
+        closeExerciseModal.addEventListener('click', () => {
+            document.getElementById('exercise-modal')?.classList.add('hidden');
+        });
+    }
+
+    // Challenge modal close
+    const closeChallengeModal = document.getElementById('close-challenge-modal');
+    if (closeChallengeModal) {
+        closeChallengeModal.addEventListener('click', () => {
+            document.getElementById('challenge-modal')?.classList.add('hidden');
+        });
+    }
+
+    // Close modals on backdrop click
+    document.getElementById('exercise-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'exercise-modal') {
+            e.target.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('challenge-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'challenge-modal') {
+            e.target.classList.add('hidden');
+        }
+    });
+
+    // Abbreviations toggle
+    const toggleAbbreviations = document.getElementById('toggle-abbreviations');
+    const abbreviationsContent = document.getElementById('abbreviations-content');
+    const abbreviationsIcon = document.getElementById('abbreviations-icon');
+
+    if (toggleAbbreviations && abbreviationsContent) {
+        toggleAbbreviations.addEventListener('click', () => {
+            abbreviationsContent.classList.toggle('hidden');
+            if (abbreviationsIcon) {
+                abbreviationsIcon.style.transform = abbreviationsContent.classList.contains('hidden')
+                    ? 'rotate(0deg)'
+                    : 'rotate(180deg)';
+            }
+        });
+    }
+}
+
 // --- Global Functions for onclick handlers ---
 window.openExerciseModal = async (exerciseId) => {
-    // TODO: Implement exercise modal
-    console.log('Open exercise:', exerciseId);
+    const modal = document.getElementById('exercise-modal');
+    if (!modal) return;
+
+    try {
+        // Fetch exercise data
+        const { data: exercise, error } = await supabase
+            .from('exercises')
+            .select('*')
+            .eq('id', exerciseId)
+            .single();
+
+        if (error || !exercise) {
+            console.error('Error loading exercise:', error);
+            alert('Übung konnte nicht geladen werden');
+            return;
+        }
+
+        // Set title
+        const titleEl = document.getElementById('modal-exercise-title');
+        if (titleEl) titleEl.textContent = exercise.name || exercise.title || '';
+
+        // Handle image
+        const imageEl = document.getElementById('modal-exercise-image');
+        if (imageEl) {
+            if (exercise.image_url) {
+                imageEl.src = exercise.image_url;
+                imageEl.alt = exercise.name || exercise.title || '';
+                imageEl.style.display = 'block';
+                imageEl.onerror = () => { imageEl.style.display = 'none'; };
+            } else {
+                imageEl.style.display = 'none';
+            }
+        }
+
+        // Handle description content (can be text or table)
+        const descriptionEl = document.getElementById('modal-exercise-description');
+        if (descriptionEl) {
+            let descriptionContent = exercise.description_content || exercise.descriptionContent || exercise.description;
+
+            // Try to parse as JSON (for table or structured content)
+            let descriptionData = null;
+            try {
+                if (typeof descriptionContent === 'string') {
+                    descriptionData = JSON.parse(descriptionContent);
+                } else {
+                    descriptionData = descriptionContent;
+                }
+            } catch (e) {
+                // Not JSON, treat as plain text
+                descriptionData = { type: 'text', text: descriptionContent || '' };
+            }
+
+            if (descriptionData && descriptionData.type === 'table') {
+                const tableHtml = renderTableForDisplay(descriptionData.tableData);
+                const additionalText = descriptionData.additionalText || '';
+                descriptionEl.innerHTML =
+                    tableHtml +
+                    (additionalText
+                        ? `<p class="mt-3 whitespace-pre-wrap">${escapeHtml(additionalText)}</p>`
+                        : '');
+            } else {
+                descriptionEl.textContent = descriptionData?.text || exercise.description || '';
+                descriptionEl.style.whiteSpace = 'pre-wrap';
+            }
+        }
+
+        // Handle tags
+        const tagsContainer = document.getElementById('modal-exercise-tags');
+        if (tagsContainer) {
+            const tags = exercise.tags || [];
+            if (tags.length > 0) {
+                tagsContainer.innerHTML = tags
+                    .map(tag =>
+                        `<span class="inline-block bg-indigo-100 text-indigo-800 rounded-full px-3 py-1 text-sm font-semibold mr-2 mb-2">${escapeHtml(tag)}</span>`
+                    )
+                    .join('');
+            } else {
+                tagsContainer.innerHTML = '';
+            }
+        }
+
+        // Handle points and milestones
+        const pointsEl = document.getElementById('modal-exercise-points');
+        const milestonesContainer = document.getElementById('modal-exercise-milestones');
+
+        // Parse tieredPoints if it's a string
+        let tieredPointsData = exercise.tiered_points || exercise.tieredPoints;
+        if (typeof tieredPointsData === 'string') {
+            try {
+                tieredPointsData = JSON.parse(tieredPointsData);
+            } catch (e) {
+                tieredPointsData = null;
+            }
+        }
+
+        const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
+        const points = exercise.xp_reward || exercise.points || 0;
+
+        // Load player progress if milestones exist
+        let playerProgress = null;
+        if (hasTieredPoints && currentUser) {
+            try {
+                const { data: progressData } = await supabase
+                    .from('exercise_milestones')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('exercise_id', exerciseId)
+                    .single();
+                playerProgress = progressData;
+            } catch (e) {
+                // No progress yet
+            }
+        }
+
+        const currentCount = playerProgress?.current_count || 0;
+
+        if (hasTieredPoints) {
+            if (pointsEl) pointsEl.textContent = `🎯 Bis zu ${points} P.`;
+
+            if (milestonesContainer) {
+                // Player progress section
+                let progressHtml = '';
+                const nextMilestone = tieredPointsData.milestones.find(m => m.count > currentCount);
+                const remaining = nextMilestone ? nextMilestone.count - currentCount : 0;
+
+                progressHtml = `
+                    <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-lg">📈</span>
+                            <span class="font-bold text-gray-800">Deine beste Leistung</span>
+                        </div>
+                        <p class="text-base text-gray-700 mb-2">
+                            Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
+                        </p>
+                        ${nextMilestone
+                            ? `<p class="text-sm text-gray-600">
+                                Noch <span class="font-semibold text-orange-600">${remaining} Wiederholungen</span> bis zum nächsten Meilenstein
+                            </p>`
+                            : `<p class="text-sm text-green-600 font-semibold">
+                                ✓ Alle Meilensteine erreicht!
+                            </p>`
+                        }
+                    </div>
+                `;
+
+                // Milestones list
+                const milestonesHtml = tieredPointsData.milestones
+                    .sort((a, b) => a.count - b.count)
+                    .map((milestone, index) => {
+                        const isFirst = index === 0;
+                        const displayPoints = isFirst
+                            ? milestone.points
+                            : `+${milestone.points - tieredPointsData.milestones[index - 1].points}`;
+
+                        let bgColor, borderColor, iconColor, textColor, statusIcon;
+                        if (currentCount >= milestone.count) {
+                            bgColor = 'bg-gradient-to-r from-green-50 to-emerald-50';
+                            borderColor = 'border-green-300';
+                            iconColor = 'text-green-600';
+                            textColor = 'text-green-700';
+                            statusIcon = '✓';
+                        } else if (index === 0 || currentCount >= tieredPointsData.milestones[index - 1].count) {
+                            bgColor = 'bg-gradient-to-r from-orange-50 to-amber-50';
+                            borderColor = 'border-orange-300';
+                            iconColor = 'text-orange-600';
+                            textColor = 'text-orange-700';
+                            statusIcon = '🎯';
+                        } else {
+                            bgColor = 'bg-gradient-to-r from-gray-50 to-slate-50';
+                            borderColor = 'border-gray-300';
+                            iconColor = 'text-gray-500';
+                            textColor = 'text-gray-600';
+                            statusIcon = '⚪';
+                        }
+
+                        return `<div class="flex justify-between items-center py-3 px-4 ${bgColor} rounded-lg mb-2 border ${borderColor}">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">${statusIcon}</span>
+                                <span class="text-base font-semibold ${textColor}">${milestone.count} Wiederholungen</span>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xl font-bold ${iconColor}">${displayPoints} P.</div>
+                                <div class="text-xs text-gray-500 font-medium">Gesamt: ${milestone.points} P.</div>
+                            </div>
+                        </div>`;
+                    })
+                    .join('');
+
+                milestonesContainer.innerHTML = `
+                    <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
+                        <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="text-2xl">📊</span>
+                            <span>Meilensteine</span>
+                        </h4>
+                        ${progressHtml}
+                        ${milestonesHtml}
+                    </div>`;
+                milestonesContainer.classList.remove('hidden');
+            }
+        } else {
+            if (pointsEl) pointsEl.textContent = `+${points} XP`;
+            if (milestonesContainer) {
+                milestonesContainer.innerHTML = '';
+                milestonesContainer.classList.add('hidden');
+            }
+        }
+
+        // Show modal
+        modal.classList.remove('hidden');
+
+    } catch (error) {
+        console.error('Error opening exercise modal:', error);
+        alert('Fehler beim Laden der Übung');
+    }
 };
 
 window.openChallengeModal = async (challengeId) => {
-    // TODO: Implement challenge modal
-    console.log('Open challenge:', challengeId);
+    const modal = document.getElementById('challenge-modal');
+    if (!modal) return;
+
+    try {
+        // Fetch challenge data
+        const { data: challenge, error } = await supabase
+            .from('challenges')
+            .select('*')
+            .eq('id', challengeId)
+            .single();
+
+        if (error || !challenge) {
+            console.error('Error loading challenge:', error);
+            alert('Challenge konnte nicht geladen werden');
+            return;
+        }
+
+        // Set title
+        const titleEl = document.getElementById('modal-challenge-title');
+        if (titleEl) titleEl.textContent = challenge.name || '';
+
+        // Set description
+        const descriptionEl = document.getElementById('modal-challenge-description');
+        if (descriptionEl) descriptionEl.textContent = challenge.description || '';
+
+        // Set points
+        const pointsEl = document.getElementById('modal-challenge-points');
+        if (pointsEl) pointsEl.textContent = `+${challenge.xp_reward || 0} XP`;
+
+        // Show modal
+        modal.classList.remove('hidden');
+
+    } catch (error) {
+        console.error('Error opening challenge modal:', error);
+        alert('Fehler beim Laden der Challenge');
+    }
 };
 
 window.respondToMatchRequest = async (requestId, accept) => {
