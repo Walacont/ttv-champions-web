@@ -1954,7 +1954,18 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
 
         if (winnerData && winnerData.winner) {
             // We have a winner
-            const winnerName = winnerData.winner === 'A' ? 'Spieler A (Du)' : 'Spieler B (Gegner)';
+            let winnerName;
+            if (winnerData.winner === 'A') {
+                // Current user wins
+                winnerName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Du';
+            } else {
+                // Opponent wins
+                if (selectedOpponent) {
+                    winnerName = `${selectedOpponent.firstName || ''} ${selectedOpponent.lastName || ''}`.trim() || 'Gegner';
+                } else {
+                    winnerName = 'Gegner';
+                }
+            }
             matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
             matchWinnerInfo.classList.remove('hidden');
         } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {

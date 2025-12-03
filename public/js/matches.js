@@ -46,7 +46,17 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
 
     if (winnerData && winnerData.winner) {
         // We have a winner
-        const winnerName = winnerData.winner === 'A' ? 'Spieler A' : 'Spieler B';
+        // Get player names from the select elements
+        const playerASelect = document.getElementById('player-a-select');
+        const playerBSelect = document.getElementById('player-b-select');
+
+        let winnerName;
+        if (winnerData.winner === 'A') {
+            winnerName = playerASelect?.selectedOptions[0]?.text || 'Spieler A';
+        } else {
+            winnerName = playerBSelect?.selectedOptions[0]?.text || 'Spieler B';
+        }
+
         matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
         matchWinnerInfo.classList.remove('hidden');
     } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
