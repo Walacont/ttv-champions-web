@@ -1571,8 +1571,140 @@ async function deleteDoublesMatchRequest(requestId, db) {
  * Opens edit request modal
  */
 function openEditRequestModal(request, userData, db) {
-    // TODO: Implement edit modal if needed
-    showFeedback('Bearbeiten-Funktion wird bald verfügbar sein.', 'info');
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.id = 'edit-match-modal';
+    modal.className =
+        'modal fixed inset-0 bg-gray-800 bg-opacity-75 h-full w-full z-50 flex justify-center items-start py-8 overflow-y-auto';
+
+    modal.innerHTML = `
+    <div class="relative mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white my-auto">
+      <!-- Close button -->
+      <button
+        id="close-edit-modal"
+        class="absolute top-3 right-3 text-gray-700 hover:text-gray-900 bg-white hover:bg-gray-100 rounded-full p-2 transition-colors shadow-lg border border-gray-200"
+        style="z-index: 9999"
+      >
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <!-- Modal content -->
+      <div class="mb-4 pr-10">
+        <h3 class="text-xl leading-6 font-medium text-gray-900">Match bearbeiten</h3>
+        <p class="text-sm text-gray-600 mt-1">
+          ${userData.firstName} vs ${request.playerBName}
+        </p>
+      </div>
+
+      <!-- Match Mode Selection -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Spielmodus</label>
+        <select id="edit-match-mode" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500">
+          <option value="single-set" ${request.matchMode === 'single-set' ? 'selected' : ''}>Einzelsatz</option>
+          <option value="best-of-3" ${request.matchMode === 'best-of-3' ? 'selected' : ''}>Best of 3</option>
+          <option value="best-of-5" ${request.matchMode === 'best-of-5' ? 'selected' : ''}>Best of 5</option>
+          <option value="best-of-7" ${request.matchMode === 'best-of-7' ? 'selected' : ''}>Best of 7</option>
+        </select>
+      </div>
+
+      <!-- Handicap Toggle -->
+      <div class="mb-4">
+        <label class="flex items-center">
+          <input type="checkbox" id="edit-handicap" ${request.handicapUsed ? 'checked' : ''} class="mr-2 rounded">
+          <span class="text-sm text-gray-700">Handicap verwenden</span>
+        </label>
+      </div>
+
+      <!-- Set Score Inputs -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Satzergebnisse</label>
+        <div id="edit-sets-container"></div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex gap-2 mt-6">
+        <button id="cancel-edit-btn" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded-md transition">
+          Abbrechen
+        </button>
+        <button id="save-edit-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition">
+          Speichern
+        </button>
+      </div>
+    </div>
+  `;
+
+    document.body.appendChild(modal);
+
+    // Initialize set score inputs
+    const setsContainer = document.getElementById('edit-sets-container');
+    const matchModeSelect = document.getElementById('edit-match-mode');
+
+    let setScoreInput = createSetScoreInput(setsContainer, request.sets || [], request.matchMode);
+
+    // Update set inputs when match mode changes
+    matchModeSelect.addEventListener('change', e => {
+        const currentSets = setScoreInput.getSets();
+        setScoreInput = createSetScoreInput(setsContainer, currentSets, e.target.value);
+    });
+
+    // Close modal handlers
+    const closeModal = () => {
+        modal.remove();
+    };
+
+    document.getElementById('close-edit-modal').addEventListener('click', closeModal);
+    document.getElementById('cancel-edit-btn').addEventListener('click', closeModal);
+
+    // Click outside to close
+    modal.addEventListener('click', e => {
+        if (e.target === modal) closeModal();
+    });
+
+    // Save handler
+    document.getElementById('save-edit-btn').addEventListener('click', async () => {
+        try {
+            // Validate sets
+            const validation = setScoreInput.validate();
+            if (!validation.valid) {
+                showFeedback(validation.error, 'error');
+                return;
+            }
+
+            const sets = setScoreInput.getSets();
+            const matchMode = matchModeSelect.value;
+            const handicapUsed = document.getElementById('edit-handicap').checked;
+
+            // Determine winner and loser from sets
+            let playerAWins = 0;
+            let playerBWins = 0;
+
+            sets.forEach(set => {
+                if (set.playerA > set.playerB) playerAWins++;
+                else if (set.playerB > set.playerA) playerBWins++;
+            });
+
+            const winnerId = playerAWins > playerBWins ? request.playerAId : request.playerBId;
+            const loserId = playerAWins > playerBWins ? request.playerBId : request.playerAId;
+
+            // Update the match request
+            const requestRef = doc(db, 'matchRequests', request.id);
+            await updateDoc(requestRef, {
+                sets,
+                matchMode,
+                handicapUsed,
+                winnerId,
+                loserId,
+            });
+
+            showFeedback('Match erfolgreich bearbeitet.', 'success');
+            closeModal();
+        } catch (error) {
+            console.error('Error updating match request:', error);
+            showFeedback('Fehler beim Speichern der Änderungen.', 'error');
+        }
+    });
 }
 
 /**
