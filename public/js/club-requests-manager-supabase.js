@@ -1,7 +1,7 @@
 // ===== Club Requests Manager for Coaches (Supabase Version) =====
 // This module manages club join/leave requests for coaches
 
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 let currentUserData = null;
 let supabaseClient = null;

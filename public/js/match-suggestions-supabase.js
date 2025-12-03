@@ -3,7 +3,7 @@
  * Provides opponent suggestions based on match history and player ratings
  */
 
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 
 // Cache for clubs data
 let clubsCache = null;

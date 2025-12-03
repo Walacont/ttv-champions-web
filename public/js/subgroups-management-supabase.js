@@ -3,7 +3,7 @@
  * Handles creation, editing, and deletion of training subgroups within a club
  */
 
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 /**
  * Maps subgroup data from Supabase (snake_case) to app format (camelCase)

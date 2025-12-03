@@ -1,6 +1,6 @@
 import { LEAGUES, PROMOTION_COUNT, DEMOTION_COUNT } from './leaderboard-supabase.js';
 import { loadLeaderboardForCoach } from './leaderboard-supabase.js';
-import { getSeasonEndDate } from './ui-utils.js';
+import { getSeasonEndDate } from './ui-utils-supabase.js';
 
 /**
  * Season Management Module (Supabase Version)

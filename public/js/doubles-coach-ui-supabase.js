@@ -1,6 +1,6 @@
 import { saveDoublesMatch } from './doubles-matches-supabase.js';
 import { createSetScoreInput } from './player-matches-supabase.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 
 /**
  * Doubles Coach UI Module (Supabase Version)

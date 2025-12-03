@@ -243,6 +243,21 @@
                             <option value="female">Mädchen/Damen</option>
                         </select>
                     </div>
+                    <div id="age-group-filter-container" class="flex items-center gap-2 flex-1 sm:flex-none">
+                        <label
+                            for="player-age-group-filter"
+                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
+                            onclick="document.getElementById('player-age-group-filter').focus(); document.getElementById('player-age-group-filter').click();"
+                        >
+                            🎂 Alter:
+                        </label>
+                        <select
+                            id="player-age-group-filter"
+                            class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
+                        >
+                            <!-- Age group options will be added dynamically by dashboard-supabase.js -->
+                        </select>
+                    </div>
                 </div>
             </header>
 

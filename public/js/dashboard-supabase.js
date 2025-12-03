@@ -378,12 +378,18 @@ async function loadSubgroupsForFilter(selectElement) {
             .order('name');
 
         if (subgroups && subgroups.length > 0) {
+            // Create optgroup for subgroups like in original
+            const subgroupGroup = document.createElement('optgroup');
+            subgroupGroup.label = 'Meine Untergruppen im Verein';
+
             subgroups.forEach(sg => {
                 const option = document.createElement('option');
                 option.value = sg.id;
-                option.textContent = `📁 ${sg.name}`;
-                selectElement.appendChild(option);
+                option.textContent = sg.name;
+                subgroupGroup.appendChild(option);
             });
+
+            selectElement.appendChild(subgroupGroup);
         }
     } catch (error) {
         console.error('Error loading subgroups:', error);

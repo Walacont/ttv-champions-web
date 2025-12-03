@@ -1,4 +1,4 @@
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 /**
  * Doubles Matches Module (Supabase Version)

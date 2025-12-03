@@ -12,7 +12,7 @@ import {
     copyToClipboard,
     CODE_CONFIG,
 } from './invitation-code-utils.js';
-import { formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils-supabase.js';
 
 let supabaseClient;
 let currentClubId;

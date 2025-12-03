@@ -2,7 +2,7 @@
 // SC Champions - Migration von Firebase zu Supabase
 
 import { getSupabase } from './supabase-init.js';
-import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils-supabase.js';
 
 /**
  * Leaderboard Module - Supabase Version

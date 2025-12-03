@@ -2,7 +2,7 @@
 // 1:1 Migration von points-management.js - Firebase → Supabase
 
 import { getSupabase } from './supabase-init.js';
-import { getCurrentSeasonKey, formatDate } from './ui-utils.js';
+import { getCurrentSeasonKey, formatDate } from './ui-utils-supabase.js';
 
 /**
  * Points Management Module

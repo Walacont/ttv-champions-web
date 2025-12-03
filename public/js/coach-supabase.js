@@ -94,7 +94,7 @@ import {
     getCurrentMatchType,
     setDoublesSetScoreInput,
 } from './doubles-coach-ui.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
