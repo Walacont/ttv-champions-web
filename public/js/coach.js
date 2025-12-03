@@ -114,6 +114,7 @@ import {
 import {
     initializeDoublesCoachUI,
     populateDoublesDropdowns,
+    setupDoublesHandicap,
     handleDoublesMatchSave,
     getCurrentMatchType,
     setDoublesSetScoreInput,
@@ -419,6 +420,7 @@ async function initializeCoachPage(userData) {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateDoublesDropdowns(clubPlayers, currentSubgroupFilter); // Populate doubles dropdowns
+        setupDoublesHandicap(clubPlayers); // Setup handicap calculation for doubles
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
