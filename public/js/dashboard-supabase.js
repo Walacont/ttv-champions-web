@@ -73,7 +73,7 @@ async function loadUserProfile() {
             .from('profiles')
             .select(`
                 *,
-                club:clubs(id, name, sport_id)
+                club:clubs(id, name)
             `)
             .eq('id', currentUser.id)
             .single();
