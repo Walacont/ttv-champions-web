@@ -9,21 +9,55 @@ import { getSupabase } from './supabase-init.js';
 // ============================================
 
 const fieldMappings = {
-    // User/Profile fields
+    // User/Profile fields (1:1 Firebase mapping)
     firstName: 'first_name',
     lastName: 'last_name',
-    displayName: 'display_name',
-    photoURL: 'avatar_url',
-    avatarUrl: 'avatar_url',
+    photoURL: 'photo_url',
+    avatarUrl: 'photo_url',
     clubId: 'club_id',
     eloRating: 'elo_rating',
     highestElo: 'highest_elo',
+    league: 'league',
+
+    // Doubles Stats
+    doublesEloRating: 'doubles_elo_rating',
+    highestDoublesElo: 'highest_doubles_elo',
+    doublesMatchesPlayed: 'doubles_matches_played',
+    doublesMatchesWon: 'doubles_matches_won',
+    doublesMatchesLost: 'doubles_matches_lost',
+
+    // Training/Stats
     qttrPoints: 'qttr_points',
     grundlagenCompleted: 'grundlagen_completed',
+
+    // Status Flags
     isOffline: 'is_offline',
+    isMatchReady: 'is_match_ready',
     onboardingComplete: 'onboarding_complete',
+
+    // Push Notifications
+    fcmToken: 'fcm_token',
+    fcmTokenUpdatedAt: 'fcm_token_updated_at',
+    notificationsEnabled: 'notifications_enabled',
+    notificationPreferences: 'notification_preferences',
+    notificationPreferencesUpdatedAt: 'notification_preferences_updated_at',
+
+    // Preferences & Privacy
+    leaderboardPreferences: 'leaderboard_preferences',
     privacySettings: 'privacy_settings',
+
+    // Season Tracking
+    lastSeasonReset: 'last_season_reset',
+    lastXPUpdate: 'last_xp_update',
+
+    // Subgroups
     subgroupIDs: 'subgroup_ids',
+
+    // Migration
+    migratedAt: 'migrated_at',
+    migratedFrom: 'migrated_from',
+
+    // Timestamps
     createdAt: 'created_at',
     updatedAt: 'updated_at',
 
@@ -86,8 +120,7 @@ const fieldMappings = {
     teamBPlayer2Id: 'team_b_player2_id',
 
     // General
-    logoUrl: 'logo_url',
-    displayName: 'display_name'
+    logoUrl: 'logo_url'
 };
 
 // Reverse mapping for reading data

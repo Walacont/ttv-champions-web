@@ -245,7 +245,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     email: supabaseProfile.email || user.email,
                     firstName: supabaseProfile.first_name || '',
                     lastName: supabaseProfile.last_name || '',
-                    displayName: supabaseProfile.display_name || '',
                     role: supabaseProfile.role || 'player',
                     clubId: supabaseProfile.club_id || null,
                     xp: supabaseProfile.xp || 0,
@@ -254,7 +253,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     highestElo: supabaseProfile.highest_elo || 1000,
                     gender: supabaseProfile.gender || null,
                     birthdate: supabaseProfile.birthdate || null,
-                    photoURL: supabaseProfile.avatar_url || null,
+                    photoURL: supabaseProfile.photo_url || null,
                     onboardingComplete: true,
                     isOffline: false,
                     createdAt: new Date()

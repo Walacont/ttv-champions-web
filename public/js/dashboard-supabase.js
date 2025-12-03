@@ -107,7 +107,7 @@ async function loadUserProfile() {
         currentClubData = profile.club;
 
         console.log('[DASHBOARD-SUPABASE] Profile loaded:', {
-            name: profile.display_name,
+            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email,
             role: profile.role,
             club: currentClubData?.name
         });
@@ -191,14 +191,14 @@ function setupHeader() {
     // Profile picture
     const headerPic = document.getElementById('header-profile-pic');
     if (headerPic) {
-        headerPic.src = currentUserData.avatar_url || DEFAULT_AVATAR;
+        headerPic.src = currentUserData.photo_url || DEFAULT_AVATAR;
         headerPic.onerror = () => { headerPic.src = DEFAULT_AVATAR; };
     }
 
     // Welcome message
     const welcomeMsg = document.getElementById('welcome-message');
     if (welcomeMsg) {
-        const name = currentUserData.first_name || currentUserData.display_name || 'Spieler';
+        const name = currentUserData.first_name || 'Spieler';
         welcomeMsg.textContent = `Willkommen zurück, ${name}!`;
     }
 
@@ -492,7 +492,7 @@ async function loadRivalData() {
         // Build query based on filter
         let query = supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, xp, club_id')
+            .select('id, first_name, last_name, photo_url, elo_rating, xp, club_id')
             .in('role', ['player', 'coach']);
 
         // Apply club/subgroup filter
@@ -569,11 +569,11 @@ function displayRivalInfo(metric, ranking, myRankIndex, el, myValue, unit) {
         const rival = ranking[myRankIndex - 1];
         const rivalValue = unit === 'Elo' ? (rival.elo_rating || 0) : (rival.xp || 0);
         const diff = rivalValue - myValue;
-        const displayName = rival.display_name || `${rival.first_name} ${rival.last_name}`;
+        const displayName = `${rival.first_name || ''} ${rival.last_name || ''}`.trim() || 'Spieler';
 
         el.innerHTML = `
             <div class="flex items-center space-x-3">
-                <img src="${rival.avatar_url || DEFAULT_AVATAR}" alt="Rivale"
+                <img src="${rival.photo_url || DEFAULT_AVATAR}" alt="Rivale"
                      class="h-12 w-12 rounded-full object-cover border-2 border-orange-400"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div>
@@ -841,11 +841,12 @@ function renderRanksList() {
                 <div class="mt-2 space-y-1 pl-4">
                     ${playersInRank.map(player => {
                         const isCurrentUser = player.id === currentUser.id;
+                        const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
                         return `
                         <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
-                            <img src="${player.avatar_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${player.photo_url || DEFAULT_AVATAR}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='${DEFAULT_AVATAR}'">
                             <div class="flex-grow">
-                                <p class="text-sm">${player.display_name || 'Unbekannt'}</p>
+                                <p class="text-sm">${playerName}</p>
                             </div>
                             <div class="text-xs text-gray-600">
                                 ${player.elo_rating || 0} Elo | ${player.xp || 0} XP
@@ -867,7 +868,7 @@ async function fetchLeaderboardData() {
         if (currentUserData.club_id) {
             const { data: clubPlayers } = await supabase
                 .from('profiles')
-                .select('id, display_name, avatar_url, xp, elo_rating, points, role, birthdate, gender')
+                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender')
                 .eq('club_id', currentUserData.club_id)
                 .neq('role', 'admin')
                 .limit(100);
@@ -877,7 +878,7 @@ async function fetchLeaderboardData() {
         // Fetch global data (include birthdate for age filtering)
         const { data: globalPlayers } = await supabase
             .from('profiles')
-            .select('id, display_name, avatar_url, xp, elo_rating, points, role, birthdate, gender')
+            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender')
             .neq('role', 'admin')
             .limit(100);
         leaderboardCache.global = globalPlayers || [];
@@ -924,16 +925,17 @@ function renderLeaderboardList() {
         const rank = index + 1;
         const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
         const value = player[field] || 0;
+        const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
 
         html += `
             <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors">
                 <div class="flex items-center gap-3">
                     <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-gray-500'}">${medal}</span>
-                    <img src="${player.avatar_url || DEFAULT_AVATAR}"
+                    <img src="${player.photo_url || DEFAULT_AVATAR}"
                          class="w-10 h-10 rounded-full object-cover border-2 ${isCurrentUser ? 'border-indigo-400' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
-                        <span class="${isCurrentUser ? 'font-bold text-indigo-700' : 'font-medium'}">${player.display_name || 'Unbekannt'}</span>
+                        <span class="${isCurrentUser ? 'font-bold text-indigo-700' : 'font-medium'}">${playerName}</span>
                         ${isCurrentUser ? '<span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>' : ''}
                     </div>
                 </div>
@@ -944,16 +946,17 @@ function renderLeaderboardList() {
 
     // Show current user if not in top 15
     if (currentUserRank > 15 && currentPlayerData) {
+        const currentPlayerName = `${currentPlayerData.first_name || ''} ${currentPlayerData.last_name || ''}`.trim() || 'Du';
         html += `
             <div class="border-t-2 border-dashed border-gray-300 mt-4 pt-4">
                 <div class="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border-2 border-indigo-300">
                     <div class="flex items-center gap-3">
                         <span class="w-8 text-center font-bold text-gray-500">${currentUserRank}.</span>
-                        <img src="${currentPlayerData.avatar_url || DEFAULT_AVATAR}"
+                        <img src="${currentPlayerData.photo_url || DEFAULT_AVATAR}"
                              class="w-10 h-10 rounded-full object-cover border-2 border-indigo-400"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
-                            <span class="font-bold text-indigo-700">${currentPlayerData.display_name || 'Du'}</span>
+                            <span class="font-bold text-indigo-700">${currentPlayerName}</span>
                             <span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>
                         </div>
                     </div>
@@ -1115,7 +1118,7 @@ async function loadMatchRequests() {
         const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
         const { data: profiles } = await supabase
             .from('profiles')
-            .select('id, display_name, avatar_url')
+            .select('id, first_name, last_name, photo_url')
             .in('id', userIds);
 
         const profileMap = {};
@@ -1126,16 +1129,17 @@ async function loadMatchRequests() {
             const isPlayerA = req.player_a_id === currentUser.id;
             const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
             const otherPlayer = profileMap[otherPlayerId];
+            const otherPlayerName = otherPlayer ? `${otherPlayer.first_name || ''} ${otherPlayer.last_name || ''}`.trim() || 'Unbekannt' : 'Unbekannt';
             const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
 
             return `
                 <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
                     <div class="flex items-center gap-3">
-                        <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
+                        <img src="${otherPlayer?.photo_url || DEFAULT_AVATAR}"
                              class="w-10 h-10 rounded-full object-cover"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
-                            <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
+                            <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
                             <p class="text-xs text-gray-500">${statusText}</p>
                         </div>
                     </div>
@@ -1830,10 +1834,10 @@ async function searchOpponents(query, resultsContainer) {
         // Load all matching players (global search with privacy filter)
         const { data: players, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, grundlagen_completed')
+            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach'])
-            .or(`display_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
             .limit(50);
 
         if (error) throw error;
@@ -1872,16 +1876,17 @@ async function searchOpponents(query, resultsContainer) {
 
         resultsContainer.innerHTML = filteredPlayers.map(player => {
             const isSameClub = player.club_id && player.club_id === currentUserData.club_id;
+            const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
             return `
             <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
                  data-id="${player.id}"
-                 data-name="${player.display_name || `${player.first_name} ${player.last_name}`}"
+                 data-name="${playerName}"
                  data-elo="${player.elo_rating || 1000}">
-                <img src="${player.avatar_url || DEFAULT_AVATAR}"
+                <img src="${player.photo_url || DEFAULT_AVATAR}"
                      class="w-10 h-10 rounded-full object-cover"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div class="flex-1">
-                    <p class="font-medium">${player.display_name || `${player.first_name} ${player.last_name}`}</p>
+                    <p class="font-medium">${playerName}</p>
                     <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
                 </div>
                 ${!isSameClub && player.club_id ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">Anderer Verein</span>' : ''}

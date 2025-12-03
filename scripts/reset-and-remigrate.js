@@ -122,15 +122,6 @@ async function migrateProfiles() {
         // Store mapping
         idMappings.users[doc.id] = supabaseUserId;
 
-        // Build display name from firstName + lastName
-        let displayName = data.displayName || data.name;
-        if (!displayName && (data.firstName || data.lastName)) {
-            displayName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
-        }
-        if (!displayName) {
-            displayName = data.email ? data.email.split('@')[0] : 'Unknown Player';
-        }
-
         // Map club ID
         const { data: clubData } = await supabase
             .from('clubs')
@@ -158,27 +149,65 @@ async function migrateProfiles() {
             }
         }
 
+        // 1:1 Firebase Felder übernehmen
         profiles.push({
             id: supabaseUserId,
+
+            // Basis-Daten
             email: data.email || null,
-            display_name: displayName,
             first_name: data.firstName || null,
             last_name: data.lastName || null,
-            avatar_url: data.avatarUrl || data.photoURL || null,
-            role: data.role || 'player',
-            club_id: clubId,
-            xp: data.xp || 0,
-            points: data.points || 0,
-            elo_rating: data.eloRating || data.elo || 1000,
-            highest_elo: data.highestElo || data.eloRating || 1000,
-            qttr_points: data.qttrPoints || null,
-            grundlagen_completed: data.grundlagenCompleted || 0,
-            doubles_elo_rating: data.doublesEloRating || 1000,
-            is_offline: data.isOffline || !data.email,
-            onboarding_complete: data.onboardingComplete !== false,
-            privacy_settings: data.privacySettings || { searchable: 'global', showInLeaderboards: true },
             birthdate: data.birthdate || null,
             gender: data.gender || null,
+            photo_url: data.photoURL || data.avatarUrl || null,
+            role: data.role || 'player',
+            club_id: clubId,
+
+            // Stats
+            xp: data.xp || 0,
+            points: data.points || 0,
+            elo_rating: data.eloRating || 1000,
+            highest_elo: data.highestElo || data.eloRating || 1000,
+            league: data.league || null,
+
+            // Doubles Stats
+            doubles_elo_rating: data.doublesEloRating || 1000,
+            highest_doubles_elo: data.highestDoublesElo || data.doublesEloRating || 1000,
+            doubles_matches_played: data.doublesMatchesPlayed || 0,
+            doubles_matches_won: data.doublesMatchesWon || 0,
+            doubles_matches_lost: data.doublesMatchesLost || 0,
+
+            // Tischtennis-spezifisch
+            qttr_points: data.qttrPoints || null,
+            grundlagen_completed: data.grundlagenCompleted || 0,
+
+            // Status Flags
+            is_offline: data.isOffline || false,
+            is_match_ready: data.isMatchReady || false,
+            onboarding_complete: data.onboardingComplete !== false,
+
+            // Push Notifications
+            fcm_token: data.fcmToken || null,
+            fcm_token_updated_at: convertTimestamp(data.fcmTokenUpdatedAt),
+            notifications_enabled: data.notificationsEnabled !== false,
+            notification_preferences: data.notificationPreferences || null,
+            notification_preferences_updated_at: convertTimestamp(data.notificationPreferencesUpdatedAt),
+
+            // Leaderboard & Privacy
+            leaderboard_preferences: data.leaderboardPreferences || null,
+            privacy_settings: data.privacySettings || null,
+
+            // Season Tracking
+            last_season_reset: convertTimestamp(data.lastSeasonReset),
+            last_xp_update: convertTimestamp(data.lastXPUpdate),
+
+            // Subgroups (Firebase Array)
+            subgroup_ids: data.subgroupIDs || null,
+
+            // Migration Tracking
+            migrated_at: convertTimestamp(data.migratedAt),
+            migrated_from: data.migratedFrom || doc.id,
+
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }

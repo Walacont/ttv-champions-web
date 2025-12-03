@@ -60,14 +60,19 @@ CREATE TABLE club_sports (
 );
 
 -- ============================================
--- USERS (profiles)
+-- USERS (profiles) - 1:1 Firebase Struktur
 -- ============================================
 
 CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+
+    -- Basis-Daten (Firebase: users collection)
     email TEXT,
-    display_name TEXT NOT NULL,
-    avatar_url TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    birthdate TEXT,  -- Firebase speichert als String "2001-12-09"
+    gender TEXT,
+    photo_url TEXT,  -- Firebase: photoURL
     role user_role DEFAULT 'player',
     club_id UUID REFERENCES clubs(id) ON DELETE SET NULL,
 
@@ -76,16 +81,45 @@ CREATE TABLE profiles (
     points INTEGER DEFAULT 0,
     elo_rating INTEGER DEFAULT 1000,
     highest_elo INTEGER DEFAULT 1000,
+    league TEXT,  -- "Diamond", "Gold", etc.
 
-    -- Tischtennis-spezifisch (später pro Sport)
+    -- Doubles Stats
+    doubles_elo_rating INTEGER DEFAULT 1000,
+    highest_doubles_elo INTEGER DEFAULT 1000,
+    doubles_matches_played INTEGER DEFAULT 0,
+    doubles_matches_won INTEGER DEFAULT 0,
+    doubles_matches_lost INTEGER DEFAULT 0,
+
+    -- Tischtennis-spezifisch
     qttr_points INTEGER,
     grundlagen_completed INTEGER DEFAULT 0,
 
-    -- Settings
+    -- Status Flags
     is_offline BOOLEAN DEFAULT false,
+    is_match_ready BOOLEAN DEFAULT false,
     onboarding_complete BOOLEAN DEFAULT false,
-    privacy_settings JSONB DEFAULT '{"searchable": true, "showElo": true}',
+
+    -- Push Notifications (Firebase: fcmToken)
+    fcm_token TEXT,
+    fcm_token_updated_at TIMESTAMPTZ,
+    notifications_enabled BOOLEAN DEFAULT true,
+    notification_preferences JSONB DEFAULT '{"challengeAvailable": true, "matchApproved": true, "matchRequest": true, "matchSuggestion": false, "rankUp": true, "trainingReminder": true}',
+    notification_preferences_updated_at TIMESTAMPTZ,
+
+    -- Leaderboard & Privacy
     leaderboard_preferences JSONB DEFAULT '{"effort": true, "season": true, "skill": true, "ranks": true, "doubles": true}',
+    privacy_settings JSONB DEFAULT '{"searchable": true, "showElo": true}',
+
+    -- Season Tracking
+    last_season_reset TIMESTAMPTZ,
+    last_xp_update TIMESTAMPTZ,
+
+    -- Subgroups (Firebase: subgroupIDs array)
+    subgroup_ids TEXT[],  -- Array von Subgroup-IDs
+
+    -- Migration Tracking
+    migrated_at TIMESTAMPTZ,
+    migrated_from TEXT,  -- Original Firebase Doc ID
 
     -- Club Request (wenn pending)
     club_request_status request_status,
