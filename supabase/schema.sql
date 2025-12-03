@@ -46,6 +46,7 @@ CREATE TABLE clubs (
     name TEXT NOT NULL,
     description TEXT,
     logo_url TEXT,
+    is_test_club BOOLEAN DEFAULT false,
     settings JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
