@@ -21,7 +21,7 @@ const __dirname = dirname(__filename);
 // CONFIGURATION
 // ============================================
 
-const SUPABASE_URL = 'https://wmrbjuyqbmvtzrujuxs.supabase.co';
+const SUPABASE_URL = 'https://wmrbjuyqgbmvtzrujuxs.supabase.co';
 const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtcmJqdXlxZ2JtdnR6cnVqdXhzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDY3OTMzOSwiZXhwIjoyMDgwMjU1MzM5fQ.94nqvxAhCHUP0g1unKzdnInOaM4huwTTcSnKxJ5jSdA';
 
 // Load Firebase service account
