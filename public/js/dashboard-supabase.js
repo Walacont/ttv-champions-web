@@ -14,6 +14,7 @@ let currentClubData = null;
 let realtimeSubscriptions = [];
 let currentSubgroupFilter = 'club';
 let currentGenderFilter = 'all';
+let currentAgeGroupFilter = 'all';
 
 // --- Constants ---
 const RANKS = [
@@ -141,8 +142,16 @@ function initializeDashboard() {
     loadChallenges();
     loadExercises();
     loadMatchRequests();
+    loadPendingRequests();
+    loadMatchHistory();
     loadCalendar();
     updateSeasonCountdown();
+
+    // Setup match form
+    setupMatchForm();
+
+    // Setup widget settings
+    setupWidgetSettings();
 
     // Show coach switch button if coach
     if (currentUserData.role === 'coach') {
@@ -246,6 +255,7 @@ function setupLogout() {
 function setupFilters() {
     const subgroupFilter = document.getElementById('player-subgroup-filter');
     const genderFilter = document.getElementById('player-gender-filter');
+    const ageGroupFilter = document.getElementById('player-age-group-filter');
 
     if (subgroupFilter) {
         // Load subgroups if user has a club
@@ -264,6 +274,58 @@ function setupFilters() {
             currentGenderFilter = genderFilter.value;
             loadLeaderboards();
         });
+    }
+
+    if (ageGroupFilter) {
+        // Populate age groups
+        ageGroupFilter.innerHTML = `
+            <option value="all">Alle Altersgruppen</option>
+            <option value="U11">U11 (unter 11)</option>
+            <option value="U13">U13 (unter 13)</option>
+            <option value="U15">U15 (unter 15)</option>
+            <option value="U18">U18 (unter 18)</option>
+            <option value="adults">Erwachsene (18+)</option>
+            <option value="seniors40">Senioren 40+</option>
+            <option value="seniors50">Senioren 50+</option>
+            <option value="seniors60">Senioren 60+</option>
+        `;
+
+        ageGroupFilter.addEventListener('change', () => {
+            currentAgeGroupFilter = ageGroupFilter.value;
+            loadLeaderboards();
+        });
+    }
+}
+
+// --- Calculate Age from Birthdate ---
+function calculateAge(birthdate) {
+    if (!birthdate) return null;
+    const birth = new Date(birthdate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+}
+
+// --- Check if player matches age group filter ---
+function matchesAgeGroup(birthdate, ageGroupFilter) {
+    if (ageGroupFilter === 'all') return true;
+    const age = calculateAge(birthdate);
+    if (age === null) return true; // Include players without birthdate
+
+    switch (ageGroupFilter) {
+        case 'U11': return age < 11;
+        case 'U13': return age < 13;
+        case 'U15': return age < 15;
+        case 'U18': return age < 18;
+        case 'adults': return age >= 18;
+        case 'seniors40': return age >= 40;
+        case 'seniors50': return age >= 50;
+        case 'seniors60': return age >= 60;
+        default: return true;
     }
 }
 
@@ -445,21 +507,21 @@ function updateLeaderboardScope() {
 
 async function fetchLeaderboardData() {
     try {
-        // Fetch club data
+        // Fetch club data (include birthdate for age filtering)
         if (currentUserData.club_id) {
             const { data: clubPlayers } = await supabase
                 .from('profiles')
-                .select('id, display_name, avatar_url, xp, elo_rating, points, role')
+                .select('id, display_name, avatar_url, xp, elo_rating, points, role, birthdate, gender')
                 .eq('club_id', currentUserData.club_id)
                 .neq('role', 'admin')
                 .limit(100);
             leaderboardCache.club = clubPlayers || [];
         }
 
-        // Fetch global data
+        // Fetch global data (include birthdate for age filtering)
         const { data: globalPlayers } = await supabase
             .from('profiles')
-            .select('id, display_name, avatar_url, xp, elo_rating, points, role')
+            .select('id, display_name, avatar_url, xp, elo_rating, points, role, birthdate, gender')
             .neq('role', 'admin')
             .limit(100);
         leaderboardCache.global = globalPlayers || [];
@@ -473,7 +535,17 @@ function renderLeaderboardList() {
     const container = document.getElementById('leaderboard-list');
     if (!container) return;
 
-    const players = leaderboardCache[currentLeaderboardScope] || [];
+    let players = leaderboardCache[currentLeaderboardScope] || [];
+
+    // Apply age group filter
+    if (currentAgeGroupFilter !== 'all') {
+        players = players.filter(p => matchesAgeGroup(p.birthdate, currentAgeGroupFilter));
+    }
+
+    // Apply gender filter
+    if (currentGenderFilter !== 'all') {
+        players = players.filter(p => p.gender === currentGenderFilter);
+    }
 
     // Sort by current tab
     const fieldMap = { xp: 'xp', elo: 'elo_rating', points: 'points' };
@@ -819,16 +891,42 @@ async function loadCalendar() {
 // --- Season Countdown ---
 function updateSeasonCountdown() {
     const countdownEl = document.getElementById('season-countdown');
+    const seasonTitleEl = document.getElementById('season-title');
     if (!countdownEl) return;
 
-    // Season ends every 6 weeks from a fixed start date
-    const seasonStart = new Date('2024-01-01');
     const now = new Date();
-    const weeksSinceStart = Math.floor((now - seasonStart) / (7 * 24 * 60 * 60 * 1000));
-    const currentSeasonWeek = weeksSinceStart % 6;
-    const daysLeft = (6 - currentSeasonWeek) * 7 - now.getDay();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed (0 = January, 11 = December)
+
+    // German table tennis seasons:
+    // Winter season: September to March (ends ~March 31)
+    // Summer season: April to August (ends ~August 31)
+
+    let seasonEnd;
+    let seasonName;
+
+    if (currentMonth >= 8) {
+        // September - December: Winter season ends next year March 31
+        seasonEnd = new Date(currentYear + 1, 2, 31); // March 31 next year
+        seasonName = `Wintersaison ${currentYear}/${currentYear + 1}`;
+    } else if (currentMonth >= 3 && currentMonth <= 7) {
+        // April - August: Summer season ends August 31
+        seasonEnd = new Date(currentYear, 7, 31); // August 31
+        seasonName = `Sommersaison ${currentYear}`;
+    } else {
+        // January - March: Still in winter season, ends March 31
+        seasonEnd = new Date(currentYear, 2, 31); // March 31
+        seasonName = `Wintersaison ${currentYear - 1}/${currentYear}`;
+    }
+
+    const diffTime = seasonEnd - now;
+    const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     countdownEl.textContent = `${Math.max(0, daysLeft)} Tage`;
+
+    if (seasonTitleEl) {
+        seasonTitleEl.textContent = seasonName;
+    }
 }
 
 // --- Realtime Subscriptions ---
@@ -1248,5 +1346,836 @@ window.respondToMatchRequest = async (requestId, accept) => {
         alert('Fehler beim Verarbeiten der Anfrage');
     }
 };
+
+// ========================================================================
+// ===== MATCH REQUEST SYSTEM =====
+// ========================================================================
+
+let setScoreHandler = null;
+let selectedOpponent = null;
+
+// --- Setup Match Form ---
+function setupMatchForm() {
+    const form = document.getElementById('match-request-form');
+    const opponentSearchInput = document.getElementById('opponent-search-input');
+    const opponentSearchResults = document.getElementById('opponent-search-results');
+    const matchModeSelect = document.getElementById('match-mode-select');
+    const setScoreContainer = document.getElementById('set-score-container');
+    const singlesToggle = document.getElementById('player-singles-toggle');
+    const doublesToggle = document.getElementById('player-doubles-toggle');
+
+    if (!form) return;
+
+    // Initialize set score inputs
+    if (setScoreContainer) {
+        setScoreHandler = createSetScoreInput(setScoreContainer, [], matchModeSelect?.value || 'best-of-5');
+    }
+
+    // Match mode change
+    matchModeSelect?.addEventListener('change', () => {
+        if (setScoreContainer) {
+            setScoreHandler = createSetScoreInput(setScoreContainer, [], matchModeSelect.value);
+        }
+    });
+
+    // Singles/Doubles toggle
+    singlesToggle?.addEventListener('click', () => {
+        singlesToggle.classList.add('active');
+        doublesToggle?.classList.remove('active');
+        document.getElementById('singles-opponent-container')?.classList.remove('hidden');
+        document.getElementById('doubles-players-container')?.classList.add('hidden');
+    });
+
+    doublesToggle?.addEventListener('click', () => {
+        doublesToggle.classList.add('active');
+        singlesToggle?.classList.remove('active');
+        document.getElementById('singles-opponent-container')?.classList.add('hidden');
+        document.getElementById('doubles-players-container')?.classList.remove('hidden');
+    });
+
+    // Opponent search
+    let searchTimeout = null;
+    opponentSearchInput?.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query.length < 2) {
+            opponentSearchResults.innerHTML = '';
+            return;
+        }
+
+        searchTimeout = setTimeout(() => searchOpponents(query, opponentSearchResults), 300);
+    });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitMatchRequest();
+    });
+
+    // Setup match suggestions toggle
+    setupMatchSuggestions();
+
+    // Setup leaderboard preferences toggle
+    setupLeaderboardPreferences();
+}
+
+// --- Search Opponents ---
+async function searchOpponents(query, resultsContainer) {
+    if (!currentUserData.club_id) {
+        resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Du musst einem Verein beitreten um Wettkämpfe zu melden.</p>';
+        return;
+    }
+
+    try {
+        const { data: players, error } = await supabase
+            .from('profiles')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating')
+            .eq('club_id', currentUserData.club_id)
+            .neq('id', currentUser.id)
+            .ilike('display_name', `%${query}%`)
+            .limit(10);
+
+        if (error) throw error;
+
+        if (!players || players.length === 0) {
+            resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';
+            return;
+        }
+
+        resultsContainer.innerHTML = players.map(player => `
+            <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
+                 data-id="${player.id}"
+                 data-name="${player.display_name}"
+                 data-elo="${player.elo_rating || 1000}">
+                <img src="${player.avatar_url || DEFAULT_AVATAR}"
+                     class="w-10 h-10 rounded-full object-cover"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-1">
+                    <p class="font-medium">${player.display_name || `${player.first_name} ${player.last_name}`}</p>
+                    <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400"></i>
+            </div>
+        `).join('');
+
+        // Add click handlers
+        resultsContainer.querySelectorAll('.opponent-option').forEach(option => {
+            option.addEventListener('click', () => selectOpponent(option));
+        });
+
+    } catch (error) {
+        console.error('Error searching opponents:', error);
+        resultsContainer.innerHTML = '<p class="text-red-500 text-sm p-2">Fehler bei der Suche</p>';
+    }
+}
+
+// --- Select Opponent ---
+function selectOpponent(optionElement) {
+    const id = optionElement.dataset.id;
+    const name = optionElement.dataset.name;
+    const elo = optionElement.dataset.elo;
+
+    selectedOpponent = { id, name, elo: parseInt(elo) };
+
+    // Update UI
+    document.getElementById('selected-opponent-id').value = id;
+    document.getElementById('selected-opponent-elo').value = elo;
+    document.getElementById('opponent-search-input').value = name;
+    document.getElementById('opponent-search-results').innerHTML = `
+        <div class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-3">
+            <i class="fas fa-check-circle text-green-500"></i>
+            <span class="font-medium text-green-800">${name}</span>
+            <span class="text-sm text-green-600">(Elo: ${elo})</span>
+            <button type="button" onclick="clearOpponentSelection()" class="ml-auto text-gray-500 hover:text-red-500">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+
+    // Check for handicap
+    checkHandicap();
+}
+
+window.clearOpponentSelection = function() {
+    selectedOpponent = null;
+    document.getElementById('selected-opponent-id').value = '';
+    document.getElementById('selected-opponent-elo').value = '';
+    document.getElementById('opponent-search-input').value = '';
+    document.getElementById('opponent-search-results').innerHTML = '';
+    document.getElementById('match-handicap-info')?.classList.add('hidden');
+};
+
+// --- Check Handicap ---
+function checkHandicap() {
+    const handicapInfo = document.getElementById('match-handicap-info');
+    const handicapText = document.getElementById('match-handicap-text');
+
+    if (!handicapInfo || !selectedOpponent) return;
+
+    const myElo = currentUserData.elo_rating || 1000;
+    const opponentElo = selectedOpponent.elo;
+    const diff = Math.abs(myElo - opponentElo);
+
+    if (diff >= 100) {
+        const stronger = myElo > opponentElo ? 'Du bist' : `${selectedOpponent.name} ist`;
+        const weaker = myElo > opponentElo ? selectedOpponent.name : 'Du';
+        const handicapPoints = Math.min(Math.floor(diff / 50), 5);
+
+        handicapText.textContent = `${stronger} ${diff} Elo-Punkte stärker. Empfohlener Handicap: ${weaker} startet jeden Satz mit ${handicapPoints} Punkten.`;
+        handicapInfo.classList.remove('hidden');
+    } else {
+        handicapInfo.classList.add('hidden');
+    }
+}
+
+// --- Submit Match Request ---
+async function submitMatchRequest() {
+    const feedbackEl = document.getElementById('match-request-feedback');
+
+    if (!selectedOpponent) {
+        showFeedback(feedbackEl, 'Bitte wähle einen Gegner aus.', 'error');
+        return;
+    }
+
+    if (!setScoreHandler) {
+        showFeedback(feedbackEl, 'Satzergebnis-Handler nicht initialisiert.', 'error');
+        return;
+    }
+
+    const validation = setScoreHandler.validate();
+    if (!validation.valid) {
+        showFeedback(feedbackEl, validation.error, 'error');
+        return;
+    }
+
+    const sets = setScoreHandler.getSets();
+    const matchMode = document.getElementById('match-mode-select')?.value || 'best-of-5';
+    const handicapUsed = document.getElementById('match-handicap-toggle')?.checked || false;
+
+    // Determine winner
+    const winnerId = validation.winnerId === 'A' ? currentUser.id : selectedOpponent.id;
+    const loserId = validation.winnerId === 'A' ? selectedOpponent.id : currentUser.id;
+
+    try {
+        const { error } = await supabase
+            .from('match_requests')
+            .insert({
+                player_a_id: currentUser.id,
+                player_b_id: selectedOpponent.id,
+                club_id: currentUserData.club_id,
+                sets: sets,
+                match_mode: matchMode,
+                handicap_used: handicapUsed,
+                winner_id: winnerId,
+                loser_id: loserId,
+                status: 'pending_player',
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');
+
+        // Reset form
+        window.clearOpponentSelection();
+        setScoreHandler.reset();
+
+        // Reload requests
+        loadMatchRequests();
+        loadPendingRequests();
+
+    } catch (error) {
+        console.error('Error submitting match request:', error);
+        showFeedback(feedbackEl, 'Fehler beim Senden der Anfrage: ' + error.message, 'error');
+    }
+}
+
+// --- Show Feedback ---
+function showFeedback(element, message, type) {
+    if (!element) return;
+
+    element.className = `mt-4 p-3 rounded-lg text-sm font-medium ${
+        type === 'success' ? 'bg-green-100 text-green-800' :
+        type === 'error' ? 'bg-red-100 text-red-800' :
+        'bg-blue-100 text-blue-800'
+    }`;
+    element.textContent = message;
+    element.classList.remove('hidden');
+
+    setTimeout(() => {
+        element.classList.add('hidden');
+    }, 5000);
+}
+
+// --- Create Set Score Input (simplified version) ---
+function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
+    container.innerHTML = '';
+
+    let minSets, maxSets, setsToWin;
+    switch (mode) {
+        case 'single-set': minSets = 1; maxSets = 1; setsToWin = 1; break;
+        case 'best-of-3': minSets = 2; maxSets = 3; setsToWin = 2; break;
+        case 'best-of-5': minSets = 3; maxSets = 5; setsToWin = 3; break;
+        case 'best-of-7': minSets = 4; maxSets = 7; setsToWin = 4; break;
+        default: minSets = 3; maxSets = 5; setsToWin = 3;
+    }
+
+    const sets = existingSets.length > 0 ? [...existingSets] : [];
+    while (sets.length < minSets) {
+        sets.push({ playerA: '', playerB: '' });
+    }
+
+    function isValidSet(scoreA, scoreB) {
+        const a = parseInt(scoreA) || 0;
+        const b = parseInt(scoreB) || 0;
+        if (a < 11 && b < 11) return false;
+        if (a === b) return false;
+        if (a >= 10 && b >= 10) return Math.abs(a - b) === 2;
+        return (a >= 11 && a > b) || (b >= 11 && b > a);
+    }
+
+    function getSetWinner(scoreA, scoreB) {
+        if (!isValidSet(scoreA, scoreB)) return null;
+        const a = parseInt(scoreA) || 0;
+        const b = parseInt(scoreB) || 0;
+        if (a > b) return 'A';
+        if (b > a) return 'B';
+        return null;
+    }
+
+    function renderSets() {
+        container.innerHTML = '';
+        sets.forEach((set, index) => {
+            const setDiv = document.createElement('div');
+            setDiv.className = 'flex items-center gap-3 mb-3';
+            setDiv.innerHTML = `
+                <label class="text-sm font-medium text-gray-700 w-16">Satz ${index + 1}:</label>
+                <input type="number" min="0" max="99"
+                       class="set-input-a w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                       data-set="${index}" data-player="A" placeholder="0" value="${set.playerA}"/>
+                <span class="text-gray-500">:</span>
+                <input type="number" min="0" max="99"
+                       class="set-input-b w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                       data-set="${index}" data-player="B" placeholder="0" value="${set.playerB}"/>
+            `;
+            container.appendChild(setDiv);
+        });
+
+        container.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', handleSetInput);
+        });
+    }
+
+    function handleSetInput(e) {
+        const setIndex = parseInt(e.target.dataset.set);
+        const player = e.target.dataset.player;
+        sets[setIndex][`player${player}`] = parseInt(e.target.value) || '';
+
+        // Auto-add sets based on score
+        let playerAWins = 0, playerBWins = 0;
+        sets.forEach(set => {
+            const a = parseInt(set.playerA) || 0;
+            const b = parseInt(set.playerB) || 0;
+            if (a > b && a >= 11) playerAWins++;
+            if (b > a && b >= 11) playerBWins++;
+        });
+
+        const matchWon = playerAWins >= setsToWin || playerBWins >= setsToWin;
+        if (!matchWon && sets.length < maxSets) {
+            const lastSet = sets[sets.length - 1];
+            if (lastSet.playerA !== '' && lastSet.playerB !== '') {
+                sets.push({ playerA: '', playerB: '' });
+                renderSets();
+            }
+        }
+    }
+
+    function getSets() {
+        return sets.filter(set => set.playerA !== '' && set.playerB !== '').map(set => ({
+            playerA: parseInt(set.playerA),
+            playerB: parseInt(set.playerB)
+        }));
+    }
+
+    function validate() {
+        const filledSets = getSets();
+        if (filledSets.length < minSets) {
+            return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
+        }
+
+        for (let i = 0; i < filledSets.length; i++) {
+            const set = filledSets[i];
+            if (!isValidSet(set.playerA, set.playerB)) {
+                return { valid: false, error: `Satz ${i + 1}: Ungültiges Ergebnis. Ein Spieler braucht 11+ Punkte und 2 Punkte Vorsprung bei 10:10+.` };
+            }
+        }
+
+        let playerAWins = 0, playerBWins = 0;
+        filledSets.forEach(set => {
+            const winner = getSetWinner(set.playerA, set.playerB);
+            if (winner === 'A') playerAWins++;
+            if (winner === 'B') playerBWins++;
+        });
+
+        if (playerAWins < setsToWin && playerBWins < setsToWin) {
+            return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
+        }
+
+        return { valid: true, winnerId: playerAWins >= setsToWin ? 'A' : 'B', playerAWins, playerBWins };
+    }
+
+    function reset() {
+        sets.length = 0;
+        for (let i = 0; i < minSets; i++) sets.push({ playerA: '', playerB: '' });
+        renderSets();
+    }
+
+    renderSets();
+    return { getSets, validate, reset, refresh: renderSets };
+}
+
+// --- Load Pending Requests ---
+async function loadPendingRequests() {
+    const container = document.getElementById('pending-result-requests-list');
+    if (!container) return;
+
+    try {
+        const { data: requests, error } = await supabase
+            .from('match_requests')
+            .select('*')
+            .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
+            .in('status', ['pending_player', 'pending_coach'])
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!requests || requests.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine ausstehenden Anfragen</p>';
+            return;
+        }
+
+        // Get player profiles
+        const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
+        const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+        container.innerHTML = requests.map(req => {
+            const isPlayerA = req.player_a_id === currentUser.id;
+            const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
+            const otherPlayer = profileMap[otherPlayerId];
+            const setsDisplay = formatSetsDisplay(req.sets);
+            const statusText = req.status === 'pending_player' ? 'Wartet auf Bestätigung' : 'Wartet auf Coach';
+            const needsResponse = !isPlayerA && req.status === 'pending_player';
+
+            return `
+                <div class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center gap-3">
+                            <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <div>
+                                <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
+                                <p class="text-xs text-gray-500">${setsDisplay}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs ${req.status === 'pending_coach' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'} px-2 py-1 rounded-full">${statusText}</span>
+                    </div>
+                    ${needsResponse ? `
+                        <div class="flex gap-2 mt-3">
+                            <button onclick="respondToMatchRequest('${req.id}', true)" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md">
+                                <i class="fas fa-check mr-1"></i> Akzeptieren
+                            </button>
+                            <button onclick="respondToMatchRequest('${req.id}', false)" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md">
+                                <i class="fas fa-times mr-1"></i> Ablehnen
+                            </button>
+                        </div>
+                    ` : isPlayerA ? `
+                        <div class="flex gap-2 mt-3">
+                            <button onclick="deleteMatchRequest('${req.id}')" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md">
+                                <i class="fas fa-trash mr-1"></i> Zurückziehen
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading pending requests:', error);
+        container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
+    }
+}
+
+// --- Load Match History ---
+async function loadMatchHistory() {
+    const container = document.getElementById('match-history-list');
+    if (!container) return;
+
+    try {
+        const { data: matches, error } = await supabase
+            .from('matches')
+            .select('*')
+            .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
+            .order('played_at', { ascending: false })
+            .limit(20);
+
+        if (error) throw error;
+
+        if (!matches || matches.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+            return;
+        }
+
+        // Get player profiles
+        const userIds = [...new Set(matches.flatMap(m => [m.player_a_id, m.player_b_id]))];
+        const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+        container.innerHTML = matches.map(match => {
+            const playerA = profileMap[match.player_a_id];
+            const playerB = profileMap[match.player_b_id];
+            const isWinner = match.winner_id === currentUser.id;
+            const setsDisplay = formatSetsDisplay(match.sets);
+            const eloChange = match.elo_change_a && match.player_a_id === currentUser.id
+                ? match.elo_change_a
+                : match.elo_change_b || 0;
+
+            return `
+                <div class="bg-white border ${isWinner ? 'border-green-200' : 'border-red-200'} rounded-lg p-4 shadow-sm mb-3">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-medium">${playerA?.display_name || 'Unbekannt'} vs ${playerB?.display_name || 'Unbekannt'}</p>
+                            <p class="text-sm text-gray-600">${setsDisplay}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="${isWinner ? 'text-green-600' : 'text-red-600'} font-bold">${isWinner ? 'Gewonnen' : 'Verloren'}</span>
+                            <p class="text-xs ${eloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${eloChange >= 0 ? '+' : ''}${eloChange} Elo
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading match history:', error);
+        container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
+    }
+}
+
+// --- Format Sets Display ---
+function formatSetsDisplay(sets) {
+    if (!sets || sets.length === 0) return 'Keine Sätze';
+    return sets.map((set, i) => `${set.playerA || set.teamA || 0}:${set.playerB || set.teamB || 0}`).join(', ');
+}
+
+// --- Delete Match Request ---
+window.deleteMatchRequest = async function(requestId) {
+    if (!confirm('Möchtest du diese Anfrage wirklich zurückziehen?')) return;
+
+    try {
+        const { error } = await supabase
+            .from('match_requests')
+            .delete()
+            .eq('id', requestId)
+            .eq('player_a_id', currentUser.id);
+
+        if (error) throw error;
+
+        loadMatchRequests();
+        loadPendingRequests();
+
+    } catch (error) {
+        console.error('Error deleting match request:', error);
+        alert('Fehler beim Löschen der Anfrage');
+    }
+};
+
+// --- Setup Match Suggestions ---
+function setupMatchSuggestions() {
+    const toggleBtn = document.getElementById('toggle-match-suggestions');
+    const content = document.getElementById('match-suggestions-content');
+    const chevron = document.getElementById('suggestions-chevron');
+
+    if (toggleBtn && content) {
+        toggleBtn.addEventListener('click', () => {
+            content.classList.toggle('hidden');
+            if (chevron) {
+                chevron.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+            if (!content.classList.contains('hidden')) {
+                loadMatchSuggestions();
+            }
+        });
+    }
+}
+
+// --- Load Match Suggestions ---
+async function loadMatchSuggestions() {
+    const container = document.getElementById('match-suggestions-list');
+    if (!container || !currentUserData.club_id) return;
+
+    container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>';
+
+    try {
+        // Get club members
+        const { data: clubMembers, error } = await supabase
+            .from('profiles')
+            .select('id, display_name, avatar_url, elo_rating')
+            .eq('club_id', currentUserData.club_id)
+            .neq('id', currentUser.id)
+            .neq('role', 'admin')
+            .limit(10);
+
+        if (error) throw error;
+
+        if (!clubMembers || clubMembers.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Keine Spieler gefunden</p>';
+            return;
+        }
+
+        // Get recent matches to exclude players we've played recently
+        const { data: recentMatches } = await supabase
+            .from('matches')
+            .select('player_a_id, player_b_id')
+            .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
+            .order('played_at', { ascending: false })
+            .limit(20);
+
+        const recentOpponents = new Set();
+        (recentMatches || []).forEach(m => {
+            if (m.player_a_id === currentUser.id) recentOpponents.add(m.player_b_id);
+            else recentOpponents.add(m.player_a_id);
+        });
+
+        // Prioritize players we haven't played recently
+        const suggestions = clubMembers
+            .map(p => ({ ...p, playedRecently: recentOpponents.has(p.id) }))
+            .sort((a, b) => (a.playedRecently ? 1 : 0) - (b.playedRecently ? 1 : 0))
+            .slice(0, 5);
+
+        container.innerHTML = suggestions.map(player => `
+            <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 mb-2">
+                <div class="flex items-center gap-3">
+                    <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-8 h-8 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div>
+                        <p class="font-medium text-sm">${player.display_name}</p>
+                        <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
+                    </div>
+                </div>
+                <span class="text-xs ${player.playedRecently ? 'text-gray-400' : 'text-green-600 font-medium'}">
+                    ${player.playedRecently ? 'Kürzlich gespielt' : '⭐ Empfohlen'}
+                </span>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error loading match suggestions:', error);
+        container.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">Fehler beim Laden</p>';
+    }
+}
+
+// --- Setup Leaderboard Preferences ---
+function setupLeaderboardPreferences() {
+    const toggleBtn = document.getElementById('toggle-leaderboard-preferences');
+    const content = document.getElementById('leaderboard-preferences-content');
+    const chevron = document.getElementById('preferences-chevron');
+
+    if (toggleBtn && content) {
+        toggleBtn.addEventListener('click', () => {
+            content.classList.toggle('hidden');
+            if (chevron) {
+                chevron.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+            }
+        });
+    }
+}
+
+// ========================================================================
+// ===== WIDGET SETTINGS =====
+// ========================================================================
+
+const AVAILABLE_WIDGETS = [
+    { id: 'widget-leaderboard', name: 'Rangliste', icon: '🏆', default: true },
+    { id: 'widget-challenges', name: 'Challenges', icon: '🎯', default: true },
+    { id: 'widget-exercises', name: 'Übungen', icon: '💪', default: true },
+    { id: 'widget-match-requests', name: 'Wettkampf melden', icon: '🏓', default: true },
+    { id: 'widget-points-history', name: 'Punkte-Verlauf', icon: '📈', default: true },
+    { id: 'widget-calendar', name: 'Kalender', icon: '📅', default: true },
+    { id: 'widget-season-countdown', name: 'Saison-Countdown', icon: '⏰', default: true },
+    { id: 'widget-match-history', name: 'Match-Historie', icon: '📋', default: true },
+    { id: 'widget-match-suggestions', name: 'Match-Vorschläge', icon: '💡', default: false }
+];
+
+let widgetSettings = {};
+
+function setupWidgetSettings() {
+    const editButton = document.getElementById('edit-dashboard-button');
+    const modal = document.getElementById('widget-settings-modal');
+    const closeButton = document.getElementById('close-widget-settings-modal');
+    const cancelButton = document.getElementById('cancel-widget-settings-button');
+    const saveButton = document.getElementById('save-widget-settings-button');
+    const resetButton = document.getElementById('reset-widgets-button');
+    const settingsList = document.getElementById('widget-settings-list');
+
+    if (!editButton || !modal) return;
+
+    // Load saved settings
+    loadWidgetSettings();
+    applyWidgetSettings();
+
+    // Open modal
+    editButton.addEventListener('click', () => {
+        renderWidgetSettingsList(settingsList);
+        modal.classList.remove('hidden');
+    });
+
+    // Close modal
+    const closeModal = () => modal.classList.add('hidden');
+    closeButton?.addEventListener('click', closeModal);
+    cancelButton?.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    // Save settings
+    saveButton?.addEventListener('click', async () => {
+        await saveWidgetSettings();
+        applyWidgetSettings();
+        closeModal();
+        showWidgetFeedback('Einstellungen gespeichert!', 'success');
+    });
+
+    // Reset to defaults
+    resetButton?.addEventListener('click', () => {
+        AVAILABLE_WIDGETS.forEach(widget => {
+            widgetSettings[widget.id] = widget.default;
+        });
+        renderWidgetSettingsList(settingsList);
+    });
+}
+
+function loadWidgetSettings() {
+    const saved = localStorage.getItem('widgetSettings');
+    if (saved) {
+        try {
+            widgetSettings = JSON.parse(saved);
+        } catch (e) {
+            widgetSettings = {};
+        }
+    }
+
+    // Initialize defaults for new widgets
+    AVAILABLE_WIDGETS.forEach(widget => {
+        if (widgetSettings[widget.id] === undefined) {
+            widgetSettings[widget.id] = widget.default;
+        }
+    });
+}
+
+async function saveWidgetSettings() {
+    localStorage.setItem('widgetSettings', JSON.stringify(widgetSettings));
+
+    // Also save to user profile in database
+    try {
+        await supabase
+            .from('profiles')
+            .update({ widget_settings: widgetSettings })
+            .eq('id', currentUser.id);
+    } catch (error) {
+        console.error('Error saving widget settings to DB:', error);
+    }
+}
+
+function applyWidgetSettings() {
+    // Map widget IDs to actual DOM element selectors
+    const widgetMap = {
+        'widget-leaderboard': '#leaderboard-content-wrapper, [data-widget="leaderboard"]',
+        'widget-challenges': '#challenges-list, [data-widget="challenges"]',
+        'widget-exercises': '#exercises-list, [data-widget="exercises"]',
+        'widget-match-requests': '#match-request-form, #pending-result-requests-list, [data-widget="match-requests"]',
+        'widget-points-history': '#points-history, [data-widget="points-history"]',
+        'widget-calendar': '#calendar-container, [data-widget="calendar"]',
+        'widget-season-countdown': '#season-countdown, [data-widget="season-countdown"]',
+        'widget-match-history': '#match-history-list, [data-widget="match-history"]',
+        'widget-match-suggestions': '#match-suggestions-content, [data-widget="match-suggestions"]'
+    };
+
+    Object.entries(widgetSettings).forEach(([widgetId, visible]) => {
+        const selectors = widgetMap[widgetId];
+        if (selectors) {
+            document.querySelectorAll(selectors).forEach(el => {
+                const parent = el.closest('.bg-white, .widget-container') || el;
+                if (visible) {
+                    parent.classList.remove('widget-hidden');
+                    parent.style.display = '';
+                } else {
+                    parent.classList.add('widget-hidden');
+                    parent.style.display = 'none';
+                }
+            });
+        }
+    });
+}
+
+function renderWidgetSettingsList(container) {
+    if (!container) return;
+
+    container.innerHTML = AVAILABLE_WIDGETS.map(widget => `
+        <label class="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">${widget.icon}</span>
+                <span class="font-medium text-gray-800">${widget.name}</span>
+            </div>
+            <div class="relative">
+                <input type="checkbox" class="widget-toggle sr-only" data-widget-id="${widget.id}"
+                       ${widgetSettings[widget.id] ? 'checked' : ''}>
+                <div class="toggle-track w-11 h-6 bg-gray-300 rounded-full transition-colors"></div>
+                <div class="toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"></div>
+            </div>
+        </label>
+    `).join('');
+
+    // Add toggle styling and handlers
+    container.querySelectorAll('.widget-toggle').forEach(toggle => {
+        const track = toggle.nextElementSibling;
+        const thumb = track.nextElementSibling;
+
+        const updateToggleUI = () => {
+            if (toggle.checked) {
+                track.classList.remove('bg-gray-300');
+                track.classList.add('bg-indigo-600');
+                thumb.style.transform = 'translateX(20px)';
+            } else {
+                track.classList.add('bg-gray-300');
+                track.classList.remove('bg-indigo-600');
+                thumb.style.transform = 'translateX(0)';
+            }
+        };
+
+        updateToggleUI();
+
+        toggle.addEventListener('change', () => {
+            widgetSettings[toggle.dataset.widgetId] = toggle.checked;
+            updateToggleUI();
+        });
+    });
+}
+
+function showWidgetFeedback(message, type) {
+    const feedback = document.getElementById('widget-settings-feedback');
+    if (!feedback) return;
+
+    feedback.className = `mt-4 text-center p-3 rounded-lg text-sm font-medium ${
+        type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    }`;
+    feedback.textContent = message;
+    feedback.classList.remove('hidden');
+
+    setTimeout(() => feedback.classList.add('hidden'), 3000);
+}
 
 console.log('[DASHBOARD-SUPABASE] Script loaded');
