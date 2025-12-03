@@ -227,10 +227,12 @@ async function migrateMatchRequests() {
         const data = doc.data();
 
         try {
-            const requesterId = mapUserId(data.requesterId);
-            const opponentId = mapUserId(data.opponentId);
+            // Try multiple field name variations
+            const playerAId = mapUserId(data.requesterId || data.playerAId || data.player_a_id);
+            const playerBId = mapUserId(data.opponentId || data.playerBId || data.player_b_id);
 
-            if (!requesterId || !opponentId) {
+            if (!playerAId || !playerBId) {
+                console.log(`   ⚠️ Skipping ${doc.id}: Missing player IDs`);
                 skipped++;
                 continue;
             }
@@ -242,15 +244,21 @@ async function migrateMatchRequests() {
                 clubId = clubs?.[0]?.id || null;
             }
 
+            // Map winner/loser if they exist
+            const winnerId = mapUserId(data.winnerId);
+            const loserId = mapUserId(data.loserId);
+
             const requestData = {
                 id: isValidUUID(doc.id) ? doc.id : randomUUID(),
-                requester_id: requesterId,
-                opponent_id: opponentId,
+                player_a_id: playerAId,
+                player_b_id: playerBId,
                 club_id: clubId,
+                winner_id: winnerId,
+                loser_id: loserId,
                 status: data.status || 'pending',
-                message: data.message || null,
-                proposed_date: data.proposedDate || null,
-                proposed_time: data.proposedTime || null,
+                sets: data.sets || null,
+                approvals: data.approvals || null,
+                is_cross_club: data.isCrossClub || false,
                 created_at: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
                 updated_at: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
             };
@@ -292,13 +300,14 @@ async function migrateDoublesMatches() {
         const data = doc.data();
 
         try {
-            // Map team player IDs
-            const team1Player1 = mapUserId(data.team1Player1Id || data.team1?.player1Id);
-            const team1Player2 = mapUserId(data.team1Player2Id || data.team1?.player2Id);
-            const team2Player1 = mapUserId(data.team2Player1Id || data.team2?.player1Id);
-            const team2Player2 = mapUserId(data.team2Player2Id || data.team2?.player2Id);
+            // Map team player IDs - try multiple variations
+            const teamAPlayer1 = mapUserId(data.team1Player1Id || data.teamAPlayer1Id || data.team1?.player1Id || data.teamA?.player1Id);
+            const teamAPlayer2 = mapUserId(data.team1Player2Id || data.teamAPlayer2Id || data.team1?.player2Id || data.teamA?.player2Id);
+            const teamBPlayer1 = mapUserId(data.team2Player1Id || data.teamBPlayer1Id || data.team2?.player1Id || data.teamB?.player1Id);
+            const teamBPlayer2 = mapUserId(data.team2Player2Id || data.teamBPlayer2Id || data.team2?.player2Id || data.teamB?.player2Id);
 
-            if (!team1Player1 || !team1Player2 || !team2Player1 || !team2Player2) {
+            if (!teamAPlayer1 || !teamAPlayer2 || !teamBPlayer1 || !teamBPlayer2) {
+                console.log(`   ⚠️ Skipping ${doc.id}: Missing player IDs`);
                 skipped++;
                 continue;
             }
@@ -310,21 +319,23 @@ async function migrateDoublesMatches() {
                 clubId = clubs?.[0]?.id || null;
             }
 
-            // Winner team
-            const winnerTeam = data.winnerTeam || (data.team1SetsWon > data.team2SetsWon ? 1 : 2);
+            // Winner team (A=1, B=2)
+            const teamASetsWon = data.team1SetsWon || data.teamASetsWon || 0;
+            const teamBSetsWon = data.team2SetsWon || data.teamBSetsWon || 0;
+            const winningTeam = data.winnerTeam || data.winningTeam || (teamASetsWon > teamBSetsWon ? 'A' : 'B');
 
             const doublesData = {
                 id: isValidUUID(doc.id) ? doc.id : randomUUID(),
                 club_id: clubId,
-                team1_player1_id: team1Player1,
-                team1_player2_id: team1Player2,
-                team2_player1_id: team2Player1,
-                team2_player2_id: team2Player2,
-                team1_sets_won: data.team1SetsWon || 0,
-                team2_sets_won: data.team2SetsWon || 0,
-                winner_team: winnerTeam,
+                team_a_player1_id: teamAPlayer1,
+                team_a_player2_id: teamAPlayer2,
+                team_b_player1_id: teamBPlayer1,
+                team_b_player2_id: teamBPlayer2,
+                team_a_sets_won: teamASetsWon,
+                team_b_sets_won: teamBSetsWon,
+                winning_team: winningTeam,
                 sets: data.sets || [],
-                elo_change: data.eloChange || 0,
+                is_cross_club: data.isCrossClub || false,
                 played_at: data.playedAt?.toDate?.()?.toISOString() || data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
                 created_at: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
             };
