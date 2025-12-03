@@ -135,12 +135,12 @@ async function migrateAttendance() {
         const data = doc.data();
 
         try {
-            // Map player IDs
+            // Map player IDs - Firebase has array, Supabase needs one row per player
             const presentPlayerIds = (data.presentPlayerIds || [])
                 .map(id => mapUserId(id))
                 .filter(id => id !== null);
 
-            // Map coach IDs
+            // Map coach IDs for the coaches JSONB field
             let coaches = null;
             if (data.coachIds) {
                 coaches = data.coachIds
@@ -155,7 +155,6 @@ async function migrateAttendance() {
             // Get subgroup ID
             let subgroupId = data.subgroupId;
             if (subgroupId && !isValidUUID(subgroupId)) {
-                // Try to find matching subgroup
                 subgroupId = null;
             }
 
@@ -168,7 +167,6 @@ async function migrateAttendance() {
             // Map club ID
             let clubId = data.clubId;
             if (clubId && !isValidUUID(clubId)) {
-                // Load club by some identifier if needed
                 const { data: clubs } = await supabase.from('clubs').select('id').limit(1);
                 clubId = clubs?.[0]?.id || null;
             }
@@ -178,27 +176,37 @@ async function migrateAttendance() {
                 continue;
             }
 
-            const attendanceData = {
-                id: isValidUUID(doc.id) ? doc.id : randomUUID(),
-                date: data.date,
-                club_id: clubId,
-                subgroup_id: subgroupId,
-                session_id: sessionId,
-                present_player_ids: presentPlayerIds,
-                coaches: coaches,
-                created_at: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
-                updated_at: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
-            };
+            // Supabase uses ONE ROW PER USER - insert each present player as separate row
+            for (const playerId of presentPlayerIds) {
+                const attendanceData = {
+                    id: randomUUID(), // Each row needs unique ID
+                    date: data.date,
+                    club_id: clubId,
+                    subgroup_id: subgroupId,
+                    session_id: sessionId,
+                    user_id: playerId,
+                    present: true,
+                    xp_awarded: data.xpAwarded || 0,
+                    notes: data.notes || null,
+                    recorded_by: mapUserId(data.recordedBy) || null,
+                    coaches: coaches,
+                    created_at: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+                    updated_at: data.updatedAt?.toDate?.()?.toISOString() || new Date().toISOString()
+                };
 
-            const { error } = await supabase
-                .from('attendance')
-                .upsert(attendanceData, { onConflict: 'id' });
+                const { error } = await supabase
+                    .from('attendance')
+                    .insert(attendanceData);
 
-            if (error) {
-                console.log(`   ❌ Error: ${error.message}`);
-                errors++;
-            } else {
-                migrated++;
+                if (error) {
+                    // Skip duplicates silently
+                    if (!error.message.includes('duplicate')) {
+                        console.log(`   ❌ Error: ${error.message}`);
+                        errors++;
+                    }
+                } else {
+                    migrated++;
+                }
             }
         } catch (err) {
             console.log(`   ❌ Error processing ${doc.id}: ${err.message}`);
@@ -206,7 +214,7 @@ async function migrateAttendance() {
         }
     }
 
-    console.log(`   ✅ Migrated: ${migrated}, Skipped: ${skipped}, Errors: ${errors}\n`);
+    console.log(`   ✅ Migrated: ${migrated} player attendance records, Skipped: ${skipped} sessions, Errors: ${errors}\n`);
 }
 
 // ============================================
