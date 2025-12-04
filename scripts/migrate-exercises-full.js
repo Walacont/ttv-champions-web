@@ -19,10 +19,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// Load environment variables from root .env file
-const envPath = path.resolve(__dirname, '../.env');
-console.log('Loading .env from:', envPath);
-dotenv.config({ path: envPath });
+// Load environment variables - check both scripts folder and root
+const scriptsEnvPath = path.resolve(__dirname, '.env');
+const rootEnvPath = path.resolve(__dirname, '../.env');
+
+// Try scripts folder first, then root
+if (fs.existsSync(scriptsEnvPath)) {
+    console.log('Loading .env from:', scriptsEnvPath);
+    dotenv.config({ path: scriptsEnvPath });
+} else if (fs.existsSync(rootEnvPath)) {
+    console.log('Loading .env from:', rootEnvPath);
+    dotenv.config({ path: rootEnvPath });
+} else {
+    console.log('No .env file found, using system environment');
+}
 
 // Debug: Show available Supabase env vars
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
