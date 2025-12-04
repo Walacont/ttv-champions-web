@@ -433,13 +433,14 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         if (exerciseId) {
             const { data: exerciseData } = await db
                 .from('exercises')
-                .select('tags')
+                .select('category')
                 .eq('id', exerciseId)
                 .single();
 
             if (exerciseData) {
-                const tags = exerciseData.tags || [];
-                isGrundlagenExercise = tags.includes('Grundlage');
+                // DB uses 'category' instead of 'tags'
+                const category = exerciseData.category || '';
+                isGrundlagenExercise = category.toLowerCase().includes('grundlage');
             }
         } else if (reasonType === 'manual') {
             const lowerReason = reason.toLowerCase();

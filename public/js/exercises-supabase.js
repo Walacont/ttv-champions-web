@@ -693,7 +693,7 @@ export function loadExercisesForDropdown(db) {
         const { data: exercisesRaw, error } = await db
             .from('exercises')
             .select('*')
-            .order('title', { ascending: true });
+            .order('name', { ascending: true });
 
         if (error || !exercisesRaw || exercisesRaw.length === 0) {
             select.innerHTML = '<option value="">Keine Übungen in DB</option>';
