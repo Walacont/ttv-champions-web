@@ -38,14 +38,16 @@
 
     /* Adjust body padding for fixed elements */
     body {
-        padding-top: 60px; /* Mobile header height */
-        padding-bottom: 70px; /* Bottom nav height */
+        padding-top: 52px; /* Mobile header height */
+        padding-bottom: 60px; /* Bottom nav height */
     }
 
     /* Main content container adjustments */
     #main-content {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
     }
 
     /* Hide desktop navigation tabs */
@@ -62,33 +64,33 @@
         top: 0;
         left: 0;
         right: 0;
-        height: 60px;
+        height: 52px;
         background-color: white;
         border-bottom: 1px solid #e5e7eb;
         z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 16px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 0 12px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
     .mobile-header-left {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
     }
 
     .mobile-header-right {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
     }
 
     /* Profile Picture */
     .mobile-profile-pic {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         object-fit: cover;
         border: 2px solid #e5e7eb;
@@ -103,8 +105,8 @@
     /* Header Icons */
     .mobile-header-icon {
         position: relative;
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
         color: #6b7280;
         cursor: pointer;
         transition: color 0.2s;
@@ -115,26 +117,26 @@
     }
 
     .mobile-header-icon i {
-        font-size: 24px;
+        font-size: 20px;
     }
 
     /* Badge Counter (like Strava's red badge) */
     .mobile-icon-badge {
         position: absolute;
-        top: -8px;
-        right: -8px;
+        top: -6px;
+        right: -6px;
         background-color: #ef4444;
         color: white;
-        font-size: 10px;
+        font-size: 9px;
         font-weight: bold;
-        min-width: 18px;
-        height: 18px;
-        border-radius: 9px;
+        min-width: 16px;
+        height: 16px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0 4px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        padding: 0 3px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
     /* ============================================
@@ -146,15 +148,15 @@
         bottom: 0;
         left: 0;
         right: 0;
-        height: 70px;
+        height: 60px;
         background-color: white;
         border-top: 1px solid #e5e7eb;
         z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: space-around;
-        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-        padding: 0 8px;
+        box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+        padding: 0 4px;
     }
 
     /* Navigation Items */
@@ -163,25 +165,26 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 4px;
-        padding: 8px 12px;
+        gap: 2px;
+        padding: 6px 8px;
         cursor: pointer;
         transition: all 0.2s;
         color: #6b7280;
         text-decoration: none;
-        min-width: 60px;
+        min-width: 56px;
         position: relative;
     }
 
     .mobile-nav-item i {
-        font-size: 24px;
+        font-size: 20px;
         transition: all 0.2s;
     }
 
     .mobile-nav-item span {
-        font-size: 11px;
+        font-size: 10px;
         font-weight: 500;
         transition: all 0.2s;
+        line-height: 1.2;
     }
 
     /* Active State */
@@ -195,19 +198,19 @@
 
     /* Middle Item (Wettkampf) - Highlighted with Circle */
     .mobile-nav-item.middle-action {
-        margin-top: -20px;
+        margin-top: -16px;
     }
 
     .mobile-nav-item.middle-action .nav-icon-wrapper {
-        width: 56px;
-        height: 56px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-        transition: all 0.3s;
+        box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
+        transition: all 0.2s;
     }
 
     .mobile-nav-item.middle-action .nav-icon-wrapper:active {
@@ -215,13 +218,14 @@
     }
 
     .mobile-nav-item.middle-action i {
-        font-size: 28px;
+        font-size: 22px;
         color: white;
     }
 
     .mobile-nav-item.middle-action span {
         color: #4f46e5;
         font-weight: 600;
+        margin-top: 2px;
     }
 
     .mobile-nav-item.middle-action.active span {
@@ -299,21 +303,21 @@
     html.plt-android .mobile-header,
     html.plt-ios .mobile-header {
         padding-top: max(env(safe-area-inset-top, 0px), 0px);
-        height: calc(60px + max(env(safe-area-inset-top, 0px), 0px));
+        height: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
     }
 
     html.plt-capacitor .mobile-bottom-nav,
     html.plt-android .mobile-bottom-nav,
     html.plt-ios .mobile-bottom-nav {
         padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
-        height: calc(70px + max(env(safe-area-inset-bottom, 0px), 0px));
+        height: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
     }
 
     html.plt-capacitor body,
     html.plt-android body,
     html.plt-ios body {
-        padding-top: calc(60px + max(env(safe-area-inset-top, 0px), 0px));
-        padding-bottom: calc(70px + max(env(safe-area-inset-bottom, 0px), 0px));
+        padding-top: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
+        padding-bottom: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
     }
 
     /* ============================================
