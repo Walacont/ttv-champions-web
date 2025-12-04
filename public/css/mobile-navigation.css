@@ -65,14 +65,14 @@
         left: 0;
         right: 0;
         height: 52px;
-        background-color: white;
-        border-bottom: 1px solid #e5e7eb;
+        background-color: #eef2ff; /* bg-indigo-50 */
+        border-bottom: 1px solid #e0e7ff; /* indigo-100 border */
         z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: space-between;
         padding: 0 12px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 1px 2px rgba(79, 70, 229, 0.08);
     }
 
     .mobile-header-left {
@@ -149,13 +149,13 @@
         left: 0;
         right: 0;
         height: 60px;
-        background-color: white;
-        border-top: 1px solid #e5e7eb;
+        background-color: #eef2ff; /* bg-indigo-50 */
+        border-top: 1px solid #e0e7ff; /* indigo-100 border */
         z-index: 1000;
         display: flex;
         align-items: center;
         justify-content: space-around;
-        box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 -1px 3px rgba(79, 70, 229, 0.08);
         padding: 0 4px;
     }
 
@@ -239,60 +239,60 @@
     @media (prefers-color-scheme: dark) {
         .mobile-header,
         .mobile-bottom-nav {
-            background-color: #1f2937;
-            border-color: #374151;
+            background-color: #312e81; /* indigo-900 */
+            border-color: #4338ca; /* indigo-700 */
         }
 
         .mobile-header-icon,
         .mobile-nav-item {
-            color: #9ca3af;
+            color: #c7d2fe; /* indigo-200 */
         }
 
         .mobile-header-icon:hover,
         .mobile-nav-item:hover {
-            color: #818cf8;
+            color: #a5b4fc; /* indigo-300 */
         }
 
         .mobile-nav-item.active {
-            color: #818cf8;
+            color: #a5b4fc; /* indigo-300 */
         }
 
         .mobile-profile-pic {
-            border-color: #374151;
+            border-color: #4338ca; /* indigo-700 */
         }
 
         .mobile-profile-pic:hover {
-            border-color: #818cf8;
+            border-color: #818cf8; /* indigo-400 */
         }
     }
 
     /* Dark mode class-based (for manual toggle) */
     .dark .mobile-header,
     .dark .mobile-bottom-nav {
-        background-color: #1f2937;
-        border-color: #374151;
+        background-color: #312e81; /* indigo-900 */
+        border-color: #4338ca; /* indigo-700 */
     }
 
     .dark .mobile-header-icon,
     .dark .mobile-nav-item {
-        color: #9ca3af;
+        color: #c7d2fe; /* indigo-200 */
     }
 
     .dark .mobile-header-icon:hover,
     .dark .mobile-nav-item:hover {
-        color: #818cf8;
+        color: #a5b4fc; /* indigo-300 */
     }
 
     .dark .mobile-nav-item.active {
-        color: #818cf8;
+        color: #a5b4fc; /* indigo-300 */
     }
 
     .dark .mobile-profile-pic {
-        border-color: #374151;
+        border-color: #4338ca; /* indigo-700 */
     }
 
     .dark .mobile-profile-pic:hover {
-        border-color: #818cf8;
+        border-color: #818cf8; /* indigo-400 */
     }
 
     /* ============================================
