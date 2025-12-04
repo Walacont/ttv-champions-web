@@ -523,3 +523,370 @@ export function initializeHandicapToggle() {
 
 // Export for compatibility
 export { calculateHandicap };
+
+/**
+ * Updates the state of the generate pairings button
+ */
+export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = 'all') {
+    const pairingsButton = document.getElementById('generate-pairings-button');
+    if (!pairingsButton) return;
+
+    const presentPlayerCheckboxes = document.querySelectorAll(
+        '#attendance-player-list input:checked'
+    );
+    const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
+
+    let eligiblePlayers = clubPlayers.filter(player => {
+        const grundlagen = player.grundlagenCompleted || player.grundlagen_completed || 0;
+        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+    });
+
+    if (currentSubgroupFilter !== 'all') {
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            eligiblePlayers = filterPlayersByAgeGroup(eligiblePlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            eligiblePlayers = filterPlayersByGender(eligiblePlayers, currentSubgroupFilter);
+        } else {
+            eligiblePlayers = eligiblePlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
+    }
+
+    const eligiblePlayerCount = eligiblePlayers.length;
+
+    if (eligiblePlayerCount >= 2) {
+        pairingsButton.disabled = false;
+        pairingsButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        pairingsButton.classList.add('bg-green-600', 'hover:bg-green-700');
+        pairingsButton.innerHTML = '<i class="fas fa-random mr-2"></i> Paarungen erstellen';
+    } else {
+        pairingsButton.disabled = true;
+        pairingsButton.classList.add('bg-gray-400', 'cursor-not-allowed');
+        pairingsButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+        pairingsButton.innerHTML = `(${eligiblePlayerCount}/2 Spieler bereit)`;
+    }
+}
+
+/**
+ * Handles match result submission
+ */
+export async function handleMatchSave(e, supabaseClient, currentUserData, clubPlayers) {
+    e.preventDefault();
+    const feedbackEl = document.getElementById('match-feedback');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+
+    const playerAId = document.getElementById('player-a-select')?.value;
+    const playerBId = document.getElementById('player-b-select')?.value;
+
+    if (!playerAId || !playerBId) {
+        if (feedbackEl) feedbackEl.textContent = 'Bitte beide Spieler auswählen.';
+        return;
+    }
+
+    if (playerAId === playerBId) {
+        if (feedbackEl) feedbackEl.textContent = 'Spieler A und B müssen unterschiedlich sein.';
+        return;
+    }
+
+    // Get set scores from input
+    const setScoreInput = document.getElementById('set-score-input');
+    const setsA = parseInt(setScoreInput?.dataset.setsA || '0');
+    const setsB = parseInt(setScoreInput?.dataset.setsB || '0');
+
+    if (setsA === 0 && setsB === 0) {
+        if (feedbackEl) feedbackEl.textContent = 'Bitte Satzergebnis eingeben.';
+        return;
+    }
+
+    const winnerId = setsA > setsB ? playerAId : playerBId;
+    const playerA = clubPlayers.find(p => p.id === playerAId);
+    const playerB = clubPlayers.find(p => p.id === playerBId);
+
+    if (!playerA || !playerB) {
+        if (feedbackEl) feedbackEl.textContent = 'Spielerdaten nicht gefunden.';
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Speichere...';
+
+    try {
+        const supabase = getSupabase();
+
+        // Save match result
+        const { data: match, error: matchError } = await supabase
+            .from('matches')
+            .insert({
+                player_a_id: playerAId,
+                player_b_id: playerBId,
+                winner_id: winnerId,
+                sets_a: setsA,
+                sets_b: setsB,
+                club_id: currentUserData.clubId,
+                recorded_by: currentUserData.id,
+                match_type: 'singles',
+                status: 'completed'
+            })
+            .select()
+            .single();
+
+        if (matchError) throw matchError;
+
+        // Call RPC to process match result and update Elo
+        const { error: rpcError } = await supabase.rpc('process_match_result', {
+            p_match_id: match.id,
+            p_winner_id: winnerId,
+            p_loser_id: winnerId === playerAId ? playerBId : playerAId
+        });
+
+        if (rpcError) {
+            console.error('Error processing match result:', rpcError);
+        }
+
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Match erfolgreich gespeichert!';
+            feedbackEl.classList.remove('text-red-600');
+            feedbackEl.classList.add('text-green-600');
+        }
+
+        // Reset form
+        document.getElementById('player-a-select').value = '';
+        document.getElementById('player-b-select').value = '';
+        if (setScoreInput) {
+            setScoreInput.dataset.setsA = '0';
+            setScoreInput.dataset.setsB = '0';
+        }
+
+    } catch (error) {
+        console.error('Error saving match:', error);
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Fehler beim Speichern: ' + error.message;
+            feedbackEl.classList.add('text-red-600');
+        }
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Match speichern';
+    }
+}
+
+/**
+ * Populates match dropdowns with match-ready players
+ */
+export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
+    const playerASelect = document.getElementById('player-a-select');
+    const playerBSelect = document.getElementById('player-b-select');
+
+    if (!playerASelect || !playerBSelect) return;
+
+    playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
+    playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
+
+    let matchReadyPlayers = clubPlayers.filter(p => {
+        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
+        return grundlagen >= 5;
+    });
+
+    const lockedPlayers = clubPlayers.filter(p => {
+        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
+        return grundlagen < 5;
+    });
+
+    if (currentSubgroupFilter !== 'all') {
+        if (isAgeGroupFilter(currentSubgroupFilter)) {
+            matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+        } else if (isGenderFilter(currentSubgroupFilter)) {
+            matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
+        } else {
+            matchReadyPlayers = matchReadyPlayers.filter(
+                player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
+            );
+        }
+    }
+
+    const handicapSuggestion = document.getElementById('handicap-suggestion');
+    if (handicapSuggestion) {
+        if (matchReadyPlayers.length < 2) {
+            let message =
+                currentSubgroupFilter !== 'all'
+                    ? '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler in dieser Untergruppe müssen Match-bereit sein.</p>'
+                    : '<p class="text-sm font-medium text-orange-800">Mindestens zwei Spieler müssen Match-bereit sein.</p>';
+
+            if (lockedPlayers.length > 0) {
+                const lockedNames = lockedPlayers
+                    .map(p => {
+                        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
+                        return `${p.firstName || p.first_name} (${grundlagen}/5 Grundlagen)`;
+                    })
+                    .join(', ');
+                message += `<p class="text-xs text-gray-600 mt-2">🔒 Gesperrt: ${lockedNames}</p>`;
+            }
+
+            handicapSuggestion.innerHTML = message;
+            handicapSuggestion.classList.remove('hidden');
+        } else {
+            handicapSuggestion.classList.add('hidden');
+        }
+    }
+
+    matchReadyPlayers.forEach(player => {
+        const option = document.createElement('option');
+        option.value = player.id;
+        const firstName = player.firstName || player.first_name || '';
+        const lastName = player.lastName || player.last_name || '';
+        const elo = player.eloRating || player.elo_rating || 0;
+        option.textContent = `${firstName} ${lastName} (Elo: ${Math.round(elo)})`;
+        playerASelect.appendChild(option.cloneNode(true));
+        playerBSelect.appendChild(option);
+    });
+}
+
+/**
+ * Loads pending match requests for coach approval
+ */
+export async function loadCoachMatchRequests(userData, supabaseClient) {
+    const container = document.getElementById('coach-pending-requests-list');
+    const badge = document.getElementById('coach-match-request-badge');
+    if (!container) return;
+
+    const supabase = getSupabase();
+
+    try {
+        // Query for singles requests awaiting coach approval
+        const { data: singlesRequests, error: singlesError } = await supabase
+            .from('match_requests')
+            .select(`
+                *,
+                player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name, elo_rating),
+                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name, elo_rating)
+            `)
+            .eq('club_id', userData.clubId)
+            .eq('status', 'pending_coach')
+            .order('created_at', { ascending: false });
+
+        if (singlesError) {
+            console.error('Error loading singles requests:', singlesError);
+        }
+
+        const allRequests = (singlesRequests || []).map(req => ({
+            id: req.id,
+            type: 'singles',
+            ...req,
+            playerAData: req.player_a,
+            playerBData: req.player_b,
+        }));
+
+        if (allRequests.length === 0) {
+            container.innerHTML =
+                '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
+            if (badge) badge.classList.add('hidden');
+            return;
+        }
+
+        // Render requests
+        container.innerHTML = allRequests.map(req => {
+            const playerA = req.playerAData;
+            const playerB = req.playerBData;
+            return `
+                <div class="bg-white rounded-lg shadow p-4 mb-3" data-request-id="${req.id}">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="font-medium">${playerA?.first_name || 'Spieler A'} ${playerA?.last_name || ''}</span>
+                            <span class="text-gray-500 mx-2">vs</span>
+                            <span class="font-medium">${playerB?.first_name || 'Spieler B'} ${playerB?.last_name || ''}</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button class="approve-request bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600" data-id="${req.id}">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="reject-request bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600" data-id="${req.id}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        if (badge) {
+            badge.textContent = allRequests.length;
+            badge.classList.remove('hidden');
+        }
+
+    } catch (error) {
+        console.error('Error loading coach match requests:', error);
+        container.innerHTML = '<p class="text-red-500 text-center py-4">Fehler beim Laden der Anfragen</p>';
+    }
+}
+
+/**
+ * Loads and renders processed match requests for coach (approved/rejected)
+ */
+export async function loadCoachProcessedRequests(userData, supabaseClient) {
+    const container = document.getElementById('coach-processed-requests-list');
+    if (!container) return;
+
+    const supabase = getSupabase();
+
+    try {
+        const { data: requests, error } = await supabase
+            .from('match_requests')
+            .select(`
+                *,
+                player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name),
+                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name)
+            `)
+            .eq('club_id', userData.clubId)
+            .neq('status', 'pending_coach')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (error) throw error;
+
+        if (!requests || requests.length === 0) {
+            container.innerHTML =
+                '<p class="text-gray-500 text-center py-4">Keine verarbeiteten Anfragen</p>';
+            return;
+        }
+
+        container.innerHTML = requests.map(req => {
+            const statusClass = req.status === 'approved' ? 'text-green-600' : 'text-red-600';
+            const statusText = req.status === 'approved' ? 'Genehmigt' : 'Abgelehnt';
+            return `
+                <div class="bg-gray-50 rounded-lg p-3 mb-2">
+                    <div class="flex justify-between items-center">
+                        <span>${req.player_a?.first_name} vs ${req.player_b?.first_name}</span>
+                        <span class="${statusClass} text-sm font-medium">${statusText}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading processed requests:', error);
+        container.innerHTML = '<p class="text-red-500 text-center py-4">Fehler beim Laden</p>';
+    }
+}
+
+/**
+ * Loads saved pairings for a training session
+ */
+export async function loadSavedPairings(supabaseClient, clubId) {
+    const supabase = getSupabase();
+
+    try {
+        const { data: pairings, error } = await supabase
+            .from('match_pairings')
+            .select('*')
+            .eq('club_id', clubId)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return pairings || [];
+
+    } catch (error) {
+        console.error('Error loading saved pairings:', error);
+        return [];
+    }
+}
