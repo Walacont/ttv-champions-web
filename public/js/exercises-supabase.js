@@ -167,19 +167,21 @@ export async function loadExercises(db, unsubscribes) {
 
 /**
  * Maps Supabase exercise row to expected format
+ * Note: Database uses 'name' but app uses 'title' - we map both for compatibility
  */
 function mapExerciseFromSupabase(row) {
     return {
         id: row.id,
-        title: row.title,
+        title: row.name || row.title, // DB uses 'name', app expects 'title'
+        name: row.name,
         description: row.description,
         descriptionContent: row.description_content,
         imageUrl: row.image_url,
-        points: row.points,
-        level: row.level,
+        points: row.xp_reward || row.points || 10, // DB uses 'xp_reward'
+        level: row.difficulty || row.level,
         difficulty: row.difficulty,
-        tags: row.tags || [],
-        visibility: row.visibility,
+        tags: row.category ? [row.category] : (row.tags || []), // DB uses 'category'
+        visibility: row.visibility || 'global',
         clubId: row.club_id,
         createdBy: row.created_by,
         createdByName: row.created_by_name,

@@ -655,7 +655,7 @@ async function loadMatchActivity(userData, supabase) {
             .from('matches')
             .select('id')
             .eq('club_id', userData.clubId)
-            .gte('timestamp', oneWeekAgo);
+            .gte('played_at', oneWeekAgo);
 
         if (error) throw error;
 

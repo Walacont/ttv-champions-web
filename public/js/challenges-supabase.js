@@ -763,7 +763,7 @@ export async function populateSubgroupDropdown(clubId, selectId) {
     try {
         const { data, error } = await supabase
             .from('subgroups')
-            .select('id, name, is_default')
+            .select('id, name')
             .eq('club_id', clubId)
             .order('created_at', { ascending: true });
 
@@ -774,10 +774,6 @@ export async function populateSubgroupDropdown(clubId, selectId) {
         select.innerHTML = '<option value="all">Alle (Gesamtverein)</option>';
 
         (data || []).forEach(subgroup => {
-            // Skip default/main subgroups (Hauptgruppe) as they're equivalent to "all"
-            if (subgroup.is_default) {
-                return;
-            }
             const option = document.createElement('option');
             option.value = subgroup.id;
             option.textContent = subgroup.name;

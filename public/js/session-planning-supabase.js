@@ -27,17 +27,18 @@ export async function loadExercisesForSelection(supabase) {
         const { data, error } = await supabase
             .from('exercises')
             .select('*')
-            .order('title', { ascending: true });
+            .order('name', { ascending: true });
 
         if (error) throw error;
 
         allExercisesForSelection = (data || []).map(ex => ({
             id: ex.id,
-            title: ex.title,
+            title: ex.name || ex.title,
+            name: ex.name,
             description: ex.description,
-            points: ex.points,
-            level: ex.level,
-            tags: ex.tags,
+            points: ex.xp_reward || ex.points || 10,
+            level: ex.difficulty || ex.level,
+            tags: ex.category ? [ex.category] : (ex.tags || []),
             imageUrl: ex.image_url,
             tieredPoints: ex.tiered_points,
             clubId: ex.club_id,
