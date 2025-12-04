@@ -937,26 +937,24 @@ function renderRanksList() {
 
 async function fetchLeaderboardData() {
     try {
-        // Fetch club data (include birthdate for age filtering)
+        // Fetch club data - ALL players (no limit) for club view
         if (currentUserData.club_id) {
             const { data: clubPlayers } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, club_id, clubs(name)')
                 .eq('club_id', currentUserData.club_id)
-                .neq('role', 'admin')
-                .limit(100);
+                .neq('role', 'admin');
             leaderboardCache.club = (clubPlayers || []).map(p => ({
                 ...p,
                 club_name: p.clubs?.name || null
             }));
         }
 
-        // Fetch global data (include birthdate for age filtering, join clubs for name)
+        // Fetch global data - ALL players (to calculate user's rank, but display only top 100)
         const { data: globalPlayers } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, club_id, clubs(name)')
-            .neq('role', 'admin')
-            .limit(100);
+            .neq('role', 'admin');
         leaderboardCache.global = (globalPlayers || []).map(p => ({
             ...p,
             club_name: p.clubs?.name || null
@@ -1006,9 +1004,14 @@ function renderLeaderboardList() {
     const field = fieldMap[currentLeaderboardTab];
     const sorted = [...players].sort((a, b) => (b[field] || 0) - (a[field] || 0));
 
-    const top15 = sorted.slice(0, 15);
+    // Club view: show all players, Global view: show top 100
+    const isGlobalView = currentLeaderboardScope === 'global';
+    const displayLimit = isGlobalView ? 100 : sorted.length;
+    const displayPlayers = sorted.slice(0, displayLimit);
+
     const currentUserRank = sorted.findIndex(p => p.id === currentUser.id) + 1;
     const currentPlayerData = sorted.find(p => p.id === currentUser.id);
+    const isCurrentUserInDisplayList = currentUserRank > 0 && currentUserRank <= displayLimit;
 
     if (sorted.length === 0) {
         container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine Spieler gefunden</p>';
@@ -1024,7 +1027,7 @@ function renderLeaderboardList() {
     // Check if head-to-head is available (skill/elo tab only)
     const isH2HEnabled = currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo';
 
-    top15.forEach((player, index) => {
+    displayPlayers.forEach((player, index) => {
         const isCurrentUser = player.id === currentUser.id;
         const rank = index + 1;
         const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
@@ -1059,8 +1062,8 @@ function renderLeaderboardList() {
         `;
     });
 
-    // Show current user if not in top 15
-    if (currentUserRank > 15 && currentPlayerData) {
+    // Show current user if not in displayed list (for global view with top 100)
+    if (!isCurrentUserInDisplayList && currentPlayerData && currentUserRank > 0) {
         const currentPlayerName = `${currentPlayerData.first_name || ''} ${currentPlayerData.last_name || ''}`.trim() || 'Du';
         const currentUserClubHtml = showClubName && currentPlayerData.club_name
             ? `<div class="text-xs text-gray-500">${currentPlayerData.club_name}</div>`

@@ -270,6 +270,7 @@ export async function loadGlobalLeaderboard(userDataOrId, supabaseClientOrContai
 
 /**
  * Internal function to load global skill leaderboard
+ * Shows top 100 players + current user's position if not in top 100
  */
 async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = 'skill-list-global', limit = 100) {
     const container = document.getElementById(containerId);
@@ -278,6 +279,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
+        // Fetch all players to determine current user's rank
         const { data, error } = await supabase
             .from('profiles')
             .select(`
@@ -285,12 +287,11 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                 club_id, clubs(name)
             `)
             .in('role', ['player', 'coach'])
-            .order('elo_rating', { ascending: false })
-            .limit(limit);
+            .order('elo_rating', { ascending: false });
 
         if (error) throw error;
 
-        const players = (data || []).map(p => ({
+        const allPlayers = (data || []).map(p => ({
             id: p.id,
             firstName: p.first_name,
             lastName: p.last_name,
@@ -302,13 +303,23 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             clubName: p.clubs?.name || 'Kein Verein'
         }));
 
-        if (players.length === 0) {
+        if (allPlayers.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
         }
 
-        renderGlobalLeaderboardList(container, players, currentUserId);
-        return players;
+        // Find current user's rank
+        const currentUserRank = allPlayers.findIndex(p => p.id === currentUserId) + 1;
+        const currentUserData = allPlayers.find(p => p.id === currentUserId);
+
+        // Get top 100
+        const top100 = allPlayers.slice(0, limit);
+
+        // Check if current user is in top 100
+        const isCurrentUserInTop = currentUserRank > 0 && currentUserRank <= limit;
+
+        renderGlobalLeaderboardList(container, top100, currentUserId, currentUserRank, currentUserData, isCurrentUserInTop);
+        return allPlayers;
 
     } catch (error) {
         console.error('[Leaderboard] Error loading global leaderboard:', error);
@@ -383,14 +394,14 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
 
 /**
  * Render global leaderboard list (with club names)
+ * Shows top players + current user's position at the bottom if not in top list
  */
-function renderGlobalLeaderboardList(container, players, currentUserId) {
+function renderGlobalLeaderboardList(container, players, currentUserId, currentUserRank = 0, currentUserData = null, isCurrentUserInTop = true) {
     container.innerHTML = '';
 
     players.forEach((player, index) => {
         const rank = index + 1;
         const isCurrentUser = player.id === currentUserId;
-        const league = getLeague(player.eloRating);
 
         const row = document.createElement('div');
         row.className = `flex items-center justify-between p-3 ${isCurrentUser ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'bg-white'}
@@ -420,6 +431,36 @@ function renderGlobalLeaderboardList(container, players, currentUserId) {
 
         container.appendChild(row);
     });
+
+    // Show current user's position at bottom if not in top list
+    if (!isCurrentUserInTop && currentUserData && currentUserRank > 0) {
+        const separator = document.createElement('div');
+        separator.className = 'border-t-2 border-dashed border-gray-300 my-4';
+        container.appendChild(separator);
+
+        const userRow = document.createElement('div');
+        userRow.className = 'flex items-center justify-between p-3 bg-indigo-50 border-l-4 border-indigo-500 rounded-lg';
+        userRow.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="w-8 text-center font-bold text-sm text-gray-500">${currentUserRank}</span>
+                <img src="${currentUserData.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(currentUserData.firstName?.[0] || '?')}`}"
+                     alt="${currentUserData.firstName || ''} ${currentUserData.lastName || ''}"
+                     class="w-10 h-10 rounded-full object-cover">
+                <div>
+                    <p class="font-medium text-indigo-700">
+                        ${currentUserData.firstName || ''} ${currentUserData.lastName || ''}
+                        <span class="text-xs text-indigo-500">(Du)</span>
+                    </p>
+                    <p class="text-xs text-gray-500">${currentUserData.clubName || 'Kein Verein'}</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="font-bold text-gray-800">${Math.round(currentUserData.eloRating)}</p>
+                <p class="text-xs text-gray-500">ELO</p>
+            </div>
+        `;
+        container.appendChild(userRow);
+    }
 }
 
 /**
