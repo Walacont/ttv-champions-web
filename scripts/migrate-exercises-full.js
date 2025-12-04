@@ -112,6 +112,27 @@ function getOrCreateUUID(oldId, type) {
 async function migrateExercises() {
     console.log('🏋️ Starting full exercises migration...\n');
 
+    // Test Supabase connection first
+    console.log('Testing Supabase connection...');
+    try {
+        const { data, error } = await supabase.from('exercises').select('id').limit(1);
+        if (error) {
+            console.error('❌ Supabase connection failed:', error.message);
+            process.exit(1);
+        }
+        console.log('✅ Supabase connection OK\n');
+    } catch (connError) {
+        console.error('❌ Cannot connect to Supabase:', connError.message);
+        if (connError.cause) {
+            console.error('   Cause:', connError.cause.message || connError.cause);
+        }
+        console.error('\nPlease check:');
+        console.error('  1. Your internet connection');
+        console.error('  2. The VITE_SUPABASE_URL is correct');
+        console.error('  3. No VPN/firewall blocking the connection');
+        process.exit(1);
+    }
+
     const snapshot = await firestore.collection('exercises').get();
     console.log(`Found ${snapshot.docs.length} exercises in Firebase\n`);
 
@@ -167,18 +188,27 @@ async function migrateExercises() {
         };
 
         // Upsert to Supabase
-        const { error } = await supabase
-            .from('exercises')
-            .upsert(exercise, { onConflict: 'id' });
+        try {
+            const { error } = await supabase
+                .from('exercises')
+                .upsert(exercise, { onConflict: 'id' });
 
-        if (error) {
-            console.error(`❌ Error migrating "${data.name || data.title}": ${error.message}`);
+            if (error) {
+                console.error(`❌ Error migrating "${data.name || data.title}": ${error.message}`);
+                console.error('   Details:', JSON.stringify(error, null, 2));
+                errorCount++;
+            } else {
+                console.log(`✅ Migrated: ${data.name || data.title}`);
+                if (data.imageUrl) console.log(`   📷 Image: ${data.imageUrl.substring(0, 50)}...`);
+                if (data.descriptionContent) console.log(`   📋 Has table/rich content`);
+                successCount++;
+            }
+        } catch (networkError) {
+            console.error(`❌ Network error migrating "${data.name || data.title}": ${networkError.message}`);
+            if (networkError.cause) {
+                console.error('   Cause:', networkError.cause.message || networkError.cause);
+            }
             errorCount++;
-        } else {
-            console.log(`✅ Migrated: ${data.name || data.title}`);
-            if (data.imageUrl) console.log(`   📷 Image: ${data.imageUrl.substring(0, 50)}...`);
-            if (data.descriptionContent) console.log(`   📋 Has table/rich content`);
-            successCount++;
         }
     }
 
