@@ -2051,7 +2051,7 @@ async function searchOpponents(query, resultsContainer) {
         // Load all matching players (global search with privacy filter)
         const { data: players, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed')
+            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach'])
             .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
@@ -2102,6 +2102,19 @@ async function searchOpponents(query, resultsContainer) {
         resultsContainer.innerHTML = filteredPlayers.map(player => {
             const isSameClub = player.club_id && player.club_id === currentUserData.club_id;
             const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
+            const clubName = player.clubs?.name || null;
+            const hasNoClub = !player.club_id;
+
+            // Determine club badge
+            let clubBadge = '';
+            if (!isSameClub && player.club_id && clubName) {
+                clubBadge = `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">${clubName}</span>`;
+            } else if (!isSameClub && player.club_id) {
+                clubBadge = '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">Anderer Verein</span>';
+            } else if (hasNoClub) {
+                clubBadge = '<span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded mr-2">Kein Verein</span>';
+            }
+
             return `
             <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
                  data-id="${player.id}"
@@ -2114,7 +2127,7 @@ async function searchOpponents(query, resultsContainer) {
                     <p class="font-medium">${playerName}</p>
                     <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
                 </div>
-                ${!isSameClub && player.club_id ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2">Anderer Verein</span>' : ''}
+                ${clubBadge}
                 <i class="fas fa-chevron-right text-gray-400"></i>
             </div>
         `;
