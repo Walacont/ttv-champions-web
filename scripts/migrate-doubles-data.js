@@ -272,9 +272,6 @@ async function migrateDoublesMatches() {
             // Map club ID
             const clubUuid = mapClubId(data.clubId);
 
-            // Map created_by
-            const createdByUuid = mapUserId(data.reportedBy);
-
             // Calculate sets won
             const sets = data.sets || [];
             let teamASetsWon = 0;
@@ -288,6 +285,25 @@ async function migrateDoublesMatches() {
                 }
             });
 
+            const playedAt = convertTimestamp(data.timestamp) || convertTimestamp(data.createdAt);
+
+            // Check if match already exists (to avoid duplicates)
+            const { data: existingMatches } = await supabase
+                .from('doubles_matches')
+                .select('id')
+                .eq('team_a_player1_id', teamAPlayer1Uuid)
+                .eq('team_a_player2_id', teamAPlayer2Uuid)
+                .eq('team_b_player1_id', teamBPlayer1Uuid)
+                .eq('team_b_player2_id', teamBPlayer2Uuid)
+                .eq('played_at', playedAt)
+                .limit(1);
+
+            if (existingMatches && existingMatches.length > 0) {
+                console.log(`⚠️ Skipping match ${firebaseMatchId}: Already exists in Supabase`);
+                skippedCount++;
+                continue;
+            }
+
             const matchData = {
                 club_id: clubUuid,
                 team_a_player1_id: teamAPlayer1Uuid,
@@ -299,8 +315,8 @@ async function migrateDoublesMatches() {
                 team_a_sets_won: teamASetsWon,
                 team_b_sets_won: teamBSetsWon,
                 is_cross_club: false,
-                played_at: convertTimestamp(data.timestamp) || convertTimestamp(data.createdAt),
-                created_by: createdByUuid,
+                played_at: playedAt,
+                created_by: null, // Set to null to avoid foreign key errors
                 created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
             };
 
@@ -401,6 +417,22 @@ async function migrateDoublesMatchRequests() {
                 status = 'pending_opponent';
             }
 
+            const createdAt = convertTimestamp(data.createdAt) || new Date().toISOString();
+
+            // Check if request already exists (to avoid duplicates)
+            const { data: existingRequests } = await supabase
+                .from('doubles_match_requests')
+                .select('id')
+                .eq('initiated_by', initiatedByUuid)
+                .eq('created_at', createdAt)
+                .limit(1);
+
+            if (existingRequests && existingRequests.length > 0) {
+                console.log(`⚠️ Skipping request ${firebaseRequestId}: Already exists in Supabase`);
+                skippedCount++;
+                continue;
+            }
+
             const requestData = {
                 club_id: clubUuid,
                 initiated_by: initiatedByUuid,
@@ -417,8 +449,8 @@ async function migrateDoublesMatchRequests() {
                 status: status,
                 approvals: approvals,
                 is_cross_club: false,
-                created_at: convertTimestamp(data.createdAt) || new Date().toISOString(),
-                updated_at: convertTimestamp(data.confirmedAt) || convertTimestamp(data.createdAt) || new Date().toISOString()
+                created_at: createdAt,
+                updated_at: convertTimestamp(data.confirmedAt) || createdAt
             };
 
             const { error } = await supabase
