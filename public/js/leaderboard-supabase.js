@@ -31,6 +31,88 @@ let currentLeaderboardGenderFilter = 'all';
 let leaderboardSubscriptions = [];
 let currentActiveTab = 'effort';
 
+// Cache for test club filtering
+let testClubIdsCache = null;
+let currentUserDataCache = null;
+
+/**
+ * Load test club IDs for filtering
+ */
+async function loadTestClubIds() {
+    if (testClubIdsCache !== null) return testClubIdsCache;
+
+    const { data: clubs } = await supabase
+        .from('clubs')
+        .select('id, is_test_club');
+
+    testClubIdsCache = (clubs || [])
+        .filter(c => c.is_test_club === true)
+        .map(c => c.id);
+
+    return testClubIdsCache;
+}
+
+/**
+ * Load current user data for test club filtering
+ */
+async function loadCurrentUserData(userId) {
+    if (currentUserDataCache && currentUserDataCache.id === userId) {
+        return currentUserDataCache;
+    }
+
+    const { data } = await supabase
+        .from('profiles')
+        .select('id, club_id, role')
+        .eq('id', userId)
+        .single();
+
+    currentUserDataCache = data;
+    return data;
+}
+
+/**
+ * Filter players from test clubs
+ * - Players from test clubs are hidden from the leaderboard
+ * - Exception: Coach of the same test club can see all players
+ */
+async function filterTestClubPlayers(players, currentUserId) {
+    const testClubIds = await loadTestClubIds();
+
+    // If no test clubs exist, return all players
+    if (testClubIds.length === 0) return players;
+
+    const currentUser = currentUserId ? await loadCurrentUserData(currentUserId) : null;
+    const isCoach = currentUser && currentUser.role === 'coach';
+    const currentUserClubId = currentUser?.club_id;
+    const isCurrentUserInTestClub = currentUserClubId && testClubIds.includes(currentUserClubId);
+
+    return players.filter(player => {
+        const playerClubId = player.clubId || player.club_id;
+
+        // If player is not in a test club, show them
+        if (!playerClubId || !testClubIds.includes(playerClubId)) {
+            return true;
+        }
+
+        // Player is in a test club
+        // If current user is a coach of the same test club, show the player
+        if (isCoach && isCurrentUserInTestClub && currentUserClubId === playerClubId) {
+            return true;
+        }
+
+        // Hide players from test clubs for everyone else
+        return false;
+    });
+}
+
+/**
+ * Clear test club cache (call when user changes)
+ */
+export function clearTestClubCache() {
+    testClubIdsCache = null;
+    currentUserDataCache = null;
+}
+
 /**
  * Set subgroup filter for leaderboard
  */
@@ -106,6 +188,9 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
+        // Filter out players from test clubs (except for coaches of the same test club)
+        players = await filterTestClubPlayers(players, currentUserId);
+
         if (players.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
@@ -165,6 +250,9 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
 
+        // Filter out players from test clubs (except for coaches of the same test club)
+        players = await filterTestClubPlayers(players, currentUserId);
+
         if (players.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
@@ -223,6 +311,9 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
         if (currentLeaderboardGenderFilter !== 'all') {
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
+
+        // Filter out players from test clubs (except for coaches of the same test club)
+        players = await filterTestClubPlayers(players, currentUserId);
 
         if (players.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
@@ -325,6 +416,9 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
         if (currentLeaderboardGenderFilter !== 'all') {
             allPlayers = filterPlayersByGender(allPlayers, currentLeaderboardGenderFilter);
         }
+
+        // Filter out players from test clubs (except for coaches of the same test club)
+        allPlayers = await filterTestClubPlayers(allPlayers, currentUserId);
 
         if (allPlayers.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
@@ -808,6 +902,9 @@ async function loadRanksView(userData) {
         if (currentLeaderboardGenderFilter !== 'all') {
             players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
         }
+
+        // Filter out players from test clubs (except for coaches of the same test club)
+        players = await filterTestClubPlayers(players, userData.id);
 
         if (players.length === 0) {
             listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>';
