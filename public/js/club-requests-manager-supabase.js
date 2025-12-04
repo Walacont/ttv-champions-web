@@ -11,12 +11,17 @@ let subscriptions = [];
  * Maps club request from Supabase (snake_case) to app format (camelCase)
  */
 function mapClubRequestFromSupabase(request) {
+    const playerName = request.player
+        ? `${request.player.first_name || ''} ${request.player.last_name || ''}`.trim()
+        : 'Unbekannt';
+    const playerEmail = request.player?.email || 'Keine E-Mail';
+
     return {
         id: request.id,
         clubId: request.club_id,
         playerId: request.player_id,
-        playerName: request.player_name,
-        playerEmail: request.player_email,
+        playerName: playerName || playerEmail,
+        playerEmail: playerEmail,
         status: request.status,
         createdAt: request.created_at,
         updatedAt: request.updated_at
@@ -27,12 +32,17 @@ function mapClubRequestFromSupabase(request) {
  * Maps leave request from Supabase (snake_case) to app format (camelCase)
  */
 function mapLeaveRequestFromSupabase(request) {
+    const playerName = request.player
+        ? `${request.player.first_name || ''} ${request.player.last_name || ''}`.trim()
+        : 'Unbekannt';
+    const playerEmail = request.player?.email || 'Keine E-Mail';
+
     return {
         id: request.id,
         clubId: request.club_id,
         playerId: request.player_id,
-        playerName: request.player_name,
-        playerEmail: request.player_email,
+        playerName: playerName || playerEmail,
+        playerEmail: playerEmail,
         status: request.status,
         createdAt: request.created_at,
         updatedAt: request.updated_at
@@ -73,7 +83,10 @@ async function loadClubJoinRequests() {
         try {
             const { data, error } = await supabaseClient
                 .from('club_requests')
-                .select('*')
+                .select(`
+                    *,
+                    player:profiles!player_id(first_name, last_name, email)
+                `)
                 .eq('club_id', currentUserData.clubId)
                 .eq('status', 'pending');
 
@@ -117,7 +130,10 @@ async function loadLeaveRequests() {
         try {
             const { data, error } = await supabaseClient
                 .from('leave_club_requests')
-                .select('*')
+                .select(`
+                    *,
+                    player:profiles!player_id(first_name, last_name, email)
+                `)
                 .eq('club_id', currentUserData.clubId)
                 .eq('status', 'pending');
 

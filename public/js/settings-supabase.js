@@ -1172,11 +1172,8 @@ async function requestToJoinClub(clubId, clubName) {
         // Create club join request
         const { error } = await supabase.from('club_requests').insert({
             player_id: currentUser.id,
-            player_email: currentUser.email,
-            player_name: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUser.email,
             club_id: clubId,
-            status: 'pending',
-            created_at: new Date().toISOString(),
+            status: 'pending'
         });
 
         if (error) throw error;
@@ -1234,11 +1231,8 @@ leaveClubBtn?.addEventListener('click', async () => {
         // Create leave club request
         const { error } = await supabase.from('leave_club_requests').insert({
             player_id: currentUser.id,
-            player_email: currentUser.email,
-            player_name: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUser.email,
             club_id: currentUserData.clubId,
-            status: 'pending',
-            created_at: new Date().toISOString(),
+            status: 'pending'
         });
 
         if (error) throw error;
