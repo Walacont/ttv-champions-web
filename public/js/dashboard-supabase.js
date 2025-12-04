@@ -940,20 +940,26 @@ async function fetchLeaderboardData() {
         if (currentUserData.club_id) {
             const { data: clubPlayers } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender')
+                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, club_id, clubs(name)')
                 .eq('club_id', currentUserData.club_id)
                 .neq('role', 'admin')
                 .limit(100);
-            leaderboardCache.club = clubPlayers || [];
+            leaderboardCache.club = (clubPlayers || []).map(p => ({
+                ...p,
+                club_name: p.clubs?.name || null
+            }));
         }
 
-        // Fetch global data (include birthdate for age filtering)
+        // Fetch global data (include birthdate for age filtering, join clubs for name)
         const { data: globalPlayers } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender')
+            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, club_id, clubs(name)')
             .neq('role', 'admin')
             .limit(100);
-        leaderboardCache.global = globalPlayers || [];
+        leaderboardCache.global = (globalPlayers || []).map(p => ({
+            ...p,
+            club_name: p.clubs?.name || null
+        }));
 
     } catch (error) {
         console.error('Error fetching leaderboard data:', error);
@@ -1010,12 +1016,19 @@ function renderLeaderboardList() {
 
     let html = '';
 
+    // Check if we should show club names (global scope + skill/elo tab)
+    const showClubName = currentLeaderboardScope === 'global' &&
+        (currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo');
+
     top15.forEach((player, index) => {
         const isCurrentUser = player.id === currentUser.id;
         const rank = index + 1;
         const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
         const value = player[field] || 0;
         const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
+        const clubNameHtml = showClubName && player.club_name
+            ? `<div class="text-xs text-gray-500">${player.club_name}</div>`
+            : '';
 
         html += `
             <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors">
@@ -1025,8 +1038,11 @@ function renderLeaderboardList() {
                          class="w-10 h-10 rounded-full object-cover border-2 ${isCurrentUser ? 'border-indigo-400' : 'border-gray-200'}"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
-                        <span class="${isCurrentUser ? 'font-bold text-indigo-700' : 'font-medium'}">${playerName}</span>
-                        ${isCurrentUser ? '<span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>' : ''}
+                        <div class="flex items-center">
+                            <span class="${isCurrentUser ? 'font-bold text-indigo-700' : 'font-medium'}">${playerName}</span>
+                            ${isCurrentUser ? '<span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>' : ''}
+                        </div>
+                        ${clubNameHtml}
                     </div>
                 </div>
                 <span class="font-bold text-lg ${currentLeaderboardTab === 'xp' ? 'text-purple-600' : currentLeaderboardTab === 'elo' ? 'text-blue-600' : 'text-yellow-600'}">${value}</span>
@@ -1037,6 +1053,9 @@ function renderLeaderboardList() {
     // Show current user if not in top 15
     if (currentUserRank > 15 && currentPlayerData) {
         const currentPlayerName = `${currentPlayerData.first_name || ''} ${currentPlayerData.last_name || ''}`.trim() || 'Du';
+        const currentUserClubHtml = showClubName && currentPlayerData.club_name
+            ? `<div class="text-xs text-gray-500">${currentPlayerData.club_name}</div>`
+            : '';
         html += `
             <div class="border-t-2 border-dashed border-gray-300 mt-4 pt-4">
                 <div class="flex items-center justify-between p-3 rounded-lg bg-indigo-50 border-2 border-indigo-300">
@@ -1046,8 +1065,11 @@ function renderLeaderboardList() {
                              class="w-10 h-10 rounded-full object-cover border-2 border-indigo-400"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
-                            <span class="font-bold text-indigo-700">${currentPlayerName}</span>
-                            <span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>
+                            <div class="flex items-center">
+                                <span class="font-bold text-indigo-700">${currentPlayerName}</span>
+                                <span class="ml-2 text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">Du</span>
+                            </div>
+                            ${currentUserClubHtml}
                         </div>
                     </div>
                     <span class="font-bold text-lg ${currentLeaderboardTab === 'xp' ? 'text-purple-600' : currentLeaderboardTab === 'elo' ? 'text-blue-600' : 'text-yellow-600'}">${currentPlayerData[field] || 0}</span>
