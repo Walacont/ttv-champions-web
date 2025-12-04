@@ -79,12 +79,26 @@
         display: flex;
         align-items: center;
         gap: 12px;
+        flex: 1;
+    }
+
+    .mobile-header-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+        text-align: center;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .mobile-header-right {
         display: flex;
         align-items: center;
         gap: 12px;
+        flex: 1;
+        justify-content: flex-end;
     }
 
     /* Profile Picture */
@@ -243,6 +257,10 @@
             border-color: #4338ca; /* indigo-700 */
         }
 
+        .mobile-header-title {
+            color: #e0e7ff; /* indigo-100 */
+        }
+
         .mobile-header-icon,
         .mobile-nav-item {
             color: #c7d2fe; /* indigo-200 */
@@ -271,6 +289,10 @@
     .dark .mobile-bottom-nav {
         background-color: #312e81; /* indigo-900 */
         border-color: #4338ca; /* indigo-700 */
+    }
+
+    .dark .mobile-header-title {
+        color: #e0e7ff; /* indigo-100 */
     }
 
     .dark .mobile-header-icon,

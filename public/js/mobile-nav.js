@@ -35,10 +35,14 @@
                 e.preventDefault();
 
                 const targetTab = navItem.getAttribute('data-mobile-tab');
+                const tabTitle = navItem.getAttribute('data-tab-title');
 
                 // Update active state on mobile nav items
                 navItems.forEach(item => item.classList.remove('active'));
                 navItem.classList.add('active');
+
+                // Update header title
+                updateHeaderTitle(tabTitle);
 
                 // Trigger desktop tab button click to switch content
                 const targetButton = document.querySelector(`[data-tab="${targetTab}"]`);
@@ -70,10 +74,23 @@
             const itemTab = item.getAttribute('data-mobile-tab');
             if (itemTab === activeTab) {
                 item.classList.add('active');
+                // Update header title when syncing
+                const tabTitle = item.getAttribute('data-tab-title');
+                updateHeaderTitle(tabTitle);
             } else {
                 item.classList.remove('active');
             }
         });
+    }
+
+    /**
+     * Update mobile header title
+     */
+    function updateHeaderTitle(title) {
+        const headerTitle = document.getElementById('mobile-header-title');
+        if (headerTitle && title) {
+            headerTitle.textContent = title;
+        }
     }
 
     /**
