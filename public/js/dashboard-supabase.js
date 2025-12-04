@@ -283,7 +283,14 @@ function setupFilters() {
 
         subgroupFilter.addEventListener('change', () => {
             currentSubgroupFilter = subgroupFilter.value;
-            // Just re-render the leaderboard with new filter (don't reload everything)
+
+            // Update leaderboard scope if 'club' or 'global' is selected
+            if (currentSubgroupFilter === 'club' || currentSubgroupFilter === 'global') {
+                currentLeaderboardScope = currentSubgroupFilter;
+                updateLeaderboardScope();
+            }
+
+            // Re-render the leaderboard with new filter
             updateLeaderboardContent();
             loadRivalData(); // Update rivals when filter changes
         });
@@ -978,15 +985,19 @@ function renderLeaderboardList() {
 
     let players = leaderboardCache[currentLeaderboardScope] || [];
 
-    // Apply subgroup filter (only for club scope, not 'club' or 'global' values)
-    if (currentLeaderboardScope === 'club' && currentSubgroupFilter && currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global' && currentSubgroupFilter !== 'all') {
-        players = players.filter(p => p.subgroup_ids && p.subgroup_ids.includes(currentSubgroupFilter));
-    }
+    // Determine filter type from currentSubgroupFilter
+    // Values can be: 'club', 'global', age group IDs (u11, u13, adult, o40, etc.), or 'subgroup:xxx'
+    const ageGroupIds = ['u11', 'u13', 'u15', 'u17', 'u19', 'adult', 'o40', 'o45', 'o50', 'o55', 'o60', 'o65', 'o70', 'o75', 'o80', 'o85'];
 
-    // Apply age group filter
-    if (currentAgeGroupFilter !== 'all') {
-        players = players.filter(p => matchesAgeGroup(p.birthdate, currentAgeGroupFilter));
+    if (currentSubgroupFilter && currentSubgroupFilter.startsWith('subgroup:')) {
+        // Apply custom subgroup filter
+        const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
+        players = players.filter(p => p.subgroup_ids && p.subgroup_ids.includes(subgroupId));
+    } else if (currentSubgroupFilter && ageGroupIds.includes(currentSubgroupFilter)) {
+        // Apply age group filter from Ansicht dropdown
+        players = players.filter(p => matchesAgeGroup(p.birthdate, currentSubgroupFilter));
     }
+    // 'club' and 'global' don't filter - they just set the scope (which is handled by leaderboardCache[currentLeaderboardScope])
 
     // Apply gender filter
     if (currentGenderFilter !== 'all') {
