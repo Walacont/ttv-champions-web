@@ -302,13 +302,26 @@
                                     <label
                                         for="clubId"
                                         class="block text-sm font-medium text-gray-700"
-                                        >Neue Vereins-ID</label
+                                        >Verein auswählen</label
+                                    >
+                                    <select
+                                        id="clubId"
+                                        required=""
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                    >
+                                        <option value="">-- Verein wählen --</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label
+                                        for="newClubName"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Oder neuen Verein erstellen</label
                                     >
                                     <input
                                         type="text"
-                                        id="clubId"
-                                        required=""
-                                        placeholder="z.B. ttv-musterstadt"
+                                        id="newClubName"
+                                        placeholder="z.B. TTV Musterstadt"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                 </div>
