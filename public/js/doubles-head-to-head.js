@@ -93,11 +93,12 @@ async function loadDoublesHeadToHeadStats(db, currentUserId, opponentTeam) {
 
         // Query matches where current user is in any of the 4 player positions
         // We need 4 separate queries because Firestore doesn't support OR across different fields
+        // Note: Use nested field paths (teamA.player1Id) as that's how the data is stored
         const queries = [
-            query(matchesRef, where('teamAPlayer1Id', '==', currentUserId), where('processed', '==', true)),
-            query(matchesRef, where('teamAPlayer2Id', '==', currentUserId), where('processed', '==', true)),
-            query(matchesRef, where('teamBPlayer1Id', '==', currentUserId), where('processed', '==', true)),
-            query(matchesRef, where('teamBPlayer2Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamA.player1Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamA.player2Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamB.player1Id', '==', currentUserId), where('processed', '==', true)),
+            query(matchesRef, where('teamB.player2Id', '==', currentUserId), where('processed', '==', true)),
         ];
 
         // Execute all queries in parallel
@@ -120,8 +121,9 @@ async function loadDoublesHeadToHeadStats(db, currentUserId, opponentTeam) {
 
         matchesMap.forEach(match => {
             // Check if this match involves current user and the opponent team
-            const teamAPlayers = [match.teamAPlayer1Id, match.teamAPlayer2Id];
-            const teamBPlayers = [match.teamBPlayer1Id, match.teamBPlayer2Id];
+            // Access nested fields: teamA.player1Id, teamA.player2Id, etc.
+            const teamAPlayers = [match.teamA?.player1Id, match.teamA?.player2Id];
+            const teamBPlayers = [match.teamB?.player1Id, match.teamB?.player2Id];
 
             const currentUserInTeamA = teamAPlayers.includes(currentUserId);
             const currentUserInTeamB = teamBPlayers.includes(currentUserId);
@@ -213,12 +215,12 @@ function calculateDoublesStats(matches, currentUserId, opponentPlayerIds) {
 
     matches.forEach(match => {
         // Determine if current user was in team A or B
-        const teamAPlayers = [match.teamAPlayer1Id, match.teamAPlayer2Id];
+        const teamAPlayers = [match.teamA?.player1Id, match.teamA?.player2Id];
         const currentUserInTeamA = teamAPlayers.includes(currentUserId);
 
         const isWinner = currentUserInTeamA
-            ? match.winnerId === 'A'
-            : match.winnerId === 'B';
+            ? match.winningTeam === 'A'
+            : match.winningTeam === 'B';
 
         if (isWinner) {
             wins++;
@@ -368,12 +370,12 @@ function renderDoublesMatchHistory(matches, currentUserId) {
     }
 
     return matches.map(match => {
-        const teamAPlayers = [match.teamAPlayer1Id, match.teamAPlayer2Id];
+        const teamAPlayers = [match.teamA?.player1Id, match.teamA?.player2Id];
         const currentUserInTeamA = teamAPlayers.includes(currentUserId);
 
         const isWinner = currentUserInTeamA
-            ? match.winnerId === 'A'
-            : match.winnerId === 'B';
+            ? match.winningTeam === 'A'
+            : match.winningTeam === 'B';
 
         const matchDate = match.timestamp?.toDate() || match.createdAt?.toDate() || new Date();
         const formattedDate = formatMatchDate(matchDate);
