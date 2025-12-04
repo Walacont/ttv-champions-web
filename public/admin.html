@@ -300,17 +300,18 @@
                             <form id="invite-coach-form" class="space-y-4">
                                 <div>
                                     <label
-                                        for="clubId"
+                                        for="clubName"
                                         class="block text-sm font-medium text-gray-700"
-                                        >Neue Vereins-ID</label
+                                        >Vereinsname</label
                                     >
                                     <input
                                         type="text"
-                                        id="clubId"
+                                        id="clubName"
                                         required=""
-                                        placeholder="z.B. ttv-musterstadt"
+                                        placeholder="z.B. TTV Musterstadt"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <p class="mt-1 text-xs text-gray-500">Existiert der Verein noch nicht, wird er automatisch erstellt.</p>
                                 </div>
                                 <button
                                     type="submit"
@@ -738,6 +739,7 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/admin.js"></script>
+        <!-- Firebase: <script type="module" src="/js/admin.js"></script> -->
+        <script type="module" src="/js/admin-supabase.js"></script>
     </body>
 </html>

@@ -1,0 +1,361 @@
+// ===== Club Requests Manager for Coaches (Supabase Version) =====
+// This module manages club join/leave requests for coaches
+
+import { formatDate } from './ui-utils.js';
+
+let currentUserData = null;
+let supabaseClient = null;
+let subscriptions = [];
+
+/**
+ * Maps club request from Supabase (snake_case) to app format (camelCase)
+ */
+function mapClubRequestFromSupabase(request) {
+    return {
+        id: request.id,
+        clubId: request.club_id,
+        playerId: request.player_id,
+        playerName: request.player_name,
+        playerEmail: request.player_email,
+        status: request.status,
+        createdAt: request.created_at,
+        updatedAt: request.updated_at
+    };
+}
+
+/**
+ * Maps leave request from Supabase (snake_case) to app format (camelCase)
+ */
+function mapLeaveRequestFromSupabase(request) {
+    return {
+        id: request.id,
+        clubId: request.club_id,
+        playerId: request.player_id,
+        playerName: request.player_name,
+        playerEmail: request.player_email,
+        status: request.status,
+        createdAt: request.created_at,
+        updatedAt: request.updated_at
+    };
+}
+
+// Initialize club requests manager
+export async function initClubRequestsManager(userData, supabase) {
+    currentUserData = userData;
+    supabaseClient = supabase;
+
+    // Only load for coaches/admins
+    if (!['coach', 'admin'].includes(userData.role)) {
+        return;
+    }
+
+    // Load club join requests
+    loadClubJoinRequests();
+    // Load leave requests
+    loadLeaveRequests();
+}
+
+// Clean up subscriptions
+export function cleanupClubRequestsManager() {
+    subscriptions.forEach(sub => {
+        if (sub && typeof sub.unsubscribe === 'function') {
+            sub.unsubscribe();
+        }
+    });
+    subscriptions = [];
+}
+
+// Load pending club join requests
+async function loadClubJoinRequests() {
+    if (!supabaseClient || !currentUserData) return;
+
+    async function fetchRequests() {
+        try {
+            const { data, error } = await supabaseClient
+                .from('club_requests')
+                .select('*')
+                .eq('club_id', currentUserData.clubId)
+                .eq('status', 'pending');
+
+            if (error) throw error;
+
+            const requests = (data || []).map(r => mapClubRequestFromSupabase(r));
+            displayClubJoinRequests(requests);
+        } catch (error) {
+            console.error('Error loading club join requests:', error);
+        }
+    }
+
+    // Initial fetch
+    fetchRequests();
+
+    // Real-time subscription
+    const subscription = supabaseClient
+        .channel('club-join-requests')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'club_requests',
+                filter: `club_id=eq.${currentUserData.clubId}`
+            },
+            () => {
+                fetchRequests();
+            }
+        )
+        .subscribe();
+
+    subscriptions.push(subscription);
+}
+
+// Load pending leave requests
+async function loadLeaveRequests() {
+    if (!supabaseClient || !currentUserData) return;
+
+    async function fetchRequests() {
+        try {
+            const { data, error } = await supabaseClient
+                .from('leave_club_requests')
+                .select('*')
+                .eq('club_id', currentUserData.clubId)
+                .eq('status', 'pending');
+
+            if (error) throw error;
+
+            const requests = (data || []).map(r => mapLeaveRequestFromSupabase(r));
+            displayLeaveRequests(requests);
+        } catch (error) {
+            console.error('Error loading leave requests:', error);
+        }
+    }
+
+    // Initial fetch
+    fetchRequests();
+
+    // Real-time subscription
+    const subscription = supabaseClient
+        .channel('leave-club-requests')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'leave_club_requests',
+                filter: `club_id=eq.${currentUserData.clubId}`
+            },
+            () => {
+                fetchRequests();
+            }
+        )
+        .subscribe();
+
+    subscriptions.push(subscription);
+}
+
+// Display club join requests
+function displayClubJoinRequests(requests) {
+    const container = document.getElementById('club-join-requests-list');
+    if (!container) return;
+
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Keine offenen Beitrittsanfragen</p>';
+        return;
+    }
+
+    container.innerHTML = requests
+        .map(
+            request => `
+        <div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h4 class="font-medium text-gray-900">${request.playerName}</h4>
+                    <p class="text-sm text-gray-600">${request.playerEmail}</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        onclick="window.approveClubRequest('${request.id}')"
+                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                        Genehmigen
+                    </button>
+                    <button
+                        onclick="window.rejectClubRequest('${request.id}')"
+                        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                        Ablehnen
+                    </button>
+                </div>
+            </div>
+        </div>
+    `
+        )
+        .join('');
+}
+
+// Display leave requests
+function displayLeaveRequests(requests) {
+    const container = document.getElementById('leave-requests-list');
+    if (!container) return;
+
+    if (requests.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Keine offenen Austrittsanfragen</p>';
+        return;
+    }
+
+    container.innerHTML = requests
+        .map(
+            request => `
+        <div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between">
+                <div class="flex-1">
+                    <h4 class="font-medium text-gray-900">${request.playerName}</h4>
+                    <p class="text-sm text-gray-600">${request.playerEmail}</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        onclick="window.approveLeaveRequest('${request.id}')"
+                        class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                        Genehmigen
+                    </button>
+                    <button
+                        onclick="window.rejectLeaveRequest('${request.id}')"
+                        class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                        Ablehnen
+                    </button>
+                </div>
+            </div>
+        </div>
+    `
+        )
+        .join('');
+}
+
+// Global functions for button clicks
+window.approveClubRequest = async function (requestId) {
+    if (!confirm('Möchtest du diese Beitrittsanfrage wirklich genehmigen?')) return;
+
+    try {
+        // Get request details first
+        const { data: request, error: fetchError } = await supabaseClient
+            .from('club_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Update player's clubId
+        const { error: updatePlayerError } = await supabaseClient
+            .from('profiles')
+            .update({ club_id: request.club_id })
+            .eq('id', request.player_id);
+
+        if (updatePlayerError) throw updatePlayerError;
+
+        // Update request status
+        const { error: updateRequestError } = await supabaseClient
+            .from('club_requests')
+            .update({
+                status: 'approved',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', requestId);
+
+        if (updateRequestError) throw updateRequestError;
+
+        alert('Spieler wurde erfolgreich genehmigt!');
+    } catch (error) {
+        console.error('Error approving club request:', error);
+        alert('Fehler beim Genehmigen: ' + error.message);
+    }
+};
+
+window.rejectClubRequest = async function (requestId) {
+    if (!confirm('Möchtest du diese Beitrittsanfrage wirklich ablehnen?')) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('club_requests')
+            .update({
+                status: 'rejected',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', requestId);
+
+        if (error) throw error;
+
+        alert('Anfrage wurde abgelehnt.');
+    } catch (error) {
+        console.error('Error rejecting club request:', error);
+        alert('Fehler beim Ablehnen: ' + error.message);
+    }
+};
+
+window.approveLeaveRequest = async function (requestId) {
+    if (!confirm('Möchtest du diese Austrittsanfrage wirklich genehmigen?')) return;
+
+    try {
+        // Get request details first
+        const { data: request, error: fetchError } = await supabaseClient
+            .from('leave_club_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Remove player's clubId (set to null)
+        const { error: updatePlayerError } = await supabaseClient
+            .from('profiles')
+            .update({ club_id: null })
+            .eq('id', request.player_id);
+
+        if (updatePlayerError) throw updatePlayerError;
+
+        // Update request status
+        const { error: updateRequestError } = await supabaseClient
+            .from('leave_club_requests')
+            .update({
+                status: 'approved',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', requestId);
+
+        if (updateRequestError) throw updateRequestError;
+
+        alert('Spieler hat den Verein verlassen.');
+    } catch (error) {
+        console.error('Error approving leave request:', error);
+        alert('Fehler beim Genehmigen: ' + error.message);
+    }
+};
+
+window.rejectLeaveRequest = async function (requestId) {
+    if (!confirm('Möchtest du diese Austrittsanfrage wirklich ablehnen?')) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('leave_club_requests')
+            .update({
+                status: 'rejected',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', requestId);
+
+        if (error) throw error;
+
+        alert('Austrittsanfrage wurde abgelehnt.');
+    } catch (error) {
+        console.error('Error rejecting leave request:', error);
+        alert('Fehler beim Ablehnen: ' + error.message);
+    }
+};

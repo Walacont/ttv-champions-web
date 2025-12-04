@@ -1,0 +1,670 @@
+/**
+ * Subgroups Management Module (Supabase Version)
+ * Handles creation, editing, and deletion of training subgroups within a club
+ */
+
+import { formatDate } from './ui-utils.js';
+
+/**
+ * Maps subgroup data from Supabase (snake_case) to app format (camelCase)
+ */
+function mapSubgroupFromSupabase(subgroup) {
+    return {
+        id: subgroup.id,
+        clubId: subgroup.club_id,
+        name: subgroup.name,
+        color: subgroup.color,
+        isDefault: subgroup.is_default,
+        createdAt: subgroup.created_at,
+        updatedAt: subgroup.updated_at
+    };
+}
+
+/**
+ * Loads all subgroups for a club
+ * @param {string} clubId - Club ID
+ * @param {Object} supabase - Supabase client instance
+ * @param {Function} setUnsubscribe - Callback to set unsubscribe function
+ */
+export function loadSubgroupsList(clubId, supabase, setUnsubscribe) {
+    const subgroupsListContainer = document.getElementById('subgroups-list');
+    if (!subgroupsListContainer) return;
+
+    async function loadSubgroups() {
+        try {
+            const { data, error } = await supabase
+                .from('subgroups')
+                .select('*')
+                .eq('club_id', clubId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            subgroupsListContainer.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                subgroupsListContainer.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <p>Noch keine Untergruppen vorhanden.</p>
+                    <p class="text-sm mt-2">Erstelle eine neue Untergruppe, um loszulegen.</p>
+                </div>
+            `;
+                return;
+            }
+
+            data.forEach(subgroupData => {
+                const subgroup = mapSubgroupFromSupabase(subgroupData);
+                const isDefault = subgroup.isDefault || false;
+
+                const card = document.createElement('div');
+                card.className =
+                    'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
+                card.innerHTML = `
+                <div class="p-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <div class="w-4 h-4 rounded-full border-2 border-gray-300" style="background-color: ${subgroup.color || '#6366f1'};"></div>
+                                <button
+                                    data-subgroup-id="${subgroup.id}"
+                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                                >
+                                    <svg class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    <h3 class="text-lg font-semibold text-gray-900">${subgroup.name}</h3>
+                                </button>
+                                ${isDefault ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
+                            </div>
+                            <p class="text-sm text-gray-500 ml-7">ID: ${subgroup.id}</p>
+                            <p class="text-xs text-gray-400 ml-7 mt-1">Erstellt: ${formatDate(subgroup.createdAt) || 'Unbekannt'}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button
+                                data-id="${subgroup.id}"
+                                data-name="${subgroup.name}"
+                                data-color="${subgroup.color || '#6366f1'}"
+                                data-is-default="${isDefault}"
+                                class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
+                            >
+                                Bearbeiten
+                            </button>
+                            ${
+                                !isDefault
+                                    ? `
+                                <button
+                                    data-id="${subgroup.id}"
+                                    data-name="${subgroup.name}"
+                                    class="delete-subgroup-btn text-red-600 hover:text-red-900 px-3 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                >
+                                    Löschen
+                                </button>
+                            `
+                                    : '<span class="text-xs text-gray-400 px-3 py-1">Standard kann nicht gelöscht werden</span>'
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expandable Player List -->
+                <div id="player-list-${subgroup.id}" class="hidden bg-gray-50 border-t border-gray-200 p-4">
+                    <div class="mb-3 flex justify-between items-center">
+                        <h4 class="text-sm font-semibold text-gray-700">Spieler zuweisen</h4>
+                        <button
+                            data-subgroup-id="${subgroup.id}"
+                            class="save-player-assignments-btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1 px-3 rounded-md transition-colors"
+                        >
+                            Änderungen speichern
+                        </button>
+                    </div>
+                    <div id="player-checkboxes-${subgroup.id}" class="max-h-80 overflow-y-auto space-y-2">
+                        <p class="text-sm text-gray-500">Spieler werden geladen...</p>
+                    </div>
+                </div>
+            `;
+
+                subgroupsListContainer.appendChild(card);
+            });
+        } catch (error) {
+            console.error('Error loading subgroups:', error);
+            subgroupsListContainer.innerHTML = `
+            <div class="text-center py-8 text-red-500">
+                <p>Fehler beim Laden der Untergruppen</p>
+                <p class="text-sm mt-2">${error.message}</p>
+            </div>
+        `;
+        }
+    }
+
+    // Initial load
+    loadSubgroups();
+
+    // Set up real-time subscription
+    const subscription = supabase
+        .channel('subgroups-list-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'subgroups',
+                filter: `club_id=eq.${clubId}`
+            },
+            () => {
+                loadSubgroups();
+            }
+        )
+        .subscribe();
+
+    setUnsubscribe(() => {
+        subscription.unsubscribe();
+    });
+}
+
+/**
+ * Handles subgroup creation
+ * @param {Event} e - Form submit event
+ * @param {Object} supabase - Supabase client instance
+ * @param {string} clubId - Club ID
+ */
+export async function handleCreateSubgroup(e, supabase, clubId) {
+    e.preventDefault();
+    const form = e.target;
+    const nameInput = form.querySelector('#subgroup-name');
+    const colorInput = form.querySelector('input[name="subgroup-color"]:checked');
+    const feedbackEl = document.getElementById('subgroup-form-feedback');
+
+    const name = nameInput.value.trim();
+    const color = colorInput ? colorInput.value : '#6366f1'; // Default to indigo
+
+    if (!name) {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Bitte gib einen Namen ein.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+        return;
+    }
+
+    try {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Erstelle Untergruppe...';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
+        }
+
+        const { error } = await supabase
+            .from('subgroups')
+            .insert([{
+                club_id: clubId,
+                name: name,
+                color: color,
+                is_default: false,
+            }]);
+
+        if (error) throw error;
+
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Untergruppe erfolgreich erstellt!';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        }
+
+        form.reset();
+
+        setTimeout(() => {
+            if (feedbackEl) feedbackEl.textContent = '';
+        }, 2000);
+    } catch (error) {
+        console.error('Error creating subgroup:', error);
+        if (feedbackEl) {
+            feedbackEl.textContent = `Fehler: ${error.message}`;
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+    }
+}
+
+/**
+ * Opens the edit subgroup modal
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} currentName - Current subgroup name
+ * @param {string} currentColor - Current subgroup color
+ */
+export function openEditSubgroupModal(subgroupId, currentName, currentColor) {
+    const modal = document.getElementById('edit-subgroup-modal');
+    const idInput = document.getElementById('edit-subgroup-id');
+    const nameInput = document.getElementById('edit-subgroup-name');
+    const feedbackEl = document.getElementById('edit-subgroup-feedback');
+
+    if (!modal || !idInput || !nameInput) return;
+
+    // Set values
+    idInput.value = subgroupId;
+    nameInput.value = currentName;
+
+    // Set color
+    const colorRadios = document.querySelectorAll('input[name="edit-subgroup-color"]');
+    colorRadios.forEach(radio => {
+        radio.checked = radio.value === currentColor;
+    });
+
+    // Clear feedback
+    if (feedbackEl) feedbackEl.textContent = '';
+
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+/**
+ * Closes the edit subgroup modal
+ */
+export function closeEditSubgroupModal() {
+    const modal = document.getElementById('edit-subgroup-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+/**
+ * Handles subgroup editing form submission
+ * @param {Event} e - Form submit event
+ * @param {Object} supabase - Supabase client instance
+ */
+export async function handleEditSubgroupSubmit(e, supabase) {
+    e.preventDefault();
+
+    const idInput = document.getElementById('edit-subgroup-id');
+    const nameInput = document.getElementById('edit-subgroup-name');
+    const colorInput = document.querySelector('input[name="edit-subgroup-color"]:checked');
+    const feedbackEl = document.getElementById('edit-subgroup-feedback');
+
+    const subgroupId = idInput.value;
+    const newName = nameInput.value.trim();
+    const newColor = colorInput ? colorInput.value : '#6366f1';
+
+    if (!newName) {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Bitte gib einen Namen ein.';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+        return;
+    }
+
+    try {
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Speichere Änderungen...';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
+        }
+
+        const { error } = await supabase
+            .from('subgroups')
+            .update({
+                name: newName,
+                color: newColor,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', subgroupId);
+
+        if (error) throw error;
+
+        if (feedbackEl) {
+            feedbackEl.textContent = 'Änderungen erfolgreich gespeichert!';
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
+        }
+
+        setTimeout(() => {
+            closeEditSubgroupModal();
+        }, 1000);
+    } catch (error) {
+        console.error('Error updating subgroup:', error);
+        if (feedbackEl) {
+            feedbackEl.textContent = `Fehler: ${error.message}`;
+            feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        }
+    }
+}
+
+/**
+ * Handles subgroup deletion
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} subgroupName - Subgroup name
+ * @param {Object} supabase - Supabase client instance
+ * @param {string} clubId - Club ID
+ */
+export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, clubId) {
+    // Check if any players are assigned to this subgroup
+    try {
+        const { data: playersInSubgroup, error: queryError } = await supabase
+            .from('profiles')
+            .select('id, subgroup_ids')
+            .eq('club_id', clubId)
+            .contains('subgroup_ids', [subgroupId]);
+
+        if (queryError) throw queryError;
+
+        const playerCount = playersInSubgroup ? playersInSubgroup.length : 0;
+
+        if (playerCount > 0) {
+            const confirmMsg = `Warnung: Diese Untergruppe enthält noch ${playerCount} Spieler.\n\nWenn du die Gruppe löschst, werden diese Spieler aus der Gruppe entfernt.\n\nMöchtest du fortfahren?`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+        } else {
+            if (!confirm(`Möchtest du die Untergruppe "${subgroupName}" wirklich löschen?`)) {
+                return;
+            }
+        }
+
+        // Delete the subgroup
+        const { error: deleteError } = await supabase
+            .from('subgroups')
+            .delete()
+            .eq('id', subgroupId);
+
+        if (deleteError) throw deleteError;
+
+        // Remove subgroup from all players
+        if (playerCount > 0) {
+            for (const player of playersInSubgroup) {
+                const currentSubgroups = player.subgroup_ids || [];
+                const updatedSubgroups = currentSubgroups.filter(id => id !== subgroupId);
+
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({ subgroup_ids: updatedSubgroups })
+                    .eq('id', player.id);
+
+                if (updateError) {
+                    console.error(`Error updating player ${player.id}:`, updateError);
+                }
+            }
+        }
+
+        alert('Untergruppe erfolgreich gelöscht!');
+    } catch (error) {
+        console.error('Error deleting subgroup:', error);
+        alert(`Fehler beim Löschen: ${error.message}`);
+    }
+}
+
+/**
+ * Loads subgroups into a dropdown/select element
+ * @param {string} clubId - Club ID
+ * @param {Object} supabase - Supabase client instance
+ * @param {string} selectId - ID of the select element
+ * @param {boolean} includeAll - Whether to include an "Alle" option
+ */
+export function loadSubgroupsForDropdown(clubId, supabase, selectId, includeAll = false) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    async function loadSubgroups() {
+        try {
+            const { data, error } = await supabase
+                .from('subgroups')
+                .select('*')
+                .eq('club_id', clubId)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+
+            select.innerHTML = '';
+
+            if (includeAll) {
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = 'Alle (Gesamtverein)';
+                select.appendChild(allOption);
+            }
+
+            (data || []).forEach(subgroup => {
+                const option = document.createElement('option');
+                option.value = subgroup.id;
+                option.textContent = subgroup.name;
+                select.appendChild(option);
+            });
+
+            // Trigger change event to update dependent UI
+            select.dispatchEvent(new Event('change'));
+        } catch (error) {
+            console.error('Error loading subgroups for dropdown:', error);
+            select.innerHTML = '<option value="">Fehler beim Laden</option>';
+        }
+    }
+
+    // Initial load
+    loadSubgroups();
+
+    // Set up real-time subscription
+    const subscription = supabase
+        .channel(`subgroups-dropdown-${selectId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'subgroups',
+                filter: `club_id=eq.${clubId}`
+            },
+            () => {
+                loadSubgroups();
+            }
+        )
+        .subscribe();
+
+    // Return unsubscribe function
+    return () => {
+        subscription.unsubscribe();
+    };
+}
+
+/**
+ * Gets all subgroups for a club (as a promise)
+ * @param {string} clubId - Club ID
+ * @param {Object} supabase - Supabase client instance
+ * @returns {Promise<Array>} - Array of subgroups
+ */
+export async function getSubgroups(clubId, supabase) {
+    const { data, error } = await supabase
+        .from('subgroups')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map(s => mapSubgroupFromSupabase(s));
+}
+
+/**
+ * Loads club players and displays them as checkboxes for a subgroup
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} clubId - Club ID
+ * @param {Object} supabase - Supabase client instance
+ */
+export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
+    const container = document.getElementById(`player-checkboxes-${subgroupId}`);
+    if (!container) return;
+
+    try {
+        // Query all players in the club
+        const { data: players, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('club_id', clubId)
+            .order('first_name', { ascending: true });
+
+        if (error) throw error;
+
+        if (!players || players.length === 0) {
+            container.innerHTML =
+                '<p class="text-sm text-gray-500">Keine Spieler im Verein gefunden.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+
+        players.forEach(player => {
+            const isInSubgroup = (player.subgroup_ids || []).includes(subgroupId);
+
+            const checkboxItem = document.createElement('label');
+            checkboxItem.className =
+                'flex items-center gap-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors';
+            checkboxItem.innerHTML = `
+                <input
+                    type="checkbox"
+                    data-player-id="${player.id}"
+                    ${isInSubgroup ? 'checked' : ''}
+                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                >
+                <span class="text-sm text-gray-700">
+                    ${player.first_name || ''} ${player.last_name || ''}
+                    ${player.email ? `<span class="text-xs text-gray-400">(${player.email})</span>` : ''}
+                </span>
+            `;
+
+            container.appendChild(checkboxItem);
+        });
+    } catch (error) {
+        console.error('Error loading player checkboxes:', error);
+        container.innerHTML = `<p class="text-sm text-red-500">Fehler beim Laden: ${error.message}</p>`;
+    }
+}
+
+/**
+ * Saves player assignments for a subgroup
+ * @param {string} subgroupId - Subgroup ID
+ * @param {string} clubId - Club ID
+ * @param {Object} supabase - Supabase client instance
+ */
+export async function savePlayerAssignments(subgroupId, clubId, supabase) {
+    const container = document.getElementById(`player-checkboxes-${subgroupId}`);
+    if (!container) return;
+
+    try {
+        const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+        let changesCount = 0;
+
+        // Get all players to check current assignments
+        const { data: players, error: queryError } = await supabase
+            .from('profiles')
+            .select('id, subgroup_ids')
+            .eq('club_id', clubId);
+
+        if (queryError) throw queryError;
+
+        const playersMap = new Map();
+        (players || []).forEach(player => {
+            playersMap.set(player.id, player);
+        });
+
+        for (const checkbox of checkboxes) {
+            const playerId = checkbox.dataset.playerId;
+            const isChecked = checkbox.checked;
+            const player = playersMap.get(playerId);
+
+            if (!player) continue;
+
+            const currentSubgroups = player.subgroup_ids || [];
+            const isCurrentlyInSubgroup = currentSubgroups.includes(subgroupId);
+
+            // Add player to subgroup
+            if (isChecked && !isCurrentlyInSubgroup) {
+                const updatedSubgroups = [...currentSubgroups, subgroupId];
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ subgroup_ids: updatedSubgroups })
+                    .eq('id', playerId);
+
+                if (error) {
+                    console.error(`Error adding player ${playerId} to subgroup:`, error);
+                } else {
+                    changesCount++;
+                }
+            }
+
+            // Remove player from subgroup
+            if (!isChecked && isCurrentlyInSubgroup) {
+                const updatedSubgroups = currentSubgroups.filter(id => id !== subgroupId);
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ subgroup_ids: updatedSubgroups })
+                    .eq('id', playerId);
+
+                if (error) {
+                    console.error(`Error removing player ${playerId} from subgroup:`, error);
+                } else {
+                    changesCount++;
+                }
+            }
+        }
+
+        if (changesCount === 0) {
+            alert('Keine Änderungen vorgenommen.');
+            return;
+        }
+
+        alert(`${changesCount} Spieler erfolgreich zugewiesen/entfernt!`);
+    } catch (error) {
+        console.error('Error saving player assignments:', error);
+        alert(`Fehler beim Speichern: ${error.message}`);
+    }
+}
+
+/**
+ * Handles click events on subgroup action buttons
+ * @param {Event} e - Click event
+ * @param {Object} supabase - Supabase client instance
+ * @param {string} clubId - Club ID
+ */
+export async function handleSubgroupActions(e, supabase, clubId) {
+    const target = e.target;
+    const button = target.closest('button');
+    if (!button) return;
+
+    // Handle toggle player list
+    if (button.classList.contains('toggle-player-list-btn')) {
+        const subgroupId = button.dataset.subgroupId;
+        const playerListDiv = document.getElementById(`player-list-${subgroupId}`);
+        const arrow = button.querySelector('svg');
+
+        if (playerListDiv && arrow) {
+            const isHidden = playerListDiv.classList.contains('hidden');
+
+            if (isHidden) {
+                // Show player list
+                playerListDiv.classList.remove('hidden');
+                arrow.style.transform = 'rotate(90deg)';
+
+                // Load players if not already loaded
+                const container = document.getElementById(`player-checkboxes-${subgroupId}`);
+                if (container && container.querySelector('p')) {
+                    await loadPlayerCheckboxes(subgroupId, clubId, supabase);
+                }
+            } else {
+                // Hide player list
+                playerListDiv.classList.add('hidden');
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        }
+        return;
+    }
+
+    // Handle save player assignments
+    if (button.classList.contains('save-player-assignments-btn')) {
+        const subgroupId = button.dataset.subgroupId;
+        await savePlayerAssignments(subgroupId, clubId, supabase);
+        return;
+    }
+
+    // Handle edit button
+    if (button.classList.contains('edit-subgroup-btn')) {
+        const subgroupId = button.dataset.id;
+        const currentName = button.dataset.name;
+        const currentColor = button.dataset.color || '#6366f1';
+        openEditSubgroupModal(subgroupId, currentName, currentColor);
+        return;
+    }
+
+    // Handle delete button
+    if (button.classList.contains('delete-subgroup-btn')) {
+        const subgroupId = button.dataset.id;
+        const subgroupName = button.dataset.name;
+        await handleDeleteSubgroup(subgroupId, subgroupName, supabase, clubId);
+    }
+}

@@ -166,7 +166,7 @@ class StateManager {
 
     /**
      * Sets the current user data
-     * @param {Object} userData - User data from Firestore
+     * @param {Object} userData - User data from database
      */
     setUser(userData) {
         this.update({

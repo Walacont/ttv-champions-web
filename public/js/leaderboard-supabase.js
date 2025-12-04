@@ -1,0 +1,660 @@
+// Leaderboard Module - Supabase Version
+// SC Champions - Migration von Firebase zu Supabase
+
+import { getSupabase } from './supabase-init.js';
+import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+
+/**
+ * Leaderboard Module - Supabase Version
+ * Handles leaderboards: Skill (ELO), Effort (XP), Season (Points)
+ */
+
+const supabase = getSupabase();
+
+// Constants
+export const LEAGUES = {
+    diamond: { name: 'Diamant', minElo: 1400, color: 'text-cyan-400', bgColor: 'bg-cyan-100', icon: '💎' },
+    platinum: { name: 'Platin', minElo: 1200, color: 'text-gray-300', bgColor: 'bg-gray-100', icon: '🏆' },
+    gold: { name: 'Gold', minElo: 1000, color: 'text-yellow-500', bgColor: 'bg-yellow-100', icon: '🥇' },
+    silver: { name: 'Silber', minElo: 800, color: 'text-gray-400', bgColor: 'bg-gray-50', icon: '🥈' },
+    bronze: { name: 'Bronze', minElo: 0, color: 'text-amber-600', bgColor: 'bg-amber-50', icon: '🥉' },
+};
+
+export const PROMOTION_COUNT = 4;
+export const DEMOTION_COUNT = 4;
+
+// State
+let currentLeaderboardSubgroupFilter = 'all';
+let currentLeaderboardGenderFilter = 'all';
+let leaderboardSubscriptions = [];
+let currentActiveTab = 'effort';
+
+/**
+ * Set subgroup filter for leaderboard
+ */
+export function setLeaderboardSubgroupFilter(subgroupId) {
+    currentLeaderboardSubgroupFilter = subgroupId;
+}
+
+/**
+ * Set gender filter for leaderboard
+ */
+export function setLeaderboardGenderFilter(genderId) {
+    currentLeaderboardGenderFilter = genderId;
+}
+
+/**
+ * Get league info based on ELO rating
+ */
+export function getLeague(eloRating) {
+    const elo = eloRating || 1000;
+    if (elo >= LEAGUES.diamond.minElo) return LEAGUES.diamond;
+    if (elo >= LEAGUES.platinum.minElo) return LEAGUES.platinum;
+    if (elo >= LEAGUES.gold.minElo) return LEAGUES.gold;
+    if (elo >= LEAGUES.silver.minElo) return LEAGUES.silver;
+    return LEAGUES.bronze;
+}
+
+/**
+ * Load club leaderboard (Skill - ELO based)
+ */
+export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 'skill-list-club') {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
+
+    try {
+        let query = supabase
+            .from('profiles')
+            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points')
+            .eq('club_id', clubId)
+            .in('role', ['player', 'coach'])
+            .order('elo_rating', { ascending: false });
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        let players = (data || []).map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            eloRating: p.elo_rating || 1000,
+            highestElo: p.highest_elo,
+            photoURL: p.photo_url,
+            role: p.role,
+            subgroupIDs: p.subgroup_ids || [],
+            xp: p.xp || 0,
+            points: p.points || 0
+        }));
+
+        // Apply filters
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(p => p.subgroupIDs.includes(currentLeaderboardSubgroupFilter));
+            }
+        }
+
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        if (players.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
+            return [];
+        }
+
+        renderLeaderboardList(container, players, currentUserId, 'elo');
+        return players;
+
+    } catch (error) {
+        console.error('[Leaderboard] Error loading skill leaderboard:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
+        return [];
+    }
+}
+
+/**
+ * Load club leaderboard (Effort - XP based)
+ */
+export async function loadEffortLeaderboard(clubId, currentUserId, containerId = 'effort-list-club') {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids')
+            .eq('club_id', clubId)
+            .in('role', ['player', 'coach'])
+            .order('xp', { ascending: false });
+
+        if (error) throw error;
+
+        let players = (data || []).map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            xp: p.xp || 0,
+            photoURL: p.photo_url,
+            role: p.role,
+            subgroupIDs: p.subgroup_ids || []
+        }));
+
+        // Apply filters
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(p => p.subgroupIDs.includes(currentLeaderboardSubgroupFilter));
+            }
+        }
+
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        if (players.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
+            return [];
+        }
+
+        renderLeaderboardList(container, players, currentUserId, 'xp');
+        return players;
+
+    } catch (error) {
+        console.error('[Leaderboard] Error loading effort leaderboard:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
+        return [];
+    }
+}
+
+/**
+ * Load season leaderboard (Points based)
+ */
+export async function loadSeasonLeaderboard(clubId, currentUserId, containerId = 'season-list-club') {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids')
+            .eq('club_id', clubId)
+            .in('role', ['player', 'coach'])
+            .order('points', { ascending: false });
+
+        if (error) throw error;
+
+        let players = (data || []).map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            points: p.points || 0,
+            photoURL: p.photo_url,
+            role: p.role,
+            subgroupIDs: p.subgroup_ids || []
+        }));
+
+        // Apply filters
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(p => p.subgroupIDs.includes(currentLeaderboardSubgroupFilter));
+            }
+        }
+
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        if (players.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
+            return [];
+        }
+
+        renderLeaderboardList(container, players, currentUserId, 'points');
+        return players;
+
+    } catch (error) {
+        console.error('[Leaderboard] Error loading season leaderboard:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
+        return [];
+    }
+}
+
+/**
+ * Load global leaderboard (all clubs)
+ */
+export async function loadGlobalLeaderboard(currentUserId, containerId = 'skill-list-global', limit = 100) {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+
+    container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select(`
+                id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
+                club_id, clubs(name)
+            `)
+            .in('role', ['player', 'coach'])
+            .order('elo_rating', { ascending: false })
+            .limit(limit);
+
+        if (error) throw error;
+
+        const players = (data || []).map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            eloRating: p.elo_rating || 1000,
+            highestElo: p.highest_elo,
+            photoURL: p.photo_url,
+            role: p.role,
+            clubId: p.club_id,
+            clubName: p.clubs?.name || 'Kein Verein'
+        }));
+
+        if (players.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
+            return [];
+        }
+
+        renderGlobalLeaderboardList(container, players, currentUserId);
+        return players;
+
+    } catch (error) {
+        console.error('[Leaderboard] Error loading global leaderboard:', error);
+        container.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
+        return [];
+    }
+}
+
+/**
+ * Render leaderboard list
+ */
+function renderLeaderboardList(container, players, currentUserId, type = 'elo') {
+    container.innerHTML = '';
+
+    players.forEach((player, index) => {
+        const rank = index + 1;
+        const isCurrentUser = player.id === currentUserId;
+        const league = type === 'elo' ? getLeague(player.eloRating) : null;
+
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between p-3 ${isCurrentUser ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'bg-white'}
+            ${index < players.length - 1 ? 'border-b' : ''} hover:bg-gray-50 transition-colors`;
+
+        const value = type === 'elo' ? player.eloRating :
+                      type === 'xp' ? player.xp :
+                      player.points;
+
+        const label = type === 'elo' ? 'ELO' :
+                      type === 'xp' ? 'XP' :
+                      'Punkte';
+
+        row.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-sm text-gray-500'}">
+                    ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                </span>
+                <img src="${player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(player.firstName?.[0] || '?')}`}"
+                     alt="${player.firstName || ''} ${player.lastName || ''}"
+                     class="w-10 h-10 rounded-full object-cover">
+                <div>
+                    <p class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-800'}">
+                        ${player.firstName || ''} ${player.lastName || ''}
+                        ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
+                    </p>
+                    ${league ? `<p class="text-xs ${league.color}">${league.icon} ${league.name}</p>` : ''}
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="font-bold ${type === 'elo' ? league?.color || 'text-gray-800' : 'text-gray-800'}">${Math.round(value)}</p>
+                <p class="text-xs text-gray-500">${label}</p>
+            </div>
+        `;
+
+        container.appendChild(row);
+    });
+}
+
+/**
+ * Render global leaderboard list (with club names)
+ */
+function renderGlobalLeaderboardList(container, players, currentUserId) {
+    container.innerHTML = '';
+
+    players.forEach((player, index) => {
+        const rank = index + 1;
+        const isCurrentUser = player.id === currentUserId;
+        const league = getLeague(player.eloRating);
+
+        const row = document.createElement('div');
+        row.className = `flex items-center justify-between p-3 ${isCurrentUser ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'bg-white'}
+            ${index < players.length - 1 ? 'border-b' : ''} hover:bg-gray-50 transition-colors`;
+
+        row.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-sm text-gray-500'}">
+                    ${rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : rank}
+                </span>
+                <img src="${player.photoURL || `https://placehold.co/40x40/e2e8f0/64748b?text=${(player.firstName?.[0] || '?')}`}"
+                     alt="${player.firstName || ''} ${player.lastName || ''}"
+                     class="w-10 h-10 rounded-full object-cover">
+                <div>
+                    <p class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-800'}">
+                        ${player.firstName || ''} ${player.lastName || ''}
+                        ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
+                    </p>
+                    <p class="text-xs text-gray-500">${player.clubName}</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <p class="font-bold ${league.color}">${Math.round(player.eloRating)}</p>
+                <p class="text-xs ${league.color}">${league.icon} ${league.name}</p>
+            </div>
+        `;
+
+        container.appendChild(row);
+    });
+}
+
+/**
+ * Subscribe to leaderboard changes (real-time)
+ */
+export function subscribeToLeaderboard(clubId, callback) {
+    const channel = supabase
+        .channel(`leaderboard_${clubId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'profiles',
+                filter: `club_id=eq.${clubId}`
+            },
+            () => {
+                callback();
+            }
+        )
+        .subscribe();
+
+    leaderboardSubscriptions.push(channel);
+    return () => supabase.removeChannel(channel);
+}
+
+/**
+ * Unsubscribe from all leaderboard channels
+ */
+export function unsubscribeFromLeaderboards() {
+    leaderboardSubscriptions.forEach(channel => {
+        supabase.removeChannel(channel);
+    });
+    leaderboardSubscriptions = [];
+}
+
+/**
+ * Load all leaderboards for a club
+ */
+export async function loadAllLeaderboards(userData) {
+    if (!userData.clubId) return;
+
+    await Promise.all([
+        loadSkillLeaderboard(userData.clubId, userData.id, 'skill-list-club'),
+        loadEffortLeaderboard(userData.clubId, userData.id, 'effort-list-club'),
+        loadSeasonLeaderboard(userData.clubId, userData.id, 'season-list-club'),
+        loadGlobalLeaderboard(userData.id, 'skill-list-global')
+    ]);
+}
+
+/**
+ * Renders the leaderboard HTML structure
+ */
+export function renderLeaderboardHTML(containerId, options = {}) {
+    const { showToggle = true, userData = null } = options;
+
+    const hasClub = userData?.clubId && userData.clubId !== '' && userData.clubId !== 'null';
+    const showEffortTab = hasClub ? (userData?.leaderboardPreferences?.showEffortTab !== false) : true;
+    const showRanksTab = hasClub ? (userData?.leaderboardPreferences?.showRanksTab !== false) : true;
+    const showSeasonTab = hasClub ? (userData?.leaderboardPreferences?.showSeasonTab !== false) : true;
+
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container with ID "${containerId}" not found`);
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
+
+            <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div class="flex justify-center min-w-max">
+                    ${showEffortTab ? `
+                    <button id="tab-effort" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
+                        <div>Fleiß</div>
+                        <div class="text-xs text-gray-500 font-normal">(XP)</div>
+                    </button>
+                    ` : ''}
+                    ${showSeasonTab ? `
+                    <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
+                        <div>Season</div>
+                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                    </button>
+                    ` : ''}
+                    <button id="tab-skill" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
+                        <div>Skill</div>
+                        <div class="text-xs text-gray-500 font-normal">(Elo)</div>
+                    </button>
+                    ${showRanksTab ? `
+                    <button id="tab-ranks" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
+                        <div>Ränge</div>
+                        <div class="text-xs text-gray-500 font-normal">(Level)</div>
+                    </button>
+                    ` : ''}
+                    <button id="tab-doubles" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
+                        <div>Doppel</div>
+                        <div class="text-xs text-gray-500 font-normal">(Teams)</div>
+                    </button>
+                </div>
+            </div>
+
+            ${showToggle ? `
+                <div id="scope-toggle-container" class="mt-4 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+                    <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
+                    <button id="toggle-global" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Global</button>
+                </div>
+            ` : ''}
+
+            <div id="content-skill" class="leaderboard-tab-content hidden">
+                <div id="skill-club-container">
+                    <div id="skill-list-club" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Lade Skill-Rangliste...</p>
+                    </div>
+                </div>
+                ${showToggle ? `
+                    <div id="skill-global-container" class="hidden">
+                        <div id="skill-list-global" class="mt-6 space-y-2">
+                            <p class="text-center text-gray-500 py-8">Lade globale Skill-Rangliste...</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+
+            <div id="content-effort" class="leaderboard-tab-content hidden">
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
+                </div>
+            </div>
+
+            <div id="content-season" class="leaderboard-tab-content hidden">
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
+                </div>
+            </div>
+
+            <div id="content-ranks" class="leaderboard-tab-content hidden">
+                <div id="ranks-list" class="mt-6 space-y-4">
+                    <p class="text-center text-gray-500 py-8">Lade Level-Übersicht...</p>
+                </div>
+            </div>
+
+            <div id="content-doubles" class="leaderboard-tab-content hidden">
+                <div id="doubles-club-container">
+                    <div id="doubles-list-club" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                    </div>
+                </div>
+                ${showToggle ? `
+                    <div id="doubles-global-container" class="hidden">
+                        <div id="doubles-list-global" class="mt-6 space-y-2">
+                            <p class="text-center text-gray-500 py-8">Lade globale Doppel-Rangliste...</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Sets up the leaderboard tabs click handlers
+ */
+export function setupLeaderboardTabs(userData = null) {
+    const tabSkillBtn = document.getElementById('tab-skill');
+    const tabEffortBtn = document.getElementById('tab-effort');
+    const tabSeasonBtn = document.getElementById('tab-season');
+    const tabRanksBtn = document.getElementById('tab-ranks');
+    const tabDoublesBtn = document.getElementById('tab-doubles');
+    const scopeToggleContainer = document.getElementById('scope-toggle-container');
+
+    if (!tabSkillBtn || !tabEffortBtn || !tabSeasonBtn || !tabRanksBtn || !tabDoublesBtn) return;
+
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
+    const switchTab = tabName => {
+        currentActiveTab = tabName;
+
+        document.querySelectorAll('.leaderboard-tab-content').forEach(el => el.classList.add('hidden'));
+
+        document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
+            btn.classList.remove('border-indigo-600', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-600');
+        });
+
+        const selectedContent = document.getElementById(`content-${tabName}`);
+        if (selectedContent) selectedContent.classList.remove('hidden');
+
+        const selectedTab = document.getElementById(`tab-${tabName}`);
+        if (selectedTab) {
+            selectedTab.classList.add('border-indigo-600', 'text-indigo-600');
+            selectedTab.classList.remove('border-transparent', 'text-gray-600');
+        }
+
+        if (scopeToggleContainer) {
+            if (tabName === 'skill' || tabName === 'doubles') {
+                scopeToggleContainer.classList.remove('hidden');
+            } else {
+                scopeToggleContainer.classList.add('hidden');
+            }
+        }
+
+        if (!hasClub && (tabName === 'skill' || tabName === 'doubles')) {
+            const clubContainer = document.getElementById(`${tabName}-club-container`);
+            const globalContainer = document.getElementById(`${tabName}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+
+            const toggleClubBtn = document.getElementById('toggle-club');
+            const toggleGlobalBtn = document.getElementById('toggle-global');
+            if (toggleClubBtn) toggleClubBtn.classList.remove('toggle-btn-active');
+            if (toggleGlobalBtn) toggleGlobalBtn.classList.add('toggle-btn-active');
+        }
+    };
+
+    tabSkillBtn.addEventListener('click', () => switchTab('skill'));
+    tabEffortBtn.addEventListener('click', () => switchTab('effort'));
+    tabSeasonBtn.addEventListener('click', () => switchTab('season'));
+    tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
+    tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
+
+    const defaultTab = hasClub ? 'effort' : 'skill';
+    switchTab(defaultTab);
+}
+
+/**
+ * Sets up the club/global toggle for Skill and Doubles tabs
+ */
+export function setupLeaderboardToggle(userData = null) {
+    const toggleClubBtn = document.getElementById('toggle-club');
+    const toggleGlobalBtn = document.getElementById('toggle-global');
+
+    if (!toggleClubBtn || !toggleGlobalBtn) return;
+
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
+    if (!hasClub) {
+        toggleClubBtn.style.display = 'none';
+    }
+
+    const switchScope = scope => {
+        const tab = currentActiveTab;
+
+        if (scope === 'club' && hasClub) {
+            toggleClubBtn.classList.add('toggle-btn-active');
+            toggleGlobalBtn.classList.remove('toggle-btn-active');
+
+            const clubContainer = document.getElementById(`${tab}-club-container`);
+            const globalContainer = document.getElementById(`${tab}-global-container`);
+            if (clubContainer) clubContainer.classList.remove('hidden');
+            if (globalContainer) globalContainer.classList.add('hidden');
+        } else {
+            toggleGlobalBtn.classList.add('toggle-btn-active');
+            toggleClubBtn.classList.remove('toggle-btn-active');
+
+            const clubContainer = document.getElementById(`${tab}-club-container`);
+            const globalContainer = document.getElementById(`${tab}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+        }
+    };
+
+    toggleClubBtn.addEventListener('click', () => switchScope('club'));
+    toggleGlobalBtn.addEventListener('click', () => switchScope('global'));
+
+    switchScope(hasClub ? 'club' : 'global');
+}
+
+/**
+ * Loads all leaderboards (wrapper for compatibility)
+ */
+export async function loadLeaderboard(userData, supabaseClient, unsubscribes) {
+    if (!userData.clubId) return;
+
+    await Promise.all([
+        loadSkillLeaderboard(userData.clubId, userData.id, 'skill-list-club'),
+        loadEffortLeaderboard(userData.clubId, userData.id, 'effort-list-club'),
+        loadSeasonLeaderboard(userData.clubId, userData.id, 'season-list-club'),
+    ]);
+}
+
+/**
+ * @deprecated This function is deprecated and will be removed in future versions.
+ * Use the new 3-tab leaderboard system instead.
+ */
+export function loadLeaderboardForCoach(clubId, leagueToShow, supabase, unsubscribeCallback) {
+    console.warn(
+        'loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.'
+    );
+}
