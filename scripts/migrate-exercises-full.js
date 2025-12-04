@@ -158,14 +158,14 @@ async function migrateExercises() {
             // Media
             image_url: data.imageUrl || null,
 
-            // Points & Difficulty
-            points: data.points || data.xpReward || 10,
-            xp_reward: data.xpReward || data.points || 10,
+            // Points & Difficulty - ensure numeric values
+            points: typeof data.points === 'number' ? data.points : (typeof data.xpReward === 'number' ? data.xpReward : 10),
+            xp_reward: typeof data.xpReward === 'number' ? data.xpReward : (typeof data.points === 'number' ? data.points : 10),
             // Note: 'level' is INTEGER in DB, so we store difficulty text in 'difficulty' column
             difficulty: data.level || data.difficulty || null,
             tiered_points: data.tieredPoints || null,
 
-            // Categorization
+            // Categorization - category might be TEXT, tags is TEXT[]
             category: data.category || (data.tags ? data.tags[0] : null),
             tags: data.tags || (data.category ? [data.category] : []),
             visibility: data.visibility || 'global',
@@ -195,7 +195,14 @@ async function migrateExercises() {
 
             if (error) {
                 console.error(`❌ Error migrating "${data.name || data.title}": ${error.message}`);
-                console.error('   Details:', JSON.stringify(error, null, 2));
+                // Debug: show the data that caused the error
+                console.error('   Firebase data:', JSON.stringify({
+                    points: data.points,
+                    xpReward: data.xpReward,
+                    category: data.category,
+                    level: data.level,
+                    difficulty: data.difficulty
+                }, null, 2));
                 errorCount++;
             } else {
                 console.log(`✅ Migrated: ${data.name || data.title}`);
