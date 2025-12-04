@@ -1278,11 +1278,14 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
         }
 
         const exerciseData = {
-            title,
+            name: title,  // DB column is 'name', not 'title'
             description_content: JSON.stringify(descriptionContent),
-            level,
-            difficulty,
+            // Store level text in 'category' column (level/difficulty are INTEGER in DB)
+            category: level,
+            // Store difficulty text in description or skip it
+            // difficulty is INTEGER in DB, so we can't use text values
             points,
+            xp_reward: points,  // Also set xp_reward for compatibility
             tags,
             visibility,
             tiered_points: milestonesEnabled && milestones
