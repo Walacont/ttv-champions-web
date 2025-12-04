@@ -187,6 +187,7 @@
         text-decoration: none;
         min-width: 56px;
         position: relative;
+        opacity: 0.5; /* Inaktive Tabs halbtransparent */
     }
 
     .mobile-nav-item i {
@@ -201,19 +202,28 @@
         line-height: 1.2;
     }
 
-    /* Active State */
+    /* Active State - Sehr deutlich unterscheidbar */
     .mobile-nav-item.active {
         color: #ffffff;
-        opacity: 1;
+        opacity: 1; /* Voll sichtbar */
     }
 
     .mobile-nav-item.active i {
-        transform: scale(1.1);
+        transform: scale(1.2); /* Größeres Icon */
+    }
+
+    .mobile-nav-item.active span {
+        font-weight: 700; /* Fetter Text */
     }
 
     /* Middle Item (Wettkampf) - Highlighted with Circle */
     .mobile-nav-item.middle-action {
         margin-top: -16px;
+        opacity: 0.5; /* Inaktiv halbtransparent */
+    }
+
+    .mobile-nav-item.middle-action.active {
+        opacity: 1; /* Aktiv voll sichtbar */
     }
 
     .mobile-nav-item.middle-action .nav-icon-wrapper {
@@ -226,6 +236,10 @@
         justify-content: center;
         box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
         transition: all 0.2s;
+    }
+
+    .mobile-nav-item.middle-action.active .nav-icon-wrapper {
+        transform: scale(1.1); /* Größer wenn aktiv */
     }
 
     .mobile-nav-item.middle-action .nav-icon-wrapper:active {
@@ -245,6 +259,7 @@
 
     .mobile-nav-item.middle-action.active span {
         color: #ffffff;
+        font-weight: 700; /* Fetter wenn aktiv */
     }
 
     /* ============================================
@@ -262,8 +277,7 @@
             color: #ffffff;
         }
 
-        .mobile-header-icon,
-        .mobile-nav-item {
+        .mobile-header-icon {
             color: #ffffff;
         }
 
@@ -271,8 +285,22 @@
             opacity: 0.8;
         }
 
+        .mobile-nav-item {
+            color: #ffffff;
+            opacity: 0.5; /* Inaktive Tabs halbtransparent */
+        }
+
         .mobile-nav-item.active {
             color: #ffffff;
+            opacity: 1; /* Aktive Tabs voll sichtbar */
+        }
+
+        .mobile-nav-item.active i {
+            transform: scale(1.2);
+        }
+
+        .mobile-nav-item.active span {
+            font-weight: 700;
         }
 
         .mobile-profile-pic {
@@ -295,8 +323,7 @@
         color: #ffffff;
     }
 
-    .dark .mobile-header-icon,
-    .dark .mobile-nav-item {
+    .dark .mobile-header-icon {
         color: #ffffff;
     }
 
@@ -304,8 +331,22 @@
         opacity: 0.8;
     }
 
+    .dark .mobile-nav-item {
+        color: #ffffff;
+        opacity: 0.5; /* Inaktive Tabs halbtransparent */
+    }
+
     .dark .mobile-nav-item.active {
         color: #ffffff;
+        opacity: 1; /* Aktive Tabs voll sichtbar */
+    }
+
+    .dark .mobile-nav-item.active i {
+        transform: scale(1.2);
+    }
+
+    .dark .mobile-nav-item.active span {
+        font-weight: 700;
     }
 
     .dark .mobile-profile-pic {
