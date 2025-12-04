@@ -1,49 +1,25 @@
-// NEU: Zusätzliche Imports für die Emulatoren
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
-import {
-    sendPasswordResetEmail,
-    connectAuthEmulator,
-    getAuth,
-} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-// Supabase Auth imports
+// Coach Dashboard - Supabase Version
+// 1:1 Migration von coach.js - Firebase → Supabase
+
 import { getSupabase, onAuthStateChange as supabaseAuthStateChange } from './supabase-init.js';
 import {
-    getAnalytics,
-    logEvent,
-} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
-import {
-    getFirestore,
-    collection,
     doc,
     getDoc,
     getDocs,
+    setDoc,
+    updateDoc,
+    deleteDoc,
     addDoc,
-    onSnapshot,
+    collection,
     query,
     where,
+    orderBy,
+    limit,
+    onSnapshot,
     writeBatch,
     serverTimestamp,
     increment,
-    deleteDoc,
-    updateDoc,
-    runTransaction,
-    orderBy,
-    limit,
-    connectFirestoreEmulator,
-} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import {
-    getStorage,
-    ref,
-    uploadBytes,
-    getDownloadURL,
-    connectStorageEmulator,
-} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
-import {
-    getFunctions,
-    httpsCallable,
-    connectFunctionsEmulator,
-} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js';
-import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
+} from './db-supabase.js';
 import {
     LEAGUES,
     PROMOTION_COUNT,
@@ -114,7 +90,6 @@ import {
 import {
     initializeDoublesCoachUI,
     populateDoublesDropdowns,
-    setupDoublesHandicap,
     handleDoublesMatchSave,
     getCurrentMatchType,
     setDoublesSetScoreInput,
@@ -169,22 +144,8 @@ import { initializeTrainingCompletion } from './training-completion.js';
 import TutorialManager from './tutorial.js';
 import { coachTutorialSteps } from './tutorial-coach.js';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app); // Kept for emulator connection only
-const db = getFirestore(app);
-const storage = getStorage(app);
-const analytics = getAnalytics(app);
-const functions = getFunctions(app, 'europe-west3');
+// Initialize Supabase
 const supabase = getSupabase();
-
-// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
-if (shouldUseEmulators()) {
-    console.log('Coach.js: Verbinde mit lokalen Firebase Emulatoren...');
-    connectAuthEmulator(auth, 'http://localhost:9099');
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    connectFunctionsEmulator(functions, 'localhost', 5001);
-    connectStorageEmulator(storage, 'localhost', 9199);
-}
 
 // --- State ---
 let currentUserData = null;
@@ -214,70 +175,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Auth-Fehler:', message);
     }
 
-    // Check Supabase session first
+    // Check Supabase session
     const { data: { session } } = await supabase.auth.getSession();
 
     if (session && session.user) {
         const user = { uid: session.user.id, email: session.user.email };
 
         try {
-            const userDocRef = doc(db, 'users', user.uid);
-            let userDocSnap = await getDoc(userDocRef);
+            // Get user profile from Supabase
+            const { data: supabaseProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.uid)
+                .single();
 
-            // If user doesn't exist in Firestore, sync from Supabase
-            if (!userDocSnap.exists()) {
-                console.log('[COACH] User not in Firestore, syncing from Supabase...');
-
-                const { data: supabaseProfile, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.uid)
-                    .single();
-
-                if (profileError || !supabaseProfile) {
-                    showAuthError('Benutzerprofil nicht gefunden.');
-                    return;
-                }
-
-                // Create Firebase Firestore document
-                const { setDoc } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
-
-                const firestoreUserData = {
-                    email: supabaseProfile.email || user.email,
-                    firstName: supabaseProfile.first_name || '',
-                    lastName: supabaseProfile.last_name || '',
-                    role: supabaseProfile.role || 'player',
-                    clubId: supabaseProfile.club_id || null,
-                    xp: supabaseProfile.xp || 0,
-                    points: supabaseProfile.points || 0,
-                    eloRating: supabaseProfile.elo_rating || 1000,
-                    highestElo: supabaseProfile.highest_elo || 1000,
-                    gender: supabaseProfile.gender || null,
-                    birthdate: supabaseProfile.birthdate || null,
-                    photoURL: supabaseProfile.photo_url || null,
-                    onboardingComplete: true,
-                    isOffline: false,
-                    createdAt: new Date()
-                };
-
-                await setDoc(userDocRef, firestoreUserData);
-                userDocSnap = await getDoc(userDocRef);
+            if (profileError || !supabaseProfile) {
+                showAuthError('Benutzerprofil nicht gefunden.');
+                return;
             }
 
-            if (userDocSnap.exists()) {
-                const userData = userDocSnap.data();
-                if (userData.role === 'coach' || userData.role === 'admin') {
-                    currentUserData = { id: user.uid, ...userData };
+            // Map Supabase profile to expected format
+            const userData = {
+                id: user.uid,
+                email: supabaseProfile.email || user.email,
+                firstName: supabaseProfile.first_name || '',
+                lastName: supabaseProfile.last_name || '',
+                role: supabaseProfile.role || 'player',
+                clubId: supabaseProfile.club_id || null,
+                xp: supabaseProfile.xp || 0,
+                points: supabaseProfile.points || 0,
+                eloRating: supabaseProfile.elo_rating || 1000,
+                highestElo: supabaseProfile.highest_elo || 1000,
+                gender: supabaseProfile.gender || null,
+                birthdate: supabaseProfile.birthdate || null,
+                photoURL: supabaseProfile.photo_url || null,
+                onboardingComplete: supabaseProfile.onboarding_complete || false,
+                isOffline: supabaseProfile.is_offline || false,
+                tutorialCompleted: supabaseProfile.tutorial_completed || {},
+            };
 
-                    // Check for season reset
-                    await checkAndResetClubSeason(userData.clubId, db);
+            if (userData.role === 'coach' || userData.role === 'admin') {
+                currentUserData = userData;
 
-                    initializeCoachPage(currentUserData);
-                } else {
-                    showAuthError(`Ihre Rolle ('${userData.role}') ist nicht berechtigt.`);
-                }
+                // Check for season reset
+                await checkAndResetClubSeason(userData.clubId, supabase);
+
+                initializeCoachPage(currentUserData);
             } else {
-                showAuthError('Ihr Benutzerprofil wurde nicht gefunden.');
+                showAuthError(`Ihre Rolle ('${userData.role}') ist nicht berechtigt.`);
             }
         } catch (error) {
             showAuthError(`DB-Fehler: ${error.message}`);
@@ -299,9 +244,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 /**
  * Sets the header profile picture and club information
  * @param {Object} userData - Current user data
- * @param {Object} db - Firestore database instance
  */
-async function setHeaderProfileAndClub(userData, db) {
+async function setHeaderProfileAndClub(userData) {
     const headerProfilePic = document.getElementById('header-profile-pic');
     const headerClubName = document.getElementById('header-club-name');
 
@@ -317,9 +261,14 @@ async function setHeaderProfileAndClub(userData, db) {
     // Set club information
     if (userData.clubId) {
         try {
-            const clubDoc = await getDoc(doc(db, 'clubs', userData.clubId));
-            if (clubDoc.exists()) {
-                headerClubName.textContent = clubDoc.data().name || userData.clubId;
+            const { data: clubData, error } = await supabase
+                .from('clubs')
+                .select('name')
+                .eq('id', userData.clubId)
+                .single();
+
+            if (!error && clubData) {
+                headerClubName.textContent = clubData.name || userData.clubId;
             } else {
                 headerClubName.textContent = userData.clubId;
             }
@@ -348,7 +297,7 @@ async function initializeCoachPage(userData) {
     // Run migration if needed
     if (loaderText) loaderText.textContent = 'Prüfe Datenbank-Migration...';
     try {
-        const migrationResult = await checkAndMigrate(userData.clubId, db);
+        const migrationResult = await checkAndMigrate(userData.clubId, supabase);
         if (migrationResult.success && !migrationResult.skipped) {
             console.log('[Coach] Migration completed successfully:', migrationResult.stats);
             if (loaderText) loaderText.textContent = 'Migration abgeschlossen! Lade Dashboard...';
@@ -372,17 +321,16 @@ async function initializeCoachPage(userData) {
         `Willkommen, ${userData.firstName || userData.email}!`;
 
     // Set header profile picture and club info
-    await setHeaderProfileAndClub(userData, db);
+    await setHeaderProfileAndClub(userData);
 
-    // Track page view in Google Analytics
-    logEvent(analytics, 'page_view', {
+    // Track page view (console log instead of Firebase Analytics)
+    console.log('[Analytics] Coach page view tracked', {
         page_title: 'Coach Dashboard',
         page_location: window.location.href,
         page_path: '/coach',
         user_role: 'coach',
         club_id: userData.clubId,
     });
-    console.log('[Analytics] Coach page view tracked');
 
     // Initialize Club Requests Manager
     await initClubRequestsManager(userData);
@@ -404,22 +352,22 @@ async function initializeCoachPage(userData) {
             const tabName = button.dataset.tab;
             if (tabName === 'matches') {
                 // Load saved pairings when Wettkampf tab is opened
-                loadSavedPairings(db, userData.clubId);
+                loadSavedPairings(supabase, userData.clubId);
             }
         });
     });
 
     // Initialize Invitation Code Management
-    initInvitationCodeManagement(db, userData.clubId, userData.id);
+    initInvitationCodeManagement(supabase, userData.clubId, userData.id);
 
-    // Initialize Player Invitation Management
-    initPlayerInvitationManagement(db, auth, functions, userData.clubId, userData.id);
+    // Initialize Player Invitation Management (pass supabase instead of auth/functions)
+    initPlayerInvitationManagement(supabase, null, null, userData.clubId, userData.id);
 
     // Initialize Spontaneous Sessions (for creating trainings from calendar)
-    initializeSpontaneousSessions(userData, db);
+    initializeSpontaneousSessions(userData, supabase);
 
     // Initialize Training Completion (for intelligent points distribution)
-    initializeTrainingCompletion(db, userData);
+    initializeTrainingCompletion(supabase, userData);
 
     // Bridge function: Connect training-schedule-ui to attendance module
     window.openAttendanceForSessionFromSchedule = async function (sessionId, dateStr) {
@@ -429,19 +377,19 @@ async function initializeCoachPage(userData) {
             clubPlayers,
             updateAttendanceCount,
             updatePairingsButtonState,
-            db,
+            supabase,
             userData.clubId
         );
     };
 
     // Load statistics initially (since it's the default tab)
-    loadStatistics(userData, db, currentSubgroupFilter);
+    loadStatistics(userData, supabase, currentSubgroupFilter);
 
     // Setup Statistics Tab
     const statisticsTabButton = document.querySelector('.tab-button[data-tab="statistics"]');
     if (statisticsTabButton) {
         statisticsTabButton.addEventListener('click', () => {
-            loadStatistics(userData, db, currentSubgroupFilter);
+            loadStatistics(userData, supabase, currentSubgroupFilter);
         });
     }
 
@@ -449,7 +397,7 @@ async function initializeCoachPage(userData) {
     const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
     if (subgroupsTabButton) {
         subgroupsTabButton.addEventListener('click', () => {
-            loadSubgroupsList(userData.clubId, db, unsub => {
+            loadSubgroupsList(userData.clubId, supabase, unsub => {
                 if (unsubscribeSubgroups) unsubscribeSubgroups();
                 unsubscribeSubgroups = unsub;
             });
@@ -457,22 +405,21 @@ async function initializeCoachPage(userData) {
     }
 
     // Load initial data
-    loadPlayersForDropdown(userData.clubId, db);
-    loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
-    loadExercisesForDropdown(db);
-    loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
-    loadExpiredChallenges(userData.clubId, db);
-    setExerciseContext(db, userData.id, userData.role, userData.clubId);
-    loadAllExercises(db);
+    loadPlayersForDropdown(userData.clubId, supabase);
+    loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
+    loadExercisesForDropdown(supabase);
+    loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);
+    loadExpiredChallenges(userData.clubId, supabase);
+    setExerciseContext(supabase, userData.id, userData.role, userData.clubId);
+    loadAllExercises(supabase);
 
     // Populate subgroup dropdowns for challenge forms
-    populateSubgroupDropdown(userData.clubId, 'challenge-subgroup', db);
-    populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', db);
-    loadPlayersForAttendance(userData.clubId, db, players => {
+    populateSubgroupDropdown(userData.clubId, 'challenge-subgroup', supabase);
+    populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', supabase);
+    loadPlayersForAttendance(userData.clubId, supabase, players => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
         populateDoublesDropdowns(clubPlayers, currentSubgroupFilter); // Populate doubles dropdowns
-        setupDoublesHandicap(clubPlayers); // Setup handicap calculation for doubles
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
@@ -486,15 +433,15 @@ async function initializeCoachPage(userData) {
         setDoublesSetScoreInput(setScoreInput);
     }
 
-    loadLeaderboard(userData, db, []);
-    loadGlobalLeaderboard(userData, db, []);
+    loadLeaderboard(userData, supabase, []);
+    loadGlobalLeaderboard(userData, supabase, []);
 
     // Load coach match requests (singles and doubles)
     // Load combined match requests (singles + doubles)
-    loadCoachMatchRequests(userData, db);
-    loadCoachProcessedRequests(userData, db);
+    loadCoachMatchRequests(userData, supabase);
+    loadCoachProcessedRequests(userData, supabase);
 
-    calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
 
     // Listen for training cancellation events to reload calendar
     window.addEventListener('trainingCancelled', () => {
@@ -502,7 +449,7 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
     });
 
     // Listen for training creation events to reload calendar
@@ -511,7 +458,7 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
     });
 
     // --- Event Listeners ---
@@ -543,7 +490,7 @@ async function initializeCoachPage(userData) {
     // Player Modal Listeners
     document.getElementById('open-player-modal-button').addEventListener('click', () => {
         document.getElementById('player-list-modal').classList.remove('hidden');
-        loadPlayerList(userData.clubId, db, unsub => {
+        loadPlayerList(userData.clubId, supabase, unsub => {
             if (unsubscribePlayerList) unsubscribePlayerList();
             unsubscribePlayerList = unsub;
         });
@@ -558,13 +505,18 @@ async function initializeCoachPage(userData) {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
         document.getElementById('add-offline-player-modal').classList.add('flex');
 
-        // Lade Subgroups
-        const subgroupsQuery = query(
-            collection(db, 'subgroups'),
-            where('clubId', '==', userData.clubId)
-        );
-        const subgroupsSnap = await getDocs(subgroupsQuery);
-        const subgroups = subgroupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Lade Subgroups from Supabase
+        const { data: subgroupsData, error } = await supabase
+            .from('subgroups')
+            .select('*')
+            .eq('club_id', userData.clubId);
+
+        const subgroups = error ? [] : subgroupsData.map(sg => ({
+            id: sg.id,
+            name: sg.name,
+            clubId: sg.club_id,
+            ...sg
+        }));
 
         loadSubgroupsForOfflinePlayerForm(subgroups);
     });
@@ -597,7 +549,7 @@ async function initializeCoachPage(userData) {
         );
     document
         .getElementById('save-player-subgroups-button')
-        .addEventListener('click', () => handleSavePlayerSubgroups(db));
+        .addEventListener('click', () => handleSavePlayerSubgroups(supabase));
 
     // Attendance Modal Listeners
     document.getElementById('close-attendance-modal-button').addEventListener('click', () => {
@@ -607,7 +559,7 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
     });
 
     // Form Submissions
@@ -620,31 +572,31 @@ async function initializeCoachPage(userData) {
 
     document
         .getElementById('add-offline-player-form')
-        .addEventListener('submit', e => handleAddOfflinePlayer(e, db, userData));
+        .addEventListener('submit', e => handleAddOfflinePlayer(e, supabase, userData));
     document
         .getElementById('points-form')
         .addEventListener('submit', e =>
-            handlePointsFormSubmit(e, db, userData, handleReasonChange)
+            handlePointsFormSubmit(e, supabase, userData, handleReasonChange)
         );
     document
         .getElementById('create-challenge-form')
-        .addEventListener('submit', e => handleCreateChallenge(e, db, userData));
+        .addEventListener('submit', e => handleCreateChallenge(e, supabase, userData));
     document
         .getElementById('attendance-form')
         .addEventListener('submit', e =>
-            handleAttendanceSave(e, db, userData, clubPlayers, currentCalendarDate, date =>
-                renderCalendar(date, db, userData)
+            handleAttendanceSave(e, supabase, userData, clubPlayers, currentCalendarDate, date =>
+                renderCalendar(date, supabase, userData)
             )
         );
     document
         .getElementById('create-exercise-form')
-        .addEventListener('submit', e => handleCreateExercise(e, db, storage, descriptionEditor, userData));
+        .addEventListener('submit', e => handleCreateExercise(e, supabase, supabase.storage, descriptionEditor, userData));
     document.getElementById('match-form').addEventListener('submit', async e => {
         const matchType = getCurrentMatchType();
         if (matchType === 'doubles') {
-            await handleDoublesMatchSave(e, db, userData);
+            await handleDoublesMatchSave(e, supabase, userData);
         } else {
-            await handleMatchSave(e, db, userData, clubPlayers);
+            await handleMatchSave(e, supabase, userData, clubPlayers);
         }
     });
 
@@ -668,10 +620,10 @@ async function initializeCoachPage(userData) {
 
     document
         .getElementById('create-subgroup-form')
-        .addEventListener('submit', e => handleCreateSubgroup(e, db, userData.clubId));
+        .addEventListener('submit', e => handleCreateSubgroup(e, supabase, userData.clubId));
     document
         .getElementById('edit-subgroup-form')
-        .addEventListener('submit', e => handleEditSubgroupSubmit(e, db));
+        .addEventListener('submit', e => handleEditSubgroupSubmit(e, supabase));
     document
         .getElementById('close-edit-subgroup-modal-button')
         .addEventListener('click', closeEditSubgroupModal);
@@ -683,10 +635,10 @@ async function initializeCoachPage(userData) {
     document.getElementById('reason-select').addEventListener('change', handleReasonChange);
 
     // Setup milestone selectors for exercise/challenge points awarding
-    setupMilestoneSelectors(db);
+    setupMilestoneSelectors(supabase);
 
     // Setup manual partner system for manual points awarding
-    setupManualPartnerSystem(db);
+    setupManualPartnerSystem(supabase);
 
     document.getElementById('generate-pairings-button').addEventListener('click', () => {
         const sessionId = getCurrentSessionId();
@@ -731,22 +683,22 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
     });
     document.getElementById('next-month-btn').addEventListener('click', () => {
         currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
     });
 
     // Export buttons for attendance
     document.getElementById('export-attendance-btn').addEventListener('click', async () => {
-        await exportAttendanceToExcel(db, userData.clubId, currentCalendarDate, currentSubgroupFilter);
+        await exportAttendanceToExcel(supabase, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
     document.getElementById('export-attendance-summary-btn').addEventListener('click', async () => {
-        await exportAttendanceSummary(db, userData.clubId, currentCalendarDate, currentSubgroupFilter);
+        await exportAttendanceSummary(supabase, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
     document
         .getElementById('calendar-grid')
@@ -756,7 +708,7 @@ async function initializeCoachPage(userData) {
                 clubPlayers,
                 updateAttendanceCount,
                 () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter),
-                db,
+                supabase,
                 userData.clubId
             )
         );
@@ -778,11 +730,11 @@ async function initializeCoachPage(userData) {
     initializeHandicapToggle(); // Initialize handicap toggle for automatic score setting
     document
         .getElementById('subgroups-list')
-        .addEventListener('click', e => handleSubgroupActions(e, db, userData.clubId));
+        .addEventListener('click', e => handleSubgroupActions(e, supabase, userData.clubId));
 
     // === KORREKTUR 2: VERALTETEN LISTENER ERSETZEN ===
     // Diese Zeile hat auf Klicks in der *Liste* gelauscht, um Aktionen auszuführen.
-    // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, db, auth, functions)); // <--- ALT & FALSCH
+    // document.getElementById('modal-player-list').addEventListener('click', (e) => handlePlayerListActions(e, supabase, null, null)); // <--- ALT & FALSCH
 
     // Event-Handler für Aktions-Buttons (Desktop)
     const handleActionClick = async e => {
@@ -790,7 +742,7 @@ async function initializeCoachPage(userData) {
         if (!button) return;
 
         // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern)
-        await handlePlayerListActions(e, db, auth, functions);
+        await handlePlayerListActions(e, supabase, null, null);
 
         // Logik für "Gruppen bearbeiten"-Button
         if (button.classList.contains('edit-subgroups-btn')) {
@@ -798,7 +750,7 @@ async function initializeCoachPage(userData) {
             const player = clubPlayers.find(p => p.id === playerId);
 
             if (player) {
-                openEditPlayerModal(player, db, userData.clubId);
+                openEditPlayerModal(player, supabase, userData.clubId);
             } else {
                 console.error('Spieler nicht im lokalen Cache gefunden.');
                 alert('Fehler: Spielerdaten konnten nicht geladen werden.');
@@ -843,19 +795,19 @@ async function initializeCoachPage(userData) {
 
     // Filter Listeners
     document.getElementById('history-player-filter').addEventListener('change', e => {
-        loadPointsHistoryForCoach(e.target.value, db, unsub => {
+        loadPointsHistoryForCoach(e.target.value, supabase, unsub => {
             if (unsubscribePointsHistory) unsubscribePointsHistory();
             unsubscribePointsHistory = unsub;
         });
     });
 
     document.getElementById('player-select').addEventListener('change', e => {
-        // === KORREKTUR 3: 'db' Instanz übergeben ===
-        updateCoachGrundlagenDisplay(e.target.value, db);
+        // === KORREKTUR 3: 'supabase' Instanz übergeben ===
+        updateCoachGrundlagenDisplay(e.target.value, supabase);
     });
 
     // Subgroup Filter
-    populateSubgroupFilter(userData.clubId, db);
+    populateSubgroupFilter(userData.clubId, supabase);
     document.getElementById('subgroup-filter').addEventListener('change', e => {
         currentSubgroupFilter = e.target.value;
         handleSubgroupFilterChange(userData);
@@ -871,8 +823,8 @@ async function initializeCoachPage(userData) {
     }
 
     // Intervals
-    updateSeasonCountdown('season-countdown-coach', false, db);
-    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, db), 1000);
+    updateSeasonCountdown('season-countdown-coach', false, supabase);
+    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase), 1000);
     setInterval(updateAllCountdowns, 1000);
 
     // Check if tutorial should be shown (first time coach login)
@@ -920,21 +872,41 @@ async function checkAndStartTutorial(userData) {
 /**
  * Populates the subgroup filter dropdown with age groups and custom subgroups
  * @param {string} clubId - Club ID
- * @param {Object} db - Firestore database instance
+ * @param {Object} db - Supabase client instance
  */
 function populateSubgroupFilter(clubId, db) {
     const select = document.getElementById('subgroup-filter');
     if (!select) return;
 
-    const q = query(
-        collection(db, 'subgroups'),
-        where('clubId', '==', clubId),
-        orderBy('createdAt', 'asc')
-    );
+    // Initial load
+    loadSubgroupsForFilter();
 
-    onSnapshot(
-        q,
-        snapshot => {
+    // Set up real-time subscription
+    const subscription = supabase
+        .channel('subgroups-filter-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'subgroups',
+            filter: `club_id=eq.${clubId}`
+        }, () => {
+            loadSubgroupsForFilter();
+        })
+        .subscribe();
+
+    async function loadSubgroupsForFilter() {
+        try {
+            const { data: subgroupsData, error } = await supabase
+                .from('subgroups')
+                .select('*')
+                .eq('club_id', clubId)
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                console.error('Error loading subgroups for filter:', error);
+                return;
+            }
+
             const currentValue = select.value;
             select.innerHTML = '';
 
@@ -986,13 +958,7 @@ function populateSubgroupFilter(clubId, db) {
             select.appendChild(genderGroup);
 
             // Add Custom Subgroups
-            const customSubgroups = [];
-            snapshot.forEach(doc => {
-                const subgroup = doc.data();
-                if (!subgroup.isDefault) {
-                    customSubgroups.push({ id: doc.id, ...subgroup });
-                }
-            });
+            const customSubgroups = subgroupsData.filter(sg => !sg.is_default);
 
             if (customSubgroups.length > 0) {
                 const customGroup = document.createElement('optgroup');
@@ -1013,11 +979,10 @@ function populateSubgroupFilter(clubId, db) {
             ) {
                 select.value = currentValue;
             }
-        },
-        error => {
+        } catch (error) {
             console.error('Error loading subgroups for filter:', error);
         }
-    );
+    }
 }
 
 /**
@@ -1038,15 +1003,15 @@ function handleSubgroupFilterChange(userData) {
     if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
         calendarUnsubscribe();
     }
-    calendarUnsubscribe = renderCalendar(currentCalendarDate, db, userData);
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
 
     // Reload leaderboards
-    loadLeaderboard(userData, db, []);
-    loadGlobalLeaderboard(userData, db, []);
+    loadLeaderboard(userData, supabase, []);
+    loadGlobalLeaderboard(userData, supabase, []);
 
     // Reload challenges for current subgroup
-    loadActiveChallenges(userData.clubId, db, currentSubgroupFilter);
-    loadChallengesForDropdown(userData.clubId, db, currentSubgroupFilter);
+    loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);
+    loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
 
     // Reload match dropdowns with new filter
     populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
@@ -1060,7 +1025,7 @@ function handleSubgroupFilterChange(userData) {
     // Reload statistics if the tab is active
     const statisticsTab = document.getElementById('tab-content-statistics');
     if (statisticsTab && !statisticsTab.classList.contains('hidden')) {
-        loadStatistics(userData, db, currentSubgroupFilter);
+        loadStatistics(userData, supabase, currentSubgroupFilter);
     }
 }
 
@@ -1075,8 +1040,8 @@ function handleGenderFilterChange(userData) {
     setLeaderboardGenderFilter(currentGenderFilter);
 
     // Reload leaderboards with updated gender filter
-    loadLeaderboard(userData, db, []);
-    loadGlobalLeaderboard(userData, db, []);
+    loadLeaderboard(userData, supabase, []);
+    loadGlobalLeaderboard(userData, supabase, []);
 }
 
 // Global challenge handlers (called from onclick in HTML)
@@ -1098,7 +1063,7 @@ window.handleReactivate = async function (duration) {
         return;
     }
 
-    const result = await reactivateChallenge(currentChallengeId, duration, subgroupId, db);
+    const result = await reactivateChallenge(currentChallengeId, duration, subgroupId, supabase);
     if (result.success) {
         alert('Challenge erfolgreich reaktiviert!');
         document.getElementById('reactivate-challenge-modal').classList.add('hidden');
@@ -1110,7 +1075,7 @@ window.handleReactivate = async function (duration) {
 
 window.confirmEndChallenge = async function (challengeId, title) {
     if (confirm(`Möchten Sie die Challenge "${title}" wirklich vorzeitig beenden?`)) {
-        const result = await endChallenge(challengeId, db);
+        const result = await endChallenge(challengeId, supabase);
         if (result.success) {
             alert('Challenge wurde beendet.');
         } else {
@@ -1125,7 +1090,7 @@ window.confirmDeleteChallenge = async function (challengeId, title) {
             `Möchten Sie die Challenge "${title}" wirklich PERMANENT löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden!`
         )
     ) {
-        const result = await deleteChallenge(challengeId, db);
+        const result = await deleteChallenge(challengeId, supabase);
         if (result.success) {
             alert('Challenge wurde gelöscht.');
         } else {

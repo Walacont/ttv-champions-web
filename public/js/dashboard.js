@@ -1,10 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
-    getAuth,
-    onAuthStateChanged,
-    signOut,
-} from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-import {
     getAnalytics,
     logEvent,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
@@ -24,6 +19,8 @@ import {
     limit,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
+// Supabase Auth imports
+import { getSupabase, onAuthStateChange as supabaseAuthStateChange } from './supabase-init.js';
 import {
     LEAGUES,
     PROMOTION_COUNT,
@@ -64,9 +61,9 @@ import TutorialManager from './tutorial.js';
 import { playerTutorialSteps } from './tutorial-player.js';
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 const analytics = getAnalytics(app);
+const supabase = getSupabase();
 
 // --- State ---
 let currentUserData = null;
@@ -82,59 +79,125 @@ let subgroupFilterListener = null; // Listener for subgroup filter dropdown
 let streaksListener = null; // Listener for player streaks (real-time updates)
 
 // --- Main App Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, async user => {
-        if (user) {
-            await user.getIdToken(true);
-            unsubscribes.forEach(unsub => unsub());
-            unsubscribes = [];
-            matchSuggestionsUnsubscribes.forEach(unsub => {
-                if (typeof unsub === 'function') unsub();
-            });
-            matchSuggestionsUnsubscribes = [];
-            try {
-                const userDocRef = doc(db, 'users', user.uid);
-                const initialDocSnap = await getDoc(userDocRef);
-                if (!initialDocSnap.exists()) {
-                    signOut(auth);
-                    return;
-                }
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check Supabase session first
+    const { data: { session } } = await supabase.auth.getSession();
 
-                // Season resets are now handled by Cloud Function (every 6 weeks)
-                // No frontend reset logic needed anymore
+    if (session && session.user) {
+        await initializeWithUser(session.user);
+    } else {
+        // No session, redirect to login
+        window.location.replace('/index.html');
+        return;
+    }
 
-                const userListener = onSnapshot(userDocRef, docSnap => {
-                    if (docSnap.exists()) {
-                        const userData = docSnap.data();
-                        // Allow players and coaches to view the player dashboard
-                        // Coaches can switch between coach and player view
-                        if (userData.role === 'player' || userData.role === 'coach') {
-                            const isFirstLoad = !currentUserData;
-                            currentUserData = { id: docSnap.id, ...userData };
-                            if (isFirstLoad) {
-                                initializeDashboard(currentUserData);
-                            } else {
-                                updateDashboard(currentUserData);
-                            }
-                        } else if (userData.role === 'admin') {
-                            // Only admins are redirected
-                            window.location.href = '/admin.html';
-                        }
-                    } else {
-                        signOut(auth);
-                    }
-                });
-                unsubscribes.push(userListener);
-            } catch (error) {
-                console.error('Initialer Ladefehler:', error);
-                signOut(auth);
-            }
-        } else {
-            // User logged out - use replace() to prevent back-button access
+    // Listen for auth state changes (logout, etc.)
+    supabaseAuthStateChange((event, session) => {
+        console.log('[DASHBOARD] Auth state changed:', event);
+        if (event === 'SIGNED_OUT' || !session) {
             window.location.replace('/index.html');
         }
     });
 });
+
+async function initializeWithUser(supabaseUser) {
+    // Create a user object compatible with the existing code
+    const user = { uid: supabaseUser.id, email: supabaseUser.email };
+
+    unsubscribes.forEach(unsub => unsub());
+    unsubscribes = [];
+    matchSuggestionsUnsubscribes.forEach(unsub => {
+        if (typeof unsub === 'function') unsub();
+    });
+    matchSuggestionsUnsubscribes = [];
+
+    try {
+        const userDocRef = doc(db, 'users', user.uid);
+        let initialDocSnap = await getDoc(userDocRef);
+
+        // If user doesn't exist in Firebase Firestore, sync from Supabase
+        if (!initialDocSnap.exists()) {
+            console.log('[DASHBOARD] User not in Firestore, syncing from Supabase...');
+
+            // Get profile from Supabase
+            const { data: supabaseProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.uid)
+                .single();
+
+            if (profileError || !supabaseProfile) {
+                console.error('[DASHBOARD] No profile found in Supabase:', profileError);
+                await supabase.auth.signOut();
+                return;
+            }
+
+            // Check if onboarding is complete
+            if (!supabaseProfile.onboarding_complete) {
+                console.log('[DASHBOARD] Onboarding not complete, redirecting...');
+                window.location.href = '/onboarding.html';
+                return;
+            }
+
+            // Create Firebase Firestore document from Supabase profile
+            const { setDoc } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+
+            const firestoreUserData = {
+                email: supabaseProfile.email || user.email,
+                firstName: supabaseProfile.first_name || '',
+                lastName: supabaseProfile.last_name || '',
+                displayName: supabaseProfile.display_name || '',
+                role: supabaseProfile.role || 'player',
+                clubId: supabaseProfile.club_id || null,
+                xp: supabaseProfile.xp || 0,
+                points: supabaseProfile.points || 0,
+                eloRating: supabaseProfile.elo_rating || 1000,
+                highestElo: supabaseProfile.highest_elo || 1000,
+                gender: supabaseProfile.gender || null,
+                birthdate: supabaseProfile.birthdate || null,
+                photoURL: supabaseProfile.avatar_url || null,
+                onboardingComplete: true,
+                isOffline: false,
+                createdAt: new Date()
+            };
+
+            await setDoc(userDocRef, firestoreUserData);
+            console.log('[DASHBOARD] Created Firestore user from Supabase profile');
+
+            // Reload the document
+            initialDocSnap = await getDoc(userDocRef);
+        }
+
+        // Season resets are now handled by Cloud Function (every 6 weeks)
+        // No frontend reset logic needed anymore
+
+        const userListener = onSnapshot(userDocRef, async docSnap => {
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                // Allow players and coaches to view the player dashboard
+                // Coaches can switch between coach and player view
+                if (userData.role === 'player' || userData.role === 'coach') {
+                    const isFirstLoad = !currentUserData;
+                    currentUserData = { id: docSnap.id, ...userData };
+                    if (isFirstLoad) {
+                        initializeDashboard(currentUserData);
+                    } else {
+                        updateDashboard(currentUserData);
+                    }
+                } else if (userData.role === 'admin') {
+                    // Only admins are redirected
+                    window.location.href = '/admin.html';
+                }
+            } else {
+                await supabase.auth.signOut();
+            }
+        });
+        unsubscribes.push(userListener);
+    } catch (error) {
+        console.error('Initialer Ladefehler:', error);
+        await supabase.auth.signOut();
+    }
+}
 
 /**
  * Checks if user has access to a specific feature
@@ -427,7 +490,7 @@ async function initializeDashboard(userData) {
 
     logoutButton.addEventListener('click', async () => {
         try {
-            await signOut(auth);
+            await supabase.auth.signOut();
             // Clear SPA cache to prevent back-button access to authenticated pages
             if (window.spaEnhancer) {
                 window.spaEnhancer.clearCache();
