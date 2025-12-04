@@ -161,9 +161,22 @@ registrationForm?.addEventListener('submit', async e => {
         // 2. Profil updaten (Trigger hat es bereits erstellt)
         let profileUpdates = {};
 
-        // Bei Code-Registrierung: Club-ID aus Code übernehmen
+        // Bei Code-Registrierung: Club-ID und Role aus Code übernehmen
         if (registrationType === 'code' && invitationCodeData) {
             profileUpdates.club_id = invitationCodeData.club_id;
+
+            // Role aus dem Invitation Code übernehmen (z.B. 'coach' oder 'player')
+            if (invitationCodeData.role) {
+                profileUpdates.role = invitationCodeData.role;
+            }
+
+            // Optional: Name aus Code übernehmen falls vorhanden
+            if (invitationCodeData.first_name) {
+                profileUpdates.first_name = invitationCodeData.first_name;
+            }
+            if (invitationCodeData.last_name) {
+                profileUpdates.last_name = invitationCodeData.last_name;
+            }
         }
 
         // Bei No-Code: Namen aus Formular
