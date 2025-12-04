@@ -412,8 +412,78 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         renderSets();
     }
 
+    // Function to set handicap for a player
+    function setHandicap(player, points) {
+        sets.forEach((set, index) => {
+            if (player === 'A') {
+                // Set minimum for player A
+                const currentValue = parseInt(set.playerA) || 0;
+                sets[index].playerA = Math.max(currentValue, points);
+            } else if (player === 'B') {
+                // Set minimum for player B
+                const currentValue = parseInt(set.playerB) || 0;
+                sets[index].playerB = Math.max(currentValue, points);
+            }
+        });
+        renderSets();
+    }
+
+    // Function to clear handicap for a player
+    function clearHandicap(player) {
+        sets.forEach((set, index) => {
+            if (player === 'A') {
+                sets[index].playerA = '';
+            } else if (player === 'B') {
+                sets[index].playerB = '';
+            }
+        });
+        renderSets();
+    }
+
+    // Function to get current match winner (or null if no winner yet)
+    function getMatchWinner() {
+        const filledSets = getSets();
+
+        if (filledSets.length === 0) {
+            return null;
+        }
+
+        // Calculate wins
+        let playerAWins = 0;
+        let playerBWins = 0;
+
+        filledSets.forEach(set => {
+            const winner = getSetWinner(set.playerA, set.playerB);
+            if (winner === 'A') playerAWins++;
+            if (winner === 'B') playerBWins++;
+        });
+
+        // Check if someone has won
+        if (playerAWins >= setsToWin) {
+            return { winner: 'A', setsA: playerAWins, setsB: playerBWins };
+        }
+        if (playerBWins >= setsToWin) {
+            return { winner: 'B', setsA: playerAWins, setsB: playerBWins };
+        }
+
+        // No winner yet, but return current score if there are any wins
+        if (playerAWins > 0 || playerBWins > 0) {
+            return { winner: null, setsA: playerAWins, setsB: playerBWins };
+        }
+
+        return null;
+    }
+
     renderSets();
-    return { getSets, validate, reset, refresh: renderSets };
+    return {
+        getSets,
+        validate,
+        refresh: renderSets,
+        reset,
+        setHandicap,
+        clearHandicap,
+        getMatchWinner,
+    };
 }
 
 /**

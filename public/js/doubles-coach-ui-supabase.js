@@ -1,6 +1,7 @@
 import { saveDoublesMatch } from './doubles-matches-supabase.js';
 import { createSetScoreInput } from './player-matches-supabase.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { calculateDoublesHandicap } from './validation-utils.js';
 
 /**
  * Doubles Coach UI Module (Supabase Version)
@@ -302,3 +303,101 @@ export function setDoublesSetScoreInput(inputInstance) {
 
 // Make setDoublesSetScoreInput available globally so matches.js can call it
 window.setDoublesSetScoreInput = setDoublesSetScoreInput;
+
+// ========================================================================
+// ===== HANDICAP SETUP =====
+// ========================================================================
+
+/**
+ * Sets up handicap calculation for doubles matches
+ * @param {Array} clubPlayers - Array of club players for lookup
+ */
+export function setupDoublesHandicap(clubPlayers) {
+    const teamAPlayer1Select = document.getElementById('doubles-team-a-player1-select');
+    const teamAPlayer2Select = document.getElementById('doubles-team-a-player2-select');
+    const teamBPlayer1Select = document.getElementById('doubles-team-b-player1-select');
+    const teamBPlayer2Select = document.getElementById('doubles-team-b-player2-select');
+    const handicapSuggestion = document.getElementById('handicap-suggestion');
+    const handicapText = document.getElementById('handicap-text');
+    const handicapToggleContainer = document.getElementById('handicap-toggle-container');
+    const handicapToggle = document.getElementById('handicap-toggle');
+
+    if (!teamAPlayer1Select || !teamAPlayer2Select || !teamBPlayer1Select || !teamBPlayer2Select) {
+        return;
+    }
+
+    // Create player lookup map
+    const playersMap = new Map();
+    clubPlayers.forEach(player => {
+        playersMap.set(player.id, player);
+    });
+
+    function calculateAndDisplayHandicap() {
+        const teamAPlayer1Id = teamAPlayer1Select.value;
+        const teamAPlayer2Id = teamAPlayer2Select.value;
+        const teamBPlayer1Id = teamBPlayer1Select.value;
+        const teamBPlayer2Id = teamBPlayer2Select.value;
+
+        // Check if all players are selected
+        if (!teamAPlayer1Id || !teamAPlayer2Id || !teamBPlayer1Id || !teamBPlayer2Id) {
+            // Hide handicap if not all players selected
+            if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
+            if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
+            return;
+        }
+
+        const teamAPlayer1 = playersMap.get(teamAPlayer1Id);
+        const teamAPlayer2 = playersMap.get(teamAPlayer2Id);
+        const teamBPlayer1 = playersMap.get(teamBPlayer1Id);
+        const teamBPlayer2 = playersMap.get(teamBPlayer2Id);
+
+        if (!teamAPlayer1 || !teamAPlayer2 || !teamBPlayer1 || !teamBPlayer2) {
+            if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
+            if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
+            return;
+        }
+
+        // Calculate handicap using doubles Elo - handle both snake_case and camelCase
+        const teamA = {
+            player1: { eloRating: teamAPlayer1.doubles_elo_rating || teamAPlayer1.doublesEloRating || 800 },
+            player2: { eloRating: teamAPlayer2.doubles_elo_rating || teamAPlayer2.doublesEloRating || 800 }
+        };
+
+        const teamB = {
+            player1: { eloRating: teamBPlayer1.doubles_elo_rating || teamBPlayer1.doublesEloRating || 800 },
+            player2: { eloRating: teamBPlayer2.doubles_elo_rating || teamBPlayer2.doublesEloRating || 800 }
+        };
+
+        const handicapResult = calculateDoublesHandicap(teamA, teamB);
+
+        if (handicapResult && handicapText) {
+            // Get first names - handle both formats
+            const p1FirstName = teamAPlayer1.first_name || teamAPlayer1.firstName || '';
+            const p2FirstName = teamAPlayer2.first_name || teamAPlayer2.firstName || '';
+            const p3FirstName = teamBPlayer1.first_name || teamBPlayer1.firstName || '';
+            const p4FirstName = teamBPlayer2.first_name || teamBPlayer2.firstName || '';
+
+            const weakerTeamName = handicapResult.team === 'A'
+                ? `Team A (${p1FirstName} & ${p2FirstName})`
+                : `Team B (${p3FirstName} & ${p4FirstName})`;
+
+            handicapText.textContent = `${weakerTeamName} startet mit ${handicapResult.points} Punkt${handicapResult.points !== 1 ? 'en' : ''} Vorsprung (Ø ${handicapResult.averageEloA} vs ${handicapResult.averageEloB} Elo)`;
+            handicapSuggestion.classList.remove('hidden');
+            handicapToggleContainer.classList.remove('hidden');
+
+            // Uncheck toggle by default
+            if (handicapToggle) {
+                handicapToggle.checked = false;
+            }
+        } else {
+            // No handicap needed
+            if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
+            if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
+        }
+    }
+
+    // Add event listeners to all dropdowns
+    [teamAPlayer1Select, teamAPlayer2Select, teamBPlayer1Select, teamBPlayer2Select].forEach(select => {
+        select.addEventListener('change', calculateAndDisplayHandicap);
+    });
+}

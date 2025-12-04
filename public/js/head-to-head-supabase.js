@@ -199,10 +199,30 @@ function calculateStats(matches, currentUserId) {
     let lossesWithHandicap = 0;
     let winsWithoutHandicap = 0;
     let lossesWithoutHandicap = 0;
+    let setsWon = 0;
+    let setsLost = 0;
 
     matches.forEach(match => {
-        const isWinner = match.winnerId === currentUserId;
-        const handicapUsed = match.handicapUsed || false;
+        const isWinner = match.winnerId === currentUserId || match.winner_id === currentUserId;
+        const handicapUsed = match.handicapUsed || match.handicap_used || false;
+        const isPlayerA = match.playerAId === currentUserId || match.player_a_id === currentUserId;
+
+        // Count sets won and lost
+        if (match.sets && Array.isArray(match.sets)) {
+            match.sets.forEach(set => {
+                // Handle both camelCase and snake_case
+                const playerAScore = parseInt(set.playerA ?? set.player_a) || 0;
+                const playerBScore = parseInt(set.playerB ?? set.player_b) || 0;
+                const myScore = isPlayerA ? playerAScore : playerBScore;
+                const oppScore = isPlayerA ? playerBScore : playerAScore;
+
+                if (myScore > oppScore) {
+                    setsWon++;
+                } else if (oppScore > myScore) {
+                    setsLost++;
+                }
+            });
+        }
 
         if (isWinner) {
             wins++;
@@ -235,6 +255,8 @@ function calculateStats(matches, currentUserId) {
         losses,
         totalMatches,
         winRate,
+        setsWon,
+        setsLost,
         handicap: {
             wins: winsWithHandicap,
             losses: lossesWithHandicap,
