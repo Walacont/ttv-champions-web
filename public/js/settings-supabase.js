@@ -1094,13 +1094,13 @@ clubSearchBtn?.addEventListener('click', async () => {
 
         let clubs = clubsData || [];
 
-        // Count members for each club
+        // Count members for each club (including offline players)
         for (const club of clubs) {
             const { count } = await supabase
                 .from('profiles')
                 .select('*', { count: 'exact', head: true })
                 .eq('club_id', club.id)
-                .eq('role', 'player');
+                .or('role.eq.player,is_offline.eq.true');
 
             club.memberCount = count || 0;
         }
