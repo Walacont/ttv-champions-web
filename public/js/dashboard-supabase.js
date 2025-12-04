@@ -532,20 +532,14 @@ async function loadRivalData() {
         // Apply club/subgroup filter
         if (currentSubgroupFilter === 'club' && currentUserData.club_id) {
             query = query.eq('club_id', currentUserData.club_id);
+        } else if (currentSubgroupFilter && currentSubgroupFilter.startsWith('subgroup:')) {
+            // Custom subgroup filter - filter by subgroup_ids array
+            const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
+            query = query.eq('club_id', currentUserData.club_id).contains('subgroup_ids', [subgroupId]);
         } else if (currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
-            // Subgroup filter - need to get member IDs from subgroup_members table
-            const { data: subgroupMembers } = await supabase
-                .from('subgroup_members')
-                .select('profile_id')
-                .eq('subgroup_id', currentSubgroupFilter);
-
-            const memberIds = (subgroupMembers || []).map(m => m.profile_id);
-            if (memberIds.length > 0) {
-                query = query.in('id', memberIds);
-            } else {
-                // No members in subgroup, return empty
-                updateRivalDisplay([], rivalSkillEl, rivalEffortEl);
-                return;
+            // Age group filter - apply club filter, age filtering done later
+            if (currentUserData.club_id) {
+                query = query.eq('club_id', currentUserData.club_id);
             }
         }
         // For 'global', no filter is applied

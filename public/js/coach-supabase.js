@@ -929,16 +929,7 @@ function populateSubgroupFilter(clubId, db) {
             });
             select.appendChild(seniorGroup);
 
-            // Add Gender Groups
-            const genderGroup = document.createElement('optgroup');
-            genderGroup.label = 'Geschlecht';
-            GENDER_GROUPS.forEach(group => {
-                const option = document.createElement('option');
-                option.value = group.id;
-                option.textContent = group.label;
-                genderGroup.appendChild(option);
-            });
-            select.appendChild(genderGroup);
+            // Note: Gender is handled by separate coach-gender-filter dropdown
 
             // Add Custom Subgroups
             const customSubgroups = subgroupsData.filter(sg => !sg.is_default);
