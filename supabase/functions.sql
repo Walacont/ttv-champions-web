@@ -483,65 +483,7 @@ END;
 $$;
 
 -- ========================================================================
--- FUNCTION 4: Claim Invitation Token
--- ========================================================================
-CREATE OR REPLACE FUNCTION claim_invitation_token(
-    p_user_id UUID,
-    p_token_id UUID,
-    p_email TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    token_data RECORD;
-    existing_profile RECORD;
-BEGIN
-    -- Get token
-    SELECT * INTO token_data FROM invitation_tokens WHERE id = p_token_id;
-
-    IF token_data IS NULL THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Token nicht gefunden');
-    END IF;
-
-    IF token_data.is_used = true THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Token wurde bereits verwendet');
-    END IF;
-
-    -- Check if profile already exists
-    SELECT * INTO existing_profile FROM profiles WHERE id = p_user_id;
-
-    IF existing_profile IS NOT NULL THEN
-        RETURN jsonb_build_object('success', false, 'error', 'Profil existiert bereits');
-    END IF;
-
-    -- Create new profile
-    INSERT INTO profiles (
-        id, email, first_name, last_name, club_id, role,
-        points, xp, elo_rating, highest_elo, wins, losses,
-        onboarding_complete, is_offline, created_at
-    ) VALUES (
-        p_user_id, COALESCE(p_email, token_data.email),
-        token_data.first_name, token_data.last_name,
-        token_data.club_id, COALESCE(token_data.role, 'player'),
-        0, 0, 800, 800, 0, 0,
-        false, true, NOW()
-    );
-
-    -- Mark token as used
-    UPDATE invitation_tokens SET
-        is_used = true,
-        used_by = p_user_id,
-        used_at = NOW()
-    WHERE id = p_token_id;
-
-    RETURN jsonb_build_object('success', true, 'message', 'Token erfolgreich eingelöst');
-END;
-$$;
-
--- ========================================================================
--- FUNCTION 5: Process Approved Match Request (Singles)
+-- FUNCTION 4: Process Approved Match Request (Singles)
 -- ========================================================================
 CREATE OR REPLACE FUNCTION process_approved_match_request()
 RETURNS TRIGGER
@@ -650,29 +592,7 @@ END;
 $$;
 
 -- ========================================================================
--- FUNCTION 8: Cleanup Expired Invitation Tokens
--- ========================================================================
-CREATE OR REPLACE FUNCTION cleanup_expired_invitation_tokens()
-RETURNS INTEGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    deleted_count INTEGER;
-BEGIN
-    -- Tokens older than 7 days that haven't been used
-    DELETE FROM invitation_tokens
-    WHERE created_at < NOW() - INTERVAL '7 days'
-    AND is_used = false;
-
-    GET DIAGNOSTICS deleted_count = ROW_COUNT;
-
-    RETURN deleted_count;
-END;
-$$;
-
--- ========================================================================
--- FUNCTION 9: Season Reset
+-- FUNCTION 7: Season Reset
 -- ========================================================================
 CREATE OR REPLACE FUNCTION perform_season_reset(p_club_id UUID DEFAULT NULL)
 RETURNS JSONB
@@ -853,16 +773,10 @@ BEGIN
 END;
 $$;
 
--- Create triggers for auto club creation
+-- Create trigger for auto club creation
 DROP TRIGGER IF EXISTS trigger_auto_create_club_invitation ON invitation_codes;
 CREATE TRIGGER trigger_auto_create_club_invitation
     BEFORE INSERT ON invitation_codes
-    FOR EACH ROW
-    EXECUTE FUNCTION auto_create_club_on_invitation();
-
-DROP TRIGGER IF EXISTS trigger_auto_create_club_token ON invitation_tokens;
-CREATE TRIGGER trigger_auto_create_club_token
-    BEFORE INSERT ON invitation_tokens
     FOR EACH ROW
     EXECUTE FUNCTION auto_create_club_on_invitation();
 
@@ -874,7 +788,6 @@ CREATE TRIGGER trigger_auto_create_club_token
 
 -- Schedule cleanup jobs (uncomment after enabling pg_cron):
 -- SELECT cron.schedule('cleanup-expired-codes', '0 3 * * *', 'SELECT cleanup_expired_invitation_codes()');
--- SELECT cron.schedule('cleanup-expired-tokens', '0 3 * * *', 'SELECT cleanup_expired_invitation_tokens()');
 -- SELECT cron.schedule('check-season-reset', '0 0 * * *', 'SELECT perform_season_reset()');
 
 -- ========================================================================
