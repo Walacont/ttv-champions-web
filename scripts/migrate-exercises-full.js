@@ -50,8 +50,30 @@ if (!supabaseUrl || !supabaseKey) {
     process.exit(1);
 }
 
-// Initialize Firebase Admin
-const serviceAccount = require('../serviceAccountKey.json');
+// Initialize Firebase Admin - try different possible filenames
+let serviceAccount;
+const possiblePaths = [
+    '../firebase-service-account.json',
+    '../serviceAccountKey.json',
+    './firebase-service-account.json',
+    './serviceAccountKey.json'
+];
+
+for (const p of possiblePaths) {
+    const fullPath = path.resolve(__dirname, p);
+    if (fs.existsSync(fullPath)) {
+        serviceAccount = require(fullPath);
+        console.log('Firebase service account loaded from:', fullPath);
+        break;
+    }
+}
+
+if (!serviceAccount) {
+    console.error('❌ Firebase service account not found!');
+    console.error('Please ensure one of these files exists:');
+    possiblePaths.forEach(p => console.error('  -', p));
+    process.exit(1);
+}
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
