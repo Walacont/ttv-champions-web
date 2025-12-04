@@ -1,15 +1,16 @@
 /**
  * Mobile Navigation System
  * Strava-inspired mobile layout for SC Champions
- * Breakpoint: 768px (iPad)
+ * ONLY for Capacitor Native Apps (Android/iOS)
+ * Mobile Web browsers will show desktop layout
  * Primary Color: Indigo (#4f46e5)
  */
 
 /* ============================================
-   DESKTOP LAYOUT (Default - >768px)
+   DESKTOP LAYOUT (Default - includes mobile web)
    ============================================ */
 
-/* Hide mobile elements on desktop */
+/* Hide mobile elements by default */
 .mobile-header,
 .mobile-bottom-nav {
     display: none;
@@ -21,397 +22,455 @@
 }
 
 /* ============================================
-   MOBILE LAYOUT (<768px)
+   NATIVE APP LAYOUT (Capacitor only)
+   Only applies to Android/iOS native apps
    ============================================ */
 
-@media (max-width: 768px) {
-    /* Hide desktop header on mobile */
-    .desktop-header {
-        display: none !important;
-    }
+/* Hide desktop header in native apps */
+html.plt-capacitor .desktop-header,
+html.plt-android .desktop-header,
+html.plt-ios .desktop-header {
+    display: none !important;
+}
 
-    /* Show mobile elements */
-    .mobile-header,
-    .mobile-bottom-nav {
-        display: flex;
-    }
+/* Show mobile elements in native apps */
+html.plt-capacitor .mobile-header,
+html.plt-capacitor .mobile-bottom-nav,
+html.plt-android .mobile-header,
+html.plt-android .mobile-bottom-nav,
+html.plt-ios .mobile-header,
+html.plt-ios .mobile-bottom-nav {
+    display: flex;
+}
 
-    /* Adjust body padding for fixed elements */
-    body {
-        padding-top: 52px; /* Mobile header height */
-        padding-bottom: 60px; /* Bottom nav height */
-    }
+/* Adjust body padding for fixed elements in native apps */
+html.plt-capacitor body,
+html.plt-android body,
+html.plt-ios body {
+    padding-top: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
+    padding-bottom: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
+}
 
-    /* Main content container adjustments */
-    #main-content {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        padding-left: 12px !important;
-        padding-right: 12px !important;
-    }
+/* Main content container adjustments in native apps */
+html.plt-capacitor #main-content,
+html.plt-android #main-content,
+html.plt-ios #main-content {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
 
-    /* Hide desktop navigation tabs */
-    #main-nav {
-        display: none !important;
-    }
+/* Hide desktop navigation tabs in native apps */
+html.plt-capacitor #main-nav,
+html.plt-android #main-nav,
+html.plt-ios #main-nav {
+    display: none !important;
+}
 
-    /* ============================================
-       MOBILE HEADER (Top Fixed)
-       ============================================ */
+/* ============================================
+   MOBILE HEADER (Top Fixed) - Native Apps Only
+   ============================================ */
 
-    .mobile-header {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 52px;
-        background-color: #eef2ff; /* bg-indigo-50 */
-        border-bottom: 1px solid #e0e7ff; /* indigo-100 border */
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 12px;
-        box-shadow: 0 1px 2px rgba(79, 70, 229, 0.08);
-    }
+html.plt-capacitor .mobile-header,
+html.plt-android .mobile-header,
+html.plt-ios .mobile-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
+    padding-top: max(env(safe-area-inset-top, 0px), 0px);
+    background-color: #eef2ff; /* bg-indigo-50 */
+    border-bottom: 1px solid #e0e7ff; /* indigo-100 border */
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 12px;
+    padding-right: 12px;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.08);
+}
 
-    .mobile-header-left {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex: 1;
-    }
+html.plt-capacitor .mobile-header-left,
+html.plt-android .mobile-header-left,
+html.plt-ios .mobile-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
 
-    .mobile-header-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: #ffffff;
-        text-align: center;
-        flex: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+html.plt-capacitor .mobile-header-title,
+html.plt-android .mobile-header-title,
+html.plt-ios .mobile-header-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    text-align: center;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-    .mobile-header-right {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex: 1;
-        justify-content: flex-end;
-    }
+html.plt-capacitor .mobile-header-right,
+html.plt-android .mobile-header-right,
+html.plt-ios .mobile-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    justify-content: flex-end;
+}
 
-    /* Profile Picture */
-    .mobile-profile-pic {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid #ffffff;
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
+/* Profile Picture */
+html.plt-capacitor .mobile-profile-pic,
+html.plt-android .mobile-profile-pic,
+html.plt-ios .mobile-profile-pic {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ffffff;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
 
-    .mobile-profile-pic:hover {
-        opacity: 0.8;
-    }
+html.plt-capacitor .mobile-profile-pic:hover,
+html.plt-android .mobile-profile-pic:hover,
+html.plt-ios .mobile-profile-pic:hover {
+    opacity: 0.8;
+}
 
-    /* Header Icons */
-    .mobile-header-icon {
-        position: relative;
-        width: 20px;
-        height: 20px;
-        color: #ffffff;
-        cursor: pointer;
-        transition: opacity 0.2s;
-    }
+/* Header Icons */
+html.plt-capacitor .mobile-header-icon,
+html.plt-android .mobile-header-icon,
+html.plt-ios .mobile-header-icon {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
 
-    .mobile-header-icon:hover {
-        opacity: 0.8;
-    }
+html.plt-capacitor .mobile-header-icon:hover,
+html.plt-android .mobile-header-icon:hover,
+html.plt-ios .mobile-header-icon:hover {
+    opacity: 0.8;
+}
 
-    .mobile-header-icon i {
-        font-size: 20px;
-    }
+html.plt-capacitor .mobile-header-icon i,
+html.plt-android .mobile-header-icon i,
+html.plt-ios .mobile-header-icon i {
+    font-size: 20px;
+}
 
-    /* Badge Counter (like Strava's red badge) */
-    .mobile-icon-badge {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        background-color: #ef4444;
-        color: white;
-        font-size: 9px;
-        font-weight: bold;
-        min-width: 16px;
-        height: 16px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 3px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    }
+/* Badge Counter (like Strava's red badge) */
+html.plt-capacitor .mobile-icon-badge,
+html.plt-android .mobile-icon-badge,
+html.plt-ios .mobile-icon-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background-color: #ef4444;
+    color: white;
+    font-size: 9px;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
 
-    /* ============================================
-       BOTTOM NAVIGATION (Fixed)
-       ============================================ */
+/* ============================================
+   BOTTOM NAVIGATION (Fixed) - Native Apps Only
+   ============================================ */
 
-    .mobile-bottom-nav {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background-color: #eef2ff; /* bg-indigo-50 */
-        border-top: 1px solid #e0e7ff; /* indigo-100 border */
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        justify-content: space-around;
-        box-shadow: 0 -1px 3px rgba(79, 70, 229, 0.08);
-        padding: 0 4px;
-    }
+html.plt-capacitor .mobile-bottom-nav,
+html.plt-android .mobile-bottom-nav,
+html.plt-ios .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+    background-color: #eef2ff; /* bg-indigo-50 */
+    border-top: 1px solid #e0e7ff; /* indigo-100 border */
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    box-shadow: 0 -1px 3px rgba(79, 70, 229, 0.08);
+    padding-left: 4px;
+    padding-right: 4px;
+}
 
-    /* Navigation Items */
-    .mobile-nav-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 2px;
-        padding: 6px 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        color: #ffffff;
-        text-decoration: none;
-        min-width: 56px;
-        position: relative;
-        opacity: 0.5; /* Inaktive Tabs halbtransparent */
-    }
+/* Navigation Items */
+html.plt-capacitor .mobile-nav-item,
+html.plt-android .mobile-nav-item,
+html.plt-ios .mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #ffffff;
+    text-decoration: none;
+    min-width: 56px;
+    position: relative;
+    opacity: 0.5; /* Inaktive Tabs halbtransparent */
+}
 
-    .mobile-nav-item i {
-        font-size: 20px;
-        transition: all 0.2s;
-    }
+html.plt-capacitor .mobile-nav-item i,
+html.plt-android .mobile-nav-item i,
+html.plt-ios .mobile-nav-item i {
+    font-size: 20px;
+    transition: all 0.2s;
+}
 
-    .mobile-nav-item span {
-        font-size: 10px;
-        font-weight: 500;
-        transition: all 0.2s;
-        line-height: 1.2;
-    }
+html.plt-capacitor .mobile-nav-item span,
+html.plt-android .mobile-nav-item span,
+html.plt-ios .mobile-nav-item span {
+    font-size: 10px;
+    font-weight: 500;
+    transition: all 0.2s;
+    line-height: 1.2;
+}
 
-    /* Active State - Sehr deutlich unterscheidbar */
-    .mobile-nav-item.active {
-        color: #ffffff;
-        opacity: 1; /* Voll sichtbar */
-    }
+/* Active State - Sehr deutlich unterscheidbar */
+html.plt-capacitor .mobile-nav-item.active,
+html.plt-android .mobile-nav-item.active,
+html.plt-ios .mobile-nav-item.active {
+    color: #ffffff;
+    opacity: 1; /* Voll sichtbar */
+}
 
-    .mobile-nav-item.active i {
-        transform: scale(1.2); /* Größeres Icon */
-    }
+html.plt-capacitor .mobile-nav-item.active i,
+html.plt-android .mobile-nav-item.active i,
+html.plt-ios .mobile-nav-item.active i {
+    transform: scale(1.2); /* Größeres Icon */
+}
 
-    .mobile-nav-item.active span {
-        font-weight: 700; /* Fetter Text */
-    }
+html.plt-capacitor .mobile-nav-item.active span,
+html.plt-android .mobile-nav-item.active span,
+html.plt-ios .mobile-nav-item.active span {
+    font-weight: 700; /* Fetter Text */
+}
 
-    /* Middle Item (Wettkampf) - Highlighted with Circle */
-    .mobile-nav-item.middle-action {
-        margin-top: -16px;
-        opacity: 1 !important; /* Immer voll sichtbar (überschreibt .mobile-nav-item opacity) */
-    }
+/* Middle Item (Wettkampf) - Highlighted with Circle */
+html.plt-capacitor .mobile-nav-item.middle-action,
+html.plt-android .mobile-nav-item.middle-action,
+html.plt-ios .mobile-nav-item.middle-action {
+    margin-top: -16px;
+    opacity: 1 !important; /* Immer voll sichtbar (überschreibt .mobile-nav-item opacity) */
+}
 
-    .mobile-nav-item.middle-action .nav-icon-wrapper {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
-        transition: all 0.3s ease;
-    }
+html.plt-capacitor .mobile-nav-item.middle-action .nav-icon-wrapper,
+html.plt-android .mobile-nav-item.middle-action .nav-icon-wrapper,
+html.plt-ios .mobile-nav-item.middle-action .nav-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
+    transition: all 0.3s ease;
+}
 
-    .mobile-nav-item.middle-action.active .nav-icon-wrapper {
-        transform: scale(1.15); /* Größer wenn aktiv */
-        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); /* Stärkerer Glow wenn aktiv */
-    }
+html.plt-capacitor .mobile-nav-item.middle-action.active .nav-icon-wrapper,
+html.plt-android .mobile-nav-item.middle-action.active .nav-icon-wrapper,
+html.plt-ios .mobile-nav-item.middle-action.active .nav-icon-wrapper {
+    transform: scale(1.15); /* Größer wenn aktiv */
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); /* Stärkerer Glow wenn aktiv */
+}
 
-    .mobile-nav-item.middle-action .nav-icon-wrapper:active {
-        transform: scale(0.95);
-    }
+html.plt-capacitor .mobile-nav-item.middle-action .nav-icon-wrapper:active,
+html.plt-android .mobile-nav-item.middle-action .nav-icon-wrapper:active,
+html.plt-ios .mobile-nav-item.middle-action .nav-icon-wrapper:active {
+    transform: scale(0.95);
+}
 
-    .mobile-nav-item.middle-action i {
-        font-size: 22px;
-        color: white;
-    }
+html.plt-capacitor .mobile-nav-item.middle-action i,
+html.plt-android .mobile-nav-item.middle-action i,
+html.plt-ios .mobile-nav-item.middle-action i {
+    font-size: 22px;
+    color: white;
+}
 
-    .mobile-nav-item.middle-action span {
-        color: #ffffff;
-        font-weight: 600;
-        margin-top: 2px;
-    }
+html.plt-capacitor .mobile-nav-item.middle-action span,
+html.plt-android .mobile-nav-item.middle-action span,
+html.plt-ios .mobile-nav-item.middle-action span {
+    color: #ffffff;
+    font-weight: 600;
+    margin-top: 2px;
+}
 
-    .mobile-nav-item.middle-action.active span {
-        color: #ffffff;
-        font-weight: 700; /* Fetter wenn aktiv */
-    }
+html.plt-capacitor .mobile-nav-item.middle-action.active span,
+html.plt-android .mobile-nav-item.middle-action.active span,
+html.plt-ios .mobile-nav-item.middle-action.active span {
+    color: #ffffff;
+    font-weight: 700; /* Fetter wenn aktiv */
+}
 
-    /* ============================================
-       DARK MODE SUPPORT
-       ============================================ */
+/* ============================================
+   DARK MODE SUPPORT - Native Apps Only
+   ============================================ */
 
-    @media (prefers-color-scheme: dark) {
-        .mobile-header,
-        .mobile-bottom-nav {
-            background-color: #312e81; /* indigo-900 */
-            border-color: #4338ca; /* indigo-700 */
-        }
-
-        .mobile-header-title {
-            color: #ffffff;
-        }
-
-        .mobile-header-icon {
-            color: #ffffff;
-        }
-
-        .mobile-header-icon:hover {
-            opacity: 0.8;
-        }
-
-        .mobile-nav-item {
-            color: #ffffff;
-            opacity: 0.5; /* Inaktive Tabs halbtransparent */
-        }
-
-        .mobile-nav-item.active {
-            color: #ffffff;
-            opacity: 1; /* Aktive Tabs voll sichtbar */
-        }
-
-        .mobile-nav-item.active i {
-            transform: scale(1.2);
-        }
-
-        .mobile-nav-item.active span {
-            font-weight: 700;
-        }
-
-        .mobile-nav-item.middle-action {
-            opacity: 1 !important; /* Immer voll sichtbar auch im Dark Mode */
-        }
-
-        .mobile-profile-pic {
-            border-color: #ffffff;
-        }
-
-        .mobile-profile-pic:hover {
-            opacity: 0.8;
-        }
-    }
-
-    /* Dark mode class-based (for manual toggle) */
-    .dark .mobile-header,
-    .dark .mobile-bottom-nav {
+@media (prefers-color-scheme: dark) {
+    html.plt-capacitor .mobile-header,
+    html.plt-capacitor .mobile-bottom-nav,
+    html.plt-android .mobile-header,
+    html.plt-android .mobile-bottom-nav,
+    html.plt-ios .mobile-header,
+    html.plt-ios .mobile-bottom-nav {
         background-color: #312e81; /* indigo-900 */
         border-color: #4338ca; /* indigo-700 */
     }
 
-    .dark .mobile-header-title {
+    html.plt-capacitor .mobile-header-title,
+    html.plt-android .mobile-header-title,
+    html.plt-ios .mobile-header-title {
         color: #ffffff;
     }
 
-    .dark .mobile-header-icon {
+    html.plt-capacitor .mobile-header-icon,
+    html.plt-android .mobile-header-icon,
+    html.plt-ios .mobile-header-icon {
         color: #ffffff;
     }
 
-    .dark .mobile-header-icon:hover {
+    html.plt-capacitor .mobile-header-icon:hover,
+    html.plt-android .mobile-header-icon:hover,
+    html.plt-ios .mobile-header-icon:hover {
         opacity: 0.8;
     }
 
-    .dark .mobile-nav-item {
+    html.plt-capacitor .mobile-nav-item,
+    html.plt-android .mobile-nav-item,
+    html.plt-ios .mobile-nav-item {
         color: #ffffff;
         opacity: 0.5; /* Inaktive Tabs halbtransparent */
     }
 
-    .dark .mobile-nav-item.active {
+    html.plt-capacitor .mobile-nav-item.active,
+    html.plt-android .mobile-nav-item.active,
+    html.plt-ios .mobile-nav-item.active {
         color: #ffffff;
         opacity: 1; /* Aktive Tabs voll sichtbar */
     }
 
-    .dark .mobile-nav-item.active i {
+    html.plt-capacitor .mobile-nav-item.active i,
+    html.plt-android .mobile-nav-item.active i,
+    html.plt-ios .mobile-nav-item.active i {
         transform: scale(1.2);
     }
 
-    .dark .mobile-nav-item.active span {
+    html.plt-capacitor .mobile-nav-item.active span,
+    html.plt-android .mobile-nav-item.active span,
+    html.plt-ios .mobile-nav-item.active span {
         font-weight: 700;
     }
 
-    .dark .mobile-nav-item.middle-action {
+    html.plt-capacitor .mobile-nav-item.middle-action,
+    html.plt-android .mobile-nav-item.middle-action,
+    html.plt-ios .mobile-nav-item.middle-action {
         opacity: 1 !important; /* Immer voll sichtbar auch im Dark Mode */
     }
 
-    .dark .mobile-profile-pic {
+    html.plt-capacitor .mobile-profile-pic,
+    html.plt-android .mobile-profile-pic,
+    html.plt-ios .mobile-profile-pic {
         border-color: #ffffff;
     }
 
-    .dark .mobile-profile-pic:hover {
+    html.plt-capacitor .mobile-profile-pic:hover,
+    html.plt-android .mobile-profile-pic:hover,
+    html.plt-ios .mobile-profile-pic:hover {
         opacity: 0.8;
-    }
-
-    /* ============================================
-       CAPACITOR SAFE AREA SUPPORT
-       ============================================ */
-
-    html.plt-capacitor .mobile-header,
-    html.plt-android .mobile-header,
-    html.plt-ios .mobile-header {
-        padding-top: max(env(safe-area-inset-top, 0px), 0px);
-        height: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
-    }
-
-    html.plt-capacitor .mobile-bottom-nav,
-    html.plt-android .mobile-bottom-nav,
-    html.plt-ios .mobile-bottom-nav {
-        padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
-        height: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
-    }
-
-    html.plt-capacitor body,
-    html.plt-android body,
-    html.plt-ios body {
-        padding-top: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
-        padding-bottom: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
-    }
-
-    /* ============================================
-       UTILITY CLASSES
-       ============================================ */
-
-    /* Hide on mobile */
-    .hide-mobile {
-        display: none !important;
-    }
-
-    /* Show only on mobile */
-    .show-mobile {
-        display: block !important;
     }
 }
 
-/* ============================================
-   DESKTOP UTILITY CLASSES
-   ============================================ */
+/* Dark mode class-based (for manual toggle) - Native Apps Only */
+html.plt-capacitor.dark .mobile-header,
+html.plt-capacitor.dark .mobile-bottom-nav,
+html.plt-android.dark .mobile-header,
+html.plt-android.dark .mobile-bottom-nav,
+html.plt-ios.dark .mobile-header,
+html.plt-ios.dark .mobile-bottom-nav {
+    background-color: #312e81; /* indigo-900 */
+    border-color: #4338ca; /* indigo-700 */
+}
 
-@media (min-width: 769px) {
-    .hide-desktop {
-        display: none !important;
-    }
+html.plt-capacitor.dark .mobile-header-title,
+html.plt-android.dark .mobile-header-title,
+html.plt-ios.dark .mobile-header-title {
+    color: #ffffff;
+}
 
-    .show-desktop {
-        display: block !important;
-    }
+html.plt-capacitor.dark .mobile-header-icon,
+html.plt-android.dark .mobile-header-icon,
+html.plt-ios.dark .mobile-header-icon {
+    color: #ffffff;
+}
+
+html.plt-capacitor.dark .mobile-header-icon:hover,
+html.plt-android.dark .mobile-header-icon:hover,
+html.plt-ios.dark .mobile-header-icon:hover {
+    opacity: 0.8;
+}
+
+html.plt-capacitor.dark .mobile-nav-item,
+html.plt-android.dark .mobile-nav-item,
+html.plt-ios.dark .mobile-nav-item {
+    color: #ffffff;
+    opacity: 0.5; /* Inaktive Tabs halbtransparent */
+}
+
+html.plt-capacitor.dark .mobile-nav-item.active,
+html.plt-android.dark .mobile-nav-item.active,
+html.plt-ios.dark .mobile-nav-item.active {
+    color: #ffffff;
+    opacity: 1; /* Aktive Tabs voll sichtbar */
+}
+
+html.plt-capacitor.dark .mobile-nav-item.active i,
+html.plt-android.dark .mobile-nav-item.active i,
+html.plt-ios.dark .mobile-nav-item.active i {
+    transform: scale(1.2);
+}
+
+html.plt-capacitor.dark .mobile-nav-item.active span,
+html.plt-android.dark .mobile-nav-item.active span,
+html.plt-ios.dark .mobile-nav-item.active span {
+    font-weight: 700;
+}
+
+html.plt-capacitor.dark .mobile-nav-item.middle-action,
+html.plt-android.dark .mobile-nav-item.middle-action,
+html.plt-ios.dark .mobile-nav-item.middle-action {
+    opacity: 1 !important; /* Immer voll sichtbar auch im Dark Mode */
+}
+
+html.plt-capacitor.dark .mobile-profile-pic,
+html.plt-android.dark .mobile-profile-pic,
+html.plt-ios.dark .mobile-profile-pic {
+    border-color: #ffffff;
+}
+
+html.plt-capacitor.dark .mobile-profile-pic:hover,
+html.plt-android.dark .mobile-profile-pic:hover,
+html.plt-ios.dark .mobile-profile-pic:hover {
+    opacity: 0.8;
 }
