@@ -123,7 +123,7 @@ async function savePreferences(userData, supabase) {
 }
 
 /**
- * Applies preferences by showing/hiding leaderboard tabs
+ * Applies preferences by showing/hiding leaderboard tabs and their content
  */
 export function applyPreferences() {
     const prefs = {
@@ -143,15 +143,28 @@ export function applyPreferences() {
         doubles: document.getElementById('tab-doubles'),
     };
 
-    // Apply visibility
+    // Show/hide tab content containers
+    const tabContents = {
+        effort: document.getElementById('content-effort'),
+        season: document.getElementById('content-season'),
+        skill: document.getElementById('content-skill'),
+        ranks: document.getElementById('content-ranks'),
+        doubles: document.getElementById('content-doubles'),
+    };
+
+    // Apply visibility to both buttons and content
     Object.keys(tabButtons).forEach(key => {
         const button = tabButtons[key];
-        if (button) {
-            if (prefs[key]) {
-                button.classList.remove('hidden');
-            } else {
-                button.classList.add('hidden');
-            }
+        const content = tabContents[key];
+
+        if (prefs[key]) {
+            // Show tab button and content
+            if (button) button.classList.remove('hidden');
+            if (content) content.classList.remove('hidden');
+        } else {
+            // Hide tab button and content
+            if (button) button.classList.add('hidden');
+            if (content) content.classList.add('hidden');
         }
     });
 
