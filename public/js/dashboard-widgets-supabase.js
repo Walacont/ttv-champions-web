@@ -161,7 +161,10 @@ async function loadWidgetSettings() {
  */
 function getDefaultSettings() {
     const settings = {};
-    const hasClub = currentUserData && currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+    // Support both camelCase and snake_case for club ID
+    const hasClub = currentUserData &&
+        (currentUserData.clubId !== null && currentUserData.clubId !== undefined) ||
+        (currentUserData.club_id !== null && currentUserData.club_id !== undefined);
 
     WIDGETS.forEach(widget => {
         // Disable club-only widgets by default if user has no club
@@ -216,7 +219,10 @@ async function saveWidgetSettings(settings) {
  */
 function applyWidgetSettings() {
     const widgets = document.querySelectorAll('.dashboard-widget');
-    const hasClub = currentUserData && currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+    // Support both camelCase and snake_case for club ID
+    const hasClub = currentUserData &&
+        (currentUserData.clubId !== null && currentUserData.clubId !== undefined) ||
+        (currentUserData.club_id !== null && currentUserData.club_id !== undefined);
 
     widgets.forEach(widget => {
         const widgetId = widget.getAttribute('data-widget-id');
@@ -275,8 +281,16 @@ function openWidgetSettingsModal() {
     const modal = document.getElementById('widget-settings-modal');
     const listContainer = document.getElementById('widget-settings-list');
 
-    // Check if user has a club
-    const hasClub = currentUserData && currentUserData.clubId !== null && currentUserData.clubId !== undefined;
+    // Check if user has a club - support both camelCase and snake_case
+    const hasClub = currentUserData &&
+        ((currentUserData.clubId !== null && currentUserData.clubId !== undefined) ||
+         (currentUserData.club_id !== null && currentUserData.club_id !== undefined));
+
+    console.log('[Widget System] User club status:', {
+        hasClub,
+        clubId: currentUserData?.clubId,
+        club_id: currentUserData?.club_id
+    });
 
     // Clear previous content
     listContainer.innerHTML = '';
