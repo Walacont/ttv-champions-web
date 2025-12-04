@@ -1,0 +1,346 @@
+/**
+ * Mobile Navigation System
+ * Strava-inspired mobile layout for SC Champions
+ * Breakpoint: 768px (iPad)
+ * Primary Color: Indigo (#4f46e5)
+ */
+
+/* ============================================
+   DESKTOP LAYOUT (Default - >768px)
+   ============================================ */
+
+/* Hide mobile elements on desktop */
+.mobile-header,
+.mobile-bottom-nav {
+    display: none;
+}
+
+/* Desktop header visible by default */
+.desktop-header {
+    display: block;
+}
+
+/* ============================================
+   MOBILE LAYOUT (<768px)
+   ============================================ */
+
+@media (max-width: 768px) {
+    /* Hide desktop header on mobile */
+    .desktop-header {
+        display: none !important;
+    }
+
+    /* Show mobile elements */
+    .mobile-header,
+    .mobile-bottom-nav {
+        display: flex;
+    }
+
+    /* Adjust body padding for fixed elements */
+    body {
+        padding-top: 60px; /* Mobile header height */
+        padding-bottom: 70px; /* Bottom nav height */
+    }
+
+    /* Main content container adjustments */
+    #main-content {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* Hide desktop navigation tabs */
+    #main-nav {
+        display: none !important;
+    }
+
+    /* ============================================
+       MOBILE HEADER (Top Fixed)
+       ============================================ */
+
+    .mobile-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background-color: white;
+        border-bottom: 1px solid #e5e7eb;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .mobile-header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .mobile-header-right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    /* Profile Picture */
+    .mobile-profile-pic {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e5e7eb;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+
+    .mobile-profile-pic:hover {
+        border-color: #4f46e5;
+    }
+
+    /* Header Icons */
+    .mobile-header-icon {
+        position: relative;
+        width: 24px;
+        height: 24px;
+        color: #6b7280;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .mobile-header-icon:hover {
+        color: #4f46e5;
+    }
+
+    .mobile-header-icon i {
+        font-size: 24px;
+    }
+
+    /* Badge Counter (like Strava's red badge) */
+    .mobile-icon-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background-color: #ef4444;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    /* ============================================
+       BOTTOM NAVIGATION (Fixed)
+       ============================================ */
+
+    .mobile-bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 70px;
+        background-color: white;
+        border-top: 1px solid #e5e7eb;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        padding: 0 8px;
+    }
+
+    /* Navigation Items */
+    .mobile-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #6b7280;
+        text-decoration: none;
+        min-width: 60px;
+        position: relative;
+    }
+
+    .mobile-nav-item i {
+        font-size: 24px;
+        transition: all 0.2s;
+    }
+
+    .mobile-nav-item span {
+        font-size: 11px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    /* Active State */
+    .mobile-nav-item.active {
+        color: #4f46e5;
+    }
+
+    .mobile-nav-item.active i {
+        transform: scale(1.1);
+    }
+
+    /* Middle Item (Wettkampf) - Highlighted with Circle */
+    .mobile-nav-item.middle-action {
+        margin-top: -20px;
+    }
+
+    .mobile-nav-item.middle-action .nav-icon-wrapper {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        transition: all 0.3s;
+    }
+
+    .mobile-nav-item.middle-action .nav-icon-wrapper:active {
+        transform: scale(0.95);
+    }
+
+    .mobile-nav-item.middle-action i {
+        font-size: 28px;
+        color: white;
+    }
+
+    .mobile-nav-item.middle-action span {
+        color: #4f46e5;
+        font-weight: 600;
+    }
+
+    .mobile-nav-item.middle-action.active span {
+        color: #4f46e5;
+    }
+
+    /* ============================================
+       DARK MODE SUPPORT
+       ============================================ */
+
+    @media (prefers-color-scheme: dark) {
+        .mobile-header,
+        .mobile-bottom-nav {
+            background-color: #1f2937;
+            border-color: #374151;
+        }
+
+        .mobile-header-icon,
+        .mobile-nav-item {
+            color: #9ca3af;
+        }
+
+        .mobile-header-icon:hover,
+        .mobile-nav-item:hover {
+            color: #818cf8;
+        }
+
+        .mobile-nav-item.active {
+            color: #818cf8;
+        }
+
+        .mobile-profile-pic {
+            border-color: #374151;
+        }
+
+        .mobile-profile-pic:hover {
+            border-color: #818cf8;
+        }
+    }
+
+    /* Dark mode class-based (for manual toggle) */
+    .dark .mobile-header,
+    .dark .mobile-bottom-nav {
+        background-color: #1f2937;
+        border-color: #374151;
+    }
+
+    .dark .mobile-header-icon,
+    .dark .mobile-nav-item {
+        color: #9ca3af;
+    }
+
+    .dark .mobile-header-icon:hover,
+    .dark .mobile-nav-item:hover {
+        color: #818cf8;
+    }
+
+    .dark .mobile-nav-item.active {
+        color: #818cf8;
+    }
+
+    .dark .mobile-profile-pic {
+        border-color: #374151;
+    }
+
+    .dark .mobile-profile-pic:hover {
+        border-color: #818cf8;
+    }
+
+    /* ============================================
+       CAPACITOR SAFE AREA SUPPORT
+       ============================================ */
+
+    html.plt-capacitor .mobile-header,
+    html.plt-android .mobile-header,
+    html.plt-ios .mobile-header {
+        padding-top: max(env(safe-area-inset-top, 0px), 0px);
+        height: calc(60px + max(env(safe-area-inset-top, 0px), 0px));
+    }
+
+    html.plt-capacitor .mobile-bottom-nav,
+    html.plt-android .mobile-bottom-nav,
+    html.plt-ios .mobile-bottom-nav {
+        padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+        height: calc(70px + max(env(safe-area-inset-bottom, 0px), 0px));
+    }
+
+    html.plt-capacitor body,
+    html.plt-android body,
+    html.plt-ios body {
+        padding-top: calc(60px + max(env(safe-area-inset-top, 0px), 0px));
+        padding-bottom: calc(70px + max(env(safe-area-inset-bottom, 0px), 0px));
+    }
+
+    /* ============================================
+       UTILITY CLASSES
+       ============================================ */
+
+    /* Hide on mobile */
+    .hide-mobile {
+        display: none !important;
+    }
+
+    /* Show only on mobile */
+    .show-mobile {
+        display: block !important;
+    }
+}
+
+/* ============================================
+   DESKTOP UTILITY CLASSES
+   ============================================ */
+
+@media (min-width: 769px) {
+    .hide-desktop {
+        display: none !important;
+    }
+
+    .show-desktop {
+        display: block !important;
+    }
+}
