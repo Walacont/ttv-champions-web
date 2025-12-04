@@ -2565,7 +2565,7 @@ async function populatePlayerSubgroupFilter(userData) {
 
             if (!error && subgroups && subgroups.length > 0) {
                 const customGroup = document.createElement('optgroup');
-                customGroup.label = '📋 Meine Untergruppen';
+                customGroup.label = '📋 Meine Untergruppen im Verein';
                 subgroups.forEach(subgroup => {
                     const option = createOption(`subgroup:${subgroup.id}`, subgroup.name);
                     customGroup.appendChild(option);
