@@ -22,6 +22,31 @@ let currentSubgroupFilter = 'club';
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
 
+// Cache for test club filtering
+let testClubIdsCache = null;
+
+/**
+ * Load test club IDs for filtering (with caching)
+ */
+async function loadTestClubIds() {
+    if (testClubIdsCache !== null) return testClubIdsCache;
+
+    try {
+        const { data: clubs } = await supabase
+            .from('clubs')
+            .select('id, is_test_club');
+
+        testClubIdsCache = (clubs || [])
+            .filter(c => c.is_test_club === true)
+            .map(c => c.id);
+    } catch (error) {
+        console.error('Error loading test club IDs:', error);
+        testClubIdsCache = [];
+    }
+
+    return testClubIdsCache;
+}
+
 // --- Constants ---
 const RANKS = [
     { name: 'Rekrut', minXP: 0, icon: '🔰' },
@@ -1992,6 +2017,12 @@ function setupMatchForm() {
 // --- Search Opponents ---
 async function searchOpponents(query, resultsContainer) {
     try {
+        // Load test club IDs for filtering
+        const testClubIds = await loadTestClubIds();
+
+        // Check if current user is from a test club
+        const isCurrentUserInTestClub = currentUserData.club_id && testClubIds.includes(currentUserData.club_id);
+
         // Load all matching players (global search with privacy filter)
         const { data: players, error } = await supabase
             .from('profiles')
@@ -2003,11 +2034,19 @@ async function searchOpponents(query, resultsContainer) {
 
         if (error) throw error;
 
-        // Filter by privacy settings and match-readiness (like original)
+        // Filter by privacy settings, match-readiness, and test clubs
         const filteredPlayers = (players || []).filter(player => {
             // Must have completed at least 5 Grundlagen
             const grundlagenCompleted = player.grundlagen_completed || 0;
             if (grundlagenCompleted < 5) return false;
+
+            // Test club filter: hide players from test clubs unless current user is also from a test club
+            if (player.club_id && testClubIds.includes(player.club_id)) {
+                // Only show test club players if current user is from the same test club
+                if (!isCurrentUserInTestClub || currentUserData.club_id !== player.club_id) {
+                    return false;
+                }
+            }
 
             // Privacy check
             const userHasNoClub = !currentUserData.club_id;

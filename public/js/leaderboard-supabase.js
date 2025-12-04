@@ -41,15 +41,28 @@ let currentUserDataCache = null;
 async function loadTestClubIds() {
     if (testClubIdsCache !== null) return testClubIdsCache;
 
-    const { data: clubs } = await supabase
-        .from('clubs')
-        .select('id, is_test_club');
+    try {
+        const { data: clubs, error } = await supabase
+            .from('clubs')
+            .select('id, is_test_club');
 
-    testClubIdsCache = (clubs || [])
-        .filter(c => c.is_test_club === true)
-        .map(c => c.id);
+        if (error) {
+            console.error('[Leaderboard] Error loading test club IDs:', error);
+            testClubIdsCache = [];
+            return testClubIdsCache;
+        }
 
-    return testClubIdsCache;
+        testClubIdsCache = (clubs || [])
+            .filter(c => c.is_test_club === true)
+            .map(c => c.id);
+
+        console.log('[Leaderboard] Test club IDs loaded:', testClubIdsCache);
+        return testClubIdsCache;
+    } catch (error) {
+        console.error('[Leaderboard] Exception loading test club IDs:', error);
+        testClubIdsCache = [];
+        return testClubIdsCache;
+    }
 }
 
 /**
@@ -79,14 +92,26 @@ async function filterTestClubPlayers(players, currentUserId) {
     const testClubIds = await loadTestClubIds();
 
     // If no test clubs exist, return all players
-    if (testClubIds.length === 0) return players;
+    if (testClubIds.length === 0) {
+        console.log('[Leaderboard] No test clubs found, showing all players');
+        return players;
+    }
 
     const currentUser = currentUserId ? await loadCurrentUserData(currentUserId) : null;
     const isCoach = currentUser && currentUser.role === 'coach';
     const currentUserClubId = currentUser?.club_id;
     const isCurrentUserInTestClub = currentUserClubId && testClubIds.includes(currentUserClubId);
 
-    return players.filter(player => {
+    console.log('[Leaderboard] Filter context:', {
+        currentUserId,
+        currentUserClubId,
+        isCoach,
+        isCurrentUserInTestClub,
+        testClubIds,
+        totalPlayers: players.length
+    });
+
+    const filteredPlayers = players.filter(player => {
         const playerClubId = player.clubId || player.club_id;
 
         // If player is not in a test club, show them
@@ -103,6 +128,9 @@ async function filterTestClubPlayers(players, currentUserId) {
         // Hide players from test clubs for everyone else
         return false;
     });
+
+    console.log('[Leaderboard] Filtered players:', filteredPlayers.length, 'from', players.length);
+    return filteredPlayers;
 }
 
 /**
