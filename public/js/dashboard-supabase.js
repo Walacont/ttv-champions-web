@@ -6,6 +6,7 @@ import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from '
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences-supabase.js';
 import { initializeWidgetSystem } from './dashboard-widgets-supabase.js';
+import { AGE_GROUPS } from './ui-utils-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -165,6 +166,9 @@ function initializeDashboard() {
 
     // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(supabase, currentUser.id, currentUserData);
+
+    // Populate player subgroup filter with age groups
+    await populatePlayerSubgroupFilter(currentUserData);
 
     // Show coach switch button if coach
     if (currentUserData.role === 'coach') {
@@ -2435,5 +2439,109 @@ function setupLeaderboardPreferences() {
 // ===== WIDGET SETTINGS =====
 // ========================================================================
 // Widget system now handled by dashboard-widgets-supabase.js module
+
+// ========================================================================
+// ===== PLAYER SUBGROUP FILTER =====
+// ========================================================================
+
+/**
+ * Populate player subgroup filter dropdown with age groups and custom subgroups
+ * @param {Object} userData - Current user data
+ */
+async function populatePlayerSubgroupFilter(userData) {
+    const dropdown = document.getElementById('player-subgroup-filter');
+    if (!dropdown) return;
+
+    const hasClub = userData.club_id !== null && userData.club_id !== undefined;
+    const subgroupIDs = userData.subgroup_ids || [];
+
+    // Save current selection
+    const currentSelection = dropdown.value;
+
+    // If user has no club, show only Global option
+    if (!hasClub) {
+        dropdown.innerHTML = '';
+        dropdown.appendChild(createOption('global', '🌍 Global'));
+        dropdown.value = 'global';
+        return;
+    }
+
+    // Start building dropdown options
+    dropdown.innerHTML = '';
+
+    // Add club and global options first
+    dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
+    dropdown.appendChild(createOption('global', '🌍 Global'));
+
+    // Add Youth Age Groups
+    const youthGroup = document.createElement('optgroup');
+    youthGroup.label = '⚽ Jugend (nach Alter)';
+    AGE_GROUPS.youth.forEach(group => {
+        const option = createOption(group.id, group.label);
+        youthGroup.appendChild(option);
+    });
+    dropdown.appendChild(youthGroup);
+
+    // Add Adults Age Group
+    const adultsGroup = document.createElement('optgroup');
+    adultsGroup.label = '👥 Erwachsene';
+    AGE_GROUPS.adults.forEach(group => {
+        const option = createOption(group.id, group.label);
+        adultsGroup.appendChild(option);
+    });
+    dropdown.appendChild(adultsGroup);
+
+    // Add Senior Age Groups
+    const seniorGroup = document.createElement('optgroup');
+    seniorGroup.label = '🎖️ Senioren (nach Alter)';
+    AGE_GROUPS.seniors.forEach(group => {
+        const option = createOption(group.id, group.label);
+        seniorGroup.appendChild(option);
+    });
+    dropdown.appendChild(seniorGroup);
+
+    // Load and add custom subgroups if user has any
+    if (subgroupIDs.length > 0) {
+        try {
+            const { data: subgroups, error } = await supabase
+                .from('subgroups')
+                .select('id, name')
+                .eq('club_id', userData.club_id)
+                .in('id', subgroupIDs)
+                .eq('is_default', false)
+                .order('created_at', { ascending: true });
+
+            if (!error && subgroups && subgroups.length > 0) {
+                const customGroup = document.createElement('optgroup');
+                customGroup.label = '📋 Meine Untergruppen';
+                subgroups.forEach(subgroup => {
+                    const option = createOption(`subgroup:${subgroup.id}`, subgroup.name);
+                    customGroup.appendChild(option);
+                });
+                dropdown.appendChild(customGroup);
+            }
+        } catch (error) {
+            console.error('[Dashboard] Error loading subgroups:', error);
+        }
+    }
+
+    // Restore selection if still valid
+    const validValues = Array.from(dropdown.options).map(opt => opt.value);
+    if (validValues.includes(currentSelection)) {
+        dropdown.value = currentSelection;
+    } else {
+        dropdown.value = 'club';
+    }
+}
+
+/**
+ * Helper function to create option elements
+ */
+function createOption(value, text) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = text;
+    return option;
+}
 
 console.log('[DASHBOARD-SUPABASE] Script loaded');
