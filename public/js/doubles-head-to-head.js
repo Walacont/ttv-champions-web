@@ -259,7 +259,15 @@ function calculateDoublesStats(matches, currentUserId, opponentPlayerIds) {
 /**
  * Render doubles head-to-head content
  */
-function renderDoublesHeadToHeadContent(container, opponentTeamName, stats, matches, currentUserId, pairingHistory, partnerNames) {
+function renderDoublesHeadToHeadContent(
+    container,
+    opponentTeamName,
+    stats,
+    matches,
+    currentUserId,
+    pairingHistory,
+    partnerNames
+) {
     let winRateColor = 'text-gray-600';
     if (stats.winRate >= 60) {
         winRateColor = 'text-green-600';
@@ -327,7 +335,7 @@ function renderDoublesHeadToHeadContent(container, opponentTeamName, stats, matc
             <div class="mb-4">
                 <h4 class="text-lg font-semibold text-gray-900 mb-3">Match-Historie</h4>
                 <div id="doubles-h2h-match-list" class="space-y-2">
-                    ${renderDoublesMatchHistory(matches.slice(0, 3), currentUserId)}
+                    ${renderDoublesMatchHistory(matches.slice(0, 3), currentUserId, partnerNames)}
                 </div>
                 ${matches.length > 3 ? `
                     <div class="text-center mt-4">
@@ -350,10 +358,10 @@ function renderDoublesHeadToHeadContent(container, opponentTeamName, stats, matc
             toggleBtn.addEventListener('click', () => {
                 showingAll = !showingAll;
                 if (showingAll) {
-                    matchList.innerHTML = renderDoublesMatchHistory(matches, currentUserId);
+                    matchList.innerHTML = renderDoublesMatchHistory(matches, currentUserId, partnerNames);
                     toggleBtn.innerHTML = '− Weniger anzeigen';
                 } else {
-                    matchList.innerHTML = renderDoublesMatchHistory(matches.slice(0, 3), currentUserId);
+                    matchList.innerHTML = renderDoublesMatchHistory(matches.slice(0, 3), currentUserId, partnerNames);
                     toggleBtn.innerHTML = `+ ${matches.length - 3} weitere Match${matches.length - 3 !== 1 ? 'es' : ''} anzeigen`;
                 }
             });
@@ -364,14 +372,20 @@ function renderDoublesHeadToHeadContent(container, opponentTeamName, stats, matc
 /**
  * Render doubles match history list
  */
-function renderDoublesMatchHistory(matches, currentUserId) {
+function renderDoublesMatchHistory(matches, currentUserId, partnerNames) {
     if (matches.length === 0) {
         return '<p class="text-gray-400 text-center py-4">Keine Matches gefunden</p>';
     }
 
     return matches.map(match => {
         const teamAPlayers = [match.teamA?.player1Id, match.teamA?.player2Id];
+        const teamBPlayers = [match.teamB?.player1Id, match.teamB?.player2Id];
         const currentUserInTeamA = teamAPlayers.includes(currentUserId);
+
+        // Find partner ID (the other player in the same team)
+        const myTeamPlayers = currentUserInTeamA ? teamAPlayers : teamBPlayers;
+        const partnerId = myTeamPlayers.find(id => id !== currentUserId);
+        const partnerName = partnerNames?.get(partnerId) || 'Unbekannt';
 
         const isWinner = currentUserInTeamA
             ? match.winningTeam === 'A'
@@ -393,6 +407,7 @@ function renderDoublesMatchHistory(matches, currentUserId) {
                         <p class="text-sm font-mono font-medium text-gray-800">${setsDisplay}</p>
                     </div>
                     <div class="flex items-center justify-between mt-1">
+                        <p class="text-xs text-gray-600">Mit <span class="font-medium">${partnerName}</span></p>
                         <p class="text-xs text-gray-500">${formattedDate}</p>
                     </div>
                 </div>
