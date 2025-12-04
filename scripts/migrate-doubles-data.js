@@ -9,6 +9,15 @@
  * Usage:
  *   node scripts/migrate-doubles-data.js
  *
+ * ⚠️ WICHTIG: VOR der Migration müssen Sie in Supabase SQL Editor ausführen:
+ *   DROP TRIGGER IF EXISTS trigger_process_doubles_match ON doubles_matches;
+ *
+ * Nach der Migration können Sie den Trigger wieder aktivieren:
+ *   CREATE TRIGGER trigger_process_doubles_match
+ *       BEFORE INSERT ON doubles_matches
+ *       FOR EACH ROW
+ *       EXECUTE FUNCTION process_doubles_match_result();
+ *
  * Voraussetzungen:
  *   - firebase-service-account.json im scripts/ Ordner
  *   - npm install in scripts/ ausgeführt
@@ -228,6 +237,8 @@ async function migrateDoublesPairings() {
 
 async function migrateDoublesMatches() {
     console.log('\n🎯 Migrating Doubles Matches...');
+    console.log('   ⚠️ Stellen Sie sicher, dass der Trigger deaktiviert wurde!');
+    console.log('   (DROP TRIGGER IF EXISTS trigger_process_doubles_match ON doubles_matches;)\n');
 
     const snapshot = await firestore.collection('doublesMatches').get();
     console.log(`Found ${snapshot.size} doubles matches in Firebase`);
