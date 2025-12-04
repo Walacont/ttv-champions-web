@@ -616,23 +616,23 @@ async function loadLeaderboards() {
             <!-- Tabs -->
             <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6">
                 <div class="flex justify-center min-w-max">
-                    <button id="lb-tab-xp" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <button id="tab-effort" data-tab="effort" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Fleiß</div>
                         <div class="text-xs text-gray-500 font-normal">(XP)</div>
                     </button>
-                    <button id="lb-tab-points" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <button id="tab-season" data-tab="season" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Season</div>
                         <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
                     </button>
-                    <button id="lb-tab-elo" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <button id="tab-skill" data-tab="skill" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Skill</div>
                         <div class="text-xs text-gray-500 font-normal">(Elo)</div>
                     </button>
-                    <button id="lb-tab-ranks" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <button id="tab-ranks" data-tab="ranks" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Ränge</div>
                         <div class="text-xs text-gray-500 font-normal">(Level)</div>
                     </button>
-                    <button id="lb-tab-doubles" class="lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
+                    <button id="tab-doubles" data-tab="doubles" class="leaderboard-tab-btn lb-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors">
                         <div>Doppel</div>
                         <div class="text-xs text-gray-500 font-normal">(Teams)</div>
                     </button>
@@ -647,19 +647,44 @@ async function loadLeaderboards() {
             </div>
             ` : ''}
 
-            <!-- Leaderboard Content -->
-            <div id="leaderboard-list" class="mt-4 space-y-2">
+            <!-- Effort/Fleiß Content -->
+            <div id="content-effort" class="leaderboard-tab-content mt-4 space-y-2 hidden">
+                <div id="leaderboard-list-effort" class="space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
+                </div>
+            </div>
+
+            <!-- Season Content -->
+            <div id="content-season" class="leaderboard-tab-content mt-4 space-y-2 hidden">
+                <div id="leaderboard-list-season" class="space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
+                </div>
+            </div>
+
+            <!-- Skill/Elo Content -->
+            <div id="content-skill" class="leaderboard-tab-content mt-4 space-y-2 hidden">
+                <div id="leaderboard-list-skill" class="space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Skill-Rangliste...</p>
+                </div>
+            </div>
+
+            <!-- Ranks Content -->
+            <div id="content-ranks" class="leaderboard-tab-content mt-4 space-y-4 hidden">
+                <div id="ranks-list" class="space-y-4">
+                    <p class="text-center text-gray-500 py-8">Lade Ränge...</p>
+                </div>
+            </div>
+
+            <!-- Doubles Content -->
+            <div id="content-doubles" class="leaderboard-tab-content mt-4 hidden">
+                <div id="doubles-list" class="space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                </div>
+            </div>
+
+            <!-- Legacy leaderboard-list for compatibility -->
+            <div id="leaderboard-list" class="mt-4 space-y-2 hidden">
                 <p class="text-center text-gray-500 py-8">Lade Rangliste...</p>
-            </div>
-
-            <!-- Ranks Content (hidden by default) -->
-            <div id="ranks-list" class="mt-4 space-y-4 hidden">
-                <p class="text-center text-gray-500 py-8">Lade Ränge...</p>
-            </div>
-
-            <!-- Doubles Content (hidden by default) -->
-            <div id="doubles-list" class="mt-4 hidden">
-                <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
             </div>
         </div>
     `;
@@ -667,7 +692,8 @@ async function loadLeaderboards() {
     // Setup tab listeners
     document.querySelectorAll('.lb-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const tab = btn.id.replace('lb-tab-', '');
+            // Support both old (lb-tab-*) and new (tab-*) ID formats
+            const tab = btn.getAttribute('data-tab') || btn.id.replace('lb-tab-', '').replace('tab-', '');
             currentLeaderboardTab = tab;
             updateLeaderboardTabs();
             updateLeaderboardContent();
@@ -694,11 +720,15 @@ async function loadLeaderboards() {
 
     // Load doubles leaderboard
     loadDoublesLeaderboardTab();
+
+    // Apply leaderboard preferences (show/hide tabs based on settings)
+    applyPreferences();
 }
 
 function updateLeaderboardTabs() {
     document.querySelectorAll('.lb-tab-btn').forEach(btn => {
-        const tab = btn.id.replace('lb-tab-', '');
+        // Support both old (lb-tab-*) and new (tab-*) ID formats
+        const tab = btn.getAttribute('data-tab') || btn.id.replace('lb-tab-', '').replace('tab-', '');
         if (tab === currentLeaderboardTab) {
             btn.classList.add('border-indigo-500', 'text-indigo-600');
             btn.classList.remove('border-transparent');
@@ -724,27 +754,47 @@ function updateLeaderboardScope() {
 
 // Switch between different leaderboard content views
 function updateLeaderboardContent() {
-    const leaderboardList = document.getElementById('leaderboard-list');
-    const ranksList = document.getElementById('ranks-list');
-    const doublesList = document.getElementById('doubles-list');
     const scopeToggle = document.getElementById('lb-scope-club')?.parentElement;
 
-    // Hide all content first
-    if (leaderboardList) leaderboardList.classList.add('hidden');
-    if (ranksList) ranksList.classList.add('hidden');
-    if (doublesList) doublesList.classList.add('hidden');
+    // Hide all tab content
+    document.querySelectorAll('.leaderboard-tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+
+    // Also hide legacy leaderboard-list
+    const legacyList = document.getElementById('leaderboard-list');
+    if (legacyList) legacyList.classList.add('hidden');
 
     // Show/hide scope toggle based on tab
     if (scopeToggle) {
-        if (currentLeaderboardTab === 'elo' || currentLeaderboardTab === 'doubles') {
+        if (currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo' || currentLeaderboardTab === 'doubles') {
             scopeToggle.classList.remove('hidden');
         } else {
             scopeToggle.classList.add('hidden');
         }
     }
 
-    // Show appropriate content
+    // Show appropriate content based on current tab
+    const contentMap = {
+        'xp': 'content-effort',
+        'effort': 'content-effort',
+        'points': 'content-season',
+        'season': 'content-season',
+        'elo': 'content-skill',
+        'skill': 'content-skill',
+        'ranks': 'content-ranks',
+        'doubles': 'content-doubles'
+    };
+
+    const contentId = contentMap[currentLeaderboardTab];
+    if (contentId) {
+        const content = document.getElementById(contentId);
+        if (content) content.classList.remove('hidden');
+    }
+
+    // Fallback: show appropriate legacy content
     if (currentLeaderboardTab === 'ranks') {
+        const ranksList = document.getElementById('ranks-list');
         if (ranksList) ranksList.classList.remove('hidden');
         renderRanksList();
     } else if (currentLeaderboardTab === 'doubles') {
