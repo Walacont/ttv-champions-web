@@ -914,14 +914,27 @@ function renderCompetitionChart(labels, data) {
 
 async function loadClubsAndPlayers() {
     try {
-        // Initial load
+        // Load clubs first
+        const { data: clubs, error: clubsError } = await supabase
+            .from('clubs')
+            .select('id, name, is_test_club');
+
+        if (clubsError) throw clubsError;
+
+        // Create clubs map
+        const clubsMap = new Map();
+        (clubs || []).forEach(club => {
+            clubsMap.set(club.id, club);
+        });
+
+        // Initial load of users
         const { data: users, error } = await supabase
             .from('profiles')
             .select('*');
 
         if (error) throw error;
 
-        renderClubsAndPlayers(users || []);
+        renderClubsAndPlayers(users || [], clubsMap);
 
         // Setup realtime subscription
         if (usersSubscription) {
@@ -934,7 +947,7 @@ async function loadClubsAndPlayers() {
                 const { data: updatedUsers } = await supabase
                     .from('profiles')
                     .select('*');
-                renderClubsAndPlayers(updatedUsers || []);
+                renderClubsAndPlayers(updatedUsers || [], clubsMap);
             })
             .subscribe();
 
@@ -944,7 +957,7 @@ async function loadClubsAndPlayers() {
     }
 }
 
-function renderClubsAndPlayers(users) {
+function renderClubsAndPlayers(users, clubsMap = new Map()) {
     const clubs = users.reduce((acc, user) => {
         if (user.club_id) {
             if (!acc[user.club_id]) {
@@ -961,16 +974,26 @@ function renderClubsAndPlayers(users) {
             : '';
 
     for (const clubId in clubs) {
+        const clubData = clubsMap.get(clubId);
+        const clubName = clubData?.name || clubId;
+        const isTestClub = clubData?.is_test_club === true;
+
         const clubDiv = document.createElement('div');
         clubDiv.className = 'p-4 bg-gray-50 rounded-lg flex justify-between items-center';
-        clubDiv.innerHTML = `<p class="font-semibold">${clubId}</p><button data-club-id="${clubId}" class="view-players-button bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Mitglieder anzeigen (${clubs[clubId].length})</button>`;
+        clubDiv.innerHTML = `
+            <div>
+                <p class="font-semibold">${clubName}</p>
+                ${isTestClub ? '<span class="text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Test-Club</span>' : ''}
+            </div>
+            <button data-club-id="${clubId}" data-club-name="${clubName}" class="view-players-button bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Mitglieder anzeigen (${clubs[clubId].length})</button>`;
         clubsListEl.appendChild(clubDiv);
     }
 
     document.querySelectorAll('.view-players-button').forEach(button => {
         button.addEventListener('click', () => {
             const clubId = button.dataset.clubId;
-            modalClubIdEl.textContent = `Mitglieder von: ${clubId}`;
+            const clubName = button.dataset.clubName || clubId;
+            modalClubIdEl.textContent = `Mitglieder von: ${clubName}`;
             modalPlayerListEl.innerHTML = '';
             clubs[clubId]
                 .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
