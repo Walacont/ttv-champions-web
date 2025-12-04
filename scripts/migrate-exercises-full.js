@@ -161,12 +161,11 @@ async function migrateExercises() {
             // Points & Difficulty - ensure numeric values
             points: typeof data.points === 'number' ? data.points : (typeof data.xpReward === 'number' ? data.xpReward : 10),
             xp_reward: typeof data.xpReward === 'number' ? data.xpReward : (typeof data.points === 'number' ? data.points : 10),
-            // Note: 'level' is INTEGER in DB, so we store difficulty text in 'difficulty' column
-            difficulty: data.level || data.difficulty || null,
+            // Don't send 'difficulty' or 'level' - they have type mismatches with DB
             tiered_points: data.tieredPoints || null,
 
-            // Categorization - category might be TEXT, tags is TEXT[]
-            category: data.category || (data.tags ? data.tags[0] : null),
+            // Categorization - store level (standard/grundlagen) in category
+            category: data.level || data.category || (data.tags ? data.tags[0] : null),
             tags: data.tags || (data.category ? [data.category] : []),
             visibility: data.visibility || 'global',
 
