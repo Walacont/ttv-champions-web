@@ -941,7 +941,7 @@ async function fetchLeaderboardData() {
                 .from('profiles')
                 .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
                 .eq('club_id', currentUserData.club_id)
-                .neq('role', 'admin');
+                .in('role', ['player', 'coach']);
 
             if (clubError) {
                 console.error('[Leaderboard] Error fetching club data:', clubError);
@@ -961,7 +961,7 @@ async function fetchLeaderboardData() {
         const { data: globalPlayers, error: globalError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
-            .neq('role', 'admin');
+            .in('role', ['player', 'coach']);
 
         if (globalError) {
             console.error('[Leaderboard] Error fetching global data:', globalError);
@@ -2518,13 +2518,13 @@ async function loadMatchSuggestions() {
     container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>';
 
     try {
-        // Get club members
+        // Get club members (only players and coaches, not admins)
         const { data: clubMembers, error } = await supabase
             .from('profiles')
             .select('id, display_name, avatar_url, elo_rating')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
-            .neq('role', 'admin')
+            .in('role', ['player', 'coach'])
             .limit(10);
 
         if (error) throw error;
