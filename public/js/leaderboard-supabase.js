@@ -69,7 +69,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
     try {
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points')
+            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
@@ -88,7 +88,9 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
             role: p.role,
             subgroupIDs: p.subgroup_ids || [],
             xp: p.xp || 0,
-            points: p.points || 0
+            points: p.points || 0,
+            birthdate: p.birthdate,
+            gender: p.gender
         }));
 
         // Apply filters
@@ -131,7 +133,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids')
+            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('xp', { ascending: false });
@@ -145,7 +147,9 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
             xp: p.xp || 0,
             photoURL: p.photo_url,
             role: p.role,
-            subgroupIDs: p.subgroup_ids || []
+            subgroupIDs: p.subgroup_ids || [],
+            birthdate: p.birthdate,
+            gender: p.gender
         }));
 
         // Apply filters
@@ -188,7 +192,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids')
+            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('points', { ascending: false });
@@ -202,7 +206,9 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
             points: p.points || 0,
             photoURL: p.photo_url,
             role: p.role,
-            subgroupIDs: p.subgroup_ids || []
+            subgroupIDs: p.subgroup_ids || [],
+            birthdate: p.birthdate,
+            gender: p.gender
         }));
 
         // Apply filters
@@ -284,14 +290,14 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             .from('profiles')
             .select(`
                 id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
-                club_id, clubs(name)
+                club_id, clubs(name), subgroup_ids, birthdate, gender
             `)
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
 
         if (error) throw error;
 
-        const allPlayers = (data || []).map(p => ({
+        let allPlayers = (data || []).map(p => ({
             id: p.id,
             firstName: p.first_name,
             lastName: p.last_name,
@@ -300,15 +306,32 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             photoURL: p.photo_url,
             role: p.role,
             clubId: p.club_id,
-            clubName: p.clubs?.name || 'Kein Verein'
+            clubName: p.clubs?.name || 'Kein Verein',
+            subgroupIDs: p.subgroup_ids || [],
+            birthdate: p.birthdate,
+            gender: p.gender
         }));
+
+        // Apply filters
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                allPlayers = filterPlayersByAgeGroup(allPlayers, currentLeaderboardSubgroupFilter);
+            } else if (!isGenderFilter(currentLeaderboardSubgroupFilter)) {
+                // Custom subgroup filter (not age group, not gender)
+                allPlayers = allPlayers.filter(p => p.subgroupIDs.includes(currentLeaderboardSubgroupFilter));
+            }
+        }
+
+        if (currentLeaderboardGenderFilter !== 'all') {
+            allPlayers = filterPlayersByGender(allPlayers, currentLeaderboardGenderFilter);
+        }
 
         if (allPlayers.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
         }
 
-        // Find current user's rank
+        // Find current user's rank (after filtering)
         const currentUserRank = allPlayers.findIndex(p => p.id === currentUserId) + 1;
         const currentUserData = allPlayers.find(p => p.id === currentUserId);
 
