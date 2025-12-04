@@ -7,6 +7,7 @@ import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences-supabase.js';
 import { initializeWidgetSystem } from './dashboard-widgets-supabase.js';
 import { AGE_GROUPS } from './ui-utils-supabase.js';
+import { showHeadToHeadModal } from './head-to-head-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -1020,6 +1021,9 @@ function renderLeaderboardList() {
     const showClubName = currentLeaderboardScope === 'global' &&
         (currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo');
 
+    // Check if head-to-head is available (skill/elo tab only)
+    const isH2HEnabled = currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo';
+
     top15.forEach((player, index) => {
         const isCurrentUser = player.id === currentUser.id;
         const rank = index + 1;
@@ -1030,8 +1034,13 @@ function renderLeaderboardList() {
             ? `<div class="text-xs text-gray-500">${player.club_name}</div>`
             : '';
 
+        // Make row clickable for head-to-head (not for current user)
+        const isClickable = isH2HEnabled && !isCurrentUser;
+        const clickableClass = isClickable ? 'cursor-pointer' : '';
+        const dataAttr = isClickable ? `data-player-id="${player.id}"` : '';
+
         html += `
-            <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors">
+            <div class="flex items-center justify-between p-3 rounded-lg ${isCurrentUser ? 'bg-indigo-50 border-2 border-indigo-300' : 'bg-gray-50 hover:bg-gray-100'} transition-colors ${clickableClass}" ${dataAttr}>
                 <div class="flex items-center gap-3">
                     <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-gray-500'}">${medal}</span>
                     <img src="${player.photo_url || DEFAULT_AVATAR}"
@@ -1079,6 +1088,16 @@ function renderLeaderboardList() {
     }
 
     container.innerHTML = html;
+
+    // Add click handlers for head-to-head modal (skill/elo tab only)
+    if (isH2HEnabled) {
+        container.querySelectorAll('[data-player-id]').forEach(el => {
+            el.addEventListener('click', () => {
+                const opponentId = el.getAttribute('data-player-id');
+                showHeadToHeadModal(supabase, currentUser.id, opponentId);
+            });
+        });
+    }
 }
 
 // --- Load Points History ---
