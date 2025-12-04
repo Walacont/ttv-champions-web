@@ -376,10 +376,19 @@ function matchesAgeGroup(birthdate, ageGroupFilter) {
 
 async function loadSubgroupsForFilter(selectElement) {
     try {
+        // Only load subgroups that the user is a member of
+        const userSubgroupIds = currentUserData.subgroup_ids || [];
+
+        if (userSubgroupIds.length === 0) {
+            // User is not in any subgroups - don't show the section
+            return;
+        }
+
         const { data: subgroups } = await supabase
             .from('subgroups')
             .select('id, name')
             .eq('club_id', currentUserData.club_id)
+            .in('id', userSubgroupIds)
             .order('name');
 
         if (subgroups && subgroups.length > 0) {
