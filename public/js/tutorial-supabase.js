@@ -375,7 +375,7 @@ export class TutorialManager {
     }
 
     /**
-     * Tutorial überspringen
+     * Tutorial überspringen - speichert auch als abgeschlossen
      */
     async skip() {
         if (
@@ -385,6 +385,9 @@ export class TutorialManager {
         ) {
             await this.cleanup();
 
+            // Auch beim Überspringen als abgeschlossen markieren
+            await this.saveTutorialCompletion();
+
             if (this.options.onSkip) {
                 this.options.onSkip();
             }
@@ -392,18 +395,15 @@ export class TutorialManager {
     }
 
     /**
-     * Tutorial abschließen
+     * Speichert den Tutorial-Abschluss in der Datenbank
      */
-    async complete() {
-        await this.cleanup();
-
-        // In Supabase speichern
+    async saveTutorialCompletion() {
         const supabase = this.options.supabaseClient;
         const userId = this.options.userId;
 
-        if (supabase && userId) {
+        if (supabase && userId && this.options.tutorialKey) {
             try {
-                // Erst aktuelle Daten laden
+                // Bestehende Daten abrufen
                 const { data: currentData, error: fetchError } = await supabase
                     .from('profiles')
                     .select('tutorial_completed, tutorial_completed_at')
@@ -433,11 +433,21 @@ export class TutorialManager {
 
                 if (updateError) throw updateError;
 
-                console.log(`Tutorial "${this.options.tutorialKey}" abgeschlossen`);
+                console.log(`Tutorial "${this.options.tutorialKey}" als abgeschlossen gespeichert`);
             } catch (error) {
                 console.error('Fehler beim Speichern des Tutorial-Status:', error);
             }
         }
+    }
+
+    /**
+     * Tutorial abschließen
+     */
+    async complete() {
+        await this.cleanup();
+
+        // In Supabase speichern
+        await this.saveTutorialCompletion();
 
         // Callback
         if (this.options.onComplete) {
