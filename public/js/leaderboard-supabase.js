@@ -289,7 +289,6 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
     players.forEach((player, index) => {
         const rank = index + 1;
         const isCurrentUser = player.id === currentUserId;
-        const league = type === 'elo' ? getLeague(player.eloRating) : null;
 
         const row = document.createElement('div');
         row.className = `flex items-center justify-between p-3 ${isCurrentUser ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'bg-white'}
@@ -316,11 +315,10 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
                         ${player.firstName || ''} ${player.lastName || ''}
                         ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
                     </p>
-                    ${league ? `<p class="text-xs ${league.color}">${league.icon} ${league.name}</p>` : ''}
                 </div>
             </div>
             <div class="text-right">
-                <p class="font-bold ${type === 'elo' ? league?.color || 'text-gray-800' : 'text-gray-800'}">${Math.round(value)}</p>
+                <p class="font-bold text-gray-800">${Math.round(value)}</p>
                 <p class="text-xs text-gray-500">${label}</p>
             </div>
         `;
@@ -338,7 +336,6 @@ function renderGlobalLeaderboardList(container, players, currentUserId) {
     players.forEach((player, index) => {
         const rank = index + 1;
         const isCurrentUser = player.id === currentUserId;
-        const league = getLeague(player.eloRating);
 
         const row = document.createElement('div');
         row.className = `flex items-center justify-between p-3 ${isCurrentUser ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'bg-white'}
@@ -361,8 +358,8 @@ function renderGlobalLeaderboardList(container, players, currentUserId) {
                 </div>
             </div>
             <div class="text-right">
-                <p class="font-bold ${league.color}">${Math.round(player.eloRating)}</p>
-                <p class="text-xs ${league.color}">${league.icon} ${league.name}</p>
+                <p class="font-bold text-gray-800">${Math.round(player.eloRating)}</p>
+                <p class="text-xs text-gray-500">ELO</p>
             </div>
         `;
 

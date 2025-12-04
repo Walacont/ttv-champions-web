@@ -857,7 +857,7 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, email, subgroup_ids, is_match_ready, role, grundlagen_completed')
+            .select('id, first_name, last_name, email, subgroup_ids, is_match_ready, role, grundlagen_completed, elo_rating')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('last_name', { ascending: true })
@@ -878,7 +878,8 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
                 subgroupIDs: p.subgroup_ids || [],
                 isMatchReady: p.is_match_ready,
                 role: p.role,
-                grundlagenCompleted: p.grundlagen_completed || 0
+                grundlagenCompleted: p.grundlagen_completed || 0,
+                eloRating: p.elo_rating || 1000
             };
 
             const emailKey = player.email?.toLowerCase()?.trim();
