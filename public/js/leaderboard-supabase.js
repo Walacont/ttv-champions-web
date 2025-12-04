@@ -27,6 +27,7 @@ export const DEMOTION_COUNT = 4;
 let currentLeaderboardSubgroupFilter = 'all';
 let currentLeaderboardGenderFilter = 'all';
 let leaderboardSubscriptions = [];
+let currentActiveTab = 'effort';
 
 /**
  * Set subgroup filter for leaderboard
@@ -415,4 +416,245 @@ export async function loadAllLeaderboards(userData) {
         loadSeasonLeaderboard(userData.clubId, userData.id, 'season-list-club'),
         loadGlobalLeaderboard(userData.id, 'skill-list-global')
     ]);
+}
+
+/**
+ * Renders the leaderboard HTML structure
+ */
+export function renderLeaderboardHTML(containerId, options = {}) {
+    const { showToggle = true, userData = null } = options;
+
+    const hasClub = userData?.clubId && userData.clubId !== '' && userData.clubId !== 'null';
+    const showEffortTab = hasClub ? (userData?.leaderboardPreferences?.showEffortTab !== false) : true;
+    const showRanksTab = hasClub ? (userData?.leaderboardPreferences?.showRanksTab !== false) : true;
+    const showSeasonTab = hasClub ? (userData?.leaderboardPreferences?.showSeasonTab !== false) : true;
+
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`Container with ID "${containerId}" not found`);
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-gray-900 text-center mb-4">Rangliste</h2>
+
+            <div class="overflow-x-auto border-b border-gray-200 mb-4 -mx-6 px-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <div class="flex justify-center min-w-max">
+                    ${showEffortTab ? `
+                    <button id="tab-effort" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Erfahrungspunkten (XP) - permanenter Fortschritt">
+                        <div>Fleiß</div>
+                        <div class="text-xs text-gray-500 font-normal">(XP)</div>
+                    </button>
+                    ` : ''}
+                    ${showSeasonTab ? `
+                    <button id="tab-season" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Saisonpunkten - aktuelle 6-Wochen-Saison">
+                        <div>Season</div>
+                        <div class="text-xs text-gray-500 font-normal">(Punkte)</div>
+                    </button>
+                    ` : ''}
+                    <button id="tab-skill" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Ranking nach Elo-Rating - Spielstärke aus Wettkämpfen">
+                        <div>Skill</div>
+                        <div class="text-xs text-gray-500 font-normal">(Elo)</div>
+                    </button>
+                    ${showRanksTab ? `
+                    <button id="tab-ranks" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Verteilung der Spieler nach Rängen">
+                        <div>Ränge</div>
+                        <div class="text-xs text-gray-500 font-normal">(Level)</div>
+                    </button>
+                    ` : ''}
+                    <button id="tab-doubles" class="leaderboard-tab-btn flex-shrink-0 px-6 py-3 text-sm font-semibold border-b-2 border-transparent hover:border-gray-300 transition-colors" title="Doppel-Paarungen Rangliste">
+                        <div>Doppel</div>
+                        <div class="text-xs text-gray-500 font-normal">(Teams)</div>
+                    </button>
+                </div>
+            </div>
+
+            ${showToggle ? `
+                <div id="scope-toggle-container" class="mt-4 flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100">
+                    <button id="toggle-club" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Mein Verein</button>
+                    <button id="toggle-global" class="leaderboard-toggle-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md">Global</button>
+                </div>
+            ` : ''}
+
+            <div id="content-skill" class="leaderboard-tab-content hidden">
+                <div id="skill-club-container">
+                    <div id="skill-list-club" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Lade Skill-Rangliste...</p>
+                    </div>
+                </div>
+                ${showToggle ? `
+                    <div id="skill-global-container" class="hidden">
+                        <div id="skill-list-global" class="mt-6 space-y-2">
+                            <p class="text-center text-gray-500 py-8">Lade globale Skill-Rangliste...</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+
+            <div id="content-effort" class="leaderboard-tab-content hidden">
+                <div id="effort-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Fleiß-Rangliste...</p>
+                </div>
+            </div>
+
+            <div id="content-season" class="leaderboard-tab-content hidden">
+                <div id="season-list-club" class="mt-6 space-y-2">
+                    <p class="text-center text-gray-500 py-8">Lade Season-Rangliste...</p>
+                </div>
+            </div>
+
+            <div id="content-ranks" class="leaderboard-tab-content hidden">
+                <div id="ranks-list" class="mt-6 space-y-4">
+                    <p class="text-center text-gray-500 py-8">Lade Level-Übersicht...</p>
+                </div>
+            </div>
+
+            <div id="content-doubles" class="leaderboard-tab-content hidden">
+                <div id="doubles-club-container">
+                    <div id="doubles-list-club" class="mt-6 space-y-2">
+                        <p class="text-center text-gray-500 py-8">Lade Doppel-Rangliste...</p>
+                    </div>
+                </div>
+                ${showToggle ? `
+                    <div id="doubles-global-container" class="hidden">
+                        <div id="doubles-list-global" class="mt-6 space-y-2">
+                            <p class="text-center text-gray-500 py-8">Lade globale Doppel-Rangliste...</p>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Sets up the leaderboard tabs click handlers
+ */
+export function setupLeaderboardTabs(userData = null) {
+    const tabSkillBtn = document.getElementById('tab-skill');
+    const tabEffortBtn = document.getElementById('tab-effort');
+    const tabSeasonBtn = document.getElementById('tab-season');
+    const tabRanksBtn = document.getElementById('tab-ranks');
+    const tabDoublesBtn = document.getElementById('tab-doubles');
+    const scopeToggleContainer = document.getElementById('scope-toggle-container');
+
+    if (!tabSkillBtn || !tabEffortBtn || !tabSeasonBtn || !tabRanksBtn || !tabDoublesBtn) return;
+
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
+    const switchTab = tabName => {
+        currentActiveTab = tabName;
+
+        document.querySelectorAll('.leaderboard-tab-content').forEach(el => el.classList.add('hidden'));
+
+        document.querySelectorAll('.leaderboard-tab-btn').forEach(btn => {
+            btn.classList.remove('border-indigo-600', 'text-indigo-600');
+            btn.classList.add('border-transparent', 'text-gray-600');
+        });
+
+        const selectedContent = document.getElementById(`content-${tabName}`);
+        if (selectedContent) selectedContent.classList.remove('hidden');
+
+        const selectedTab = document.getElementById(`tab-${tabName}`);
+        if (selectedTab) {
+            selectedTab.classList.add('border-indigo-600', 'text-indigo-600');
+            selectedTab.classList.remove('border-transparent', 'text-gray-600');
+        }
+
+        if (scopeToggleContainer) {
+            if (tabName === 'skill' || tabName === 'doubles') {
+                scopeToggleContainer.classList.remove('hidden');
+            } else {
+                scopeToggleContainer.classList.add('hidden');
+            }
+        }
+
+        if (!hasClub && (tabName === 'skill' || tabName === 'doubles')) {
+            const clubContainer = document.getElementById(`${tabName}-club-container`);
+            const globalContainer = document.getElementById(`${tabName}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+
+            const toggleClubBtn = document.getElementById('toggle-club');
+            const toggleGlobalBtn = document.getElementById('toggle-global');
+            if (toggleClubBtn) toggleClubBtn.classList.remove('toggle-btn-active');
+            if (toggleGlobalBtn) toggleGlobalBtn.classList.add('toggle-btn-active');
+        }
+    };
+
+    tabSkillBtn.addEventListener('click', () => switchTab('skill'));
+    tabEffortBtn.addEventListener('click', () => switchTab('effort'));
+    tabSeasonBtn.addEventListener('click', () => switchTab('season'));
+    tabRanksBtn.addEventListener('click', () => switchTab('ranks'));
+    tabDoublesBtn.addEventListener('click', () => switchTab('doubles'));
+
+    const defaultTab = hasClub ? 'effort' : 'skill';
+    switchTab(defaultTab);
+}
+
+/**
+ * Sets up the club/global toggle for Skill and Doubles tabs
+ */
+export function setupLeaderboardToggle(userData = null) {
+    const toggleClubBtn = document.getElementById('toggle-club');
+    const toggleGlobalBtn = document.getElementById('toggle-global');
+
+    if (!toggleClubBtn || !toggleGlobalBtn) return;
+
+    const hasClub = userData && userData.clubId !== null && userData.clubId !== undefined;
+
+    if (!hasClub) {
+        toggleClubBtn.style.display = 'none';
+    }
+
+    const switchScope = scope => {
+        const tab = currentActiveTab;
+
+        if (scope === 'club' && hasClub) {
+            toggleClubBtn.classList.add('toggle-btn-active');
+            toggleGlobalBtn.classList.remove('toggle-btn-active');
+
+            const clubContainer = document.getElementById(`${tab}-club-container`);
+            const globalContainer = document.getElementById(`${tab}-global-container`);
+            if (clubContainer) clubContainer.classList.remove('hidden');
+            if (globalContainer) globalContainer.classList.add('hidden');
+        } else {
+            toggleGlobalBtn.classList.add('toggle-btn-active');
+            toggleClubBtn.classList.remove('toggle-btn-active');
+
+            const clubContainer = document.getElementById(`${tab}-club-container`);
+            const globalContainer = document.getElementById(`${tab}-global-container`);
+            if (clubContainer) clubContainer.classList.add('hidden');
+            if (globalContainer) globalContainer.classList.remove('hidden');
+        }
+    };
+
+    toggleClubBtn.addEventListener('click', () => switchScope('club'));
+    toggleGlobalBtn.addEventListener('click', () => switchScope('global'));
+
+    switchScope(hasClub ? 'club' : 'global');
+}
+
+/**
+ * Loads all leaderboards (wrapper for compatibility)
+ */
+export async function loadLeaderboard(userData, supabaseClient, unsubscribes) {
+    if (!userData.clubId) return;
+
+    await Promise.all([
+        loadSkillLeaderboard(userData.clubId, userData.id, 'skill-list-club'),
+        loadEffortLeaderboard(userData.clubId, userData.id, 'effort-list-club'),
+        loadSeasonLeaderboard(userData.clubId, userData.id, 'season-list-club'),
+    ]);
+}
+
+/**
+ * @deprecated This function is deprecated and will be removed in future versions.
+ * Use the new 3-tab leaderboard system instead.
+ */
+export function loadLeaderboardForCoach(clubId, leagueToShow, supabase, unsubscribeCallback) {
+    console.warn(
+        'loadLeaderboardForCoach is deprecated. Please update to use the new 3-tab leaderboard system.'
+    );
 }
