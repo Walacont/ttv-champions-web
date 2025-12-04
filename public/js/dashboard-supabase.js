@@ -946,7 +946,18 @@ async function fetchLeaderboardData() {
 }
 
 function renderLeaderboardList() {
-    const container = document.getElementById('leaderboard-list');
+    // Map tab names to container IDs
+    const containerMap = {
+        'xp': 'leaderboard-list-effort',
+        'effort': 'leaderboard-list-effort',
+        'points': 'leaderboard-list-season',
+        'season': 'leaderboard-list-season',
+        'elo': 'leaderboard-list-skill',
+        'skill': 'leaderboard-list-skill'
+    };
+
+    const containerId = containerMap[currentLeaderboardTab] || 'leaderboard-list';
+    const container = document.getElementById(containerId);
     if (!container) return;
 
     let players = leaderboardCache[currentLeaderboardScope] || [];
@@ -961,8 +972,15 @@ function renderLeaderboardList() {
         players = players.filter(p => p.gender === currentGenderFilter);
     }
 
-    // Sort by current tab
-    const fieldMap = { xp: 'xp', elo: 'elo_rating', points: 'points' };
+    // Sort by current tab - map tab names to field names
+    const fieldMap = {
+        'xp': 'xp',
+        'effort': 'xp',
+        'elo': 'elo_rating',
+        'skill': 'elo_rating',
+        'points': 'points',
+        'season': 'points'
+    };
     const field = fieldMap[currentLeaderboardTab];
     const sorted = [...players].sort((a, b) => (b[field] || 0) - (a[field] || 0));
 
@@ -2560,7 +2578,6 @@ async function populatePlayerSubgroupFilter(userData) {
                 .select('id, name')
                 .eq('club_id', userData.club_id)
                 .in('id', subgroupIDs)
-                .eq('is_default', false)
                 .order('created_at', { ascending: true });
 
             if (!error && subgroups && subgroups.length > 0) {
