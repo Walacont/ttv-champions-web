@@ -44,12 +44,49 @@ CREATE POLICY "clubs_delete_admin" ON clubs
         )
     );
 
--- Also allow coaches to read their own club
-CREATE POLICY "clubs_select_coach" ON clubs
-    FOR SELECT
+-- ============================================
+-- RLS Policies for invitation_codes table
+-- ============================================
+
+-- Enable RLS on invitation_codes table
+ALTER TABLE invitation_codes ENABLE ROW LEVEL SECURITY;
+
+-- Allow admins to do everything with invitation codes
+CREATE POLICY "invitation_codes_admin_all" ON invitation_codes
+    FOR ALL
     USING (
-        id IN (
-            SELECT club_id FROM profiles
+        EXISTS (
+            SELECT 1 FROM profiles
             WHERE profiles.id = auth.uid()
+            AND profiles.role = 'admin'
         )
     );
+
+-- Allow coaches to create codes for their own club
+CREATE POLICY "invitation_codes_coach_insert" ON invitation_codes
+    FOR INSERT
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'coach'
+            AND profiles.club_id = club_id
+        )
+    );
+
+-- Allow coaches to read codes for their own club
+CREATE POLICY "invitation_codes_coach_select" ON invitation_codes
+    FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role = 'coach'
+            AND profiles.club_id = invitation_codes.club_id
+        )
+    );
+
+-- Allow anyone to read a code by its code value (for validation during registration)
+CREATE POLICY "invitation_codes_public_select_by_code" ON invitation_codes
+    FOR SELECT
+    USING (true);
