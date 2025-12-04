@@ -698,10 +698,6 @@ async function loadLeaderboards() {
                 </div>
             </div>
 
-            <!-- Legacy leaderboard-list for compatibility -->
-            <div id="leaderboard-list" class="mt-4 space-y-2 hidden">
-                <p class="text-center text-gray-500 py-8">Lade Rangliste...</p>
-            </div>
         </div>
     `;
 
@@ -777,10 +773,6 @@ function updateLeaderboardContent() {
         content.classList.add('hidden');
     });
 
-    // Also hide legacy leaderboard-list
-    const legacyList = document.getElementById('leaderboard-list');
-    if (legacyList) legacyList.classList.add('hidden');
-
     // Show/hide scope toggle based on tab
     if (scopeToggle) {
         if (currentLeaderboardTab === 'skill' || currentLeaderboardTab === 'elo' || currentLeaderboardTab === 'doubles') {
@@ -818,8 +810,7 @@ function updateLeaderboardContent() {
         if (doublesList) doublesList.classList.remove('hidden');
         // Doubles content is loaded separately
     } else {
-        const leaderboardList = document.getElementById('leaderboard-list');
-        if (leaderboardList) leaderboardList.classList.remove('hidden');
+        // Render the leaderboard content (effort, season, skill)
         renderLeaderboardList();
     }
 }
@@ -976,7 +967,9 @@ function renderLeaderboardList() {
         'skill': 'leaderboard-list-skill'
     };
 
-    const containerId = containerMap[currentLeaderboardTab] || 'leaderboard-list';
+    const containerId = containerMap[currentLeaderboardTab];
+    if (!containerId) return;
+
     const container = document.getElementById(containerId);
     if (!container) return;
 
