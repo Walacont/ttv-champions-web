@@ -128,8 +128,7 @@ async function loadHeadToHeadStats(supabase, currentUserId, opponentId) {
             .from('matches')
             .select('*')
             .eq('player_a_id', currentUserId)
-            .eq('player_b_id', opponentId)
-            .eq('processed', true);
+            .eq('player_b_id', opponentId);
 
         if (errorAB) console.error('Error fetching matches AB:', errorAB);
 
@@ -138,8 +137,7 @@ async function loadHeadToHeadStats(supabase, currentUserId, opponentId) {
             .from('matches')
             .select('*')
             .eq('player_a_id', opponentId)
-            .eq('player_b_id', currentUserId)
-            .eq('processed', true);
+            .eq('player_b_id', currentUserId);
 
         if (errorBA) console.error('Error fetching matches BA:', errorBA);
 
@@ -179,9 +177,8 @@ function mapMatchFromSupabase(match) {
         winnerId: match.winner_id,
         loserId: match.loser_id,
         sets: match.sets,
-        processed: match.processed,
         handicapUsed: match.handicap_used,
-        timestamp: match.timestamp,
+        timestamp: match.played_at || match.timestamp || match.created_at,
         createdAt: match.created_at
     };
 }
