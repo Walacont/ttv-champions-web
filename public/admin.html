@@ -300,30 +300,18 @@
                             <form id="invite-coach-form" class="space-y-4">
                                 <div>
                                     <label
-                                        for="clubId"
+                                        for="clubName"
                                         class="block text-sm font-medium text-gray-700"
-                                        >Verein auswählen</label
-                                    >
-                                    <select
-                                        id="clubId"
-                                        required=""
-                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">-- Verein wählen --</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label
-                                        for="newClubName"
-                                        class="block text-sm font-medium text-gray-700"
-                                        >Oder neuen Verein erstellen</label
+                                        >Vereinsname</label
                                     >
                                     <input
                                         type="text"
-                                        id="newClubName"
+                                        id="clubName"
+                                        required=""
                                         placeholder="z.B. TTV Musterstadt"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
+                                    <p class="mt-1 text-xs text-gray-500">Existiert der Verein noch nicht, wird er automatisch erstellt.</p>
                                 </div>
                                 <button
                                     type="submit"

@@ -228,7 +228,6 @@ function initializeAdminPage(userData, user) {
 
         editExerciseForm.addEventListener('submit', handleUpdateExercise);
 
-        loadClubsDropdown();
         loadClubsAndPlayers();
         loadAllExercises();
         loadStatistics();
@@ -237,57 +236,37 @@ function initializeAdminPage(userData, user) {
     }
 }
 
-async function loadClubsDropdown() {
-    const clubSelect = document.getElementById('clubId');
-    if (!clubSelect) return;
-
-    try {
-        const { data: clubs, error } = await supabase
-            .from('clubs')
-            .select('id, name')
-            .order('name');
-
-        if (error) throw error;
-
-        // Clear existing options except the first one
-        clubSelect.innerHTML = '<option value="">-- Verein wählen --</option>';
-
-        // Add clubs to dropdown
-        (clubs || []).forEach(club => {
-            const option = document.createElement('option');
-            option.value = club.id;
-            option.textContent = club.name || club.id;
-            clubSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Fehler beim Laden der Vereine:', error);
-    }
-}
-
 async function handleInviteCoach(e) {
     e.preventDefault();
-    let clubId = document.getElementById('clubId').value;
-    const newClubName = document.getElementById('newClubName')?.value?.trim();
+    const clubName = document.getElementById('clubName')?.value?.trim();
 
-    // Either select existing club or create new one
-    if (!clubId && !newClubName) {
-        return alert('Bitte einen Verein auswählen oder einen neuen Namen eingeben.');
+    if (!clubName) {
+        return alert('Bitte einen Vereinsnamen eingeben.');
     }
 
     try {
-        // If new club name is provided, create the club first
-        if (newClubName && !clubId) {
+        let clubId;
+
+        // Check if club already exists by name
+        const { data: existingClub } = await supabase
+            .from('clubs')
+            .select('id')
+            .eq('name', clubName)
+            .single();
+
+        if (existingClub) {
+            // Use existing club
+            clubId = existingClub.id;
+        } else {
+            // Create new club
             const { data: newClub, error: clubError } = await supabase
                 .from('clubs')
-                .insert({ name: newClubName })
+                .insert({ name: clubName })
                 .select()
                 .single();
 
             if (clubError) throw clubError;
             clubId = newClub.id;
-
-            // Reload dropdown to include new club
-            await loadClubsDropdown();
         }
 
         // Generate unique code
@@ -342,10 +321,8 @@ async function handleInviteCoach(e) {
         inviteLinkInput.value = code;
         inviteLinkContainer.classList.remove('hidden');
 
-        // Clear the new club name input
-        if (document.getElementById('newClubName')) {
-            document.getElementById('newClubName').value = '';
-        }
+        // Clear the club name input
+        document.getElementById('clubName').value = '';
     } catch (error) {
         console.error('Fehler beim Erstellen des Codes:', error);
         alert('Fehler: Der Einladungscode konnte nicht erstellt werden.');
