@@ -19,8 +19,26 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+// Load environment variables from root .env file
+const envPath = path.resolve(__dirname, '../.env');
+console.log('Loading .env from:', envPath);
+dotenv.config({ path: envPath });
+
+// Debug: Show available Supabase env vars
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+console.log('SUPABASE_URL:', supabaseUrl ? '✓ found' : '✗ missing');
+console.log('SERVICE_ROLE_KEY:', supabaseKey ? '✓ found' : '✗ missing');
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('\n❌ Missing environment variables!');
+    console.error('Please ensure your .env file contains:');
+    console.error('  VITE_SUPABASE_URL=https://your-project.supabase.co');
+    console.error('  SUPABASE_SERVICE_ROLE_KEY=your-service-role-key');
+    console.error('\nThe service role key can be found in Supabase Dashboard > Settings > API');
+    process.exit(1);
+}
 
 // Initialize Firebase Admin
 const serviceAccount = require('../serviceAccountKey.json');
@@ -30,10 +48,7 @@ admin.initializeApp({
 const firestore = admin.firestore();
 
 // Initialize Supabase
-const supabase = createClient(
-    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY // Need service role for bypassing RLS
-);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Load ID mappings from previous migration
 let idMappings = {};
