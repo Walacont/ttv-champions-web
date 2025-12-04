@@ -283,7 +283,8 @@ function setupFilters() {
 
         subgroupFilter.addEventListener('change', () => {
             currentSubgroupFilter = subgroupFilter.value;
-            loadLeaderboards();
+            // Just re-render the leaderboard with new filter (don't reload everything)
+            updateLeaderboardContent();
             loadRivalData(); // Update rivals when filter changes
         });
     }
@@ -291,7 +292,8 @@ function setupFilters() {
     if (genderFilter) {
         genderFilter.addEventListener('change', () => {
             currentGenderFilter = genderFilter.value;
-            loadLeaderboards();
+            // Just re-render the leaderboard with new filter
+            updateLeaderboardContent();
         });
     }
 
@@ -325,7 +327,8 @@ function setupFilters() {
 
         ageGroupFilter.addEventListener('change', () => {
             currentAgeGroupFilter = ageGroupFilter.value;
-            loadLeaderboards();
+            // Just re-render the leaderboard with new filter
+            updateLeaderboardContent();
         });
     }
 }
@@ -932,7 +935,7 @@ async function fetchLeaderboardData() {
         if (currentUserData.club_id) {
             const { data: clubPlayers } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, club_id, clubs(name)')
+                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
                 .eq('club_id', currentUserData.club_id)
                 .neq('role', 'admin');
             leaderboardCache.club = (clubPlayers || []).map(p => ({
@@ -944,7 +947,7 @@ async function fetchLeaderboardData() {
         // Fetch global data - ALL players (to calculate user's rank, but display only top 100)
         const { data: globalPlayers } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, club_id, clubs(name)')
+            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
             .neq('role', 'admin');
         leaderboardCache.global = (globalPlayers || []).map(p => ({
             ...p,
@@ -974,6 +977,11 @@ function renderLeaderboardList() {
     if (!container) return;
 
     let players = leaderboardCache[currentLeaderboardScope] || [];
+
+    // Apply subgroup filter (only for club scope, not 'club' or 'global' values)
+    if (currentLeaderboardScope === 'club' && currentSubgroupFilter && currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global' && currentSubgroupFilter !== 'all') {
+        players = players.filter(p => p.subgroup_ids && p.subgroup_ids.includes(currentSubgroupFilter));
+    }
 
     // Apply age group filter
     if (currentAgeGroupFilter !== 'all') {
