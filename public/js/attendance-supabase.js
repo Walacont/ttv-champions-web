@@ -149,6 +149,13 @@ export async function renderCalendar(date, currentUserData) {
 export async function fetchMonthlyAttendance(year, month, currentUserData) {
     monthlyAttendance.clear();
     monthlySessions.clear();
+
+    // Check for valid clubId before querying
+    if (!currentUserData?.clubId) {
+        console.warn('[fetchMonthlyAttendance] No clubId provided, skipping');
+        return;
+    }
+
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
@@ -838,8 +845,13 @@ async function deductAttendancePoints(
 
 /**
  * Loads players for attendance tracking
+ * @param {string} clubId - Club ID
+ * @param {Object|Function} supabaseOrCallback - Supabase instance (ignored) or callback
+ * @param {Function} [callback] - Callback function when players are loaded
  */
-export async function loadPlayersForAttendance(clubId, onPlayersLoaded) {
+export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callback) {
+    // Handle both (clubId, callback) and (clubId, supabase, callback) signatures
+    const onPlayersLoaded = typeof supabaseOrCallback === 'function' ? supabaseOrCallback : callback;
     const PLAYER_LIMIT = 300;
 
     try {
@@ -882,7 +894,9 @@ export async function loadPlayersForAttendance(clubId, onPlayersLoaded) {
         const players = Array.from(playersMap.values());
         players.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
 
-        onPlayersLoaded(players);
+        if (typeof onPlayersLoaded === 'function') {
+            onPlayersLoaded(players);
+        }
 
         // Set up real-time subscription
         const channel = supabase

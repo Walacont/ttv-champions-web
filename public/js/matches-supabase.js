@@ -870,23 +870,10 @@ export async function loadCoachProcessedRequests(userData, supabaseClient) {
 
 /**
  * Loads saved pairings for a training session
+ * Note: Pairings are stored in-memory during sessions, not persisted in DB
  */
 export async function loadSavedPairings(supabaseClient, clubId) {
-    const supabase = getSupabase();
-
-    try {
-        const { data: pairings, error } = await supabase
-            .from('match_pairings')
-            .select('*')
-            .eq('club_id', clubId)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        return pairings || [];
-
-    } catch (error) {
-        console.error('Error loading saved pairings:', error);
-        return [];
-    }
+    // Pairings are generated during training sessions and not persisted
+    // Return empty array as there's no dedicated pairings table
+    return [];
 }
