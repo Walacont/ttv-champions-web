@@ -38,8 +38,8 @@ if (fs.existsSync(scriptsEnvPath)) {
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-console.log('SUPABASE_URL:', supabaseUrl ? '✓ found' : '✗ missing');
-console.log('SERVICE_ROLE_KEY:', supabaseKey ? '✓ found' : '✗ missing');
+console.log('SUPABASE_URL:', supabaseUrl ? `✓ found (${supabaseUrl})` : '✗ missing');
+console.log('SERVICE_ROLE_KEY:', supabaseKey ? `✓ found (${supabaseKey.substring(0, 20)}...)` : '✗ missing');
 
 if (!supabaseUrl || !supabaseKey) {
     console.error('\n❌ Missing environment variables!');
