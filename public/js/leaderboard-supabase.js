@@ -172,7 +172,8 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
             xp: p.xp || 0,
             points: p.points || 0,
             birthdate: p.birthdate,
-            gender: p.gender
+            gender: p.gender,
+            clubId: clubId // All players are from the same club
         }));
 
         // Apply filters
@@ -234,7 +235,8 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
             role: p.role,
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
-            gender: p.gender
+            gender: p.gender,
+            clubId: clubId // All players are from the same club
         }));
 
         // Apply filters
@@ -296,7 +298,8 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
             role: p.role,
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
-            gender: p.gender
+            gender: p.gender,
+            clubId: clubId // All players are from the same club
         }));
 
         // Apply filters
@@ -887,7 +890,8 @@ async function loadRanksView(userData) {
             role: p.role,
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
-            gender: p.gender
+            gender: p.gender,
+            clubId: userData.clubId // All players are from the same club
         }));
 
         // Apply filters
