@@ -960,6 +960,9 @@ function renderRanksList() {
 
 async function fetchLeaderboardData() {
     try {
+        // Load test club IDs for filtering (cache them for renderLeaderboardList)
+        await loadTestClubIds();
+
         // Fetch club data - ALL players (no limit) for club view
         if (currentUserData.club_id) {
             const { data: clubPlayers, error: clubError } = await supabase
@@ -1042,6 +1045,28 @@ function renderLeaderboardList() {
     // Apply gender filter
     if (currentGenderFilter !== 'all') {
         players = players.filter(p => p.gender === currentGenderFilter);
+    }
+
+    // Filter out players from test clubs (unless current user is from a test club)
+    if (testClubIdsCache && testClubIdsCache.length > 0) {
+        const isCurrentUserInTestClub = currentUserData?.club_id && testClubIdsCache.includes(currentUserData.club_id);
+
+        players = players.filter(player => {
+            // If player is not in a test club, show them
+            if (!player.club_id || !testClubIdsCache.includes(player.club_id)) {
+                return true;
+            }
+
+            // Player is in a test club - only show if current user is from the same test club
+            if (isCurrentUserInTestClub && currentUserData.club_id === player.club_id) {
+                return true;
+            }
+
+            // Hide test club players for everyone else
+            return false;
+        });
+
+        console.log('[Leaderboard] After test club filter:', players.length);
     }
 
     // Sort by current tab - map tab names to field names
