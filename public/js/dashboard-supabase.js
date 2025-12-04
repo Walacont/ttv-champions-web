@@ -124,7 +124,7 @@ async function loadUserProfile() {
 }
 
 // --- Initialize Dashboard ---
-function initializeDashboard() {
+async function initializeDashboard() {
     const pageLoader = document.getElementById('page-loader');
     const mainContent = document.getElementById('main-content');
 
