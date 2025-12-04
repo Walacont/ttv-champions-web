@@ -5,6 +5,7 @@ import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences-supabase.js';
+import { initializeWidgetSystem } from './dashboard-widgets-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -162,8 +163,8 @@ function initializeDashboard() {
     // Setup match form
     setupMatchForm();
 
-    // Setup widget settings
-    setupWidgetSettings();
+    // Initialize widget system (customizable dashboard)
+    initializeWidgetSystem(supabase, currentUser.id, currentUserData);
 
     // Show coach switch button if coach
     if (currentUserData.role === 'coach') {
@@ -2433,185 +2434,6 @@ function setupLeaderboardPreferences() {
 // ========================================================================
 // ===== WIDGET SETTINGS =====
 // ========================================================================
-
-const AVAILABLE_WIDGETS = [
-    { id: 'widget-leaderboard', name: 'Rangliste', icon: '🏆', default: true },
-    { id: 'widget-challenges', name: 'Challenges', icon: '🎯', default: true },
-    { id: 'widget-exercises', name: 'Übungen', icon: '💪', default: true },
-    { id: 'widget-match-requests', name: 'Wettkampf melden', icon: '🏓', default: true },
-    { id: 'widget-points-history', name: 'Punkte-Verlauf', icon: '📈', default: true },
-    { id: 'widget-calendar', name: 'Kalender', icon: '📅', default: true },
-    { id: 'widget-season-countdown', name: 'Saison-Countdown', icon: '⏰', default: true },
-    { id: 'widget-match-history', name: 'Match-Historie', icon: '📋', default: true },
-    { id: 'widget-match-suggestions', name: 'Match-Vorschläge', icon: '💡', default: false }
-];
-
-let widgetSettings = {};
-
-function setupWidgetSettings() {
-    const editButton = document.getElementById('edit-dashboard-button');
-    const modal = document.getElementById('widget-settings-modal');
-    const closeButton = document.getElementById('close-widget-settings-modal');
-    const cancelButton = document.getElementById('cancel-widget-settings-button');
-    const saveButton = document.getElementById('save-widget-settings-button');
-    const resetButton = document.getElementById('reset-widgets-button');
-    const settingsList = document.getElementById('widget-settings-list');
-
-    if (!editButton || !modal) return;
-
-    // Load saved settings
-    loadWidgetSettings();
-    applyWidgetSettings();
-
-    // Open modal
-    editButton.addEventListener('click', () => {
-        renderWidgetSettingsList(settingsList);
-        modal.classList.remove('hidden');
-    });
-
-    // Close modal
-    const closeModal = () => modal.classList.add('hidden');
-    closeButton?.addEventListener('click', closeModal);
-    cancelButton?.addEventListener('click', closeModal);
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-    });
-
-    // Save settings
-    saveButton?.addEventListener('click', async () => {
-        await saveWidgetSettings();
-        applyWidgetSettings();
-        closeModal();
-        showWidgetFeedback('Einstellungen gespeichert!', 'success');
-    });
-
-    // Reset to defaults
-    resetButton?.addEventListener('click', () => {
-        AVAILABLE_WIDGETS.forEach(widget => {
-            widgetSettings[widget.id] = widget.default;
-        });
-        renderWidgetSettingsList(settingsList);
-    });
-}
-
-function loadWidgetSettings() {
-    const saved = localStorage.getItem('widgetSettings');
-    if (saved) {
-        try {
-            widgetSettings = JSON.parse(saved);
-        } catch (e) {
-            widgetSettings = {};
-        }
-    }
-
-    // Initialize defaults for new widgets
-    AVAILABLE_WIDGETS.forEach(widget => {
-        if (widgetSettings[widget.id] === undefined) {
-            widgetSettings[widget.id] = widget.default;
-        }
-    });
-}
-
-async function saveWidgetSettings() {
-    localStorage.setItem('widgetSettings', JSON.stringify(widgetSettings));
-
-    // Also save to user profile in database
-    try {
-        await supabase
-            .from('profiles')
-            .update({ widget_settings: widgetSettings })
-            .eq('id', currentUser.id);
-    } catch (error) {
-        console.error('Error saving widget settings to DB:', error);
-    }
-}
-
-function applyWidgetSettings() {
-    // Map widget IDs to actual DOM element selectors
-    const widgetMap = {
-        'widget-leaderboard': '#leaderboard-content-wrapper, [data-widget="leaderboard"]',
-        'widget-challenges': '#challenges-list, [data-widget="challenges"]',
-        'widget-exercises': '#exercises-list, [data-widget="exercises"]',
-        'widget-match-requests': '#match-request-form, #pending-result-requests-list, [data-widget="match-requests"]',
-        'widget-points-history': '#points-history, [data-widget="points-history"]',
-        'widget-calendar': '#calendar-container, [data-widget="calendar"]',
-        'widget-season-countdown': '#season-countdown, [data-widget="season-countdown"]',
-        'widget-match-history': '#match-history-list, [data-widget="match-history"]',
-        'widget-match-suggestions': '#match-suggestions-content, [data-widget="match-suggestions"]'
-    };
-
-    Object.entries(widgetSettings).forEach(([widgetId, visible]) => {
-        const selectors = widgetMap[widgetId];
-        if (selectors) {
-            document.querySelectorAll(selectors).forEach(el => {
-                const parent = el.closest('.bg-white, .widget-container') || el;
-                if (visible) {
-                    parent.classList.remove('widget-hidden');
-                    parent.style.display = '';
-                } else {
-                    parent.classList.add('widget-hidden');
-                    parent.style.display = 'none';
-                }
-            });
-        }
-    });
-}
-
-function renderWidgetSettingsList(container) {
-    if (!container) return;
-
-    container.innerHTML = AVAILABLE_WIDGETS.map(widget => `
-        <label class="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors">
-            <div class="flex items-center gap-3">
-                <span class="text-2xl">${widget.icon}</span>
-                <span class="font-medium text-gray-800">${widget.name}</span>
-            </div>
-            <div class="relative">
-                <input type="checkbox" class="widget-toggle sr-only" data-widget-id="${widget.id}"
-                       ${widgetSettings[widget.id] ? 'checked' : ''}>
-                <div class="toggle-track w-11 h-6 bg-gray-300 rounded-full transition-colors"></div>
-                <div class="toggle-thumb absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"></div>
-            </div>
-        </label>
-    `).join('');
-
-    // Add toggle styling and handlers
-    container.querySelectorAll('.widget-toggle').forEach(toggle => {
-        const track = toggle.nextElementSibling;
-        const thumb = track.nextElementSibling;
-
-        const updateToggleUI = () => {
-            if (toggle.checked) {
-                track.classList.remove('bg-gray-300');
-                track.classList.add('bg-indigo-600');
-                thumb.style.transform = 'translateX(20px)';
-            } else {
-                track.classList.add('bg-gray-300');
-                track.classList.remove('bg-indigo-600');
-                thumb.style.transform = 'translateX(0)';
-            }
-        };
-
-        updateToggleUI();
-
-        toggle.addEventListener('change', () => {
-            widgetSettings[toggle.dataset.widgetId] = toggle.checked;
-            updateToggleUI();
-        });
-    });
-}
-
-function showWidgetFeedback(message, type) {
-    const feedback = document.getElementById('widget-settings-feedback');
-    if (!feedback) return;
-
-    feedback.className = `mt-4 text-center p-3 rounded-lg text-sm font-medium ${
-        type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-    }`;
-    feedback.textContent = message;
-    feedback.classList.remove('hidden');
-
-    setTimeout(() => feedback.classList.add('hidden'), 3000);
-}
+// Widget system now handled by dashboard-widgets-supabase.js module
 
 console.log('[DASHBOARD-SUPABASE] Script loaded');

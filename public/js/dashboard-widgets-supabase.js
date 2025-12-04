@@ -108,7 +108,7 @@ export function initializeWidgetSystem(supabaseInstance, userId, userData = null
 }
 
 /**
- * Load widget settings from Supabase
+ * Load widget settings from Supabase (with localStorage fallback)
  */
 async function loadWidgetSettings() {
     try {
@@ -119,17 +119,39 @@ async function loadWidgetSettings() {
             .single();
 
         if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-            throw error;
+            console.warn('[Widget System] Supabase table not available, using localStorage:', error.message);
+            // Fallback to localStorage
+            const localData = localStorage.getItem(`widgetSettings_${currentUserId}`);
+            if (localData) {
+                currentSettings = JSON.parse(localData);
+            } else {
+                currentSettings = getDefaultSettings();
+            }
+            return;
         }
 
         if (data && data.dashboard_widgets) {
             currentSettings = data.dashboard_widgets;
+            // Also save to localStorage as backup
+            localStorage.setItem(`widgetSettings_${currentUserId}`, JSON.stringify(data.dashboard_widgets));
         } else {
-            // Use default settings
-            currentSettings = getDefaultSettings();
+            // Try localStorage fallback
+            const localData = localStorage.getItem(`widgetSettings_${currentUserId}`);
+            if (localData) {
+                currentSettings = JSON.parse(localData);
+            } else {
+                currentSettings = getDefaultSettings();
+            }
         }
     } catch (error) {
-        currentSettings = getDefaultSettings();
+        console.warn('[Widget System] Error loading from Supabase, using localStorage fallback:', error);
+        // Fallback to localStorage
+        const localData = localStorage.getItem(`widgetSettings_${currentUserId}`);
+        if (localData) {
+            currentSettings = JSON.parse(localData);
+        } else {
+            currentSettings = getDefaultSettings();
+        }
     }
 }
 
@@ -153,10 +175,18 @@ function getDefaultSettings() {
 }
 
 /**
- * Save widget settings to Supabase
+ * Save widget settings to Supabase (with localStorage fallback)
  * @param {Object} settings - Settings object to save
  */
 async function saveWidgetSettings(settings) {
+    // Always save to localStorage as backup
+    try {
+        localStorage.setItem(`widgetSettings_${currentUserId}`, JSON.stringify(settings));
+    } catch (localError) {
+        console.warn('[Widget System] Could not save to localStorage:', localError);
+    }
+
+    // Try to save to Supabase
     try {
         const { error } = await supabaseClient
             .from('user_preferences')
@@ -168,11 +198,16 @@ async function saveWidgetSettings(settings) {
                 onConflict: 'user_id'
             });
 
-        if (error) throw error;
+        if (error) {
+            console.warn('[Widget System] Supabase table not available, using localStorage only:', error.message);
+            // Still return true since we saved to localStorage
+            return true;
+        }
         return true;
     } catch (error) {
-        console.error('Error saving widget settings:', error);
-        return false;
+        console.warn('[Widget System] Error saving to Supabase, using localStorage only:', error);
+        // Still return true since we saved to localStorage
+        return true;
     }
 }
 
