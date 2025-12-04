@@ -1,4 +1,5 @@
 import { formatDate } from './ui-utils.js';
+import { showDoublesHeadToHeadModal } from './doubles-head-to-head-supabase.js';
 
 /**
  * Doubles Matches Module (Supabase Version)
@@ -546,6 +547,8 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
 
                 pairings.push({
                     id: data.id,
+                    player1Id: data.player1_id,
+                    player2Id: data.player2_id,
                     player1Name: player1Deleted
                         ? (player1Data?.display_name || 'Gelöschter Nutzer')
                         : (data.player1_name || 'Unbekannt'),
@@ -575,7 +578,7 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                 });
             }
 
-            renderDoublesLeaderboard(pairings, container, isGlobal);
+            renderDoublesLeaderboard(pairings, container, isGlobal, supabase, currentUserId);
         } catch (error) {
             console.error('Error loading doubles leaderboard:', error);
             container.innerHTML = `<p class="text-center text-red-500 py-8">Fehler beim Laden: ${error.message}</p>`;
@@ -612,8 +615,10 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
  * @param {Array} pairings - Array of pairing objects
  * @param {HTMLElement} container - Container element
  * @param {boolean} isGlobal - Whether this is the global leaderboard (shows club info)
+ * @param {Object} supabase - Supabase client instance (optional, for head-to-head modal)
+ * @param {string} currentUserId - Current user's ID (optional, for head-to-head modal)
  */
-export function renderDoublesLeaderboard(pairings, container, isGlobal = false) {
+export function renderDoublesLeaderboard(pairings, container, isGlobal = false, supabase = null, currentUserId = null) {
     if (!container) return;
 
     if (pairings.length === 0) {
@@ -658,8 +663,19 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
             pairing.player2PhotoURL ||
             `https://placehold.co/40x40/e2e8f0/64748b?text=${p2Initials}`;
 
+        // Check if this team is clickable (not current user's own team)
+        const isClickable = supabase && currentUserId &&
+            pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId;
+        const teamData = isClickable ? JSON.stringify({
+            player1Id: pairing.player1Id,
+            player2Id: pairing.player2Id,
+            player1Name: pairing.player1Name,
+            player2Name: pairing.player2Name
+        }) : null;
+
         html += `
-            <tr class="hover:bg-gray-50">
+            <tr class="hover:bg-gray-50 ${isClickable ? 'cursor-pointer' : ''}"
+                ${isClickable ? `data-doubles-team='${teamData}'` : ''}>
                 <td class="px-2 py-3 text-sm font-bold text-gray-900 w-16">#${rank}</td>
                 <td class="px-4 py-3 ${isGlobal ? 'w-64' : 'w-80'}">
                     <div class="flex flex-col gap-2">
@@ -719,8 +735,19 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
 
         const rankDisplay = rank === 1 ? '1' : rank === 2 ? '2' : rank === 3 ? '3' : `#${rank}`;
 
+        // Check if this team is clickable for mobile (not current user's own team)
+        const isMobileClickable = supabase && currentUserId &&
+            pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId;
+        const mobileTeamData = isMobileClickable ? JSON.stringify({
+            player1Id: pairing.player1Id,
+            player2Id: pairing.player2Id,
+            player1Name: pairing.player1Name,
+            player2Name: pairing.player2Name
+        }) : null;
+
         html += `
-            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm ${isMobileClickable ? 'cursor-pointer' : ''}"
+                ${isMobileClickable ? `data-doubles-team='${mobileTeamData}'` : ''}>
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-lg font-bold text-gray-900">${rankDisplay}</span>
                     <span class="text-sm font-bold text-indigo-600">${Math.round(pairing.currentEloRating)} Elo</span>
@@ -776,6 +803,17 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
     `;
 
     container.innerHTML = html;
+
+    // Add click handlers for head-to-head modal (only if supabase and currentUserId are provided)
+    if (supabase && currentUserId) {
+        const clickableElements = container.querySelectorAll('[data-doubles-team]');
+        clickableElements.forEach(el => {
+            el.addEventListener('click', () => {
+                const teamData = JSON.parse(el.getAttribute('data-doubles-team'));
+                showDoublesHeadToHeadModal(supabase, currentUserId, teamData);
+            });
+        });
+    }
 }
 
 // ========================================================================
