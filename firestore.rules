@@ -432,10 +432,10 @@ service cloud.firestore {
         isAdmin() ||
         resource.data.clubId == null ||
         isSameClub(resource.data.clubId) ||
-        resource.data.teamAPlayer1Id == request.auth.uid ||
-        resource.data.teamAPlayer2Id == request.auth.uid ||
-        resource.data.teamBPlayer1Id == request.auth.uid ||
-        resource.data.teamBPlayer2Id == request.auth.uid
+        resource.data.teamA.player1Id == request.auth.uid ||
+        resource.data.teamA.player2Id == request.auth.uid ||
+        resource.data.teamB.player1Id == request.auth.uid ||
+        resource.data.teamB.player2Id == request.auth.uid
       );
 
       // Coaches can create matches in their club OR cross-club matches (clubId == null)
