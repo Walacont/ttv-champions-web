@@ -3,6 +3,8 @@
 
 import { getSupabase } from './supabase-init.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { RANK_ORDER, groupPlayersByRank } from './ranks.js';
+import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
 
 /**
  * Leaderboard Module - Supabase Version
@@ -232,9 +234,44 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
 }
 
 /**
- * Load global leaderboard (all clubs)
+ * Load global leaderboard (all clubs) - both Skill and Doubles
+ * Supports both old signature (userData, supabaseClient, unsubscribes) and new signature (currentUserId, containerId, limit)
  */
-export async function loadGlobalLeaderboard(currentUserId, containerId = 'skill-list-global', limit = 100) {
+export async function loadGlobalLeaderboard(userDataOrId, supabaseClientOrContainerId = 'skill-list-global', unsubscribesOrLimit = 100) {
+    // Detect which signature is being used
+    let currentUserId;
+    let containerId = 'skill-list-global';
+    let limit = 100;
+    let userData = null;
+
+    if (typeof userDataOrId === 'object' && userDataOrId !== null && userDataOrId.id) {
+        // Old signature: (userData, supabaseClient, unsubscribes)
+        currentUserId = userDataOrId.id;
+        userData = userDataOrId;
+    } else {
+        // New signature: (currentUserId, containerId, limit)
+        currentUserId = userDataOrId;
+        if (typeof supabaseClientOrContainerId === 'string') {
+            containerId = supabaseClientOrContainerId;
+        }
+        if (typeof unsubscribesOrLimit === 'number') {
+            limit = unsubscribesOrLimit;
+        }
+    }
+
+    // Load global skill leaderboard
+    await loadGlobalSkillLeaderboardInternal(currentUserId, containerId, limit);
+
+    // Also load global doubles leaderboard if called with userData (old signature)
+    if (userData) {
+        loadGlobalDoublesLeaderboard(userData);
+    }
+}
+
+/**
+ * Internal function to load global skill leaderboard
+ */
+async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = 'skill-list-global', limit = 100) {
     const container = document.getElementById(containerId);
     if (!container) return null;
 
@@ -277,6 +314,22 @@ export async function loadGlobalLeaderboard(currentUserId, containerId = 'skill-
         console.error('[Leaderboard] Error loading global leaderboard:', error);
         container.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
         return [];
+    }
+}
+
+/**
+ * Loads the global Doubles leaderboard
+ */
+function loadGlobalDoublesLeaderboard(userData) {
+    const listEl = document.getElementById('doubles-list-global');
+    if (!listEl) return;
+
+    try {
+        // Load global doubles leaderboard (null clubId = global)
+        loadDoublesLeaderboard(null, supabase, listEl, [], userData.id, true);
+    } catch (error) {
+        console.error('[Leaderboard] Error loading global doubles leaderboard:', error);
+        listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der globalen Doppel-Rangliste.</p>';
     }
 }
 
@@ -645,7 +698,124 @@ export async function loadLeaderboard(userData, supabaseClient, unsubscribes) {
         loadSkillLeaderboard(userData.clubId, userData.id, 'skill-list-club'),
         loadEffortLeaderboard(userData.clubId, userData.id, 'effort-list-club'),
         loadSeasonLeaderboard(userData.clubId, userData.id, 'season-list-club'),
+        loadRanksView(userData),
     ]);
+    loadDoublesLeaderboardTab(userData);
+}
+
+/**
+ * Loads the Ranks view showing players grouped by rank
+ */
+async function loadRanksView(userData) {
+    const listEl = document.getElementById('ranks-list');
+    if (!listEl) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender')
+            .eq('club_id', userData.clubId)
+            .in('role', ['player', 'coach']);
+
+        if (error) throw error;
+
+        let players = (data || []).map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            eloRating: p.elo_rating || 1000,
+            xp: p.xp || 0,
+            photoURL: p.photo_url,
+            role: p.role,
+            subgroupIDs: p.subgroup_ids || [],
+            birthdate: p.birthdate,
+            gender: p.gender
+        }));
+
+        // Apply filters
+        if (currentLeaderboardSubgroupFilter !== 'all') {
+            if (isAgeGroupFilter(currentLeaderboardSubgroupFilter)) {
+                players = filterPlayersByAgeGroup(players, currentLeaderboardSubgroupFilter);
+            } else {
+                players = players.filter(p => p.subgroupIDs.includes(currentLeaderboardSubgroupFilter));
+            }
+        }
+
+        if (currentLeaderboardGenderFilter !== 'all') {
+            players = filterPlayersByGender(players, currentLeaderboardGenderFilter);
+        }
+
+        if (players.length === 0) {
+            listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>';
+            return;
+        }
+
+        const grouped = groupPlayersByRank(players);
+        listEl.innerHTML = '';
+
+        // Display ranks from highest to lowest
+        for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
+            const rank = RANK_ORDER[i];
+            const playersInRank = grouped[rank.id] || [];
+
+            if (playersInRank.length === 0) continue;
+
+            // Sort by XP within rank
+            playersInRank.sort((a, b) => (b.xp || 0) - (a.xp || 0));
+
+            const rankSection = document.createElement('div');
+            rankSection.className = 'rank-section';
+            rankSection.innerHTML = `
+                <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: ${rank.color}20; border-left: 4px solid ${rank.color};">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-2xl">${rank.emoji}</span>
+                        <span class="font-bold text-lg" style="color: ${rank.color};">${rank.name}</span>
+                    </div>
+                    <span class="text-sm text-gray-600">${playersInRank.length} Spieler</span>
+                </div>
+                <div class="mt-2 space-y-1 pl-4">
+                    ${playersInRank.map(player => {
+                        const isCurrentUser = player.id === userData.id;
+                        const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
+                        const avatarSrc = player.photoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+                        const playerName = `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Unbekannt';
+
+                        return `
+                            <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
+                                <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='https://placehold.co/32x32/e2e8f0/64748b?text=${initials}'">
+                                <div class="flex-grow">
+                                    <p class="text-sm">${playerName}</p>
+                                </div>
+                                <div class="text-xs text-gray-600">
+                                    ${player.eloRating || 0} Elo | ${player.xp || 0} XP
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            listEl.appendChild(rankSection);
+        }
+
+    } catch (error) {
+        console.error('[Leaderboard] Error loading ranks view:', error);
+        listEl.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
+    }
+}
+
+/**
+ * Loads the Doubles leaderboard tab
+ */
+function loadDoublesLeaderboardTab(userData) {
+    const listEl = document.getElementById('doubles-list-club');
+    if (!listEl) return;
+
+    try {
+        loadDoublesLeaderboard(userData.clubId, supabase, listEl, [], userData.id, false);
+    } catch (error) {
+        console.error('[Leaderboard] Error loading doubles leaderboard:', error);
+        listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Doppel-Rangliste.</p>';
+    }
 }
 
 /**
