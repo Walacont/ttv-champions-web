@@ -284,11 +284,14 @@ function setupFilters() {
         subgroupFilter.addEventListener('change', () => {
             currentSubgroupFilter = subgroupFilter.value;
 
-            // Update leaderboard scope if 'club' or 'global' is selected
-            if (currentSubgroupFilter === 'club' || currentSubgroupFilter === 'global') {
-                currentLeaderboardScope = currentSubgroupFilter;
-                updateLeaderboardScope();
+            // Update leaderboard scope based on filter selection
+            if (currentSubgroupFilter === 'global') {
+                currentLeaderboardScope = 'global';
+            } else {
+                // For 'club', age groups, and subgroups - use club data
+                currentLeaderboardScope = 'club';
             }
+            updateLeaderboardScope();
 
             // Re-render the leaderboard with new filter
             updateLeaderboardContent();
@@ -940,26 +943,41 @@ async function fetchLeaderboardData() {
     try {
         // Fetch club data - ALL players (no limit) for club view
         if (currentUserData.club_id) {
-            const { data: clubPlayers } = await supabase
+            const { data: clubPlayers, error: clubError } = await supabase
                 .from('profiles')
                 .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
                 .eq('club_id', currentUserData.club_id)
                 .neq('role', 'admin');
+
+            if (clubError) {
+                console.error('[Leaderboard] Error fetching club data:', clubError);
+            }
+
             leaderboardCache.club = (clubPlayers || []).map(p => ({
                 ...p,
                 club_name: p.clubs?.name || null
             }));
+            console.log('[Leaderboard] Club data loaded:', leaderboardCache.club.length, 'players');
+        } else {
+            console.log('[Leaderboard] No club_id, skipping club data fetch');
+            leaderboardCache.club = [];
         }
 
         // Fetch global data - ALL players (to calculate user's rank, but display only top 100)
-        const { data: globalPlayers } = await supabase
+        const { data: globalPlayers, error: globalError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
             .neq('role', 'admin');
+
+        if (globalError) {
+            console.error('[Leaderboard] Error fetching global data:', globalError);
+        }
+
         leaderboardCache.global = (globalPlayers || []).map(p => ({
             ...p,
             club_name: p.clubs?.name || null
         }));
+        console.log('[Leaderboard] Global data loaded:', leaderboardCache.global.length, 'players');
 
     } catch (error) {
         console.error('Error fetching leaderboard data:', error);
@@ -983,7 +1001,10 @@ function renderLeaderboardList() {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    console.log('[Leaderboard] Rendering - scope:', currentLeaderboardScope, 'filter:', currentSubgroupFilter, 'gender:', currentGenderFilter);
+
     let players = leaderboardCache[currentLeaderboardScope] || [];
+    console.log('[Leaderboard] Initial players count:', players.length);
 
     // Determine filter type from currentSubgroupFilter
     // Values can be: 'club', 'global', age group IDs (u11, u13, adult, o40, etc.), or 'subgroup:xxx'
