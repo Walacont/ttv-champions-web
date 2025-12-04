@@ -182,22 +182,27 @@ async function migrateDoublesPairings() {
                 continue;
             }
 
-            // Create Supabase pairing ID
+            // Create Supabase pairing ID (sorted)
             const supabasePairingId = createSupabasePairingId(player1Uuid, player2Uuid);
+
+            // Sort player UUIDs to ensure consistent ordering
+            const sortedUuids = [player1Uuid, player2Uuid].sort();
+            const isSwapped = sortedUuids[0] !== player1Uuid;
 
             // Map club IDs
             const clubUuid = mapClubId(data.clubId);
             const player1ClubUuid = mapClubId(data.player1ClubIdAtMatch);
             const player2ClubUuid = mapClubId(data.player2ClubIdAtMatch);
 
+            // Use sorted order for player data to ensure consistency
             const pairingData = {
                 id: supabasePairingId,
-                player1_id: player1Uuid,
-                player2_id: player2Uuid,
-                player1_name: data.player1Name || null,
-                player2_name: data.player2Name || null,
-                player1_club_id_at_match: player1ClubUuid,
-                player2_club_id_at_match: player2ClubUuid,
+                player1_id: sortedUuids[0],
+                player2_id: sortedUuids[1],
+                player1_name: isSwapped ? (data.player2Name || null) : (data.player1Name || null),
+                player2_name: isSwapped ? (data.player1Name || null) : (data.player2Name || null),
+                player1_club_id_at_match: isSwapped ? player2ClubUuid : player1ClubUuid,
+                player2_club_id_at_match: isSwapped ? player1ClubUuid : player2ClubUuid,
                 club_id: clubUuid,
                 matches_played: data.matchesPlayed || 0,
                 matches_won: data.matchesWon || 0,
