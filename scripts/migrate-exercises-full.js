@@ -161,8 +161,8 @@ async function migrateExercises() {
             // Points & Difficulty
             points: data.points || data.xpReward || 10,
             xp_reward: data.xpReward || data.points || 10,
-            level: data.level || null,
-            difficulty: data.difficulty || null,
+            // Note: 'level' is INTEGER in DB, so we store difficulty text in 'difficulty' column
+            difficulty: data.level || data.difficulty || null,
             tiered_points: data.tieredPoints || null,
 
             // Categorization
