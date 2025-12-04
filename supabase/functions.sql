@@ -681,13 +681,9 @@ SECURITY DEFINER
 AS $$
 DECLARE
     club_record RECORD;
-    player_record RECORD;
     clubs_reset INTEGER := 0;
     players_reset INTEGER := 0;
-    league_keys TEXT[] := ARRAY['Bronze', 'Silber', 'Gold', 'Platin', 'Diamant', 'Champion'];
-    players_in_league RECORD[];
-    current_league_index INTEGER;
-    new_league TEXT;
+    total_players INTEGER := 0;
 BEGIN
     -- Process clubs (all clubs if p_club_id is NULL)
     FOR club_record IN
@@ -706,9 +702,11 @@ BEGIN
 
         clubs_reset := clubs_reset + 1;
 
-        SELECT COUNT(*) INTO players_reset
+        SELECT COUNT(*) INTO total_players
         FROM profiles
         WHERE club_id = club_record.id AND role = 'player';
+
+        players_reset := players_reset + total_players;
     END LOOP;
 
     -- Update config
