@@ -798,9 +798,11 @@ function updateLeaderboardContent() {
         if (ranksList) ranksList.classList.remove('hidden');
         renderRanksList();
     } else if (currentLeaderboardTab === 'doubles') {
+        const doublesList = document.getElementById('doubles-list');
         if (doublesList) doublesList.classList.remove('hidden');
         // Doubles content is loaded separately
     } else {
+        const leaderboardList = document.getElementById('leaderboard-list');
         if (leaderboardList) leaderboardList.classList.remove('hidden');
         renderLeaderboardList();
     }
