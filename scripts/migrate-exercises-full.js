@@ -5,10 +5,22 @@
  * Usage: node scripts/migrate-exercises-full.js
  */
 
-require('dotenv').config();
-const admin = require('firebase-admin');
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
+import dotenv from 'dotenv';
+import admin from 'firebase-admin';
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
+import { createRequire } from 'module';
+
+// Setup for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+
+// Load environment variables
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Initialize Firebase Admin
 const serviceAccount = require('../serviceAccountKey.json');
@@ -25,10 +37,16 @@ const supabase = createClient(
 
 // Load ID mappings from previous migration
 let idMappings = {};
-const mappingsFile = './scripts/id-mappings.json';
-if (fs.existsSync(mappingsFile)) {
+const mappingsFile = path.resolve(__dirname, './id-mappings.json');
+const newMappingsFile = path.resolve(__dirname, './id-mappings-new.json');
+
+// Try to load existing mappings
+if (fs.existsSync(newMappingsFile)) {
+    idMappings = JSON.parse(fs.readFileSync(newMappingsFile, 'utf8'));
+    console.log('Loaded existing ID mappings from id-mappings-new.json');
+} else if (fs.existsSync(mappingsFile)) {
     idMappings = JSON.parse(fs.readFileSync(mappingsFile, 'utf8'));
-    console.log('Loaded existing ID mappings');
+    console.log('Loaded existing ID mappings from id-mappings.json');
 }
 
 function getMappedId(oldId, type) {
@@ -39,7 +57,7 @@ function getMappedId(oldId, type) {
 function getOrCreateUUID(oldId, type) {
     if (!idMappings[type]) idMappings[type] = {};
     if (!idMappings[type][oldId]) {
-        idMappings[type][oldId] = require('crypto').randomUUID();
+        idMappings[type][oldId] = randomUUID();
     }
     return idMappings[type][oldId];
 }
@@ -118,7 +136,7 @@ async function migrateExercises() {
     }
 
     // Save updated mappings
-    fs.writeFileSync(mappingsFile, JSON.stringify(idMappings, null, 2));
+    fs.writeFileSync(newMappingsFile, JSON.stringify(idMappings, null, 2));
 
     console.log(`\n========================================`);
     console.log(`✅ Success: ${successCount}`);
