@@ -31,7 +31,7 @@ import {
     renderLeaderboardHTML,
     setLeaderboardSubgroupFilter,
     setLeaderboardGenderFilter,
-} from './leaderboard.js';
+} from './leaderboard-supabase.js';
 import {
     renderCalendar,
     fetchMonthlyAttendance,
@@ -42,12 +42,12 @@ import {
     setAttendanceSubgroupFilter,
     openAttendanceModalForSession,
     getCurrentSessionId,
-} from './attendance.js';
+} from './attendance-supabase.js';
 import {
     exportAttendanceToExcel,
     exportAttendanceSummary,
-} from './attendance-export.js';
-import { initClubRequestsManager } from './club-requests-manager.js';
+} from './attendance-export-supabase.js';
+import { initClubRequestsManager } from './club-requests-manager-supabase.js';
 import {
     handleCreateChallenge,
     loadActiveChallenges,
@@ -61,7 +61,7 @@ import {
     populateSubgroupDropdown,
     setupChallengePointRecommendations,
     setupChallengeMilestones,
-} from './challenges.js';
+} from './challenges-supabase.js';
 import {
     loadAllExercises,
     loadExercisesForDropdown,
@@ -71,7 +71,7 @@ import {
     setupExercisePointsCalculation,
     setupExerciseMilestones,
     setExerciseContext,
-} from './exercises.js';
+} from './exercises-supabase.js';
 import { setupDescriptionEditor, renderTableForDisplay } from './tableEditor.js';
 import { calculateHandicap } from './validation-utils.js';
 import {
@@ -86,15 +86,15 @@ import {
     initializeCoachSetScoreInput,
     loadSavedPairings,
     initializeHandicapToggle,
-} from './matches.js';
+} from './matches-supabase.js';
 import {
     initializeDoublesCoachUI,
     populateDoublesDropdowns,
     handleDoublesMatchSave,
     getCurrentMatchType,
     setDoublesSetScoreInput,
-} from './doubles-coach-ui.js';
-import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils.js';
+} from './doubles-coach-ui-supabase.js';
+import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -105,7 +105,7 @@ import {
     openEditPlayerModal,
     handleSavePlayerSubgroups,
     updatePointsPlayerDropdown,
-} from './player-management.js';
+} from './player-management-supabase.js';
 import {
     loadPointsHistoryForCoach,
     populateHistoryFilterDropdown,
@@ -113,35 +113,35 @@ import {
     handleReasonChange,
     setupMilestoneSelectors,
     setupManualPartnerSystem,
-} from './points-management.js';
-import { loadLeaguesForSelector, checkAndResetClubSeason } from './season.js';
+} from './points-management-supabase.js';
+import { loadLeaguesForSelector, checkAndResetClubSeason } from './season-supabase.js';
 import {
     initializeExercisePartnerSystemCoach,
     initializeChallengePartnerSystemCoach,
 } from './milestone-management.js';
-import { loadStatistics, cleanupStatistics } from './coach-statistics.js';
-import { checkAndMigrate } from './migration.js';
+import { loadStatistics, cleanupStatistics } from './coach-statistics-supabase.js';
+// migration.js is no longer needed - we're fully on Supabase
 import {
     loadSubgroupsList,
     handleCreateSubgroup,
     handleSubgroupActions,
     handleEditSubgroupSubmit,
     closeEditSubgroupModal,
-} from './subgroups-management.js';
-import { initInvitationCodeManagement } from './invitation-code-management.js';
+} from './subgroups-management-supabase.js';
+import { initInvitationCodeManagement } from './invitation-code-management-supabase.js';
 import {
     initPlayerInvitationManagement,
     loadSubgroupsForOfflinePlayerForm,
     handlePostPlayerCreationInvitation,
     openSendInvitationModal,
-} from './player-invitation-management.js';
+} from './player-invitation-management-supabase.js';
 import {
     initializeSpontaneousSessions,
     loadRecurringTemplates,
     openSessionSelectionModal,
-} from './training-schedule-ui.js';
-import { initializeTrainingCompletion } from './training-completion.js';
-import TutorialManager from './tutorial.js';
+} from './training-schedule-ui-supabase.js';
+import { initializeTrainingCompletion } from './training-completion-supabase.js';
+import TutorialManager from './tutorial-supabase.js';
 import { coachTutorialSteps } from './tutorial-coach.js';
 
 // Initialize Supabase
@@ -294,25 +294,8 @@ async function initializeCoachPage(userData) {
     const mainContent = document.getElementById('main-content');
     const loaderText = document.getElementById('loader-text');
 
-    // Run migration if needed
-    if (loaderText) loaderText.textContent = 'Prüfe Datenbank-Migration...';
-    try {
-        const migrationResult = await checkAndMigrate(userData.clubId, supabase);
-        if (migrationResult.success && !migrationResult.skipped) {
-            console.log('[Coach] Migration completed successfully:', migrationResult.stats);
-            if (loaderText) loaderText.textContent = 'Migration abgeschlossen! Lade Dashboard...';
-        } else if (migrationResult.success && migrationResult.skipped) {
-            console.log('[Coach] Migration not needed');
-        } else {
-            console.error('[Coach] Migration failed:', migrationResult.error);
-            alert(
-                `Warnung: Datenbank-Migration fehlgeschlagen. Bitte kontaktiere den Support.\nFehler: ${migrationResult.error}`
-            );
-        }
-    } catch (error) {
-        console.error('[Coach] Error during migration check:', error);
-        alert(`Warnung: Fehler beim Prüfen der Datenbank-Migration.\nFehler: ${error.message}`);
-    }
+    // No migration needed - fully on Supabase
+    if (loaderText) loaderText.textContent = 'Lade Dashboard...';
 
     pageLoader.style.display = 'none';
     mainContent.style.display = 'block';
