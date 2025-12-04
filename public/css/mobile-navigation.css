@@ -219,11 +219,7 @@
     /* Middle Item (Wettkampf) - Highlighted with Circle */
     .mobile-nav-item.middle-action {
         margin-top: -16px;
-        opacity: 0.5; /* Inaktiv halbtransparent */
-    }
-
-    .mobile-nav-item.middle-action.active {
-        opacity: 1; /* Aktiv voll sichtbar */
+        opacity: 1 !important; /* Immer voll sichtbar (überschreibt .mobile-nav-item opacity) */
     }
 
     .mobile-nav-item.middle-action .nav-icon-wrapper {
@@ -235,11 +231,12 @@
         align-items: center;
         justify-content: center;
         box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
-        transition: all 0.2s;
+        transition: all 0.3s ease;
     }
 
     .mobile-nav-item.middle-action.active .nav-icon-wrapper {
-        transform: scale(1.1); /* Größer wenn aktiv */
+        transform: scale(1.15); /* Größer wenn aktiv */
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); /* Stärkerer Glow wenn aktiv */
     }
 
     .mobile-nav-item.middle-action .nav-icon-wrapper:active {
@@ -303,6 +300,10 @@
             font-weight: 700;
         }
 
+        .mobile-nav-item.middle-action {
+            opacity: 1 !important; /* Immer voll sichtbar auch im Dark Mode */
+        }
+
         .mobile-profile-pic {
             border-color: #ffffff;
         }
@@ -347,6 +348,10 @@
 
     .dark .mobile-nav-item.active span {
         font-weight: 700;
+    }
+
+    .dark .mobile-nav-item.middle-action {
+        opacity: 1 !important; /* Immer voll sichtbar auch im Dark Mode */
     }
 
     .dark .mobile-profile-pic {
