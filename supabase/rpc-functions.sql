@@ -110,10 +110,12 @@ CREATE OR REPLACE FUNCTION approve_club_join_request(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     request_data RECORD;
     player_update_count INTEGER;
+    request_update_count INTEGER;
 BEGIN
     -- Get the request
     SELECT * INTO request_data
@@ -145,7 +147,18 @@ BEGIN
         reviewed_at = NOW()
     WHERE id = p_request_id;
 
-    RETURN jsonb_build_object('success', true, 'message', 'Spieler wurde zum Verein hinzugefügt');
+    GET DIAGNOSTICS request_update_count = ROW_COUNT;
+
+    IF request_update_count = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage-Status konnte nicht aktualisiert werden');
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Spieler wurde zum Verein hinzugefügt',
+        'player_updated', player_update_count,
+        'request_updated', request_update_count
+    );
 END;
 $$;
 
@@ -161,9 +174,11 @@ CREATE OR REPLACE FUNCTION reject_club_join_request(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     request_data RECORD;
+    request_update_count INTEGER;
 BEGIN
     -- Get the request
     SELECT * INTO request_data
@@ -182,7 +197,13 @@ BEGIN
         reviewed_at = NOW()
     WHERE id = p_request_id;
 
-    RETURN jsonb_build_object('success', true, 'message', 'Anfrage wurde abgelehnt');
+    GET DIAGNOSTICS request_update_count = ROW_COUNT;
+
+    IF request_update_count = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage-Status konnte nicht aktualisiert werden');
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Anfrage wurde abgelehnt', 'request_updated', request_update_count);
 END;
 $$;
 
@@ -198,10 +219,12 @@ CREATE OR REPLACE FUNCTION approve_club_leave_request(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     request_data RECORD;
     player_update_count INTEGER;
+    request_update_count INTEGER;
 BEGIN
     -- Get the request
     SELECT * INTO request_data
@@ -233,7 +256,18 @@ BEGIN
         reviewed_at = NOW()
     WHERE id = p_request_id;
 
-    RETURN jsonb_build_object('success', true, 'message', 'Spieler hat den Verein verlassen');
+    GET DIAGNOSTICS request_update_count = ROW_COUNT;
+
+    IF request_update_count = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage-Status konnte nicht aktualisiert werden');
+    END IF;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'message', 'Spieler hat den Verein verlassen',
+        'player_updated', player_update_count,
+        'request_updated', request_update_count
+    );
 END;
 $$;
 
@@ -249,9 +283,11 @@ CREATE OR REPLACE FUNCTION reject_club_leave_request(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     request_data RECORD;
+    request_update_count INTEGER;
 BEGIN
     -- Get the request
     SELECT * INTO request_data
@@ -270,7 +306,13 @@ BEGIN
         reviewed_at = NOW()
     WHERE id = p_request_id;
 
-    RETURN jsonb_build_object('success', true, 'message', 'Austrittsanfrage wurde abgelehnt');
+    GET DIAGNOSTICS request_update_count = ROW_COUNT;
+
+    IF request_update_count = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage-Status konnte nicht aktualisiert werden');
+    END IF;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Austrittsanfrage wurde abgelehnt', 'request_updated', request_update_count);
 END;
 $$;
 
