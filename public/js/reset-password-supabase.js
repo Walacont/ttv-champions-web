@@ -17,6 +17,17 @@ const newPasswordForm = document.getElementById('new-password-form');
 const errorMessage = document.getElementById('error-message');
 const submitButton = document.getElementById('submit-button');
 
+// Resend form elements
+const resendForm = document.getElementById('resend-form');
+const resendButton = document.getElementById('resend-button');
+const resendButtonText = document.getElementById('resend-button-text');
+const resendMessage = document.getElementById('resend-message');
+const resendEmail = document.getElementById('resend-email');
+
+// Countdown state
+let countdownInterval = null;
+let canResend = true;
+
 // Initialize page
 async function initializePage() {
     console.log('[RESET-PASSWORD] Initializing...');
@@ -168,6 +179,71 @@ newPasswordForm?.addEventListener('submit', async (e) => {
         submitButton.innerHTML = '<i class="fas fa-save mr-2"></i>Passwort speichern';
     }
 });
+
+// Handle resend form submission
+resendForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!canResend) return;
+
+    const email = resendEmail.value.trim();
+    if (!email) return;
+
+    // Disable button and start countdown
+    canResend = false;
+    resendButton.disabled = true;
+    resendMessage.textContent = '';
+    resendMessage.className = 'mt-3 text-center text-sm';
+
+    try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password.html`
+        });
+
+        if (error) throw error;
+
+        // Show success message
+        resendMessage.textContent = 'Ein neuer Link wurde gesendet!';
+        resendMessage.classList.add('text-green-600');
+
+        // Start 60 second countdown
+        startCountdown(60);
+
+    } catch (error) {
+        console.error('[RESET-PASSWORD] Resend error:', error);
+        resendMessage.textContent = 'Fehler beim Senden. Bitte versuche es erneut.';
+        resendMessage.classList.add('text-red-600');
+
+        // Re-enable button after error
+        canResend = true;
+        resendButton.disabled = false;
+        resendButtonText.textContent = 'Neuen Link senden';
+    }
+});
+
+// Countdown function
+function startCountdown(seconds) {
+    let remaining = seconds;
+
+    updateCountdownDisplay(remaining);
+
+    countdownInterval = setInterval(() => {
+        remaining--;
+
+        if (remaining <= 0) {
+            clearInterval(countdownInterval);
+            canResend = true;
+            resendButton.disabled = false;
+            resendButtonText.textContent = 'Neuen Link senden';
+        } else {
+            updateCountdownDisplay(remaining);
+        }
+    }, 1000);
+}
+
+function updateCountdownDisplay(seconds) {
+    resendButtonText.textContent = `Warten (${seconds}s)`;
+}
 
 // Start initialization
 initializePage();
