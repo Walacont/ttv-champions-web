@@ -967,7 +967,7 @@ async function fetchLeaderboardData() {
         if (currentUserData.club_id) {
             const { data: clubPlayers, error: clubError } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
+                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name), privacy_settings')
                 .eq('club_id', currentUserData.club_id)
                 .in('role', ['player', 'coach']);
 
@@ -988,7 +988,7 @@ async function fetchLeaderboardData() {
         // Fetch global data - ALL players (to calculate user's rank, but display only top 100)
         const { data: globalPlayers, error: globalError } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name)')
+            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name), privacy_settings')
             .in('role', ['player', 'coach']);
 
         if (globalError) {
@@ -1069,6 +1069,41 @@ function renderLeaderboardList() {
         console.log('[Leaderboard] After test club filter:', players.length);
     }
 
+    // Filter by privacy settings
+    let currentUserHidden = false;
+    players = players.filter(player => {
+        const privacySettings = player.privacy_settings || {};
+        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
+        const searchable = privacySettings.searchable || 'global'; // Default: global
+
+        const isCurrentUser = player.id === currentUser.id;
+
+        // If player has disabled leaderboard visibility
+        if (!showInLeaderboards) {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            return false; // Hide from others
+        }
+
+        // If player is only visible to club members
+        if (searchable === 'club_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            // Only show if viewer is in the same club
+            if (currentUserData?.club_id && player.club_id === currentUserData.club_id) {
+                return true;
+            }
+            return false; // Hide from non-club members
+        }
+
+        return true; // Global visibility
+    });
+    console.log('[Leaderboard] After privacy filter:', players.length, '| currentUserHidden:', currentUserHidden);
+
     // Sort by current tab - map tab names to field names
     const fieldMap = {
         'xp': 'xp',
@@ -1096,6 +1131,22 @@ function renderLeaderboardList() {
     }
 
     let html = '';
+
+    // Show privacy notice if current user is hidden from others
+    if (currentUserHidden) {
+        html += `
+            <div class="bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-eye-slash text-amber-500 mt-0.5 mr-2"></i>
+                    <div class="text-sm text-amber-700">
+                        <strong>Du bist für andere nicht sichtbar.</strong><br>
+                        Deine Datenschutz-Einstellungen verbergen dich in der Rangliste für andere Spieler.
+                        <a href="/settings.html" class="text-amber-800 underline hover:text-amber-900">Einstellungen ändern</a>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
     // Check if we should show club names (global scope + skill/elo tab)
     const showClubName = currentLeaderboardScope === 'global' &&
