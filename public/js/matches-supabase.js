@@ -673,7 +673,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 /**
  * Populates match dropdowns with match-ready players
  */
-export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
+export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null) {
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
 
@@ -692,16 +692,36 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         return grundlagen < 5;
     });
 
+    // Debug logging for subgroup filter
+    console.log('[Matches] populateMatchDropdowns:', {
+        totalPlayers: clubPlayers.length,
+        matchReadyBefore: matchReadyPlayers.length,
+        filter: currentSubgroupFilter,
+        excludePlayerId
+    });
+
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
         } else if (isGenderFilter(currentSubgroupFilter)) {
             matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
         } else {
+            // Custom subgroup filter - log players' subgroupIDs for debugging
+            console.log('[Matches] Filtering by custom subgroup:', currentSubgroupFilter);
+            matchReadyPlayers.forEach(p => {
+                console.log(`[Matches] Player ${p.firstName || p.first_name} ${p.lastName || p.last_name}: subgroupIDs =`, p.subgroupIDs);
+            });
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
             );
+            console.log('[Matches] After custom subgroup filter:', matchReadyPlayers.length);
         }
+    }
+
+    // Exclude the specified player (e.g., coach) from the dropdowns
+    if (excludePlayerId) {
+        matchReadyPlayers = matchReadyPlayers.filter(p => p.id !== excludePlayerId);
+        console.log('[Matches] After excluding player:', matchReadyPlayers.length);
     }
 
     const handicapSuggestion = document.getElementById('handicap-suggestion');

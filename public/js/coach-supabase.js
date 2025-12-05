@@ -401,8 +401,8 @@ async function initializeCoachPage(userData) {
     populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', supabase);
     loadPlayersForAttendance(userData.clubId, supabase, players => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
-        populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
-        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter); // Populate doubles dropdowns
+        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id);
+        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id); // Populate doubles dropdowns, exclude coach
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
@@ -973,8 +973,9 @@ function handleSubgroupFilterChange(userData) {
     loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
 
-    // Reload match dropdowns with new filter
-    populateMatchDropdowns(clubPlayers, currentSubgroupFilter);
+    // Reload match dropdowns with new filter (exclude coach from dropdown)
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id);
+    populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id);
 
     // Update points player dropdown with new filter
     updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);

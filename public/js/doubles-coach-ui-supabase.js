@@ -125,11 +125,19 @@ function clearDoublesSelections() {
  * @param {Array} clubPlayers - Array of club players
  * @param {string} currentSubgroupFilter - Current subgroup filter
  */
-export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all') {
+export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null) {
     // Filter match-ready players (isMatchReady flag OR grundlagenCompleted >= 5)
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5;
         return isMatchReady;
+    });
+
+    // Debug logging for subgroup filter
+    console.log('[Doubles] populateDoublesDropdowns:', {
+        totalPlayers: clubPlayers.length,
+        matchReadyBefore: matchReadyPlayers.length,
+        filter: currentSubgroupFilter,
+        excludePlayerId
     });
 
     // Filter by subgroup, age group, or gender if not "all"
@@ -139,10 +147,19 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
         } else if (isGenderFilter(currentSubgroupFilter)) {
             matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
         } else {
+            // Custom subgroup filter - log players' subgroupIDs for debugging
+            console.log('[Doubles] Filtering by custom subgroup:', currentSubgroupFilter);
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
             );
+            console.log('[Doubles] After custom subgroup filter:', matchReadyPlayers.length);
         }
+    }
+
+    // Exclude the specified player (e.g., coach) from the dropdowns
+    if (excludePlayerId) {
+        matchReadyPlayers = matchReadyPlayers.filter(p => p.id !== excludePlayerId);
+        console.log('[Doubles] After excluding player:', matchReadyPlayers.length);
     }
 
     // Populate all 4 dropdowns
