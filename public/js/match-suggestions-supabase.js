@@ -50,7 +50,7 @@ async function loadClubsMap(supabase) {
 }
 
 /**
- * Filter players based on privacy settings (searchable)
+ * Filter players based on privacy settings (searchable and showInLeaderboards)
  * @param {Array} players - Array of player objects
  * @param {Object} currentUserData - Current user's data (with id, role, clubId)
  * @returns {Array} Filtered players
@@ -60,8 +60,14 @@ function filterPlayersByPrivacy(players, currentUserData) {
         // Always show current user
         if (player.id === currentUserData.id) return true;
 
+        const privacySettings = player.privacySettings || {};
+
+        // Check if player has disabled leaderboard/search visibility
+        const showInLeaderboards = privacySettings.showInLeaderboards !== false;
+        if (!showInLeaderboards) return false;
+
         // Show players who are searchable globally or within the same club
-        const searchable = player.privacySettings?.searchable || 'global';
+        const searchable = privacySettings.searchable || 'global';
 
         if (searchable === 'global') return true;
 

@@ -91,11 +91,11 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
     try {
         const { data: players, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, privacy_settings')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
             .ilike('display_name', `%${query}%`)
-            .limit(10);
+            .limit(20);
 
         if (error) throw error;
 
@@ -104,7 +104,30 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
             return;
         }
 
-        resultsContainer.innerHTML = players.map(player => `
+        // Filter players based on privacy settings
+        const filteredPlayers = players.filter(player => {
+            const privacySettings = player.privacy_settings || {};
+
+            // Check if player has disabled leaderboard/search visibility
+            const showInLeaderboards = privacySettings.showInLeaderboards !== false;
+            if (!showInLeaderboards) return false;
+
+            // Check searchable setting
+            const searchable = privacySettings.searchable || 'global';
+            if (searchable === 'global') return true;
+
+            // club_only: only show to players in the same club (which is already the case here)
+            if (searchable === 'club_only') return true;
+
+            return false;
+        }).slice(0, 10); // Limit to 10 after filtering
+
+        if (filteredPlayers.length === 0) {
+            resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';
+            return;
+        }
+
+        resultsContainer.innerHTML = filteredPlayers.map(player => `
             <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
                  data-id="${player.id}"
                  data-name="${player.display_name}"

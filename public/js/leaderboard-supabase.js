@@ -36,6 +36,53 @@ let testClubIdsCache = null;
 let currentUserDataCache = null;
 
 /**
+ * Filter players based on privacy settings
+ * @param {Array} players - Array of player objects
+ * @param {string} currentUserId - Current user's ID
+ * @param {string} currentUserClubId - Current user's club ID
+ * @returns {Object} { filteredPlayers, currentUserHidden } - Filtered players and whether current user is hidden
+ */
+function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
+    let currentUserHidden = false;
+
+    const filteredPlayers = players.filter(player => {
+        const privacySettings = player.privacySettings || {};
+        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
+        const searchable = privacySettings.searchable || 'global'; // Default: global
+
+        // Check if this is the current user
+        const isCurrentUser = player.id === currentUserId;
+
+        // If player has disabled leaderboard visibility
+        if (!showInLeaderboards) {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            return false; // Hide from others
+        }
+
+        // If player is only visible to club members
+        if (searchable === 'club_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            // Only show if viewer is in the same club
+            if (currentUserClubId && player.clubId === currentUserClubId) {
+                return true;
+            }
+            return false; // Hide from non-club members
+        }
+
+        // Global visibility - show to everyone
+        return true;
+    });
+
+    return { filteredPlayers, currentUserHidden };
+}
+
+/**
  * Load test club IDs for filtering
  */
 async function loadTestClubIds() {
@@ -179,7 +226,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
     try {
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender')
+            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
@@ -201,7 +248,8 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
             points: p.points || 0,
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: clubId // All players are from the same club
+            clubId: clubId, // All players are from the same club
+            privacySettings: p.privacy_settings || {}
         }));
 
         // Apply filters
@@ -220,12 +268,16 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
         // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, currentUserId);
 
+        // Filter by privacy settings (showInLeaderboards)
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, clubId);
+        players = filteredPlayers;
+
         if (players.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
         }
 
-        renderLeaderboardList(container, players, currentUserId, 'elo');
+        renderLeaderboardList(container, players, currentUserId, 'elo', currentUserHidden);
         return players;
 
     } catch (error) {
@@ -247,7 +299,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender')
+            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('xp', { ascending: false });
@@ -264,7 +316,8 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: clubId // All players are from the same club
+            clubId: clubId, // All players are from the same club
+            privacySettings: p.privacy_settings || {}
         }));
 
         // Apply filters
@@ -283,12 +336,16 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
         // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, currentUserId);
 
+        // Filter by privacy settings (showInLeaderboards)
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, clubId);
+        players = filteredPlayers;
+
         if (players.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
         }
 
-        renderLeaderboardList(container, players, currentUserId, 'xp');
+        renderLeaderboardList(container, players, currentUserId, 'xp', currentUserHidden);
         return players;
 
     } catch (error) {
@@ -310,7 +367,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender')
+            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach'])
             .order('points', { ascending: false });
@@ -327,7 +384,8 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: clubId // All players are from the same club
+            clubId: clubId, // All players are from the same club
+            privacySettings: p.privacy_settings || {}
         }));
 
         // Apply filters
@@ -346,12 +404,16 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
         // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, currentUserId);
 
+        // Filter by privacy settings (showInLeaderboards)
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, clubId);
+        players = filteredPlayers;
+
         if (players.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
         }
 
-        renderLeaderboardList(container, players, currentUserId, 'points');
+        renderLeaderboardList(container, players, currentUserId, 'points', currentUserHidden);
         return players;
 
     } catch (error) {
@@ -412,7 +474,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             .from('profiles')
             .select(`
                 id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
-                club_id, clubs(name), subgroup_ids, birthdate, gender
+                club_id, clubs(name), subgroup_ids, birthdate, gender, privacy_settings
             `)
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
@@ -431,7 +493,8 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             clubName: p.clubs?.name || 'Kein Verein',
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
-            gender: p.gender
+            gender: p.gender,
+            privacySettings: p.privacy_settings || {}
         }));
 
         // Apply filters
@@ -451,6 +514,14 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
         // Filter out players from test clubs (except for coaches of the same test club)
         allPlayers = await filterTestClubPlayers(allPlayers, currentUserId);
 
+        // Get current user's club ID for privacy filtering
+        const currentUserProfile = allPlayers.find(p => p.id === currentUserId);
+        const currentUserClubId = currentUserProfile?.clubId;
+
+        // Filter by privacy settings (showInLeaderboards and searchable)
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(allPlayers, currentUserId, currentUserClubId);
+        allPlayers = filteredPlayers;
+
         if (allPlayers.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler gefunden.</div>';
             return [];
@@ -466,7 +537,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
         // Check if current user is in top 100
         const isCurrentUserInTop = currentUserRank > 0 && currentUserRank <= limit;
 
-        renderGlobalLeaderboardList(container, top100, currentUserId, currentUserRank, currentUserData, isCurrentUserInTop);
+        renderGlobalLeaderboardList(container, top100, currentUserId, currentUserRank, currentUserData, isCurrentUserInTop, currentUserHidden);
         return allPlayers;
 
     } catch (error) {
@@ -495,8 +566,25 @@ function loadGlobalDoublesLeaderboard(userData) {
 /**
  * Render leaderboard list
  */
-function renderLeaderboardList(container, players, currentUserId, type = 'elo') {
+function renderLeaderboardList(container, players, currentUserId, type = 'elo', currentUserHidden = false) {
     container.innerHTML = '';
+
+    // Show privacy notice if current user is hidden from others
+    if (currentUserHidden) {
+        const notice = document.createElement('div');
+        notice.className = 'bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg';
+        notice.innerHTML = `
+            <div class="flex items-start">
+                <i class="fas fa-eye-slash text-amber-500 mt-0.5 mr-2"></i>
+                <div class="text-sm text-amber-700">
+                    <strong>Du bist für andere nicht sichtbar.</strong><br>
+                    Deine Datenschutz-Einstellungen verbergen dich in der Rangliste für andere Spieler.
+                    <a href="/settings.html" class="text-amber-800 underline hover:text-amber-900">Einstellungen ändern</a>
+                </div>
+            </div>
+        `;
+        container.appendChild(notice);
+    }
 
     players.forEach((player, index) => {
         const rank = index + 1;
@@ -515,6 +603,9 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
                       type === 'xp' ? 'XP' :
                       'Punkte';
 
+        // Show hidden icon if current user is hidden
+        const hiddenIcon = isCurrentUser && currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
+
         row.innerHTML = `
             <div class="flex items-center gap-3">
                 <span class="w-8 text-center font-bold ${rank <= 3 ? 'text-lg' : 'text-sm text-gray-500'}">
@@ -527,6 +618,7 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
                     <p class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-800'}">
                         ${player.firstName || ''} ${player.lastName || ''}
                         ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
+                        ${hiddenIcon}
                     </p>
                 </div>
             </div>
@@ -544,12 +636,32 @@ function renderLeaderboardList(container, players, currentUserId, type = 'elo') 
  * Render global leaderboard list (with club names)
  * Shows top players + current user's position at the bottom if not in top list
  */
-function renderGlobalLeaderboardList(container, players, currentUserId, currentUserRank = 0, currentUserData = null, isCurrentUserInTop = true) {
+function renderGlobalLeaderboardList(container, players, currentUserId, currentUserRank = 0, currentUserData = null, isCurrentUserInTop = true, currentUserHidden = false) {
     container.innerHTML = '';
+
+    // Show privacy notice if current user is hidden from others
+    if (currentUserHidden) {
+        const notice = document.createElement('div');
+        notice.className = 'bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg';
+        notice.innerHTML = `
+            <div class="flex items-start">
+                <i class="fas fa-eye-slash text-amber-500 mt-0.5 mr-2"></i>
+                <div class="text-sm text-amber-700">
+                    <strong>Du bist für andere nicht sichtbar.</strong><br>
+                    Deine Datenschutz-Einstellungen verbergen dich in der globalen Rangliste für andere Spieler.
+                    <a href="/settings.html" class="text-amber-800 underline hover:text-amber-900">Einstellungen ändern</a>
+                </div>
+            </div>
+        `;
+        container.appendChild(notice);
+    }
 
     players.forEach((player, index) => {
         const rank = index + 1;
         const isCurrentUser = player.id === currentUserId;
+
+        // Show hidden icon if current user is hidden
+        const hiddenIcon = isCurrentUser && currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
 
         const row = document.createElement('div');
         row.className = `flex items-center justify-between p-3 ${isCurrentUser ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'bg-white'}
@@ -567,6 +679,7 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
                     <p class="font-medium ${isCurrentUser ? 'text-indigo-700' : 'text-gray-800'}">
                         ${player.firstName || ''} ${player.lastName || ''}
                         ${isCurrentUser ? '<span class="text-xs text-indigo-500">(Du)</span>' : ''}
+                        ${hiddenIcon}
                     </p>
                     <p class="text-xs text-gray-500">${player.clubName}</p>
                 </div>
@@ -586,6 +699,8 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
         separator.className = 'border-t-2 border-dashed border-gray-300 my-4';
         container.appendChild(separator);
 
+        const hiddenIcon = currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
+
         const userRow = document.createElement('div');
         userRow.className = 'flex items-center justify-between p-3 bg-indigo-50 border-l-4 border-indigo-500 rounded-lg';
         userRow.innerHTML = `
@@ -598,6 +713,7 @@ function renderGlobalLeaderboardList(container, players, currentUserId, currentU
                     <p class="font-medium text-indigo-700">
                         ${currentUserData.firstName || ''} ${currentUserData.lastName || ''}
                         <span class="text-xs text-indigo-500">(Du)</span>
+                        ${hiddenIcon}
                     </p>
                     <p class="text-xs text-gray-500">${currentUserData.clubName || 'Kein Verein'}</p>
                 </div>
@@ -902,7 +1018,7 @@ async function loadRanksView(userData) {
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender')
+            .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings')
             .eq('club_id', userData.clubId)
             .in('role', ['player', 'coach']);
 
@@ -919,7 +1035,8 @@ async function loadRanksView(userData) {
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: userData.clubId // All players are from the same club
+            clubId: userData.clubId, // All players are from the same club
+            privacySettings: p.privacy_settings || {}
         }));
 
         // Apply filters
@@ -938,6 +1055,10 @@ async function loadRanksView(userData) {
         // Filter out players from test clubs (except for coaches of the same test club)
         players = await filterTestClubPlayers(players, userData.id);
 
+        // Filter by privacy settings (showInLeaderboards)
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, userData.clubId);
+        players = filteredPlayers;
+
         if (players.length === 0) {
             listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Gruppe.</div>';
             return;
@@ -945,6 +1066,23 @@ async function loadRanksView(userData) {
 
         const grouped = groupPlayersByRank(players);
         listEl.innerHTML = '';
+
+        // Show privacy notice if current user is hidden from others
+        if (currentUserHidden) {
+            const notice = document.createElement('div');
+            notice.className = 'bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 rounded-r-lg';
+            notice.innerHTML = `
+                <div class="flex items-start">
+                    <i class="fas fa-eye-slash text-amber-500 mt-0.5 mr-2"></i>
+                    <div class="text-sm text-amber-700">
+                        <strong>Du bist für andere nicht sichtbar.</strong><br>
+                        Deine Datenschutz-Einstellungen verbergen dich in der Rangliste für andere Spieler.
+                        <a href="/settings.html" class="text-amber-800 underline hover:text-amber-900">Einstellungen ändern</a>
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(notice);
+        }
 
         // Display ranks from highest to lowest
         for (let i = RANK_ORDER.length - 1; i >= 0; i--) {
@@ -972,12 +1110,13 @@ async function loadRanksView(userData) {
                         const initials = (player.firstName?.[0] || '') + (player.lastName?.[0] || '');
                         const avatarSrc = player.photoURL || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
                         const playerName = `${player.firstName || ''} ${player.lastName || ''}`.trim() || 'Unbekannt';
+                        const hiddenIcon = isCurrentUser && currentUserHidden ? '<i class="fas fa-eye-slash text-amber-500 ml-1" title="Für andere nicht sichtbar"></i>' : '';
 
                         return `
                             <div class="flex items-center p-2 rounded ${isCurrentUser ? 'bg-indigo-100 font-bold' : 'bg-gray-50'}">
                                 <img src="${avatarSrc}" alt="Avatar" class="h-8 w-8 rounded-full object-cover mr-3" onerror="this.src='https://placehold.co/32x32/e2e8f0/64748b?text=${initials}'">
                                 <div class="flex-grow">
-                                    <p class="text-sm">${playerName}</p>
+                                    <p class="text-sm">${playerName}${hiddenIcon}</p>
                                 </div>
                                 <div class="text-xs text-gray-600">
                                     ${player.eloRating || 0} Elo | ${player.xp || 0} XP
