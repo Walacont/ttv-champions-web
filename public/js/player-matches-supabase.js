@@ -88,14 +88,19 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
         return;
     }
 
+    console.log('[Opponent Search] Searching for:', query, 'in club:', currentUserData.club_id);
+
     try {
+        // Search by display_name, first_name, or last_name
         const { data: players, error } = await supabase
             .from('profiles')
             .select('id, display_name, first_name, last_name, avatar_url, elo_rating, privacy_settings')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
-            .ilike('display_name', `%${query}%`)
+            .or(`display_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
             .limit(20);
+
+        console.log('[Opponent Search] Found players:', players?.length, players);
 
         if (error) throw error;
 
@@ -112,10 +117,13 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
         const filteredPlayers = players.filter(player => {
             const privacySettings = player.privacy_settings || {};
             const searchable = privacySettings.searchable || 'global';
+            console.log('[Opponent Search] Player:', player.display_name || player.first_name, '| searchable:', searchable, '| privacy_settings:', privacySettings);
 
             // Both 'global' and 'club_only' players are visible since we're searching within the same club
             return searchable === 'global' || searchable === 'club_only';
         }).slice(0, 10); // Limit to 10 after filtering
+
+        console.log('[Opponent Search] After privacy filter:', filteredPlayers.length);
 
         if (filteredPlayers.length === 0) {
             resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';
