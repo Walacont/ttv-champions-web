@@ -54,15 +54,18 @@ export function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
 
     // Opponent search
     let searchTimeout = null;
+    console.log('[Opponent Search] Setting up search input:', opponentSearchInput ? 'found' : 'NOT FOUND');
     opponentSearchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
         const query = e.target.value.trim();
+        console.log('[Opponent Search] Input event, query:', query, 'length:', query.length);
 
         if (query.length < 2) {
             opponentSearchResults.innerHTML = '';
             return;
         }
 
+        console.log('[Opponent Search] Starting search for:', query);
         searchTimeout = setTimeout(() => searchOpponents(query, opponentSearchResults, currentUser, currentUserData), 300);
     });
 
