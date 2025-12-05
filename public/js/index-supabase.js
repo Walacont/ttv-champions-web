@@ -91,6 +91,18 @@ invitationCodeInput?.addEventListener('input', e => {
 onAuthStateChange(async (event, session) => {
     console.log('[INDEX-SUPABASE] Auth state changed:', event, session?.user?.email);
 
+    // Don't redirect after sign out or on initial load without explicit sign in
+    if (event === 'SIGNED_OUT') {
+        console.log('[INDEX-SUPABASE] User signed out, staying on index');
+        return;
+    }
+
+    // Only redirect on explicit sign in, not on initial session check
+    if (event !== 'SIGNED_IN') {
+        console.log('[INDEX-SUPABASE] Ignoring event:', event);
+        return;
+    }
+
     if (session?.user) {
         try {
             // Get user profile from database
