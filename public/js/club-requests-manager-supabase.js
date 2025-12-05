@@ -64,13 +64,19 @@ export async function initClubRequestsManager(userData, supabase) {
     // Setup event delegation for join requests
     const joinRequestsContainer = document.getElementById('club-join-requests-list');
     if (joinRequestsContainer) {
+        console.log('[ClubRequests] Setting up event delegation for join requests container');
         joinRequestsContainer.addEventListener('click', handleJoinRequestClick);
+    } else {
+        console.error('[ClubRequests] Join requests container not found!');
     }
 
     // Setup event delegation for leave requests
     const leaveRequestsContainer = document.getElementById('leave-requests-list');
     if (leaveRequestsContainer) {
+        console.log('[ClubRequests] Setting up event delegation for leave requests container');
         leaveRequestsContainer.addEventListener('click', handleLeaveRequestClick);
+    } else {
+        console.error('[ClubRequests] Leave requests container not found!');
     }
 
     // Load club join requests
@@ -81,8 +87,13 @@ export async function initClubRequestsManager(userData, supabase) {
 
 // Event delegation handler for join requests
 async function handleJoinRequestClick(e) {
+    console.log('[ClubRequests] Click detected on container, target:', e.target.tagName, e.target.className);
+
     const button = e.target.closest('button[data-action]');
-    if (!button) return;
+    if (!button) {
+        console.log('[ClubRequests] No button with data-action found');
+        return;
+    }
 
     const action = button.dataset.action;
     const requestId = button.dataset.requestId;
@@ -98,8 +109,13 @@ async function handleJoinRequestClick(e) {
 
 // Event delegation handler for leave requests
 async function handleLeaveRequestClick(e) {
+    console.log('[ClubRequests] Click detected on leave container, target:', e.target.tagName, e.target.className);
+
     const button = e.target.closest('button[data-action]');
-    if (!button) return;
+    if (!button) {
+        console.log('[ClubRequests] No button with data-action found');
+        return;
+    }
 
     const action = button.dataset.action;
     const requestId = button.dataset.requestId;
