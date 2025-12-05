@@ -13,6 +13,27 @@ import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayer
 let currentGrundlagenListener = null;
 
 /**
+ * Validates if a string is a valid UUID format
+ * @param {string} str - String to validate
+ * @returns {boolean} True if valid UUID
+ */
+function isValidUUID(str) {
+    if (!str || typeof str !== 'string') return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+}
+
+/**
+ * Filters an array to only include valid UUIDs
+ * @param {Array} arr - Array of strings to filter
+ * @returns {Array} Array with only valid UUIDs
+ */
+function filterValidUUIDs(arr) {
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(isValidUUID);
+}
+
+/**
  * Maps player data from Supabase (snake_case) to app format (camelCase)
  */
 function mapPlayerFromSupabase(player) {
@@ -622,19 +643,21 @@ export async function showPlayerDetails(player, detailContent, supabase) {
 
     // Lade Gruppen-Namen statt nur IDs
     const subgroups = player.subgroupIDs || [];
+    // Filter out old Firebase IDs (non-UUIDs) before querying
+    const validSubgroups = filterValidUUIDs(subgroups);
     let subgroupHtml = '<p class="text-sm text-gray-500">Keinen Gruppen zugewiesen</p>';
 
-    if (subgroups.length > 0 && supabase) {
+    if (validSubgroups.length > 0 && supabase) {
         try {
             const { data: subgroupData, error } = await supabase
                 .from('subgroups')
                 .select('id, name')
-                .in('id', subgroups);
+                .in('id', validSubgroups);
 
             if (error) throw error;
 
             if (subgroupData && subgroupData.length > 0) {
-                const subgroupNames = subgroups.map(subgroupId => {
+                const subgroupNames = validSubgroups.map(subgroupId => {
                     const found = subgroupData.find(s => s.id === subgroupId);
                     return found ? found.name : subgroupId;
                 });
@@ -647,7 +670,7 @@ export async function showPlayerDetails(player, detailContent, supabase) {
             }
         } catch (error) {
             console.error('Error loading subgroup names:', error);
-            subgroupHtml = subgroups
+            subgroupHtml = validSubgroups
                 .map(
                     id =>
                         `<span class="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mr-2 mb-2">${id}</span>`
