@@ -404,7 +404,7 @@ async function initializeCoachPage(userData) {
         populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
         populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter); // Populate doubles dropdowns, exclude coach
         populateHistoryFilterDropdown(clubPlayers);
-        updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
+        updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Exclude coach from points dropdown
     });
 
     // Initialize set score input for coach match form (used by both singles and doubles)
@@ -977,8 +977,8 @@ function handleSubgroupFilterChange(userData) {
     populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 
-    // Update points player dropdown with new filter
-    updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
+    // Update points player dropdown with new filter (exclude coach)
+    updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
 
     // Update pairings button state with new filter
     updatePairingsButtonState(clubPlayers, currentSubgroupFilter);

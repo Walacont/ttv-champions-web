@@ -575,8 +575,9 @@ export function loadPlayersForDropdown(clubId, supabase) {
  * Updates the points player dropdown based on subgroup or age group filter
  * @param {Array} clubPlayers - Array of all club players
  * @param {string} subgroupFilter - Current subgroup filter ('all', age group ID, or subgroup ID)
+ * @param {string} excludePlayerId - Player ID to exclude (e.g., coach)
  */
-export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
+export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludePlayerId = null) {
     const select = document.getElementById('player-select');
     if (!select) return;
 
@@ -593,6 +594,11 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter) {
             const subgroupIDs = p.subgroupIDs || [];
             return subgroupIDs.includes(subgroupFilter);
         });
+    }
+
+    // Exclude the specified player (e.g., coach can't give points to themselves)
+    if (excludePlayerId) {
+        filteredPlayers = filteredPlayers.filter(p => p.id !== excludePlayerId);
     }
 
     // Populate dropdown with filtered players
