@@ -2,7 +2,37 @@
 // 1:1 Migration von points-management.js - Firebase → Supabase
 
 import { getSupabase } from './supabase-init.js';
-import { getCurrentSeasonKey, formatDate } from './ui-utils.js';
+import { formatDate } from './ui-utils.js';
+
+/**
+ * Gets the current season key from Supabase config table
+ * @param {Object} supabase - Supabase client instance
+ * @returns {Promise<string>} Season key (e.g., "11-2025")
+ */
+async function getCurrentSeasonKey(supabase) {
+    try {
+        const { data, error } = await supabase
+            .from('config')
+            .select('value')
+            .eq('key', 'seasonReset')
+            .single();
+
+        if (error) throw error;
+
+        if (data && data.value && data.value.lastResetDate) {
+            const lastResetDate = new Date(data.value.lastResetDate);
+            return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
+        } else {
+            // Fallback: Use current month/year
+            const now = new Date();
+            return `${now.getMonth() + 1}-${now.getFullYear()}`;
+        }
+    } catch (error) {
+        console.error('Error getting season key:', error);
+        const now = new Date();
+        return `${now.getMonth() + 1}-${now.getFullYear()}`;
+    }
+}
 
 /**
  * Points Management Module
