@@ -709,12 +709,16 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
             showInLeaderboards: showInLeaderboardsValue,
         };
 
+        console.log('[Privacy Settings] Saving privacy settings:', JSON.stringify(newPrivacySettings));
+
         const { error } = await supabase
             .from('profiles')
             .update({ privacy_settings: newPrivacySettings })
             .eq('id', currentUser.id);
 
         if (error) throw error;
+
+        console.log('[Privacy Settings] Saved successfully!');
 
         // Update local data
         currentUserData.privacySettings = newPrivacySettings;

@@ -45,6 +45,10 @@ let currentUserDataCache = null;
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
     let currentUserHidden = false;
 
+    console.log('[Privacy Filter] Starting filter with', players.length, 'players');
+    console.log('[Privacy Filter] Current user ID:', currentUserId);
+    console.log('[Privacy Filter] Current user club ID:', currentUserClubId);
+
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
         const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
@@ -53,12 +57,20 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
         // Check if this is the current user
         const isCurrentUser = player.id === currentUserId;
 
+        // Debug log for each player
+        console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
+            '| showInLeaderboards:', showInLeaderboards,
+            '| searchable:', searchable,
+            '| isCurrentUser:', isCurrentUser,
+            '| raw privacySettings:', JSON.stringify(privacySettings));
+
         // If player has disabled leaderboard visibility
         if (!showInLeaderboards) {
             if (isCurrentUser) {
                 currentUserHidden = true;
                 return true; // Still show current user to themselves
             }
+            console.log('[Privacy Filter] HIDING', player.firstName, '- showInLeaderboards is false');
             return false; // Hide from others
         }
 
@@ -70,8 +82,10 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
             }
             // Only show if viewer is in the same club
             if (currentUserClubId && player.clubId === currentUserClubId) {
+                console.log('[Privacy Filter] SHOWING', player.firstName, '- same club');
                 return true;
             }
+            console.log('[Privacy Filter] HIDING', player.firstName, '- club_only and different club');
             return false; // Hide from non-club members
         }
 
@@ -79,6 +93,7 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
         return true;
     });
 
+    console.log('[Privacy Filter] Filtered from', players.length, 'to', filteredPlayers.length, 'players');
     return { filteredPlayers, currentUserHidden };
 }
 
