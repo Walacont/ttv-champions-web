@@ -702,9 +702,19 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
+            console.log('[Matches] Filtering by age group:', currentSubgroupFilter);
+            matchReadyPlayers.forEach(p => {
+                console.log(`[Matches] Player ${p.firstName || p.first_name} ${p.lastName || p.last_name}: birthdate =`, p.birthdate);
+            });
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+            console.log('[Matches] After age filter:', matchReadyPlayers.length);
         } else if (isGenderFilter(currentSubgroupFilter)) {
+            console.log('[Matches] Filtering by gender:', currentSubgroupFilter);
+            matchReadyPlayers.forEach(p => {
+                console.log(`[Matches] Player ${p.firstName || p.first_name} ${p.lastName || p.last_name}: gender =`, p.gender);
+            });
             matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
+            console.log('[Matches] After gender filter:', matchReadyPlayers.length);
         } else {
             // Custom subgroup filter - log players' subgroupIDs for debugging
             console.log('[Matches] Filtering by custom subgroup:', currentSubgroupFilter);

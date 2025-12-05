@@ -143,9 +143,13 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
     // Filter by subgroup, age group, or gender if not "all"
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
+            console.log('[Doubles] Filtering by age group:', currentSubgroupFilter);
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
+            console.log('[Doubles] After age filter:', matchReadyPlayers.length);
         } else if (isGenderFilter(currentSubgroupFilter)) {
+            console.log('[Doubles] Filtering by gender:', currentSubgroupFilter);
             matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
+            console.log('[Doubles] After gender filter:', matchReadyPlayers.length);
         } else {
             // Custom subgroup filter - log players' subgroupIDs for debugging
             console.log('[Doubles] Filtering by custom subgroup:', currentSubgroupFilter);
