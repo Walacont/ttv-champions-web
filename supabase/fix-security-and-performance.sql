@@ -101,23 +101,23 @@ CREATE POLICY clubs_update_admin ON clubs FOR UPDATE
         )
     );
 
--- Club requests
+-- Club requests (uses player_id, not user_id)
 DROP POLICY IF EXISTS club_requests_select_own ON club_requests;
 CREATE POLICY club_requests_select_own ON club_requests FOR SELECT
-    USING (user_id = (SELECT auth.uid()));
+    USING (player_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS club_requests_insert ON club_requests;
 CREATE POLICY club_requests_insert ON club_requests FOR INSERT
-    WITH CHECK (user_id = (SELECT auth.uid()));
+    WITH CHECK (player_id = (SELECT auth.uid()));
 
--- Leave club requests
+-- Leave club requests (uses player_id, not user_id)
 DROP POLICY IF EXISTS leave_requests_select_own ON leave_club_requests;
 CREATE POLICY leave_requests_select_own ON leave_club_requests FOR SELECT
-    USING (user_id = (SELECT auth.uid()));
+    USING (player_id = (SELECT auth.uid()));
 
 DROP POLICY IF EXISTS leave_requests_insert ON leave_club_requests;
 CREATE POLICY leave_requests_insert ON leave_club_requests FOR INSERT
-    WITH CHECK (user_id = (SELECT auth.uid()));
+    WITH CHECK (player_id = (SELECT auth.uid()));
 
 -- Training sessions
 DROP POLICY IF EXISTS training_sessions_select ON training_sessions;
@@ -187,12 +187,12 @@ CREATE POLICY match_requests_delete ON match_requests FOR DELETE
         )
     );
 
--- Match proposals
+-- Match proposals (uses requester_id and recipient_id)
 DROP POLICY IF EXISTS match_proposals_select ON match_proposals;
 CREATE POLICY match_proposals_select ON match_proposals FOR SELECT
     USING (
-        player1_id = (SELECT auth.uid())
-        OR player2_id = (SELECT auth.uid())
+        requester_id = (SELECT auth.uid())
+        OR recipient_id = (SELECT auth.uid())
         OR club_id IN (
             SELECT club_id FROM profiles
             WHERE id = (SELECT auth.uid())
@@ -203,20 +203,20 @@ CREATE POLICY match_proposals_select ON match_proposals FOR SELECT
 DROP POLICY IF EXISTS match_proposals_insert ON match_proposals;
 CREATE POLICY match_proposals_insert ON match_proposals FOR INSERT
     WITH CHECK (
-        player1_id = (SELECT auth.uid())
+        requester_id = (SELECT auth.uid())
         AND club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid()))
     );
 
 DROP POLICY IF EXISTS match_proposals_update ON match_proposals;
 CREATE POLICY match_proposals_update ON match_proposals FOR UPDATE
     USING (
-        player1_id = (SELECT auth.uid())
-        OR player2_id = (SELECT auth.uid())
+        requester_id = (SELECT auth.uid())
+        OR recipient_id = (SELECT auth.uid())
     );
 
 DROP POLICY IF EXISTS match_proposals_delete ON match_proposals;
 CREATE POLICY match_proposals_delete ON match_proposals FOR DELETE
-    USING (player1_id = (SELECT auth.uid()));
+    USING (requester_id = (SELECT auth.uid()));
 
 -- Doubles matches
 DROP POLICY IF EXISTS doubles_matches_select ON doubles_matches;
