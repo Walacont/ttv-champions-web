@@ -124,40 +124,46 @@ function clearDoublesSelections() {
  * Populates all doubles dropdowns with match-ready players
  * @param {Array} clubPlayers - Array of club players
  * @param {string} currentSubgroupFilter - Current subgroup filter
+ * @param {string} excludePlayerId - Player ID to exclude (e.g., coach)
+ * @param {string} currentGenderFilter - Current gender filter
  */
-export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null) {
+export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all') {
     // Filter match-ready players (isMatchReady flag OR grundlagenCompleted >= 5)
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady === true || (p.grundlagenCompleted || 0) >= 5;
         return isMatchReady;
     });
 
-    // Debug logging for subgroup filter
+    // Debug logging for filters
     console.log('[Doubles] populateDoublesDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
-        filter: currentSubgroupFilter,
+        subgroupFilter: currentSubgroupFilter,
+        genderFilter: currentGenderFilter,
         excludePlayerId
     });
 
-    // Filter by subgroup, age group, or gender if not "all"
+    // Apply subgroup/age filter first
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             console.log('[Doubles] Filtering by age group:', currentSubgroupFilter);
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
             console.log('[Doubles] After age filter:', matchReadyPlayers.length);
-        } else if (isGenderFilter(currentSubgroupFilter)) {
-            console.log('[Doubles] Filtering by gender:', currentSubgroupFilter);
-            matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
-            console.log('[Doubles] After gender filter:', matchReadyPlayers.length);
-        } else {
-            // Custom subgroup filter - log players' subgroupIDs for debugging
+        } else if (!isGenderFilter(currentSubgroupFilter)) {
+            // Custom subgroup filter (not gender - gender is handled separately)
             console.log('[Doubles] Filtering by custom subgroup:', currentSubgroupFilter);
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
             );
             console.log('[Doubles] After custom subgroup filter:', matchReadyPlayers.length);
         }
+    }
+
+    // Apply gender filter separately (can be combined with age/subgroup filter)
+    if (currentGenderFilter && currentGenderFilter !== 'all' && currentGenderFilter !== 'gender_all') {
+        console.log('[Doubles] Filtering by gender:', currentGenderFilter);
+        matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentGenderFilter);
+        console.log('[Doubles] After gender filter:', matchReadyPlayers.length);
     }
 
     // Exclude the specified player (e.g., coach) from the dropdowns

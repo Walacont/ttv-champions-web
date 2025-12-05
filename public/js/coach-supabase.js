@@ -401,8 +401,8 @@ async function initializeCoachPage(userData) {
     populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', supabase);
     loadPlayersForAttendance(userData.clubId, supabase, players => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
-        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id);
-        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id); // Populate doubles dropdowns, exclude coach
+        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+        populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter); // Populate doubles dropdowns, exclude coach
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
     });
@@ -973,9 +973,9 @@ function handleSubgroupFilterChange(userData) {
     loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
 
-    // Reload match dropdowns with new filter (exclude coach from dropdown)
-    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id);
-    populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id);
+    // Reload match dropdowns with new filter (exclude coach from dropdown, apply both subgroup and gender filters)
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+    populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 
     // Update points player dropdown with new filter
     updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter);
@@ -991,7 +991,7 @@ function handleSubgroupFilterChange(userData) {
 }
 
 /**
- * Handles gender filter changes - reloads leaderboards with combined filters
+ * Handles gender filter changes - reloads leaderboards and match dropdowns with combined filters
  * @param {Object} userData - Current user data
  */
 function handleGenderFilterChange(userData) {
@@ -1003,6 +1003,10 @@ function handleGenderFilterChange(userData) {
     // Reload leaderboards with updated gender filter
     loadLeaderboard(userData, supabase, []);
     loadGlobalLeaderboard(userData, supabase, []);
+
+    // Reload match dropdowns with new gender filter (combine with current subgroup filter)
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+    populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 }
 
 // Global challenge handlers (called from onclick in HTML)

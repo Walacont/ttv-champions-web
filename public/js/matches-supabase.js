@@ -673,7 +673,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 /**
  * Populates match dropdowns with match-ready players
  */
-export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null) {
+export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all') {
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
 
@@ -692,40 +692,36 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
         return grundlagen < 5;
     });
 
-    // Debug logging for subgroup filter
+    // Debug logging for filters
     console.log('[Matches] populateMatchDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
-        filter: currentSubgroupFilter,
+        subgroupFilter: currentSubgroupFilter,
+        genderFilter: currentGenderFilter,
         excludePlayerId
     });
 
+    // Apply subgroup/age filter first
     if (currentSubgroupFilter !== 'all') {
         if (isAgeGroupFilter(currentSubgroupFilter)) {
             console.log('[Matches] Filtering by age group:', currentSubgroupFilter);
-            matchReadyPlayers.forEach(p => {
-                console.log(`[Matches] Player ${p.firstName || p.first_name} ${p.lastName || p.last_name}: birthdate =`, p.birthdate);
-            });
             matchReadyPlayers = filterPlayersByAgeGroup(matchReadyPlayers, currentSubgroupFilter);
             console.log('[Matches] After age filter:', matchReadyPlayers.length);
-        } else if (isGenderFilter(currentSubgroupFilter)) {
-            console.log('[Matches] Filtering by gender:', currentSubgroupFilter);
-            matchReadyPlayers.forEach(p => {
-                console.log(`[Matches] Player ${p.firstName || p.first_name} ${p.lastName || p.last_name}: gender =`, p.gender);
-            });
-            matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentSubgroupFilter);
-            console.log('[Matches] After gender filter:', matchReadyPlayers.length);
-        } else {
-            // Custom subgroup filter - log players' subgroupIDs for debugging
+        } else if (!isGenderFilter(currentSubgroupFilter)) {
+            // Custom subgroup filter (not gender - gender is handled separately)
             console.log('[Matches] Filtering by custom subgroup:', currentSubgroupFilter);
-            matchReadyPlayers.forEach(p => {
-                console.log(`[Matches] Player ${p.firstName || p.first_name} ${p.lastName || p.last_name}: subgroupIDs =`, p.subgroupIDs);
-            });
             matchReadyPlayers = matchReadyPlayers.filter(
                 player => player.subgroupIDs && player.subgroupIDs.includes(currentSubgroupFilter)
             );
             console.log('[Matches] After custom subgroup filter:', matchReadyPlayers.length);
         }
+    }
+
+    // Apply gender filter separately (can be combined with age/subgroup filter)
+    if (currentGenderFilter && currentGenderFilter !== 'all' && currentGenderFilter !== 'gender_all') {
+        console.log('[Matches] Filtering by gender:', currentGenderFilter);
+        matchReadyPlayers = filterPlayersByGender(matchReadyPlayers, currentGenderFilter);
+        console.log('[Matches] After gender filter:', matchReadyPlayers.length);
     }
 
     // Exclude the specified player (e.g., coach) from the dropdowns
