@@ -366,49 +366,24 @@ async function approveClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich genehmigen?')) return;
 
     try {
-        console.log('[ClubRequests] Approving join request:', requestId);
+        console.log('[ClubRequests] Approving join request via RPC:', requestId);
 
-        // Get request details first
-        const { data: request, error: fetchError } = await supabaseClient
-            .from('club_requests')
-            .select('*')
-            .eq('id', requestId)
-            .single();
+        // Call RPC function that bypasses RLS
+        const { data, error } = await supabaseClient.rpc('approve_club_join_request', {
+            p_request_id: requestId,
+            p_coach_id: currentUserData.id
+        });
 
-        if (fetchError) {
-            console.error('Error fetching request:', fetchError);
-            throw fetchError;
+        if (error) {
+            console.error('Error calling approve_club_join_request RPC:', error);
+            throw error;
         }
 
-        console.log('[ClubRequests] Request data:', request);
+        console.log('[ClubRequests] RPC result:', data);
 
-        // Update player's clubId
-        const { data: playerUpdate, error: updatePlayerError } = await supabaseClient
-            .from('profiles')
-            .update({ club_id: request.club_id })
-            .eq('id', request.player_id)
-            .select();
-
-        if (updatePlayerError) {
-            console.error('Error updating player club_id:', updatePlayerError);
-            throw updatePlayerError;
+        if (!data.success) {
+            throw new Error(data.error || 'Unbekannter Fehler');
         }
-
-        console.log('[ClubRequests] Player profile updated:', playerUpdate);
-
-        // Update request status
-        const { data: requestUpdate, error: updateRequestError } = await supabaseClient
-            .from('club_requests')
-            .update({ status: 'approved' })
-            .eq('id', requestId)
-            .select();
-
-        if (updateRequestError) {
-            console.error('Error updating request status:', updateRequestError);
-            throw updateRequestError;
-        }
-
-        console.log('[ClubRequests] Request status updated:', requestUpdate);
 
         // Manually reload the requests list
         if (reloadJoinRequests) {
@@ -428,14 +403,24 @@ async function rejectClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich ablehnen?')) return;
 
     try {
-        console.log('[ClubRequests] Rejecting join request:', requestId);
+        console.log('[ClubRequests] Rejecting join request via RPC:', requestId);
 
-        const { error } = await supabaseClient
-            .from('club_requests')
-            .update({ status: 'rejected' })
-            .eq('id', requestId);
+        // Call RPC function that bypasses RLS
+        const { data, error } = await supabaseClient.rpc('reject_club_join_request', {
+            p_request_id: requestId,
+            p_coach_id: currentUserData.id
+        });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Error calling reject_club_join_request RPC:', error);
+            throw error;
+        }
+
+        console.log('[ClubRequests] RPC result:', data);
+
+        if (!data.success) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
 
         // Manually reload the requests list
         if (reloadJoinRequests) {
@@ -455,40 +440,24 @@ async function approveLeaveRequest(requestId) {
     if (!confirm('Möchtest du diese Austrittsanfrage wirklich genehmigen?')) return;
 
     try {
-        console.log('[ClubRequests] Approving leave request:', requestId);
+        console.log('[ClubRequests] Approving leave request via RPC:', requestId);
 
-        // Get request details first
-        const { data: request, error: fetchError } = await supabaseClient
-            .from('leave_club_requests')
-            .select('*')
-            .eq('id', requestId)
-            .single();
+        // Call RPC function that bypasses RLS
+        const { data, error } = await supabaseClient.rpc('approve_club_leave_request', {
+            p_request_id: requestId,
+            p_coach_id: currentUserData.id
+        });
 
-        if (fetchError) throw fetchError;
-
-        console.log('[ClubRequests] Leave request data:', request);
-
-        // Remove player's clubId (set to null)
-        const { data: playerUpdate, error: updatePlayerError } = await supabaseClient
-            .from('profiles')
-            .update({ club_id: null })
-            .eq('id', request.player_id)
-            .select();
-
-        if (updatePlayerError) {
-            console.error('Error updating player club_id:', updatePlayerError);
-            throw updatePlayerError;
+        if (error) {
+            console.error('Error calling approve_club_leave_request RPC:', error);
+            throw error;
         }
 
-        console.log('[ClubRequests] Player removed from club:', playerUpdate);
+        console.log('[ClubRequests] RPC result:', data);
 
-        // Update request status
-        const { error: updateRequestError } = await supabaseClient
-            .from('leave_club_requests')
-            .update({ status: 'approved' })
-            .eq('id', requestId);
-
-        if (updateRequestError) throw updateRequestError;
+        if (!data.success) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
 
         // Manually reload the requests list
         if (reloadLeaveRequests) {
@@ -508,14 +477,24 @@ async function rejectLeaveRequest(requestId) {
     if (!confirm('Möchtest du diese Austrittsanfrage wirklich ablehnen?')) return;
 
     try {
-        console.log('[ClubRequests] Rejecting leave request:', requestId);
+        console.log('[ClubRequests] Rejecting leave request via RPC:', requestId);
 
-        const { error } = await supabaseClient
-            .from('leave_club_requests')
-            .update({ status: 'rejected' })
-            .eq('id', requestId);
+        // Call RPC function that bypasses RLS
+        const { data, error } = await supabaseClient.rpc('reject_club_leave_request', {
+            p_request_id: requestId,
+            p_coach_id: currentUserData.id
+        });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Error calling reject_club_leave_request RPC:', error);
+            throw error;
+        }
+
+        console.log('[ClubRequests] RPC result:', data);
+
+        if (!data.success) {
+            throw new Error(data.error || 'Unbekannter Fehler');
+        }
 
         // Manually reload the requests list
         if (reloadLeaveRequests) {

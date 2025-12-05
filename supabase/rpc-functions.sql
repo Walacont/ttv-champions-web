@@ -99,5 +99,181 @@ END;
 $$;
 
 -- =========================================
+-- APPROVE CLUB JOIN REQUEST
+-- =========================================
+-- Genehmigt eine Beitrittsanfrage und fügt den Spieler zum Verein hinzu
+
+CREATE OR REPLACE FUNCTION approve_club_join_request(
+    p_request_id UUID,
+    p_coach_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    request_data RECORD;
+    player_update_count INTEGER;
+BEGIN
+    -- Get the request
+    SELECT * INTO request_data
+    FROM club_requests
+    WHERE id = p_request_id AND status = 'pending';
+
+    IF request_data IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage nicht gefunden oder bereits bearbeitet');
+    END IF;
+
+    -- Update the player's club_id
+    UPDATE profiles
+    SET
+        club_id = request_data.club_id,
+        updated_at = NOW()
+    WHERE id = request_data.player_id;
+
+    GET DIAGNOSTICS player_update_count = ROW_COUNT;
+
+    IF player_update_count = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Spieler nicht gefunden');
+    END IF;
+
+    -- Update the request status
+    UPDATE club_requests
+    SET
+        status = 'approved',
+        reviewed_by = p_coach_id,
+        reviewed_at = NOW()
+    WHERE id = p_request_id;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Spieler wurde zum Verein hinzugefügt');
+END;
+$$;
+
+-- =========================================
+-- REJECT CLUB JOIN REQUEST
+-- =========================================
+-- Lehnt eine Beitrittsanfrage ab
+
+CREATE OR REPLACE FUNCTION reject_club_join_request(
+    p_request_id UUID,
+    p_coach_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    request_data RECORD;
+BEGIN
+    -- Get the request
+    SELECT * INTO request_data
+    FROM club_requests
+    WHERE id = p_request_id AND status = 'pending';
+
+    IF request_data IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage nicht gefunden oder bereits bearbeitet');
+    END IF;
+
+    -- Update the request status
+    UPDATE club_requests
+    SET
+        status = 'rejected',
+        reviewed_by = p_coach_id,
+        reviewed_at = NOW()
+    WHERE id = p_request_id;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Anfrage wurde abgelehnt');
+END;
+$$;
+
+-- =========================================
+-- APPROVE CLUB LEAVE REQUEST
+-- =========================================
+-- Genehmigt eine Austrittsanfrage und entfernt den Spieler vom Verein
+
+CREATE OR REPLACE FUNCTION approve_club_leave_request(
+    p_request_id UUID,
+    p_coach_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    request_data RECORD;
+    player_update_count INTEGER;
+BEGIN
+    -- Get the request
+    SELECT * INTO request_data
+    FROM leave_club_requests
+    WHERE id = p_request_id AND status = 'pending';
+
+    IF request_data IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage nicht gefunden oder bereits bearbeitet');
+    END IF;
+
+    -- Remove the player from the club
+    UPDATE profiles
+    SET
+        club_id = NULL,
+        updated_at = NOW()
+    WHERE id = request_data.player_id;
+
+    GET DIAGNOSTICS player_update_count = ROW_COUNT;
+
+    IF player_update_count = 0 THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Spieler nicht gefunden');
+    END IF;
+
+    -- Update the request status
+    UPDATE leave_club_requests
+    SET
+        status = 'approved',
+        reviewed_by = p_coach_id,
+        reviewed_at = NOW()
+    WHERE id = p_request_id;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Spieler hat den Verein verlassen');
+END;
+$$;
+
+-- =========================================
+-- REJECT CLUB LEAVE REQUEST
+-- =========================================
+-- Lehnt eine Austrittsanfrage ab
+
+CREATE OR REPLACE FUNCTION reject_club_leave_request(
+    p_request_id UUID,
+    p_coach_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    request_data RECORD;
+BEGIN
+    -- Get the request
+    SELECT * INTO request_data
+    FROM leave_club_requests
+    WHERE id = p_request_id AND status = 'pending';
+
+    IF request_data IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'error', 'Anfrage nicht gefunden oder bereits bearbeitet');
+    END IF;
+
+    -- Update the request status
+    UPDATE leave_club_requests
+    SET
+        status = 'rejected',
+        reviewed_by = p_coach_id,
+        reviewed_at = NOW()
+    WHERE id = p_request_id;
+
+    RETURN jsonb_build_object('success', true, 'message', 'Austrittsanfrage wurde abgelehnt');
+END;
+$$;
+
+-- =========================================
 -- FERTIG!
 -- =========================================
