@@ -139,12 +139,28 @@ registrationForm?.addEventListener('submit', async e => {
     try {
         console.log('[REGISTER-SUPABASE] Creating user...');
 
+        // Get name for user_metadata (used in email templates)
+        let firstName = '';
+        let lastName = '';
+
+        if (registrationType === 'code' && invitationCodeData) {
+            firstName = invitationCodeData.first_name || '';
+            lastName = invitationCodeData.last_name || '';
+        } else if (registrationType === 'no-code') {
+            firstName = document.getElementById('first-name')?.value?.trim() || '';
+            lastName = document.getElementById('last-name')?.value?.trim() || '';
+        }
+
         // 1. User in Supabase Auth erstellen
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
-                emailRedirectTo: `${window.location.origin}/onboarding.html`
+                emailRedirectTo: `${window.location.origin}/onboarding.html`,
+                data: {
+                    first_name: firstName,
+                    last_name: lastName
+                }
             }
         });
 
