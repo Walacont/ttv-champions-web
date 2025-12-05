@@ -950,13 +950,16 @@ export async function handleSavePlayerSubgroups(supabase) {
 
         // 4. Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
-            document.getElementById('edit-player-modal').classList.add('hidden');
+            const modal = document.getElementById('edit-player-modal');
+            if (modal) modal.classList.add('hidden');
             saveButton.disabled = false;
             saveButton.textContent = 'Änderungen speichern';
 
             // 5. Detailansicht aktualisieren (Placeholder anzeigen, damit Klick neu lädt)
-            document.getElementById('player-detail-panel').classList.add('hidden');
-            document.getElementById('player-detail-placeholder').classList.remove('hidden');
+            const detailPanel = document.getElementById('player-detail-panel');
+            const placeholder = document.getElementById('player-detail-placeholder');
+            if (detailPanel) detailPanel.classList.add('hidden');
+            if (placeholder) placeholder.classList.remove('hidden');
             // Aktives Highlight entfernen
             document
                 .querySelectorAll('.player-list-item-active')
