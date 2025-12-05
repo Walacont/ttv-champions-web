@@ -61,10 +61,56 @@ export async function initClubRequestsManager(userData, supabase) {
         return;
     }
 
+    // Setup event delegation for join requests
+    const joinRequestsContainer = document.getElementById('club-join-requests-list');
+    if (joinRequestsContainer) {
+        joinRequestsContainer.addEventListener('click', handleJoinRequestClick);
+    }
+
+    // Setup event delegation for leave requests
+    const leaveRequestsContainer = document.getElementById('leave-requests-list');
+    if (leaveRequestsContainer) {
+        leaveRequestsContainer.addEventListener('click', handleLeaveRequestClick);
+    }
+
     // Load club join requests
     loadClubJoinRequests();
     // Load leave requests
     loadLeaveRequests();
+}
+
+// Event delegation handler for join requests
+async function handleJoinRequestClick(e) {
+    const button = e.target.closest('button[data-action]');
+    if (!button) return;
+
+    const action = button.dataset.action;
+    const requestId = button.dataset.requestId;
+
+    console.log('[ClubRequests] Button clicked:', action, requestId);
+
+    if (action === 'approve-join') {
+        await approveClubRequest(requestId);
+    } else if (action === 'reject-join') {
+        await rejectClubRequest(requestId);
+    }
+}
+
+// Event delegation handler for leave requests
+async function handleLeaveRequestClick(e) {
+    const button = e.target.closest('button[data-action]');
+    if (!button) return;
+
+    const action = button.dataset.action;
+    const requestId = button.dataset.requestId;
+
+    console.log('[ClubRequests] Button clicked:', action, requestId);
+
+    if (action === 'approve-leave') {
+        await approveLeaveRequest(requestId);
+    } else if (action === 'reject-leave') {
+        await rejectLeaveRequest(requestId);
+    }
 }
 
 // Clean up subscriptions
@@ -233,13 +279,15 @@ function displayClubJoinRequests(requests) {
                 </div>
                 <div class="flex gap-2">
                     <button
-                        onclick="window.approveClubRequest('${request.id}')"
+                        data-action="approve-join"
+                        data-request-id="${request.id}"
                         class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
                     >
                         Genehmigen
                     </button>
                     <button
-                        onclick="window.rejectClubRequest('${request.id}')"
+                        data-action="reject-join"
+                        data-request-id="${request.id}"
                         class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
                     >
                         Ablehnen
@@ -276,13 +324,15 @@ function displayLeaveRequests(requests) {
                 </div>
                 <div class="flex gap-2">
                     <button
-                        onclick="window.approveLeaveRequest('${request.id}')"
+                        data-action="approve-leave"
+                        data-request-id="${request.id}"
                         class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
                     >
                         Genehmigen
                     </button>
                     <button
-                        onclick="window.rejectLeaveRequest('${request.id}')"
+                        data-action="reject-leave"
+                        data-request-id="${request.id}"
                         class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors text-sm font-medium"
                     >
                         Ablehnen
@@ -295,11 +345,13 @@ function displayLeaveRequests(requests) {
         .join('');
 }
 
-// Global functions for button clicks
-window.approveClubRequest = async function (requestId) {
+// Approve club join request
+async function approveClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich genehmigen?')) return;
 
     try {
+        console.log('[ClubRequests] Approving join request:', requestId);
+
         // Get request details first
         const { data: request, error: fetchError } = await supabaseClient
             .from('club_requests')
@@ -312,7 +364,7 @@ window.approveClubRequest = async function (requestId) {
             throw fetchError;
         }
 
-        console.log('[ClubRequests] Approving request:', request);
+        console.log('[ClubRequests] Request data:', request);
 
         // Update player's clubId
         const { data: playerUpdate, error: updatePlayerError } = await supabaseClient
@@ -344,6 +396,7 @@ window.approveClubRequest = async function (requestId) {
 
         // Manually reload the requests list
         if (reloadJoinRequests) {
+            console.log('[ClubRequests] Reloading join requests list...');
             await reloadJoinRequests();
         }
 
@@ -352,12 +405,15 @@ window.approveClubRequest = async function (requestId) {
         console.error('Error approving club request:', error);
         alert('Fehler beim Genehmigen: ' + error.message);
     }
-};
+}
 
-window.rejectClubRequest = async function (requestId) {
+// Reject club join request
+async function rejectClubRequest(requestId) {
     if (!confirm('Möchtest du diese Beitrittsanfrage wirklich ablehnen?')) return;
 
     try {
+        console.log('[ClubRequests] Rejecting join request:', requestId);
+
         const { error } = await supabaseClient
             .from('club_requests')
             .update({ status: 'rejected' })
@@ -367,6 +423,7 @@ window.rejectClubRequest = async function (requestId) {
 
         // Manually reload the requests list
         if (reloadJoinRequests) {
+            console.log('[ClubRequests] Reloading join requests list...');
             await reloadJoinRequests();
         }
 
@@ -375,12 +432,15 @@ window.rejectClubRequest = async function (requestId) {
         console.error('Error rejecting club request:', error);
         alert('Fehler beim Ablehnen: ' + error.message);
     }
-};
+}
 
-window.approveLeaveRequest = async function (requestId) {
+// Approve leave request
+async function approveLeaveRequest(requestId) {
     if (!confirm('Möchtest du diese Austrittsanfrage wirklich genehmigen?')) return;
 
     try {
+        console.log('[ClubRequests] Approving leave request:', requestId);
+
         // Get request details first
         const { data: request, error: fetchError } = await supabaseClient
             .from('leave_club_requests')
@@ -389,6 +449,8 @@ window.approveLeaveRequest = async function (requestId) {
             .single();
 
         if (fetchError) throw fetchError;
+
+        console.log('[ClubRequests] Leave request data:', request);
 
         // Remove player's clubId (set to null)
         const { data: playerUpdate, error: updatePlayerError } = await supabaseClient
@@ -414,6 +476,7 @@ window.approveLeaveRequest = async function (requestId) {
 
         // Manually reload the requests list
         if (reloadLeaveRequests) {
+            console.log('[ClubRequests] Reloading leave requests list...');
             await reloadLeaveRequests();
         }
 
@@ -422,12 +485,15 @@ window.approveLeaveRequest = async function (requestId) {
         console.error('Error approving leave request:', error);
         alert('Fehler beim Genehmigen: ' + error.message);
     }
-};
+}
 
-window.rejectLeaveRequest = async function (requestId) {
+// Reject leave request
+async function rejectLeaveRequest(requestId) {
     if (!confirm('Möchtest du diese Austrittsanfrage wirklich ablehnen?')) return;
 
     try {
+        console.log('[ClubRequests] Rejecting leave request:', requestId);
+
         const { error } = await supabaseClient
             .from('leave_club_requests')
             .update({ status: 'rejected' })
@@ -437,6 +503,7 @@ window.rejectLeaveRequest = async function (requestId) {
 
         // Manually reload the requests list
         if (reloadLeaveRequests) {
+            console.log('[ClubRequests] Reloading leave requests list...');
             await reloadLeaveRequests();
         }
 
@@ -445,4 +512,4 @@ window.rejectLeaveRequest = async function (requestId) {
         console.error('Error rejecting leave request:', error);
         alert('Fehler beim Ablehnen: ' + error.message);
     }
-};
+}
