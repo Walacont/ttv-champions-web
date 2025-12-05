@@ -458,53 +458,59 @@ CREATE POLICY invitation_codes_manage ON invitation_codes
 -- 3. REMOVE REDUNDANT POLICIES
 -- ========================================================================
 -- Remove overlapping policies that cause multiple_permissive_policies warnings
+-- Note: Using DO blocks to ignore errors for policies that might not exist
 
--- Attendance - keep only one comprehensive policy
-DROP POLICY IF EXISTS attendance_manage ON attendance;
+DO $$
+BEGIN
+    -- Attendance - keep only one comprehensive policy
+    DROP POLICY IF EXISTS attendance_manage ON attendance;
 
--- Challenges - keep only one comprehensive policy
-DROP POLICY IF EXISTS challenges_manage ON challenges;
+    -- Challenges - keep only one comprehensive policy
+    DROP POLICY IF EXISTS challenges_manage ON challenges;
 
--- Club sports - keep only one comprehensive policy
-DROP POLICY IF EXISTS club_sports_manage ON club_sports;
+    -- Club sports - keep only one comprehensive policy
+    DROP POLICY IF EXISTS club_sports_manage ON club_sports;
 
--- Club requests - keep only coach select
-DROP POLICY IF EXISTS club_requests_select_coach ON club_requests;
+    -- Club requests - keep only coach select
+    DROP POLICY IF EXISTS club_requests_select_coach ON club_requests;
 
--- Clubs - keep only one select policy
-DROP POLICY IF EXISTS clubs_select_all ON clubs;
+    -- Clubs - keep only one select policy
+    DROP POLICY IF EXISTS clubs_select_all ON clubs;
 
--- Keep only one update policy for clubs
-DROP POLICY IF EXISTS clubs_update_coach ON clubs;
+    -- Keep only one update policy for clubs
+    DROP POLICY IF EXISTS clubs_update_coach ON clubs;
 
--- Completed challenges - already fixed above with merged policy
-DROP POLICY IF EXISTS completed_challenges_manage ON completed_challenges;
+    -- Completed challenges - already fixed above with merged policy
+    DROP POLICY IF EXISTS completed_challenges_manage ON completed_challenges;
 
--- Completed exercises - keep only one comprehensive policy
-DROP POLICY IF EXISTS completed_exercises_manage ON completed_exercises;
+    -- Completed exercises - keep only one comprehensive policy
+    DROP POLICY IF EXISTS completed_exercises_manage ON completed_exercises;
 
--- Config - keep only one policy
-DROP POLICY IF EXISTS config_read_all ON config;
+    -- Config - keep only one policy
+    DROP POLICY IF EXISTS config_read_all ON config;
 
--- Exercise milestones - keep only one policy
-DROP POLICY IF EXISTS exercise_milestones_manage ON exercise_milestones;
+    -- Exercise milestones - keep only one policy
+    DROP POLICY IF EXISTS exercise_milestones_manage ON exercise_milestones;
 
--- Leave requests - keep only coach select
-DROP POLICY IF EXISTS leave_requests_select_coach ON leave_club_requests;
+    -- Leave requests - keep only coach select
+    DROP POLICY IF EXISTS leave_requests_select_coach ON leave_club_requests;
 
--- Profiles - already fixed, keep only necessary policies
+    -- Streaks - keep only one policy
+    DROP POLICY IF EXISTS streaks_manage ON streaks;
 
--- Streaks - keep only one policy
-DROP POLICY IF EXISTS streaks_manage ON streaks;
+    -- Subgroups - keep only one policy
+    DROP POLICY IF EXISTS subgroups_manage ON subgroups;
 
--- Subgroups - keep only one policy
-DROP POLICY IF EXISTS subgroups_manage ON subgroups;
+    -- Subgroup members - keep only one policy
+    DROP POLICY IF EXISTS subgroup_members_manage ON subgroup_members;
 
--- Subgroup members - keep only one policy
-DROP POLICY IF EXISTS subgroup_members_manage ON subgroup_members;
+    -- Training sessions - keep only one policy
+    DROP POLICY IF EXISTS training_sessions_manage ON training_sessions;
 
--- Training sessions - keep only one policy
-DROP POLICY IF EXISTS training_sessions_manage ON training_sessions;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Some policies could not be dropped (they may not exist): %', SQLERRM;
+END $$;
 
 -- Note: Doubles matches policies are not modified in this script (see note above)
 
