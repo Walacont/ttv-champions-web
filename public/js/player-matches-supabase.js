@@ -105,21 +105,16 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
         }
 
         // Filter players based on privacy settings
+        // Note: showInLeaderboards only affects leaderboard visibility, not opponent search
+        // Opponent search uses the 'searchable' setting:
+        // - 'global': anyone can find them
+        // - 'club_only': only club members can find them (already the case here since we search within club)
         const filteredPlayers = players.filter(player => {
             const privacySettings = player.privacy_settings || {};
-
-            // Check if player has disabled leaderboard/search visibility
-            const showInLeaderboards = privacySettings.showInLeaderboards !== false;
-            if (!showInLeaderboards) return false;
-
-            // Check searchable setting
             const searchable = privacySettings.searchable || 'global';
-            if (searchable === 'global') return true;
 
-            // club_only: only show to players in the same club (which is already the case here)
-            if (searchable === 'club_only') return true;
-
-            return false;
+            // Both 'global' and 'club_only' players are visible since we're searching within the same club
+            return searchable === 'global' || searchable === 'club_only';
         }).slice(0, 10); // Limit to 10 after filtering
 
         if (filteredPlayers.length === 0) {
