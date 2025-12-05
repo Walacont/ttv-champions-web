@@ -1069,9 +1069,8 @@ function renderLeaderboardList() {
         console.log('[Leaderboard] After test club filter:', players.length);
     }
 
-    // Filter by privacy settings
+    // Filter by privacy settings (applies to all users including coaches)
     let currentUserHidden = false;
-    const isCoach = currentUserData?.role === 'coach';
     players = players.filter(player => {
         const privacySettings = player.privacy_settings || {};
         const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
@@ -1079,11 +1078,6 @@ function renderLeaderboardList() {
 
         const isCurrentUser = player.id === currentUser.id;
         const isSameClub = currentUserData?.club_id && player.club_id === currentUserData.club_id;
-
-        // Coaches can always see players from their own club
-        if (isCoach && isSameClub) {
-            return true;
-        }
 
         // If player has disabled leaderboard visibility
         if (!showInLeaderboards) {
