@@ -54,18 +54,15 @@ export function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
 
     // Opponent search
     let searchTimeout = null;
-    console.log('[Opponent Search] Setting up search input:', opponentSearchInput ? 'found' : 'NOT FOUND');
     opponentSearchInput?.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
         const query = e.target.value.trim();
-        console.log('[Opponent Search] Input event, query:', query, 'length:', query.length);
 
         if (query.length < 2) {
             opponentSearchResults.innerHTML = '';
             return;
         }
 
-        console.log('[Opponent Search] Starting search for:', query);
         searchTimeout = setTimeout(() => searchOpponents(query, opponentSearchResults, currentUser, currentUserData), 300);
     });
 
@@ -91,8 +88,6 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
         return;
     }
 
-    console.log('[Opponent Search] Searching for:', query, 'in club:', currentUserData.club_id);
-
     try {
         // Search by display_name, first_name, or last_name
         const { data: players, error } = await supabase
@@ -102,8 +97,6 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
             .neq('id', currentUser.id)
             .or(`display_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
             .limit(20);
-
-        console.log('[Opponent Search] Found players:', players?.length, players);
 
         if (error) throw error;
 
@@ -120,13 +113,10 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
         const filteredPlayers = players.filter(player => {
             const privacySettings = player.privacy_settings || {};
             const searchable = privacySettings.searchable || 'global';
-            console.log('[Opponent Search] Player:', player.display_name || player.first_name, '| searchable:', searchable, '| privacy_settings:', privacySettings);
 
             // Both 'global' and 'club_only' players are visible since we're searching within the same club
             return searchable === 'global' || searchable === 'club_only';
         }).slice(0, 10); // Limit to 10 after filtering
-
-        console.log('[Opponent Search] After privacy filter:', filteredPlayers.length);
 
         if (filteredPlayers.length === 0) {
             resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';

@@ -177,10 +177,6 @@ onboardingForm?.addEventListener('submit', async e => {
         const paddedMonth = month.toString().padStart(2, '0');
         const birthdate = `${year}-${paddedMonth}-${paddedDay}`;
 
-        // Get QTTR points (optional)
-        const qttrPointsInput = document.getElementById('qttr-points')?.value;
-        const qttrPoints = qttrPointsInput ? parseInt(qttrPointsInput, 10) : null;
-
         const dataToUpdate = {
             first_name: document.getElementById('firstName')?.value || '',
             last_name: document.getElementById('lastName')?.value || '',
@@ -192,14 +188,6 @@ onboardingForm?.addEventListener('submit', async e => {
             is_offline: false,
             updated_at: new Date().toISOString()
         };
-
-        // Add QTTR points if provided and calculate Elo
-        if (qttrPoints !== null && qttrPoints > 0) {
-            dataToUpdate.qttr_points = qttrPoints;
-            const calculatedElo = Math.max(800, Math.round(qttrPoints * 0.9));
-            dataToUpdate.elo_rating = calculatedElo;
-            dataToUpdate.highest_elo = calculatedElo;
-        }
 
         // Update profile
         const { error: updateError } = await supabase

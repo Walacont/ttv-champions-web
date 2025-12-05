@@ -177,15 +177,50 @@ registrationForm?.addEventListener('submit', async e => {
             if (invitationCodeData.last_name) {
                 profileUpdates.last_name = invitationCodeData.last_name;
             }
+
+            // Check if this code is for an existing offline player
+            if (invitationCodeData.player_id) {
+                // Get the offline player's is_match_ready setting
+                const { data: offlinePlayer } = await supabase
+                    .from('profiles')
+                    .select('is_match_ready, grundlagen_completed')
+                    .eq('id', invitationCodeData.player_id)
+                    .single();
+
+                if (offlinePlayer) {
+                    if (offlinePlayer.is_match_ready) {
+                        // Coach set player as match-ready
+                        profileUpdates.is_match_ready = true;
+                        profileUpdates.elo_rating = 800;
+                        profileUpdates.highest_elo = 800;
+                        profileUpdates.grundlagen_completed = 5;
+                    } else {
+                        // Coach did NOT set player as match-ready
+                        profileUpdates.is_match_ready = false;
+                        profileUpdates.grundlagen_completed = offlinePlayer.grundlagen_completed || 0;
+                    }
+                }
+            } else {
+                // Code without player_id - new player via code, set defaults
+                profileUpdates.is_match_ready = true;
+                profileUpdates.elo_rating = 800;
+                profileUpdates.highest_elo = 800;
+                profileUpdates.grundlagen_completed = 5;
+            }
         }
 
-        // Bei No-Code: Namen aus Formular
+        // Bei No-Code (Selbst-Registrierung): Automatisch wettkampfsbereit
         if (registrationType === 'no-code') {
             const firstName = document.getElementById('first-name')?.value?.trim() || '';
             const lastName = document.getElementById('last-name')?.value?.trim() || '';
             profileUpdates.first_name = firstName;
             profileUpdates.last_name = lastName;
             profileUpdates.display_name = `${firstName} ${lastName}`.trim();
+            // Selbst-Registrierung: automatisch wettkampfsbereit
+            profileUpdates.is_match_ready = true;
+            profileUpdates.elo_rating = 800;
+            profileUpdates.highest_elo = 800;
+            profileUpdates.grundlagen_completed = 5;
         }
 
         // Update Profil falls nötig

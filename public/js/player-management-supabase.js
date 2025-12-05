@@ -100,14 +100,9 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         .filter(cb => cb.checked || cb.disabled) // Include checked OR disabled (Hauptgruppe)
         .map(cb => cb.value);
 
-    // === NEU: Wettkampfsbereit-Checkbox auslesen ===
+    // === Wettkampfsbereit-Checkbox auslesen ===
     const isMatchReadyCheckbox = form.querySelector('#is-match-ready-checkbox');
     const isMatchReady = isMatchReadyCheckbox ? isMatchReadyCheckbox.checked : false;
-
-    // === NEU: QTTR-Punkte auslesen ===
-    const qttrPointsField = form.querySelector('#qttr-points');
-    const qttrPoints =
-        qttrPointsField && qttrPointsField.value ? parseInt(qttrPointsField.value) : null;
 
     if (!firstName || !lastName) {
         alert('Vorname und Nachname sind Pflichtfelder.');
@@ -146,25 +141,9 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         // Continue anyway, better to create than to block
     }
 
-    // QTTR zu ELO Umrechnung
-    let initialElo = 800; // Standard Start-ELO
-    let initialHighestElo = 800;
-
-    if (isMatchReady && qttrPoints) {
-        // Validierung: QTTR sollte zwischen 800 und 2500 liegen
-        if (qttrPoints < 800 || qttrPoints > 2500) {
-            alert('QTTR-Punkte müssen zwischen 800 und 2500 liegen.');
-            // Re-enable button
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Spieler erstellen';
-            }
-            return;
-        }
-        // Konservative Umrechnung: ELO = QTTR * 0.9, mindestens 800
-        initialElo = Math.max(800, Math.round(qttrPoints * 0.9));
-        initialHighestElo = initialElo;
-    }
+    // Alle Spieler starten mit 800 ELO
+    const initialElo = 800;
+    const initialHighestElo = 800;
 
     try {
         const playerData = {
@@ -184,10 +163,6 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             subgroup_ids: subgroupIDs,
         };
 
-        // Optional: QTTR-Punkte speichern für Referenz
-        if (qttrPoints) {
-            playerData.qttr_points = qttrPoints;
-        }
         if (email) {
             playerData.email = email;
         }
