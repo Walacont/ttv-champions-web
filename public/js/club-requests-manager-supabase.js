@@ -6,6 +6,8 @@ import { formatDate } from './ui-utils.js';
 let currentUserData = null;
 let supabaseClient = null;
 let subscriptions = [];
+let reloadJoinRequests = null;
+let reloadLeaveRequests = null;
 
 /**
  * Maps club request from Supabase (snake_case) to app format (camelCase)
@@ -81,6 +83,7 @@ async function loadClubJoinRequests() {
 
     async function fetchRequests() {
         try {
+            console.log('[ClubRequests] Fetching join requests for club:', currentUserData.clubId);
             const { data, error } = await supabaseClient
                 .from('club_requests')
                 .select('*')
@@ -88,6 +91,8 @@ async function loadClubJoinRequests() {
                 .eq('status', 'pending');
 
             if (error) throw error;
+
+            console.log('[ClubRequests] Found', data?.length || 0, 'pending join requests');
 
             // Fetch player data for each request
             const requestsWithPlayerData = await Promise.all(
@@ -111,6 +116,9 @@ async function loadClubJoinRequests() {
             console.error('Error loading club join requests:', error);
         }
     }
+
+    // Store reference for manual reload
+    reloadJoinRequests = fetchRequests;
 
     // Initial fetch
     fetchRequests();
@@ -141,6 +149,7 @@ async function loadLeaveRequests() {
 
     async function fetchRequests() {
         try {
+            console.log('[ClubRequests] Fetching leave requests for club:', currentUserData.clubId);
             const { data, error } = await supabaseClient
                 .from('leave_club_requests')
                 .select('*')
@@ -148,6 +157,8 @@ async function loadLeaveRequests() {
                 .eq('status', 'pending');
 
             if (error) throw error;
+
+            console.log('[ClubRequests] Found', data?.length || 0, 'pending leave requests');
 
             // Fetch player data for each request
             const requestsWithPlayerData = await Promise.all(
@@ -171,6 +182,9 @@ async function loadLeaveRequests() {
             console.error('Error loading leave requests:', error);
         }
     }
+
+    // Store reference for manual reload
+    reloadLeaveRequests = fetchRequests;
 
     // Initial fetch
     fetchRequests();
@@ -293,23 +307,45 @@ window.approveClubRequest = async function (requestId) {
             .eq('id', requestId)
             .single();
 
-        if (fetchError) throw fetchError;
+        if (fetchError) {
+            console.error('Error fetching request:', fetchError);
+            throw fetchError;
+        }
+
+        console.log('[ClubRequests] Approving request:', request);
 
         // Update player's clubId
-        const { error: updatePlayerError } = await supabaseClient
+        const { data: playerUpdate, error: updatePlayerError } = await supabaseClient
             .from('profiles')
             .update({ club_id: request.club_id })
-            .eq('id', request.player_id);
+            .eq('id', request.player_id)
+            .select();
 
-        if (updatePlayerError) throw updatePlayerError;
+        if (updatePlayerError) {
+            console.error('Error updating player club_id:', updatePlayerError);
+            throw updatePlayerError;
+        }
+
+        console.log('[ClubRequests] Player profile updated:', playerUpdate);
 
         // Update request status
-        const { error: updateRequestError } = await supabaseClient
+        const { data: requestUpdate, error: updateRequestError } = await supabaseClient
             .from('club_requests')
             .update({ status: 'approved' })
-            .eq('id', requestId);
+            .eq('id', requestId)
+            .select();
 
-        if (updateRequestError) throw updateRequestError;
+        if (updateRequestError) {
+            console.error('Error updating request status:', updateRequestError);
+            throw updateRequestError;
+        }
+
+        console.log('[ClubRequests] Request status updated:', requestUpdate);
+
+        // Manually reload the requests list
+        if (reloadJoinRequests) {
+            await reloadJoinRequests();
+        }
 
         alert('Spieler wurde erfolgreich genehmigt!');
     } catch (error) {
@@ -328,6 +364,11 @@ window.rejectClubRequest = async function (requestId) {
             .eq('id', requestId);
 
         if (error) throw error;
+
+        // Manually reload the requests list
+        if (reloadJoinRequests) {
+            await reloadJoinRequests();
+        }
 
         alert('Anfrage wurde abgelehnt.');
     } catch (error) {
@@ -350,12 +391,18 @@ window.approveLeaveRequest = async function (requestId) {
         if (fetchError) throw fetchError;
 
         // Remove player's clubId (set to null)
-        const { error: updatePlayerError } = await supabaseClient
+        const { data: playerUpdate, error: updatePlayerError } = await supabaseClient
             .from('profiles')
             .update({ club_id: null })
-            .eq('id', request.player_id);
+            .eq('id', request.player_id)
+            .select();
 
-        if (updatePlayerError) throw updatePlayerError;
+        if (updatePlayerError) {
+            console.error('Error updating player club_id:', updatePlayerError);
+            throw updatePlayerError;
+        }
+
+        console.log('[ClubRequests] Player removed from club:', playerUpdate);
 
         // Update request status
         const { error: updateRequestError } = await supabaseClient
@@ -364,6 +411,11 @@ window.approveLeaveRequest = async function (requestId) {
             .eq('id', requestId);
 
         if (updateRequestError) throw updateRequestError;
+
+        // Manually reload the requests list
+        if (reloadLeaveRequests) {
+            await reloadLeaveRequests();
+        }
 
         alert('Spieler hat den Verein verlassen.');
     } catch (error) {
@@ -382,6 +434,11 @@ window.rejectLeaveRequest = async function (requestId) {
             .eq('id', requestId);
 
         if (error) throw error;
+
+        // Manually reload the requests list
+        if (reloadLeaveRequests) {
+            await reloadLeaveRequests();
+        }
 
         alert('Austrittsanfrage wurde abgelehnt.');
     } catch (error) {
