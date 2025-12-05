@@ -218,122 +218,16 @@ DROP POLICY IF EXISTS match_proposals_delete ON match_proposals;
 CREATE POLICY match_proposals_delete ON match_proposals FOR DELETE
     USING (requester_id = (SELECT auth.uid()));
 
--- Doubles matches
-DROP POLICY IF EXISTS doubles_matches_select ON doubles_matches;
-DROP POLICY IF EXISTS doubles_matches_read ON doubles_matches;
-CREATE POLICY doubles_matches_select ON doubles_matches FOR SELECT
-    USING (
-        club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid()))
-    );
-
-DROP POLICY IF EXISTS doubles_matches_create ON doubles_matches;
-CREATE POLICY doubles_matches_create ON doubles_matches FOR INSERT
-    WITH CHECK (
-        (
-            team_a_player1_id = (SELECT auth.uid())
-            OR team_a_player2_id = (SELECT auth.uid())
-            OR team_b_player1_id = (SELECT auth.uid())
-            OR team_b_player2_id = (SELECT auth.uid())
-            OR EXISTS (
-                SELECT 1 FROM profiles
-                WHERE id = (SELECT auth.uid())
-                AND club_id = doubles_matches.club_id
-                AND role IN ('coach', 'admin')
-            )
-        )
-    );
-
-DROP POLICY IF EXISTS doubles_matches_update ON doubles_matches;
-CREATE POLICY doubles_matches_update ON doubles_matches FOR UPDATE
-    USING (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND club_id = doubles_matches.club_id
-            AND role IN ('coach', 'admin')
-        )
-    );
-
-DROP POLICY IF EXISTS doubles_matches_delete ON doubles_matches;
-CREATE POLICY doubles_matches_delete ON doubles_matches FOR DELETE
-    USING (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND club_id = doubles_matches.club_id
-            AND role IN ('coach', 'admin')
-        )
-    );
-
--- Doubles match requests
-DROP POLICY IF EXISTS doubles_requests_select ON doubles_match_requests;
-DROP POLICY IF EXISTS doubles_match_requests_read ON doubles_match_requests;
-CREATE POLICY doubles_requests_select ON doubles_match_requests FOR SELECT
-    USING (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND club_id = doubles_match_requests.club_id
-            AND role IN ('coach', 'admin')
-        )
-    );
-
-DROP POLICY IF EXISTS doubles_requests_insert ON doubles_match_requests;
-DROP POLICY IF EXISTS doubles_match_requests_create ON doubles_match_requests;
-CREATE POLICY doubles_requests_insert ON doubles_match_requests FOR INSERT
-    WITH CHECK (
-        (
-            team_a_player1_id = (SELECT auth.uid())
-            OR team_a_player2_id = (SELECT auth.uid())
-            OR team_b_player1_id = (SELECT auth.uid())
-            OR team_b_player2_id = (SELECT auth.uid())
-        )
-        AND club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid()))
-    );
-
-DROP POLICY IF EXISTS doubles_requests_update ON doubles_match_requests;
-DROP POLICY IF EXISTS doubles_match_requests_update ON doubles_match_requests;
-CREATE POLICY doubles_requests_update ON doubles_match_requests FOR UPDATE
-    USING (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND club_id = doubles_match_requests.club_id
-            AND role IN ('coach', 'admin')
-        )
-    );
-
-DROP POLICY IF EXISTS doubles_requests_delete ON doubles_match_requests;
-CREATE POLICY doubles_requests_delete ON doubles_match_requests FOR DELETE
-    USING (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
-        OR EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND club_id = doubles_match_requests.club_id
-            AND role IN ('coach', 'admin')
-        )
-    );
-
--- Doubles pairings
-DROP POLICY IF EXISTS doubles_pairings_read ON doubles_pairings;
-CREATE POLICY doubles_pairings_read ON doubles_pairings FOR SELECT
-    USING (
-        player1_id = (SELECT auth.uid())
-        OR player2_id = (SELECT auth.uid())
-        OR club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid()))
-    );
+-- NOTE: Doubles matches policies are skipped because they require the new schema
+-- with columns: team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id
+-- If your database has the old schema, you need to run schema.sql first or manually
+-- update the table structure before applying these policies.
+--
+-- To apply doubles policies later, uncomment and run the section in:
+-- supabase/doubles-policies.sql
+--
+-- The doubles tables already have RLS policies from doubles-policies.sql that work
+-- with the current schema, so we're leaving them as-is for now.
 
 -- Challenges
 DROP POLICY IF EXISTS challenges_select ON challenges;
@@ -612,7 +506,7 @@ DROP POLICY IF EXISTS subgroup_members_manage ON subgroup_members;
 -- Training sessions - keep only one policy
 DROP POLICY IF EXISTS training_sessions_manage ON training_sessions;
 
--- Doubles matches - redundant policies already cleaned up above
+-- Note: Doubles matches policies are not modified in this script (see note above)
 
 -- ========================================================================
 -- 4. ENABLE LEAKED PASSWORD PROTECTION
