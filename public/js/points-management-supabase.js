@@ -348,11 +348,9 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
             case 'manual':
                 points = parseInt(document.getElementById('manual-points').value);
-                const manualXpInput = document.getElementById('manual-xp').value;
-                xpChange = manualXpInput ? parseInt(manualXpInput) : points;
+                xpChange = points; // XP is always equal to points for manual awards
                 reason = document.getElementById('manual-reason').value;
                 if (!reason || isNaN(points)) throw new Error('Grund und gültige Punkte müssen angegeben werden.');
-                if (manualXpInput && isNaN(xpChange)) throw new Error('XP muss eine gültige Zahl sein.');
                 break;
         }
 
