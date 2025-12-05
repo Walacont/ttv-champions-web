@@ -306,10 +306,7 @@ window.approveClubRequest = async function (requestId) {
         // Update request status
         const { error: updateRequestError } = await supabaseClient
             .from('club_requests')
-            .update({
-                status: 'approved',
-                updated_at: new Date().toISOString()
-            })
+            .update({ status: 'approved' })
             .eq('id', requestId);
 
         if (updateRequestError) throw updateRequestError;
@@ -327,10 +324,7 @@ window.rejectClubRequest = async function (requestId) {
     try {
         const { error } = await supabaseClient
             .from('club_requests')
-            .update({
-                status: 'rejected',
-                updated_at: new Date().toISOString()
-            })
+            .update({ status: 'rejected' })
             .eq('id', requestId);
 
         if (error) throw error;
@@ -366,10 +360,7 @@ window.approveLeaveRequest = async function (requestId) {
         // Update request status
         const { error: updateRequestError } = await supabaseClient
             .from('leave_club_requests')
-            .update({
-                status: 'approved',
-                updated_at: new Date().toISOString()
-            })
+            .update({ status: 'approved' })
             .eq('id', requestId);
 
         if (updateRequestError) throw updateRequestError;
@@ -387,10 +378,7 @@ window.rejectLeaveRequest = async function (requestId) {
     try {
         const { error } = await supabaseClient
             .from('leave_club_requests')
-            .update({
-                status: 'rejected',
-                updated_at: new Date().toISOString()
-            })
+            .update({ status: 'rejected' })
             .eq('id', requestId);
 
         if (error) throw error;
