@@ -316,7 +316,7 @@ async function initializeCoachPage(userData) {
     });
 
     // Initialize Club Requests Manager
-    await initClubRequestsManager(userData);
+    await initClubRequestsManager(userData, supabase);
     console.log('[Coach] Club requests manager initialized');
 
     // Render leaderboard HTML
