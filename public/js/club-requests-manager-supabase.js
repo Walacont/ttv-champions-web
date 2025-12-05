@@ -83,16 +83,29 @@ async function loadClubJoinRequests() {
         try {
             const { data, error } = await supabaseClient
                 .from('club_requests')
-                .select(`
-                    *,
-                    player:profiles!player_id(first_name, last_name, email)
-                `)
+                .select('*')
                 .eq('club_id', currentUserData.clubId)
                 .eq('status', 'pending');
 
             if (error) throw error;
 
-            const requests = (data || []).map(r => mapClubRequestFromSupabase(r));
+            // Fetch player data for each request
+            const requestsWithPlayerData = await Promise.all(
+                (data || []).map(async (request) => {
+                    const { data: playerData } = await supabaseClient
+                        .from('profiles')
+                        .select('first_name, last_name, email')
+                        .eq('id', request.player_id)
+                        .single();
+
+                    return {
+                        ...request,
+                        player: playerData
+                    };
+                })
+            );
+
+            const requests = requestsWithPlayerData.map(r => mapClubRequestFromSupabase(r));
             displayClubJoinRequests(requests);
         } catch (error) {
             console.error('Error loading club join requests:', error);
@@ -130,16 +143,29 @@ async function loadLeaveRequests() {
         try {
             const { data, error } = await supabaseClient
                 .from('leave_club_requests')
-                .select(`
-                    *,
-                    player:profiles!player_id(first_name, last_name, email)
-                `)
+                .select('*')
                 .eq('club_id', currentUserData.clubId)
                 .eq('status', 'pending');
 
             if (error) throw error;
 
-            const requests = (data || []).map(r => mapLeaveRequestFromSupabase(r));
+            // Fetch player data for each request
+            const requestsWithPlayerData = await Promise.all(
+                (data || []).map(async (request) => {
+                    const { data: playerData } = await supabaseClient
+                        .from('profiles')
+                        .select('first_name, last_name, email')
+                        .eq('id', request.player_id)
+                        .single();
+
+                    return {
+                        ...request,
+                        player: playerData
+                    };
+                })
+            );
+
+            const requests = requestsWithPlayerData.map(r => mapLeaveRequestFromSupabase(r));
             displayLeaveRequests(requests);
         } catch (error) {
             console.error('Error loading leave requests:', error);
