@@ -27,7 +27,8 @@ WHERE player_a_elo_after IS NOT NULL
 -- =========================================
 -- 3. ELO CALCULATION FUNCTION (UPDATED)
 -- =========================================
--- Standard ELO Formula mit K-Factor 32, KEINE Gates
+-- Standard ELO Formula mit K-Factor 32
+-- ELO-Gate bei 800: Niemand kann unter 800 fallen
 
 CREATE OR REPLACE FUNCTION calculate_elo(
     winner_elo INTEGER,
@@ -58,9 +59,9 @@ BEGIN
     new_winner := winner_elo + delta_calc;
     new_loser := loser_elo - delta_calc;
 
-    -- Ensure minimum ELO of 100 (absolute floor, no gates)
-    IF new_loser < 100 THEN
-        new_loser := 100;
+    -- ELO-Gate bei 800: Niemand kann unter 800 fallen
+    IF new_loser < 800 THEN
+        new_loser := 800;
     END IF;
 
     RETURN QUERY SELECT new_winner, new_loser, delta_calc;
@@ -183,7 +184,6 @@ CREATE TRIGGER trigger_process_match_elo
 -- FERTIG!
 -- =========================================
 -- Die ELO-Berechnung ist jetzt:
--- - Symmetrisch: Winner +X, Loser -X (exakt gleicher Betrag)
--- - Keine ELO-Gates mehr
--- - Minimum ELO: 100 (absoluter Boden)
+-- - Symmetrisch: Winner +X, Loser -X (gleicher Betrag, außer Gate greift)
+-- - ELO-Gate bei 800: Niemand kann unter 800 fallen
 -- - Start-ELO: 800
