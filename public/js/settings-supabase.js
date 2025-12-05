@@ -1094,13 +1094,13 @@ clubSearchBtn?.addEventListener('click', async () => {
 
         let clubs = clubsData || [];
 
-        // Count members for each club
+        // Count members for each club (including offline players and coaches)
         for (const club of clubs) {
             const { count } = await supabase
                 .from('profiles')
                 .select('*', { count: 'exact', head: true })
                 .eq('club_id', club.id)
-                .eq('role', 'player');
+                .or('role.eq.player,role.eq.coach,is_offline.eq.true');
 
             club.memberCount = count || 0;
         }
@@ -1172,11 +1172,8 @@ async function requestToJoinClub(clubId, clubName) {
         // Create club join request
         const { error } = await supabase.from('club_requests').insert({
             player_id: currentUser.id,
-            player_email: currentUser.email,
-            player_name: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUser.email,
             club_id: clubId,
-            status: 'pending',
-            created_at: new Date().toISOString(),
+            status: 'pending'
         });
 
         if (error) throw error;
@@ -1234,11 +1231,8 @@ leaveClubBtn?.addEventListener('click', async () => {
         // Create leave club request
         const { error } = await supabase.from('leave_club_requests').insert({
             player_id: currentUser.id,
-            player_email: currentUser.email,
-            player_name: `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUser.email,
             club_id: currentUserData.clubId,
-            status: 'pending',
-            created_at: new Date().toISOString(),
+            status: 'pending'
         });
 
         if (error) throw error;
