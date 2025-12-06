@@ -370,7 +370,7 @@ async function initializeCoachPage(userData) {
     initInvitationCodeManagement(supabase, userData.clubId, userData.id);
 
     // Initialize Player Invitation Management (pass supabase instead of auth/functions)
-    initPlayerInvitationManagement(supabase, null, null, userData.clubId, userData.id);
+    initPlayerInvitationManagement(supabase, null, null, userData.clubId, userData.id, userData.activeSportId);
 
     // Initialize Spontaneous Sessions (for creating trainings from calendar)
     initializeSpontaneousSessions(userData, supabase);

@@ -15,6 +15,7 @@ import {
 let supabaseClient;
 let currentClubId;
 let currentCoachId;
+let currentSportId;
 let currentSubgroups = [];
 let lastGeneratedCode = null;
 let lastGeneratedFirstName = '';
@@ -28,12 +29,14 @@ export function initPlayerInvitationManagement(
     authInstance,
     functionsInstance,
     clubId,
-    coachId
+    coachId,
+    sportId = null
 ) {
     supabaseClient = supabase;
     // auth and functions no longer needed (email invitations removed)
     currentClubId = clubId;
     currentCoachId = coachId;
+    currentSportId = sportId;
 
     setupEventListeners();
 }
@@ -171,13 +174,13 @@ async function generateCodeForPlayer(playerData, playerId = null) {
     const codeData = {
         code,
         club_id: currentClubId,
+        sport_id: currentSportId,
         created_by: currentCoachId,
         created_at: new Date().toISOString(),
         expires_at: expiresAt.toISOString(),
         max_uses: 1,
-        used: false,
-        used_by: null,
-        used_at: null,
+        use_count: 0,
+        is_active: true,
         first_name: playerData.firstName,
         last_name: playerData.lastName,
         subgroup_ids: playerData.subgroupIDs || [],
