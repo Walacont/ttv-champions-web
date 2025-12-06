@@ -671,12 +671,12 @@ async function loadMatchActivity(userData, supabase) {
 }
 
 /**
- * Calculate Grundlagen completion rate
+ * Calculate match-ready rate (players who can participate in competitions)
  */
 function calculateGrundlagenRate(players) {
-    const playersWithGrundlagen = players.filter(p => (p.grundlagenCompleted || 0) >= 5);
+    const matchReadyPlayers = players.filter(p => p.isMatchReady === true || p.is_match_ready === true);
     const rate =
-        players.length > 0 ? Math.round((playersWithGrundlagen.length / players.length) * 100) : 0;
+        players.length > 0 ? Math.round((matchReadyPlayers.length / players.length) * 100) : 0;
 
     const el = document.getElementById('stats-grundlagen-rate');
     if (el) el.textContent = `${rate}%`;

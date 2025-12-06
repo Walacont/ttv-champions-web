@@ -148,7 +148,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
         // Filter eligible players (include both players and coaches)
         const eligiblePlayers = allPlayers.filter(p => {
             const isNotSelf = p.id !== userData.id;
-            const isMatchReady = (p.grundlagenCompleted || 0) >= 5;
+            const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
             const isPlayerOrCoach = p.role === 'player' || p.role === 'coach';
             return isNotSelf && isMatchReady && isPlayerOrCoach;
         });
@@ -300,9 +300,8 @@ export async function loadMatchSuggestions(
         return; // Exit early
     }
 
-    // Check if player has completed Grundlagen requirement
-    const grundlagenCompleted = userData.grundlagenCompleted || 0;
-    const isMatchReady = grundlagenCompleted >= 5;
+    // Check if player is match-ready
+    const isMatchReady = userData.isMatchReady === true || userData.is_match_ready === true;
 
     if (!isMatchReady) {
         container.innerHTML = `

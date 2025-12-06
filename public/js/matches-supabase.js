@@ -604,8 +604,8 @@ export function updatePairingsButtonState(clubPlayers, currentSubgroupFilter = '
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
 
     let eligiblePlayers = clubPlayers.filter(player => {
-        const grundlagen = player.grundlagenCompleted || player.grundlagen_completed || 0;
-        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+        const isMatchReady = player.isMatchReady || player.is_match_ready;
+        return presentPlayerIds.includes(player.id) && isMatchReady === true;
     });
 
     if (currentSubgroupFilter !== 'all') {
@@ -750,13 +750,13 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
 
     let matchReadyPlayers = clubPlayers.filter(p => {
-        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
-        return grundlagen >= 5;
+        const isMatchReady = p.isMatchReady || p.is_match_ready;
+        return isMatchReady === true;
     });
 
     const lockedPlayers = clubPlayers.filter(p => {
-        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
-        return grundlagen < 5;
+        const isMatchReady = p.isMatchReady || p.is_match_ready;
+        return isMatchReady !== true;
     });
 
     // Debug logging for filters
