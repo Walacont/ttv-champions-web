@@ -185,9 +185,8 @@ async function initializeDashboard() {
     loadPendingRequests();
     loadMatchHistory();
     loadCalendar();
-    updateSeasonCountdown();
-    // Update countdown every second
-    setInterval(updateSeasonCountdown, 1000);
+    // Initialize season countdown (efficient: loads once, updates display every second)
+    initSeasonCountdown();
 
     // Setup match form
     setupMatchForm();
@@ -1578,14 +1577,28 @@ async function fetchSeasonEndDate() {
     }
 }
 
-async function updateSeasonCountdown() {
+// Stored season end date for efficient countdown
+let seasonEndDate = null;
+
+// Initial load of season end date (called once)
+async function initSeasonCountdown() {
+    seasonEndDate = await fetchSeasonEndDate();
+    updateSeasonCountdownDisplay();
+    // Update display every second (efficient - no async calls)
+    setInterval(updateSeasonCountdownDisplay, 1000);
+    // Refresh season data every 5 minutes in case it changes
+    setInterval(async () => {
+        seasonEndDate = await fetchSeasonEndDate();
+    }, 5 * 60 * 1000);
+}
+
+// Efficient countdown update (synchronous, no DB calls)
+function updateSeasonCountdownDisplay() {
     const countdownEl = document.getElementById('season-countdown');
-    if (!countdownEl) return;
+    if (!countdownEl || !seasonEndDate) return;
 
     const now = new Date();
-    const endOfSeason = await fetchSeasonEndDate();
-
-    const diff = endOfSeason - now;
+    const diff = seasonEndDate - now;
 
     if (diff <= 0) {
         countdownEl.textContent = 'Saison beendet!';
@@ -1598,6 +1611,14 @@ async function updateSeasonCountdown() {
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
     countdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
+}
+
+// Legacy function for compatibility
+async function updateSeasonCountdown() {
+    if (!seasonEndDate) {
+        seasonEndDate = await fetchSeasonEndDate();
+    }
+    updateSeasonCountdownDisplay();
 }
 
 // --- Realtime Subscriptions ---
