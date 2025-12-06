@@ -16,12 +16,12 @@ let cachedSportId = null;
  * Fetches the season end date from seasons table
  * @param {Object} supabase - Supabase client instance
  * @param {string} sportId - Optional sport ID to filter by user's active sport
- * @returns {Promise<Date>} The end date of the current season
+ * @returns {Promise<Date|null>} The end date of the current season, or null if no active season
  */
 async function fetchSeasonEndDate(supabase, sportId = null) {
     try {
         // Check cache first (only if sportId matches)
-        const cacheValid = cachedSeasonEnd &&
+        const cacheValid = cachedSeasonEnd !== undefined &&
                           lastFetchTime &&
                           Date.now() - lastFetchTime < CACHE_DURATION &&
                           cachedSportId === sportId;
@@ -62,44 +62,18 @@ async function fetchSeasonEndDate(supabase, sportId = null) {
             return seasonEnd;
         }
 
-        // Fallback: Try old config table
-        const { data: configData } = await supabase
-            .from('config')
-            .select('value')
-            .eq('key', 'seasonReset')
-            .single();
-
-        if (configData && configData.value) {
-            const lastResetDate = new Date(configData.value.lastResetDate);
-            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-            const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
-
-            cachedSeasonEnd = seasonEnd;
-            cachedSportId = sportId;
-            lastFetchTime = Date.now();
-
-            console.log('📅 Season end date loaded from config (fallback):', seasonEnd.toLocaleString('de-DE'));
-            return seasonEnd;
-        }
-
-        // Final fallback: 6 weeks from now
-        console.warn('⚠️ No season config found, using fallback calculation');
-        const now = new Date();
-        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-        const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
-
-        cachedSeasonEnd = fallbackEnd;
+        // No active season found - return null to indicate season pause
+        console.log('📅 No active season found for sport:', sportId || 'all');
+        cachedSeasonEnd = null;
+        cachedSeasonName = null;
         cachedSportId = sportId;
         lastFetchTime = Date.now();
 
-        return fallbackEnd;
+        return null;
+
     } catch (error) {
         console.error('Error fetching season end date:', error);
-
-        // Fallback calculation
-        const now = new Date();
-        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-        return new Date(now.getTime() + sixWeeksInMs);
+        return null;
     }
 }
 
@@ -158,13 +132,20 @@ export async function updateSeasonCountdown(
         return;
     }
 
-    const now = new Date();
     const endOfSeason = await fetchSeasonEndDate(supabase, sportId);
 
+    // No active season - show pause message
+    if (!endOfSeason) {
+        seasonCountdownEl.textContent = 'Saisonpause';
+        seasonCountdownEl.title = 'Aktuell ist keine Saison aktiv für diese Sportart';
+        return;
+    }
+
+    const now = new Date();
     const diff = endOfSeason - now;
 
     if (diff <= 0) {
-        seasonCountdownEl.textContent = 'Saison beendet! Wird automatisch zurückgesetzt...';
+        seasonCountdownEl.textContent = 'Saison beendet!';
 
         if (reloadOnEnd) {
             console.log('🔄 Season ended, reloading page in 30 seconds...');
@@ -179,6 +160,7 @@ export async function updateSeasonCountdown(
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
     seasonCountdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
+    seasonCountdownEl.title = cachedSeasonName ? `Saison: ${cachedSeasonName}` : '';
 }
 
 /**

@@ -1695,42 +1695,17 @@ async function fetchSeasonEndDate() {
             return seasonEnd;
         }
 
-        // Fallback: Try old config table
-        const { data: configData } = await supabase
-            .from('config')
-            .select('value')
-            .eq('key', 'season_reset')
-            .single();
-
-        if (configData && configData.value) {
-            const lastResetDate = new Date(configData.value.lastResetDate);
-            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-            const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
-
-            cachedSeasonEnd = seasonEnd;
-            lastSeasonFetchTime = Date.now();
-
-            console.log('📅 Season end date loaded from config (fallback):', seasonEnd.toLocaleString('de-DE'));
-            return seasonEnd;
-        }
-
-        // Final fallback: 6 weeks from now
-        console.warn('⚠️ No season config found, using fallback calculation');
-        const now = new Date();
-        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-        const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
-
-        cachedSeasonEnd = fallbackEnd;
+        // No active season found - return null to indicate season pause
+        console.log('📅 No active season found for sport:', userSportId || 'all');
+        cachedSeasonEnd = null;
+        cachedSeasonName = null;
         lastSeasonFetchTime = Date.now();
 
-        return fallbackEnd;
+        return null;
+
     } catch (error) {
         console.error('Error fetching season end date:', error);
-
-        // Fallback calculation
-        const now = new Date();
-        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-        return new Date(now.getTime() + sixWeeksInMs);
+        return null;
     }
 }
 
@@ -1752,7 +1727,14 @@ async function initSeasonCountdown() {
 // Efficient countdown update (synchronous, no DB calls)
 function updateSeasonCountdownDisplay() {
     const countdownEl = document.getElementById('season-countdown');
-    if (!countdownEl || !seasonEndDate) return;
+    if (!countdownEl) return;
+
+    // No active season - show pause message
+    if (!seasonEndDate) {
+        countdownEl.textContent = 'Saisonpause';
+        countdownEl.title = 'Aktuell ist keine Saison aktiv für diese Sportart';
+        return;
+    }
 
     const now = new Date();
     const diff = seasonEndDate - now;
@@ -1768,6 +1750,7 @@ function updateSeasonCountdownDisplay() {
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
     countdownEl.textContent = `${days}T ${hours}h ${minutes}m ${seconds}s`;
+    countdownEl.title = cachedSeasonName ? `Saison: ${cachedSeasonName}` : '';
 }
 
 // Legacy function for compatibility
