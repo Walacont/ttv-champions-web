@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            if (userData.role === 'coach' || userData.role === 'admin') {
+            if (userData.role === 'coach' || userData.role === 'head_coach' || userData.role === 'admin') {
                 currentUserData = userData;
 
                 // Check for season reset
