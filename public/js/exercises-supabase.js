@@ -170,12 +170,18 @@ export async function loadExercises(db, unsubscribes) {
  * Note: Database uses 'name' but app uses 'title' - we map both for compatibility
  */
 function mapExerciseFromSupabase(row) {
+    // Ensure description_content is always a string (JSONB from DB can be object or string)
+    let descriptionContent = row.description_content;
+    if (descriptionContent && typeof descriptionContent === 'object') {
+        descriptionContent = JSON.stringify(descriptionContent);
+    }
+
     return {
         id: row.id,
         title: row.name || row.title, // DB uses 'name', app expects 'title'
         name: row.name,
         description: row.description,
-        descriptionContent: row.description_content,
+        descriptionContent: descriptionContent,
         imageUrl: row.image_url,
         points: row.xp_reward || row.points || 10, // DB uses 'xp_reward'
         level: row.difficulty || row.level,
@@ -271,7 +277,10 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     card.dataset.title = exercise.title;
 
     if (exercise.descriptionContent) {
-        card.dataset.descriptionContent = exercise.descriptionContent;
+        // Ensure descriptionContent is always a JSON string, not an object
+        card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
+            ? exercise.descriptionContent
+            : JSON.stringify(exercise.descriptionContent);
     } else {
         card.dataset.descriptionContent = JSON.stringify({
             type: 'text',
@@ -596,7 +605,10 @@ function renderCoachExercises(exercises, filterTag) {
         card.dataset.id = exercise.id;
         card.dataset.title = exercise.title;
         if (exercise.descriptionContent) {
-            card.dataset.descriptionContent = exercise.descriptionContent;
+            // Ensure descriptionContent is always a JSON string, not an object
+            card.dataset.descriptionContent = typeof exercise.descriptionContent === 'string'
+                ? exercise.descriptionContent
+                : JSON.stringify(exercise.descriptionContent);
         } else {
             card.dataset.descriptionContent = JSON.stringify({
                 type: 'text',
