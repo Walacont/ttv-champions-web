@@ -6,7 +6,7 @@
 import {
     handlePostPlayerCreationInvitation,
     openSendInvitationModal,
-} from './player-invitation-management.js';
+} from './player-invitation-management-supabase.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
 // Keep track of the current Grundlagen listener to avoid duplicates
