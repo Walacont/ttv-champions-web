@@ -34,6 +34,11 @@ const noClubWarning = document.getElementById('no-club-warning');
 // Sport Selection Elements
 const sportDropdown = document.getElementById('sport-dropdown');
 const sportFeedback = document.getElementById('sport-feedback');
+const sportClubStatus = document.getElementById('sport-club-status');
+const sportClubInfo = document.getElementById('sport-club-info');
+const sportClubSearch = document.getElementById('sport-club-search');
+const sportClubList = document.getElementById('sport-club-list');
+const sportClubFeedback = document.getElementById('sport-club-feedback');
 
 let currentUser = null;
 let currentUserData = null;
@@ -1368,6 +1373,14 @@ async function initializeSportSelection() {
         // Add change event listener
         sportDropdown.addEventListener('change', handleSportChange);
 
+        // Show club status for current sport on page load
+        if (activeSportId) {
+            const activeSport = allSports.find(s => s.id === activeSportId);
+            if (activeSport) {
+                await updateSportClubStatus(activeSportId, activeSport.display_name || activeSport.name);
+            }
+        }
+
     } catch (error) {
         console.error('Error initializing sport selection:', error);
         if (sportFeedback) {
@@ -1432,8 +1445,8 @@ async function handleSportChange(event) {
         .maybeSingle();
 
     if (existingStats) {
-        // User already has this sport - just switch
-        await setActiveSport(selectedSportId, selectedSportName);
+        // User already has this sport - just switch and show club status
+        await setActiveSportAndShowClubStatus(selectedSportId, selectedSportName);
     } else {
         // New sport - ask for confirmation
         const confirmed = confirm(
@@ -1459,13 +1472,315 @@ async function handleSportChange(event) {
                 // Still allow switching even if insert fails (table might not exist yet)
             }
 
-            await setActiveSport(selectedSportId, selectedSportName);
+            await setActiveSportAndShowClubStatus(selectedSportId, selectedSportName);
         } else {
             // User cancelled - revert dropdown to previous value
             sportDropdown.value = currentUserData?.activeSportId || '';
         }
     }
 }
+
+/**
+ * Set active sport and show club status for that sport
+ */
+async function setActiveSportAndShowClubStatus(sportId, sportName) {
+    // Update the active sport in the database
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ active_sport_id: sportId })
+        .eq('id', currentUser.id);
+
+    if (updateError) {
+        console.error('Error setting active sport:', updateError);
+        if (sportFeedback) {
+            sportFeedback.innerHTML = `
+                <span class="text-red-600">
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    Fehler beim Wechseln der Sportart.
+                </span>
+            `;
+        }
+        return;
+    }
+
+    // Update local data
+    if (currentUserData) {
+        currentUserData.activeSportId = sportId;
+    }
+
+    // Show success message
+    if (sportFeedback) {
+        sportFeedback.innerHTML = `
+            <span class="text-green-600">
+                <i class="fas fa-check-circle mr-1"></i>
+                ${sportName} ist jetzt aktiv.
+            </span>
+        `;
+    }
+
+    // Show club status for this sport
+    await updateSportClubStatus(sportId, sportName);
+}
+
+/**
+ * Update the club status display for a specific sport
+ */
+async function updateSportClubStatus(sportId, sportName) {
+    if (!sportClubStatus || !sportClubInfo) return;
+
+    // Check if user is in a club for this sport
+    const { data: clubMembership } = await supabase
+        .from('profile_club_sports')
+        .select(`
+            club_id,
+            role,
+            clubs(name)
+        `)
+        .eq('user_id', currentUser.id)
+        .eq('sport_id', sportId)
+        .maybeSingle();
+
+    sportClubStatus.classList.remove('hidden');
+
+    if (clubMembership) {
+        // User is in a club for this sport
+        const clubName = clubMembership.clubs?.name || 'Unbekannt';
+        const roleText = clubMembership.role === 'coach' ? 'Spartenleiter' :
+                        clubMembership.role === 'head_coach' ? 'Spartenleiter' : 'Spieler';
+
+        sportClubInfo.innerHTML = `
+            <div class="bg-green-50 border border-green-200 p-3 rounded-lg">
+                <p class="text-sm text-green-800">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    <strong>Verein für ${sportName}:</strong> ${clubName}
+                    <span class="text-green-600 ml-2">(${roleText})</span>
+                </p>
+            </div>
+        `;
+
+        // Hide club search
+        if (sportClubSearch) sportClubSearch.classList.add('hidden');
+    } else {
+        // User is NOT in a club for this sport - check for pending request
+        const { data: pendingRequest } = await supabase
+            .from('club_requests')
+            .select('id, club_id, clubs(name)')
+            .eq('player_id', currentUser.id)
+            .eq('sport_id', sportId)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (pendingRequest) {
+            // User has a pending request for this sport
+            const clubName = pendingRequest.clubs?.name || 'Unbekannt';
+            sportClubInfo.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-clock mr-2"></i>
+                                <strong>Ausstehende Anfrage für ${sportName}:</strong> ${clubName}
+                            </p>
+                            <p class="text-xs text-yellow-600 mt-1">
+                                Warte auf Bestätigung durch einen Spartenleiter.
+                            </p>
+                        </div>
+                        <button
+                            onclick="withdrawSportClubRequest('${pendingRequest.id}', '${sportId}', '${sportName}')"
+                            class="text-red-600 hover:text-red-800 text-sm ml-2"
+                            title="Anfrage zurückziehen"
+                        >
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            if (sportClubSearch) sportClubSearch.classList.add('hidden');
+        } else {
+            // User is not in a club and has no pending request - show club options
+            sportClubInfo.innerHTML = `
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                    <p class="text-sm text-amber-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Du bist noch in keinem Verein für <strong>${sportName}</strong> registriert.
+                    </p>
+                    <p class="text-xs text-amber-600 mt-1">
+                        Wähle einen Verein aus der Liste unten, um eine Beitrittsanfrage zu senden.
+                    </p>
+                </div>
+            `;
+
+            // Load and show clubs for this sport
+            await loadClubsForSport(sportId, sportName);
+        }
+    }
+}
+
+/**
+ * Load clubs that have coaches for a specific sport
+ */
+async function loadClubsForSport(sportId, sportName) {
+    if (!sportClubSearch || !sportClubList) return;
+
+    sportClubSearch.classList.remove('hidden');
+    sportClubList.innerHTML = '<p class="text-sm text-gray-500">Lade Vereine...</p>';
+
+    try {
+        // Find clubs that have at least one coach for this sport
+        const { data: clubsWithSport, error } = await supabase
+            .from('profile_club_sports')
+            .select(`
+                club_id,
+                clubs!inner(id, name, is_test_club)
+            `)
+            .eq('sport_id', sportId)
+            .in('role', ['coach', 'head_coach']);
+
+        if (error) throw error;
+
+        // Get unique clubs
+        const uniqueClubs = [];
+        const seenClubIds = new Set();
+
+        for (const row of clubsWithSport || []) {
+            if (!row.clubs || row.clubs.is_test_club) continue;
+            if (seenClubIds.has(row.club_id)) continue;
+            seenClubIds.add(row.club_id);
+            uniqueClubs.push({
+                id: row.club_id,
+                name: row.clubs.name
+            });
+        }
+
+        // Sort by name
+        uniqueClubs.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (uniqueClubs.length === 0) {
+            sportClubList.innerHTML = `
+                <p class="text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Aktuell gibt es keine Vereine mit Spartenleiter für ${sportName}.
+                </p>
+            `;
+            return;
+        }
+
+        // Get member counts for each club
+        const clubHtml = [];
+        for (const club of uniqueClubs) {
+            const { count: memberCount } = await supabase
+                .from('profile_club_sports')
+                .select('*', { count: 'exact', head: true })
+                .eq('club_id', club.id)
+                .eq('sport_id', sportId);
+
+            clubHtml.push(`
+                <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">${club.name}</p>
+                        <p class="text-xs text-gray-600">${memberCount || 0} Mitglieder in ${sportName}</p>
+                    </div>
+                    <button
+                        onclick="sendSportClubRequest('${club.id}', '${club.name}', '${sportId}', '${sportName}')"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-1 px-3 rounded transition"
+                    >
+                        <i class="fas fa-paper-plane mr-1"></i>
+                        Anfrage
+                    </button>
+                </div>
+            `);
+        }
+
+        sportClubList.innerHTML = clubHtml.join('');
+
+    } catch (error) {
+        console.error('Error loading clubs for sport:', error);
+        sportClubList.innerHTML = `
+            <p class="text-sm text-red-600">
+                <i class="fas fa-exclamation-circle mr-1"></i>
+                Fehler beim Laden der Vereine.
+            </p>
+        `;
+    }
+}
+
+/**
+ * Send a club request for a specific sport
+ */
+window.sendSportClubRequest = async function(clubId, clubName, sportId, sportName) {
+    if (!confirm(`Möchtest du eine Beitrittsanfrage an "${clubName}" für ${sportName} senden?`)) {
+        return;
+    }
+
+    try {
+        if (sportClubFeedback) {
+            sportClubFeedback.innerHTML = `
+                <span class="text-gray-600">
+                    <i class="fas fa-spinner fa-spin mr-1"></i>
+                    Sende Anfrage...
+                </span>
+            `;
+        }
+
+        // Create club request with sport_id
+        const { error } = await supabase.from('club_requests').insert({
+            player_id: currentUser.id,
+            club_id: clubId,
+            sport_id: sportId,
+            status: 'pending'
+        });
+
+        if (error) throw error;
+
+        if (sportClubFeedback) {
+            sportClubFeedback.innerHTML = `
+                <span class="text-green-600">
+                    <i class="fas fa-check-circle mr-1"></i>
+                    Anfrage an "${clubName}" gesendet!
+                </span>
+            `;
+        }
+
+        // Refresh the club status display
+        await updateSportClubStatus(sportId, sportName);
+
+    } catch (error) {
+        console.error('Error sending club request:', error);
+        if (sportClubFeedback) {
+            sportClubFeedback.innerHTML = `
+                <span class="text-red-600">
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    Fehler: ${error.message}
+                </span>
+            `;
+        }
+    }
+};
+
+/**
+ * Withdraw a pending club request for a sport
+ */
+window.withdrawSportClubRequest = async function(requestId, sportId, sportName) {
+    if (!confirm('Möchtest du deine Beitrittsanfrage wirklich zurückziehen?')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('club_requests')
+            .delete()
+            .eq('id', requestId);
+
+        if (error) throw error;
+
+        // Refresh the club status display
+        await updateSportClubStatus(sportId, sportName);
+
+    } catch (error) {
+        console.error('Error withdrawing club request:', error);
+        alert('Fehler beim Zurückziehen der Anfrage: ' + error.message);
+    }
+};
 
 /**
  * Set active sport silently (without page reload)
@@ -1509,70 +1824,3 @@ async function setActiveSportSilent(sportId, sportName) {
     }
 }
 
-/**
- * Set active sport for user
- * Note: Users can switch to any sport, even if they're not registered in a club for it.
- * The profile.active_sport_id is just a preference setting.
- */
-async function setActiveSport(sportId, sportName) {
-    if (!currentUser || !sportId) return;
-
-    try {
-        // Show loading feedback
-        if (sportFeedback) {
-            sportFeedback.innerHTML = `
-                <span class="text-gray-600">
-                    <i class="fas fa-spinner fa-spin mr-1"></i>
-                    Wechsle zu ${sportName}...
-                </span>
-            `;
-        }
-
-        // Disable dropdown during update
-        if (sportDropdown) {
-            sportDropdown.disabled = true;
-        }
-
-        // Update profile directly - users can switch to any sport
-        const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ active_sport_id: sportId })
-            .eq('id', currentUser.id);
-
-        if (updateError) throw updateError;
-
-        console.log('[Settings] Active sport updated to:', sportId);
-
-        // Show success feedback
-        if (sportFeedback) {
-            sportFeedback.innerHTML = `
-                <span class="text-green-600">
-                    <i class="fas fa-check-circle mr-1"></i>
-                    ${sportName} ist jetzt aktiv. Seite wird neu geladen...
-                </span>
-            `;
-        }
-
-        // Reload page after short delay to apply new sport context
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
-
-    } catch (error) {
-        console.error('Error setting active sport:', error);
-
-        // Re-enable dropdown on error
-        if (sportDropdown) {
-            sportDropdown.disabled = false;
-        }
-
-        if (sportFeedback) {
-            sportFeedback.innerHTML = `
-                <span class="text-red-600">
-                    <i class="fas fa-exclamation-circle mr-1"></i>
-                    Fehler: ${error.message}
-                </span>
-            `;
-        }
-    }
-}
