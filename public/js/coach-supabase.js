@@ -414,7 +414,7 @@ async function initializeCoachPage(userData) {
     }
 
     // Load initial data
-    loadPlayersForDropdown(userData.clubId, supabase);
+    loadPlayersForDropdown(userData.clubId, supabase, userData.activeSportId);
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
     loadExercisesForDropdown(supabase);
     loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);

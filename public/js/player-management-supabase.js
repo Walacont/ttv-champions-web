@@ -504,7 +504,7 @@ async function logAuditEvent(supabase, action, actorId, targetId, targetType, cl
  * @param {string} clubId - Club ID
  * @param {Object} supabase - Supabase client instance
  * @param {Function} setUnsubscribe - Callback to set unsubscribe function
- * @param {Object} currentUserData - Current user data with role (optional, for permission checks)
+ * @param {Object} currentUserData - Current user data with role and activeSportId (for permission checks and sport filtering)
  */
 export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData = null) {
     const modalPlayerList = document.getElementById('modal-player-list');
@@ -522,18 +522,47 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
         .querySelectorAll('.player-list-item-active')
         .forEach(item => item.classList.remove('player-list-item-active'));
 
+    const sportId = currentUserData?.activeSportId;
+
     // Initial load
     async function loadPlayers() {
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('club_id', clubId)
-                .order('last_name');
+            let playersData = [];
 
-            if (error) throw error;
+            if (sportId) {
+                // Filter by sport: Get user IDs from profile_club_sports, then get their profiles
+                const { data: sportMembers, error: sportError } = await supabase
+                    .from('profile_club_sports')
+                    .select('user_id')
+                    .eq('club_id', clubId)
+                    .eq('sport_id', sportId);
 
-            renderPlayerList(data || []);
+                if (sportError) throw sportError;
+
+                if (sportMembers && sportMembers.length > 0) {
+                    const userIds = sportMembers.map(m => m.user_id);
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .in('id', userIds)
+                        .order('last_name');
+
+                    if (error) throw error;
+                    playersData = data || [];
+                }
+            } else {
+                // Fallback: Load all players from club (old behavior)
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('club_id', clubId)
+                    .order('last_name');
+
+                if (error) throw error;
+                playersData = data || [];
+            }
+
+            renderPlayerList(playersData);
         } catch (error) {
             console.error('Spielerliste Ladefehler:', error);
             modalPlayerList.innerHTML = `<p class="p-4 text-center text-red-500">Fehler: ${error.message}</p>`;
@@ -547,7 +576,7 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
 
         if (playersData.length === 0) {
             modalPlayerList.innerHTML =
-                '<p class="p-4 text-center text-gray-500">Keine Spieler in diesem Verein gefunden.</p>';
+                '<p class="p-4 text-center text-gray-500">Keine Spieler in dieser Sportart gefunden.</p>';
         } else {
             const players = playersData.map(p => mapPlayerFromSupabase(p));
 
@@ -734,23 +763,50 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
  * Loads players for dropdown selection (for points awarding)
  * @param {string} clubId - Club ID
  * @param {Object} supabase - Supabase client instance
+ * @param {string} sportId - Sport ID (optional, for filtering by sport)
  */
-export function loadPlayersForDropdown(clubId, supabase) {
+export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
     const select = document.getElementById('player-select');
     if (!select) return;
 
     async function loadPlayers() {
         try {
-            // Include both players and coaches (coaches can also receive points as players)
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('club_id', clubId)
-                .in('role', ['player', 'coach']);
+            let playersData = [];
 
-            if (error) throw error;
+            if (sportId) {
+                // Filter by sport: Get user IDs from profile_club_sports, then get their profiles
+                const { data: sportMembers, error: sportError } = await supabase
+                    .from('profile_club_sports')
+                    .select('user_id')
+                    .eq('club_id', clubId)
+                    .eq('sport_id', sportId);
 
-            const players = (data || []).map(p => mapPlayerFromSupabase(p));
+                if (sportError) throw sportError;
+
+                if (sportMembers && sportMembers.length > 0) {
+                    const userIds = sportMembers.map(m => m.user_id);
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .in('id', userIds)
+                        .in('role', ['player', 'coach', 'head_coach']);
+
+                    if (error) throw error;
+                    playersData = data || [];
+                }
+            } else {
+                // Fallback: Load all players from club (old behavior)
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('club_id', clubId)
+                    .in('role', ['player', 'coach']);
+
+                if (error) throw error;
+                playersData = data || [];
+            }
+
+            const players = playersData.map(p => mapPlayerFromSupabase(p));
             select.innerHTML = '<option value="">Spieler wählen...</option>';
             players
                 .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
