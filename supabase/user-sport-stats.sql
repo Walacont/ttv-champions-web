@@ -207,6 +207,8 @@ BEGIN
 
     IF v_table_tennis_id IS NOT NULL THEN
         -- Migriere bestehende Stats
+        -- Note: profiles table has: elo_rating, highest_elo, doubles_elo_rating, highest_doubles_elo
+        -- But NOT: wins, losses, doubles_wins, doubles_losses (these are calculated from matches)
         INSERT INTO user_sport_stats (
             user_id, sport_id,
             elo_rating, highest_elo,
@@ -222,14 +224,14 @@ BEGIN
             COALESCE(p.elo_rating, 1000),
             COALESCE(p.highest_elo, 1000),
             COALESCE(p.doubles_elo_rating, 1000),
-            COALESCE(p.doubles_highest_elo, 1000),
+            COALESCE(p.highest_doubles_elo, 1000),  -- Correct column name
             COALESCE(p.xp, 0),
             COALESCE(p.points, 0),
-            COALESCE(p.wins, 0),
-            COALESCE(p.losses, 0),
-            COALESCE(p.doubles_wins, 0),
-            COALESCE(p.doubles_losses, 0),
-            COALESCE(p.wins, 0) + COALESCE(p.losses, 0) + COALESCE(p.doubles_wins, 0) + COALESCE(p.doubles_losses, 0)
+            0,  -- wins - will be recalculated from matches if needed
+            0,  -- losses - will be recalculated from matches if needed
+            COALESCE(p.doubles_matches_won, 0),
+            COALESCE(p.doubles_matches_lost, 0),
+            COALESCE(p.doubles_matches_played, 0)  -- Use doubles_matches_played as base
         FROM profiles p
         WHERE NOT EXISTS (
             SELECT 1 FROM user_sport_stats uss
