@@ -3,6 +3,9 @@
 -- ============================================
 -- This function returns the user's active sport context
 -- including sport details, club, and role
+--
+-- FIXED: Now queries sports table directly and LEFT JOINs profile_club_sports
+-- This allows users to select a sport even if they're not in a club for that sport yet
 
 CREATE OR REPLACE FUNCTION public.get_user_sport_context(p_user_id uuid)
 RETURNS TABLE (
@@ -41,20 +44,21 @@ BEGIN
     END IF;
 
     -- Return full context
+    -- FIXED: Query sports table first, then LEFT JOIN profile_club_sports
+    -- This way the query returns data even if user isn't in a club for that sport
     RETURN QUERY
     SELECT
-        pcs.sport_id,
+        s.id as sport_id,
         s.name as sport_name,
         s.display_name,
         s.config,
         pcs.club_id,
         c.name as club_name,
         pcs.role
-    FROM profile_club_sports pcs
-    JOIN sports s ON s.id = pcs.sport_id
+    FROM sports s
+    LEFT JOIN profile_club_sports pcs ON pcs.sport_id = s.id AND pcs.user_id = p_user_id
     LEFT JOIN clubs c ON c.id = pcs.club_id
-    WHERE pcs.user_id = p_user_id
-        AND pcs.sport_id = v_active_sport_id
+    WHERE s.id = v_active_sport_id
     LIMIT 1;
 END;
 $$;

@@ -33,18 +33,26 @@ let cachedUserId = null;
  * @returns {Promise<Object|null>} Sport context or null if not found
  */
 export async function getSportContext(userId, forceRefresh = false) {
-    if (!userId) return null;
+    if (!userId) {
+        console.log('[SportContext] No userId provided');
+        return null;
+    }
 
     // Return cached context if available and not forcing refresh
     if (!forceRefresh && cachedSportContext && cachedUserId === userId) {
+        console.log('[SportContext] Returning cached context:', cachedSportContext);
         return cachedSportContext;
     }
 
     try {
+        console.log('[SportContext] Loading context for user:', userId);
+
         // Try RPC function first (more efficient)
         const { data: contextData, error: rpcError } = await supabase.rpc('get_user_sport_context', {
             p_user_id: userId
         });
+
+        console.log('[SportContext] RPC result:', { contextData, rpcError });
 
         if (!rpcError && contextData && contextData.length > 0) {
             const ctx = contextData[0];
@@ -63,7 +71,7 @@ export async function getSportContext(userId, forceRefresh = false) {
         }
 
         // Fallback: Direct query
-        console.log('[SportContext] RPC not available, using fallback query');
+        console.log('[SportContext] RPC returned no data, using fallback query');
         return await getSportContextFallback(userId);
 
     } catch (error) {
@@ -107,39 +115,38 @@ async function getSportContextFallback(userId) {
             return null;
         }
 
-        // Get full context from profile_club_sports
-        const { data: contextData, error } = await supabase
+        // Get sport info from sports table (always returns data for valid sport)
+        const { data: sportData, error: sportError } = await supabase
+            .from('sports')
+            .select('id, name, display_name, config')
+            .eq('id', activeSportId)
+            .maybeSingle();
+
+        if (sportError || !sportData) {
+            console.error('[SportContext] Error loading sport:', sportError);
+            return null;
+        }
+
+        // Get club/role info from profile_club_sports (may not exist if user not in club yet)
+        const { data: clubData } = await supabase
             .from('profile_club_sports')
             .select(`
-                sport_id,
                 club_id,
                 role,
-                sports(name, display_name, config),
                 clubs(name)
             `)
             .eq('user_id', userId)
             .eq('sport_id', activeSportId)
             .maybeSingle();
 
-        if (error) {
-            console.error('[SportContext] Error in fallback:', error);
-            return null;
-        }
-
-        // User might not have a club/sport assignment yet
-        if (!contextData) {
-            console.log('[SportContext] No club/sport assignment found for user');
-            return null;
-        }
-
         cachedSportContext = {
-            sportId: contextData.sport_id,
-            sportName: contextData.sports?.name,
-            displayName: contextData.sports?.display_name,
-            config: contextData.sports?.config,
-            clubId: contextData.club_id,
-            clubName: contextData.clubs?.name,
-            role: contextData.role
+            sportId: sportData.id,
+            sportName: sportData.name,
+            displayName: sportData.display_name,
+            config: sportData.config,
+            clubId: clubData?.club_id || null,
+            clubName: clubData?.clubs?.name || null,
+            role: clubData?.role || null
         };
         cachedUserId = userId;
 

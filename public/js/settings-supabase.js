@@ -2,6 +2,7 @@
 // 1:1 Migration von settings.js - Firebase → Supabase
 
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
+import { reloadSportContext } from './sport-context-supabase.js';
 
 const supabase = getSupabase();
 
@@ -1542,6 +1543,11 @@ async function setActiveSportAndShowClubStatus(sportId, sportName) {
     if (currentUserData) {
         currentUserData.activeSportId = sportId;
     }
+
+    // Reload sport context to refresh cache
+    console.log('[Settings] Reloading sport context...');
+    const newContext = await reloadSportContext(currentUser.id);
+    console.log('[Settings] Sport context reloaded:', newContext);
 
     // Show success message
     if (sportFeedback) {
