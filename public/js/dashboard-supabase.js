@@ -1310,10 +1310,20 @@ async function loadExercises() {
     if (!container) return;
 
     try {
-        const { data: exercises, error } = await supabase
+        // Build query with optional sport filter
+        let query = supabase
             .from('exercises')
             .select('*')
             .order('name');
+
+        // Filter by user's active sport if set
+        const activeSportId = currentUserData?.active_sport_id;
+        if (activeSportId) {
+            // Show exercises that match the sport OR have no sport (global exercises)
+            query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
+
+        const { data: exercises, error } = await query;
 
         if (error) throw error;
 
@@ -1517,9 +1527,13 @@ async function fetchSeasonEndDate() {
             return cachedSeasonEnd;
         }
 
-        // Get user's sport from profile_club_sports (use first sport if multiple)
+        // Get user's active sport (prefer active_sport_id, fallback to first sport)
         let userSportId = cachedUserSportId;
-        if (!userSportId && currentUser) {
+        if (!userSportId && currentUserData?.active_sport_id) {
+            userSportId = currentUserData.active_sport_id;
+            cachedUserSportId = userSportId;
+        } else if (!userSportId && currentUser) {
+            // Fallback: Get first sport from profile_club_sports
             const { data: userSports } = await supabase
                 .from('profile_club_sports')
                 .select('sport_id')

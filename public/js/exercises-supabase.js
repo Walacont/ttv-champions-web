@@ -15,6 +15,7 @@ let exerciseContext = {
     userId: null,
     userRole: null,
     clubId: null,
+    sportId: null,
 };
 
 /**
@@ -23,12 +24,14 @@ let exerciseContext = {
  * @param {string} userId - Current user ID
  * @param {string} userRole - Current user role (player, coach, admin)
  * @param {string} clubId - Current user's club ID (optional)
+ * @param {string} sportId - Current user's active sport ID (optional)
  */
-export function setExerciseContext(db, userId, userRole, clubId = null) {
+export function setExerciseContext(db, userId, userRole, clubId = null, sportId = null) {
     exerciseContext.db = db;
     exerciseContext.userId = userId;
     exerciseContext.userRole = userRole;
     exerciseContext.clubId = clubId;
+    exerciseContext.sportId = sportId;
 }
 
 /**
@@ -63,10 +66,20 @@ export async function loadExercises(db, unsubscribes) {
     }
 
     async function loadExercisesList() {
-        const { data: exercisesRaw, error } = await db
+        // Build query with optional sport filter
+        let query = db
             .from('exercises')
             .select('*')
             .order('created_at', { ascending: false });
+
+        // Filter by active sport if set
+        const activeSportId = exerciseContext.sportId;
+        if (activeSportId) {
+            // Show exercises that match the sport OR have no sport (global exercises)
+            query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
+
+        const { data: exercisesRaw, error } = await query;
 
         if (error || !exercisesRaw || exercisesRaw.length === 0) {
             exercisesListEl.innerHTML = `<p class="text-gray-400 col-span-full">Keine Übungen in der Datenbank gefunden.</p>`;
@@ -291,10 +304,20 @@ export function loadAllExercises(db) {
         .subscribe();
 
     async function loadCoachExercisesList() {
-        const { data: exercisesRaw, error } = await db
+        // Build query with optional sport filter
+        let query = db
             .from('exercises')
             .select('*')
             .order('created_at', { ascending: false });
+
+        // Filter by active sport if set
+        const activeSportId = exerciseContext.sportId;
+        if (activeSportId) {
+            // Show exercises that match the sport OR have no sport (global exercises)
+            query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
+
+        const { data: exercisesRaw, error } = await query;
 
         if (error) {
             console.error('[Exercises] Error loading exercises:', error.message);
@@ -1269,6 +1292,10 @@ export async function handleCreateExercise(e, db, storage, descriptionEditor = n
             exerciseData.created_by_name = userData ? `${userData.firstName} ${userData.lastName}` : 'Unbekannt';
             if (visibility === 'club' && userData?.clubId) {
                 exerciseData.club_id = userData.clubId;
+            }
+            // Set sport_id from context (user's active sport)
+            if (exerciseContext.sportId) {
+                exerciseData.sport_id = exerciseContext.sportId;
             }
         }
 

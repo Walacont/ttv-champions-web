@@ -202,6 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 lastName: supabaseProfile.last_name || '',
                 role: supabaseProfile.role || 'player',
                 clubId: supabaseProfile.club_id || null,
+                activeSportId: supabaseProfile.active_sport_id || null,
                 xp: supabaseProfile.xp || 0,
                 points: supabaseProfile.points || 0,
                 eloRating: supabaseProfile.elo_rating || 1000,
@@ -213,6 +214,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isOffline: supabaseProfile.is_offline || false,
                 tutorialCompleted: supabaseProfile.tutorial_completed || {},
             };
+
+            // If no active sport set, try to get from profile_club_sports
+            if (!userData.activeSportId) {
+                const { data: pcs } = await supabase
+                    .from('profile_club_sports')
+                    .select('sport_id')
+                    .eq('user_id', user.uid)
+                    .limit(1)
+                    .single();
+                if (pcs?.sport_id) {
+                    userData.activeSportId = pcs.sport_id;
+                }
+            }
 
             if (userData.role === 'coach' || userData.role === 'admin') {
                 currentUserData = userData;
@@ -393,7 +407,7 @@ async function initializeCoachPage(userData) {
     loadExercisesForDropdown(supabase);
     loadActiveChallenges(userData.clubId, supabase, currentSubgroupFilter);
     loadExpiredChallenges(userData.clubId, supabase);
-    setExerciseContext(supabase, userData.id, userData.role, userData.clubId);
+    setExerciseContext(supabase, userData.id, userData.role, userData.clubId, userData.activeSportId);
     loadAllExercises(supabase);
 
     // Populate subgroup dropdowns for challenge forms
@@ -791,9 +805,10 @@ async function initializeCoachPage(userData) {
         });
     }
 
-    // Intervals
-    updateSeasonCountdown('season-countdown-coach', false, supabase);
-    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase), 1000);
+    // Intervals (pass user's active sport ID for sport-specific countdown)
+    const activeSportId = userData.activeSportId || null;
+    updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId);
+    setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId), 1000);
     setInterval(updateAllCountdowns, 1000);
 
     // Check if tutorial should be shown (first time coach login)

@@ -9,33 +9,49 @@ let cachedSeasonName = null;
 let lastFetchTime = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
+// Cache key includes sportId for sport-specific caching
+let cachedSportId = null;
+
 /**
  * Fetches the season end date from seasons table
  * @param {Object} supabase - Supabase client instance
+ * @param {string} sportId - Optional sport ID to filter by user's active sport
  * @returns {Promise<Date>} The end date of the current season
  */
-async function fetchSeasonEndDate(supabase) {
+async function fetchSeasonEndDate(supabase, sportId = null) {
     try {
-        // Check cache first
-        if (cachedSeasonEnd && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
+        // Check cache first (only if sportId matches)
+        const cacheValid = cachedSeasonEnd &&
+                          lastFetchTime &&
+                          Date.now() - lastFetchTime < CACHE_DURATION &&
+                          cachedSportId === sportId;
+        if (cacheValid) {
             return cachedSeasonEnd;
         }
 
         // Fetch active season from seasons table
-        const { data: activeSeasons, error } = await supabase
+        let query = supabase
             .from('seasons')
             .select('id, name, start_date, end_date, sport_id')
             .eq('is_active', true)
             .order('created_at', { ascending: false });
 
+        // Filter by user's sport if provided
+        if (sportId) {
+            query = query.eq('sport_id', sportId);
+        }
+
+        const { data: activeSeasons, error } = await query;
+
         if (!error && activeSeasons && activeSeasons.length > 0) {
-            // Use the first active season (or could filter by user's sport later)
+            // Use the first active season for the user's sport
             const activeSeason = activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
-            // Cache the result
+            // Cache the result (including sportId for cache key)
             cachedSeasonEnd = seasonEnd;
             cachedSeasonName = activeSeason.name;
+            cachedSportId = sportId;
             lastFetchTime = Date.now();
 
             console.log(
@@ -59,6 +75,7 @@ async function fetchSeasonEndDate(supabase) {
             const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
 
             cachedSeasonEnd = seasonEnd;
+            cachedSportId = sportId;
             lastFetchTime = Date.now();
 
             console.log('📅 Season end date loaded from config (fallback):', seasonEnd.toLocaleString('de-DE'));
@@ -72,6 +89,7 @@ async function fetchSeasonEndDate(supabase) {
         const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
 
         cachedSeasonEnd = fallbackEnd;
+        cachedSportId = sportId;
         lastFetchTime = Date.now();
 
         return fallbackEnd;
@@ -123,11 +141,13 @@ export function setupTabs(defaultTab = 'overview') {
  * @param {string} elementId - The ID of the countdown element (default: 'season-countdown')
  * @param {boolean} reloadOnEnd - Whether to reload the page when season ends (default: false)
  * @param {Object} supabase - Supabase client instance (required)
+ * @param {string} sportId - Optional sport ID to filter by user's active sport
  */
 export async function updateSeasonCountdown(
     elementId = 'season-countdown',
     reloadOnEnd = false,
-    supabase = null
+    supabase = null,
+    sportId = null
 ) {
     const seasonCountdownEl = document.getElementById(elementId);
     if (!seasonCountdownEl) return;
@@ -139,7 +159,7 @@ export async function updateSeasonCountdown(
     }
 
     const now = new Date();
-    const endOfSeason = await fetchSeasonEndDate(supabase);
+    const endOfSeason = await fetchSeasonEndDate(supabase, sportId);
 
     const diff = endOfSeason - now;
 
