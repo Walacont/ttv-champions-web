@@ -1,7 +1,9 @@
 // SC Champions - Player Matches Module (Supabase Version)
 // Handles match requests, set score input, and match history
+// Multi-sport support: Match requests include sport_id
 
 import { getSupabase } from './supabase-init.js';
+import { getSportContext } from './sport-context-supabase.js';
 
 const supabase = getSupabase();
 
@@ -224,6 +226,7 @@ function checkHandicap(currentUserData) {
 
 /**
  * Submit match request
+ * Multi-sport: Includes sport_id and cross-club detection
  */
 async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) {
     const feedbackEl = document.getElementById('match-request-feedback');
@@ -253,18 +256,53 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
     const loserId = validation.winnerId === 'A' ? selectedOpponent.id : currentUser.id;
 
     try {
+        // Get sport context for current user
+        const sportContext = await getSportContext(currentUser.id);
+        const sportId = sportContext?.sportId || null;
+        const myClubId = sportContext?.clubId || currentUserData.club_id;
+
+        // Get opponent's club for this sport
+        let opponentClubId = selectedOpponent.clubId || null;
+        if (sportId && selectedOpponent.id) {
+            const { data: opponentSportData } = await supabase
+                .from('profile_club_sports')
+                .select('club_id')
+                .eq('user_id', selectedOpponent.id)
+                .eq('sport_id', sportId)
+                .single();
+
+            if (opponentSportData) {
+                opponentClubId = opponentSportData.club_id;
+            }
+        }
+
+        // Determine if this is a cross-club match
+        const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
+
+        // Determine which club to associate with the match
+        // Use requester's club, or null if no club
+        const matchClubId = myClubId || opponentClubId || null;
+
         const { error } = await supabase
             .from('match_requests')
             .insert({
                 player_a_id: currentUser.id,
                 player_b_id: selectedOpponent.id,
-                club_id: currentUserData.club_id,
+                club_id: matchClubId,
+                sport_id: sportId,
                 sets: sets,
                 match_mode: matchMode,
                 handicap_used: handicapUsed,
                 winner_id: winnerId,
                 loser_id: loserId,
                 status: 'pending_player',
+                is_cross_club: isCrossClub,
+                approvals: JSON.stringify({
+                    player_a: true, // Requester auto-approves
+                    player_b: false,
+                    coach_a: null,
+                    coach_b: null
+                }),
                 created_at: new Date().toISOString()
             });
 

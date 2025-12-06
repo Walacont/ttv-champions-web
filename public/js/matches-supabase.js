@@ -769,6 +769,8 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 
 /**
  * Loads pending match requests for coach approval
+ * Multi-sport: Shows sport badge and cross-club indicator
+ * For cross-club matches, both coaches can see and approve the request
  */
 export async function loadCoachMatchRequests(userData, supabaseClient) {
     const container = document.getElementById('coach-pending-requests-list');
@@ -778,15 +780,25 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
     const supabase = getSupabase();
 
     try {
+        // First, get all club members for the coach's club
+        // (we need to know which players are in our club for cross-club filtering)
+        const { data: clubMembers } = await supabase
+            .from('profile_club_sports')
+            .select('user_id')
+            .eq('club_id', userData.clubId);
+
+        const clubMemberIds = (clubMembers || []).map(m => m.user_id);
+
         // Query for singles requests awaiting coach approval
+        // Include sport info for display
         const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
             .select(`
                 *,
                 player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name, elo_rating),
-                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name, elo_rating)
+                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name, elo_rating),
+                sports(id, display_name)
             `)
-            .eq('club_id', userData.clubId)
             .eq('status', 'pending_coach')
             .order('created_at', { ascending: false });
 
@@ -794,12 +806,18 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
             console.error('Error loading singles requests:', singlesError);
         }
 
-        const allRequests = (singlesRequests || []).map(req => ({
+        // Filter requests: show only requests where at least one player is in our club
+        const relevantRequests = (singlesRequests || []).filter(req => {
+            return clubMemberIds.includes(req.player_a_id) || clubMemberIds.includes(req.player_b_id);
+        });
+
+        const allRequests = relevantRequests.map(req => ({
             id: req.id,
             type: 'singles',
             ...req,
             playerAData: req.player_a,
             playerBData: req.player_b,
+            sportName: req.sports?.display_name || '',
         }));
 
         if (allRequests.length === 0) {
@@ -809,30 +827,64 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
             return;
         }
 
-        // Render requests
+        // Render requests with sport badge and cross-club indicator
         container.innerHTML = allRequests.map(req => {
             const playerA = req.playerAData;
             const playerB = req.playerBData;
+            const sportBadge = req.sportName ? `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full ml-2">${req.sportName}</span>` : '';
+            const crossClubBadge = req.is_cross_club ? `<span class="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full ml-1">Vereinsübergreifend</span>` : '';
+
+            // Format sets if available
+            const setsDisplay = req.sets && req.sets.length > 0
+                ? req.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ')
+                : '';
+
             return `
                 <div class="bg-white rounded-lg shadow p-4 mb-3" data-request-id="${req.id}">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <span class="font-medium">${playerA?.first_name || 'Spieler A'} ${playerA?.last_name || ''}</span>
-                            <span class="text-gray-500 mx-2">vs</span>
-                            <span class="font-medium">${playerB?.first_name || 'Spieler B'} ${playerB?.last_name || ''}</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <button class="approve-request bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600" data-id="${req.id}">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="reject-request bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600" data-id="${req.id}">
-                                <i class="fas fa-times"></i>
-                            </button>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="flex items-center flex-wrap gap-1">
+                                    <span class="font-medium">${playerA?.first_name || 'Spieler A'} ${playerA?.last_name || ''}</span>
+                                    <span class="text-gray-500 mx-1">vs</span>
+                                    <span class="font-medium">${playerB?.first_name || 'Spieler B'} ${playerB?.last_name || ''}</span>
+                                    ${sportBadge}
+                                    ${crossClubBadge}
+                                </div>
+                                ${setsDisplay ? `<p class="text-sm text-gray-500 mt-1">Ergebnis: ${setsDisplay}</p>` : ''}
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="approve-request bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600" data-id="${req.id}" title="Genehmigen">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="reject-request bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600" data-id="${req.id}" title="Ablehnen">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Set up event delegation for approve/reject buttons
+        // Remove any existing handler first to prevent duplicates
+        const newContainer = container.cloneNode(false);
+        newContainer.innerHTML = container.innerHTML;
+        container.parentNode.replaceChild(newContainer, container);
+
+        newContainer.addEventListener('click', async (e) => {
+            const approveBtn = e.target.closest('.approve-request');
+            const rejectBtn = e.target.closest('.reject-request');
+
+            if (approveBtn) {
+                const requestId = approveBtn.dataset.id;
+                await handleCoachApproval(requestId, true, userData);
+            } else if (rejectBtn) {
+                const requestId = rejectBtn.dataset.id;
+                await handleCoachApproval(requestId, false, userData);
+            }
+        });
 
         if (badge) {
             badge.textContent = allRequests.length;
@@ -846,7 +898,120 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
 }
 
 /**
+ * Handle coach approval/rejection of match request
+ * Creates the actual match if approved
+ */
+async function handleCoachApproval(requestId, approve, userData) {
+    const supabase = getSupabase();
+
+    try {
+        if (!approve) {
+            // Rejected - update status
+            const { error } = await supabase
+                .from('match_requests')
+                .update({
+                    status: 'rejected',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', requestId);
+
+            if (error) throw error;
+
+            alert('Anfrage abgelehnt');
+            loadCoachMatchRequests(userData, supabase);
+            loadCoachProcessedRequests(userData, supabase);
+            return;
+        }
+
+        // Approved - get the request details
+        const { data: request, error: fetchError } = await supabase
+            .from('match_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Update approvals JSON
+        let approvals = request.approvals || {};
+        if (typeof approvals === 'string') {
+            approvals = JSON.parse(approvals);
+        }
+
+        // Mark this coach as approved
+        // For cross-club matches, we track which coach approved
+        // The first coach to approve releases the match
+        if (request.is_cross_club) {
+            // Determine if this coach is for player A or player B
+            const sportId = request.sport_id;
+
+            // Get player A's club for this sport
+            const { data: playerAClub } = await supabase
+                .from('profile_club_sports')
+                .select('club_id')
+                .eq('user_id', request.player_a_id)
+                .eq('sport_id', sportId)
+                .single();
+
+            // Determine which side the approving coach is on
+            if (playerAClub?.club_id === userData.clubId) {
+                approvals.coach_a = true;
+            } else {
+                approvals.coach_b = true;
+            }
+        } else {
+            // Same club - single coach approval
+            approvals.coach_a = true;
+        }
+
+        // Create the match (first coach to approve releases it)
+        const { error: matchError } = await supabase
+            .from('matches')
+            .insert({
+                player_a_id: request.player_a_id,
+                player_b_id: request.player_b_id,
+                club_id: request.club_id,
+                sport_id: request.sport_id,
+                winner_id: request.winner_id,
+                loser_id: request.loser_id,
+                sets: request.sets,
+                match_mode: request.match_mode,
+                handicap_used: request.handicap_used,
+                is_cross_club: request.is_cross_club,
+                match_request_id: request.id,
+                created_at: new Date().toISOString()
+            });
+
+        if (matchError) throw matchError;
+
+        // Update the request status to approved
+        const { error: updateError } = await supabase
+            .from('match_requests')
+            .update({
+                status: 'approved',
+                approvals: approvals,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', requestId);
+
+        if (updateError) throw updateError;
+
+        console.log('[Coach] Match approved and created:', requestId);
+        alert('Match genehmigt und erstellt!');
+
+        // Reload both lists
+        loadCoachMatchRequests(userData, supabase);
+        loadCoachProcessedRequests(userData, supabase);
+
+    } catch (error) {
+        console.error('Error handling coach approval:', error);
+        alert('Fehler beim Verarbeiten: ' + error.message);
+    }
+}
+
+/**
  * Loads and renders processed match requests for coach (approved/rejected)
+ * Multi-sport: Shows sport badge
  */
 export async function loadCoachProcessedRequests(userData, supabaseClient) {
     const container = document.getElementById('coach-processed-requests-list');
@@ -860,10 +1025,12 @@ export async function loadCoachProcessedRequests(userData, supabaseClient) {
             .select(`
                 *,
                 player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name),
-                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name)
+                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name),
+                sports(display_name)
             `)
             .eq('club_id', userData.clubId)
             .neq('status', 'pending_coach')
+            .neq('status', 'pending_player')
             .order('created_at', { ascending: false })
             .limit(20);
 
@@ -877,11 +1044,17 @@ export async function loadCoachProcessedRequests(userData, supabaseClient) {
 
         container.innerHTML = requests.map(req => {
             const statusClass = req.status === 'approved' ? 'text-green-600' : 'text-red-600';
-            const statusText = req.status === 'approved' ? 'Genehmigt' : 'Abgelehnt';
+            const statusText = req.status === 'approved' ? 'Genehmigt' : req.status === 'rejected' ? 'Abgelehnt' : req.status;
+            const sportBadge = req.sports?.display_name
+                ? `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full ml-2">${req.sports.display_name}</span>`
+                : '';
             return `
                 <div class="bg-gray-50 rounded-lg p-3 mb-2">
                     <div class="flex justify-between items-center">
-                        <span>${req.player_a?.first_name} vs ${req.player_b?.first_name}</span>
+                        <div class="flex items-center">
+                            <span>${req.player_a?.first_name || 'Spieler A'} vs ${req.player_b?.first_name || 'Spieler B'}</span>
+                            ${sportBadge}
+                        </div>
                         <span class="${statusClass} text-sm font-medium">${statusText}</span>
                     </div>
                 </div>

@@ -1470,20 +1470,22 @@ async function loadExercises() {
 }
 
 // --- Load Match Requests ---
+// NOTE: Match requests show ALL sports (not filtered by active sport)
+// This is intentional - user should see all pending requests regardless of sport
 async function loadMatchRequests() {
     const container = document.getElementById('overview-match-requests');
     if (!container) return;
 
     try {
-        // Get pending requests where user is involved
+        // Get pending requests where user is involved (ALL sports)
         // Schema uses player_a_id and player_b_id (not requester_id/opponent_id)
         const { data: requests, error } = await supabase
             .from('match_requests')
-            .select('*')
+            .select('*, sports(display_name)')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
-            .limit(5);
+            .limit(10);
 
         if (error) throw error;
 
@@ -1509,6 +1511,8 @@ async function loadMatchRequests() {
             const otherPlayer = profileMap[otherPlayerId];
             const otherPlayerName = otherPlayer ? `${otherPlayer.first_name || ''} ${otherPlayer.last_name || ''}`.trim() || 'Unbekannt' : 'Unbekannt';
             const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
+            const sportName = req.sports?.display_name || '';
+            const sportBadge = sportName ? `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">${sportName}</span>` : '';
 
             return `
                 <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
@@ -1517,8 +1521,11 @@ async function loadMatchRequests() {
                              class="w-10 h-10 rounded-full object-cover"
                              onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
-                            <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
-                            <p class="text-xs text-gray-500">${statusText}</p>
+                            <p class="font-medium flex items-center gap-2">
+                                ${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}
+                                ${sportBadge}
+                            </p>
+                            <p class="text-xs text-gray-500">${statusText}${req.is_cross_club ? ' (Vereinsübergreifend)' : ''}</p>
                         </div>
                     </div>
                     ${!isPlayerA && req.status === 'pending_player' ? `
@@ -2174,20 +2181,148 @@ window.openChallengeModal = async (challengeId) => {
 
 window.respondToMatchRequest = async (requestId, accept) => {
     try {
-        const newStatus = accept ? 'pending_coach' : 'rejected';
-        const { error } = await supabase
+        if (!accept) {
+            // Rejected - simple update
+            const { error } = await supabase
+                .from('match_requests')
+                .update({ status: 'rejected', updated_at: new Date().toISOString() })
+                .eq('id', requestId);
+
+            if (error) throw error;
+            loadMatchRequests();
+            return;
+        }
+
+        // Accepted - need to check club membership to determine next status
+        // First get the match request details
+        const { data: request, error: fetchError } = await supabase
             .from('match_requests')
-            .update({ status: newStatus, updated_at: new Date().toISOString() })
+            .select('*, sports(display_name)')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Get club info for both players (for the sport if available)
+        const sportId = request.sport_id;
+        let playerAClubId = null;
+        let playerBClubId = null;
+
+        if (sportId) {
+            // Get clubs from profile_club_sports for this sport
+            const { data: playerAData } = await supabase
+                .from('profile_club_sports')
+                .select('club_id')
+                .eq('user_id', request.player_a_id)
+                .eq('sport_id', sportId)
+                .single();
+
+            const { data: playerBData } = await supabase
+                .from('profile_club_sports')
+                .select('club_id')
+                .eq('user_id', request.player_b_id)
+                .eq('sport_id', sportId)
+                .single();
+
+            playerAClubId = playerAData?.club_id;
+            playerBClubId = playerBData?.club_id;
+        } else {
+            // Fallback to profiles.club_id
+            const { data: players } = await supabase
+                .from('profiles')
+                .select('id, club_id')
+                .in('id', [request.player_a_id, request.player_b_id]);
+
+            players?.forEach(p => {
+                if (p.id === request.player_a_id) playerAClubId = p.club_id;
+                if (p.id === request.player_b_id) playerBClubId = p.club_id;
+            });
+        }
+
+        // Determine next status based on club membership
+        let newStatus;
+        let approvals = request.approvals || {};
+        if (typeof approvals === 'string') {
+            approvals = JSON.parse(approvals);
+        }
+        approvals.player_b = true;
+
+        // Case 1: Both players have NO club → Auto-approve
+        if (!playerAClubId && !playerBClubId) {
+            newStatus = 'approved';
+            console.log('[Match] Auto-approved: Both players have no club');
+        }
+        // Case 2: At least one player has a club → pending_coach
+        else {
+            newStatus = 'pending_coach';
+            console.log('[Match] Pending coach approval:', {
+                playerAClub: playerAClubId,
+                playerBClub: playerBClubId,
+                isCrossClub: playerAClubId !== playerBClubId && playerAClubId && playerBClubId
+            });
+        }
+
+        // Update the request
+        const { error: updateError } = await supabase
+            .from('match_requests')
+            .update({
+                status: newStatus,
+                approvals: approvals,
+                updated_at: new Date().toISOString()
+            })
             .eq('id', requestId);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // If auto-approved, create the actual match
+        if (newStatus === 'approved') {
+            await createMatchFromRequest(request);
+        }
 
         loadMatchRequests();
+
+        // Show feedback
+        const feedbackMsg = newStatus === 'approved'
+            ? 'Match bestätigt!'
+            : 'Anfrage angenommen - wartet auf Coach-Bestätigung';
+        alert(feedbackMsg);
+
     } catch (error) {
         console.error('Error responding to match request:', error);
         alert('Fehler beim Verarbeiten der Anfrage');
     }
 };
+
+/**
+ * Create actual match from approved request
+ */
+async function createMatchFromRequest(request) {
+    try {
+        const { error } = await supabase
+            .from('matches')
+            .insert({
+                player_a_id: request.player_a_id,
+                player_b_id: request.player_b_id,
+                club_id: request.club_id,
+                sport_id: request.sport_id,
+                winner_id: request.winner_id,
+                loser_id: request.loser_id,
+                sets: request.sets,
+                match_mode: request.match_mode,
+                handicap_used: request.handicap_used,
+                is_cross_club: request.is_cross_club,
+                match_request_id: request.id,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+        console.log('[Match] Created match from request:', request.id);
+
+    } catch (error) {
+        console.error('Error creating match from request:', error);
+        throw error;
+    }
+}
 
 // ========================================================================
 // ===== MATCH REQUEST SYSTEM =====
