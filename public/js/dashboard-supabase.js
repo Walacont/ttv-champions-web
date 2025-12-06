@@ -2418,14 +2418,40 @@ async function searchOpponents(query, resultsContainer) {
         // Check if current user is from a test club
         const isCurrentUserInTestClub = currentUserData.club_id && testClubIds.includes(currentUserData.club_id);
 
-        // Load all matching players (global search with privacy filter)
-        const { data: players, error } = await supabase
+        // Get users in the same sport as current user
+        let sportUserIds = null;
+        if (currentSportContext?.sportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id')
+                .eq('sport_id', currentSportContext.sportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                console.log('[Opponent Search] Filtering by sport:', currentSportContext.sportName, 'Users:', sportUserIds.length);
+            }
+        }
+
+        // Build query
+        let query_builder = supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach'])
-            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-            .limit(50);
+            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
+
+        // Filter by sport if available
+        if (sportUserIds && sportUserIds.length > 0) {
+            query_builder = query_builder.in('id', sportUserIds);
+        } else if (sportUserIds && sportUserIds.length === 0) {
+            // No users in sport
+            resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler in dieser Sportart gefunden</p>';
+            return;
+        }
+
+        query_builder = query_builder.limit(50);
+
+        const { data: players, error } = await query_builder;
 
         if (error) throw error;
 

@@ -1539,6 +1539,33 @@ async function setActiveSportAndShowClubStatus(sportId, sportName) {
 
     console.log('[Settings] Active sport updated successfully');
 
+    // Ensure user has a profile_club_sports entry for this sport
+    // This is needed for leaderboards and opponent search to work
+    const { data: existingEntry } = await supabase
+        .from('profile_club_sports')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('sport_id', sportId)
+        .maybeSingle();
+
+    if (!existingEntry) {
+        console.log('[Settings] Creating profile_club_sports entry for sport');
+        const { error: insertError } = await supabase
+            .from('profile_club_sports')
+            .insert({
+                user_id: currentUser.id,
+                sport_id: sportId,
+                club_id: null, // No club yet
+                role: 'player'
+            });
+
+        if (insertError) {
+            console.error('[Settings] Error creating sport entry:', insertError);
+        } else {
+            console.log('[Settings] Sport entry created successfully');
+        }
+    }
+
     // Update local data
     if (currentUserData) {
         currentUserData.activeSportId = sportId;
