@@ -268,11 +268,12 @@ registrationForm?.addEventListener('submit', async e => {
                 if (invitationCodeData.gender) {
                     profileUpdates.gender = invitationCodeData.gender;
                 }
-                // Code without player_id - new player via code, set defaults
+                // Code without player_id - new player via code (including head_coach), set defaults
                 profileUpdates.is_match_ready = true;
                 profileUpdates.elo_rating = 800;
                 profileUpdates.highest_elo = 800;
                 profileUpdates.grundlagen_completed = 5;
+                console.log('[REGISTER] Setting is_match_ready=true for new code registration (role:', invitationCodeData.role, ')');
             }
         }
 
@@ -288,6 +289,7 @@ registrationForm?.addEventListener('submit', async e => {
             profileUpdates.elo_rating = 800;
             profileUpdates.highest_elo = 800;
             profileUpdates.grundlagen_completed = 5;
+            console.log('[REGISTER] Setting is_match_ready=true for self-registration (no-code)');
         }
 
         // Update Profil falls nötig
@@ -299,7 +301,7 @@ registrationForm?.addEventListener('submit', async e => {
                 .from('profiles')
                 .update(profileUpdates)
                 .eq('id', user.id)
-                .select('id, role, active_sport_id, club_id')
+                .select('id, role, active_sport_id, club_id, is_match_ready, grundlagen_completed')
                 .single();
 
             if (updateError) {
@@ -314,6 +316,12 @@ registrationForm?.addEventListener('submit', async e => {
                 }
                 if (profileUpdates.active_sport_id && updatedProfile.active_sport_id !== profileUpdates.active_sport_id) {
                     console.error('[REGISTER] Sport mismatch! Expected:', profileUpdates.active_sport_id, 'Got:', updatedProfile.active_sport_id);
+                }
+                // Verify is_match_ready was set correctly
+                if (profileUpdates.is_match_ready !== undefined && updatedProfile.is_match_ready !== profileUpdates.is_match_ready) {
+                    console.error('[REGISTER] is_match_ready mismatch! Expected:', profileUpdates.is_match_ready, 'Got:', updatedProfile.is_match_ready);
+                } else {
+                    console.log('[REGISTER] is_match_ready verified:', updatedProfile.is_match_ready);
                 }
             } else {
                 console.error('[REGISTER] Profile update returned no data - profile might not exist');

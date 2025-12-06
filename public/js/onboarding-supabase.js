@@ -267,7 +267,11 @@ onboardingForm?.addEventListener('submit', async e => {
         // 1. Self-registration (no code) - is_match_ready should be true
         // 2. head_coach registration with admin code - is_match_ready should be true
         // 3. Offline player migration where coach set them as match-ready
-        const shouldGrantXP = currentUserData.is_match_ready && (currentUserData.xp === 0 || currentUserData.xp === null);
+        const currentXP = currentUserData.xp || 0;
+        const isMatchReady = currentUserData.is_match_ready === true;
+        const shouldGrantXP = isMatchReady && currentXP === 0;
+
+        console.log('[ONBOARDING-SUPABASE] XP check:', { isMatchReady, currentXP, shouldGrantXP, role: currentUserData.role });
 
         if (shouldGrantXP) {
             dataToUpdate.xp = 50;
