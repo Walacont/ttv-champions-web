@@ -232,10 +232,10 @@ registrationForm?.addEventListener('submit', async e => {
 
             // Check if this code is for an existing offline player
             if (invitationCodeData.player_id) {
-                // Get the offline player's is_match_ready setting
+                // Get the offline player's data (is_match_ready, grundlagen_completed, birthdate, gender)
                 const { data: offlinePlayer } = await supabase
                     .from('profiles')
-                    .select('is_match_ready, grundlagen_completed')
+                    .select('is_match_ready, grundlagen_completed, birthdate, gender')
                     .eq('id', invitationCodeData.player_id)
                     .single();
 
@@ -251,8 +251,23 @@ registrationForm?.addEventListener('submit', async e => {
                         profileUpdates.is_match_ready = false;
                         profileUpdates.grundlagen_completed = offlinePlayer.grundlagen_completed || 0;
                     }
+
+                    // Transfer birthdate and gender from offline player profile
+                    if (offlinePlayer.birthdate) {
+                        profileUpdates.birthdate = offlinePlayer.birthdate;
+                    }
+                    if (offlinePlayer.gender) {
+                        profileUpdates.gender = offlinePlayer.gender;
+                    }
                 }
             } else {
+                // Check if invitation code has birthdate/gender (from offline player creation)
+                if (invitationCodeData.birthdate) {
+                    profileUpdates.birthdate = invitationCodeData.birthdate;
+                }
+                if (invitationCodeData.gender) {
+                    profileUpdates.gender = invitationCodeData.gender;
+                }
                 // Code without player_id - new player via code, set defaults
                 profileUpdates.is_match_ready = true;
                 profileUpdates.elo_rating = 800;

@@ -106,6 +106,7 @@ import {
     openEditPlayerModal,
     handleSavePlayerSubgroups,
     updatePointsPlayerDropdown,
+    initOfflinePlayerBirthdateSelects,
 } from './player-management-supabase.js';
 import {
     loadPointsHistoryForCoach,
@@ -492,7 +493,7 @@ async function initializeCoachPage(userData) {
         loadPlayerList(userData.clubId, supabase, unsub => {
             if (unsubscribePlayerList) unsubscribePlayerList();
             unsubscribePlayerList = unsub;
-        });
+        }, userData);
     });
     document.getElementById('close-player-modal-button').addEventListener('click', () => {
         document.getElementById('player-list-modal').classList.add('hidden');
@@ -503,6 +504,9 @@ async function initializeCoachPage(userData) {
     document.getElementById('add-offline-player-button').addEventListener('click', async () => {
         document.getElementById('add-offline-player-modal').classList.remove('hidden');
         document.getElementById('add-offline-player-modal').classList.add('flex');
+
+        // Initialize birthdate dropdowns
+        initOfflinePlayerBirthdateSelects();
 
         // Lade Subgroups from Supabase
         const { data: subgroupsData, error } = await supabase
@@ -726,8 +730,8 @@ async function initializeCoachPage(userData) {
         const button = e.target.closest('button');
         if (!button) return;
 
-        // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern)
-        await handlePlayerListActions(e, supabase, null, null);
+        // Führt bestehende Aktionen aus (Löschen, Einladen, Befördern, Wettkampfsbereit, etc.)
+        await handlePlayerListActions(e, supabase, userData);
 
         // Logik für "Gruppen bearbeiten"-Button
         if (button.classList.contains('edit-subgroups-btn')) {

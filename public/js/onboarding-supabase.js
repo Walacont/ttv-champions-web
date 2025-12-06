@@ -167,6 +167,12 @@ async function checkAuthState() {
         }
     }
 
+    // Fill gender select if data exists
+    if (profile.gender) {
+        const genderSelect = document.getElementById('gender');
+        if (genderSelect) genderSelect.value = profile.gender;
+    }
+
     // Load sports dropdown and check if sport is pre-assigned
     await loadSports(profile.active_sport_id);
 }
@@ -255,6 +261,18 @@ onboardingForm?.addEventListener('submit', async e => {
             is_offline: false,
             updated_at: new Date().toISOString()
         };
+
+        // Check if we need to grant 50 XP for completing onboarding
+        // This applies to:
+        // 1. Self-registration (no code) - is_match_ready should be true
+        // 2. head_coach registration with admin code - is_match_ready should be true
+        // 3. Offline player migration where coach set them as match-ready
+        const shouldGrantXP = currentUserData.is_match_ready && (currentUserData.xp === 0 || currentUserData.xp === null);
+
+        if (shouldGrantXP) {
+            dataToUpdate.xp = 50;
+            console.log('[ONBOARDING-SUPABASE] Granting 50 XP for completing onboarding');
+        }
 
         // Update profile
         const { error: updateError } = await supabase

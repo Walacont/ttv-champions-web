@@ -56,7 +56,9 @@ function mapPlayerFromSupabase(player) {
         qttrPoints: player.qttr_points,
         photoURL: player.photo_url,
         rank: player.rank,
-        createdAt: player.created_at
+        createdAt: player.created_at,
+        birthdate: player.birthdate,
+        gender: player.gender
     };
 }
 
@@ -82,8 +84,51 @@ function mapPlayerToSupabase(playerData) {
     if (playerData.subgroupIDs !== undefined) mapped.subgroup_ids = playerData.subgroupIDs;
     if (playerData.qttrPoints !== undefined) mapped.qttr_points = playerData.qttrPoints;
     if (playerData.photoURL !== undefined) mapped.photo_url = playerData.photoURL;
+    if (playerData.birthdate !== undefined) mapped.birthdate = playerData.birthdate;
+    if (playerData.gender !== undefined) mapped.gender = playerData.gender;
 
     return mapped;
+}
+
+/**
+ * Initializes the birthdate dropdowns for offline player creation
+ */
+export function initOfflinePlayerBirthdateSelects() {
+    const daySelect = document.getElementById('offline-birthdate-day');
+    const monthSelect = document.getElementById('offline-birthdate-month');
+    const yearSelect = document.getElementById('offline-birthdate-year');
+
+    if (!daySelect || !monthSelect || !yearSelect) return;
+
+    // Clear existing options except placeholder
+    daySelect.innerHTML = '<option value="">Tag</option>';
+    monthSelect.innerHTML = '<option value="">Monat</option>';
+    yearSelect.innerHTML = '<option value="">Jahr</option>';
+
+    // Fill days (1-31)
+    for (let i = 1; i <= 31; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        daySelect.appendChild(option);
+    }
+
+    // Fill months (1-12)
+    for (let i = 1; i <= 12; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        monthSelect.appendChild(option);
+    }
+
+    // Fill years (current year down to 1900)
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear; i >= 1900; i--) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        yearSelect.appendChild(option);
+    }
 }
 
 /**
@@ -111,6 +156,20 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
     const lastName = form.querySelector('#lastName').value.trim();
     const emailField = form.querySelector('#email');
     const email = emailField ? emailField.value.trim() : '';
+
+    // === NEU: Geburtstag und Geschlecht auslesen ===
+    const birthdateDay = document.getElementById('offline-birthdate-day')?.value || '';
+    const birthdateMonth = document.getElementById('offline-birthdate-month')?.value || '';
+    const birthdateYear = document.getElementById('offline-birthdate-year')?.value || '';
+    const gender = document.getElementById('offline-gender')?.value || '';
+
+    // Combine birthdate into YYYY-MM-DD format if all fields are filled
+    let birthdate = null;
+    if (birthdateDay && birthdateMonth && birthdateYear) {
+        const paddedDay = birthdateDay.toString().padStart(2, '0');
+        const paddedMonth = birthdateMonth.toString().padStart(2, '0');
+        birthdate = `${birthdateYear}-${paddedMonth}-${paddedDay}`;
+    }
 
     // === NEU: Logik zum Auslesen der Subgroup-Checkboxen ===
     // Include both checked and disabled checkboxes (disabled = Hauptgruppe, always included)
@@ -178,11 +237,22 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             points: 0,
             elo_rating: initialElo,
             highest_elo: initialHighestElo,
-            xp: 0,
+            // Wenn bereits wettkampfsbereit, vergebe 50 XP
+            xp: isMatchReady ? 50 : 0,
             // Wenn bereits wettkampfsbereit, setze grundlagenCompleted auf 5 (erfüllt Anforderung)
             grundlagen_completed: isMatchReady ? 5 : 0,
             subgroup_ids: subgroupIDs,
         };
+
+        // Add birthdate if provided
+        if (birthdate) {
+            playerData.birthdate = birthdate;
+        }
+
+        // Add gender if provided
+        if (gender) {
+            playerData.gender = gender;
+        }
 
         if (email) {
             playerData.email = email;
@@ -232,18 +302,19 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
  * Handles player list actions (toggle match-ready, send invite, delete, promote)
  * @param {Event} e - Click event
  * @param {Object} supabase - Supabase client instance
+ * @param {Object} currentUserData - Current user data for audit logging
  */
-export async function handlePlayerListActions(e, supabase) {
+export async function handlePlayerListActions(e, supabase, currentUserData = null) {
     const target = e.target;
     const button = target.closest('button');
     if (!button) return;
 
     const playerId = button.dataset.id;
     if (!playerId) return;
+    const playerName = button.dataset.name || '';
 
     // Handle new invitation button (opens modal with email/code choice)
     if (button.classList.contains('send-new-invitation-btn')) {
-        const playerName = button.dataset.name;
         const playerEmail = button.dataset.email || '';
         openSendInvitationModal(playerId, playerName, playerEmail);
         return;
@@ -251,17 +322,52 @@ export async function handlePlayerListActions(e, supabase) {
 
     // Handle manage invitation button (email/code bearbeiten)
     if (button.classList.contains('manage-invitation-btn')) {
-        const playerName = button.dataset.name;
         const playerEmail = button.dataset.email || '';
         openSendInvitationModal(playerId, playerName, playerEmail);
         return;
     }
 
-    // Old email invite button removed - now using code-based invitations only
+    // Handle set match-ready button (+ 50 XP, not reversible)
+    if (button.classList.contains('set-match-ready-btn')) {
+        if (confirm(`Möchten Sie "${playerName}" als wettkampfsbereit markieren?\n\nDer Spieler erhält 50 XP. Diese Aktion kann nicht rückgängig gemacht werden.`)) {
+            try {
+                // First get current XP to add 50
+                const { data: playerData, error: fetchError } = await supabase
+                    .from('profiles')
+                    .select('xp')
+                    .eq('id', playerId)
+                    .single();
 
-    // Handle delete button
+                if (fetchError) throw fetchError;
+
+                const newXp = (playerData.xp || 0) + 50;
+
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({
+                        is_match_ready: true,
+                        grundlagen_completed: 5,
+                        xp: newXp
+                    })
+                    .eq('id', playerId);
+
+                if (error) throw error;
+
+                alert(`${playerName} ist jetzt wettkampfsbereit und hat 50 XP erhalten!`);
+
+                // Close panels to force refresh
+                closePlayerDetailPanels();
+            } catch (error) {
+                console.error('Fehler beim Setzen der Wettkampfsbereitschaft:', error);
+                alert('Fehler: Die Wettkampfsbereitschaft konnte nicht gesetzt werden.');
+            }
+        }
+        return;
+    }
+
+    // Handle delete button (only for head_coach and offline players)
     if (button.classList.contains('delete-player-btn')) {
-        if (confirm('Möchten Sie diesen Spieler wirklich löschen?')) {
+        if (confirm(`Möchten Sie "${playerName}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
                 const { error } = await supabase
                     .from('profiles')
@@ -271,33 +377,18 @@ export async function handlePlayerListActions(e, supabase) {
                 if (error) throw error;
 
                 alert('Spieler gelöscht.');
-
-                // Close desktop detail panel
-                const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
-                const detailPlaceholderDesktop = document.getElementById(
-                    'player-detail-placeholder-desktop'
-                );
-                if (detailPanelDesktop) detailPanelDesktop.classList.add('hidden');
-                if (detailPlaceholderDesktop) detailPlaceholderDesktop.classList.remove('hidden');
-
-                // Close mobile modal
-                const mobileModal = document.getElementById('player-detail-mobile-modal');
-                if (mobileModal) mobileModal.classList.add('hidden');
-
-                // Remove active highlight
-                document
-                    .querySelectorAll('.player-list-item-active')
-                    .forEach(item => item.classList.remove('player-list-item-active'));
+                closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Löschen des Spielers:', error);
                 alert('Fehler: Der Spieler konnte nicht gelöscht werden.');
             }
         }
+        return;
     }
 
     // Handle promote to coach button
     if (button.classList.contains('promote-coach-btn')) {
-        if (confirm('Möchten Sie diesen Spieler zum Coach ernennen?')) {
+        if (confirm(`Möchten Sie "${playerName}" zum Coach ernennen?`)) {
             try {
                 const { error } = await supabase
                     .from('profiles')
@@ -306,12 +397,92 @@ export async function handlePlayerListActions(e, supabase) {
 
                 if (error) throw error;
 
-                alert('Spieler wurde zum Coach befördert.');
+                // Log audit event
+                await logAuditEvent(supabase, 'user_promoted', currentUserData?.id, playerId, 'user', currentUserData?.clubId, null, {
+                    player_name: playerName,
+                    new_role: 'coach',
+                    promoted_by: currentUserData?.firstName + ' ' + currentUserData?.lastName
+                });
+
+                alert(`${playerName} wurde zum Coach befördert.`);
+                closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Befördern:', error);
                 alert('Fehler: Der Spieler konnte nicht befördert werden.');
             }
         }
+        return;
+    }
+
+    // Handle demote to player button (remove coach rights)
+    if (button.classList.contains('demote-player-btn')) {
+        if (confirm(`Möchten Sie "${playerName}" die Coach-Rechte entziehen?\n\nDer Spieler wird wieder ein normaler Spieler.`)) {
+            try {
+                const { error } = await supabase
+                    .from('profiles')
+                    .update({ role: 'player' })
+                    .eq('id', playerId);
+
+                if (error) throw error;
+
+                // Log audit event
+                await logAuditEvent(supabase, 'user_demoted', currentUserData?.id, playerId, 'user', currentUserData?.clubId, null, {
+                    player_name: playerName,
+                    new_role: 'player',
+                    demoted_by: currentUserData?.firstName + ' ' + currentUserData?.lastName
+                });
+
+                alert(`${playerName} ist jetzt wieder ein normaler Spieler.`);
+                closePlayerDetailPanels();
+            } catch (error) {
+                console.error('Fehler beim Entziehen der Coach-Rechte:', error);
+                alert('Fehler: Die Coach-Rechte konnten nicht entzogen werden.');
+            }
+        }
+        return;
+    }
+}
+
+/**
+ * Helper function to close player detail panels
+ */
+function closePlayerDetailPanels() {
+    // Close desktop detail panel
+    const detailPanelDesktop = document.getElementById('player-detail-panel-desktop');
+    const detailPlaceholderDesktop = document.getElementById('player-detail-placeholder-desktop');
+    if (detailPanelDesktop) detailPanelDesktop.classList.add('hidden');
+    if (detailPlaceholderDesktop) detailPlaceholderDesktop.classList.remove('hidden');
+
+    // Close mobile modal
+    const mobileModal = document.getElementById('player-detail-mobile-modal');
+    if (mobileModal) mobileModal.classList.add('hidden');
+
+    // Remove active highlight
+    document
+        .querySelectorAll('.player-list-item-active')
+        .forEach(item => item.classList.remove('player-list-item-active'));
+}
+
+/**
+ * Logs an audit event to the database
+ */
+async function logAuditEvent(supabase, action, actorId, targetId, targetType, clubId, sportId, details) {
+    try {
+        const { error } = await supabase.rpc('log_audit_event', {
+            p_action: action,
+            p_actor_id: actorId,
+            p_target_id: targetId,
+            p_target_type: targetType,
+            p_club_id: clubId,
+            p_sport_id: sportId,
+            p_details: details
+        });
+
+        if (error) {
+            console.error('Error logging audit event:', error);
+        }
+    } catch (error) {
+        console.error('Error logging audit event:', error);
     }
 }
 
@@ -320,8 +491,9 @@ export async function handlePlayerListActions(e, supabase) {
  * @param {string} clubId - Club ID
  * @param {Object} supabase - Supabase client instance
  * @param {Function} setUnsubscribe - Callback to set unsubscribe function
+ * @param {Object} currentUserData - Current user data with role (optional, for permission checks)
  */
-export function loadPlayerList(clubId, supabase, setUnsubscribe) {
+export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData = null) {
     const modalPlayerList = document.getElementById('modal-player-list');
     const tableContainer = document.getElementById('modal-player-list-container');
     const loader = document.getElementById('modal-loader');
@@ -412,19 +584,57 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe) {
                                 );
                             card.classList.add('player-list-item-active');
 
-                            // Erstelle Aktions-Buttons HTML
-                            let actionsHtml = '';
-                            if (player.isOffline) {
-                                actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="send-new-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Einladung versenden</button>`;
-                            }
-                            // Email/Code-Verwaltung für ALLE Spieler (auch online)
-                            actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="manage-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-blue-600 hover:bg-blue-100 hover:text-blue-900"><i class="fas fa-envelope-open-text w-5 mr-2"></i> Email/Code bearbeiten</button>`;
+                            // Determine current user's role
+                            const isHeadCoach = currentUserData?.role === 'head_coach';
+                            const isCoachOrHigher = ['coach', 'head_coach', 'admin'].includes(currentUserData?.role);
 
-                            if (player.role === 'player') {
-                                actionsHtml += `<button data-id="${player.id}" class="promote-coach-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-900"><i class="fas fa-user-shield w-5 mr-2"></i> Zum Coach ernennen</button>`;
+                            // === Erstelle Aktions-Buttons HTML ===
+                            let actionsHtml = '';
+
+                            // --- Spieler Details Section ---
+                            actionsHtml += '<div class="mb-4 pb-4 border-b border-gray-200">';
+                            actionsHtml += '<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Spieler Details</h4>';
+
+                            // Wettkampfsbereit setzen (nur wenn noch nicht wettkampfsbereit)
+                            // Nur für Coaches, nicht rückgängig
+                            if (!player.isMatchReady && isCoachOrHigher) {
+                                actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="set-match-ready-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-green-600 hover:bg-green-100 hover:text-green-900"><i class="fas fa-check-circle w-5 mr-2"></i> Wettkampfsbereit setzen (+50 XP)</button>`;
                             }
+
+                            // Gruppen bearbeiten - für alle Coaches
                             actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="edit-subgroups-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-200 hover:text-gray-900"><i class="fas fa-users-cog w-5 mr-2"></i> Gruppen bearbeiten</button>`;
-                            actionsHtml += `<button data-id="${player.id}" class="delete-player-btn block w-full text-left mt-4 px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 hover:text-red-900"><i class="fas fa-trash-alt w-5 mr-2"></i> Spieler löschen</button>`;
+                            actionsHtml += '</div>';
+
+                            // --- Einladungen Section ---
+                            if (player.isOffline) {
+                                actionsHtml += '<div class="mb-4 pb-4 border-b border-gray-200">';
+                                actionsHtml += '<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Einladung</h4>';
+                                actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" data-email="${player.email || ''}" class="send-new-invitation-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:bg-indigo-100 hover:text-indigo-900"><i class="fas fa-paper-plane w-5 mr-2"></i> Code generieren / erneut senden</button>`;
+                                actionsHtml += '</div>';
+                            }
+
+                            // --- head_coach Funktionen ---
+                            if (isHeadCoach) {
+                                actionsHtml += '<div class="mb-4 pb-4 border-b border-gray-200">';
+                                actionsHtml += '<h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Head-Coach Funktionen</h4>';
+
+                                // Zum Coach ernennen - nur für Online-Spieler mit Rolle "player"
+                                if (!player.isOffline && player.role === 'player') {
+                                    actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="promote-coach-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:bg-purple-100 hover:text-purple-900"><i class="fas fa-user-shield w-5 mr-2"></i> Zum Coach ernennen</button>`;
+                                }
+
+                                // Coach-Rechte entziehen - nur für Coaches
+                                if (player.role === 'coach') {
+                                    actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="demote-player-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-orange-600 hover:bg-orange-100 hover:text-orange-900"><i class="fas fa-user-minus w-5 mr-2"></i> Coach-Rechte entziehen</button>`;
+                                }
+
+                                // Spieler löschen - nur für Offline-Spieler
+                                if (player.isOffline) {
+                                    actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="delete-player-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 hover:text-red-900"><i class="fas fa-trash-alt w-5 mr-2"></i> Spieler löschen</button>`;
+                                }
+
+                                actionsHtml += '</div>';
+                            }
 
                             // Desktop: Zeige Details im rechten Panel
                             const detailPanelDesktop = document.getElementById(

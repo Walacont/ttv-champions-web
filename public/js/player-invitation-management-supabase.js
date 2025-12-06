@@ -184,6 +184,16 @@ async function generateCodeForPlayer(playerData, playerId = null) {
         role: playerData.role || 'player',
     };
 
+    // Add birthdate if provided
+    if (playerData.birthdate) {
+        codeData.birthdate = playerData.birthdate;
+    }
+
+    // Add gender if provided
+    if (playerData.gender) {
+        codeData.gender = playerData.gender;
+    }
+
     // IMPORTANT: Store playerId if this is for an existing offline player
     if (playerId) {
         codeData.player_id = playerId;
@@ -372,7 +382,9 @@ async function handleSendInvitation(e) {
             firstName: playerData.first_name,
             lastName: playerData.last_name,
             subgroupIDs: playerData.subgroup_ids || [],
-            role: playerData.role || 'player'
+            role: playerData.role || 'player',
+            birthdate: playerData.birthdate || null,
+            gender: playerData.gender || null
         };
 
         // IMPORTANT: Pass playerId to link code with existing offline player
