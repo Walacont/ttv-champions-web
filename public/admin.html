@@ -296,9 +296,13 @@
                 <section id="management-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div class="lg:col-span-1 space-y-8">
                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Neuen Coach einladen</h2>
+                            <h2 class="text-xl font-semibold mb-4">
+                                <i class="fas fa-user-tie mr-2 text-indigo-600"></i>
+                                Neuen Spartenleiter einladen
+                            </h2>
                             <form id="invite-coach-form" class="space-y-4">
-                                <div>
+                                <!-- Schritt 1: Vereinsname eingeben -->
+                                <div class="relative">
                                     <label
                                         for="clubName"
                                         class="block text-sm font-medium text-gray-700"
@@ -307,14 +311,78 @@
                                     <input
                                         type="text"
                                         id="clubName"
-                                        required=""
+                                        required
+                                        autocomplete="off"
                                         placeholder="z.B. TTV Musterstadt"
                                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     />
-                                    <p class="mt-1 text-xs text-gray-500">Existiert der Verein noch nicht, wird er automatisch erstellt.</p>
+                                    <!-- Autocomplete Dropdown -->
+                                    <div id="club-search-results" class="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg hidden max-h-60 overflow-y-auto">
+                                        <!-- Suchergebnisse werden hier eingefügt -->
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">Tippe um existierende Vereine zu suchen, oder gib einen neuen Namen ein.</p>
                                 </div>
+
+                                <!-- Ausgewählter Verein (wird eingeblendet wenn Verein ausgewählt) -->
+                                <div id="selected-club-container" class="hidden">
+                                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <p class="text-sm font-medium text-indigo-800">Ausgewählter Verein:</p>
+                                                <p id="selected-club-name" class="text-lg font-bold text-indigo-900"></p>
+                                            </div>
+                                            <button type="button" id="clear-selected-club" class="text-indigo-600 hover:text-indigo-800">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                        <!-- Existierende Sparten -->
+                                        <div id="existing-sports-container" class="mt-3 hidden">
+                                            <p class="text-xs font-medium text-indigo-700 mb-2">Existierende Sparten:</p>
+                                            <div id="existing-sports-list" class="flex flex-wrap gap-2">
+                                                <!-- Sparten-Badges werden hier eingefügt -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="selected-club-id" value="" />
+                                </div>
+
+                                <!-- Schritt 2: Sportart auswählen -->
+                                <div>
+                                    <label
+                                        for="sportSelect"
+                                        class="block text-sm font-medium text-gray-700"
+                                        >Sportart / Sparte</label
+                                    >
+                                    <select
+                                        id="sportSelect"
+                                        required
+                                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                    >
+                                        <option value="">-- Sportart wählen --</option>
+                                        <!-- Sportarten werden dynamisch geladen -->
+                                    </select>
+                                    <p id="sport-select-hint" class="mt-1 text-xs text-gray-500">Wähle die Sportart für den neuen Spartenleiter.</p>
+                                </div>
+
+                                <!-- Info-Box für neuen Verein -->
+                                <div id="new-club-info" class="hidden bg-green-50 border border-green-200 rounded-lg p-3">
+                                    <p class="text-sm text-green-800">
+                                        <i class="fas fa-plus-circle mr-1"></i>
+                                        <strong>Neuer Verein:</strong> Der Verein wird automatisch erstellt.
+                                    </p>
+                                </div>
+
+                                <!-- Info-Box für existierende Sparte -->
+                                <div id="existing-sport-warning" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                    <p class="text-sm text-amber-800">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                                        <strong>Hinweis:</strong> Diese Sparte existiert bereits. Der neue Spartenleiter wird zusätzlich hinzugefügt.
+                                    </p>
+                                </div>
+
                                 <button
                                     type="submit"
+                                    id="generate-code-btn"
                                     class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105"
                                 >
                                     <i class="fas fa-key mr-2"></i>Einladungscode generieren
@@ -475,8 +543,12 @@
                     </div>
                     <div class="lg:col-span-2 space-y-8">
                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Vereinsübersicht</h2>
-                            <div id="clubs-list" class="space-y-3">
+                            <h2 class="text-xl font-semibold mb-4">
+                                <i class="fas fa-sitemap mr-2 text-teal-600"></i>
+                                Vereinsübersicht
+                            </h2>
+                            <p class="text-sm text-gray-500 mb-4">Vereine → Sparten → Mitglieder</p>
+                            <div id="clubs-list" class="space-y-4">
                                 <p>Vereine werden geladen...</p>
                             </div>
                         </div>

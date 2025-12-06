@@ -79,6 +79,12 @@ let editDescriptionEditor = null;
 let usersSubscription = null;
 let exercisesSubscription = null;
 
+// Sports and clubs data
+let allSports = [];
+let allClubs = [];
+let selectedClub = null;
+let clubExistingSports = [];
+
 function showAuthError(message) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'none';
@@ -228,6 +234,10 @@ function initializeAdminPage(userData, user) {
 
         editExerciseForm.addEventListener('submit', handleUpdateExercise);
 
+        // Load sports and clubs for the invite form
+        loadSportsAndClubs();
+        setupClubSearchListeners();
+
         loadClubsAndPlayers();
         loadAllExercises();
         loadStatistics();
@@ -236,37 +246,322 @@ function initializeAdminPage(userData, user) {
     }
 }
 
+// ============================================
+// SPORTS AND CLUBS MANAGEMENT
+// ============================================
+
+async function loadSportsAndClubs() {
+    try {
+        // Load all sports
+        const { data: sports, error: sportsError } = await supabase
+            .from('sports')
+            .select('*')
+            .eq('is_active', true)
+            .order('display_name');
+
+        if (sportsError) throw sportsError;
+        allSports = sports || [];
+
+        // Populate sports dropdown
+        const sportSelect = document.getElementById('sportSelect');
+        if (sportSelect) {
+            sportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
+            allSports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
+                sportSelect.appendChild(option);
+            });
+        }
+
+        // Load all clubs
+        const { data: clubs, error: clubsError } = await supabase
+            .from('clubs')
+            .select('id, name, is_test_club')
+            .order('name');
+
+        if (clubsError) throw clubsError;
+        allClubs = clubs || [];
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Sportarten/Vereine:', error);
+    }
+}
+
+function getSportIcon(sportName) {
+    const icons = {
+        'table_tennis': '🏓',
+        'badminton': '🏸',
+        'tennis': '🎾',
+        'padel': '🎾'
+    };
+    return icons[sportName] || '⚽';
+}
+
+function setupClubSearchListeners() {
+    const clubNameInput = document.getElementById('clubName');
+    const searchResults = document.getElementById('club-search-results');
+    const selectedClubContainer = document.getElementById('selected-club-container');
+    const clearSelectedClubBtn = document.getElementById('clear-selected-club');
+    const sportSelect = document.getElementById('sportSelect');
+    const newClubInfo = document.getElementById('new-club-info');
+    const existingSportWarning = document.getElementById('existing-sport-warning');
+
+    if (!clubNameInput) return;
+
+    let searchTimeout;
+
+    // Live search as user types
+    clubNameInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+
+        clearTimeout(searchTimeout);
+
+        if (query.length < 2) {
+            searchResults.classList.add('hidden');
+            newClubInfo.classList.add('hidden');
+            return;
+        }
+
+        searchTimeout = setTimeout(() => {
+            performClubSearch(query);
+        }, 300);
+    });
+
+    // Hide results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!clubNameInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.classList.add('hidden');
+        }
+    });
+
+    // Clear selected club
+    if (clearSelectedClubBtn) {
+        clearSelectedClubBtn.addEventListener('click', () => {
+            clearSelectedClub();
+        });
+    }
+
+    // Sport selection change - check if sport already exists
+    if (sportSelect) {
+        sportSelect.addEventListener('change', () => {
+            checkExistingSport();
+        });
+    }
+}
+
+async function performClubSearch(query) {
+    const searchResults = document.getElementById('club-search-results');
+    const newClubInfo = document.getElementById('new-club-info');
+
+    // Filter clubs that match the query
+    const matchingClubs = allClubs.filter(club =>
+        club.name.toLowerCase().includes(query.toLowerCase())
+    );
+
+    searchResults.innerHTML = '';
+
+    if (matchingClubs.length > 0) {
+        // Show matching clubs
+        for (const club of matchingClubs) {
+            const clubSports = await getClubSports(club.id);
+            const sportsText = clubSports.length > 0
+                ? clubSports.map(s => `${getSportIcon(s.name)} ${s.display_name}`).join(', ')
+                : 'Keine Sparten';
+
+            const div = document.createElement('div');
+            div.className = 'px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b last:border-b-0';
+            div.innerHTML = `
+                <div class="font-medium text-gray-900">${club.name}</div>
+                <div class="text-xs text-gray-500">${sportsText}</div>
+            `;
+            div.addEventListener('click', () => selectClub(club, clubSports));
+            searchResults.appendChild(div);
+        }
+
+        // Option to create new club with this name
+        const createNewDiv = document.createElement('div');
+        createNewDiv.className = 'px-4 py-3 hover:bg-green-50 cursor-pointer bg-green-25 border-t border-green-200';
+        createNewDiv.innerHTML = `
+            <div class="font-medium text-green-700"><i class="fas fa-plus-circle mr-2"></i>Neuen Verein erstellen: "${query}"</div>
+        `;
+        createNewDiv.addEventListener('click', () => {
+            clearSelectedClub();
+            document.getElementById('clubName').value = query;
+            searchResults.classList.add('hidden');
+            newClubInfo.classList.remove('hidden');
+        });
+        searchResults.appendChild(createNewDiv);
+
+        searchResults.classList.remove('hidden');
+        newClubInfo.classList.add('hidden');
+    } else {
+        // No matching clubs - offer to create new
+        searchResults.classList.add('hidden');
+        newClubInfo.classList.remove('hidden');
+    }
+}
+
+async function getClubSports(clubId) {
+    try {
+        const { data, error } = await supabase
+            .from('club_sports')
+            .select('sport_id, sports(id, name, display_name)')
+            .eq('club_id', clubId)
+            .eq('is_active', true);
+
+        if (error) throw error;
+        return (data || []).map(cs => cs.sports);
+    } catch (error) {
+        console.error('Fehler beim Laden der Club-Sportarten:', error);
+        return [];
+    }
+}
+
+function selectClub(club, clubSports) {
+    selectedClub = club;
+    clubExistingSports = clubSports;
+
+    const clubNameInput = document.getElementById('clubName');
+    const searchResults = document.getElementById('club-search-results');
+    const selectedClubContainer = document.getElementById('selected-club-container');
+    const selectedClubName = document.getElementById('selected-club-name');
+    const selectedClubIdInput = document.getElementById('selected-club-id');
+    const existingSportsContainer = document.getElementById('existing-sports-container');
+    const existingSportsList = document.getElementById('existing-sports-list');
+    const newClubInfo = document.getElementById('new-club-info');
+
+    // Hide search results and input
+    searchResults.classList.add('hidden');
+    clubNameInput.value = '';
+    clubNameInput.classList.add('hidden');
+    newClubInfo.classList.add('hidden');
+
+    // Show selected club
+    selectedClubName.textContent = club.name;
+    selectedClubIdInput.value = club.id;
+    selectedClubContainer.classList.remove('hidden');
+
+    // Show existing sports
+    if (clubSports.length > 0) {
+        existingSportsList.innerHTML = clubSports.map(sport =>
+            `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                ${getSportIcon(sport.name)} ${sport.display_name}
+            </span>`
+        ).join('');
+        existingSportsContainer.classList.remove('hidden');
+    } else {
+        existingSportsContainer.classList.add('hidden');
+    }
+
+    // Check if selected sport already exists
+    checkExistingSport();
+}
+
+function clearSelectedClub() {
+    selectedClub = null;
+    clubExistingSports = [];
+
+    const clubNameInput = document.getElementById('clubName');
+    const selectedClubContainer = document.getElementById('selected-club-container');
+    const selectedClubIdInput = document.getElementById('selected-club-id');
+    const existingSportWarning = document.getElementById('existing-sport-warning');
+    const newClubInfo = document.getElementById('new-club-info');
+
+    clubNameInput.classList.remove('hidden');
+    clubNameInput.value = '';
+    selectedClubContainer.classList.add('hidden');
+    selectedClubIdInput.value = '';
+    existingSportWarning.classList.add('hidden');
+    newClubInfo.classList.add('hidden');
+}
+
+function checkExistingSport() {
+    const sportSelect = document.getElementById('sportSelect');
+    const existingSportWarning = document.getElementById('existing-sport-warning');
+
+    if (!sportSelect || !existingSportWarning) return;
+
+    const selectedSportId = sportSelect.value;
+
+    if (selectedClub && selectedSportId) {
+        const sportExists = clubExistingSports.some(s => s.id === selectedSportId);
+        if (sportExists) {
+            existingSportWarning.classList.remove('hidden');
+        } else {
+            existingSportWarning.classList.add('hidden');
+        }
+    } else {
+        existingSportWarning.classList.add('hidden');
+    }
+}
+
 async function handleInviteCoach(e) {
     e.preventDefault();
-    const clubName = document.getElementById('clubName')?.value?.trim();
 
-    if (!clubName) {
-        return alert('Bitte einen Vereinsnamen eingeben.');
+    const clubNameInput = document.getElementById('clubName');
+    const clubName = clubNameInput?.value?.trim();
+    const selectedClubId = document.getElementById('selected-club-id')?.value;
+    const sportId = document.getElementById('sportSelect')?.value;
+
+    // Validation
+    if (!selectedClubId && !clubName) {
+        return alert('Bitte einen Verein auswählen oder einen neuen Vereinsnamen eingeben.');
+    }
+
+    if (!sportId) {
+        return alert('Bitte eine Sportart auswählen.');
     }
 
     try {
         let clubId;
+        let isNewClub = false;
 
-        // Check if club already exists by name
-        const { data: existingClub } = await supabase
-            .from('clubs')
-            .select('id')
-            .eq('name', clubName)
-            .single();
-
-        if (existingClub) {
-            // Use existing club
-            clubId = existingClub.id;
+        if (selectedClubId) {
+            // Use selected existing club
+            clubId = selectedClubId;
         } else {
-            // Create new club
-            const { data: newClub, error: clubError } = await supabase
+            // Check if club already exists by name (shouldn't happen with new UI, but safety check)
+            const { data: existingClub } = await supabase
                 .from('clubs')
-                .insert({ name: clubName })
-                .select()
+                .select('id')
+                .eq('name', clubName)
                 .single();
 
-            if (clubError) throw clubError;
-            clubId = newClub.id;
+            if (existingClub) {
+                clubId = existingClub.id;
+            } else {
+                // Create new club
+                const { data: newClub, error: clubError } = await supabase
+                    .from('clubs')
+                    .insert({ name: clubName })
+                    .select()
+                    .single();
+
+                if (clubError) throw clubError;
+                clubId = newClub.id;
+                isNewClub = true;
+            }
+        }
+
+        // Add sport to club_sports if not already there
+        const { data: existingClubSport } = await supabase
+            .from('club_sports')
+            .select('club_id')
+            .eq('club_id', clubId)
+            .eq('sport_id', sportId)
+            .single();
+
+        if (!existingClubSport) {
+            const { error: clubSportError } = await supabase
+                .from('club_sports')
+                .insert({
+                    club_id: clubId,
+                    sport_id: sportId,
+                    is_active: true
+                });
+
+            if (clubSportError) throw clubSportError;
         }
 
         // Generate unique code
@@ -296,13 +591,17 @@ async function handleInviteCoach(e) {
         // Get current user
         const user = await getCurrentUser();
 
-        // Create code document
+        // Get sport info for display
+        const selectedSport = allSports.find(s => s.id === sportId);
+
+        // Create code document with sport_id and head_coach role
         const expiresAt = getExpirationDate();
         const { error } = await supabase
             .from('invitation_codes')
             .insert({
                 code,
                 club_id: clubId,
+                sport_id: sportId,
                 created_by: user.id,
                 expires_at: expiresAt,
                 max_uses: 1,
@@ -312,20 +611,33 @@ async function handleInviteCoach(e) {
                 first_name: '',
                 last_name: '',
                 subgroup_ids: [],
-                role: 'coach',
+                role: 'head_coach', // New role: Spartenleiter
             });
 
         if (error) throw error;
 
-        // Display code
+        // Display code with info
         inviteLinkInput.value = code;
         inviteLinkContainer.classList.remove('hidden');
 
-        // Clear the club name input
-        document.getElementById('clubName').value = '';
+        // Show success info
+        const clubDisplayName = selectedClub ? selectedClub.name : clubName;
+        const sportDisplayName = selectedSport ? selectedSport.display_name : 'Unbekannt';
+        alert(`Einladungscode erstellt!\n\nVerein: ${clubDisplayName}\nSparte: ${sportDisplayName}\nRolle: Spartenleiter\n\nCode: ${code}`);
+
+        // Reset form
+        clearSelectedClub();
+        document.getElementById('sportSelect').value = '';
+        document.getElementById('new-club-info').classList.add('hidden');
+        document.getElementById('existing-sport-warning').classList.add('hidden');
+
+        // Reload clubs list to show updates
+        await loadSportsAndClubs();
+        loadClubsAndPlayers();
+
     } catch (error) {
         console.error('Fehler beim Erstellen des Codes:', error);
-        alert('Fehler: Der Einladungscode konnte nicht erstellt werden.');
+        alert('Fehler: Der Einladungscode konnte nicht erstellt werden.\n' + error.message);
     }
 }
 
@@ -944,27 +1256,69 @@ function renderCompetitionChart(labels, data) {
 
 async function loadClubsAndPlayers() {
     try {
-        // Load clubs first
+        // Load clubs with their sports
         const { data: clubs, error: clubsError } = await supabase
             .from('clubs')
-            .select('id, name, is_test_club');
+            .select('id, name, is_test_club')
+            .order('name');
 
         if (clubsError) throw clubsError;
 
-        // Create clubs map
-        const clubsMap = new Map();
-        (clubs || []).forEach(club => {
-            clubsMap.set(club.id, club);
-        });
+        // Load club_sports relationships
+        const { data: clubSportsData, error: clubSportsError } = await supabase
+            .from('club_sports')
+            .select('club_id, sport_id, sports(id, name, display_name)')
+            .eq('is_active', true);
 
-        // Initial load of users
-        const { data: users, error } = await supabase
+        if (clubSportsError) throw clubSportsError;
+
+        // Load profile_club_sports for role per sport (if table exists)
+        let profileClubSportsData = [];
+        try {
+            const { data, error } = await supabase
+                .from('profile_club_sports')
+                .select('*');
+            if (!error) {
+                profileClubSportsData = data || [];
+            }
+        } catch (e) {
+            // Table might not exist yet
+            console.log('profile_club_sports table not found, using legacy mode');
+        }
+
+        // Load all users
+        const { data: users, error: usersError } = await supabase
             .from('profiles')
             .select('*');
 
-        if (error) throw error;
+        if (usersError) throw usersError;
 
-        renderClubsAndPlayers(users || [], clubsMap);
+        // Create data structures
+        const clubsMap = new Map();
+        (clubs || []).forEach(club => clubsMap.set(club.id, club));
+
+        const clubSportsMap = new Map();
+        (clubSportsData || []).forEach(cs => {
+            if (!clubSportsMap.has(cs.club_id)) {
+                clubSportsMap.set(cs.club_id, []);
+            }
+            clubSportsMap.get(cs.club_id).push(cs.sports);
+        });
+
+        // Create profile sports map (user_id -> [{sport_id, role}])
+        const profileSportsMap = new Map();
+        (profileClubSportsData || []).forEach(pcs => {
+            const key = `${pcs.user_id}_${pcs.club_id}`;
+            if (!profileSportsMap.has(key)) {
+                profileSportsMap.set(key, []);
+            }
+            profileSportsMap.get(key).push({
+                sport_id: pcs.sport_id,
+                role: pcs.role
+            });
+        });
+
+        renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap);
 
         // Setup realtime subscription
         if (usersSubscription) {
@@ -972,12 +1326,9 @@ async function loadClubsAndPlayers() {
         }
 
         usersSubscription = supabase
-            .channel('profiles_changes')
+            .channel('profiles_changes_admin')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
-                const { data: updatedUsers } = await supabase
-                    .from('profiles')
-                    .select('*');
-                renderClubsAndPlayers(updatedUsers || [], clubsMap);
+                loadClubsAndPlayers(); // Reload everything
             })
             .subscribe();
 
@@ -987,8 +1338,9 @@ async function loadClubsAndPlayers() {
     }
 }
 
-function renderClubsAndPlayers(users, clubsMap = new Map()) {
-    const clubs = users.reduce((acc, user) => {
+function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap) {
+    // Group users by club
+    const usersByClub = users.reduce((acc, user) => {
         if (user.club_id) {
             if (!acc[user.club_id]) {
                 acc[user.club_id] = [];
@@ -998,49 +1350,214 @@ function renderClubsAndPlayers(users, clubsMap = new Map()) {
         return acc;
     }, {});
 
-    clubsListEl.innerHTML =
-        Object.keys(clubs).length === 0
-            ? '<p class="text-gray-500">Keine Vereine gefunden.</p>'
-            : '';
+    clubsListEl.innerHTML = '';
 
-    for (const clubId in clubs) {
-        const clubData = clubsMap.get(clubId);
-        const clubName = clubData?.name || clubId;
-        const isTestClub = clubData?.is_test_club === true;
+    if (clubsMap.size === 0) {
+        clubsListEl.innerHTML = '<p class="text-gray-500">Keine Vereine gefunden.</p>';
+        return;
+    }
+
+    // Render each club with its sports
+    for (const [clubId, clubData] of clubsMap) {
+        const clubUsers = usersByClub[clubId] || [];
+        const clubSports = clubSportsMap.get(clubId) || [];
+        const isTestClub = clubData.is_test_club === true;
+
+        // Skip clubs without users if not a test club
+        if (clubUsers.length === 0 && !isTestClub && clubSports.length === 0) continue;
 
         const clubDiv = document.createElement('div');
-        clubDiv.className = 'p-4 bg-gray-50 rounded-lg flex justify-between items-center';
-        clubDiv.innerHTML = `
-            <div>
-                <p class="font-semibold">${clubName}</p>
-                ${isTestClub ? '<span class="text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Test-Club</span>' : ''}
+        clubDiv.className = 'bg-gray-50 rounded-lg overflow-hidden border border-gray-200';
+
+        // Club header
+        const headerHtml = `
+            <div class="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-lg text-gray-900">${clubData.name}</h3>
+                        <p class="text-sm text-gray-600">${clubUsers.length} Mitglieder gesamt</p>
+                        ${isTestClub ? '<span class="inline-block mt-1 text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Test-Club</span>' : ''}
+                    </div>
+                    <button data-club-id="${clubId}" data-club-name="${clubData.name}" class="toggle-club-btn text-indigo-600 hover:text-indigo-800">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
             </div>
-            <button data-club-id="${clubId}" data-club-name="${clubName}" class="view-players-button bg-blue-500 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-600">Mitglieder anzeigen (${clubs[clubId].length})</button>`;
+        `;
+
+        // Sports sections (collapsed by default)
+        let sportsHtml = `<div class="club-sports-container hidden p-4 space-y-3" data-club-id="${clubId}">`;
+
+        if (clubSports.length > 0) {
+            for (const sport of clubSports) {
+                // Get users for this sport
+                // For now, show all club users in each sport (until profile_club_sports is populated)
+                const sportUsers = clubUsers; // TODO: Filter by profile_club_sports
+
+                sportsHtml += `
+                    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        <div class="px-4 py-3 bg-gray-100 flex justify-between items-center cursor-pointer toggle-sport-btn" data-club-id="${clubId}" data-sport-id="${sport.id}">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">${getSportIcon(sport.name)}</span>
+                                <span class="font-medium text-gray-800">${sport.display_name}</span>
+                                <span class="text-sm text-gray-500">(${sportUsers.length} Mitglieder)</span>
+                            </div>
+                            <i class="fas fa-chevron-right text-gray-400 sport-chevron"></i>
+                        </div>
+                        <div class="sport-members-container hidden p-3 space-y-2 max-h-64 overflow-y-auto" data-sport-id="${sport.id}">
+                            ${renderSportMembers(sportUsers, profileSportsMap, clubId, sport.id)}
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            // No sports defined yet - show all users
+            sportsHtml += `
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p class="text-sm text-amber-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Keine Sparten definiert. Alle Mitglieder:
+                    </p>
+                </div>
+                <div class="bg-white rounded-lg border border-gray-200 p-3 space-y-2 max-h-64 overflow-y-auto">
+                    ${renderLegacyMembers(clubUsers)}
+                </div>
+            `;
+        }
+
+        sportsHtml += '</div>';
+
+        clubDiv.innerHTML = headerHtml + sportsHtml;
         clubsListEl.appendChild(clubDiv);
     }
 
-    document.querySelectorAll('.view-players-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const clubId = button.dataset.clubId;
-            const clubName = button.dataset.clubName || clubId;
-            modalClubIdEl.textContent = `Mitglieder von: ${clubName}`;
-            modalPlayerListEl.innerHTML = '';
-            clubs[clubId]
-                .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
-                .forEach(player => {
-                    const playerEl = document.createElement('div');
-                    const initials =
-                        (player.first_name?.[0] || '') + (player.last_name?.[0] || '');
-                    const avatarSrc =
-                        player.avatar_url ||
-                        `https://placehold.co/40x40/e2e8f0/64748b?text=${initials}`;
-                    playerEl.className = 'p-2 border-b flex justify-between items-center';
-                    playerEl.innerHTML = `<div class="flex items-center"><img src="${avatarSrc}" alt="Avatar" class="h-10 w-10 rounded-full object-cover mr-4"><div><p class="font-medium">${player.first_name || ''} ${player.last_name || ''} (${player.role})</p><p class="text-sm text-gray-500">${player.email || 'Offline'}</p></div></div><button data-id="${player.id}" class="delete-player-btn text-red-500 hover:text-red-700 font-semibold text-sm">Löschen</button>`;
-                    modalPlayerListEl.appendChild(playerEl);
-                });
-            playerModal.classList.remove('hidden');
+    // Add event listeners for toggle buttons
+    document.querySelectorAll('.toggle-club-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const clubId = btn.dataset.clubId;
+            const container = document.querySelector(`.club-sports-container[data-club-id="${clubId}"]`);
+            const icon = btn.querySelector('i');
+
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                container.classList.add('hidden');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
         });
     });
+
+    document.querySelectorAll('.toggle-sport-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sportId = btn.dataset.sportId;
+            const container = btn.parentElement.querySelector('.sport-members-container');
+            const icon = btn.querySelector('.sport-chevron');
+
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                container.classList.add('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+            }
+        });
+    });
+
+    // Add event listeners for delete buttons
+    document.querySelectorAll('.delete-member-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleDeletePlayer(btn.dataset.id);
+        });
+    });
+}
+
+function renderSportMembers(users, profileSportsMap, clubId, sportId) {
+    if (users.length === 0) {
+        return '<p class="text-sm text-gray-500 text-center py-2">Keine Mitglieder</p>';
+    }
+
+    return users
+        .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
+        .map(user => {
+            const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
+            const avatarSrc = user.photo_url || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+
+            // Get role for this sport from profileSportsMap
+            const profileKey = `${user.id}_${clubId}`;
+            const sportRoles = profileSportsMap.get(profileKey) || [];
+            const sportRole = sportRoles.find(sr => sr.sport_id === sportId);
+            const role = sportRole?.role || user.role || 'player';
+
+            const roleDisplay = getRoleDisplay(role);
+
+            return `
+                <div class="flex items-center justify-between py-2 px-2 hover:bg-gray-50 rounded">
+                    <div class="flex items-center gap-3">
+                        <img src="${avatarSrc}" alt="" class="h-8 w-8 rounded-full object-cover">
+                        <div>
+                            <p class="font-medium text-sm text-gray-900">${user.first_name || ''} ${user.last_name || ''}</p>
+                            <div class="flex items-center gap-2">
+                                <span class="${roleDisplay.class} text-xs px-1.5 py-0.5 rounded">${roleDisplay.label}</span>
+                                <span class="text-xs text-gray-400">${user.email || ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button data-id="${user.id}" class="delete-member-btn text-red-400 hover:text-red-600 p-1">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+function renderLegacyMembers(users) {
+    if (users.length === 0) {
+        return '<p class="text-sm text-gray-500 text-center py-2">Keine Mitglieder</p>';
+    }
+
+    return users
+        .sort((a, b) => (a.last_name || '').localeCompare(b.last_name || ''))
+        .map(user => {
+            const initials = (user.first_name?.[0] || '') + (user.last_name?.[0] || '');
+            const avatarSrc = user.photo_url || `https://placehold.co/32x32/e2e8f0/64748b?text=${initials}`;
+            const roleDisplay = getRoleDisplay(user.role);
+
+            return `
+                <div class="flex items-center justify-between py-2 px-2 hover:bg-gray-50 rounded">
+                    <div class="flex items-center gap-3">
+                        <img src="${avatarSrc}" alt="" class="h-8 w-8 rounded-full object-cover">
+                        <div>
+                            <p class="font-medium text-sm text-gray-900">${user.first_name || ''} ${user.last_name || ''}</p>
+                            <div class="flex items-center gap-2">
+                                <span class="${roleDisplay.class} text-xs px-1.5 py-0.5 rounded">${roleDisplay.label}</span>
+                                <span class="text-xs text-gray-400">${user.email || ''}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button data-id="${user.id}" class="delete-member-btn text-red-400 hover:text-red-600 p-1">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                </div>
+            `;
+        })
+        .join('');
+}
+
+function getRoleDisplay(role) {
+    const roles = {
+        'admin': { label: 'Admin', class: 'bg-red-100 text-red-800' },
+        'head_coach': { label: 'Spartenleiter', class: 'bg-purple-100 text-purple-800' },
+        'coach': { label: 'Coach', class: 'bg-blue-100 text-blue-800' },
+        'player': { label: 'Spieler', class: 'bg-green-100 text-green-800' }
+    };
+    return roles[role] || { label: role || 'Unbekannt', class: 'bg-gray-100 text-gray-800' };
 }
 
 async function handleDeletePlayer(playerId) {
