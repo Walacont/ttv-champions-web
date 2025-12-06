@@ -31,6 +31,10 @@ const savePrivacySettingsBtn = document.getElementById('save-privacy-settings-bt
 const privacyFeedback = document.getElementById('privacy-feedback');
 const noClubWarning = document.getElementById('no-club-warning');
 
+// Sport Selection Elements
+const userSportsList = document.getElementById('user-sports-list');
+const sportFeedback = document.getElementById('sport-feedback');
+
 let currentUser = null;
 let currentUserData = null;
 let selectedFile = null;
@@ -94,6 +98,9 @@ async function initializeAuth() {
 
             // Vereinsverwaltung initialisieren
             initializeClubManagement();
+
+            // Sport-Auswahl initialisieren
+            initializeSportSelection();
         }
 
         // Email-Adresse anzeigen und Verifizierungs-Status
@@ -1316,5 +1323,255 @@ async function withdrawLeaveRequest(requestId) {
         console.error('Error withdrawing leave request:', error);
         clubManagementFeedback.textContent = `Fehler: ${error.message}`;
         clubManagementFeedback.className = 'text-sm mt-3 text-red-600';
+    }
+}
+
+/**
+ * ===============================================
+ * SPORT SELECTION (Multi-Sport)
+ * ===============================================
+ */
+
+/**
+ * Initialize sport selection UI
+ */
+async function initializeSportSelection() {
+    if (!currentUser) return;
+
+    await loadUserSports();
+}
+
+/**
+ * Load and display user's sports
+ */
+async function loadUserSports() {
+    if (!userSportsList) return;
+
+    try {
+        // Try to use RPC function first
+        const { data: sports, error } = await supabase.rpc('get_user_sports', {
+            p_user_id: currentUser.id
+        });
+
+        if (error) {
+            // Fallback: Query profile_club_sports directly
+            console.warn('RPC get_user_sports not available, using fallback:', error.message);
+            await loadUserSportsFallback();
+            return;
+        }
+
+        if (!sports || sports.length === 0) {
+            userSportsList.innerHTML = `
+                <p class="text-gray-500 text-sm">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Du bist noch keiner Sportart zugeordnet.
+                </p>
+            `;
+            return;
+        }
+
+        // Render sports list
+        renderSportsList(sports);
+
+    } catch (error) {
+        console.error('Error loading user sports:', error);
+        userSportsList.innerHTML = `
+            <p class="text-red-600 text-sm">
+                <i class="fas fa-exclamation-circle mr-1"></i>
+                Fehler beim Laden der Sportarten.
+            </p>
+        `;
+    }
+}
+
+/**
+ * Fallback: Load sports directly from profile_club_sports table
+ */
+async function loadUserSportsFallback() {
+    try {
+        // Get user's sports
+        const { data: profileSports, error: pcsError } = await supabase
+            .from('profile_club_sports')
+            .select(`
+                sport_id,
+                role,
+                sports (
+                    id,
+                    name,
+                    display_name,
+                    config
+                )
+            `)
+            .eq('user_id', currentUser.id);
+
+        if (pcsError) throw pcsError;
+
+        // Get active sport from profile
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('active_sport_id')
+            .eq('id', currentUser.id)
+            .single();
+
+        if (profileError) throw profileError;
+
+        const activeSportId = profile?.active_sport_id;
+
+        if (!profileSports || profileSports.length === 0) {
+            userSportsList.innerHTML = `
+                <p class="text-gray-500 text-sm">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    Du bist noch keiner Sportart zugeordnet.
+                </p>
+            `;
+            return;
+        }
+
+        // Map to expected format
+        const sports = profileSports.map(ps => ({
+            sport_id: ps.sport_id,
+            sport_name: ps.sports?.name || 'unknown',
+            display_name: ps.sports?.display_name || ps.sports?.name || 'Unbekannt',
+            config: ps.sports?.config || {},
+            role: ps.role,
+            is_active: ps.sport_id === activeSportId
+        }));
+
+        renderSportsList(sports);
+
+    } catch (error) {
+        console.error('Error in fallback sport loading:', error);
+        userSportsList.innerHTML = `
+            <p class="text-red-600 text-sm">
+                <i class="fas fa-exclamation-circle mr-1"></i>
+                Fehler beim Laden der Sportarten.
+            </p>
+        `;
+    }
+}
+
+/**
+ * Render the sports list UI
+ */
+function renderSportsList(sports) {
+    if (!userSportsList) return;
+
+    userSportsList.innerHTML = sports.map(sport => {
+        const icon = sport.config?.icon || getSportIcon(sport.sport_name);
+        const isActive = sport.is_active;
+        const roleBadge = sport.role === 'coach'
+            ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">Trainer</span>'
+            : '';
+
+        return `
+            <div class="sport-option flex items-center justify-between p-3 rounded-lg border ${
+                isActive
+                    ? 'border-indigo-500 bg-indigo-50'
+                    : 'border-gray-200 bg-white hover:border-indigo-300'
+            } cursor-pointer transition-all"
+                 data-sport-id="${sport.sport_id}"
+                 data-sport-name="${sport.display_name}">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-3">${icon}</span>
+                    <div>
+                        <span class="font-medium text-gray-900">${sport.display_name}</span>
+                        ${roleBadge}
+                    </div>
+                </div>
+                ${isActive
+                    ? '<span class="text-indigo-600"><i class="fas fa-check-circle text-xl"></i></span>'
+                    : '<span class="text-gray-400 hover:text-indigo-600"><i class="far fa-circle text-xl"></i></span>'
+                }
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers
+    document.querySelectorAll('.sport-option').forEach(option => {
+        option.addEventListener('click', async (e) => {
+            const sportId = option.dataset.sportId;
+            const sportName = option.dataset.sportName;
+            await setActiveSport(sportId, sportName);
+        });
+    });
+}
+
+/**
+ * Get default icon for a sport
+ */
+function getSportIcon(sportName) {
+    const icons = {
+        'table_tennis': '🏓',
+        'tennis': '🎾',
+        'badminton': '🏸',
+        'squash': '🎾',
+        'volleyball': '🏐',
+        'basketball': '🏀',
+        'soccer': '⚽',
+        'handball': '🤾'
+    };
+    return icons[sportName] || '🏅';
+}
+
+/**
+ * Set active sport for user
+ */
+async function setActiveSport(sportId, sportName) {
+    if (!currentUser || !sportId) return;
+
+    try {
+        // Show loading feedback
+        if (sportFeedback) {
+            sportFeedback.textContent = 'Wechsle Sportart...';
+            sportFeedback.className = 'text-sm mt-3 text-gray-600';
+        }
+
+        // Try RPC function first
+        const { data, error } = await supabase.rpc('set_user_active_sport', {
+            p_user_id: currentUser.id,
+            p_sport_id: sportId
+        });
+
+        if (error) {
+            // Fallback: Update profile directly
+            console.warn('RPC set_user_active_sport not available, using fallback:', error.message);
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ active_sport_id: sportId })
+                .eq('id', currentUser.id);
+
+            if (updateError) throw updateError;
+        }
+
+        // Show success feedback
+        if (sportFeedback) {
+            sportFeedback.innerHTML = `
+                <span class="text-green-600">
+                    <i class="fas fa-check-circle mr-1"></i>
+                    Aktive Sportart auf "${sportName}" gewechselt!
+                </span>
+            `;
+        }
+
+        // Reload sports list to update UI
+        await loadUserSports();
+
+        // Clear feedback after 3 seconds
+        setTimeout(() => {
+            if (sportFeedback) {
+                sportFeedback.textContent = '';
+            }
+        }, 3000);
+
+    } catch (error) {
+        console.error('Error setting active sport:', error);
+        if (sportFeedback) {
+            sportFeedback.innerHTML = `
+                <span class="text-red-600">
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    Fehler beim Wechseln der Sportart: ${error.message}
+                </span>
+            `;
+        }
     }
 }
