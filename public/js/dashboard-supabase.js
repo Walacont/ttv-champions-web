@@ -2429,7 +2429,19 @@ async function searchOpponents(query, resultsContainer) {
             if (!sportError && sportUsers) {
                 sportUserIds = sportUsers.map(su => su.user_id);
                 console.log('[Opponent Search] Filtering by sport:', currentSportContext.sportName, 'Users:', sportUserIds.length);
+                console.log('[Opponent Search] Sport user IDs:', sportUserIds);
             }
+        }
+
+        console.log('[Opponent Search] Search query text:', query);
+
+        // DEBUG: Fetch names of all users in sport to see who's available
+        if (sportUserIds && sportUserIds.length > 0) {
+            const { data: allSportPlayers } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .in('id', sportUserIds);
+            console.log('[Opponent Search] All players in sport:', allSportPlayers?.map(p => `${p.first_name} ${p.last_name}`));
         }
 
         // Build query
@@ -2443,6 +2455,7 @@ async function searchOpponents(query, resultsContainer) {
         // Filter by sport if available
         if (sportUserIds && sportUserIds.length > 0) {
             query_builder = query_builder.in('id', sportUserIds);
+            console.log('[Opponent Search] Applying sport filter to query, limiting to', sportUserIds.length, 'users');
         } else if (sportUserIds && sportUserIds.length === 0) {
             // No users in sport
             resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler in dieser Sportart gefunden</p>';
