@@ -984,32 +984,17 @@ async function loadStatistics() {
             (clubs || []).filter(c => c.is_test_club === true).map(c => c.id)
         );
 
-        // Load profile_club_sports for sport filtering
-        let profileClubSportsData = [];
-        if (currentSportFilter !== 'all') {
-            try {
-                const { data } = await supabase
-                    .from('profile_club_sports')
-                    .select('user_id')
-                    .eq('sport_id', currentSportFilter);
-                profileClubSportsData = data || [];
-            } catch (e) {
-                // Table might not exist yet
-            }
-        }
-        const sportUserIds = new Set(profileClubSportsData.map(p => p.user_id));
+        // Load users (excluding test clubs, filtered by sport - single sport model)
+        let usersQuery = supabase.from('profiles').select('*');
 
-        // Load users (excluding test clubs)
-        const { data: allUsers } = await supabase
-            .from('profiles')
-            .select('*');
+        // Apply sport filter directly on profiles (single sport model)
+        if (currentSportFilter !== 'all') {
+            usersQuery = usersQuery.eq('active_sport_id', currentSportFilter);
+        }
+
+        const { data: allUsers } = await usersQuery;
 
         let users = (allUsers || []).filter(u => !u.club_id || !testClubIds.has(u.club_id));
-
-        // Filter by sport if selected
-        if (currentSportFilter !== 'all' && sportUserIds.size > 0) {
-            users = users.filter(u => sportUserIds.has(u.id));
-        }
 
         // Load attendance (excluding test clubs)
         const { data: allAttendance } = await supabase
@@ -1456,21 +1441,7 @@ async function loadClubsAndPlayers() {
 
         console.log(`[ADMIN] Loaded ${clubSportsData?.length || 0} club_sports relationships`);
 
-        // Load profile_club_sports for role per sport (if table exists)
-        let profileClubSportsData = [];
-        try {
-            const { data, error } = await supabase
-                .from('profile_club_sports')
-                .select('*');
-            if (!error) {
-                profileClubSportsData = data || [];
-            }
-        } catch (e) {
-            // Table might not exist yet
-            console.log('profile_club_sports table not found, using legacy mode');
-        }
-
-        // Load all users
+        // Load all users (single sport model - role is directly in profiles)
         const { data: users, error: usersError } = await supabase
             .from('profiles')
             .select('*');
@@ -1489,22 +1460,21 @@ async function loadClubsAndPlayers() {
             clubSportsMap.get(cs.club_id).push(cs.sports);
         });
 
-        // Create profile sports map (user_id -> [{sport_id, role}])
+        // Single sport model: create profile sports map from profiles.active_sport_id and profiles.role
         const profileSportsMap = new Map();
-        (profileClubSportsData || []).forEach(pcs => {
-            const key = `${pcs.user_id}_${pcs.club_id}`;
-            if (!profileSportsMap.has(key)) {
-                profileSportsMap.set(key, []);
+        (users || []).forEach(u => {
+            if (u.club_id && u.active_sport_id) {
+                const key = `${u.id}_${u.club_id}`;
+                profileSportsMap.set(key, [{
+                    sport_id: u.active_sport_id,
+                    role: u.role
+                }]);
             }
-            profileSportsMap.get(key).push({
-                sport_id: pcs.sport_id,
-                role: pcs.role
-            });
         });
 
         renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap, currentSportFilter);
 
-        // Setup realtime subscription for profiles, club_sports, and profile_club_sports
+        // Setup realtime subscription for profiles and club_sports
         if (usersSubscription) {
             supabase.removeChannel(usersSubscription);
         }
@@ -1513,10 +1483,6 @@ async function loadClubsAndPlayers() {
             .channel('club_overview_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
                 console.log('[ADMIN] Profile change detected, reloading club overview');
-                loadClubsAndPlayers();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_club_sports' }, async () => {
-                console.log('[ADMIN] Profile sport assignment change detected, reloading club overview');
                 loadClubsAndPlayers();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'club_sports' }, async () => {
@@ -1613,13 +1579,13 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
                 : clubSports;
 
             for (const sport of filteredSports) {
-                // Get users for this sport by filtering using profile_club_sports
+                // Get users for this sport by filtering using their active_sport_id
                 const sportUsers = clubUsers.filter(user => {
                     const profileKey = `${user.id}_${clubId}`;
                     const sportRoles = profileSportsMap.get(profileKey) || [];
-                    // Check if user has this sport in their profile_club_sports
+                    // Check if user has this sport as their active sport
                     const hasSport = sportRoles.some(sr => sr.sport_id === sport.id);
-                    // If profile_club_sports is empty (legacy mode), show all users
+                    // If no sport data, show all users
                     if (profileSportsMap.size === 0) return true;
                     return hasSport;
                 });

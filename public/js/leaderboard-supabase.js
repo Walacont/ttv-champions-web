@@ -550,7 +550,6 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
 
     try {
         let allPlayers = [];
-        let sportUserClubMap = new Map();
 
         // Try to use sport-specific stats table first
         if (currentLeaderboardSportId) {
@@ -576,24 +575,9 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             if (!statsError && sportStats && sportStats.length > 0) {
                 console.log('[Leaderboard] Using sport-specific stats, players:', sportStats.length);
 
-                // Get club info for this sport
-                const { data: clubInfo } = await supabase
-                    .from('profile_club_sports')
-                    .select('user_id, club_id, clubs(name)')
-                    .eq('sport_id', currentLeaderboardSportId);
-
-                if (clubInfo) {
-                    clubInfo.forEach(ci => {
-                        sportUserClubMap.set(ci.user_id, {
-                            clubId: ci.club_id,
-                            clubName: ci.clubs?.name || 'Kein Verein'
-                        });
-                    });
-                }
-
+                // Single sport model: club info is already in profiles
                 allPlayers = sportStats.map(ss => {
                     const p = ss.profiles;
-                    const sportClubInfo = sportUserClubMap.get(ss.user_id);
                     return {
                         id: p.id,
                         firstName: p.first_name,
@@ -602,8 +586,8 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                         highestElo: ss.highest_elo || 1000,
                         photoURL: p.photo_url,
                         role: p.role,
-                        clubId: sportClubInfo?.clubId || p.club_id,
-                        clubName: sportClubInfo?.clubName || p.clubs?.name || 'Kein Verein',
+                        clubId: p.club_id,
+                        clubName: p.clubs?.name || 'Kein Verein',
                         subgroupIDs: p.subgroup_ids || [],
                         birthdate: p.birthdate,
                         gender: p.gender,
@@ -613,12 +597,12 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                 });
             } else {
                 // Fallback: user_sport_stats table might not exist yet
-                console.log('[Leaderboard] Falling back to profile_club_sports filter');
-                allPlayers = await loadLeaderboardFallback(currentLeaderboardSportId, sportUserClubMap);
+                console.log('[Leaderboard] Falling back to profiles query');
+                allPlayers = await loadLeaderboardFallback(currentLeaderboardSportId);
             }
         } else {
             // No sport filter - use fallback (all sports)
-            allPlayers = await loadLeaderboardFallback(null, sportUserClubMap);
+            allPlayers = await loadLeaderboardFallback(null);
         }
 
         if (allPlayers.length === 0) {
@@ -645,7 +629,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
 
         // Get current user's club ID for privacy filtering
         const currentUserProfile = allPlayers.find(p => p.id === currentUserId);
-        const currentUserClubId = sportUserClubMap.get(currentUserId)?.clubId || currentUserProfile?.clubId;
+        const currentUserClubId = currentUserProfile?.clubId;
 
         // Filter by privacy settings (showInLeaderboards and searchable)
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(allPlayers, currentUserId, currentUserClubId);
@@ -679,68 +663,43 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
 /**
  * Fallback function to load leaderboard from profiles table
  * Used when user_sport_stats table doesn't exist or is empty
+ * Single sport model: filter by profiles.active_sport_id directly
  */
-async function loadLeaderboardFallback(sportId, sportUserClubMap) {
-    let sportUserIds = null;
-
-    if (sportId) {
-        const { data: sportUsers, error: sportError } = await supabase
-            .from('profile_club_sports')
-            .select('user_id, club_id, clubs(name)')
-            .eq('sport_id', sportId);
-
-        if (!sportError && sportUsers) {
-            sportUserIds = sportUsers.map(su => su.user_id);
-            sportUsers.forEach(su => {
-                sportUserClubMap.set(su.user_id, {
-                    clubId: su.club_id,
-                    clubName: su.clubs?.name || 'Kein Verein'
-                });
-            });
-        }
-
-        if (sportUserIds && sportUserIds.length === 0) {
-            return [];
-        }
-    }
-
+async function loadLeaderboardFallback(sportId) {
     // Fetch all players from profiles
     let query = supabase
         .from('profiles')
         .select(`
             id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
-            club_id, clubs(name), subgroup_ids, birthdate, gender, privacy_settings
+            club_id, clubs:club_id(name), subgroup_ids, birthdate, gender, privacy_settings
         `)
         .in('role', ['player', 'coach'])
         .order('elo_rating', { ascending: false });
 
-    // Apply sport filter
-    if (sportUserIds && sportUserIds.length > 0) {
-        query = query.in('id', sportUserIds);
+    // Apply sport filter (single sport model)
+    if (sportId) {
+        query = query.eq('active_sport_id', sportId);
     }
 
     const { data, error } = await query;
 
     if (error) throw error;
 
-    return (data || []).map(p => {
-        const sportClubInfo = sportUserClubMap.get(p.id);
-        return {
-            id: p.id,
-            firstName: p.first_name,
-            lastName: p.last_name,
-            eloRating: p.elo_rating || 1000,
-            highestElo: p.highest_elo,
-            photoURL: p.photo_url,
-            role: p.role,
-            clubId: sportClubInfo?.clubId || p.club_id,
-            clubName: sportClubInfo?.clubName || p.clubs?.name || 'Kein Verein',
-            subgroupIDs: p.subgroup_ids || [],
-            birthdate: p.birthdate,
-            gender: p.gender,
-            privacySettings: p.privacy_settings || {}
-        };
-    });
+    return (data || []).map(p => ({
+        id: p.id,
+        firstName: p.first_name,
+        lastName: p.last_name,
+        eloRating: p.elo_rating || 1000,
+        highestElo: p.highest_elo,
+        photoURL: p.photo_url,
+        role: p.role,
+        clubId: p.club_id,
+        clubName: p.clubs?.name || 'Kein Verein',
+        subgroupIDs: p.subgroup_ids || [],
+        birthdate: p.birthdate,
+        gender: p.gender,
+        privacySettings: p.privacy_settings || {}
+    }));
 }
 
 /**
@@ -1214,28 +1173,19 @@ async function loadRanksView(userData) {
 
     try {
         // Build query (single sport model)
-
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach']);
 
-        // Apply club/sport filter
-        if (!currentLeaderboardSportId && userData.clubId) {
+        // Filter by sport if set
+        if (currentLeaderboardSportId) {
+            query = query.eq('active_sport_id', currentLeaderboardSportId);
+        }
+
+        // Filter by club if set
+        if (userData.clubId) {
             query = query.eq('club_id', userData.clubId);
-        } else if (sportUserIds && sportUserIds.length > 0) {
-            const targetUserIds = userData.clubId
-                ? sportUserIds.filter(uid => sportUserClubMap.get(uid) === userData.clubId)
-                : sportUserIds;
-            if (targetUserIds.length > 0) {
-                query = query.in('id', targetUserIds);
-            } else {
-                listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
-                return;
-            }
-        } else if (sportUserIds && sportUserIds.length === 0) {
-            listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
-            return;
         }
 
         const { data, error } = await query;
@@ -1253,7 +1203,7 @@ async function loadRanksView(userData) {
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: sportUserClubMap.get(p.id) || p.club_id || userData.clubId,
+            clubId: p.club_id || userData.clubId,
             privacySettings: p.privacy_settings || {}
         }));
 
@@ -1274,7 +1224,7 @@ async function loadRanksView(userData) {
         players = await filterTestClubPlayers(players, userData.id);
 
         // Filter by privacy settings (showInLeaderboards)
-        const currentUserClubId = sportUserClubMap.get(userData.id) || userData.clubId;
+        const currentUserClubId = userData.clubId;
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, currentUserClubId);
         players = filteredPlayers;
 
