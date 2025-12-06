@@ -392,6 +392,7 @@ function switchSportFilter(sportId) {
     // Reload data with new filter
     loadStatistics();
     loadAllExercises();
+    loadClubsAndPlayers(); // Reload club overview with new filter
 }
 
 function getSportIcon(sportName) {
@@ -1479,15 +1480,24 @@ async function loadClubsAndPlayers() {
 
         renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap, currentSportFilter);
 
-        // Setup realtime subscription
+        // Setup realtime subscription for profiles, club_sports, and profile_club_sports
         if (usersSubscription) {
             supabase.removeChannel(usersSubscription);
         }
 
         usersSubscription = supabase
-            .channel('profiles_changes_admin')
+            .channel('club_overview_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
-                loadClubsAndPlayers(); // Reload everything
+                console.log('[ADMIN] Profile change detected, reloading club overview');
+                loadClubsAndPlayers();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_club_sports' }, async () => {
+                console.log('[ADMIN] Profile sport assignment change detected, reloading club overview');
+                loadClubsAndPlayers();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'club_sports' }, async () => {
+                console.log('[ADMIN] Club sports change detected, reloading club overview');
+                loadClubsAndPlayers();
             })
             .subscribe();
 
