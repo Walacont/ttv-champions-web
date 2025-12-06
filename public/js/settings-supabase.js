@@ -1389,11 +1389,23 @@ function populateSportDropdown(sports, activeSportId) {
     // Clear existing options except the placeholder
     sportDropdown.innerHTML = '<option value="" disabled>Sportart wählen...</option>';
 
+    // Sports that are not yet available (coming soon)
+    const comingSoonSports = ['badminton'];
+
     // Add each sport as an option
     sports.forEach(sport => {
         const option = document.createElement('option');
         option.value = sport.id;
-        option.textContent = sport.display_name || sport.name;
+
+        const isComingSoon = comingSoonSports.includes(sport.name.toLowerCase());
+
+        if (isComingSoon) {
+            option.textContent = `${sport.display_name || sport.name} (Bald verfügbar)`;
+            option.disabled = true;
+            option.style.color = '#9CA3AF'; // Gray color
+        } else {
+            option.textContent = sport.display_name || sport.name;
+        }
 
         // Mark active sport as selected
         if (sport.id === activeSportId) {
@@ -1403,11 +1415,14 @@ function populateSportDropdown(sports, activeSportId) {
         sportDropdown.appendChild(option);
     });
 
-    // If no active sport is set but sports exist, select the first one
+    // If no active sport is set but sports exist, select the first available (not coming soon) one
     if (!activeSportId && sports.length > 0) {
-        sportDropdown.value = sports[0].id;
-        // Automatically set the first sport as active
-        setActiveSport(sports[0].id, sports[0].display_name || sports[0].name);
+        const firstAvailableSport = sports.find(s => !comingSoonSports.includes(s.name.toLowerCase()));
+        if (firstAvailableSport) {
+            sportDropdown.value = firstAvailableSport.id;
+            // Automatically set the first available sport as active
+            setActiveSport(firstAvailableSport.id, firstAvailableSport.display_name || firstAvailableSport.name);
+        }
     }
 }
 

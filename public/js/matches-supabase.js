@@ -14,7 +14,8 @@ import {
     updateDoc,
     serverTimestamp
 } from './db-supabase.js';
-import { createSetScoreInput } from './player-matches.js';
+import { createSetScoreInput, createTennisScoreInput } from './player-matches-supabase.js';
+import { getSportContext } from './sport-context-supabase.js';
 import { calculateHandicap } from './validation-utils.js';
 import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 
@@ -77,39 +78,96 @@ export function updateCoachWinnerDisplay(setScoreInput = null) {
 /**
  * Initializes the set score input for coach match form
  */
-export function initializeCoachSetScoreInput() {
+export async function initializeCoachSetScoreInput(currentUserId) {
     const container = document.getElementById('coach-set-score-container');
     const matchModeSelect = document.getElementById('coach-match-mode-select');
     const setScoreLabel = document.getElementById('coach-set-score-label');
+    const goldenPointCheckbox = document.getElementById('coach-golden-point-checkbox');
+    const matchTieBreakCheckbox = document.getElementById('coach-match-tiebreak-checkbox');
 
     if (!container) return null;
 
-    function updateSetScoreLabel(mode) {
-        if (!setScoreLabel) return;
-        const labels = {
-            'single-set': 'Satzergebnisse (1 Satz)',
-            'best-of-3': 'Satzergebnisse (Best of 3)',
-            'best-of-5': 'Satzergebnisse (Best of 5)',
-            'best-of-7': 'Satzergebnisse (Best of 7)'
-        };
-        setScoreLabel.textContent = labels[mode] || 'Satzergebnisse';
+    // Get sport context to determine scoring system
+    const sportContext = await getSportContext(currentUserId);
+    const isTennisOrPadel = sportContext && ['tennis', 'padel'].includes(sportContext.sportName);
+
+    // Show/hide tennis options based on sport
+    const tennisOptionsContainer = document.getElementById('coach-tennis-options-container');
+    if (tennisOptionsContainer) {
+        if (isTennisOrPadel) {
+            tennisOptionsContainer.classList.remove('hidden');
+        } else {
+            tennisOptionsContainer.classList.add('hidden');
+        }
     }
 
-    const currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
-    coachSetScoreInput = createSetScoreInput(container, [], currentMode);
-    updateSetScoreLabel(currentMode);
+    // Adjust default match mode based on sport
+    if (matchModeSelect && isTennisOrPadel) {
+        // For tennis/padel, default to Best of 3
+        matchModeSelect.value = 'best-of-3';
+    }
+
+    function updateSetScoreLabel(mode, isTennis = false) {
+        if (!setScoreLabel) return;
+
+        if (isTennis) {
+            const labels = {
+                'best-of-3': 'Satzergebnisse (Best of 3)',
+                'best-of-5': 'Satzergebnisse (Best of 5)'
+            };
+            setScoreLabel.textContent = labels[mode] || 'Satzergebnisse';
+        } else {
+            const labels = {
+                'single-set': 'Satzergebnisse (1 Satz)',
+                'best-of-3': 'Satzergebnisse (Best of 3)',
+                'best-of-5': 'Satzergebnisse (Best of 5)',
+                'best-of-7': 'Satzergebnisse (Best of 7)'
+            };
+            setScoreLabel.textContent = labels[mode] || 'Satzergebnisse';
+        }
+    }
+
+    function createScoreInputForSport(mode) {
+        if (!container) return null;
+
+        if (isTennisOrPadel) {
+            // Tennis/Padel scoring
+            const options = {
+                mode: mode || 'best-of-3',
+                goldenPoint: goldenPointCheckbox?.checked || false,
+                matchTieBreak: matchTieBreakCheckbox?.checked || false
+            };
+            return createTennisScoreInput(container, [], options);
+        } else {
+            // Table Tennis scoring
+            return createSetScoreInput(container, [], mode || 'best-of-5');
+        }
+    }
+
+    const currentMode = matchModeSelect ? matchModeSelect.value : (isTennisOrPadel ? 'best-of-3' : 'best-of-5');
+    coachSetScoreInput = createScoreInputForSport(currentMode);
+    updateSetScoreLabel(currentMode, isTennisOrPadel);
 
     if (matchModeSelect) {
         matchModeSelect.addEventListener('change', () => {
             const newMode = matchModeSelect.value;
-            coachSetScoreInput = createSetScoreInput(container, [], newMode);
-            updateSetScoreLabel(newMode);
+            coachSetScoreInput = createScoreInputForSport(newMode);
+            updateSetScoreLabel(newMode, isTennisOrPadel);
 
             if (window.setDoublesSetScoreInput) {
                 window.setDoublesSetScoreInput(coachSetScoreInput);
             }
         });
     }
+
+    // Tennis-specific options
+    goldenPointCheckbox?.addEventListener('change', () => {
+        coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
+    });
+
+    matchTieBreakCheckbox?.addEventListener('change', () => {
+        coachSetScoreInput = createScoreInputForSport(matchModeSelect?.value);
+    });
 
     return coachSetScoreInput;
 }

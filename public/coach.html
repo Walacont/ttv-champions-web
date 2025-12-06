@@ -506,6 +506,33 @@
                                     </select>
                                 </div>
 
+                                <!-- Tennis/Padel Specific Options (hidden for Table Tennis) -->
+                                <div id="coach-tennis-options-container" class="hidden space-y-3 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <h4 class="text-sm font-semibold text-blue-900 mb-2">
+                                        <i class="fas fa-tennis-ball mr-2"></i>Tennis/Padel Optionen
+                                    </h4>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="coach-golden-point-checkbox"
+                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <label for="coach-golden-point-checkbox" class="text-sm text-gray-700">
+                                            Golden Point (No-Ad bei 40:40)
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="coach-match-tiebreak-checkbox"
+                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <label for="coach-match-tiebreak-checkbox" class="text-sm text-gray-700">
+                                            Match Tie-Break statt 3. Satz (bis 10 Punkte)
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <!-- Singles Players (default) -->
                                 <div
                                     id="singles-players-container"

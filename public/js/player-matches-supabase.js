@@ -16,7 +16,7 @@ let selectedOpponent = null;
 /**
  * Setup Match Form and related functionality
  */
-export function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
+export async function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
     const form = document.getElementById('match-request-form');
     const opponentSearchInput = document.getElementById('opponent-search-input');
     const opponentSearchResults = document.getElementById('opponent-search-results');
@@ -24,19 +24,64 @@ export function setupMatchForm(currentUser, currentUserData, callbacks = {}) {
     const setScoreContainer = document.getElementById('set-score-container');
     const singlesToggle = document.getElementById('player-singles-toggle');
     const doublesToggle = document.getElementById('player-doubles-toggle');
+    const goldenPointCheckbox = document.getElementById('golden-point-checkbox');
+    const matchTieBreakCheckbox = document.getElementById('match-tiebreak-checkbox');
 
     if (!form) return;
 
-    // Initialize set score inputs
-    if (setScoreContainer) {
-        setScoreHandler = createSetScoreInput(setScoreContainer, [], matchModeSelect?.value || 'best-of-5');
+    // Get sport context to determine which scoring system to use
+    const sportContext = await getSportContext(currentUser.id);
+    const isTennisOrPadel = sportContext && ['tennis', 'padel'].includes(sportContext.sportName);
+
+    // Show/hide tennis options based on sport
+    const tennisOptionsContainer = document.getElementById('tennis-options-container');
+    if (tennisOptionsContainer) {
+        if (isTennisOrPadel) {
+            tennisOptionsContainer.classList.remove('hidden');
+        } else {
+            tennisOptionsContainer.classList.add('hidden');
+        }
     }
+
+    // Adjust default match mode based on sport
+    if (matchModeSelect && isTennisOrPadel) {
+        // For tennis/padel, default to Best of 3
+        matchModeSelect.value = 'best-of-3';
+    }
+
+    // Helper function to create appropriate score input based on sport
+    function createScoreInputForSport(mode) {
+        if (!setScoreContainer) return null;
+
+        if (isTennisOrPadel) {
+            // Tennis/Padel scoring
+            const options = {
+                mode: mode || 'best-of-3',
+                goldenPoint: goldenPointCheckbox?.checked || false,
+                matchTieBreak: matchTieBreakCheckbox?.checked || false
+            };
+            return createTennisScoreInput(setScoreContainer, [], options);
+        } else {
+            // Table Tennis scoring (default)
+            return createSetScoreInput(setScoreContainer, [], mode || 'best-of-5');
+        }
+    }
+
+    // Initialize set score inputs
+    setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
 
     // Match mode change
     matchModeSelect?.addEventListener('change', () => {
-        if (setScoreContainer) {
-            setScoreHandler = createSetScoreInput(setScoreContainer, [], matchModeSelect.value);
-        }
+        setScoreHandler = createScoreInputForSport(matchModeSelect.value);
+    });
+
+    // Tennis-specific options: Golden Point and Match Tie-Break
+    goldenPointCheckbox?.addEventListener('change', () => {
+        setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
+    });
+
+    matchTieBreakCheckbox?.addEventListener('change', () => {
+        setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
     });
 
     // Singles/Doubles toggle
@@ -539,6 +584,238 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
         reset,
         setHandicap,
         clearHandicap,
+        getMatchWinner,
+    };
+}
+
+/**
+ * Creates a Tennis/Padel score input component
+ * Supports: Best of 3, Golden Point (No-Ad), Match Tie-Break
+ * @param {HTMLElement} container - Container element for the score inputs
+ * @param {Array} existingSets - Existing set scores (optional)
+ * @param {Object} options - Match options { mode: 'best-of-3', goldenPoint: false, matchTieBreak: false }
+ * @returns {Object} API for getting, validating sets
+ */
+export function createTennisScoreInput(container, existingSets = [], options = {}) {
+    const { mode = 'best-of-3', goldenPoint = false, matchTieBreak = false } = options;
+
+    container.innerHTML = '';
+
+    let minSets, maxSets, setsToWin;
+    switch (mode) {
+        case 'best-of-3': minSets = 2; maxSets = 3; setsToWin = 2; break;
+        case 'best-of-5': minSets = 3; maxSets = 5; setsToWin = 3; break;
+        default: minSets = 2; maxSets = 3; setsToWin = 2;
+    }
+
+    const sets = existingSets.length > 0 ? [...existingSets] : [];
+    while (sets.length < minSets) {
+        sets.push({ playerA: '', playerB: '', tiebreak: null });
+    }
+
+    /**
+     * Validates if a set score is valid according to tennis rules
+     * - Standard: 6 games to win, must win by 2 (e.g., 6:4, 7:5)
+     * - At 6:6: Tie-break (result: 7:6)
+     * - Match Tie-Break (if enabled in 3rd set): First to 10, must win by 2
+     */
+    function isValidSet(scoreA, scoreB, setIndex) {
+        const a = parseInt(scoreA) || 0;
+        const b = parseInt(scoreB) || 0;
+
+        // Empty set is not valid
+        if (a === 0 && b === 0) return false;
+
+        // Check if this is a match tie-break (3rd set in best-of-3 or 5th in best-of-5)
+        const isMatchTieBreakSet = matchTieBreak && setIndex === (maxSets - 1) && sets.length === maxSets;
+
+        if (isMatchTieBreakSet) {
+            // Match Tie-Break: First to 10, must win by 2
+            if (a < 10 && b < 10) return false;
+            if (a >= 10 || b >= 10) {
+                return Math.abs(a - b) >= 2;
+            }
+            return false;
+        }
+
+        // Standard set or Tie-Break set
+        // Must win by 2 games, or win tie-break at 7:6
+        if (a === 7 && b === 6) return true; // Tie-break win for A
+        if (b === 7 && a === 6) return true; // Tie-break win for B
+
+        // Standard win: 6:0, 6:1, 6:2, 6:3, 6:4, 7:5, 8:6, etc.
+        if (a >= 6 || b >= 6) {
+            return Math.abs(a - b) >= 2;
+        }
+
+        return false;
+    }
+
+    function getSetWinner(scoreA, scoreB, setIndex) {
+        if (!isValidSet(scoreA, scoreB, setIndex)) return null;
+        const a = parseInt(scoreA) || 0;
+        const b = parseInt(scoreB) || 0;
+        if (a > b) return 'A';
+        if (b > a) return 'B';
+        return null;
+    }
+
+    function renderSets() {
+        container.innerHTML = '';
+
+        sets.forEach((set, index) => {
+            const isTieBreakPossible = (parseInt(set.playerA) === 7 && parseInt(set.playerB) === 6) ||
+                                       (parseInt(set.playerB) === 7 && parseInt(set.playerA) === 6);
+
+            const isMatchTieBreakSet = matchTieBreak && index === (maxSets - 1);
+            const setLabel = isMatchTieBreakSet ? 'Match Tie-Break' : `Satz ${index + 1}`;
+
+            const setDiv = document.createElement('div');
+            setDiv.className = 'mb-4';
+            setDiv.innerHTML = `
+                <label class="text-sm font-medium text-gray-700 block mb-2">${setLabel}:</label>
+                <div class="flex items-center gap-3">
+                    <input type="number" min="0" max="20"
+                           class="set-input-a w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                           data-set="${index}" data-player="A" placeholder="0" value="${set.playerA}"/>
+                    <span class="text-gray-500">:</span>
+                    <input type="number" min="0" max="20"
+                           class="set-input-b w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                           data-set="${index}" data-player="B" placeholder="0" value="${set.playerB}"/>
+                    ${isTieBreakPossible && !isMatchTieBreakSet ? `
+                        <span class="text-xs text-gray-500 ml-2">Tie-Break:</span>
+                        <input type="number" min="0" max="20"
+                               class="tiebreak-input w-16 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                               data-set="${index}" placeholder="z.B. 7:3" value="${set.tiebreak || ''}"/>
+                    ` : ''}
+                </div>
+            `;
+            container.appendChild(setDiv);
+        });
+
+        container.querySelectorAll('.set-input-a, .set-input-b').forEach(input => {
+            input.addEventListener('input', handleSetInput);
+        });
+
+        container.querySelectorAll('.tiebreak-input').forEach(input => {
+            input.addEventListener('input', handleTieBreakInput);
+        });
+    }
+
+    function handleSetInput(e) {
+        const setIndex = parseInt(e.target.dataset.set);
+        const player = e.target.dataset.player;
+        sets[setIndex][`player${player}`] = parseInt(e.target.value) || '';
+
+        // Auto-add sets based on score
+        let playerAWins = 0, playerBWins = 0;
+        sets.forEach((set, idx) => {
+            const winner = getSetWinner(set.playerA, set.playerB, idx);
+            if (winner === 'A') playerAWins++;
+            if (winner === 'B') playerBWins++;
+        });
+
+        const matchWon = playerAWins >= setsToWin || playerBWins >= setsToWin;
+        if (!matchWon && sets.length < maxSets) {
+            const lastSet = sets[sets.length - 1];
+            if (lastSet.playerA !== '' && lastSet.playerB !== '') {
+                sets.push({ playerA: '', playerB: '', tiebreak: null });
+                renderSets();
+            }
+        } else {
+            renderSets(); // Re-render to show tie-break input if needed
+        }
+    }
+
+    function handleTieBreakInput(e) {
+        const setIndex = parseInt(e.target.dataset.set);
+        sets[setIndex].tiebreak = e.target.value;
+    }
+
+    function getSets() {
+        return sets.filter(set => set.playerA !== '' && set.playerB !== '').map(set => ({
+            playerA: parseInt(set.playerA),
+            playerB: parseInt(set.playerB),
+            tiebreak: set.tiebreak || null
+        }));
+    }
+
+    function validate() {
+        const filledSets = getSets();
+        if (filledSets.length < minSets) {
+            return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
+        }
+
+        for (let i = 0; i < filledSets.length; i++) {
+            const set = filledSets[i];
+            if (!isValidSet(set.playerA, set.playerB, i)) {
+                const isMatchTieBreakSet = matchTieBreak && i === (maxSets - 1);
+                if (isMatchTieBreakSet) {
+                    return { valid: false, error: `Match Tie-Break: Ein Spieler muss 10+ Punkte erreichen und 2 Punkte Vorsprung haben.` };
+                }
+                return { valid: false, error: `Satz ${i + 1}: Ungültiges Ergebnis. Tennis-Regeln: 6 Spiele mit 2 Spielen Vorsprung oder 7:6 (Tie-Break).` };
+            }
+        }
+
+        let playerAWins = 0, playerBWins = 0;
+        filledSets.forEach((set, idx) => {
+            const winner = getSetWinner(set.playerA, set.playerB, idx);
+            if (winner === 'A') playerAWins++;
+            if (winner === 'B') playerBWins++;
+        });
+
+        if (playerAWins < setsToWin && playerBWins < setsToWin) {
+            return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
+        }
+
+        return { valid: true, winnerId: playerAWins >= setsToWin ? 'A' : 'B', playerAWins, playerBWins };
+    }
+
+    function reset() {
+        sets.length = 0;
+        for (let i = 0; i < minSets; i++) sets.push({ playerA: '', playerB: '', tiebreak: null });
+        renderSets();
+    }
+
+    function getMatchWinner() {
+        const filledSets = getSets();
+
+        if (filledSets.length === 0) {
+            return null;
+        }
+
+        // Calculate wins
+        let playerAWins = 0;
+        let playerBWins = 0;
+
+        filledSets.forEach((set, idx) => {
+            const winner = getSetWinner(set.playerA, set.playerB, idx);
+            if (winner === 'A') playerAWins++;
+            if (winner === 'B') playerBWins++;
+        });
+
+        // Check if someone has won
+        if (playerAWins >= setsToWin) {
+            return { winner: 'A', setsA: playerAWins, setsB: playerBWins };
+        }
+        if (playerBWins >= setsToWin) {
+            return { winner: 'B', setsA: playerAWins, setsB: playerBWins };
+        }
+
+        // No winner yet, but return current score if there are any wins
+        if (playerAWins > 0 || playerBWins > 0) {
+            return { winner: null, setsA: playerAWins, setsB: playerBWins };
+        }
+
+        return null;
+    }
+
+    renderSets();
+    return {
+        getSets,
+        validate,
+        refresh: renderSets,
+        reset,
         getMatchWinner,
     };
 }
