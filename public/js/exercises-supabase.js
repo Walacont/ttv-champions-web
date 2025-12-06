@@ -296,46 +296,27 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         )
         .join('');
 
-    const coachBadge = exercise.createdByName
-        ? `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName}</span>`
-        : '';
-
-    // XP Badge - prominent display
-    const xpBadge = `<span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg z-10">${exercise.points} XP</span>`;
-
-    // Exercise Icon - show dumbbell icon in top-left of image area
-    const exerciseIcon = `<div class="absolute top-3 left-3 bg-indigo-100 rounded-full p-3 shadow-md z-10">
-        <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
-        </svg>
-    </div>`;
-
-    const imageHtml = exercise.imageUrl
-        ? `<div class="relative">
-               <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
-               ${exerciseIcon}
-               ${xpBadge}
-           </div>`
-        : `<div class="relative w-full h-56 bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center border-b border-gray-200">
-               ${exerciseIcon}
-               ${xpBadge}
-               <div class="text-center">
-                   <svg class="w-16 h-16 mx-auto text-indigo-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                   </svg>
-                   <p class="text-xs text-gray-400">Kein Bild</p>
-               </div>
-           </div>`;
-
     card.innerHTML = `
-        ${imageHtml}
-        <div class="p-4 flex flex-col flex-grow">
-            <h3 class="font-bold text-lg mb-2 text-gray-800">${exercise.title}</h3>
-            <div class="mb-2">${tagsHtml}</div>
-            <p class="text-sm text-gray-600 flex-grow line-clamp-2">${exercise.description || ''}</p>
-            <div class="mt-4 flex items-center justify-between">
-                <span class="text-xs text-gray-500">🏆 Wiederholbar mit Meilensteinen</span>
-                ${coachBadge}
+        <div class="p-5 flex flex-col flex-grow relative">
+            <!-- XP Badge in top-right corner -->
+            <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">${exercise.points} XP</span>
+
+            <!-- Title -->
+            <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20">${exercise.title}</h3>
+
+            <!-- Tags -->
+            <div class="mb-3">${tagsHtml}</div>
+
+            <!-- Description -->
+            <p class="text-sm text-gray-600 mb-4 flex-grow">${exercise.description || ''}</p>
+
+            <!-- Footer -->
+            <div class="flex items-center text-xs text-gray-500">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+                </svg>
+                Wiederholbar mit Meilensteinen
             </div>
         </div>`;
 
