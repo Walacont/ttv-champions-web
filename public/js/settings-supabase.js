@@ -1612,20 +1612,20 @@ async function updateSportClubStatus(sportId, sportName) {
             `;
             if (sportClubSearch) sportClubSearch.classList.add('hidden');
         } else {
-            // User is not in a club and has no pending request - show club options
+            // User is not in a club and has no pending request - show info (club is optional)
             sportClubInfo.innerHTML = `
-                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg">
-                    <p class="text-sm text-amber-800">
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                    <p class="text-sm text-blue-800">
                         <i class="fas fa-info-circle mr-2"></i>
-                        Du bist noch in keinem Verein für <strong>${sportName}</strong> registriert.
+                        Du bist für <strong>${sportName}</strong> keinem Verein zugeordnet.
                     </p>
-                    <p class="text-xs text-amber-600 mt-1">
-                        Wähle einen Verein aus der Liste unten, um eine Beitrittsanfrage zu senden.
+                    <p class="text-xs text-blue-600 mt-1">
+                        Du kannst die App auch ohne Verein nutzen. Falls du einem Verein beitreten möchtest, findest du unten passende Vereine.
                     </p>
                 </div>
             `;
 
-            // Load and show clubs for this sport
+            // Load and show clubs for this sport (optional)
             await loadClubsForSport(sportId, sportName);
         }
     }
