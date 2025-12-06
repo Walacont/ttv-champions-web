@@ -177,8 +177,30 @@ registrationForm?.addEventListener('submit', async e => {
         const user = authData.user;
         console.log('[REGISTER-SUPABASE] User created:', user.email);
 
-        // Warte kurz, damit der Trigger das Profil erstellen kann
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Warte bis das Profil vom Trigger erstellt wurde (mit Polling)
+        let profileExists = false;
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        while (!profileExists && attempts < maxAttempts) {
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            if (profile) {
+                profileExists = true;
+                console.log('[REGISTER] Profile found after', attempts, 'attempts');
+            }
+        }
+
+        if (!profileExists) {
+            console.error('[REGISTER] Profile was not created by trigger after', maxAttempts, 'attempts');
+        }
 
         // 2. Profil updaten (Trigger hat es bereits erstellt)
         let profileUpdates = {};
@@ -256,16 +278,30 @@ registrationForm?.addEventListener('submit', async e => {
         // Update Profil falls nötig
         if (Object.keys(profileUpdates).length > 0) {
             console.log('[REGISTER] Updating profile with:', profileUpdates);
-            const { error: updateError } = await supabase
+
+            // Use .select() to verify the update worked and get the updated row
+            const { data: updatedProfile, error: updateError } = await supabase
                 .from('profiles')
                 .update(profileUpdates)
-                .eq('id', user.id);
+                .eq('id', user.id)
+                .select('id, role, active_sport_id, club_id')
+                .single();
 
             if (updateError) {
                 console.error('[REGISTER-SUPABASE] Profile update error:', updateError);
                 // Nicht kritisch - weiter zum Onboarding
+            } else if (updatedProfile) {
+                console.log('[REGISTER] Profile updated successfully:', updatedProfile);
+
+                // Verify the role was set correctly
+                if (profileUpdates.role && updatedProfile.role !== profileUpdates.role) {
+                    console.error('[REGISTER] Role mismatch! Expected:', profileUpdates.role, 'Got:', updatedProfile.role);
+                }
+                if (profileUpdates.active_sport_id && updatedProfile.active_sport_id !== profileUpdates.active_sport_id) {
+                    console.error('[REGISTER] Sport mismatch! Expected:', profileUpdates.active_sport_id, 'Got:', updatedProfile.active_sport_id);
+                }
             } else {
-                console.log('[REGISTER] Profile updated successfully');
+                console.error('[REGISTER] Profile update returned no data - profile might not exist');
             }
         }
 
