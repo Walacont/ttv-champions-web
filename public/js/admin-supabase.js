@@ -2144,16 +2144,24 @@ async function loadSeasons() {
                             <span class="text-2xl">${getSportIcon(sport.name)}</span>
                             <h3 class="font-bold text-lg text-gray-900">${sport.display_name}</h3>
                         </div>
-                        ${activeSeason ? `
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                <i class="fas fa-check-circle mr-1"></i>
-                                ${activeSeason.name}
-                            </span>
-                        ` : `
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                                Keine aktive Saison
-                            </span>
-                        `}
+                        <div class="flex items-center gap-2">
+                            ${activeSeason ? `
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    ${activeSeason.name}
+                                </span>
+                                <button onclick="handleEndSeason('${activeSeason.id}', '${activeSeason.name}')"
+                                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors cursor-pointer"
+                                    title="Saison vorzeitig beenden">
+                                    <i class="fas fa-stop-circle mr-1"></i>
+                                    Beenden
+                                </button>
+                            ` : `
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                                    Keine aktive Saison
+                                </span>
+                            `}
+                        </div>
                     </div>
                     ${progressBar}
                 </div>
@@ -2301,6 +2309,60 @@ async function handleStartNewSeason(e) {
         submitBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Neue Saison starten';
     }
 }
+
+// End season early
+async function handleEndSeason(seasonId, seasonName) {
+    const confirmed = confirm(
+        `Saison "${seasonName}" vorzeitig beenden?\n\n` +
+        `Die Saison wird als inaktiv markiert.\n` +
+        `Die Punkte bleiben erhalten bis eine neue Saison gestartet wird.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+        // Get season details for audit log
+        const { data: seasonData } = await supabase
+            .from('seasons')
+            .select('sport_id')
+            .eq('id', seasonId)
+            .single();
+
+        // Update season to inactive and set end_date to today
+        const today = new Date().toISOString().split('T')[0];
+        const { error } = await supabase
+            .from('seasons')
+            .update({
+                is_active: false,
+                end_date: today
+            })
+            .eq('id', seasonId);
+
+        if (error) throw error;
+
+        // Log audit event
+        await logAuditEvent(
+            'season_ended',
+            seasonId,
+            'season',
+            null,
+            seasonData?.sport_id,
+            { season_name: seasonName, ended_early: true }
+        );
+
+        alert(`Saison "${seasonName}" wurde beendet.`);
+
+        // Reload seasons list
+        await loadSeasons();
+
+    } catch (error) {
+        console.error('Fehler beim Beenden der Saison:', error);
+        alert(`Fehler: ${error.message}`);
+    }
+}
+
+// Make handleEndSeason available globally for onclick
+window.handleEndSeason = handleEndSeason;
 
 // ============================================
 // AUDIT LOGGING
@@ -2467,6 +2529,12 @@ function getActionDisplayInfo(action) {
             icon: 'fas fa-play-circle',
             bgClass: 'bg-emerald-100',
             textClass: 'text-emerald-600'
+        },
+        'season_ended': {
+            label: 'Saison beendet',
+            icon: 'fas fa-stop-circle',
+            bgClass: 'bg-orange-100',
+            textClass: 'text-orange-600'
         },
         'role_changed': {
             label: 'Rolle geändert',
