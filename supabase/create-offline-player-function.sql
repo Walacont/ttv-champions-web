@@ -1,5 +1,13 @@
 -- Function to create offline players (bypasses RLS with proper authorization)
 -- This allows coaches to create offline player profiles for their club
+-- NOTE: The profiles table must NOT have a foreign key constraint to auth.users for offline players
+
+-- First, ensure we can insert offline players by modifying the constraint if needed
+-- (Run this separately if you get foreign key errors)
+-- ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+-- ALTER TABLE profiles ADD CONSTRAINT profiles_id_fkey
+--   FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+--   NOT VALID; -- NOT VALID allows existing data that doesn't match
 
 CREATE OR REPLACE FUNCTION create_offline_player(
     p_first_name TEXT,
@@ -20,6 +28,7 @@ DECLARE
     v_caller_id UUID;
     v_caller_role TEXT;
     v_new_player_id UUID;
+    v_display_name TEXT;
     v_result JSON;
 BEGIN
     -- Get the caller's ID
@@ -50,11 +59,15 @@ BEGIN
     -- Generate a new UUID for the offline player
     v_new_player_id := gen_random_uuid();
 
+    -- Create display name
+    v_display_name := TRIM(COALESCE(p_first_name, '') || ' ' || COALESCE(p_last_name, ''));
+
     -- Create the offline player profile
     INSERT INTO profiles (
         id,
         first_name,
         last_name,
+        display_name,
         club_id,
         role,
         is_offline,
@@ -75,6 +88,7 @@ BEGIN
         v_new_player_id,
         p_first_name,
         p_last_name,
+        v_display_name,
         p_club_id,
         'player',
         TRUE,
