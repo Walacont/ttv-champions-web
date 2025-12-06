@@ -2096,6 +2096,47 @@ async function loadSeasons() {
             const sportDiv = document.createElement('div');
             sportDiv.className = 'border border-gray-200 rounded-lg overflow-hidden';
 
+            // Calculate remaining time for active season
+            let remainingInfo = '';
+            let progressBar = '';
+            if (activeSeason) {
+                const now = new Date();
+                const startDate = new Date(activeSeason.start_date);
+                const endDate = new Date(activeSeason.end_date);
+                const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+                const remainingDays = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+                const elapsedDays = totalDays - remainingDays;
+                const progressPercent = Math.min(100, Math.max(0, (elapsedDays / totalDays) * 100));
+
+                if (remainingDays > 0) {
+                    const months = Math.floor(remainingDays / 30);
+                    const days = remainingDays % 30;
+                    if (months > 0) {
+                        remainingInfo = `<span class="text-emerald-600 font-semibold">${months} Monat${months > 1 ? 'e' : ''} ${days > 0 ? `und ${days} Tag${days > 1 ? 'e' : ''}` : ''}</span> verbleibend`;
+                    } else {
+                        remainingInfo = `<span class="text-${remainingDays <= 14 ? 'amber' : 'emerald'}-600 font-semibold">${remainingDays} Tag${remainingDays > 1 ? 'e' : ''}</span> verbleibend`;
+                    }
+                } else if (remainingDays === 0) {
+                    remainingInfo = '<span class="text-amber-600 font-semibold">Endet heute!</span>';
+                } else {
+                    remainingInfo = '<span class="text-red-600 font-semibold">Saison abgelaufen!</span>';
+                }
+
+                // Progress bar
+                progressBar = `
+                    <div class="mt-3">
+                        <div class="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>${formatDate(activeSeason.start_date)}</span>
+                            <span>${remainingInfo}</span>
+                            <span>${formatDate(activeSeason.end_date)}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-gradient-to-r from-green-400 to-emerald-500 h-2.5 rounded-full transition-all" style="width: ${progressPercent}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
             sportDiv.innerHTML = `
                 <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
                     <div class="flex justify-between items-center">
@@ -2114,12 +2155,7 @@ async function loadSeasons() {
                             </span>
                         `}
                     </div>
-                    ${activeSeason ? `
-                        <p class="text-sm text-gray-600 mt-2">
-                            <i class="fas fa-calendar mr-1"></i>
-                            ${formatDate(activeSeason.start_date)} - ${formatDate(activeSeason.end_date)}
-                        </p>
-                    ` : ''}
+                    ${progressBar}
                 </div>
                 <div class="p-3 bg-white">
                     <p class="text-xs text-gray-500 mb-2">Bisherige Saisons:</p>
