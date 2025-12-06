@@ -1902,6 +1902,19 @@ async function handleDeleteClub(clubId, clubName, memberCount) {
 
             console.log(`[ADMIN] Updated users to have null club_id`);
 
+            // Log audit event BEFORE deletion (so club_id foreign key still exists)
+            await logAuditEvent(
+                'club_deleted',
+                clubId,
+                'club',
+                clubId,
+                null,
+                {
+                    name: clubData?.name || clubName,
+                    member_count: membersNum
+                }
+            );
+
             // Delete the club (CASCADE will delete club_sports and profile_club_sports)
             const { error: deleteError, data: deleteData } = await supabase
                 .from('clubs')
@@ -1919,19 +1932,6 @@ async function handleDeleteClub(clubId, clubName, memberCount) {
             if (!deleteData || deleteData.length === 0) {
                 throw new Error('Club konnte nicht gelöscht werden (möglicherweise RLS Policy Problem)');
             }
-
-            // Log audit event
-            await logAuditEvent(
-                'club_deleted',
-                clubId,
-                'club',
-                clubId,
-                null,
-                {
-                    name: clubData?.name || clubName,
-                    member_count: membersNum
-                }
-            );
 
             alert(`Verein "${clubName}" wurde erfolgreich gelöscht.`);
 
