@@ -186,6 +186,8 @@ async function initializeDashboard() {
     loadMatchHistory();
     loadCalendar();
     updateSeasonCountdown();
+    // Update countdown every second
+    setInterval(updateSeasonCountdown, 1000);
 
     // Setup match form
     setupMatchForm();
