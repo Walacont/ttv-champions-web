@@ -83,21 +83,23 @@ async function getSportContextFallback(userId) {
             .from('profiles')
             .select('active_sport_id')
             .eq('id', userId)
-            .single();
+            .maybeSingle();
 
         let activeSportId = profile?.active_sport_id;
 
         // If no active sport set, get first sport from profile_club_sports
         if (!activeSportId) {
-            const { data: pcs } = await supabase
+            const { data: pcsData } = await supabase
                 .from('profile_club_sports')
                 .select('sport_id')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: true })
-                .limit(1)
-                .single();
+                .limit(1);
 
-            activeSportId = pcs?.sport_id;
+            // User might not have any profile_club_sports records yet
+            if (pcsData && pcsData.length > 0) {
+                activeSportId = pcsData[0].sport_id;
+            }
         }
 
         if (!activeSportId) {
@@ -117,10 +119,16 @@ async function getSportContextFallback(userId) {
             `)
             .eq('user_id', userId)
             .eq('sport_id', activeSportId)
-            .single();
+            .maybeSingle();
 
-        if (error || !contextData) {
+        if (error) {
             console.error('[SportContext] Error in fallback:', error);
+            return null;
+        }
+
+        // User might not have a club/sport assignment yet
+        if (!contextData) {
+            console.log('[SportContext] No club/sport assignment found for user');
             return null;
         }
 
@@ -245,9 +253,9 @@ export async function isCoachInSport(userId, sportId = null) {
             .select('role')
             .eq('user_id', userId)
             .eq('sport_id', sportId)
-            .single();
+            .maybeSingle();
 
-        if (error) return false;
+        if (error || !data) return false;
 
         return data?.role === 'coach';
 
@@ -273,9 +281,9 @@ export async function getClubIdForSport(userId, sportId) {
             .select('club_id')
             .eq('user_id', userId)
             .eq('sport_id', sportId)
-            .single();
+            .maybeSingle();
 
-        if (error) return null;
+        if (error || !data) return null;
 
         return data?.club_id || null;
 
