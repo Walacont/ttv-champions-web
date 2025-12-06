@@ -73,6 +73,7 @@ async function initializeAuth() {
                 onboardingComplete: profile.onboarding_complete || false,
                 tutorialCompleted: profile.tutorial_completed || {},
                 privacySettings: profile.privacy_settings || {},
+                activeSportId: profile.active_sport_id || null,
             };
 
             const initials = (currentUserData.firstName?.[0] || '') + (currentUserData.lastName?.[0] || '');
