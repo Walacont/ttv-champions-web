@@ -93,6 +93,7 @@ import {
     handleDoublesMatchSave,
     getCurrentMatchType,
     setDoublesSetScoreInput,
+    setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
 import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
 import {
@@ -422,10 +423,11 @@ async function initializeCoachPage(userData) {
     });
 
     // Initialize set score input for coach match form (used by both singles and doubles)
-    const setScoreInput = initializeCoachSetScoreInput();
+    const setScoreInput = await initializeCoachSetScoreInput(user.uid);
 
     // Initialize doubles match UI and set the same set score input
     initializeDoublesCoachUI();
+    setDoublesUserId(user.uid); // Set user ID for sport context in doubles
     if (setScoreInput) {
         setDoublesSetScoreInput(setScoreInput);
     }
