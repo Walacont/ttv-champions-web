@@ -1504,8 +1504,9 @@ async function loadCalendar() {
 // --- Season Countdown ---
 // Cache for season config
 let cachedSeasonEnd = null;
+let cachedSeasonName = null;
 let lastSeasonFetchTime = null;
-const SEASON_CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+const SEASON_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
 async function fetchSeasonEndDate() {
     try {
@@ -1514,50 +1515,57 @@ async function fetchSeasonEndDate() {
             return cachedSeasonEnd;
         }
 
-        // Fetch season_reset config from Supabase
-        const { data: configData, error } = await supabase
+        // Fetch active season from seasons table
+        // First try to get a sport-specific season (e.g., table_tennis)
+        const { data: activeSeasons, error } = await supabase
+            .from('seasons')
+            .select('id, name, start_date, end_date, sport_id')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (!error && activeSeasons && activeSeasons.length > 0) {
+            // Use the first active season (or could filter by user's sport later)
+            const activeSeason = activeSeasons[0];
+            const seasonEnd = new Date(activeSeason.end_date);
+
+            // Cache the result
+            cachedSeasonEnd = seasonEnd;
+            cachedSeasonName = activeSeason.name;
+            lastSeasonFetchTime = Date.now();
+
+            console.log('📅 Season end date loaded from seasons table:', seasonEnd.toLocaleString('de-DE'), `(${activeSeason.name})`);
+            return seasonEnd;
+        }
+
+        // Fallback: Try old config table
+        const { data: configData } = await supabase
             .from('config')
             .select('value')
             .eq('key', 'season_reset')
             .single();
 
-        if (!error && configData && configData.value) {
+        if (configData && configData.value) {
             const lastResetDate = new Date(configData.value.lastResetDate);
             const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
             const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
 
-            // Cache the result
             cachedSeasonEnd = seasonEnd;
             lastSeasonFetchTime = Date.now();
 
-            console.log('📅 Season end date loaded from Supabase:', seasonEnd.toLocaleString('de-DE'));
+            console.log('📅 Season end date loaded from config (fallback):', seasonEnd.toLocaleString('de-DE'));
             return seasonEnd;
-        } else {
-            // Fallback: If no config exists, use current_season config
-            const { data: currentSeasonData } = await supabase
-                .from('config')
-                .select('value')
-                .eq('key', 'current_season')
-                .single();
-
-            if (currentSeasonData && currentSeasonData.value && currentSeasonData.value.end) {
-                const seasonEnd = new Date(currentSeasonData.value.end);
-                cachedSeasonEnd = seasonEnd;
-                lastSeasonFetchTime = Date.now();
-                return seasonEnd;
-            }
-
-            // Final fallback: 6 weeks from now
-            console.warn('⚠️ No season config found, using fallback calculation');
-            const now = new Date();
-            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-            const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
-
-            cachedSeasonEnd = fallbackEnd;
-            lastSeasonFetchTime = Date.now();
-
-            return fallbackEnd;
         }
+
+        // Final fallback: 6 weeks from now
+        console.warn('⚠️ No season config found, using fallback calculation');
+        const now = new Date();
+        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+        const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
+
+        cachedSeasonEnd = fallbackEnd;
+        lastSeasonFetchTime = Date.now();
+
+        return fallbackEnd;
     } catch (error) {
         console.error('Error fetching season end date:', error);
 

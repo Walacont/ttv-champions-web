@@ -5,11 +5,12 @@
 
 // Module-level cache for season end date
 let cachedSeasonEnd = null;
+let cachedSeasonName = null;
 let lastFetchTime = null;
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
 /**
- * Fetches the season end date from Supabase config
+ * Fetches the season end date from seasons table
  * @param {Object} supabase - Supabase client instance
  * @returns {Promise<Date>} The end date of the current season
  */
@@ -20,38 +21,60 @@ async function fetchSeasonEndDate(supabase) {
             return cachedSeasonEnd;
         }
 
-        const { data, error } = await supabase
-            .from('config')
-            .select('*')
-            .eq('key', 'seasonReset')
-            .single();
+        // Fetch active season from seasons table
+        const { data: activeSeasons, error } = await supabase
+            .from('seasons')
+            .select('id, name, start_date, end_date, sport_id')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
 
-        if (!error && data && data.value) {
-            const lastResetDate = new Date(data.value.lastResetDate);
-            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-            const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
+        if (!error && activeSeasons && activeSeasons.length > 0) {
+            // Use the first active season (or could filter by user's sport later)
+            const activeSeason = activeSeasons[0];
+            const seasonEnd = new Date(activeSeason.end_date);
 
             // Cache the result
             cachedSeasonEnd = seasonEnd;
+            cachedSeasonName = activeSeason.name;
             lastFetchTime = Date.now();
 
             console.log(
-                '📅 Season end date loaded from Supabase:',
-                seasonEnd.toLocaleString('de-DE')
+                '📅 Season end date loaded from seasons table:',
+                seasonEnd.toLocaleString('de-DE'),
+                `(${activeSeason.name})`
             );
             return seasonEnd;
-        } else {
-            // Fallback: If no config exists, calculate from today + 6 weeks
-            console.warn('⚠️ No season reset config found, using fallback calculation');
-            const now = new Date();
-            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
-            const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
+        }
 
-            cachedSeasonEnd = fallbackEnd;
+        // Fallback: Try old config table
+        const { data: configData } = await supabase
+            .from('config')
+            .select('value')
+            .eq('key', 'seasonReset')
+            .single();
+
+        if (configData && configData.value) {
+            const lastResetDate = new Date(configData.value.lastResetDate);
+            const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+            const seasonEnd = new Date(lastResetDate.getTime() + sixWeeksInMs);
+
+            cachedSeasonEnd = seasonEnd;
             lastFetchTime = Date.now();
 
-            return fallbackEnd;
+            console.log('📅 Season end date loaded from config (fallback):', seasonEnd.toLocaleString('de-DE'));
+            return seasonEnd;
         }
+
+        // Final fallback: 6 weeks from now
+        console.warn('⚠️ No season config found, using fallback calculation');
+        const now = new Date();
+        const sixWeeksInMs = 6 * 7 * 24 * 60 * 60 * 1000;
+        const fallbackEnd = new Date(now.getTime() + sixWeeksInMs);
+
+        cachedSeasonEnd = fallbackEnd;
+        lastFetchTime = Date.now();
+
+        return fallbackEnd;
     } catch (error) {
         console.error('Error fetching season end date:', error);
 
@@ -162,29 +185,41 @@ export async function formatSeasonEndDate(supabase) {
 }
 
 /**
- * Gets the current season key (format: "MONTH-YEAR" based on reset date)
+ * Gets the current season key (format: "MONTH-YEAR" based on season start date)
  * Used for tracking which season a milestone was completed in
  * @param {Object} supabase - Supabase client instance
  * @returns {Promise<string>} Season key (e.g., "11-2025")
  */
 export async function getCurrentSeasonKey(supabase) {
     try {
-        const { data, error } = await supabase
+        // Try to get active season from seasons table
+        const { data: activeSeasons, error } = await supabase
+            .from('seasons')
+            .select('id, name, start_date')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (!error && activeSeasons && activeSeasons.length > 0) {
+            const startDate = new Date(activeSeasons[0].start_date);
+            return `${startDate.getMonth() + 1}-${startDate.getFullYear()}`;
+        }
+
+        // Fallback: Try old config table
+        const { data: configData } = await supabase
             .from('config')
-            .select('*')
+            .select('value')
             .eq('key', 'seasonReset')
             .single();
 
-        if (!error && data && data.value) {
-            const lastResetDate = new Date(data.value.lastResetDate);
-
-            // Season key is based on the month/year when the season started (lastResetDate)
+        if (configData && configData.value) {
+            const lastResetDate = new Date(configData.value.lastResetDate);
             return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
-        } else {
-            // Fallback: Use current month/year
-            const now = new Date();
-            return `${now.getMonth() + 1}-${now.getFullYear()}`;
         }
+
+        // Final fallback: Use current month/year
+        const now = new Date();
+        return `${now.getMonth() + 1}-${now.getFullYear()}`;
     } catch (error) {
         console.error('Error getting season key:', error);
         const now = new Date();
