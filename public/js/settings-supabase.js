@@ -632,7 +632,7 @@ document.getElementById('delete-account-btn')?.addEventListener('click', async (
 
         // Call Supabase RPC function to anonymize account
         const { data, error } = await supabase.rpc('anonymize_account', {
-            user_id: currentUser.id
+            p_user_id: currentUser.id
         });
 
         if (error) throw error;
