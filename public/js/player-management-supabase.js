@@ -259,7 +259,7 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         }
 
         // Use RPC function to create offline player (bypasses RLS)
-        const { data: newPlayerData, error } = await supabase.rpc('create_offline_player', {
+        const rpcParams = {
             p_first_name: firstName,
             p_last_name: lastName,
             p_club_id: currentUserData.clubId,
@@ -268,7 +268,10 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             p_birthdate: birthdate || null,
             p_gender: gender || null,
             p_sport_id: currentUserData.activeSportId || null
-        });
+        };
+        console.log('[OfflinePlayer] Creating with params:', rpcParams);
+
+        const { data: newPlayerData, error } = await supabase.rpc('create_offline_player', rpcParams);
 
         if (error) throw error;
 
@@ -298,7 +301,8 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
         }
     } catch (error) {
         console.error('Fehler beim Erstellen des Spielers:', error);
-        alert('Fehler: Der Spieler konnte nicht erstellt werden.');
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        alert('Fehler: ' + (error.message || 'Der Spieler konnte nicht erstellt werden.'));
         // Re-enable button on error
         if (submitButton) {
             submitButton.disabled = false;
