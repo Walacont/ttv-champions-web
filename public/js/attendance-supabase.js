@@ -1,12 +1,15 @@
 // Attendance Module - Supabase Version
 // SC Champions - Migration von Firebase zu Supabase
+// Multi-sport support: Attendance is filtered by active sport
 
 import { getSupabase } from './supabase-init.js';
+import { getSportContext } from './sport-context-supabase.js';
 
 /**
  * Attendance Module - Supabase Version
  * Handles calendar rendering and attendance tracking for coaches
  * Supports subgroups with separate streaks per subgroup
+ * Multi-sport: Filters attendance by active sport
  */
 
 const supabase = getSupabase();
@@ -159,12 +162,24 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
     const startDate = new Date(year, month, 1).toISOString().split('T')[0];
     const endDate = new Date(year, month + 1, 0).toISOString().split('T')[0];
 
+    // Get sport context for multi-sport filtering
+    const sportContext = await getSportContext(currentUserData.id);
+    const effectiveClubId = sportContext?.clubId || currentUserData.clubId;
+    const activeSportId = sportContext?.sportId;
+
     try {
-        // Load subgroups for color mapping
-        const { data: subgroups, error: subError } = await supabase
+        // Load subgroups for color mapping (filtered by sport if available)
+        let subgroupsQuery = supabase
             .from('subgroups')
             .select('id, name, color')
-            .eq('club_id', currentUserData.clubId);
+            .eq('club_id', effectiveClubId);
+
+        // Filter by sport if available
+        if (activeSportId) {
+            subgroupsQuery = subgroupsQuery.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
+
+        const { data: subgroups, error: subError } = await subgroupsQuery;
 
         if (subError) throw subError;
 
@@ -180,15 +195,20 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
         throw error;
     }
 
-    // Fetch training sessions for the month
+    // Fetch training sessions for the month (filtered by sport if available)
     try {
         let sessionsQuery = supabase
             .from('training_sessions')
             .select('*')
-            .eq('club_id', currentUserData.clubId)
+            .eq('club_id', effectiveClubId)
             .gte('date', startDate)
             .lte('date', endDate)
             .eq('cancelled', false);
+
+        // Filter by sport if available
+        if (activeSportId) {
+            sessionsQuery = sessionsQuery.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
 
         if (currentSubgroupFilter !== 'all') {
             sessionsQuery = sessionsQuery.eq('subgroup_id', currentSubgroupFilter);

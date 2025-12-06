@@ -1,9 +1,14 @@
 /**
  * Subgroups Management Module (Supabase Version)
  * Handles creation, editing, and deletion of training subgroups within a club
+ * Multi-sport support: Subgroups are filtered by active sport
  */
 
 import { formatDate } from './ui-utils.js';
+import { getSportContext } from './sport-context-supabase.js';
+
+// Store current sport context for use in other functions
+let currentSportContext = null;
 
 /**
  * Maps subgroup data from Supabase (snake_case) to app format (camelCase)
@@ -12,6 +17,7 @@ function mapSubgroupFromSupabase(subgroup) {
     return {
         id: subgroup.id,
         clubId: subgroup.club_id,
+        sportId: subgroup.sport_id,
         name: subgroup.name,
         color: subgroup.color,
         isDefault: subgroup.is_default,
@@ -21,22 +27,40 @@ function mapSubgroupFromSupabase(subgroup) {
 }
 
 /**
- * Loads all subgroups for a club
+ * Loads all subgroups for a club (filtered by sport)
  * @param {string} clubId - Club ID
  * @param {Object} supabase - Supabase client instance
  * @param {Function} setUnsubscribe - Callback to set unsubscribe function
+ * @param {string} userId - User ID (optional, for sport context lookup)
  */
-export function loadSubgroupsList(clubId, supabase, setUnsubscribe) {
+export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = null) {
     const subgroupsListContainer = document.getElementById('subgroups-list');
     if (!subgroupsListContainer) return;
 
     async function loadSubgroups() {
         try {
-            const { data, error } = await supabase
+            // Get sport context for multi-sport filtering
+            let activeSportId = null;
+            let effectiveClubId = clubId;
+
+            if (userId) {
+                currentSportContext = await getSportContext(userId);
+                activeSportId = currentSportContext?.sportId;
+                effectiveClubId = currentSportContext?.clubId || clubId;
+            }
+
+            let query = supabase
                 .from('subgroups')
                 .select('*')
-                .eq('club_id', clubId)
+                .eq('club_id', effectiveClubId)
                 .order('created_at', { ascending: true });
+
+            // Filter by sport if available
+            if (activeSportId) {
+                query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
 

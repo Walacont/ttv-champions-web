@@ -1,14 +1,17 @@
 // Leaderboard Module - Supabase Version
 // SC Champions - Migration von Firebase zu Supabase
+// Updated for multi-sport support - leaderboards filter by active sport
 
 import { getSupabase } from './supabase-init.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 import { RANK_ORDER, groupPlayersByRank } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
+import { getSportContext, getUsersInSport } from './sport-context-supabase.js';
 
 /**
  * Leaderboard Module - Supabase Version
  * Handles leaderboards: Skill (ELO), Effort (XP), Season (Points)
+ * Multi-sport support: Leaderboards show only players from the active sport
  */
 
 const supabase = getSupabase();
@@ -28,6 +31,7 @@ export const DEMOTION_COUNT = 4;
 // State
 let currentLeaderboardSubgroupFilter = 'all';
 let currentLeaderboardGenderFilter = 'all';
+let currentLeaderboardSportId = null; // Sport filter for multi-sport support
 let leaderboardSubscriptions = [];
 let currentActiveTab = 'effort';
 
@@ -218,6 +222,22 @@ export function setLeaderboardGenderFilter(genderId) {
 }
 
 /**
+ * Set sport filter for leaderboard (multi-sport support)
+ * When set, leaderboard only shows players from this sport
+ */
+export function setLeaderboardSportFilter(sportId) {
+    currentLeaderboardSportId = sportId;
+    console.log('[Leaderboard] Sport filter set:', sportId);
+}
+
+/**
+ * Get current sport filter
+ */
+export function getLeaderboardSportFilter() {
+    return currentLeaderboardSportId;
+}
+
+/**
  * Get league info based on ELO rating
  */
 export function getLeague(eloRating) {
@@ -231,6 +251,7 @@ export function getLeague(eloRating) {
 
 /**
  * Load club leaderboard (Skill - ELO based)
+ * Multi-sport: If sport filter is set, shows only players in that sport
  */
 export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 'skill-list-club') {
     const container = document.getElementById(containerId);
@@ -239,12 +260,52 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
+        // Get users in the current sport (if sport filter is set)
+        let sportUserIds = null;
+        let sportUserClubMap = new Map(); // Map userId -> clubId for sport
+
+        if (currentLeaderboardSportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id, club_id')
+                .eq('sport_id', currentLeaderboardSportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                sportUsers.forEach(su => sportUserClubMap.set(su.user_id, su.club_id));
+                console.log('[Leaderboard] Sport filter active, users in sport:', sportUserIds.length);
+            }
+        }
+
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings')
-            .eq('club_id', clubId)
+            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
+
+        // Apply club filter if no sport filter, or if filtering by club within sport
+        if (!currentLeaderboardSportId && clubId) {
+            query = query.eq('club_id', clubId);
+        } else if (sportUserIds && sportUserIds.length > 0) {
+            // Filter by users in sport
+            query = query.in('id', sportUserIds);
+            // If also filtering by club, filter by club from sport context
+            if (clubId) {
+                const usersInClub = sportUserIds.filter(uid => sportUserClubMap.get(uid) === clubId);
+                if (usersInClub.length > 0) {
+                    query = supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings, club_id')
+                        .in('role', ['player', 'coach'])
+                        .in('id', usersInClub)
+                        .order('elo_rating', { ascending: false });
+                }
+            }
+        } else if (sportUserIds && sportUserIds.length === 0) {
+            // No users in sport
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+            return [];
+        }
 
         const { data, error } = await query;
 
@@ -263,7 +324,8 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
             points: p.points || 0,
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: clubId, // All players are from the same club
+            // Use club from sport context if available, otherwise from profile
+            clubId: sportUserClubMap.get(p.id) || p.club_id || clubId,
             privacySettings: p.privacy_settings || {}
         }));
 
@@ -284,7 +346,8 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
         players = await filterTestClubPlayers(players, currentUserId);
 
         // Filter by privacy settings (showInLeaderboards)
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, clubId);
+        const currentUserClubId = sportUserClubMap.get(currentUserId) || clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
         players = filteredPlayers;
 
         if (players.length === 0) {
@@ -304,6 +367,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
 
 /**
  * Load club leaderboard (Effort - XP based)
+ * Multi-sport: If sport filter is set, shows only players in that sport
  */
 export async function loadEffortLeaderboard(clubId, currentUserId, containerId = 'effort-list-club') {
     const container = document.getElementById(containerId);
@@ -312,12 +376,47 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
-        const { data, error } = await supabase
+        // Get users in the current sport (if sport filter is set)
+        let sportUserIds = null;
+        let sportUserClubMap = new Map();
+
+        if (currentLeaderboardSportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id, club_id')
+                .eq('sport_id', currentLeaderboardSportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                sportUsers.forEach(su => sportUserClubMap.set(su.user_id, su.club_id));
+            }
+        }
+
+        let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings')
-            .eq('club_id', clubId)
+            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach'])
             .order('xp', { ascending: false });
+
+        // Apply club/sport filter
+        if (!currentLeaderboardSportId && clubId) {
+            query = query.eq('club_id', clubId);
+        } else if (sportUserIds && sportUserIds.length > 0) {
+            const targetUserIds = clubId
+                ? sportUserIds.filter(uid => sportUserClubMap.get(uid) === clubId)
+                : sportUserIds;
+            if (targetUserIds.length > 0) {
+                query = query.in('id', targetUserIds);
+            } else {
+                container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+                return [];
+            }
+        } else if (sportUserIds && sportUserIds.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+            return [];
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -331,7 +430,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: clubId, // All players are from the same club
+            clubId: sportUserClubMap.get(p.id) || p.club_id || clubId,
             privacySettings: p.privacy_settings || {}
         }));
 
@@ -352,7 +451,8 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
         players = await filterTestClubPlayers(players, currentUserId);
 
         // Filter by privacy settings (showInLeaderboards)
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, clubId);
+        const currentUserClubId = sportUserClubMap.get(currentUserId) || clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
         players = filteredPlayers;
 
         if (players.length === 0) {
@@ -372,6 +472,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
 
 /**
  * Load season leaderboard (Points based)
+ * Multi-sport: If sport filter is set, shows only players in that sport
  */
 export async function loadSeasonLeaderboard(clubId, currentUserId, containerId = 'season-list-club') {
     const container = document.getElementById(containerId);
@@ -380,12 +481,47 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
-        const { data, error } = await supabase
+        // Get users in the current sport (if sport filter is set)
+        let sportUserIds = null;
+        let sportUserClubMap = new Map();
+
+        if (currentLeaderboardSportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id, club_id')
+                .eq('sport_id', currentLeaderboardSportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                sportUsers.forEach(su => sportUserClubMap.set(su.user_id, su.club_id));
+            }
+        }
+
+        let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings')
-            .eq('club_id', clubId)
+            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach'])
             .order('points', { ascending: false });
+
+        // Apply club/sport filter
+        if (!currentLeaderboardSportId && clubId) {
+            query = query.eq('club_id', clubId);
+        } else if (sportUserIds && sportUserIds.length > 0) {
+            const targetUserIds = clubId
+                ? sportUserIds.filter(uid => sportUserClubMap.get(uid) === clubId)
+                : sportUserIds;
+            if (targetUserIds.length > 0) {
+                query = query.in('id', targetUserIds);
+            } else {
+                container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+                return [];
+            }
+        } else if (sportUserIds && sportUserIds.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+            return [];
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -399,7 +535,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: clubId, // All players are from the same club
+            clubId: sportUserClubMap.get(p.id) || p.club_id || clubId,
             privacySettings: p.privacy_settings || {}
         }));
 
@@ -420,7 +556,8 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
         players = await filterTestClubPlayers(players, currentUserId);
 
         // Filter by privacy settings (showInLeaderboards)
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, clubId);
+        const currentUserClubId = sportUserClubMap.get(currentUserId) || clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, currentUserId, currentUserClubId);
         players = filteredPlayers;
 
         if (players.length === 0) {
@@ -476,6 +613,7 @@ export async function loadGlobalLeaderboard(userDataOrId, supabaseClientOrContai
 /**
  * Internal function to load global skill leaderboard
  * Shows top 100 players + current user's position if not in top 100
+ * Multi-sport: If sport filter is set, shows only players in that sport globally
  */
 async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = 'skill-list-global', limit = 100) {
     const container = document.getElementById(containerId);
@@ -484,8 +622,35 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
+        // Get users in the current sport (if sport filter is set)
+        let sportUserIds = null;
+        let sportUserClubMap = new Map();
+
+        if (currentLeaderboardSportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id, club_id, clubs(name)')
+                .eq('sport_id', currentLeaderboardSportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                sportUsers.forEach(su => {
+                    sportUserClubMap.set(su.user_id, {
+                        clubId: su.club_id,
+                        clubName: su.clubs?.name || 'Kein Verein'
+                    });
+                });
+                console.log('[Leaderboard] Global sport filter active, users in sport:', sportUserIds.length);
+            }
+
+            if (sportUserIds && sportUserIds.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+                return [];
+            }
+        }
+
         // Fetch all players to determine current user's rank
-        const { data, error } = await supabase
+        let query = supabase
             .from('profiles')
             .select(`
                 id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
@@ -494,23 +659,34 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
             .in('role', ['player', 'coach'])
             .order('elo_rating', { ascending: false });
 
+        // Apply sport filter
+        if (sportUserIds && sportUserIds.length > 0) {
+            query = query.in('id', sportUserIds);
+        }
+
+        const { data, error } = await query;
+
         if (error) throw error;
 
-        let allPlayers = (data || []).map(p => ({
-            id: p.id,
-            firstName: p.first_name,
-            lastName: p.last_name,
-            eloRating: p.elo_rating || 1000,
-            highestElo: p.highest_elo,
-            photoURL: p.photo_url,
-            role: p.role,
-            clubId: p.club_id,
-            clubName: p.clubs?.name || 'Kein Verein',
-            subgroupIDs: p.subgroup_ids || [],
-            birthdate: p.birthdate,
-            gender: p.gender,
-            privacySettings: p.privacy_settings || {}
-        }));
+        let allPlayers = (data || []).map(p => {
+            const sportClubInfo = sportUserClubMap.get(p.id);
+            return {
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                eloRating: p.elo_rating || 1000,
+                highestElo: p.highest_elo,
+                photoURL: p.photo_url,
+                role: p.role,
+                // Use club from sport context if available
+                clubId: sportClubInfo?.clubId || p.club_id,
+                clubName: sportClubInfo?.clubName || p.clubs?.name || 'Kein Verein',
+                subgroupIDs: p.subgroup_ids || [],
+                birthdate: p.birthdate,
+                gender: p.gender,
+                privacySettings: p.privacy_settings || {}
+            };
+        });
 
         // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -531,7 +707,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
 
         // Get current user's club ID for privacy filtering
         const currentUserProfile = allPlayers.find(p => p.id === currentUserId);
-        const currentUserClubId = currentUserProfile?.clubId;
+        const currentUserClubId = sportUserClubMap.get(currentUserId)?.clubId || currentUserProfile?.clubId;
 
         // Filter by privacy settings (showInLeaderboards and searchable)
         const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(allPlayers, currentUserId, currentUserClubId);
@@ -1025,17 +1201,53 @@ export async function loadLeaderboard(userData, supabaseClient, unsubscribes) {
 
 /**
  * Loads the Ranks view showing players grouped by rank
+ * Multi-sport: If sport filter is set, shows only players in that sport
  */
 async function loadRanksView(userData) {
     const listEl = document.getElementById('ranks-list');
     if (!listEl) return;
 
     try {
-        const { data, error } = await supabase
+        // Get users in the current sport (if sport filter is set)
+        let sportUserIds = null;
+        let sportUserClubMap = new Map();
+
+        if (currentLeaderboardSportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id, club_id')
+                .eq('sport_id', currentLeaderboardSportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                sportUsers.forEach(su => sportUserClubMap.set(su.user_id, su.club_id));
+            }
+        }
+
+        let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings')
-            .eq('club_id', userData.clubId)
+            .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach']);
+
+        // Apply club/sport filter
+        if (!currentLeaderboardSportId && userData.clubId) {
+            query = query.eq('club_id', userData.clubId);
+        } else if (sportUserIds && sportUserIds.length > 0) {
+            const targetUserIds = userData.clubId
+                ? sportUserIds.filter(uid => sportUserClubMap.get(uid) === userData.clubId)
+                : sportUserIds;
+            if (targetUserIds.length > 0) {
+                query = query.in('id', targetUserIds);
+            } else {
+                listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+                return;
+            }
+        } else if (sportUserIds && sportUserIds.length === 0) {
+            listEl.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+            return;
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -1050,7 +1262,7 @@ async function loadRanksView(userData) {
             subgroupIDs: p.subgroup_ids || [],
             birthdate: p.birthdate,
             gender: p.gender,
-            clubId: userData.clubId, // All players are from the same club
+            clubId: sportUserClubMap.get(p.id) || p.club_id || userData.clubId,
             privacySettings: p.privacy_settings || {}
         }));
 
@@ -1071,7 +1283,8 @@ async function loadRanksView(userData) {
         players = await filterTestClubPlayers(players, userData.id);
 
         // Filter by privacy settings (showInLeaderboards)
-        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, userData.clubId);
+        const currentUserClubId = sportUserClubMap.get(userData.id) || userData.clubId;
+        const { filteredPlayers, currentUserHidden } = filterPlayersByPrivacy(players, userData.id, currentUserClubId);
         players = filteredPlayers;
 
         if (players.length === 0) {

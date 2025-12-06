@@ -1,9 +1,11 @@
 /**
  * Match Suggestions Module (Supabase Version)
  * Provides opponent suggestions based on match history and player ratings
+ * Multi-sport support: Filters suggestions by active sport
  */
 
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { getSportContext } from './sport-context-supabase.js';
 
 // Cache for clubs data
 let clubsCache = null;
@@ -357,16 +359,55 @@ export async function loadMatchSuggestions(
         // Load clubs map for test club filtering
         const clubsMap = await loadClubsMap(supabase);
 
-        // Get all players and coaches based on filter (club only)
-        const { data: playersData, error: playersError } = await supabase
+        // Get sport context for multi-sport filtering
+        const sportContext = await getSportContext(userData.id);
+        const effectiveClubId = sportContext?.clubId || userData.clubId;
+
+        // Get users in the current sport (if sport filter is set)
+        let sportUserIds = null;
+        let sportUserClubMap = new Map();
+
+        if (sportContext?.sportId) {
+            const { data: sportUsers, error: sportError } = await supabase
+                .from('profile_club_sports')
+                .select('user_id, club_id')
+                .eq('sport_id', sportContext.sportId);
+
+            if (!sportError && sportUsers) {
+                sportUserIds = sportUsers.map(su => su.user_id);
+                sportUsers.forEach(su => sportUserClubMap.set(su.user_id, su.club_id));
+                console.log('[Match Suggestions] Sport filter active, users in sport:', sportUserIds.length);
+            }
+        }
+
+        // Get all players and coaches based on filter (club only, filtered by sport if available)
+        let playersQuery = supabase
             .from('profiles')
             .select('*')
-            .eq('club_id', userData.clubId)
             .in('role', ['player', 'coach']);
+
+        if (sportUserIds && sportUserIds.length > 0) {
+            // Filter to users in sport AND in same club
+            const clubSportUserIds = sportUserIds.filter(uid => sportUserClubMap.get(uid) === effectiveClubId);
+            if (clubSportUserIds.length > 0) {
+                playersQuery = playersQuery.in('id', clubSportUserIds);
+            } else {
+                playersQuery = playersQuery.eq('club_id', effectiveClubId);
+            }
+        } else {
+            playersQuery = playersQuery.eq('club_id', effectiveClubId);
+        }
+
+        const { data: playersData, error: playersError } = await playersQuery;
 
         if (playersError) throw playersError;
 
-        let allPlayers = (playersData || []).map(p => mapPlayerFromSupabase(p));
+        let allPlayers = (playersData || []).map(p => {
+            const mapped = mapPlayerFromSupabase(p);
+            // Use club from sport context if available
+            mapped.clubId = sportUserClubMap.get(p.id) || p.club_id;
+            return mapped;
+        });
 
         console.log('[Match Suggestions] Players before filter:', allPlayers.length);
         console.log(

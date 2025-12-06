@@ -139,6 +139,59 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================
+-- VOLLSTÄNDIGER SPORT-KONTEXT
+-- ============================================
+
+-- Vollständigen Sport-Kontext des Users abrufen (sport_id, club_id, role)
+-- Wichtig: User kann in verschiedenen Sportarten in verschiedenen Vereinen sein!
+CREATE OR REPLACE FUNCTION get_user_sport_context(p_user_id UUID)
+RETURNS TABLE (
+    sport_id UUID,
+    sport_name TEXT,
+    display_name TEXT,
+    config JSONB,
+    club_id UUID,
+    club_name TEXT,
+    role TEXT
+) AS $$
+DECLARE
+    v_active_sport_id UUID;
+BEGIN
+    -- Aktive Sportart ermitteln
+    SELECT p.active_sport_id INTO v_active_sport_id
+    FROM profiles p
+    WHERE p.id = p_user_id;
+
+    -- Falls keine aktive Sportart gesetzt, erste nehmen
+    IF v_active_sport_id IS NULL THEN
+        SELECT pcs.sport_id INTO v_active_sport_id
+        FROM profile_club_sports pcs
+        WHERE pcs.user_id = p_user_id
+        ORDER BY pcs.created_at ASC
+        LIMIT 1;
+    END IF;
+
+    -- Vollständigen Kontext zurückgeben
+    RETURN QUERY
+    SELECT
+        s.id as sport_id,
+        s.name as sport_name,
+        s.display_name,
+        s.config,
+        c.id as club_id,
+        c.name as club_name,
+        pcs.role
+    FROM profile_club_sports pcs
+    JOIN sports s ON s.id = pcs.sport_id
+    JOIN clubs c ON c.id = pcs.club_id
+    WHERE pcs.user_id = p_user_id
+    AND pcs.sport_id = v_active_sport_id
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
 -- INDEX FÜR PERFORMANCE
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_profiles_active_sport ON profiles(active_sport_id);
+CREATE INDEX IF NOT EXISTS idx_profile_club_sports_user_sport ON profile_club_sports(user_id, sport_id);
