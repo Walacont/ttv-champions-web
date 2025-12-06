@@ -31,16 +31,26 @@ export async function setupMatchForm(currentUser, currentUserData, callbacks = {
 
     // Get sport context to determine which scoring system to use
     const sportContext = await getSportContext(currentUser.id);
+    console.log('[Player Matches] Sport context loaded:', sportContext);
+
     const sportName = sportContext?.sportName;
     const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
     const isBadminton = sportName === 'badminton';
+
+    console.log('[Player Matches] Sport detection:', {
+        sportName,
+        isTennisOrPadel,
+        isBadminton
+    });
 
     // Show/hide tennis options based on sport
     const tennisOptionsContainer = document.getElementById('tennis-options-container');
     if (tennisOptionsContainer) {
         if (isTennisOrPadel) {
+            console.log('[Player Matches] Showing tennis options');
             tennisOptionsContainer.classList.remove('hidden');
         } else {
+            console.log('[Player Matches] Hiding tennis options');
             tennisOptionsContainer.classList.add('hidden');
         }
     }
