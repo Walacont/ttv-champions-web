@@ -258,13 +258,22 @@ export async function handleAddOfflinePlayer(e, supabase, currentUserData) {
             playerData.email = email;
         }
 
-        const { data: newPlayer, error } = await supabase
-            .from('profiles')
-            .insert([playerData])
-            .select()
-            .single();
+        // Use RPC function to create offline player (bypasses RLS)
+        const { data: newPlayerData, error } = await supabase.rpc('create_offline_player', {
+            p_first_name: firstName,
+            p_last_name: lastName,
+            p_club_id: currentUserData.clubId,
+            p_subgroup_ids: subgroupIDs,
+            p_is_match_ready: isMatchReady,
+            p_birthdate: birthdate || null,
+            p_gender: gender || null,
+            p_sport_id: currentUserData.activeSportId || null
+        });
 
         if (error) throw error;
+
+        // Convert RPC response to player object format
+        const newPlayer = newPlayerData;
 
         // NEU: Handle optional invitation after player creation
         const result = await handlePostPlayerCreationInvitation(newPlayer.id, mapPlayerFromSupabase(newPlayer));
