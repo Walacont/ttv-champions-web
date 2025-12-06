@@ -190,6 +190,7 @@ function mapExerciseFromSupabase(row) {
         recordHolderName: row.record_holder_name,
         recordHolderClub: row.record_holder_club,
         recordCount: row.record_count,
+        procedure: row.procedure, // Array of steps for the exercise
     };
 }
 
@@ -299,11 +300,27 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         ? `<span class="font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded-full text-sm">👤 ${exercise.createdByName}</span>`
         : '';
 
+    // XP Badge - prominent display
+    const xpBadge = `<span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg z-10">${exercise.points} XP</span>`;
+
+    // Exercise Icon - show dumbbell icon in top-left of image area
+    const exerciseIcon = `<div class="absolute top-3 left-3 bg-indigo-100 rounded-full p-3 shadow-md z-10">
+        <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" />
+        </svg>
+    </div>`;
+
     const imageHtml = exercise.imageUrl
-        ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">`
-        : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200">
+        ? `<div class="relative">
+               <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover">
+               ${exerciseIcon}
+               ${xpBadge}
+           </div>`
+        : `<div class="relative w-full h-56 bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center border-b border-gray-200">
+               ${exerciseIcon}
+               ${xpBadge}
                <div class="text-center">
-                   <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <svg class="w-16 h-16 mx-auto text-indigo-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                    </svg>
                    <p class="text-xs text-gray-400">Kein Bild</p>
@@ -313,10 +330,11 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
     card.innerHTML = `
         ${imageHtml}
         <div class="p-4 flex flex-col flex-grow">
-            <h3 class="font-bold text-md mb-2">${exercise.title}</h3>
+            <h3 class="font-bold text-lg mb-2 text-gray-800">${exercise.title}</h3>
             <div class="mb-2">${tagsHtml}</div>
-            <p class="text-sm text-gray-600 flex-grow truncate">${exercise.description || ''}</p>
-            <div class="mt-4 text-right">
+            <p class="text-sm text-gray-600 flex-grow line-clamp-2">${exercise.description || ''}</p>
+            <div class="mt-4 flex items-center justify-between">
+                <span class="text-xs text-gray-500">🏆 Wiederholbar mit Meilensteinen</span>
                 ${coachBadge}
             </div>
         </div>`;
@@ -636,11 +654,18 @@ function renderCoachExercises(exercises, filterTag) {
             ? '<span class="inline-block bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">🏠 Nur Verein</span>'
             : '<span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">🌍 Global</span>';
 
+        // XP Badge for coach cards
+        const xpBadge = `<span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg z-10 pointer-events-none">${exercise.points} XP</span>`;
+
         const imageHtml = exercise.imageUrl
-            ? `<img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">`
-            : `<div class="w-full h-56 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border-b border-gray-200 pointer-events-none">
+            ? `<div class="relative">
+                   <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
+                   ${xpBadge}
+               </div>`
+            : `<div class="relative w-full h-56 bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center border-b border-gray-200 pointer-events-none">
+                   ${xpBadge}
                    <div class="text-center">
-                       <svg class="w-16 h-16 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <svg class="w-16 h-16 mx-auto text-indigo-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                        </svg>
                        <p class="text-xs text-gray-400">Kein Bild</p>
@@ -786,6 +811,46 @@ export async function openExerciseModal(
         modalDescription.style.whiteSpace = 'pre-wrap';
     }
 
+    // Display procedure/steps if available
+    const procedureContainer = document.getElementById('modal-exercise-procedure');
+    if (procedureContainer && exerciseData?.procedure) {
+        try {
+            const procedureSteps = typeof exerciseData.procedure === 'string'
+                ? JSON.parse(exerciseData.procedure)
+                : exerciseData.procedure;
+
+            if (Array.isArray(procedureSteps) && procedureSteps.length > 0) {
+                const stepsHtml = procedureSteps.map((step, index) => {
+                    const stepText = typeof step === 'string' ? step : step.text;
+                    return `
+                        <div class="flex gap-3 mb-2">
+                            <span class="flex-shrink-0 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold">${index + 1}</span>
+                            <p class="text-sm text-gray-700 flex-1">${escapeHtml(stepText)}</p>
+                        </div>
+                    `;
+                }).join('');
+
+                procedureContainer.innerHTML = `
+                    <div class="mb-4 border-t border-gray-200 pt-3">
+                        <h4 class="text-md font-bold text-gray-800 mb-3">Ablauf:</h4>
+                        <div class="space-y-2">${stepsHtml}</div>
+                    </div>
+                `;
+                procedureContainer.classList.remove('hidden');
+            } else {
+                procedureContainer.innerHTML = '';
+                procedureContainer.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('Error parsing procedure:', e);
+            procedureContainer.innerHTML = '';
+            procedureContainer.classList.add('hidden');
+        }
+    } else if (procedureContainer) {
+        procedureContainer.innerHTML = '';
+        procedureContainer.classList.add('hidden');
+    }
+
     let tieredPointsData = null;
     try {
         if (tieredPoints) {
@@ -800,24 +865,42 @@ export async function openExerciseModal(
 
     const hasTieredPoints = tieredPointsData?.enabled && tieredPointsData?.milestones?.length > 0;
 
+    // Load player progress for ALL exercises (not just tiered ones)
     let playerProgress = null;
     if (
-        hasTieredPoints &&
         exerciseContext.userRole === 'player' &&
         exerciseContext.db &&
         exerciseContext.userId &&
         exerciseId
     ) {
         try {
-            const { data } = await exerciseContext.db
-                .from('exercise_milestones')
-                .select('*')
-                .eq('user_id', exerciseContext.userId)
-                .eq('exercise_id', exerciseId)
-                .single();
+            if (hasTieredPoints) {
+                // For milestone exercises, use exercise_milestones
+                const { data } = await exerciseContext.db
+                    .from('exercise_milestones')
+                    .select('*')
+                    .eq('user_id', exerciseContext.userId)
+                    .eq('exercise_id', exerciseId)
+                    .single();
 
-            if (data) {
-                playerProgress = { currentCount: data.current_count };
+                if (data) {
+                    playerProgress = { currentCount: data.current_count || 0 };
+                }
+            } else {
+                // For regular exercises, use completed_exercises
+                const { data } = await exerciseContext.db
+                    .from('completed_exercises')
+                    .select('*')
+                    .eq('user_id', exerciseContext.userId)
+                    .eq('exercise_id', exerciseId)
+                    .maybeSingle();
+
+                if (data) {
+                    playerProgress = {
+                        currentCount: data.current_count || data.count || 0,
+                        bestScore: data.best_score
+                    };
+                }
             }
         } catch (error) {
             console.log('Could not load player progress:', error);
@@ -826,8 +909,9 @@ export async function openExerciseModal(
 
     const currentCount = playerProgress?.currentCount || 0;
 
+    // Load exercise data for ALL exercises (to show record holder)
     let exerciseData = null;
-    if (hasTieredPoints && exerciseContext.db && exerciseId) {
+    if (exerciseContext.db && exerciseId) {
         try {
             const { data } = await exerciseContext.db
                 .from('exercises')
@@ -960,10 +1044,59 @@ export async function openExerciseModal(
             milestonesContainer.classList.remove('hidden');
         }
     } else {
+        // Regular exercise (no milestones) - but still show records!
         pointsContainer.textContent = `+${points} P.`;
         if (milestonesContainer) {
-            milestonesContainer.innerHTML = '';
-            milestonesContainer.classList.add('hidden');
+            let recordsHtml = '';
+
+            if (exerciseContext.userRole === 'player') {
+                // Show global record holder
+                let globalRecordHtml = '';
+                if (exerciseData && exerciseData.recordHolderName && exerciseData.recordCount) {
+                    const clubInfo = exerciseData.recordHolderClub ? ` (${exerciseData.recordHolderClub})` : '';
+                    globalRecordHtml = `
+                        <div class="mb-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">🏆</span>
+                                <span class="font-bold text-gray-800">Globaler Rekordhalter</span>
+                            </div>
+                            <p class="text-base text-gray-700">
+                                <span class="font-bold text-amber-600">${exerciseData.recordHolderName}${clubInfo}</span> mit <span class="font-bold text-amber-700">${exerciseData.recordCount} Wiederholungen</span>
+                            </p>
+                        </div>
+                    `;
+                }
+
+                // Show personal record
+                let personalRecordHtml = '';
+                if (currentCount > 0) {
+                    personalRecordHtml = `
+                        <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-lg">📈</span>
+                                <span class="font-bold text-gray-800">Deine beste Leistung</span>
+                            </div>
+                            <p class="text-base text-gray-700">
+                                Persönlicher Rekord: <span class="font-bold text-blue-600">${currentCount} Wiederholungen</span>
+                            </p>
+                        </div>
+                    `;
+                }
+
+                recordsHtml = `
+                    <div class="mt-4 mb-3 border-t-2 border-indigo-200 pt-4">
+                        <h4 class="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="text-2xl">🏅</span>
+                            <span>Rekorde</span>
+                        </h4>
+                        ${personalRecordHtml || '<p class="text-sm text-gray-500 italic">Du hast diese Übung noch nicht absolviert.</p>'}
+                        ${globalRecordHtml}
+                    </div>
+                `;
+            }
+
+            milestonesContainer.innerHTML = recordsHtml;
+            milestonesContainer.classList.remove('hidden');
         }
     }
 
