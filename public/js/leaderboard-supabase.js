@@ -613,7 +613,8 @@ export async function loadGlobalLeaderboard(userDataOrId, supabaseClientOrContai
 /**
  * Internal function to load global skill leaderboard
  * Shows top 100 players + current user's position if not in top 100
- * Multi-sport: If sport filter is set, shows only players in that sport globally
+ * Multi-sport: Uses user_sport_stats for sport-specific ELO and filtering
+ * Only shows players with matches_played > 0 (after first match in sport)
  */
 async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = 'skill-list-global', limit = 100) {
     const container = document.getElementById(containerId);
@@ -622,71 +623,82 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
     container.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin"></i> Laden...</div>';
 
     try {
-        // Get users in the current sport (if sport filter is set)
-        let sportUserIds = null;
+        let allPlayers = [];
         let sportUserClubMap = new Map();
 
+        // Try to use sport-specific stats table first
         if (currentLeaderboardSportId) {
-            const { data: sportUsers, error: sportError } = await supabase
-                .from('profile_club_sports')
-                .select('user_id, club_id, clubs(name)')
-                .eq('sport_id', currentLeaderboardSportId);
+            // Get sport-specific stats (only players with matches_played > 0)
+            const { data: sportStats, error: statsError } = await supabase
+                .from('user_sport_stats')
+                .select(`
+                    user_id,
+                    elo_rating,
+                    highest_elo,
+                    wins,
+                    losses,
+                    matches_played,
+                    profiles!inner(
+                        id, first_name, last_name, photo_url, role,
+                        club_id, clubs(name), subgroup_ids, birthdate, gender, privacy_settings
+                    )
+                `)
+                .eq('sport_id', currentLeaderboardSportId)
+                .gt('matches_played', 0)  // Only show after first match
+                .order('elo_rating', { ascending: false });
 
-            if (!sportError && sportUsers) {
-                sportUserIds = sportUsers.map(su => su.user_id);
-                sportUsers.forEach(su => {
-                    sportUserClubMap.set(su.user_id, {
-                        clubId: su.club_id,
-                        clubName: su.clubs?.name || 'Kein Verein'
+            if (!statsError && sportStats && sportStats.length > 0) {
+                console.log('[Leaderboard] Using sport-specific stats, players:', sportStats.length);
+
+                // Get club info for this sport
+                const { data: clubInfo } = await supabase
+                    .from('profile_club_sports')
+                    .select('user_id, club_id, clubs(name)')
+                    .eq('sport_id', currentLeaderboardSportId);
+
+                if (clubInfo) {
+                    clubInfo.forEach(ci => {
+                        sportUserClubMap.set(ci.user_id, {
+                            clubId: ci.club_id,
+                            clubName: ci.clubs?.name || 'Kein Verein'
+                        });
                     });
+                }
+
+                allPlayers = sportStats.map(ss => {
+                    const p = ss.profiles;
+                    const sportClubInfo = sportUserClubMap.get(ss.user_id);
+                    return {
+                        id: p.id,
+                        firstName: p.first_name,
+                        lastName: p.last_name,
+                        eloRating: ss.elo_rating || 1000,
+                        highestElo: ss.highest_elo || 1000,
+                        photoURL: p.photo_url,
+                        role: p.role,
+                        clubId: sportClubInfo?.clubId || p.club_id,
+                        clubName: sportClubInfo?.clubName || p.clubs?.name || 'Kein Verein',
+                        subgroupIDs: p.subgroup_ids || [],
+                        birthdate: p.birthdate,
+                        gender: p.gender,
+                        privacySettings: p.privacy_settings || {},
+                        matchesPlayed: ss.matches_played
+                    };
                 });
-                console.log('[Leaderboard] Global sport filter active, users in sport:', sportUserIds.length);
+            } else {
+                // Fallback: user_sport_stats table might not exist yet
+                console.log('[Leaderboard] Falling back to profile_club_sports filter');
+                allPlayers = await loadLeaderboardFallback(currentLeaderboardSportId, sportUserClubMap);
             }
-
-            if (sportUserIds && sportUserIds.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
-                return [];
-            }
+        } else {
+            // No sport filter - use fallback (all sports)
+            allPlayers = await loadLeaderboardFallback(null, sportUserClubMap);
         }
 
-        // Fetch all players to determine current user's rank
-        let query = supabase
-            .from('profiles')
-            .select(`
-                id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
-                club_id, clubs(name), subgroup_ids, birthdate, gender, privacy_settings
-            `)
-            .in('role', ['player', 'coach'])
-            .order('elo_rating', { ascending: false });
-
-        // Apply sport filter
-        if (sportUserIds && sportUserIds.length > 0) {
-            query = query.in('id', sportUserIds);
+        if (allPlayers.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-gray-500">Keine Spieler in dieser Sportart gefunden.</div>';
+            return [];
         }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        let allPlayers = (data || []).map(p => {
-            const sportClubInfo = sportUserClubMap.get(p.id);
-            return {
-                id: p.id,
-                firstName: p.first_name,
-                lastName: p.last_name,
-                eloRating: p.elo_rating || 1000,
-                highestElo: p.highest_elo,
-                photoURL: p.photo_url,
-                role: p.role,
-                // Use club from sport context if available
-                clubId: sportClubInfo?.clubId || p.club_id,
-                clubName: sportClubInfo?.clubName || p.clubs?.name || 'Kein Verein',
-                subgroupIDs: p.subgroup_ids || [],
-                birthdate: p.birthdate,
-                gender: p.gender,
-                privacySettings: p.privacy_settings || {}
-            };
-        });
 
         // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -736,6 +748,73 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
         container.innerHTML = '<div class="text-center py-8 text-red-500">Fehler beim Laden.</div>';
         return [];
     }
+}
+
+/**
+ * Fallback function to load leaderboard from profiles table
+ * Used when user_sport_stats table doesn't exist or is empty
+ */
+async function loadLeaderboardFallback(sportId, sportUserClubMap) {
+    let sportUserIds = null;
+
+    if (sportId) {
+        const { data: sportUsers, error: sportError } = await supabase
+            .from('profile_club_sports')
+            .select('user_id, club_id, clubs(name)')
+            .eq('sport_id', sportId);
+
+        if (!sportError && sportUsers) {
+            sportUserIds = sportUsers.map(su => su.user_id);
+            sportUsers.forEach(su => {
+                sportUserClubMap.set(su.user_id, {
+                    clubId: su.club_id,
+                    clubName: su.clubs?.name || 'Kein Verein'
+                });
+            });
+        }
+
+        if (sportUserIds && sportUserIds.length === 0) {
+            return [];
+        }
+    }
+
+    // Fetch all players from profiles
+    let query = supabase
+        .from('profiles')
+        .select(`
+            id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
+            club_id, clubs(name), subgroup_ids, birthdate, gender, privacy_settings
+        `)
+        .in('role', ['player', 'coach'])
+        .order('elo_rating', { ascending: false });
+
+    // Apply sport filter
+    if (sportUserIds && sportUserIds.length > 0) {
+        query = query.in('id', sportUserIds);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    return (data || []).map(p => {
+        const sportClubInfo = sportUserClubMap.get(p.id);
+        return {
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            eloRating: p.elo_rating || 1000,
+            highestElo: p.highest_elo,
+            photoURL: p.photo_url,
+            role: p.role,
+            clubId: sportClubInfo?.clubId || p.club_id,
+            clubName: sportClubInfo?.clubName || p.clubs?.name || 'Kein Verein',
+            subgroupIDs: p.subgroup_ids || [],
+            birthdate: p.birthdate,
+            gender: p.gender,
+            privacySettings: p.privacy_settings || {}
+        };
+    });
 }
 
 /**

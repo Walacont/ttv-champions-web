@@ -470,14 +470,43 @@ async function loadSubgroupsForFilter(selectElement) {
 }
 
 // --- Update Stats Display ---
-function updateStatsDisplay() {
+// Uses sport-specific stats from user_sport_stats if available
+async function updateStatsDisplay() {
     const xpEl = document.getElementById('player-xp');
     const eloEl = document.getElementById('player-elo');
     const pointsEl = document.getElementById('player-points');
 
-    if (xpEl) xpEl.textContent = currentUserData.xp || 0;
-    if (eloEl) eloEl.textContent = currentUserData.elo_rating || 1000;
-    if (pointsEl) pointsEl.textContent = currentUserData.points || 0;
+    // Default values from profile
+    let xp = currentUserData.xp || 0;
+    let elo = currentUserData.elo_rating || 1000;
+    let points = currentUserData.points || 0;
+
+    // Try to get sport-specific stats
+    const activeSportId = currentSportContext?.sportId || currentUserData.active_sport_id;
+    if (activeSportId && currentUser?.id) {
+        try {
+            const { data: sportStats, error } = await supabase
+                .from('user_sport_stats')
+                .select('elo_rating, xp, points, wins, losses, matches_played')
+                .eq('user_id', currentUser.id)
+                .eq('sport_id', activeSportId)
+                .maybeSingle();
+
+            if (!error && sportStats) {
+                xp = sportStats.xp || 0;
+                elo = sportStats.elo_rating || 1000;
+                points = sportStats.points || 0;
+                console.log('[DASHBOARD] Using sport-specific stats:', { xp, elo, points });
+            }
+        } catch (err) {
+            // Table might not exist yet, use profile defaults
+            console.log('[DASHBOARD] user_sport_stats not available, using profile stats');
+        }
+    }
+
+    if (xpEl) xpEl.textContent = xp;
+    if (eloEl) eloEl.textContent = elo;
+    if (pointsEl) pointsEl.textContent = points;
 }
 
 // --- Update Rank Display ---

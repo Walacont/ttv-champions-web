@@ -1413,14 +1413,56 @@ function populateSportDropdown(sports, activeSportId) {
 
 /**
  * Handle sport dropdown change event
+ * Checks if user has stats for this sport, prompts for confirmation if new
  */
 async function handleSportChange(event) {
     const selectedSportId = event.target.value;
     const selectedOption = event.target.options[event.target.selectedIndex];
     const selectedSportName = selectedOption.textContent;
 
-    if (selectedSportId) {
+    if (!selectedSportId) return;
+
+    // Check if user already has stats for this sport
+    const { data: existingStats } = await supabase
+        .from('user_sport_stats')
+        .select('id, matches_played')
+        .eq('user_id', currentUser.id)
+        .eq('sport_id', selectedSportId)
+        .maybeSingle();
+
+    if (existingStats) {
+        // User already has this sport - just switch
         await setActiveSport(selectedSportId, selectedSportName);
+    } else {
+        // New sport - ask for confirmation
+        const confirmed = confirm(
+            `Möchtest du ${selectedSportName} hinzufügen?\n\n` +
+            `Du startest mit:\n` +
+            `• ELO: 1000\n` +
+            `• XP: 0\n` +
+            `• Punkte: 0\n\n` +
+            `Du erscheinst in der Rangliste nach deinem ersten Spiel.`
+        );
+
+        if (confirmed) {
+            // Create stats record for new sport
+            const { error: createError } = await supabase
+                .from('user_sport_stats')
+                .insert({
+                    user_id: currentUser.id,
+                    sport_id: selectedSportId
+                });
+
+            if (createError) {
+                console.error('Error creating sport stats:', createError);
+                // Still allow switching even if insert fails (table might not exist yet)
+            }
+
+            await setActiveSport(selectedSportId, selectedSportName);
+        } else {
+            // User cancelled - revert dropdown to previous value
+            sportDropdown.value = currentUserData?.activeSportId || '';
+        }
     }
 }
 
