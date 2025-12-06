@@ -790,6 +790,24 @@ export async function openExerciseModal(
         modalImage.style.display = 'none';
     }
 
+    // Load exercise data FIRST (needed for procedure and records)
+    let exerciseData = null;
+    if (exerciseContext.db && exerciseId) {
+        try {
+            const { data } = await exerciseContext.db
+                .from('exercises')
+                .select('*')
+                .eq('id', exerciseId)
+                .single();
+
+            if (data) {
+                exerciseData = mapExerciseFromSupabase(data);
+            }
+        } catch (error) {
+            console.log('Could not load exercise data:', error);
+        }
+    }
+
     const modalDescription = document.getElementById('modal-exercise-description');
     let descriptionData;
     try {
@@ -909,23 +927,7 @@ export async function openExerciseModal(
 
     const currentCount = playerProgress?.currentCount || 0;
 
-    // Load exercise data for ALL exercises (to show record holder)
-    let exerciseData = null;
-    if (exerciseContext.db && exerciseId) {
-        try {
-            const { data } = await exerciseContext.db
-                .from('exercises')
-                .select('*')
-                .eq('id', exerciseId)
-                .single();
-
-            if (data) {
-                exerciseData = mapExerciseFromSupabase(data);
-            }
-        } catch (error) {
-            console.log('Could not load exercise data:', error);
-        }
-    }
+    // exerciseData is already loaded at the beginning of this function
 
     if (hasTieredPoints) {
         pointsContainer.textContent = `🎯 Bis zu ${points} P.`;
