@@ -148,6 +148,24 @@
                 </div>
             </header>
 
+            <!-- Sportart-Switch -->
+            <div class="mb-6 bg-white p-4 rounded-xl shadow-md">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-gray-700">Sportart:</span>
+                        <div id="sport-switch-container" class="flex flex-wrap gap-2">
+                            <!-- Sportart-Buttons werden dynamisch geladen -->
+                            <button class="sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white" data-sport="all">
+                                📊 Alle
+                            </button>
+                        </div>
+                    </div>
+                    <div id="current-sport-info" class="text-sm text-gray-500">
+                        Zeige: Alle Sportarten
+                    </div>
+                </div>
+            </div>
+
             <main class="space-y-8">
                 <section id="statistics-section">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4">Statistik-Übersicht</h2>
@@ -411,7 +429,10 @@
                             </div>
                         </div>
                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Übung erstellen</h2>
+                            <h2 class="text-xl font-semibold mb-2">Übung erstellen</h2>
+                            <div id="exercise-sport-info" class="mb-4 text-sm text-gray-600">
+                                Für: <span id="exercise-sport-label" class="font-medium">Alle Sportarten</span>
+                            </div>
                             <form id="create-exercise-form" class="space-y-4">
                                 <div>
                                     <label

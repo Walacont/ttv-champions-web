@@ -85,6 +85,9 @@ let allClubs = [];
 let selectedClub = null;
 let clubExistingSports = [];
 
+// Current filter state
+let currentSportFilter = 'all'; // 'all' or sport_id
+
 function showAuthError(message) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'none';
@@ -262,7 +265,7 @@ async function loadSportsAndClubs() {
         if (sportsError) throw sportsError;
         allSports = sports || [];
 
-        // Populate sports dropdown
+        // Populate sports dropdown for invite form
         const sportSelect = document.getElementById('sportSelect');
         if (sportSelect) {
             sportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
@@ -273,6 +276,9 @@ async function loadSportsAndClubs() {
                 sportSelect.appendChild(option);
             });
         }
+
+        // Initialize sport switch buttons
+        initializeSportSwitch();
 
         // Load all clubs
         const { data: clubs, error: clubsError } = await supabase
@@ -286,6 +292,76 @@ async function loadSportsAndClubs() {
     } catch (error) {
         console.error('Fehler beim Laden der Sportarten/Vereine:', error);
     }
+}
+
+function initializeSportSwitch() {
+    const container = document.getElementById('sport-switch-container');
+    if (!container) return;
+
+    // Clear and rebuild
+    container.innerHTML = `
+        <button class="sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors ${currentSportFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}" data-sport="all">
+            📊 Alle
+        </button>
+    `;
+
+    // Add button for each sport
+    allSports.forEach(sport => {
+        const btn = document.createElement('button');
+        btn.className = `sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors ${currentSportFilter === sport.id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
+        btn.dataset.sport = sport.id;
+        btn.innerHTML = `${getSportIcon(sport.name)} ${sport.display_name}`;
+        container.appendChild(btn);
+    });
+
+    // Add click listeners
+    container.querySelectorAll('.sport-switch-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sportId = btn.dataset.sport;
+            switchSportFilter(sportId);
+        });
+    });
+}
+
+function switchSportFilter(sportId) {
+    currentSportFilter = sportId;
+
+    // Update button styles
+    document.querySelectorAll('.sport-switch-btn').forEach(btn => {
+        if (btn.dataset.sport === sportId) {
+            btn.className = 'sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors bg-indigo-600 text-white';
+        } else {
+            btn.className = 'sport-switch-btn px-4 py-2 rounded-lg font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300';
+        }
+    });
+
+    // Update info text
+    const infoEl = document.getElementById('current-sport-info');
+    const exerciseSportLabel = document.getElementById('exercise-sport-label');
+    const sport = sportId !== 'all' ? allSports.find(s => s.id === sportId) : null;
+
+    if (infoEl) {
+        if (sportId === 'all') {
+            infoEl.textContent = 'Zeige: Alle Sportarten';
+        } else {
+            infoEl.textContent = `Zeige: ${sport ? sport.display_name : 'Unbekannt'}`;
+        }
+    }
+
+    // Update exercise creation label
+    if (exerciseSportLabel) {
+        if (sportId === 'all') {
+            exerciseSportLabel.textContent = 'Alle Sportarten';
+            exerciseSportLabel.className = 'font-medium text-gray-700';
+        } else {
+            exerciseSportLabel.textContent = `${getSportIcon(sport?.name)} ${sport?.display_name || 'Unbekannt'}`;
+            exerciseSportLabel.className = 'font-medium text-indigo-600';
+        }
+    }
+
+    // Reload data with new filter
+    loadStatistics();
+    loadAllExercises();
 }
 
 function getSportIcon(sportName) {
@@ -837,12 +913,32 @@ async function loadStatistics() {
             (clubs || []).filter(c => c.is_test_club === true).map(c => c.id)
         );
 
+        // Load profile_club_sports for sport filtering
+        let profileClubSportsData = [];
+        if (currentSportFilter !== 'all') {
+            try {
+                const { data } = await supabase
+                    .from('profile_club_sports')
+                    .select('user_id')
+                    .eq('sport_id', currentSportFilter);
+                profileClubSportsData = data || [];
+            } catch (e) {
+                // Table might not exist yet
+            }
+        }
+        const sportUserIds = new Set(profileClubSportsData.map(p => p.user_id));
+
         // Load users (excluding test clubs)
         const { data: allUsers } = await supabase
             .from('profiles')
             .select('*');
 
-        const users = (allUsers || []).filter(u => !u.club_id || !testClubIds.has(u.club_id));
+        let users = (allUsers || []).filter(u => !u.club_id || !testClubIds.has(u.club_id));
+
+        // Filter by sport if selected
+        if (currentSportFilter !== 'all' && sportUserIds.size > 0) {
+            users = users.filter(u => sportUserIds.has(u.id));
+        }
 
         // Load attendance (excluding test clubs)
         const { data: allAttendance } = await supabase
@@ -948,15 +1044,28 @@ function renderAttendanceChart(labels, data) {
 
 async function loadGlobalCompetitionStatistics(testClubIds = new Set()) {
     try {
-        // Fetch all singles matches
-        const { data: singlesMatches } = await supabase
+        // Build query for singles matches
+        let singlesQuery = supabase
             .from('matches')
-            .select('created_at, club_id');
+            .select('created_at, club_id, sport_id');
 
-        // Fetch all doubles matches
-        const { data: doublesMatches } = await supabase
+        // Filter by sport if selected
+        if (currentSportFilter !== 'all') {
+            singlesQuery = singlesQuery.eq('sport_id', currentSportFilter);
+        }
+
+        const { data: singlesMatches } = await singlesQuery;
+
+        // Build query for doubles matches
+        let doublesQuery = supabase
             .from('doubles_matches')
-            .select('created_at, club_id');
+            .select('created_at, club_id, sport_id');
+
+        if (currentSportFilter !== 'all') {
+            doublesQuery = doublesQuery.eq('sport_id', currentSportFilter);
+        }
+
+        const { data: doublesMatches } = await doublesQuery;
 
         // Process all matches (exclude test clubs)
         competitionMatchData = [];
@@ -1661,6 +1770,8 @@ async function handleCreateExercise(e) {
                 enabled: false,
                 milestones: [],
             },
+            // Set sport_id based on current filter (or null for all sports)
+            sport_id: currentSportFilter !== 'all' ? currentSportFilter : null,
         };
 
         // Add partner system settings if enabled
@@ -1717,11 +1828,18 @@ async function handleCreateExercise(e) {
 
 async function loadAllExercises() {
     try {
-        // Initial load
-        const { data: exercises, error } = await supabase
+        // Build query with optional sport filter
+        let query = supabase
             .from('exercises')
             .select('*')
             .order('created_at', { ascending: false });
+
+        // Filter by sport if selected
+        if (currentSportFilter !== 'all') {
+            query = query.eq('sport_id', currentSportFilter);
+        }
+
+        const { data: exercises, error } = await query;
 
         if (error) throw error;
 
@@ -1735,10 +1853,17 @@ async function loadAllExercises() {
         exercisesSubscription = supabase
             .channel('exercises_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'exercises' }, async () => {
-                const { data: updatedExercises } = await supabase
+                // Reload with current filter
+                let reloadQuery = supabase
                     .from('exercises')
                     .select('*')
                     .order('created_at', { ascending: false });
+
+                if (currentSportFilter !== 'all') {
+                    reloadQuery = reloadQuery.eq('sport_id', currentSportFilter);
+                }
+
+                const { data: updatedExercises } = await reloadQuery;
                 renderExercises(updatedExercises || []);
             })
             .subscribe();
