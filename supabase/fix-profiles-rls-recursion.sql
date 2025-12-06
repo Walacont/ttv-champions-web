@@ -17,12 +17,26 @@ AS $$
   SELECT club_id FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
 
+-- Create a helper function to check if user is admin (SECURITY DEFINER avoids recursion)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin');
+$$;
+
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION public.get_my_club_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
--- Create new policy using the helper function
+-- Create new policy using the helper functions
+-- Admins can see all profiles, others can see own profile and profiles in same club
 CREATE POLICY profiles_select ON profiles FOR SELECT
     USING (
+        public.is_admin() OR
         id = auth.uid() OR
         (club_id IS NOT NULL AND club_id = public.get_my_club_id())
     );
