@@ -1506,6 +1506,7 @@ async function loadCalendar() {
 // Cache for season config
 let cachedSeasonEnd = null;
 let cachedSeasonName = null;
+let cachedUserSportId = null;
 let lastSeasonFetchTime = null;
 const SEASON_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
@@ -1516,16 +1517,37 @@ async function fetchSeasonEndDate() {
             return cachedSeasonEnd;
         }
 
-        // Fetch active season from seasons table
-        // First try to get a sport-specific season (e.g., table_tennis)
-        const { data: activeSeasons, error } = await supabase
+        // Get user's sport from profile_club_sports (use first sport if multiple)
+        let userSportId = cachedUserSportId;
+        if (!userSportId && currentUser) {
+            const { data: userSports } = await supabase
+                .from('profile_club_sports')
+                .select('sport_id')
+                .eq('user_id', currentUser.id)
+                .limit(1);
+
+            if (userSports && userSports.length > 0) {
+                userSportId = userSports[0].sport_id;
+                cachedUserSportId = userSportId;
+            }
+        }
+
+        // Fetch active season for user's sport
+        let query = supabase
             .from('seasons')
             .select('id, name, start_date, end_date, sport_id')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
+            .eq('is_active', true);
+
+        // Filter by user's sport if available
+        if (userSportId) {
+            query = query.eq('sport_id', userSportId);
+        }
+
+        const { data: activeSeasons, error } = await query
+            .order('created_at', { ascending: false })
+            .limit(1);
 
         if (!error && activeSeasons && activeSeasons.length > 0) {
-            // Use the first active season (or could filter by user's sport later)
             const activeSeason = activeSeasons[0];
             const seasonEnd = new Date(activeSeason.end_date);
 
