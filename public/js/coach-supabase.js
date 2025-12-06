@@ -196,6 +196,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            // Get club from profile_club_sports if profiles.club_id is null (multi-sport support)
+            let effectiveClubId = supabaseProfile.club_id || null;
+            let effectiveSportId = supabaseProfile.active_sport_id || null;
+
+            // If no club_id or active_sport_id in profile, try to get from profile_club_sports
+            if (!effectiveClubId || !effectiveSportId) {
+                const { data: pcs } = await supabase
+                    .from('profile_club_sports')
+                    .select('club_id, sport_id')
+                    .eq('user_id', user.uid)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (pcs) {
+                    if (!effectiveClubId && pcs.club_id) {
+                        effectiveClubId = pcs.club_id;
+                    }
+                    if (!effectiveSportId && pcs.sport_id) {
+                        effectiveSportId = pcs.sport_id;
+                    }
+                }
+            }
+
             // Map Supabase profile to expected format
             const userData = {
                 id: user.uid,
@@ -203,8 +226,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 firstName: supabaseProfile.first_name || '',
                 lastName: supabaseProfile.last_name || '',
                 role: supabaseProfile.role || 'player',
-                clubId: supabaseProfile.club_id || null,
-                activeSportId: supabaseProfile.active_sport_id || null,
+                clubId: effectiveClubId,
+                activeSportId: effectiveSportId,
                 xp: supabaseProfile.xp || 0,
                 points: supabaseProfile.points || 0,
                 eloRating: supabaseProfile.elo_rating || 1000,
@@ -216,19 +239,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 isOffline: supabaseProfile.is_offline || false,
                 tutorialCompleted: supabaseProfile.tutorial_completed || {},
             };
-
-            // If no active sport set, try to get from profile_club_sports
-            if (!userData.activeSportId) {
-                const { data: pcs } = await supabase
-                    .from('profile_club_sports')
-                    .select('sport_id')
-                    .eq('user_id', user.uid)
-                    .limit(1)
-                    .single();
-                if (pcs?.sport_id) {
-                    userData.activeSportId = pcs.sport_id;
-                }
-            }
 
             if (userData.role === 'coach' || userData.role === 'head_coach' || userData.role === 'admin') {
                 currentUserData = userData;
