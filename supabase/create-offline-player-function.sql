@@ -100,7 +100,7 @@ BEGIN
         CASE WHEN p_is_match_ready THEN 50 ELSE 0 END,
         CASE WHEN p_is_match_ready THEN 5 ELSE 0 END,
         p_subgroup_ids,
-        p_birthdate,
+        CASE WHEN p_birthdate IS NOT NULL THEN p_birthdate::DATE ELSE NULL END,
         p_gender,
         p_sport_id,
         NOW(),
