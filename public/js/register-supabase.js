@@ -57,6 +57,12 @@ async function initializeRegistration() {
         }
 
         invitationCodeData = codeData;
+        console.log('[REGISTER] Invitation code data:', {
+            code: codeData.code,
+            club_id: codeData.club_id,
+            sport_id: codeData.sport_id,
+            role: codeData.role
+        });
 
         // Prüfe ob Code aktiv ist
         if (!codeData.is_active) {
@@ -189,6 +195,9 @@ registrationForm?.addEventListener('submit', async e => {
             // Sport aus dem Invitation Code übernehmen
             if (invitationCodeData.sport_id) {
                 profileUpdates.active_sport_id = invitationCodeData.sport_id;
+                console.log('[REGISTER] Setting active_sport_id from invitation code:', invitationCodeData.sport_id);
+            } else {
+                console.warn('[REGISTER] Invitation code has no sport_id!');
             }
 
             // Optional: Name aus Code übernehmen falls vorhanden
@@ -246,6 +255,7 @@ registrationForm?.addEventListener('submit', async e => {
 
         // Update Profil falls nötig
         if (Object.keys(profileUpdates).length > 0) {
+            console.log('[REGISTER] Updating profile with:', profileUpdates);
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update(profileUpdates)
@@ -254,6 +264,8 @@ registrationForm?.addEventListener('submit', async e => {
             if (updateError) {
                 console.error('[REGISTER-SUPABASE] Profile update error:', updateError);
                 // Nicht kritisch - weiter zum Onboarding
+            } else {
+                console.log('[REGISTER] Profile updated successfully');
             }
         }
 
