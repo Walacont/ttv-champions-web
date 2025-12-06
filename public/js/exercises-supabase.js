@@ -102,18 +102,8 @@ export async function loadExercises(db, unsubscribes) {
 
             exercisesData.push({ exercise, exerciseId });
 
-            // Load player progress if available
-            let progressPercent = 0;
-            if (exerciseContext.userId && exerciseContext.userRole === 'player') {
-                progressPercent = await calculateExerciseProgress(
-                    db,
-                    exerciseContext.userId,
-                    exerciseId,
-                    exercise
-                );
-            }
-
-            const card = createExerciseCard({ id: exerciseId }, exercise, progressPercent);
+            // Create exercise card (progress is now only shown in modal, not on cards)
+            const card = createExerciseCard({ id: exerciseId }, exercise);
             const exerciseTags = exercise.tags || [];
             exerciseTags.forEach(tag => allTags.add(tag));
 
@@ -124,45 +114,8 @@ export async function loadExercises(db, unsubscribes) {
         renderTagFilters(allTags, exercises);
     }
 
-    // Set up real-time listeners for player progress (if player is logged in)
-    if (exerciseContext.userId && exerciseContext.userRole === 'player') {
-        // Listen to completedExercises changes
-        const completedSubscription = db
-            .channel('completed-exercises-changes')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'completed_exercises',
-                filter: `user_id=eq.${exerciseContext.userId}`
-            }, (payload) => {
-                const exerciseId = payload.new?.exercise_id || payload.old?.exercise_id;
-                if (exerciseId) {
-                    updateExerciseCardProgress(db, exerciseId, exercisesData);
-                }
-            })
-            .subscribe();
-
-        // Listen to exerciseMilestones changes
-        const milestonesSubscription = db
-            .channel('exercise-milestones-changes')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'exercise_milestones',
-                filter: `user_id=eq.${exerciseContext.userId}`
-            }, (payload) => {
-                const exerciseId = payload.new?.exercise_id || payload.old?.exercise_id;
-                if (exerciseId) {
-                    updateExerciseCardProgress(db, exerciseId, exercisesData);
-                }
-            })
-            .subscribe();
-
-        if (unsubscribes) {
-            unsubscribes.push(() => completedSubscription.unsubscribe());
-            unsubscribes.push(() => milestonesSubscription.unsubscribe());
-        }
-    }
+    // Note: Progress is no longer shown on cards, only in the modal
+    // Real-time updates for card progress have been removed
 }
 
 /**
@@ -201,75 +154,9 @@ function mapExerciseFromSupabase(row) {
 }
 
 /**
- * Updates a single exercise card's progress circle in real-time
+ * Creates the HTML for an exercise card
  */
-async function updateExerciseCardProgress(db, exerciseId, exercisesData) {
-    const cardElement = document.querySelector(`.exercise-card[data-id="${exerciseId}"]`);
-    if (!cardElement) return;
-
-    const exerciseInfo = exercisesData.find(e => e.exerciseId === exerciseId);
-    if (!exerciseInfo) return;
-
-    const progressPercent = await calculateExerciseProgress(
-        db,
-        exerciseContext.userId,
-        exerciseId,
-        exerciseInfo.exercise
-    );
-
-    const progressContainer = cardElement.querySelector('.absolute.top-2.right-2');
-    if (progressContainer) {
-        progressContainer.outerHTML = generateProgressCircle(progressPercent);
-    }
-
-    console.log(`✅ Updated progress for exercise ${exerciseId}: ${progressPercent}%`);
-}
-
-/**
- * Calculates the completion progress for an exercise
- */
-async function calculateExerciseProgress(db, userId, exerciseId, exercise) {
-    try {
-        const hasMilestones =
-            exercise.tieredPoints?.enabled && exercise.tieredPoints?.milestones?.length > 0;
-
-        if (hasMilestones) {
-            const { data: progressData } = await db
-                .from('exercise_milestones')
-                .select('*')
-                .eq('user_id', userId)
-                .eq('exercise_id', exerciseId)
-                .single();
-
-            if (!progressData) return 0;
-
-            const currentCount = progressData.current_count || 0;
-            const milestones = exercise.tieredPoints.milestones;
-
-            const achievedMilestones = milestones.filter(m => currentCount >= m.count).length;
-            const totalMilestones = milestones.length;
-
-            return (achievedMilestones / totalMilestones) * 100;
-        } else {
-            const { data: completedData } = await db
-                .from('completed_exercises')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('exercise_id', exerciseId)
-                .single();
-
-            return completedData ? 100 : 0;
-        }
-    } catch (error) {
-        console.error('Error calculating progress:', error);
-        return 0;
-    }
-}
-
-/**
- * Creates the HTML for an exercise card with progress indicator
- */
-function createExerciseCard(docSnap, exercise, progressPercent) {
+function createExerciseCard(docSnap, exercise) {
     const card = document.createElement('div');
     card.className =
         'exercise-card bg-white rounded-lg shadow-md overflow-hidden flex flex-col cursor-pointer hover:shadow-xl transition-shadow duration-300 relative';
@@ -330,45 +217,6 @@ function createExerciseCard(docSnap, exercise, progressPercent) {
         </div>`;
 
     return card;
-}
-
-/**
- * Generates an SVG progress circle
- */
-function generateProgressCircle(percent) {
-    if (percent === 0) {
-        return `
-            <div class="absolute top-2 right-2 z-10">
-                <svg width="40" height="40" viewBox="0 0 40 40">
-                    <circle cx="20" cy="20" r="16" fill="white" stroke="#E5E7EB" stroke-width="3"/>
-                </svg>
-            </div>`;
-    } else if (percent === 100) {
-        return `
-            <div class="absolute top-2 right-2 z-10">
-                <svg width="40" height="40" viewBox="0 0 40 40">
-                    <circle cx="20" cy="20" r="18" fill="#10B981"/>
-                    <path d="M12 20 L17 25 L28 14" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>`;
-    } else {
-        const radius = 16;
-        const circumference = 2 * Math.PI * radius;
-        const offset = circumference - (percent / 100) * circumference;
-
-        return `
-            <div class="absolute top-2 right-2 z-10">
-                <svg width="40" height="40" viewBox="0 0 40 40" class="transform -rotate-90">
-                    <circle cx="20" cy="20" r="${radius}" fill="white" stroke="#E5E7EB" stroke-width="3"/>
-                    <circle cx="20" cy="20" r="${radius}" fill="none" stroke="#10B981" stroke-width="3"
-                            stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
-                            stroke-linecap="round"/>
-                </svg>
-                <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-green-600">
-                    ${Math.round(percent)}%
-                </div>
-            </div>`;
-    }
 }
 
 /**
