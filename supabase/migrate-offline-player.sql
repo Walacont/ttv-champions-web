@@ -1,0 +1,129 @@
+-- Function to migrate an offline player to a new online account
+-- This transfers all data and updates references in related tables
+
+CREATE OR REPLACE FUNCTION migrate_offline_player(
+    p_new_user_id UUID,
+    p_offline_player_id UUID
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_offline_player RECORD;
+    v_result JSON;
+BEGIN
+    -- Get the offline player's complete data
+    SELECT * INTO v_offline_player
+    FROM profiles
+    WHERE id = p_offline_player_id AND is_offline = TRUE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Offline player not found or is not offline';
+    END IF;
+
+    -- Update the new user's profile with ALL offline player data
+    UPDATE profiles SET
+        first_name = COALESCE(v_offline_player.first_name, first_name),
+        last_name = COALESCE(v_offline_player.last_name, last_name),
+        display_name = COALESCE(v_offline_player.display_name, display_name),
+        club_id = v_offline_player.club_id,
+        role = COALESCE(v_offline_player.role, 'player'),
+        xp = COALESCE(v_offline_player.xp, 0),
+        points = COALESCE(v_offline_player.points, 0),
+        elo_rating = COALESCE(v_offline_player.elo_rating, 800),
+        highest_elo = COALESCE(v_offline_player.highest_elo, 800),
+        doubles_elo_rating = COALESCE(v_offline_player.doubles_elo_rating, 800),
+        is_match_ready = COALESCE(v_offline_player.is_match_ready, FALSE),
+        grundlagen_completed = COALESCE(v_offline_player.grundlagen_completed, 0),
+        birthdate = COALESCE(v_offline_player.birthdate, birthdate),
+        gender = COALESCE(v_offline_player.gender, gender),
+        subgroup_ids = COALESCE(v_offline_player.subgroup_ids, '{}'),
+        active_sport_id = v_offline_player.active_sport_id,
+        qttr_points = v_offline_player.qttr_points,
+        rank = v_offline_player.rank,
+        is_offline = FALSE,
+        updated_at = NOW()
+    WHERE id = p_new_user_id;
+
+    -- Update matches: player_a_id
+    UPDATE matches SET player_a_id = p_new_user_id
+    WHERE player_a_id = p_offline_player_id;
+
+    -- Update matches: player_b_id
+    UPDATE matches SET player_b_id = p_new_user_id
+    WHERE player_b_id = p_offline_player_id;
+
+    -- Update matches: winner_id
+    UPDATE matches SET winner_id = p_new_user_id
+    WHERE winner_id = p_offline_player_id;
+
+    -- Update doubles_matches: team1_player1_id
+    UPDATE doubles_matches SET team1_player1_id = p_new_user_id
+    WHERE team1_player1_id = p_offline_player_id;
+
+    -- Update doubles_matches: team1_player2_id
+    UPDATE doubles_matches SET team1_player2_id = p_new_user_id
+    WHERE team1_player2_id = p_offline_player_id;
+
+    -- Update doubles_matches: team2_player1_id
+    UPDATE doubles_matches SET team2_player1_id = p_new_user_id
+    WHERE team2_player1_id = p_offline_player_id;
+
+    -- Update doubles_matches: team2_player2_id
+    UPDATE doubles_matches SET team2_player2_id = p_new_user_id
+    WHERE team2_player2_id = p_offline_player_id;
+
+    -- Update attendance records
+    UPDATE attendance SET player_id = p_new_user_id
+    WHERE player_id = p_offline_player_id;
+
+    -- Update challenge_completions
+    UPDATE challenge_completions SET player_id = p_new_user_id
+    WHERE player_id = p_offline_player_id;
+
+    -- Update profile_club_sports
+    UPDATE profile_club_sports SET user_id = p_new_user_id
+    WHERE user_id = p_offline_player_id;
+
+    -- Update match_requests
+    UPDATE match_requests SET requester_id = p_new_user_id
+    WHERE requester_id = p_offline_player_id;
+
+    UPDATE match_requests SET opponent_id = p_new_user_id
+    WHERE opponent_id = p_offline_player_id;
+
+    -- Update player_points
+    UPDATE player_points SET player_id = p_new_user_id
+    WHERE player_id = p_offline_player_id;
+
+    -- Update user_sport_stats
+    UPDATE user_sport_stats SET user_id = p_new_user_id
+    WHERE user_id = p_offline_player_id;
+
+    -- Mark the invitation code as used (if not already)
+    UPDATE invitation_codes SET
+        used_by = p_new_user_id,
+        used_at = NOW()
+    WHERE player_id = p_offline_player_id AND used_by IS NULL;
+
+    -- Delete the old offline player profile
+    DELETE FROM profiles WHERE id = p_offline_player_id;
+
+    -- Return success with migrated data summary
+    SELECT json_build_object(
+        'success', TRUE,
+        'migrated_from', p_offline_player_id,
+        'migrated_to', p_new_user_id,
+        'xp', v_offline_player.xp,
+        'points', v_offline_player.points,
+        'elo_rating', v_offline_player.elo_rating
+    ) INTO v_result;
+
+    RETURN v_result;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION migrate_offline_player TO authenticated;

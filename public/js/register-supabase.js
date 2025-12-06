@@ -232,33 +232,39 @@ registrationForm?.addEventListener('submit', async e => {
 
             // Check if this code is for an existing offline player
             if (invitationCodeData.player_id) {
-                // Get the offline player's data (is_match_ready, grundlagen_completed, birthdate, gender)
-                const { data: offlinePlayer } = await supabase
-                    .from('profiles')
-                    .select('is_match_ready, grundlagen_completed, birthdate, gender')
-                    .eq('id', invitationCodeData.player_id)
-                    .single();
+                // FULL MIGRATION: Use RPC to transfer ALL data from offline player
+                console.log('[REGISTER] Migrating offline player:', invitationCodeData.player_id, '-> new user:', user.id);
 
-                if (offlinePlayer) {
-                    if (offlinePlayer.is_match_ready) {
-                        // Coach set player as match-ready
-                        profileUpdates.is_match_ready = true;
-                        profileUpdates.elo_rating = 800;
-                        profileUpdates.highest_elo = 800;
-                        profileUpdates.grundlagen_completed = 5;
-                    } else {
-                        // Coach did NOT set player as match-ready
-                        profileUpdates.is_match_ready = false;
+                const { data: migrationResult, error: migrationError } = await supabase.rpc('migrate_offline_player', {
+                    p_new_user_id: user.id,
+                    p_offline_player_id: invitationCodeData.player_id
+                });
+
+                if (migrationError) {
+                    console.error('[REGISTER] Migration error:', migrationError);
+                    // Fallback: At least set basic data
+                    const { data: offlinePlayer } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', invitationCodeData.player_id)
+                        .single();
+
+                    if (offlinePlayer) {
+                        profileUpdates.xp = offlinePlayer.xp || 0;
+                        profileUpdates.points = offlinePlayer.points || 0;
+                        profileUpdates.elo_rating = offlinePlayer.elo_rating || 800;
+                        profileUpdates.highest_elo = offlinePlayer.highest_elo || 800;
+                        profileUpdates.is_match_ready = offlinePlayer.is_match_ready || false;
                         profileUpdates.grundlagen_completed = offlinePlayer.grundlagen_completed || 0;
+                        if (offlinePlayer.birthdate) profileUpdates.birthdate = offlinePlayer.birthdate;
+                        if (offlinePlayer.gender) profileUpdates.gender = offlinePlayer.gender;
+                        if (offlinePlayer.subgroup_ids) profileUpdates.subgroup_ids = offlinePlayer.subgroup_ids;
                     }
-
-                    // Transfer birthdate and gender from offline player profile
-                    if (offlinePlayer.birthdate) {
-                        profileUpdates.birthdate = offlinePlayer.birthdate;
-                    }
-                    if (offlinePlayer.gender) {
-                        profileUpdates.gender = offlinePlayer.gender;
-                    }
+                } else {
+                    console.log('[REGISTER] Migration successful:', migrationResult);
+                    // Migration RPC handles everything - no need to update profile manually
+                    // Clear profileUpdates since RPC already did the work
+                    profileUpdates = {};
                 }
             } else {
                 // Check if invitation code has birthdate/gender (from offline player creation)
