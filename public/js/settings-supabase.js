@@ -32,7 +32,7 @@ const privacyFeedback = document.getElementById('privacy-feedback');
 const noClubWarning = document.getElementById('no-club-warning');
 
 // Sport Selection Elements
-const userSportsList = document.getElementById('user-sports-list');
+const sportDropdown = document.getElementById('sport-dropdown');
 const sportFeedback = document.getElementById('sport-feedback');
 
 let currentUser = null;
@@ -1328,189 +1328,100 @@ async function withdrawLeaveRequest(requestId) {
 
 /**
  * ===============================================
- * SPORT SELECTION (Multi-Sport)
+ * SPORT SELECTION (Multi-Sport) - Dropdown Version
  * ===============================================
  */
 
 /**
- * Initialize sport selection UI
+ * Initialize sport selection dropdown
+ * Loads ALL sports from database and shows current active sport
  */
 async function initializeSportSelection() {
-    if (!currentUser) return;
-
-    await loadUserSports();
-}
-
-/**
- * Load and display user's sports
- */
-async function loadUserSports() {
-    if (!userSportsList) return;
+    if (!currentUser || !sportDropdown) return;
 
     try {
-        // Try to use RPC function first
-        const { data: sports, error } = await supabase.rpc('get_user_sports', {
-            p_user_id: currentUser.id
-        });
+        // Load all available sports from the sports table
+        const { data: allSports, error: sportsError } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
 
-        if (error) {
-            // Fallback: Query profile_club_sports directly
-            console.warn('RPC get_user_sports not available, using fallback:', error.message);
-            await loadUserSportsFallback();
-            return;
-        }
+        if (sportsError) throw sportsError;
 
-        if (!sports || sports.length === 0) {
-            userSportsList.innerHTML = `
-                <p class="text-gray-500 text-sm">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Du bist noch keiner Sportart zugeordnet.
-                </p>
-            `;
-            return;
-        }
-
-        // Render sports list
-        renderSportsList(sports);
-
-    } catch (error) {
-        console.error('Error loading user sports:', error);
-        userSportsList.innerHTML = `
-            <p class="text-red-600 text-sm">
-                <i class="fas fa-exclamation-circle mr-1"></i>
-                Fehler beim Laden der Sportarten.
-            </p>
-        `;
-    }
-}
-
-/**
- * Fallback: Load sports directly from profile_club_sports table
- */
-async function loadUserSportsFallback() {
-    try {
-        // Get user's sports
-        const { data: profileSports, error: pcsError } = await supabase
-            .from('profile_club_sports')
-            .select(`
-                sport_id,
-                role,
-                sports (
-                    id,
-                    name,
-                    display_name,
-                    config
-                )
-            `)
-            .eq('user_id', currentUser.id);
-
-        if (pcsError) throw pcsError;
-
-        // Get active sport from profile
+        // Get user's active sport from profile
         const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('active_sport_id')
             .eq('id', currentUser.id)
             .single();
 
-        if (profileError) throw profileError;
+        if (profileError && profileError.code !== 'PGRST116') {
+            throw profileError;
+        }
 
         const activeSportId = profile?.active_sport_id;
 
-        if (!profileSports || profileSports.length === 0) {
-            userSportsList.innerHTML = `
-                <p class="text-gray-500 text-sm">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Du bist noch keiner Sportart zugeordnet.
-                </p>
-            `;
-            return;
-        }
+        // Populate dropdown with all sports
+        populateSportDropdown(allSports || [], activeSportId);
 
-        // Map to expected format
-        const sports = profileSports.map(ps => ({
-            sport_id: ps.sport_id,
-            sport_name: ps.sports?.name || 'unknown',
-            display_name: ps.sports?.display_name || ps.sports?.name || 'Unbekannt',
-            config: ps.sports?.config || {},
-            role: ps.role,
-            is_active: ps.sport_id === activeSportId
-        }));
-
-        renderSportsList(sports);
+        // Add change event listener
+        sportDropdown.addEventListener('change', handleSportChange);
 
     } catch (error) {
-        console.error('Error in fallback sport loading:', error);
-        userSportsList.innerHTML = `
-            <p class="text-red-600 text-sm">
-                <i class="fas fa-exclamation-circle mr-1"></i>
-                Fehler beim Laden der Sportarten.
-            </p>
-        `;
+        console.error('Error initializing sport selection:', error);
+        if (sportFeedback) {
+            sportFeedback.innerHTML = `
+                <span class="text-red-600">
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    Fehler beim Laden der Sportarten.
+                </span>
+            `;
+        }
     }
 }
 
 /**
- * Render the sports list UI
+ * Populate the sport dropdown with options
  */
-function renderSportsList(sports) {
-    if (!userSportsList) return;
+function populateSportDropdown(sports, activeSportId) {
+    if (!sportDropdown) return;
 
-    userSportsList.innerHTML = sports.map(sport => {
-        const icon = sport.config?.icon || getSportIcon(sport.sport_name);
-        const isActive = sport.is_active;
-        const roleBadge = sport.role === 'coach'
-            ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded ml-2">Trainer</span>'
-            : '';
+    // Clear existing options except the placeholder
+    sportDropdown.innerHTML = '<option value="" disabled>Sportart wählen...</option>';
 
-        return `
-            <div class="sport-option flex items-center justify-between p-3 rounded-lg border ${
-                isActive
-                    ? 'border-indigo-500 bg-indigo-50'
-                    : 'border-gray-200 bg-white hover:border-indigo-300'
-            } cursor-pointer transition-all"
-                 data-sport-id="${sport.sport_id}"
-                 data-sport-name="${sport.display_name}">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-3">${icon}</span>
-                    <div>
-                        <span class="font-medium text-gray-900">${sport.display_name}</span>
-                        ${roleBadge}
-                    </div>
-                </div>
-                ${isActive
-                    ? '<span class="text-indigo-600"><i class="fas fa-check-circle text-xl"></i></span>'
-                    : '<span class="text-gray-400 hover:text-indigo-600"><i class="far fa-circle text-xl"></i></span>'
-                }
-            </div>
-        `;
-    }).join('');
+    // Add each sport as an option
+    sports.forEach(sport => {
+        const option = document.createElement('option');
+        option.value = sport.id;
+        option.textContent = sport.display_name || sport.name;
 
-    // Add click handlers
-    document.querySelectorAll('.sport-option').forEach(option => {
-        option.addEventListener('click', async (e) => {
-            const sportId = option.dataset.sportId;
-            const sportName = option.dataset.sportName;
-            await setActiveSport(sportId, sportName);
-        });
+        // Mark active sport as selected
+        if (sport.id === activeSportId) {
+            option.selected = true;
+        }
+
+        sportDropdown.appendChild(option);
     });
+
+    // If no active sport is set but sports exist, select the first one
+    if (!activeSportId && sports.length > 0) {
+        sportDropdown.value = sports[0].id;
+        // Automatically set the first sport as active
+        setActiveSport(sports[0].id, sports[0].display_name || sports[0].name);
+    }
 }
 
 /**
- * Get default icon for a sport
+ * Handle sport dropdown change event
  */
-function getSportIcon(sportName) {
-    const icons = {
-        'table_tennis': '🏓',
-        'tennis': '🎾',
-        'badminton': '🏸',
-        'squash': '🎾',
-        'volleyball': '🏐',
-        'basketball': '🏀',
-        'soccer': '⚽',
-        'handball': '🤾'
-    };
-    return icons[sportName] || '🏅';
+async function handleSportChange(event) {
+    const selectedSportId = event.target.value;
+    const selectedOption = event.target.options[event.target.selectedIndex];
+    const selectedSportName = selectedOption.textContent;
+
+    if (selectedSportId) {
+        await setActiveSport(selectedSportId, selectedSportName);
+    }
 }
 
 /**
@@ -1522,8 +1433,17 @@ async function setActiveSport(sportId, sportName) {
     try {
         // Show loading feedback
         if (sportFeedback) {
-            sportFeedback.textContent = 'Wechsle Sportart...';
-            sportFeedback.className = 'text-sm mt-3 text-gray-600';
+            sportFeedback.innerHTML = `
+                <span class="text-gray-600">
+                    <i class="fas fa-spinner fa-spin mr-1"></i>
+                    Wechsle zu ${sportName}...
+                </span>
+            `;
+        }
+
+        // Disable dropdown during update
+        if (sportDropdown) {
+            sportDropdown.disabled = true;
         }
 
         // Try RPC function first
@@ -1548,28 +1468,29 @@ async function setActiveSport(sportId, sportName) {
             sportFeedback.innerHTML = `
                 <span class="text-green-600">
                     <i class="fas fa-check-circle mr-1"></i>
-                    Aktive Sportart auf "${sportName}" gewechselt!
+                    ${sportName} ist jetzt aktiv. Seite wird neu geladen...
                 </span>
             `;
         }
 
-        // Reload sports list to update UI
-        await loadUserSports();
-
-        // Clear feedback after 3 seconds
+        // Reload page after short delay to apply new sport context
         setTimeout(() => {
-            if (sportFeedback) {
-                sportFeedback.textContent = '';
-            }
-        }, 3000);
+            window.location.reload();
+        }, 1000);
 
     } catch (error) {
         console.error('Error setting active sport:', error);
+
+        // Re-enable dropdown on error
+        if (sportDropdown) {
+            sportDropdown.disabled = false;
+        }
+
         if (sportFeedback) {
             sportFeedback.innerHTML = `
                 <span class="text-red-600">
                     <i class="fas fa-exclamation-circle mr-1"></i>
-                    Fehler beim Wechseln der Sportart: ${error.message}
+                    Fehler: ${error.message}
                 </span>
             `;
         }
