@@ -424,11 +424,11 @@ async function initializeCoachPage(userData) {
     });
 
     // Initialize set score input for coach match form (used by both singles and doubles)
-    const setScoreInput = await initializeCoachSetScoreInput(user.uid);
+    const setScoreInput = await initializeCoachSetScoreInput(userData.id);
 
     // Initialize doubles match UI and set the same set score input
     initializeDoublesCoachUI();
-    setDoublesUserId(user.uid); // Set user ID for sport context in doubles
+    setDoublesUserId(userData.id); // Set user ID for sport context in doubles
     if (setScoreInput) {
         setDoublesSetScoreInput(setScoreInput);
     }
