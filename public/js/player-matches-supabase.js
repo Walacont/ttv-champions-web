@@ -313,18 +313,17 @@ async function submitMatchRequest(currentUser, currentUserData, callbacks = {}) 
         const sportId = sportContext?.sportId || null;
         const myClubId = sportContext?.clubId || currentUserData.club_id;
 
-        // Get opponent's club for this sport
+        // Get opponent's club (single sport model - just use profiles)
         let opponentClubId = selectedOpponent.clubId || null;
-        if (sportId && selectedOpponent.id) {
-            const { data: opponentSportData } = await supabase
-                .from('profile_club_sports')
+        if (selectedOpponent.id && !opponentClubId) {
+            const { data: opponentProfile } = await supabase
+                .from('profiles')
                 .select('club_id')
-                .eq('user_id', selectedOpponent.id)
-                .eq('sport_id', sportId)
+                .eq('id', selectedOpponent.id)
                 .single();
 
-            if (opponentSportData) {
-                opponentClubId = opponentSportData.club_id;
+            if (opponentProfile) {
+                opponentClubId = opponentProfile.club_id;
             }
         }
 

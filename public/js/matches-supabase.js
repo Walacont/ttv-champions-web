@@ -847,14 +847,13 @@ export async function loadCoachMatchRequests(userData, supabaseClient) {
     const supabase = getSupabase();
 
     try {
-        // First, get all club members for the coach's club
-        // (we need to know which players are in our club for cross-club filtering)
+        // First, get all club members for the coach's club (single sport model)
         const { data: clubMembers } = await supabase
-            .from('profile_club_sports')
-            .select('user_id')
+            .from('profiles')
+            .select('id')
             .eq('club_id', userData.clubId);
 
-        const clubMemberIds = (clubMembers || []).map(m => m.user_id);
+        const clubMemberIds = (clubMembers || []).map(m => m.id);
 
         // Query for singles requests awaiting coach approval
         // Include sport info for display
@@ -1009,19 +1008,15 @@ async function handleCoachApproval(requestId, approve, userData) {
         // For cross-club matches, we track which coach approved
         // The first coach to approve releases the match
         if (request.is_cross_club) {
-            // Determine if this coach is for player A or player B
-            const sportId = request.sport_id;
-
-            // Get player A's club for this sport
-            const { data: playerAClub } = await supabase
-                .from('profile_club_sports')
+            // Determine if this coach is for player A or player B (single sport model)
+            const { data: playerAProfile } = await supabase
+                .from('profiles')
                 .select('club_id')
-                .eq('user_id', request.player_a_id)
-                .eq('sport_id', sportId)
+                .eq('id', request.player_a_id)
                 .single();
 
             // Determine which side the approving coach is on
-            if (playerAClub?.club_id === userData.clubId) {
+            if (playerAProfile?.club_id === userData.clubId) {
                 approvals.coach_a = true;
             } else {
                 approvals.coach_b = true;
