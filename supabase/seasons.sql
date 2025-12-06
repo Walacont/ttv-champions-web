@@ -154,3 +154,44 @@ BEGIN
     ORDER BY s.start_date DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================
+-- FUNKTION: Saison vorzeitig beenden
+-- ============================================
+CREATE OR REPLACE FUNCTION end_season(p_season_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_start_date DATE;
+    v_end_date DATE;
+BEGIN
+    -- Prüfen ob der Aufrufer Admin ist
+    IF NOT EXISTS (
+        SELECT 1 FROM profiles
+        WHERE id = auth.uid()
+        AND role = 'admin'
+    ) THEN
+        RAISE EXCEPTION 'Nur Admins können Saisons beenden';
+    END IF;
+
+    -- Hole das Start-Datum der Saison
+    SELECT start_date INTO v_start_date
+    FROM seasons
+    WHERE id = p_season_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Saison nicht gefunden';
+    END IF;
+
+    -- End-Datum: heute oder start_date + 1 Tag (damit Constraint erfüllt)
+    v_end_date := GREATEST(CURRENT_DATE, v_start_date + INTERVAL '1 day');
+
+    -- Saison beenden
+    UPDATE seasons
+    SET
+        is_active = false,
+        end_date = v_end_date
+    WHERE id = p_season_id;
+
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -2328,15 +2328,10 @@ async function handleEndSeason(seasonId, seasonName) {
             .eq('id', seasonId)
             .single();
 
-        // Update season to inactive and set end_date to today
-        const today = new Date().toISOString().split('T')[0];
-        const { error } = await supabase
-            .from('seasons')
-            .update({
-                is_active: false,
-                end_date: today
-            })
-            .eq('id', seasonId);
+        // End season using RPC function (handles constraints properly)
+        const { error } = await supabase.rpc('end_season', {
+            p_season_id: seasonId
+        });
 
         if (error) throw error;
 
