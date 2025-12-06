@@ -1473,7 +1473,7 @@ async function loadClubsAndPlayers() {
             });
         });
 
-        renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap);
+        renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap, currentSportFilter);
 
         // Setup realtime subscription
         if (usersSubscription) {
@@ -1493,7 +1493,7 @@ async function loadClubsAndPlayers() {
     }
 }
 
-function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap) {
+function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap, sportFilter = 'all') {
     // Group users by club
     const usersByClub = users.reduce((acc, user) => {
         if (user.club_id) {
@@ -1518,11 +1518,34 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap)
         const clubSports = clubSportsMap.get(clubId) || [];
         const isTestClub = clubData.is_test_club === true;
 
-        // Skip clubs without users if not a test club
-        if (clubUsers.length === 0 && !isTestClub && clubSports.length === 0) continue;
+        // Filter clubs by sport if a specific sport is selected
+        if (sportFilter !== 'all') {
+            const hasSport = clubSports.some(sport => sport.id === sportFilter);
+            if (!hasSport) continue; // Skip clubs that don't offer the selected sport
+        }
+
+        // Always show clubs that have sports defined (don't skip based on user count)
+        // Only skip if club has no sports and no users
+        if (clubUsers.length === 0 && clubSports.length === 0) continue;
 
         const clubDiv = document.createElement('div');
         clubDiv.className = 'bg-gray-50 rounded-lg overflow-hidden border border-gray-200';
+
+        // Calculate member count based on sport filter
+        let memberCountText = '';
+        if (sportFilter !== 'all') {
+            // Count users who have the filtered sport
+            const filteredUserCount = clubUsers.filter(user => {
+                const profileKey = `${user.id}_${clubId}`;
+                const sportRoles = profileSportsMap.get(profileKey) || [];
+                const hasSport = sportRoles.some(sr => sr.sport_id === sportFilter);
+                if (profileSportsMap.size === 0) return true; // Legacy mode
+                return hasSport;
+            }).length;
+            memberCountText = `${filteredUserCount} Mitglieder in dieser Sportart`;
+        } else {
+            memberCountText = `${clubUsers.length} Mitglieder gesamt`;
+        }
 
         // Club header
         const headerHtml = `
@@ -1530,7 +1553,7 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap)
                 <div class="flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-lg text-gray-900">${clubData.name}</h3>
-                        <p class="text-sm text-gray-600">${clubUsers.length} Mitglieder gesamt</p>
+                        <p class="text-sm text-gray-600">${memberCountText}</p>
                         ${isTestClub ? '<span class="inline-block mt-1 text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Test-Club</span>' : ''}
                     </div>
                     <button data-club-id="${clubId}" data-club-name="${clubData.name}" class="toggle-club-btn text-indigo-600 hover:text-indigo-800">
@@ -1544,10 +1567,22 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap)
         let sportsHtml = `<div class="club-sports-container hidden p-4 space-y-3" data-club-id="${clubId}">`;
 
         if (clubSports.length > 0) {
-            for (const sport of clubSports) {
-                // Get users for this sport
-                // For now, show all club users in each sport (until profile_club_sports is populated)
-                const sportUsers = clubUsers; // TODO: Filter by profile_club_sports
+            // Filter sports by selected sport filter
+            const filteredSports = sportFilter !== 'all'
+                ? clubSports.filter(sport => sport.id === sportFilter)
+                : clubSports;
+
+            for (const sport of filteredSports) {
+                // Get users for this sport by filtering using profile_club_sports
+                const sportUsers = clubUsers.filter(user => {
+                    const profileKey = `${user.id}_${clubId}`;
+                    const sportRoles = profileSportsMap.get(profileKey) || [];
+                    // Check if user has this sport in their profile_club_sports
+                    const hasSport = sportRoles.some(sr => sr.sport_id === sport.id);
+                    // If profile_club_sports is empty (legacy mode), show all users
+                    if (profileSportsMap.size === 0) return true;
+                    return hasSport;
+                });
 
                 sportsHtml += `
                     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
