@@ -1896,17 +1896,29 @@ async function handleDeleteClub(clubId, clubName, memberCount) {
                 .eq('club_id', clubId);
 
             if (updateError) {
-                console.error('Error updating user club_ids:', updateError);
-                // Continue anyway, CASCADE will handle it
+                console.error('[ADMIN] Error updating user club_ids:', updateError);
+                throw new Error(`Konnte Mitglieder nicht aktualisieren: ${updateError.message}`);
             }
 
+            console.log(`[ADMIN] Updated users to have null club_id`);
+
             // Delete the club (CASCADE will delete club_sports and profile_club_sports)
-            const { error: deleteError } = await supabase
+            const { error: deleteError, data: deleteData } = await supabase
                 .from('clubs')
                 .delete()
-                .eq('id', clubId);
+                .eq('id', clubId)
+                .select();
 
-            if (deleteError) throw deleteError;
+            console.log(`[ADMIN] Delete result:`, { deleteError, deleteData });
+
+            if (deleteError) {
+                console.error('[ADMIN] Delete error details:', deleteError);
+                throw deleteError;
+            }
+
+            if (!deleteData || deleteData.length === 0) {
+                throw new Error('Club konnte nicht gelöscht werden (möglicherweise RLS Policy Problem)');
+            }
 
             // Log audit event
             await logAuditEvent(
