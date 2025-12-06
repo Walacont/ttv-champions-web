@@ -2455,16 +2455,24 @@ async function searchOpponents(query, resultsContainer) {
 
         if (error) throw error;
 
+        console.log('[Opponent Search] Found', players?.length || 0, 'players matching search query');
+
         // Filter by privacy settings, match-readiness, and test clubs
         const filteredPlayers = (players || []).filter(player => {
+            const playerName = `${player.first_name} ${player.last_name}`;
+
             // Must have completed at least 5 Grundlagen
             const grundlagenCompleted = player.grundlagen_completed || 0;
-            if (grundlagenCompleted < 5) return false;
+            if (grundlagenCompleted < 5) {
+                console.log('[Opponent Search] FILTERED OUT:', playerName, '- Only', grundlagenCompleted, 'Grundlagen completed (need 5)');
+                return false;
+            }
 
             // Test club filter: hide players from test clubs unless current user is also from a test club
             if (player.club_id && testClubIds.includes(player.club_id)) {
                 // Only show test club players if current user is from the same test club
                 if (!isCurrentUserInTestClub || currentUserData.club_id !== player.club_id) {
+                    console.log('[Opponent Search] FILTERED OUT:', playerName, '- Test club player');
                     return false;
                 }
             }
@@ -2474,21 +2482,31 @@ async function searchOpponents(query, resultsContainer) {
             const playerHasNoClub = !player.club_id;
 
             // Both without club → always visible
-            if (userHasNoClub && playerHasNoClub) return true;
+            if (userHasNoClub && playerHasNoClub) {
+                console.log('[Opponent Search] SHOWING:', playerName, '- Both without club');
+                return true;
+            }
 
             // Get searchable setting (default: global)
             const searchable = player.privacy_settings?.searchable || 'global';
 
             // Global: visible to everyone
-            if (searchable === 'global') return true;
-
-            // Club only: only visible to same club members
-            if (searchable === 'club_only' && currentUserData.club_id && player.club_id === currentUserData.club_id) {
+            if (searchable === 'global') {
+                console.log('[Opponent Search] SHOWING:', playerName, '- Global visibility');
                 return true;
             }
 
+            // Club only: only visible to same club members
+            if (searchable === 'club_only' && currentUserData.club_id && player.club_id === currentUserData.club_id) {
+                console.log('[Opponent Search] SHOWING:', playerName, '- Same club');
+                return true;
+            }
+
+            console.log('[Opponent Search] FILTERED OUT:', playerName, '- Privacy settings (club_only, different club)');
             return false;
         }).slice(0, 10); // Limit to 10 results
+
+        console.log('[Opponent Search] Final result:', filteredPlayers.length, 'players after all filters');
 
         if (filteredPlayers.length === 0) {
             resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden</p>';
