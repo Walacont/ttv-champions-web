@@ -535,6 +535,48 @@
                                     />
                                 </div>
 
+                                <!-- Admin-specific: Club and Sport selection -->
+                                <div class="border-t border-gray-200 pt-4 space-y-4">
+                                    <p class="text-sm font-medium text-gray-700">
+                                        <i class="fas fa-globe mr-1"></i>
+                                        Sichtbarkeit (Admin-Einstellung)
+                                    </p>
+                                    <div>
+                                        <label
+                                            for="exercise-club"
+                                            class="block text-sm font-medium text-gray-700"
+                                            >Verein</label
+                                        >
+                                        <select
+                                            id="exercise-club"
+                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                        >
+                                            <option value="">🌍 Global (alle Vereine)</option>
+                                            <!-- Clubs will be loaded dynamically -->
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            Global = für alle Vereine sichtbar
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label
+                                            for="exercise-sport"
+                                            class="block text-sm font-medium text-gray-700"
+                                            >Sportart</label
+                                        >
+                                        <select
+                                            id="exercise-sport"
+                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                                        >
+                                            <option value="">📊 Alle Sportarten</option>
+                                            <!-- Sports will be loaded dynamically -->
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            Leer = für alle Sportarten sichtbar
+                                        </p>
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label
                                         for="exercise-image"

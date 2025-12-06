@@ -307,6 +307,18 @@ async function loadSportsAndClubs() {
             });
         }
 
+        // Populate exercise sport dropdown
+        const exerciseSportSelect = document.getElementById('exercise-sport');
+        if (exerciseSportSelect) {
+            exerciseSportSelect.innerHTML = '<option value="">📊 Alle Sportarten</option>';
+            allSports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
+                exerciseSportSelect.appendChild(option);
+            });
+        }
+
         // Initialize sport switch buttons
         initializeSportSwitch();
 
@@ -318,6 +330,18 @@ async function loadSportsAndClubs() {
 
         if (clubsError) throw clubsError;
         allClubs = clubs || [];
+
+        // Populate exercise club dropdown
+        const exerciseClubSelect = document.getElementById('exercise-club');
+        if (exerciseClubSelect) {
+            exerciseClubSelect.innerHTML = '<option value="">🌍 Global (alle Vereine)</option>';
+            allClubs.forEach(club => {
+                const option = document.createElement('option');
+                option.value = club.id;
+                option.textContent = club.name;
+                exerciseClubSelect.appendChild(option);
+            });
+        }
 
     } catch (error) {
         console.error('Fehler beim Laden der Sportarten/Vereine:', error);
@@ -392,6 +416,7 @@ function switchSportFilter(sportId) {
     // Reload data with new filter
     loadStatistics();
     loadAllExercises();
+    loadClubsAndPlayers(); // Reload club overview with new filter
 }
 
 function getSportIcon(sportName) {
@@ -1479,15 +1504,24 @@ async function loadClubsAndPlayers() {
 
         renderClubsWithSports(users || [], clubsMap, clubSportsMap, profileSportsMap, currentSportFilter);
 
-        // Setup realtime subscription
+        // Setup realtime subscription for profiles, club_sports, and profile_club_sports
         if (usersSubscription) {
             supabase.removeChannel(usersSubscription);
         }
 
         usersSubscription = supabase
-            .channel('profiles_changes_admin')
+            .channel('club_overview_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, async () => {
-                loadClubsAndPlayers(); // Reload everything
+                console.log('[ADMIN] Profile change detected, reloading club overview');
+                loadClubsAndPlayers();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_club_sports' }, async () => {
+                console.log('[ADMIN] Profile sport assignment change detected, reloading club overview');
+                loadClubsAndPlayers();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'club_sports' }, async () => {
+                console.log('[ADMIN] Club sports change detected, reloading club overview');
+                loadClubsAndPlayers();
             })
             .subscribe();
 
@@ -1878,6 +1912,10 @@ async function handleCreateExercise(e) {
             imageUrl = urlData.publicUrl;
         }
 
+        // Get admin-specific selections
+        const exerciseClub = document.getElementById('exercise-club')?.value || null;
+        const exerciseSport = document.getElementById('exercise-sport')?.value || null;
+
         const exerciseData = {
             title,
             description_content: JSON.stringify(descriptionContent),
@@ -1891,8 +1929,10 @@ async function handleCreateExercise(e) {
                 enabled: false,
                 milestones: [],
             },
-            // Set sport_id based on current filter (or null for all sports)
-            sport_id: currentSportFilter !== 'all' ? currentSportFilter : null,
+            // Admin can set specific club or null for global
+            club_id: exerciseClub || null,
+            // Admin can set specific sport or null for all sports
+            sport_id: exerciseSport || null,
         };
 
         // Add partner system settings if enabled
