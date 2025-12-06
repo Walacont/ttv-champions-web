@@ -88,6 +88,9 @@ let clubExistingSports = [];
 // Current filter state
 let currentSportFilter = 'all'; // 'all' or sport_id
 
+// Prevent multiple initializations
+let isAdminPageInitialized = false;
+
 function showAuthError(message) {
     pageLoader.style.display = 'none';
     mainContent.style.display = 'none';
@@ -127,6 +130,13 @@ onAuthStateChange(async (event, session) => {
 });
 
 function initializeAdminPage(userData, user) {
+    // Prevent multiple initializations (can happen with auth state changes)
+    if (isAdminPageInitialized) {
+        console.log('[Admin] Page already initialized, skipping');
+        return;
+    }
+    isAdminPageInitialized = true;
+
     try {
         welcomeMessage.textContent = `Willkommen, ${userData.first_name || userData.display_name || user.email}!`;
 
