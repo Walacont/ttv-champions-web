@@ -1426,6 +1426,8 @@ async function handleSportChange(event) {
 
 /**
  * Set active sport for user
+ * Note: Users can switch to any sport, even if they're not registered in a club for it.
+ * The profile.active_sport_id is just a preference setting.
  */
 async function setActiveSport(sportId, sportName) {
     if (!currentUser || !sportId) return;
@@ -1446,22 +1448,15 @@ async function setActiveSport(sportId, sportName) {
             sportDropdown.disabled = true;
         }
 
-        // Try RPC function first
-        const { data, error } = await supabase.rpc('set_user_active_sport', {
-            p_user_id: currentUser.id,
-            p_sport_id: sportId
-        });
+        // Update profile directly - users can switch to any sport
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ active_sport_id: sportId })
+            .eq('id', currentUser.id);
 
-        if (error) {
-            // Fallback: Update profile directly
-            console.warn('RPC set_user_active_sport not available, using fallback:', error.message);
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ active_sport_id: sportId })
-                .eq('id', currentUser.id);
+        if (updateError) throw updateError;
 
-            if (updateError) throw updateError;
-        }
+        console.log('[Settings] Active sport updated to:', sportId);
 
         // Show success feedback
         if (sportFeedback) {
