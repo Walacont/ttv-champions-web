@@ -14,7 +14,7 @@ import {
     updateDoc,
     serverTimestamp
 } from './db-supabase.js';
-import { createSetScoreInput, createTennisScoreInput } from './player-matches-supabase.js';
+import { createSetScoreInput, createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { getSportContext } from './sport-context-supabase.js';
 import { calculateHandicap } from './validation-utils.js';
 import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
@@ -89,7 +89,9 @@ export async function initializeCoachSetScoreInput(currentUserId) {
 
     // Get sport context to determine scoring system
     const sportContext = await getSportContext(currentUserId);
-    const isTennisOrPadel = sportContext && ['tennis', 'padel'].includes(sportContext.sportName);
+    const sportName = sportContext?.sportName;
+    const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
+    const isBadminton = sportName === 'badminton';
 
     // Show/hide tennis options based on sport
     const tennisOptionsContainer = document.getElementById('coach-tennis-options-container');
@@ -102,20 +104,24 @@ export async function initializeCoachSetScoreInput(currentUserId) {
     }
 
     // Adjust default match mode based on sport
-    if (matchModeSelect && isTennisOrPadel) {
-        // For tennis/padel, default to Best of 3
-        matchModeSelect.value = 'best-of-3';
+    if (matchModeSelect) {
+        if (isTennisOrPadel || isBadminton) {
+            // For tennis/padel/badminton, default to Best of 3
+            matchModeSelect.value = 'best-of-3';
+        }
     }
 
-    function updateSetScoreLabel(mode, isTennis = false) {
+    function updateSetScoreLabel(mode, sportType = 'table_tennis') {
         if (!setScoreLabel) return;
 
-        if (isTennis) {
+        if (sportType === 'tennis' || sportType === 'padel') {
             const labels = {
                 'best-of-3': 'Satzergebnisse (Best of 3)',
                 'best-of-5': 'Satzergebnisse (Best of 5)'
             };
             setScoreLabel.textContent = labels[mode] || 'Satzergebnisse';
+        } else if (sportType === 'badminton') {
+            setScoreLabel.textContent = 'Satzergebnisse (Best of 3, bis 21)';
         } else {
             const labels = {
                 'single-set': 'Satzergebnisse (1 Satz)',
@@ -138,21 +144,24 @@ export async function initializeCoachSetScoreInput(currentUserId) {
                 matchTieBreak: matchTieBreakCheckbox?.checked || false
             };
             return createTennisScoreInput(container, [], options);
+        } else if (isBadminton) {
+            // Badminton scoring (always Best of 3)
+            return createBadmintonScoreInput(container, [], 'best-of-3');
         } else {
             // Table Tennis scoring
             return createSetScoreInput(container, [], mode || 'best-of-5');
         }
     }
 
-    const currentMode = matchModeSelect ? matchModeSelect.value : (isTennisOrPadel ? 'best-of-3' : 'best-of-5');
+    const currentMode = matchModeSelect ? matchModeSelect.value : (isTennisOrPadel || isBadminton ? 'best-of-3' : 'best-of-5');
     coachSetScoreInput = createScoreInputForSport(currentMode);
-    updateSetScoreLabel(currentMode, isTennisOrPadel);
+    updateSetScoreLabel(currentMode, sportName);
 
     if (matchModeSelect) {
         matchModeSelect.addEventListener('change', () => {
             const newMode = matchModeSelect.value;
             coachSetScoreInput = createScoreInputForSport(newMode);
-            updateSetScoreLabel(newMode, isTennisOrPadel);
+            updateSetScoreLabel(newMode, sportName);
 
             if (window.setDoublesSetScoreInput) {
                 window.setDoublesSetScoreInput(coachSetScoreInput);

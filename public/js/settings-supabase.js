@@ -1390,7 +1390,7 @@ function populateSportDropdown(sports, activeSportId) {
     sportDropdown.innerHTML = '<option value="" disabled>Sportart wählen...</option>';
 
     // Sports that are not yet available (coming soon)
-    const comingSoonSports = ['badminton'];
+    const comingSoonSports = [];
 
     // Add each sport as an option
     sports.forEach(sport => {
