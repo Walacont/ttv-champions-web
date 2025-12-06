@@ -31,6 +31,9 @@ BEGIN
 
     -- ============================================
     -- 2. Alle Spieler in profile_club_sports eintragen
+    -- HINWEIS: Admins werden NICHT eingetragen (bleiben global admin)
+    -- HINWEIS: Coaches werden als 'coach' eingetragen, NICHT als head_coach
+    --          Head_coaches müssen manuell gesetzt werden!
     -- ============================================
     INSERT INTO profile_club_sports (user_id, club_id, sport_id, role)
     SELECT
@@ -38,12 +41,12 @@ BEGIN
         p.club_id,
         v_table_tennis_id,
         CASE
-            WHEN p.role = 'admin' THEN 'player'  -- Admins bleiben global, hier als Spieler
-            WHEN p.role = 'coach' THEN 'head_coach'  -- Bestehende Coaches werden Spartenleiter
+            WHEN p.role = 'coach' THEN 'coach'  -- Coaches bleiben Coaches (head_coach manuell setzen!)
             ELSE 'player'
         END
     FROM profiles p
     WHERE p.club_id IS NOT NULL
+    AND p.role != 'admin'  -- Admins nicht eintragen, bleiben global admin
     AND NOT EXISTS (
         SELECT 1 FROM profile_club_sports pcs
         WHERE pcs.user_id = p.id
@@ -51,7 +54,7 @@ BEGIN
         AND pcs.sport_id = v_table_tennis_id
     );
 
-    RAISE NOTICE 'Alle Spieler zu Tischtennis-Sparte hinzugefügt';
+    RAISE NOTICE 'Alle Spieler zu Tischtennis-Sparte hinzugefügt (Coaches müssen manuell zu head_coach befördert werden)';
 
     -- ============================================
     -- 3. Alle Übungen auf Tischtennis setzen

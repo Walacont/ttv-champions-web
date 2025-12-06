@@ -636,6 +636,65 @@
                         <p id="season-feedback" class="mt-3 text-sm font-medium"></p>
                     </div>
                 </section>
+
+                <!-- Audit Logs -->
+                <section id="audit-section" class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                        <i class="fas fa-history mr-2 text-purple-600"></i>Aktivitätsprotokoll
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-6">Protokoll aller administrativen Aktionen auf der Plattform.</p>
+
+                    <!-- Filter -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div>
+                            <label for="audit-filter-action" class="block text-sm font-medium text-gray-700">Aktion</label>
+                            <select id="audit-filter-action" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
+                                <option value="">Alle Aktionen</option>
+                                <option value="invitation_created">Einladung erstellt</option>
+                                <option value="invitation_used">Einladung verwendet</option>
+                                <option value="season_started">Saison gestartet</option>
+                                <option value="role_changed">Rolle geändert</option>
+                                <option value="user_promoted">Benutzer befördert</option>
+                                <option value="user_removed">Benutzer entfernt</option>
+                                <option value="exercise_created">Übung erstellt</option>
+                                <option value="exercise_deleted">Übung gelöscht</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="audit-filter-club" class="block text-sm font-medium text-gray-700">Verein</label>
+                            <select id="audit-filter-club" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
+                                <option value="">Alle Vereine</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="audit-filter-sport" class="block text-sm font-medium text-gray-700">Sportart</label>
+                            <select id="audit-filter-sport" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 bg-white text-sm">
+                                <option value="">Alle Sportarten</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button id="audit-refresh-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors text-sm">
+                                <i class="fas fa-sync-alt mr-2"></i>Aktualisieren
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Logs Liste -->
+                    <div id="audit-logs-container" class="space-y-3">
+                        <p class="text-gray-500">Logs werden geladen...</p>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div id="audit-pagination" class="mt-6 flex justify-between items-center hidden">
+                        <button id="audit-prev-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-chevron-left mr-1"></i>Zurück
+                        </button>
+                        <span id="audit-page-info" class="text-sm text-gray-600">Seite 1</span>
+                        <button id="audit-next-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                            Weiter<i class="fas fa-chevron-right ml-1"></i>
+                        </button>
+                    </div>
+                </section>
             </main>
         </div>
 

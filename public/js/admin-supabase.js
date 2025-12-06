@@ -245,6 +245,9 @@ function initializeAdminPage(userData, user) {
         loadSeasons();
         setupSeasonForm();
 
+        // Initialize audit section
+        initializeAuditSection();
+
         loadClubsAndPlayers();
         loadAllExercises();
         loadStatistics();
@@ -716,6 +719,17 @@ async function handleInviteCoach(e) {
         // Show success info
         const clubDisplayName = selectedClub ? selectedClub.name : clubName;
         const sportDisplayName = selectedSport ? selectedSport.display_name : 'Unbekannt';
+
+        // Log audit event
+        await logAuditEvent(
+            'invitation_created',
+            null,
+            'invitation',
+            clubId,
+            sportId,
+            { code, role: 'head_coach', club_name: clubDisplayName, sport_name: sportDisplayName }
+        );
+
         alert(`Einladungscode erstellt!\n\nVerein: ${clubDisplayName}\nSparte: ${sportDisplayName}\nRolle: Spartenleiter\n\nCode: ${code}`);
 
         // Reset form
@@ -1689,12 +1703,30 @@ function getRoleDisplay(role) {
 async function handleDeletePlayer(playerId) {
     if (confirm('Sind Sie sicher, dass Sie diesen Benutzer endgültig löschen möchten?')) {
         try {
+            // Get user details before deletion for audit log
+            const { data: userData } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, email, club_id')
+                .eq('id', playerId)
+                .single();
+
             const { error } = await supabase
                 .from('profiles')
                 .delete()
                 .eq('id', playerId);
 
             if (error) throw error;
+
+            // Log audit event
+            await logAuditEvent(
+                'user_removed',
+                playerId,
+                'user',
+                userData?.club_id,
+                null,
+                { name: `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim(), email: userData?.email }
+            );
+
             alert('Benutzer erfolgreich gelöscht.');
         } catch (error) {
             console.error('Fehler beim Löschen des Benutzers:', error);
@@ -1805,11 +1837,23 @@ async function handleCreateExercise(e) {
             };
         }
 
-        const { error } = await supabase
+        const { data: insertedExercise, error } = await supabase
             .from('exercises')
-            .insert(exerciseData);
+            .insert(exerciseData)
+            .select()
+            .single();
 
         if (error) throw error;
+
+        // Log audit event
+        await logAuditEvent(
+            'exercise_created',
+            insertedExercise?.id,
+            'exercise',
+            null,
+            currentSportFilter !== 'all' ? currentSportFilter : null,
+            { title, points }
+        );
 
         feedbackEl.textContent = 'Übung erfolgreich erstellt!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
@@ -1954,12 +1998,29 @@ function renderExercises(exercises) {
 async function handleDeleteExercise(exerciseId, imageUrl) {
     if (confirm('Sind Sie sicher, dass Sie diese Übung endgültig löschen möchten?')) {
         try {
+            // Get exercise details before deletion for audit log
+            const { data: exerciseData } = await supabase
+                .from('exercises')
+                .select('title, sport_id')
+                .eq('id', exerciseId)
+                .single();
+
             const { error } = await supabase
                 .from('exercises')
                 .delete()
                 .eq('id', exerciseId);
 
             if (error) throw error;
+
+            // Log audit event
+            await logAuditEvent(
+                'exercise_deleted',
+                exerciseId,
+                'exercise',
+                null,
+                exerciseData?.sport_id,
+                { title: exerciseData?.title }
+            );
 
             // Delete image from storage if it exists
             if (imageUrl && imageUrl !== 'undefined' && imageUrl.trim() !== '') {
@@ -2173,6 +2234,16 @@ async function handleStartNewSeason(e) {
 
         if (error) throw error;
 
+        // Log audit event
+        await logAuditEvent(
+            'season_started',
+            data,
+            'season',
+            null,
+            sportId,
+            { season_name: name, start_date: startDate, end_date: endDate }
+        );
+
         feedbackEl.textContent = `Saison "${name}" erfolgreich gestartet! Punkte wurden zurückgesetzt.`;
         feedbackEl.className = 'mt-3 text-sm font-medium text-green-600';
 
@@ -2193,6 +2264,313 @@ async function handleStartNewSeason(e) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Neue Saison starten';
     }
+}
+
+// ============================================
+// AUDIT LOGGING
+// ============================================
+
+let auditCurrentPage = 0;
+const AUDIT_PAGE_SIZE = 20;
+
+async function logAuditEvent(action, targetId = null, targetType = null, clubId = null, sportId = null, details = null) {
+    try {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        const { error } = await supabase.rpc('log_audit_event', {
+            p_action: action,
+            p_actor_id: user.id,
+            p_target_id: targetId,
+            p_target_type: targetType,
+            p_club_id: clubId,
+            p_sport_id: sportId,
+            p_details: details
+        });
+
+        if (error) {
+            console.error('Fehler beim Loggen des Audit-Events:', error);
+        }
+    } catch (error) {
+        console.error('Audit-Log Fehler:', error);
+    }
+}
+
+async function loadAuditLogs() {
+    const container = document.getElementById('audit-logs-container');
+    const pagination = document.getElementById('audit-pagination');
+    if (!container) return;
+
+    try {
+        // Get filter values
+        const actionFilter = document.getElementById('audit-filter-action')?.value || null;
+        const clubFilter = document.getElementById('audit-filter-club')?.value || null;
+        const sportFilter = document.getElementById('audit-filter-sport')?.value || null;
+
+        // Call get_audit_logs RPC function
+        const { data: logs, error } = await supabase.rpc('get_audit_logs', {
+            p_limit: AUDIT_PAGE_SIZE,
+            p_offset: auditCurrentPage * AUDIT_PAGE_SIZE,
+            p_action_filter: actionFilter,
+            p_club_filter: clubFilter,
+            p_sport_filter: sportFilter,
+            p_date_from: null,
+            p_date_to: null
+        });
+
+        if (error) throw error;
+
+        // Get total count for pagination
+        const { data: countResult, error: countError } = await supabase.rpc('count_audit_logs', {
+            p_action_filter: actionFilter,
+            p_club_filter: clubFilter,
+            p_sport_filter: sportFilter,
+            p_date_from: null,
+            p_date_to: null
+        });
+
+        if (countError) throw countError;
+
+        const totalCount = countResult || 0;
+        const totalPages = Math.ceil(totalCount / AUDIT_PAGE_SIZE);
+
+        if (!logs || logs.length === 0) {
+            container.innerHTML = `
+                <div class="bg-gray-50 rounded-lg p-6 text-center">
+                    <i class="fas fa-clipboard-list text-gray-300 text-4xl mb-3"></i>
+                    <p class="text-gray-500">Keine Aktivitäten gefunden.</p>
+                </div>
+            `;
+            pagination.classList.add('hidden');
+            return;
+        }
+
+        // Render logs
+        container.innerHTML = logs.map(log => renderAuditLogEntry(log)).join('');
+
+        // Update pagination
+        if (totalPages > 1) {
+            pagination.classList.remove('hidden');
+            document.getElementById('audit-page-info').textContent = `Seite ${auditCurrentPage + 1} von ${totalPages}`;
+            document.getElementById('audit-prev-btn').disabled = auditCurrentPage === 0;
+            document.getElementById('audit-next-btn').disabled = auditCurrentPage >= totalPages - 1;
+        } else {
+            pagination.classList.add('hidden');
+        }
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Audit-Logs:', error);
+        container.innerHTML = `
+            <div class="bg-red-50 rounded-lg p-4 text-center">
+                <p class="text-red-600">Fehler beim Laden der Logs: ${error.message}</p>
+                <p class="text-sm text-gray-500 mt-2">Die Audit-Tabelle muss zuerst in der Datenbank erstellt werden.</p>
+            </div>
+        `;
+    }
+}
+
+function renderAuditLogEntry(log) {
+    const actionInfo = getActionDisplayInfo(log.action);
+    const timeAgo = getTimeAgo(new Date(log.created_at));
+
+    // Build details string
+    let detailsHtml = '';
+    if (log.details) {
+        const details = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+        if (details.code) {
+            detailsHtml += `<span class="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono">${details.code}</span>`;
+        }
+        if (details.role) {
+            detailsHtml += `<span class="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded ml-1">${details.role}</span>`;
+        }
+        if (details.season_name) {
+            detailsHtml += `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded ml-1">${details.season_name}</span>`;
+        }
+    }
+
+    return `
+        <div class="flex items-start gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full ${actionInfo.bgClass} flex items-center justify-center">
+                <i class="${actionInfo.icon} ${actionInfo.textClass}"></i>
+            </div>
+            <div class="flex-grow min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-medium text-gray-900">${actionInfo.label}</span>
+                    ${detailsHtml}
+                </div>
+                <div class="text-sm text-gray-600 mt-1">
+                    ${log.actor_name ? `<span class="font-medium">${log.actor_name}</span>` : '<span class="text-gray-400">System</span>'}
+                    ${log.target_name ? ` → <span class="text-indigo-600">${log.target_name}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                    ${log.club_name ? `<span><i class="fas fa-building mr-1"></i>${log.club_name}</span>` : ''}
+                    ${log.sport_name ? `<span><i class="fas fa-running mr-1"></i>${log.sport_name}</span>` : ''}
+                    <span><i class="fas fa-clock mr-1"></i>${timeAgo}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function getActionDisplayInfo(action) {
+    const actions = {
+        'invitation_created': {
+            label: 'Einladung erstellt',
+            icon: 'fas fa-envelope',
+            bgClass: 'bg-blue-100',
+            textClass: 'text-blue-600'
+        },
+        'invitation_used': {
+            label: 'Einladung verwendet',
+            icon: 'fas fa-user-plus',
+            bgClass: 'bg-green-100',
+            textClass: 'text-green-600'
+        },
+        'season_started': {
+            label: 'Neue Saison gestartet',
+            icon: 'fas fa-play-circle',
+            bgClass: 'bg-emerald-100',
+            textClass: 'text-emerald-600'
+        },
+        'role_changed': {
+            label: 'Rolle geändert',
+            icon: 'fas fa-user-shield',
+            bgClass: 'bg-purple-100',
+            textClass: 'text-purple-600'
+        },
+        'user_promoted': {
+            label: 'Benutzer befördert',
+            icon: 'fas fa-arrow-up',
+            bgClass: 'bg-indigo-100',
+            textClass: 'text-indigo-600'
+        },
+        'user_removed': {
+            label: 'Benutzer entfernt',
+            icon: 'fas fa-user-minus',
+            bgClass: 'bg-red-100',
+            textClass: 'text-red-600'
+        },
+        'exercise_created': {
+            label: 'Übung erstellt',
+            icon: 'fas fa-plus-circle',
+            bgClass: 'bg-teal-100',
+            textClass: 'text-teal-600'
+        },
+        'exercise_deleted': {
+            label: 'Übung gelöscht',
+            icon: 'fas fa-trash-alt',
+            bgClass: 'bg-orange-100',
+            textClass: 'text-orange-600'
+        },
+        'admin_login': {
+            label: 'Admin Login',
+            icon: 'fas fa-sign-in-alt',
+            bgClass: 'bg-gray-100',
+            textClass: 'text-gray-600'
+        }
+    };
+
+    return actions[action] || {
+        label: action,
+        icon: 'fas fa-question-circle',
+        bgClass: 'bg-gray-100',
+        textClass: 'text-gray-600'
+    };
+}
+
+function getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'gerade eben';
+    if (diffMins < 60) return `vor ${diffMins} Min.`;
+    if (diffHours < 24) return `vor ${diffHours} Std.`;
+    if (diffDays < 7) return `vor ${diffDays} Tag${diffDays > 1 ? 'en' : ''}`;
+
+    return date.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+async function populateAuditFilters() {
+    // Populate club filter
+    const clubFilter = document.getElementById('audit-filter-club');
+    if (clubFilter && allClubs.length > 0) {
+        clubFilter.innerHTML = '<option value="">Alle Vereine</option>';
+        allClubs.forEach(club => {
+            const option = document.createElement('option');
+            option.value = club.id;
+            option.textContent = club.name;
+            clubFilter.appendChild(option);
+        });
+    }
+
+    // Populate sport filter
+    const sportFilter = document.getElementById('audit-filter-sport');
+    if (sportFilter && allSports.length > 0) {
+        sportFilter.innerHTML = '<option value="">Alle Sportarten</option>';
+        allSports.forEach(sport => {
+            const option = document.createElement('option');
+            option.value = sport.id;
+            option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
+            sportFilter.appendChild(option);
+        });
+    }
+}
+
+function setupAuditListeners() {
+    // Refresh button
+    const refreshBtn = document.getElementById('audit-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            auditCurrentPage = 0;
+            loadAuditLogs();
+        });
+    }
+
+    // Filter change listeners
+    ['audit-filter-action', 'audit-filter-club', 'audit-filter-sport'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('change', () => {
+                auditCurrentPage = 0;
+                loadAuditLogs();
+            });
+        }
+    });
+
+    // Pagination buttons
+    const prevBtn = document.getElementById('audit-prev-btn');
+    const nextBtn = document.getElementById('audit-next-btn');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (auditCurrentPage > 0) {
+                auditCurrentPage--;
+                loadAuditLogs();
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            auditCurrentPage++;
+            loadAuditLogs();
+        });
+    }
+}
+
+async function initializeAuditSection() {
+    await populateAuditFilters();
+    setupAuditListeners();
+    await loadAuditLogs();
 }
 
 // Cleanup on page unload
