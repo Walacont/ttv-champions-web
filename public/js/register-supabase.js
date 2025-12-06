@@ -357,6 +357,16 @@ registrationForm?.addEventListener('submit', async e => {
                 .from('invitation_codes')
                 .update({ use_count: (invitationCodeData.use_count || 0) + 1 })
                 .eq('id', invitationCodeData.id);
+
+            // Store invitation code data for onboarding pre-fill
+            localStorage.setItem('pendingInvitationData', JSON.stringify({
+                firstName: invitationCodeData.first_name || '',
+                lastName: invitationCodeData.last_name || '',
+                birthdate: invitationCodeData.birthdate || null,
+                gender: invitationCodeData.gender || null,
+                sportId: invitationCodeData.sport_id || null,
+                clubId: invitationCodeData.club_id || null
+            }));
         }
 
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');

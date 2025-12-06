@@ -147,16 +147,35 @@ async function checkAuthState() {
         return;
     }
 
-    // Fill form with existing data
+    // Check for pending invitation data from registration
+    let invitationData = null;
+    try {
+        const storedData = localStorage.getItem('pendingInvitationData');
+        if (storedData) {
+            invitationData = JSON.parse(storedData);
+            console.log('[ONBOARDING-SUPABASE] Found invitation data:', invitationData);
+            // Clear it after reading (one-time use)
+            localStorage.removeItem('pendingInvitationData');
+        }
+    } catch (e) {
+        console.warn('[ONBOARDING-SUPABASE] Error reading invitation data:', e);
+    }
+
+    // Fill form with existing data - prioritize invitation data over profile data
     const firstNameInput = document.getElementById('firstName');
     const lastNameInput = document.getElementById('lastName');
 
-    if (firstNameInput) firstNameInput.value = profile.first_name || '';
-    if (lastNameInput) lastNameInput.value = profile.last_name || '';
+    // Use invitation data first, then profile data, then empty
+    const firstName = invitationData?.firstName || profile.first_name || '';
+    const lastName = invitationData?.lastName || profile.last_name || '';
 
-    // Fill birthdate selects if data exists
-    if (profile.birthdate) {
-        const dateParts = profile.birthdate.split('-');
+    if (firstNameInput) firstNameInput.value = firstName;
+    if (lastNameInput) lastNameInput.value = lastName;
+
+    // Fill birthdate selects - prioritize invitation data
+    const birthdate = invitationData?.birthdate || profile.birthdate;
+    if (birthdate) {
+        const dateParts = birthdate.split('-');
         if (dateParts.length === 3) {
             const yearSelect = document.getElementById('birthdate-year');
             const monthSelect = document.getElementById('birthdate-month');
@@ -167,14 +186,17 @@ async function checkAuthState() {
         }
     }
 
-    // Fill gender select if data exists
-    if (profile.gender) {
+    // Fill gender select - prioritize invitation data
+    const gender = invitationData?.gender || profile.gender;
+    if (gender) {
         const genderSelect = document.getElementById('gender');
-        if (genderSelect) genderSelect.value = profile.gender;
+        if (genderSelect) genderSelect.value = gender;
     }
 
     // Load sports dropdown and check if sport is pre-assigned
-    await loadSports(profile.active_sport_id);
+    // Use invitation sportId first, then profile active_sport_id
+    const sportId = invitationData?.sportId || profile.active_sport_id;
+    await loadSports(sportId);
 }
 
 checkAuthState();
