@@ -1499,11 +1499,16 @@ async function handleSportChange(event) {
  * Set active sport and show club status for that sport
  */
 async function setActiveSportAndShowClubStatus(sportId, sportName) {
+    console.log('[Settings] Setting active sport:', { sportId, sportName, userId: currentUser.id });
+
     // Update the active sport in the database
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
         .from('profiles')
         .update({ active_sport_id: sportId })
-        .eq('id', currentUser.id);
+        .eq('id', currentUser.id)
+        .select();
+
+    console.log('[Settings] Update result:', { updateData, updateError });
 
     if (updateError) {
         console.error('Error setting active sport:', updateError);
@@ -1511,12 +1516,27 @@ async function setActiveSportAndShowClubStatus(sportId, sportName) {
             sportFeedback.innerHTML = `
                 <span class="text-red-600">
                     <i class="fas fa-exclamation-circle mr-1"></i>
-                    Fehler beim Wechseln der Sportart.
+                    Fehler beim Wechseln der Sportart: ${updateError.message}
                 </span>
             `;
         }
         return;
     }
+
+    if (!updateData || updateData.length === 0) {
+        console.error('[Settings] No data returned from update - might be RLS issue');
+        if (sportFeedback) {
+            sportFeedback.innerHTML = `
+                <span class="text-red-600">
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    Sportart konnte nicht gespeichert werden (RLS Problem?)
+                </span>
+            `;
+        }
+        return;
+    }
+
+    console.log('[Settings] Active sport updated successfully');
 
     // Update local data
     if (currentUserData) {
