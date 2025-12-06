@@ -531,6 +531,7 @@ function selectClub(club, clubSports) {
     searchResults.classList.add('hidden');
     clubNameInput.value = '';
     clubNameInput.classList.add('hidden');
+    clubNameInput.removeAttribute('required'); // Remove required when hidden
     newClubInfo.classList.add('hidden');
 
     // Show selected club
@@ -565,6 +566,7 @@ function clearSelectedClub() {
     const newClubInfo = document.getElementById('new-club-info');
 
     clubNameInput.classList.remove('hidden');
+    clubNameInput.setAttribute('required', ''); // Add required back when shown
     clubNameInput.value = '';
     selectedClubContainer.classList.add('hidden');
     selectedClubIdInput.value = '';
