@@ -12,6 +12,7 @@ const submitButton = document.getElementById('submit-button');
 const errorMessage = document.getElementById('error-message');
 const photoUpload = document.getElementById('photo-upload');
 const profileImagePreview = document.getElementById('profile-image-preview');
+const sportSelect = document.getElementById('sport-select');
 
 let currentUser = null;
 let currentUserData = null;
@@ -53,6 +54,33 @@ function initializeDateSelects() {
 
 // Initialize the date selects when the page loads
 initializeDateSelects();
+
+// Load available sports for dropdown
+async function loadSports() {
+    try {
+        const { data: sports, error } = await supabase
+            .from('sports')
+            .select('id, name, display_name')
+            .order('display_name', { ascending: true });
+
+        if (error) throw error;
+
+        if (sportSelect && sports) {
+            sportSelect.innerHTML = '<option value="">Sportart wählen...</option>';
+            sports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = sport.display_name || sport.name;
+                sportSelect.appendChild(option);
+            });
+        }
+
+        return sports || [];
+    } catch (error) {
+        console.error('[ONBOARDING-SUPABASE] Error loading sports:', error);
+        return [];
+    }
+}
 
 // Check auth state on load
 async function checkAuthState() {
@@ -109,6 +137,9 @@ async function checkAuthState() {
             if (daySelect) daySelect.value = parseInt(dateParts[2], 10);
         }
     }
+
+    // Load sports dropdown
+    await loadSports();
 }
 
 checkAuthState();
@@ -177,6 +208,12 @@ onboardingForm?.addEventListener('submit', async e => {
         const paddedMonth = month.toString().padStart(2, '0');
         const birthdate = `${year}-${paddedMonth}-${paddedDay}`;
 
+        // Get selected sport
+        const selectedSportId = sportSelect?.value;
+        if (!selectedSportId) {
+            throw new Error('Bitte wähle eine Sportart aus.');
+        }
+
         const dataToUpdate = {
             first_name: document.getElementById('firstName')?.value || '',
             last_name: document.getElementById('lastName')?.value || '',
@@ -184,6 +221,7 @@ onboardingForm?.addEventListener('submit', async e => {
             birthdate: birthdate,
             gender: document.getElementById('gender')?.value || null,
             avatar_url: photoURL,
+            active_sport_id: selectedSportId,
             onboarding_complete: true,
             is_offline: false,
             updated_at: new Date().toISOString()
@@ -201,7 +239,22 @@ onboardingForm?.addEventListener('submit', async e => {
 
         console.log('[ONBOARDING-SUPABASE] Profile updated successfully');
 
-        // Redirect to dashboard
+        // Create user_sport_stats record for the selected sport
+        const { error: statsError } = await supabase
+            .from('user_sport_stats')
+            .insert({
+                user_id: currentUser.id,
+                sport_id: selectedSportId
+            });
+
+        if (statsError) {
+            // Log but don't fail - stats table might not exist yet
+            console.warn('[ONBOARDING-SUPABASE] Could not create sport stats:', statsError);
+        }
+
+        console.log('[ONBOARDING-SUPABASE] Sport stats created for:', selectedSportId);
+
+        // Redirect directly to dashboard
         redirectToDashboard(currentUserData.role);
 
     } catch (error) {
@@ -210,123 +263,6 @@ onboardingForm?.addEventListener('submit', async e => {
         submitButton.disabled = false;
         submitButton.textContent = 'Profil speichern';
     }
-});
-
-// ===== CLUB SELECTION DIALOG =====
-const clubSelectionDialog = document.getElementById('club-selection-dialog');
-const hasClubBtn = document.getElementById('has-club-btn');
-const noClubBtn = document.getElementById('no-club-btn');
-const clubDropdownContainer = document.getElementById('club-dropdown-container');
-const clubSelect = document.getElementById('club-select');
-const requestClubBtn = document.getElementById('request-club-btn');
-const backToChoiceBtn = document.getElementById('back-to-choice-btn');
-const clubErrorMessage = document.getElementById('club-error-message');
-
-// Load all clubs
-async function loadClubs() {
-    try {
-        const { data: clubs, error } = await supabase
-            .from('clubs')
-            .select('id, name')
-            .eq('is_test_club', false)
-            .order('name');
-
-        if (error) throw error;
-
-        // Populate dropdown
-        if (clubSelect) {
-            clubSelect.innerHTML = '<option value="">-- Verein auswählen --</option>';
-            clubs?.forEach(club => {
-                const option = document.createElement('option');
-                option.value = club.id;
-                option.textContent = club.name;
-                clubSelect.appendChild(option);
-            });
-        }
-
-        return clubs || [];
-    } catch (error) {
-        console.error('Error loading clubs:', error);
-        if (clubErrorMessage) clubErrorMessage.textContent = 'Fehler beim Laden der Vereine.';
-        return [];
-    }
-}
-
-// "Ja, ich bin in einem Verein"
-hasClubBtn?.addEventListener('click', async () => {
-    hasClubBtn.disabled = true;
-    noClubBtn.disabled = true;
-    if (clubErrorMessage) clubErrorMessage.textContent = '';
-
-    await loadClubs();
-
-    hasClubBtn.parentElement.classList.add('hidden');
-    clubDropdownContainer?.classList.remove('hidden');
-
-    hasClubBtn.disabled = false;
-    noClubBtn.disabled = false;
-});
-
-// "Nein, noch nicht"
-noClubBtn?.addEventListener('click', () => {
-    clubSelectionDialog?.classList.add('hidden');
-    redirectToDashboard(currentUserData?.role);
-});
-
-// Enable/disable request button
-clubSelect?.addEventListener('change', () => {
-    if (requestClubBtn) requestClubBtn.disabled = !clubSelect.value;
-});
-
-// "Beitrittsanfrage senden"
-requestClubBtn?.addEventListener('click', async () => {
-    const selectedClubId = clubSelect?.value;
-    if (!selectedClubId) return;
-
-    requestClubBtn.disabled = true;
-    requestClubBtn.textContent = 'Sende Anfrage...';
-    if (clubErrorMessage) clubErrorMessage.textContent = '';
-
-    try {
-        // Create club request
-        const { error: requestError } = await supabase
-            .from('club_requests')
-            .insert({
-                player_id: currentUser.id,
-                club_id: selectedClubId,
-                status: 'pending',
-                player_name: `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim(),
-                player_email: currentUser.email || ''
-            });
-
-        if (requestError) throw requestError;
-
-        // Update user's club request status
-        await supabase
-            .from('profiles')
-            .update({
-                club_request_status: 'pending',
-                club_request_id: selectedClubId
-            })
-            .eq('id', currentUser.id);
-
-        alert('Deine Beitrittsanfrage wurde gesendet! Ein Coach muss diese noch genehmigen.');
-        clubSelectionDialog?.classList.add('hidden');
-        redirectToDashboard(currentUserData?.role);
-
-    } catch (error) {
-        console.error('Error creating club request:', error);
-        if (clubErrorMessage) clubErrorMessage.textContent = 'Fehler beim Senden der Anfrage.';
-        requestClubBtn.disabled = false;
-        requestClubBtn.textContent = 'Beitrittsanfrage senden';
-    }
-});
-
-// "Zurück" button
-backToChoiceBtn?.addEventListener('click', () => {
-    clubDropdownContainer?.classList.add('hidden');
-    hasClubBtn?.parentElement.classList.remove('hidden');
-    if (clubErrorMessage) clubErrorMessage.textContent = '';
 });
 
 function redirectToDashboard(role) {
