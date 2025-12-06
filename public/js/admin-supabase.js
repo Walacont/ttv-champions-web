@@ -241,6 +241,10 @@ function initializeAdminPage(userData, user) {
         loadSportsAndClubs();
         setupClubSearchListeners();
 
+        // Load seasons
+        loadSeasons();
+        setupSeasonForm();
+
         loadClubsAndPlayers();
         loadAllExercises();
         loadStatistics();
@@ -265,8 +269,10 @@ async function loadSportsAndClubs() {
         if (sportsError) throw sportsError;
         allSports = sports || [];
 
-        // Populate sports dropdown for invite form
+        // Populate sports dropdowns
         const sportSelect = document.getElementById('sportSelect');
+        const seasonSportSelect = document.getElementById('season-sport');
+
         if (sportSelect) {
             sportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
             allSports.forEach(sport => {
@@ -274,6 +280,17 @@ async function loadSportsAndClubs() {
                 option.value = sport.id;
                 option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
                 sportSelect.appendChild(option);
+            });
+        }
+
+        // Populate season sport dropdown
+        if (seasonSportSelect) {
+            seasonSportSelect.innerHTML = '<option value="">-- Sportart wählen --</option>';
+            allSports.forEach(sport => {
+                const option = document.createElement('option');
+                option.value = sport.id;
+                option.textContent = `${getSportIcon(sport.name)} ${sport.display_name}`;
+                seasonSportSelect.appendChild(option);
             });
         }
 
@@ -1969,78 +1986,213 @@ async function handleDeleteExercise(exerciseId, imageUrl) {
     }
 }
 
-// Migration function (simplified - runs directly in database)
-const migrateDoublesNamesBtn = document.getElementById('migrate-doubles-names-btn');
-const migrationStatus = document.getElementById('migration-status');
+// ============================================
+// SEASON MANAGEMENT
+// ============================================
 
-if (migrateDoublesNamesBtn) {
-    migrateDoublesNamesBtn.addEventListener('click', async () => {
-        if (!confirm('Möchtest du die Migration starten? Dies aktualisiert alle doublesPairings-Dokumente mit Spielernamen.')) {
+async function loadSeasons() {
+    const seasonsListEl = document.getElementById('seasons-list');
+    if (!seasonsListEl) return;
+
+    try {
+        // Load all seasons grouped by sport
+        const { data: seasons, error } = await supabase
+            .from('seasons')
+            .select('*, sports(id, name, display_name)')
+            .order('start_date', { ascending: false });
+
+        if (error) throw error;
+
+        if (!seasons || seasons.length === 0) {
+            seasonsListEl.innerHTML = `
+                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                    <p class="text-gray-500">Keine Saisons vorhanden. Erstelle die erste Saison unten.</p>
+                </div>
+            `;
             return;
         }
 
-        migrateDoublesNamesBtn.disabled = true;
-        migrateDoublesNamesBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Migration läuft...';
-        migrationStatus.textContent = 'Migration wird ausgeführt...';
-        migrationStatus.className = 'text-sm font-medium text-blue-600';
-
-        try {
-            // Get all doubles pairings without names
-            const { data: pairings, error: pairingsError } = await supabase
-                .from('doubles_pairings')
-                .select('*')
-                .or('player1_name.is.null,player2_name.is.null');
-
-            if (pairingsError) throw pairingsError;
-
-            let migrated = 0;
-            let skipped = 0;
-
-            for (const pairing of pairings || []) {
-                // Get player names
-                const { data: player1 } = await supabase
-                    .from('profiles')
-                    .select('display_name, first_name, last_name')
-                    .eq('id', pairing.player1_id)
-                    .single();
-
-                const { data: player2 } = await supabase
-                    .from('profiles')
-                    .select('display_name, first_name, last_name')
-                    .eq('id', pairing.player2_id)
-                    .single();
-
-                if (player1 && player2) {
-                    const player1Name = player1.display_name || `${player1.first_name} ${player1.last_name}`;
-                    const player2Name = player2.display_name || `${player2.first_name} ${player2.last_name}`;
-
-                    await supabase
-                        .from('doubles_pairings')
-                        .update({
-                            player1_name: player1Name,
-                            player2_name: player2Name
-                        })
-                        .eq('id', pairing.id);
-
-                    migrated++;
-                } else {
-                    skipped++;
-                }
+        // Group seasons by sport
+        const seasonsBySport = {};
+        seasons.forEach(season => {
+            const sportId = season.sport_id;
+            if (!seasonsBySport[sportId]) {
+                seasonsBySport[sportId] = {
+                    sport: season.sports,
+                    seasons: []
+                };
             }
+            seasonsBySport[sportId].seasons.push(season);
+        });
 
-            migrationStatus.textContent = `✅ Erfolgreich! ${migrated} Paarungen aktualisiert, ${skipped} übersprungen.`;
-            migrationStatus.className = 'text-sm font-medium text-green-600';
-            alert(`Migration erfolgreich!\n\n${migrated} Paarungen wurden aktualisiert.\n${skipped} wurden übersprungen.`);
-        } catch (error) {
-            console.error('Migration error:', error);
-            migrationStatus.textContent = '❌ Fehler: ' + error.message;
-            migrationStatus.className = 'text-sm font-medium text-red-600';
-            alert('Fehler bei der Migration: ' + error.message);
-        } finally {
-            migrateDoublesNamesBtn.disabled = false;
-            migrateDoublesNamesBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Migration starten';
+        // Render seasons by sport
+        seasonsListEl.innerHTML = '';
+
+        for (const sportId in seasonsBySport) {
+            const { sport, seasons: sportSeasons } = seasonsBySport[sportId];
+            const activeSeason = sportSeasons.find(s => s.is_active);
+
+            const sportDiv = document.createElement('div');
+            sportDiv.className = 'border border-gray-200 rounded-lg overflow-hidden';
+
+            sportDiv.innerHTML = `
+                <div class="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">${getSportIcon(sport.name)}</span>
+                            <h3 class="font-bold text-lg text-gray-900">${sport.display_name}</h3>
+                        </div>
+                        ${activeSeason ? `
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1"></i>
+                                ${activeSeason.name}
+                            </span>
+                        ` : `
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                                Keine aktive Saison
+                            </span>
+                        `}
+                    </div>
+                    ${activeSeason ? `
+                        <p class="text-sm text-gray-600 mt-2">
+                            <i class="fas fa-calendar mr-1"></i>
+                            ${formatDate(activeSeason.start_date)} - ${formatDate(activeSeason.end_date)}
+                        </p>
+                    ` : ''}
+                </div>
+                <div class="p-3 bg-white">
+                    <p class="text-xs text-gray-500 mb-2">Bisherige Saisons:</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${sportSeasons.map(s => `
+                            <span class="inline-flex items-center px-2 py-1 rounded text-xs ${s.is_active ? 'bg-green-100 text-green-800 font-medium' : 'bg-gray-100 text-gray-600'}">
+                                ${s.name}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            seasonsListEl.appendChild(sportDiv);
         }
+
+    } catch (error) {
+        console.error('Fehler beim Laden der Saisons:', error);
+        seasonsListEl.innerHTML = '<p class="text-red-500">Fehler beim Laden der Saisons.</p>';
+    }
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
     });
+}
+
+function setupSeasonForm() {
+    const form = document.getElementById('new-season-form');
+    if (!form) return;
+
+    // Set default dates (today to one year from now)
+    const today = new Date();
+    const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+
+    const startInput = document.getElementById('season-start');
+    const endInput = document.getElementById('season-end');
+
+    if (startInput) startInput.value = today.toISOString().split('T')[0];
+    if (endInput) endInput.value = nextYear.toISOString().split('T')[0];
+
+    // Set default season name
+    const nameInput = document.getElementById('season-name');
+    if (nameInput) {
+        const currentYear = today.getFullYear();
+        const nextYearNum = currentYear + 1;
+        nameInput.value = `${currentYear}/${nextYearNum}`;
+    }
+
+    form.addEventListener('submit', handleStartNewSeason);
+}
+
+async function handleStartNewSeason(e) {
+    e.preventDefault();
+
+    const feedbackEl = document.getElementById('season-feedback');
+    const submitBtn = document.getElementById('start-season-btn');
+
+    const sportId = document.getElementById('season-sport')?.value;
+    const name = document.getElementById('season-name')?.value?.trim();
+    const startDate = document.getElementById('season-start')?.value;
+    const endDate = document.getElementById('season-end')?.value;
+
+    // Validation
+    if (!sportId || !name || !startDate || !endDate) {
+        feedbackEl.textContent = 'Bitte alle Felder ausfüllen.';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-red-600';
+        return;
+    }
+
+    if (new Date(endDate) <= new Date(startDate)) {
+        feedbackEl.textContent = 'Das End-Datum muss nach dem Start-Datum liegen.';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-red-600';
+        return;
+    }
+
+    // Get sport name for confirmation
+    const sport = allSports.find(s => s.id === sportId);
+    const sportName = sport?.display_name || 'Unbekannt';
+
+    // Confirm action
+    const confirmed = confirm(
+        `Neue Saison starten?\n\n` +
+        `Sportart: ${sportName}\n` +
+        `Saison: ${name}\n` +
+        `Zeitraum: ${formatDate(startDate)} - ${formatDate(endDate)}\n\n` +
+        `⚠️ ACHTUNG: Die Saison-Punkte aller Spieler dieser Sportart werden auf 0 gesetzt!`
+    );
+
+    if (!confirmed) return;
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Wird gestartet...';
+    feedbackEl.textContent = '';
+
+    try {
+        const user = await getCurrentUser();
+
+        // Call the start_new_season function
+        const { data, error } = await supabase.rpc('start_new_season', {
+            p_sport_id: sportId,
+            p_name: name,
+            p_start_date: startDate,
+            p_end_date: endDate,
+            p_created_by: user.id
+        });
+
+        if (error) throw error;
+
+        feedbackEl.textContent = `Saison "${name}" erfolgreich gestartet! Punkte wurden zurückgesetzt.`;
+        feedbackEl.className = 'mt-3 text-sm font-medium text-green-600';
+
+        // Reset form
+        document.getElementById('season-sport').value = '';
+
+        // Reload seasons list
+        await loadSeasons();
+
+        // Reload statistics to show updated points
+        loadStatistics();
+
+    } catch (error) {
+        console.error('Fehler beim Starten der Saison:', error);
+        feedbackEl.textContent = `Fehler: ${error.message}`;
+        feedbackEl.className = 'mt-3 text-sm font-medium text-red-600';
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Neue Saison starten';
+    }
 }
 
 // Cleanup on page unload
