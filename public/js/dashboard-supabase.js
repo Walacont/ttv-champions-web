@@ -213,9 +213,9 @@ async function initializeDashboard() {
     // Populate player subgroup filter with age groups
     await populatePlayerSubgroupFilter(currentUserData);
 
-    // Show coach switch button only if user is coach in the ACTIVE SPORT
+    // Show coach switch button only if user is coach or head_coach in the ACTIVE SPORT
     // User might be coach in one sport but player in another
-    const isCoachInActiveSport = currentSportContext?.role === 'coach';
+    const isCoachInActiveSport = currentSportContext?.role === 'coach' || currentSportContext?.role === 'head_coach';
     if (isCoachInActiveSport) {
         const switchBtn = document.getElementById('switch-to-coach-btn');
         if (switchBtn) switchBtn.classList.remove('hidden');
@@ -253,10 +253,12 @@ function setupHeader() {
         welcomeMsg.textContent = `Willkommen zurück, ${name}!`;
     }
 
-    // Club name
+    // Club name - use sport context club if available (multi-sport support)
+    // A user might be in different clubs for different sports
     const clubName = document.getElementById('header-club-name');
     if (clubName) {
-        clubName.textContent = currentClubData?.name || 'Kein Verein';
+        const effectiveClubName = currentSportContext?.clubName || currentClubData?.name;
+        clubName.textContent = effectiveClubName || 'Kein Verein';
     }
 }
 

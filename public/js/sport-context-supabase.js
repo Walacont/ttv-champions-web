@@ -257,7 +257,7 @@ export async function isCoachInSport(userId, sportId = null) {
 
         if (error || !data) return false;
 
-        return data?.role === 'coach';
+        return data?.role === 'coach' || data?.role === 'head_coach';
 
     } catch (error) {
         return false;

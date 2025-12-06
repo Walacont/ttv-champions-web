@@ -316,7 +316,7 @@ function redirectToDashboard(role) {
     let targetUrl;
     if (role === 'admin') {
         targetUrl = '/admin.html';
-    } else if (role === 'coach') {
+    } else if (role === 'coach' || role === 'head_coach') {
         targetUrl = '/coach.html';
     } else {
         targetUrl = '/dashboard.html';

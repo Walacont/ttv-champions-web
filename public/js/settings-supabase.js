@@ -59,6 +59,21 @@ async function initializeAuth() {
             .single();
 
         if (!error && profile) {
+            // Get club from profile_club_sports if profiles.club_id is null (multi-sport support)
+            let effectiveClubId = profile.club_id || null;
+            if (!effectiveClubId && profile.active_sport_id) {
+                const { data: pcsData } = await supabase
+                    .from('profile_club_sports')
+                    .select('club_id')
+                    .eq('user_id', currentUser.id)
+                    .eq('sport_id', profile.active_sport_id)
+                    .maybeSingle();
+
+                if (pcsData?.club_id) {
+                    effectiveClubId = pcsData.club_id;
+                }
+            }
+
             // Map Supabase profile to expected format
             currentUserData = {
                 id: currentUser.id,
@@ -67,7 +82,7 @@ async function initializeAuth() {
                 lastName: profile.last_name || '',
                 displayName: profile.display_name || '',
                 role: profile.role || 'player',
-                clubId: profile.club_id || null,
+                clubId: effectiveClubId,
                 xp: profile.xp || 0,
                 points: profile.points || 0,
                 eloRating: profile.elo_rating || 1000,
@@ -391,7 +406,7 @@ function updateTutorialStatus(userData) {
     }
 
     if (coachButton) {
-        if (role === 'coach' || role === 'admin') {
+        if (role === 'coach' || role === 'head_coach' || role === 'admin') {
             coachButton.closest('.bg-gray-50').style.display = 'block';
             if (coachTutorialCompleted) {
                 coachButton.innerHTML = '<i class="fas fa-redo mr-2"></i> Tutorial wiederholen';
@@ -907,7 +922,21 @@ async function updateClubManagementUI() {
         .single();
 
     if (profile) {
-        currentUserData.clubId = profile.club_id;
+        // Get club from profile_club_sports if profiles.club_id is null (multi-sport support)
+        let effectiveClubId = profile.club_id || null;
+        if (!effectiveClubId && profile.active_sport_id) {
+            const { data: pcsData } = await supabase
+                .from('profile_club_sports')
+                .select('club_id')
+                .eq('user_id', currentUser.id)
+                .eq('sport_id', profile.active_sport_id)
+                .maybeSingle();
+
+            if (pcsData?.club_id) {
+                effectiveClubId = pcsData.club_id;
+            }
+        }
+        currentUserData.clubId = effectiveClubId;
     }
 
     // Check for pending join request
