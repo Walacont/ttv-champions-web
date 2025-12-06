@@ -56,7 +56,8 @@ function initializeDateSelects() {
 initializeDateSelects();
 
 // Load available sports for dropdown
-async function loadSports() {
+// If preAssignedSportId is set, the sport was assigned by invitation code and cannot be changed
+async function loadSports(preAssignedSportId = null) {
     try {
         const { data: sports, error } = await supabase
             .from('sports')
@@ -66,6 +67,34 @@ async function loadSports() {
         if (error) throw error;
 
         if (sportSelect && sports) {
+            // Check if sport was pre-assigned by invitation code
+            if (preAssignedSportId) {
+                const assignedSport = sports.find(s => s.id === preAssignedSportId);
+                if (assignedSport) {
+                    // Sport was assigned - show only this option and disable dropdown
+                    sportSelect.innerHTML = '';
+                    const option = document.createElement('option');
+                    option.value = assignedSport.id;
+                    option.textContent = assignedSport.display_name || assignedSport.name;
+                    option.selected = true;
+                    sportSelect.appendChild(option);
+                    sportSelect.disabled = true;
+
+                    // Add info message below dropdown
+                    const sportLabel = document.querySelector('label[for="sport-select"]');
+                    if (sportLabel) {
+                        const infoText = document.createElement('p');
+                        infoText.className = 'text-xs text-indigo-600 mt-1';
+                        infoText.innerHTML = '<i class="fas fa-info-circle mr-1"></i>Diese Sportart wurde dir vom Administrator zugewiesen.';
+                        sportLabel.parentNode.insertBefore(infoText, sportSelect.nextSibling);
+                    }
+
+                    console.log('[ONBOARDING-SUPABASE] Sport pre-assigned:', assignedSport.display_name);
+                    return sports;
+                }
+            }
+
+            // Normal case - allow sport selection
             sportSelect.innerHTML = '<option value="">Sportart wählen...</option>';
             sports.forEach(sport => {
                 const option = document.createElement('option');
@@ -138,8 +167,8 @@ async function checkAuthState() {
         }
     }
 
-    // Load sports dropdown
-    await loadSports();
+    // Load sports dropdown and check if sport is pre-assigned
+    await loadSports(profile.active_sport_id);
 }
 
 checkAuthState();
