@@ -1,5 +1,6 @@
 import { saveDoublesMatch } from './doubles-matches-supabase.js';
-import { createSetScoreInput } from './player-matches-supabase.js';
+import { createSetScoreInput, createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { getSportContext } from './sport-context-supabase.js';
 import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
 import { calculateDoublesHandicap } from './validation-utils.js';
 
@@ -10,6 +11,45 @@ import { calculateDoublesHandicap } from './validation-utils.js';
 
 let currentMatchType = 'singles'; // 'singles' or 'doubles'
 let doublesSetScoreInput = null;
+let currentUserId = null;
+
+// ========================================================================
+// ===== HELPER FUNCTIONS =====
+// ========================================================================
+
+/**
+ * Creates sport-specific score input for doubles matches
+ * @param {HTMLElement} container - Container element
+ * @param {Array} sets - Existing sets
+ * @param {string} mode - Match mode
+ * @returns {Object} Score input instance
+ */
+async function createDoublesScoreInput(container, sets = [], mode = 'best-of-5') {
+    if (!currentUserId) {
+        // Fallback to table tennis if no user ID
+        return createSetScoreInput(container, sets, mode);
+    }
+
+    const sportContext = await getSportContext(currentUserId);
+    const sportName = sportContext?.sportName;
+
+    const goldenPointCheckbox = document.getElementById('coach-golden-point-checkbox');
+    const matchTieBreakCheckbox = document.getElementById('coach-match-tiebreak-checkbox');
+
+    if (sportName === 'tennis' || sportName === 'padel') {
+        const options = {
+            mode: mode || 'best-of-3',
+            goldenPoint: goldenPointCheckbox?.checked || false,
+            matchTieBreak: matchTieBreakCheckbox?.checked || false
+        };
+        return createTennisScoreInput(container, sets, options);
+    } else if (sportName === 'badminton') {
+        return createBadmintonScoreInput(container, sets, 'best-of-3');
+    } else {
+        // Table tennis (default)
+        return createSetScoreInput(container, sets, mode || 'best-of-5');
+    }
+}
 
 // ========================================================================
 // ===== INITIALIZATION =====
@@ -295,11 +335,20 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
                 matchModeSelect.value = 'best-of-5';
             }
 
-            // Recreate doubles set score input with default mode
+            // Recreate doubles set score input with default mode (sport-specific)
             if (container) {
-                doublesSetScoreInput = createSetScoreInput(container, [], 'best-of-5');
+                doublesSetScoreInput = await createDoublesScoreInput(container, [], 'best-of-5');
                 if (setScoreLabel) {
-                    setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
+                    // Label will be updated based on sport
+                    const sportContext = currentUserId ? await getSportContext(currentUserId) : null;
+                    const sportName = sportContext?.sportName;
+                    if (sportName === 'tennis' || sportName === 'padel') {
+                        setScoreLabel.textContent = 'Satzergebnisse (Best of 3)';
+                    } else if (sportName === 'badminton') {
+                        setScoreLabel.textContent = 'Satzergebnisse (Best of 3, bis 21)';
+                    } else {
+                        setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
+                    }
                 }
             }
 
@@ -321,6 +370,14 @@ export function getCurrentMatchType() {
 }
 
 /**
+ * Sets the current user ID for sport context
+ * @param {string} userId - User ID
+ */
+export function setDoublesUserId(userId) {
+    currentUserId = userId;
+}
+
+/**
  * Sets the doubles set score input instance
  * @param {Object} inputInstance - Set score input instance
  */
@@ -328,8 +385,9 @@ export function setDoublesSetScoreInput(inputInstance) {
     doublesSetScoreInput = inputInstance;
 }
 
-// Make setDoublesSetScoreInput available globally so matches.js can call it
+// Make functions available globally
 window.setDoublesSetScoreInput = setDoublesSetScoreInput;
+window.setDoublesUserId = setDoublesUserId;
 
 // ========================================================================
 // ===== HANDICAP SETUP =====
