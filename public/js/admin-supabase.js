@@ -1596,9 +1596,20 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
                         <p class="text-sm text-gray-600">${memberCountText}</p>
                         ${isTestClub ? '<span class="inline-block mt-1 text-xs text-orange-600 bg-orange-100 px-2 py-0.5 rounded">Test-Club</span>' : ''}
                     </div>
-                    <button data-club-id="${clubId}" data-club-name="${clubData.name}" class="toggle-club-btn text-indigo-600 hover:text-indigo-800">
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button
+                            data-club-id="${clubId}"
+                            data-club-name="${clubData.name}"
+                            data-club-members="${clubUsers.length}"
+                            class="delete-club-btn text-red-400 hover:text-red-600 p-2 rounded hover:bg-red-50 transition-colors"
+                            title="Verein löschen"
+                        >
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button data-club-id="${clubId}" data-club-name="${clubData.name}" class="toggle-club-btn text-indigo-600 hover:text-indigo-800 p-2">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -1721,6 +1732,14 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
             handleDeletePlayer(btn.dataset.id);
         });
     });
+
+    // Add event listeners for delete club buttons
+    document.querySelectorAll('.delete-club-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleDeleteClub(btn.dataset.clubId, btn.dataset.clubName, btn.dataset.clubMembers);
+        });
+    });
 }
 
 function renderSportMembers(users, profileSportsMap, clubId, sportId) {
@@ -1837,6 +1856,79 @@ async function handleDeletePlayer(playerId) {
         } catch (error) {
             console.error('Fehler beim Löschen des Benutzers:', error);
             alert('Fehler: Der Benutzer konnte nicht gelöscht werden.');
+        }
+    }
+}
+
+async function handleDeleteClub(clubId, clubName, memberCount) {
+    const membersNum = parseInt(memberCount) || 0;
+
+    // Detailed confirmation message
+    let confirmMessage = `Sind Sie sicher, dass Sie den Verein "${clubName}" endgültig löschen möchten?\n\n`;
+
+    if (membersNum > 0) {
+        confirmMessage += `⚠️ ACHTUNG: Dieser Verein hat ${membersNum} Mitglied${membersNum > 1 ? 'er' : ''}!\n\n`;
+        confirmMessage += `Folgende Daten werden ebenfalls gelöscht:\n`;
+        confirmMessage += `- Alle Sportarten-Zuordnungen des Vereins\n`;
+        confirmMessage += `- Alle Mitglieder-Sport-Zuordnungen\n`;
+        confirmMessage += `- Die Verein-Zuordnung aller Mitglieder (Mitglieder bleiben erhalten)\n\n`;
+        confirmMessage += `Diese Aktion kann NICHT rückgängig gemacht werden!`;
+    } else {
+        confirmMessage += `Dieser Verein hat keine Mitglieder.\n`;
+        confirmMessage += `Diese Aktion kann NICHT rückgängig gemacht werden!`;
+    }
+
+    if (confirm(confirmMessage)) {
+        try {
+            console.log(`[ADMIN] Deleting club: ${clubName} (${clubId})`);
+
+            // Get club details before deletion for audit log
+            const { data: clubData } = await supabase
+                .from('clubs')
+                .select('name')
+                .eq('id', clubId)
+                .single();
+
+            // Update all users in this club to have null club_id (don't delete users)
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ club_id: null })
+                .eq('club_id', clubId);
+
+            if (updateError) {
+                console.error('Error updating user club_ids:', updateError);
+                // Continue anyway, CASCADE will handle it
+            }
+
+            // Delete the club (CASCADE will delete club_sports and profile_club_sports)
+            const { error: deleteError } = await supabase
+                .from('clubs')
+                .delete()
+                .eq('id', clubId);
+
+            if (deleteError) throw deleteError;
+
+            // Log audit event
+            await logAuditEvent(
+                'club_deleted',
+                clubId,
+                'club',
+                clubId,
+                null,
+                {
+                    name: clubData?.name || clubName,
+                    member_count: membersNum
+                }
+            );
+
+            alert(`Verein "${clubName}" wurde erfolgreich gelöscht.`);
+
+            // Reload the club overview
+            loadClubsAndPlayers();
+
+        } catch (error) {
+            console.error('Fehler beim Löschen des Vereins:', error);
+            alert(`Fehler: Der Verein konnte nicht gelöscht werden.\n\n${error.message}`);
         }
     }
 }
