@@ -224,18 +224,18 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             // Find codes by playerId (for existing offline players)
             query = supabaseClient
                 .from('invitation_codes')
-                .select('id, superseded')
+                .select('id, superseded, is_active')
                 .eq('player_id', playerId)
-                .eq('used', false);
+                .eq('is_active', true);
         } else {
             // Find codes by firstName + lastName + clubId (for new players)
             query = supabaseClient
                 .from('invitation_codes')
-                .select('id, superseded')
+                .select('id, superseded, is_active')
                 .eq('first_name', playerData.firstName)
                 .eq('last_name', playerData.lastName)
                 .eq('club_id', currentClubId)
-                .eq('used', false);
+                .eq('is_active', true);
         }
 
         const { data, error } = await query;
@@ -244,7 +244,7 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
 
         if (data && data.length > 0) {
             console.log(
-                `Gefunden: ${data.length} Code(s) für ${playerData.firstName} ${playerData.lastName}`
+                `Gefunden: ${data.length} aktive Code(s) für ${playerData.firstName} ${playerData.lastName}`
             );
 
             // Filter out already superseded codes
@@ -262,6 +262,7 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             const { error: updateError } = await supabaseClient
                 .from('invitation_codes')
                 .update({
+                    is_active: false,
                     superseded: true,
                     superseded_at: new Date().toISOString()
                 })
@@ -272,7 +273,7 @@ async function invalidateOldCodesForPlayer(playerId, playerData) {
             console.log(`${codesToInvalidate.length} alte Code(s) erfolgreich invalidiert`);
         } else {
             console.log(
-                `Keine alten Codes gefunden für ${playerData.firstName} ${playerData.lastName}`
+                `Keine aktiven Codes gefunden für ${playerData.firstName} ${playerData.lastName}`
             );
         }
     } catch (error) {

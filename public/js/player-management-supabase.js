@@ -344,25 +344,10 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('set-match-ready-btn')) {
         if (confirm(`Möchten Sie "${playerName}" als wettkampfsbereit markieren?\n\nDer Spieler erhält 50 XP. Diese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
-                // First get current XP to add 50
-                const { data: playerData, error: fetchError } = await supabase
-                    .from('profiles')
-                    .select('xp')
-                    .eq('id', playerId)
-                    .single();
-
-                if (fetchError) throw fetchError;
-
-                const newXp = (playerData.xp || 0) + 50;
-
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({
-                        is_match_ready: true,
-                        grundlagen_completed: 5,
-                        xp: newXp
-                    })
-                    .eq('id', playerId);
+                // Use RPC function to set match-ready (bypasses RLS)
+                const { data, error } = await supabase.rpc('set_player_match_ready', {
+                    p_player_id: playerId
+                });
 
                 if (error) throw error;
 
@@ -372,7 +357,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
                 closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Setzen der Wettkampfsbereitschaft:', error);
-                alert('Fehler: Die Wettkampfsbereitschaft konnte nicht gesetzt werden.');
+                alert('Fehler: Die Wettkampfsbereitschaft konnte nicht gesetzt werden. ' + (error.message || ''));
             }
         }
         return;
@@ -382,10 +367,10 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('delete-player-btn')) {
         if (confirm(`Möchten Sie "${playerName}" wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
             try {
-                const { error } = await supabase
-                    .from('profiles')
-                    .delete()
-                    .eq('id', playerId);
+                // Use RPC function to delete offline player (bypasses RLS)
+                const { data, error } = await supabase.rpc('delete_offline_player', {
+                    p_player_id: playerId
+                });
 
                 if (error) throw error;
 
@@ -393,7 +378,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
                 closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Löschen des Spielers:', error);
-                alert('Fehler: Der Spieler konnte nicht gelöscht werden.');
+                alert('Fehler: Der Spieler konnte nicht gelöscht werden. ' + (error.message || ''));
             }
         }
         return;
@@ -403,10 +388,10 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('promote-coach-btn')) {
         if (confirm(`Möchten Sie "${playerName}" zum Coach ernennen?`)) {
             try {
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({ role: 'coach' })
-                    .eq('id', playerId);
+                // Use RPC function to promote to coach (bypasses RLS)
+                const { data, error } = await supabase.rpc('promote_to_coach', {
+                    p_player_id: playerId
+                });
 
                 if (error) throw error;
 
@@ -421,7 +406,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
                 closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Befördern:', error);
-                alert('Fehler: Der Spieler konnte nicht befördert werden.');
+                alert('Fehler: Der Spieler konnte nicht befördert werden. ' + (error.message || ''));
             }
         }
         return;
@@ -431,10 +416,10 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
     if (button.classList.contains('demote-player-btn')) {
         if (confirm(`Möchten Sie "${playerName}" die Coach-Rechte entziehen?\n\nDer Spieler wird wieder ein normaler Spieler.`)) {
             try {
-                const { error } = await supabase
-                    .from('profiles')
-                    .update({ role: 'player' })
-                    .eq('id', playerId);
+                // Use RPC function to demote to player (bypasses RLS)
+                const { data, error } = await supabase.rpc('demote_to_player', {
+                    p_player_id: playerId
+                });
 
                 if (error) throw error;
 
@@ -449,7 +434,7 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
                 closePlayerDetailPanels();
             } catch (error) {
                 console.error('Fehler beim Entziehen der Coach-Rechte:', error);
-                alert('Fehler: Die Coach-Rechte konnten nicht entzogen werden.');
+                alert('Fehler: Die Coach-Rechte konnten nicht entzogen werden. ' + (error.message || ''));
             }
         }
         return;
