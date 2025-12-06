@@ -1419,6 +1419,8 @@ async function loadClubsAndPlayers() {
 
         if (clubsError) throw clubsError;
 
+        console.log(`[ADMIN] Loaded ${clubs?.length || 0} clubs from database`);
+
         // Load club_sports relationships
         const { data: clubSportsData, error: clubSportsError } = await supabase
             .from('club_sports')
@@ -1426,6 +1428,8 @@ async function loadClubsAndPlayers() {
             .eq('is_active', true);
 
         if (clubSportsError) throw clubSportsError;
+
+        console.log(`[ADMIN] Loaded ${clubSportsData?.length || 0} club_sports relationships`);
 
         // Load profile_club_sports for role per sport (if table exists)
         let profileClubSportsData = [];
@@ -1512,6 +1516,9 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
         return;
     }
 
+    console.log(`[ADMIN] Rendering ${clubsMap.size} clubs, sport filter: ${sportFilter}`);
+    let renderedCount = 0;
+
     // Render each club with its sports
     for (const [clubId, clubData] of clubsMap) {
         const clubUsers = usersByClub[clubId] || [];
@@ -1524,9 +1531,8 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
             if (!hasSport) continue; // Skip clubs that don't offer the selected sport
         }
 
-        // Always show clubs that have sports defined (don't skip based on user count)
-        // Only skip if club has no sports and no users
-        if (clubUsers.length === 0 && clubSports.length === 0) continue;
+        // Show all clubs - don't skip any unless filtered by sport above
+        // (Removed the condition that skipped clubs without sports and users)
 
         const clubDiv = document.createElement('div');
         clubDiv.className = 'bg-gray-50 rounded-lg overflow-hidden border border-gray-200';
@@ -1601,25 +1607,41 @@ function renderClubsWithSports(users, clubsMap, clubSportsMap, profileSportsMap,
                 `;
             }
         } else {
-            // No sports defined yet - show all users
-            sportsHtml += `
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <p class="text-sm text-amber-800">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Keine Sparten definiert. Alle Mitglieder:
-                    </p>
-                </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-3 space-y-2 max-h-64 overflow-y-auto">
-                    ${renderLegacyMembers(clubUsers)}
-                </div>
-            `;
+            // No sports defined yet
+            if (clubUsers.length > 0) {
+                // Show all users in legacy mode
+                sportsHtml += `
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <p class="text-sm text-amber-800">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Keine Sparten definiert. Alle Mitglieder:
+                        </p>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-3 space-y-2 max-h-64 overflow-y-auto">
+                        ${renderLegacyMembers(clubUsers)}
+                    </div>
+                `;
+            } else {
+                // No sports and no users
+                sportsHtml += `
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <p class="text-sm text-gray-500 text-center">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Keine Sparten und keine Mitglieder definiert
+                        </p>
+                    </div>
+                `;
+            }
         }
 
         sportsHtml += '</div>';
 
         clubDiv.innerHTML = headerHtml + sportsHtml;
         clubsListEl.appendChild(clubDiv);
+        renderedCount++;
     }
+
+    console.log(`[ADMIN] Rendered ${renderedCount} clubs (filtered from ${clubsMap.size} total)`);
 
     // Add event listeners for toggle buttons
     document.querySelectorAll('.toggle-club-btn').forEach(btn => {
