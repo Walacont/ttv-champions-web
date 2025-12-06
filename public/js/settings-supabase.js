@@ -1361,8 +1361,8 @@ async function initializeSportSelection() {
 
         const activeSportId = profile?.active_sport_id;
 
-        // Populate dropdown with all sports
-        populateSportDropdown(allSports || [], activeSportId);
+        // Populate dropdown with all sports (await since it may set initial sport)
+        await populateSportDropdown(allSports || [], activeSportId);
 
         // Add change event listener
         sportDropdown.addEventListener('change', handleSportChange);
@@ -1383,7 +1383,7 @@ async function initializeSportSelection() {
 /**
  * Populate the sport dropdown with options
  */
-function populateSportDropdown(sports, activeSportId) {
+async function populateSportDropdown(sports, activeSportId) {
     if (!sportDropdown) return;
 
     // Clear existing options except the placeholder
@@ -1406,8 +1406,8 @@ function populateSportDropdown(sports, activeSportId) {
     // If no active sport is set but sports exist, select the first one
     if (!activeSportId && sports.length > 0) {
         sportDropdown.value = sports[0].id;
-        // Automatically set the first sport as active
-        setActiveSport(sports[0].id, sports[0].display_name || sports[0].name);
+        // Automatically set the first sport as active (without page reload)
+        await setActiveSportSilent(sports[0].id, sports[0].display_name || sports[0].name);
     }
 }
 
@@ -1463,6 +1463,48 @@ async function handleSportChange(event) {
             // User cancelled - revert dropdown to previous value
             sportDropdown.value = currentUserData?.activeSportId || '';
         }
+    }
+}
+
+/**
+ * Set active sport silently (without page reload)
+ * Used during initialization when no sport is set yet
+ */
+async function setActiveSportSilent(sportId, sportName) {
+    if (!currentUser || !sportId) return;
+
+    try {
+        console.log('[Settings] Setting initial active sport:', sportId);
+
+        // Update profile directly
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ active_sport_id: sportId })
+            .eq('id', currentUser.id);
+
+        if (updateError) {
+            console.error('Error setting initial active sport:', updateError);
+            return;
+        }
+
+        // Update local data
+        if (currentUserData) {
+            currentUserData.activeSportId = sportId;
+        }
+
+        console.log('[Settings] Initial active sport set to:', sportName);
+
+        // Show feedback without reload
+        if (sportFeedback) {
+            sportFeedback.innerHTML = `
+                <span class="text-green-600">
+                    <i class="fas fa-check-circle mr-1"></i>
+                    ${sportName} ist jetzt aktiv.
+                </span>
+            `;
+        }
+    } catch (error) {
+        console.error('Error setting initial active sport:', error);
     }
 }
 
