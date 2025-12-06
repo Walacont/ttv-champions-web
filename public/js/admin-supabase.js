@@ -622,7 +622,7 @@ async function handleInviteCoach(e) {
                 .from('clubs')
                 .select('id')
                 .eq('name', clubName)
-                .single();
+                .maybeSingle();
 
             if (existingClub) {
                 clubId = existingClub.id;
@@ -646,7 +646,7 @@ async function handleInviteCoach(e) {
             .select('club_id')
             .eq('club_id', clubId)
             .eq('sport_id', sportId)
-            .single();
+            .maybeSingle();
 
         if (!existingClubSport) {
             const { error: clubSportError } = await supabase
@@ -657,7 +657,10 @@ async function handleInviteCoach(e) {
                     is_active: true
                 });
 
-            if (clubSportError) throw clubSportError;
+            if (clubSportError) {
+                console.warn('Could not add sport to club_sports:', clubSportError);
+                // Continue anyway - the sport association is optional
+            }
         }
 
         // Generate unique code
@@ -670,7 +673,7 @@ async function handleInviteCoach(e) {
                 .from('invitation_codes')
                 .select('id')
                 .eq('code', code)
-                .single();
+                .maybeSingle();
 
             if (!data) {
                 isUnique = true;
