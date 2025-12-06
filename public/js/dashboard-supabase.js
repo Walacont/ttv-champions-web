@@ -599,69 +599,38 @@ async function loadRivalData() {
     }
 
     try {
-        // Get users in the current sport for multi-sport filtering
-        let sportUserIds = null;
         const effectiveClubId = currentSportContext?.clubId || currentUserData.club_id;
+        const sportId = currentSportContext?.sportId;
 
-        if (currentSportContext?.sportId) {
-            const { data: sportUsers, error: sportError } = await supabase
-                .from('profile_club_sports')
-                .select('user_id')
-                .eq('sport_id', currentSportContext.sportId);
-
-            if (!sportError && sportUsers) {
-                sportUserIds = sportUsers.map(su => su.user_id);
-                console.log('[DASHBOARD] Rival filter: users in sport:', sportUserIds.length);
-            }
-        }
-
-        // Build query based on filter
+        // Build query (single sport model - filter directly on profiles)
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, elo_rating, xp, club_id')
             .in('role', ['player', 'coach']);
 
-        // Apply sport filter first (if available)
-        if (sportUserIds && sportUserIds.length > 0) {
-            query = query.in('id', sportUserIds);
+        // Apply sport filter
+        if (sportId) {
+            query = query.eq('active_sport_id', sportId);
+            console.log('[DASHBOARD] Rival filter: filtering by sport:', sportId);
         }
 
         // Apply club/subgroup filter
         if (currentSubgroupFilter === 'club' && effectiveClubId) {
-            // When sport filter is active, club filter means users in same sport AND same club
-            if (sportUserIds) {
-                // Filter already applied via sportUserIds, now filter by club
-                const { data: clubSportUsers } = await supabase
-                    .from('profile_club_sports')
-                    .select('user_id')
-                    .eq('sport_id', currentSportContext?.sportId)
-                    .eq('club_id', effectiveClubId);
-
-                if (clubSportUsers) {
-                    const clubUserIds = clubSportUsers.map(u => u.user_id);
-                    query = supabase
-                        .from('profiles')
-                        .select('id, first_name, last_name, photo_url, elo_rating, xp, club_id')
-                        .in('role', ['player', 'coach'])
-                        .in('id', clubUserIds);
-                }
-            } else {
-                query = query.eq('club_id', effectiveClubId);
-            }
+            query = query.eq('club_id', effectiveClubId);
         } else if (currentSubgroupFilter && currentSubgroupFilter.startsWith('subgroup:')) {
             // Custom subgroup filter - filter by subgroup_ids array
             const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
-            if (!sportUserIds) {
+            if (effectiveClubId) {
                 query = query.eq('club_id', effectiveClubId);
             }
             query = query.contains('subgroup_ids', [subgroupId]);
         } else if (currentSubgroupFilter !== 'club' && currentSubgroupFilter !== 'global') {
             // Age group filter - apply club filter, age filtering done later
-            if (effectiveClubId && !sportUserIds) {
+            if (effectiveClubId) {
                 query = query.eq('club_id', effectiveClubId);
             }
         }
-        // For 'global', only sport filter is applied (if available)
+        // For 'global', only sport filter is applied
 
         const { data: players, error } = await query;
         if (error) throw error;
@@ -1058,46 +1027,24 @@ async function fetchLeaderboardData() {
         await loadTestClubIds();
 
         // Get users in the current sport for multi-sport filtering
-        let sportUserIds = null;
-        let sportUserClubMap = new Map();
         const effectiveClubId = currentSportContext?.clubId || currentUserData.club_id;
+        const sportId = currentSportContext?.sportId;
 
-        if (currentSportContext?.sportId) {
-            const { data: sportUsers, error: sportError } = await supabase
-                .from('profile_club_sports')
-                .select('user_id, club_id, clubs(name)')
-                .eq('sport_id', currentSportContext.sportId);
-
-            if (!sportError && sportUsers) {
-                sportUserIds = sportUsers.map(su => su.user_id);
-                sportUsers.forEach(su => {
-                    sportUserClubMap.set(su.user_id, {
-                        clubId: su.club_id,
-                        clubName: su.clubs?.name || null
-                    });
-                });
-                console.log('[Leaderboard] Sport filter active, users:', sportUserIds.length);
-            }
-        }
-
-        // Fetch club data - players in same sport AND club
+        // Fetch club data - players in same sport AND club (single sport model)
         if (effectiveClubId) {
             let clubQuery = supabase
                 .from('profiles')
-                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name), privacy_settings')
+                .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
                 .in('role', ['player', 'coach']);
 
-            if (sportUserIds && sportUserIds.length > 0) {
-                // Filter to users in sport AND in club
-                const clubSportUserIds = sportUserIds.filter(uid => sportUserClubMap.get(uid)?.clubId === effectiveClubId);
-                if (clubSportUserIds.length > 0) {
-                    clubQuery = clubQuery.in('id', clubSportUserIds);
-                } else {
-                    leaderboardCache.club = [];
-                }
-            } else {
-                clubQuery = clubQuery.eq('club_id', effectiveClubId);
+            // Filter by sport
+            if (sportId) {
+                clubQuery = clubQuery.eq('active_sport_id', sportId);
+                console.log('[Leaderboard] Sport filter active:', sportId);
             }
+
+            // Filter by club
+            clubQuery = clubQuery.eq('club_id', effectiveClubId);
 
             const { data: clubPlayers, error: clubError } = await clubQuery;
 
@@ -1105,15 +1052,10 @@ async function fetchLeaderboardData() {
                 console.error('[Leaderboard] Error fetching club data:', clubError);
             }
 
-            leaderboardCache.club = (clubPlayers || []).map(p => {
-                const sportClubInfo = sportUserClubMap.get(p.id);
-                return {
-                    ...p,
-                    // Use club from sport context if available
-                    club_id: sportClubInfo?.clubId || p.club_id,
-                    club_name: sportClubInfo?.clubName || p.clubs?.name || null
-                };
-            });
+            leaderboardCache.club = (clubPlayers || []).map(p => ({
+                ...p,
+                club_name: p.clubs?.name || null
+            }));
         } else {
             leaderboardCache.club = [];
         }
@@ -1121,11 +1063,12 @@ async function fetchLeaderboardData() {
         // Fetch global data - ALL players in sport (to calculate user's rank, but display only top 100)
         let globalQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs(name), privacy_settings')
+            .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
             .in('role', ['player', 'coach']);
 
-        if (sportUserIds && sportUserIds.length > 0) {
-            globalQuery = globalQuery.in('id', sportUserIds);
+        // Filter by sport for global leaderboard
+        if (sportId) {
+            globalQuery = globalQuery.eq('active_sport_id', sportId);
         }
 
         const { data: globalPlayers, error: globalError } = await globalQuery;
@@ -1134,15 +1077,10 @@ async function fetchLeaderboardData() {
             console.error('[Leaderboard] Error fetching global data:', globalError);
         }
 
-        leaderboardCache.global = (globalPlayers || []).map(p => {
-            const sportClubInfo = sportUserClubMap.get(p.id);
-            return {
-                ...p,
-                // Use club from sport context if available
-                club_id: sportClubInfo?.clubId || p.club_id,
-                club_name: sportClubInfo?.clubName || p.clubs?.name || null
-            };
-        });
+        leaderboardCache.global = (globalPlayers || []).map(p => ({
+            ...p,
+            club_name: p.clubs?.name || null
+        }));
     } catch (error) {
         console.error('Error fetching leaderboard data:', error);
     }
@@ -1679,21 +1617,21 @@ async function fetchSeasonEndDate() {
             return cachedSeasonEnd;
         }
 
-        // Get user's active sport (prefer active_sport_id, fallback to first sport)
+        // Get user's active sport from profile (single sport model)
         let userSportId = cachedUserSportId;
         if (!userSportId && currentUserData?.active_sport_id) {
             userSportId = currentUserData.active_sport_id;
             cachedUserSportId = userSportId;
         } else if (!userSportId && currentUser) {
-            // Fallback: Get first sport from profile_club_sports
-            const { data: userSports } = await supabase
-                .from('profile_club_sports')
-                .select('sport_id')
-                .eq('user_id', currentUser.id)
-                .limit(1);
+            // Fallback: Get sport from profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('active_sport_id')
+                .eq('id', currentUser.id)
+                .single();
 
-            if (userSports && userSports.length > 0) {
-                userSportId = userSports[0].sport_id;
+            if (profile?.active_sport_id) {
+                userSportId = profile.active_sport_id;
                 cachedUserSportId = userSportId;
             }
         }
@@ -2217,41 +2155,19 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
         if (fetchError) throw fetchError;
 
-        // Get club info for both players (for the sport if available)
-        const sportId = request.sport_id;
+        // Get club info for both players (single sport model - use profiles directly)
         let playerAClubId = null;
         let playerBClubId = null;
 
-        if (sportId) {
-            // Get clubs from profile_club_sports for this sport
-            const { data: playerAData } = await supabase
-                .from('profile_club_sports')
-                .select('club_id')
-                .eq('user_id', request.player_a_id)
-                .eq('sport_id', sportId)
-                .single();
+        const { data: players } = await supabase
+            .from('profiles')
+            .select('id, club_id')
+            .in('id', [request.player_a_id, request.player_b_id]);
 
-            const { data: playerBData } = await supabase
-                .from('profile_club_sports')
-                .select('club_id')
-                .eq('user_id', request.player_b_id)
-                .eq('sport_id', sportId)
-                .single();
-
-            playerAClubId = playerAData?.club_id;
-            playerBClubId = playerBData?.club_id;
-        } else {
-            // Fallback to profiles.club_id
-            const { data: players } = await supabase
-                .from('profiles')
-                .select('id, club_id')
-                .in('id', [request.player_a_id, request.player_b_id]);
-
-            players?.forEach(p => {
-                if (p.id === request.player_a_id) playerAClubId = p.club_id;
-                if (p.id === request.player_b_id) playerBClubId = p.club_id;
-            });
-        }
+        players?.forEach(p => {
+            if (p.id === request.player_a_id) playerAClubId = p.club_id;
+            if (p.id === request.player_b_id) playerBClubId = p.club_id;
+        });
 
         // Determine next status based on club membership
         let newStatus;

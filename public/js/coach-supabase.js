@@ -196,28 +196,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // Get club from profile_club_sports if profiles.club_id is null (multi-sport support)
-            let effectiveClubId = supabaseProfile.club_id || null;
-            let effectiveSportId = supabaseProfile.active_sport_id || null;
-
-            // If no club_id or active_sport_id in profile, try to get from profile_club_sports
-            if (!effectiveClubId || !effectiveSportId) {
-                const { data: pcs } = await supabase
-                    .from('profile_club_sports')
-                    .select('club_id, sport_id')
-                    .eq('user_id', user.uid)
-                    .limit(1)
-                    .maybeSingle();
-
-                if (pcs) {
-                    if (!effectiveClubId && pcs.club_id) {
-                        effectiveClubId = pcs.club_id;
-                    }
-                    if (!effectiveSportId && pcs.sport_id) {
-                        effectiveSportId = pcs.sport_id;
-                    }
-                }
-            }
+            // Get club and sport directly from profile (single sport model)
+            const effectiveClubId = supabaseProfile.club_id || null;
+            const effectiveSportId = supabaseProfile.active_sport_id || null;
 
             // Map Supabase profile to expected format
             const userData = {

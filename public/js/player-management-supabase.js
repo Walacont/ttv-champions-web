@@ -512,42 +512,22 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
     // Initial load
     async function loadPlayers() {
         try {
-            let playersData = [];
+            // Query profiles directly - filter by club and sport
+            let query = supabase
+                .from('profiles')
+                .select('*')
+                .eq('club_id', clubId)
+                .order('last_name');
 
+            // Filter by sport if specified
             if (sportId) {
-                // Filter by sport: Get user IDs from profile_club_sports, then get their profiles
-                const { data: sportMembers, error: sportError } = await supabase
-                    .from('profile_club_sports')
-                    .select('user_id')
-                    .eq('club_id', clubId)
-                    .eq('sport_id', sportId);
-
-                if (sportError) throw sportError;
-
-                if (sportMembers && sportMembers.length > 0) {
-                    const userIds = sportMembers.map(m => m.user_id);
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .in('id', userIds)
-                        .order('last_name');
-
-                    if (error) throw error;
-                    playersData = data || [];
-                }
-            } else {
-                // Fallback: Load all players from club (old behavior)
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('club_id', clubId)
-                    .order('last_name');
-
-                if (error) throw error;
-                playersData = data || [];
+                query = query.eq('active_sport_id', sportId);
             }
 
-            renderPlayerList(playersData);
+            const { data, error } = await query;
+
+            if (error) throw error;
+            renderPlayerList(data || []);
         } catch (error) {
             console.error('Spielerliste Ladefehler:', error);
             modalPlayerList.innerHTML = `<p class="p-4 text-center text-red-500">Fehler: ${error.message}</p>`;
@@ -756,42 +736,23 @@ export function loadPlayersForDropdown(clubId, supabase, sportId = null) {
 
     async function loadPlayers() {
         try {
-            let playersData = [];
+            // Query profiles directly - filter by club and sport
+            let query = supabase
+                .from('profiles')
+                .select('*')
+                .eq('club_id', clubId)
+                .in('role', ['player', 'coach', 'head_coach']);
 
+            // Filter by sport if specified
             if (sportId) {
-                // Filter by sport: Get user IDs from profile_club_sports, then get their profiles
-                const { data: sportMembers, error: sportError } = await supabase
-                    .from('profile_club_sports')
-                    .select('user_id')
-                    .eq('club_id', clubId)
-                    .eq('sport_id', sportId);
-
-                if (sportError) throw sportError;
-
-                if (sportMembers && sportMembers.length > 0) {
-                    const userIds = sportMembers.map(m => m.user_id);
-                    const { data, error } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .in('id', userIds)
-                        .in('role', ['player', 'coach', 'head_coach']);
-
-                    if (error) throw error;
-                    playersData = data || [];
-                }
-            } else {
-                // Fallback: Load all players from club (old behavior)
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('club_id', clubId)
-                    .in('role', ['player', 'coach']);
-
-                if (error) throw error;
-                playersData = data || [];
+                query = query.eq('active_sport_id', sportId);
             }
 
-            const players = playersData.map(p => mapPlayerFromSupabase(p));
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            const players = (data || []).map(p => mapPlayerFromSupabase(p));
             select.innerHTML = '<option value="">Spieler wählen...</option>';
             players
                 .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))

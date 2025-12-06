@@ -1,6 +1,5 @@
 // Sport Context Helper - Supabase Version
-// Provides centralized sport context management for multi-sport support
-// A user can be in different clubs for different sports (e.g., Tennis in Club A, Table Tennis in Club B)
+// Provides centralized sport context management (single sport per user)
 
 import { getSupabase } from './supabase-init.js';
 
@@ -19,14 +18,13 @@ let cachedUserId = null;
  *   config: object (scoring rules, icon, etc.),
  *   clubId: UUID,
  *   clubName: string,
- *   role: 'player' | 'coach'
+ *   role: 'player' | 'coach' | 'head_coach'
  * }
  */
 
 /**
- * Get the full sport context for the current user's active sport.
- * This returns the sport_id, club_id, and role for the active sport.
- * Important: A user can be in different clubs for different sports!
+ * Get the full sport context for the current user.
+ * Simplified: Each user has one sport, one club, one role (stored directly in profiles).
  *
  * @param {string} userId - The user's ID
  * @param {boolean} forceRefresh - Force refresh the cache
@@ -41,119 +39,51 @@ export async function getSportContext(userId, forceRefresh = false) {
     }
 
     try {
-        // Try RPC function first (more efficient)
-        const { data: contextData, error: rpcError } = await supabase.rpc('get_user_sport_context', {
-            p_user_id: userId
-        });
-
-        if (!rpcError && contextData && contextData.length > 0) {
-            const ctx = contextData[0];
-            cachedSportContext = {
-                sportId: ctx.sport_id,
-                sportName: ctx.sport_name,
-                displayName: ctx.display_name,
-                config: ctx.config,
-                clubId: ctx.club_id,
-                clubName: ctx.club_name,
-                role: ctx.role
-            };
-            cachedUserId = userId;
-            console.log('[SportContext] Loaded via RPC:', cachedSportContext);
-            return cachedSportContext;
-        }
-
-        // Fallback: Direct query
-        console.log('[SportContext] RPC not available, using fallback query');
-        return await getSportContextFallback(userId);
-
-    } catch (error) {
-        console.error('[SportContext] Error loading context:', error);
-        // Try fallback
-        return await getSportContextFallback(userId);
-    }
-}
-
-/**
- * Fallback method to get sport context via direct queries
- */
-async function getSportContextFallback(userId) {
-    try {
-        // Get user's active sport from profile
-        const { data: profile } = await supabase
+        // Direct query from profiles with sport and club joins
+        const { data: profile, error } = await supabase
             .from('profiles')
-            .select('active_sport_id')
+            .select(`
+                active_sport_id,
+                club_id,
+                role,
+                sports:active_sport_id(name, display_name, config),
+                clubs:club_id(name)
+            `)
             .eq('id', userId)
             .maybeSingle();
 
-        let activeSportId = profile?.active_sport_id;
-
-        // If no active sport set, get first sport from profile_club_sports
-        if (!activeSportId) {
-            const { data: pcsData } = await supabase
-                .from('profile_club_sports')
-                .select('sport_id')
-                .eq('user_id', userId)
-                .order('created_at', { ascending: true })
-                .limit(1);
-
-            // User might not have any profile_club_sports records yet
-            if (pcsData && pcsData.length > 0) {
-                activeSportId = pcsData[0].sport_id;
-            }
+        if (error) {
+            console.error('[SportContext] Error loading context:', error);
+            return null;
         }
 
-        if (!activeSportId) {
+        if (!profile || !profile.active_sport_id) {
             console.log('[SportContext] No sport found for user');
             return null;
         }
 
-        // Get full context from profile_club_sports
-        const { data: contextData, error } = await supabase
-            .from('profile_club_sports')
-            .select(`
-                sport_id,
-                club_id,
-                role,
-                sports(name, display_name, config),
-                clubs(name)
-            `)
-            .eq('user_id', userId)
-            .eq('sport_id', activeSportId)
-            .maybeSingle();
-
-        if (error) {
-            console.error('[SportContext] Error in fallback:', error);
-            return null;
-        }
-
-        // User might not have a club/sport assignment yet
-        if (!contextData) {
-            console.log('[SportContext] No club/sport assignment found for user');
-            return null;
-        }
-
         cachedSportContext = {
-            sportId: contextData.sport_id,
-            sportName: contextData.sports?.name,
-            displayName: contextData.sports?.display_name,
-            config: contextData.sports?.config,
-            clubId: contextData.club_id,
-            clubName: contextData.clubs?.name,
-            role: contextData.role
+            sportId: profile.active_sport_id,
+            sportName: profile.sports?.name,
+            displayName: profile.sports?.display_name,
+            config: profile.sports?.config,
+            clubId: profile.club_id,
+            clubName: profile.clubs?.name,
+            role: profile.role
         };
         cachedUserId = userId;
 
-        console.log('[SportContext] Loaded via fallback:', cachedSportContext);
+        console.log('[SportContext] Loaded:', cachedSportContext);
         return cachedSportContext;
 
     } catch (error) {
-        console.error('[SportContext] Fallback error:', error);
+        console.error('[SportContext] Error:', error);
         return null;
     }
 }
 
 /**
- * Clear the cached sport context (call when user switches sport)
+ * Clear the cached sport context
  */
 export function clearSportContextCache() {
     cachedSportContext = null;
@@ -163,7 +93,7 @@ export function clearSportContextCache() {
 
 /**
  * Get all users in the same sport (for leaderboards, match suggestions, etc.)
- * This returns users who are in the same sport, regardless of club.
+ * Simplified: Uses profiles.active_sport_id directly
  *
  * @param {string} sportId - The sport ID to filter by
  * @param {string} clubId - Optional club ID to filter within a club
@@ -174,9 +104,9 @@ export async function getUsersInSport(sportId, clubId = null) {
 
     try {
         let query = supabase
-            .from('profile_club_sports')
-            .select('user_id')
-            .eq('sport_id', sportId);
+            .from('profiles')
+            .select('id')
+            .eq('active_sport_id', sportId);
 
         if (clubId) {
             query = query.eq('club_id', clubId);
@@ -189,7 +119,7 @@ export async function getUsersInSport(sportId, clubId = null) {
             return [];
         }
 
-        return (data || []).map(row => row.user_id);
+        return (data || []).map(row => row.id);
 
     } catch (error) {
         console.error('[SportContext] Error:', error);
@@ -209,9 +139,9 @@ export async function getUsersWithClubsInSport(sportId) {
 
     try {
         const { data, error } = await supabase
-            .from('profile_club_sports')
-            .select('user_id, club_id')
-            .eq('sport_id', sportId);
+            .from('profiles')
+            .select('id, club_id')
+            .eq('active_sport_id', sportId);
 
         if (error) {
             console.error('[SportContext] Error getting users with clubs:', error);
@@ -219,7 +149,7 @@ export async function getUsersWithClubsInSport(sportId) {
         }
 
         return (data || []).map(row => ({
-            userId: row.user_id,
+            userId: row.id,
             clubId: row.club_id
         }));
 
@@ -230,29 +160,21 @@ export async function getUsersWithClubsInSport(sportId) {
 }
 
 /**
- * Check if user is coach in the specified sport
+ * Check if user is coach in their sport
+ * Simplified: Just checks profiles.role
  *
  * @param {string} userId - The user ID
- * @param {string} sportId - The sport ID (optional, uses active sport if not provided)
+ * @param {string} sportId - Ignored (kept for API compatibility)
  * @returns {Promise<boolean>}
  */
 export async function isCoachInSport(userId, sportId = null) {
     if (!userId) return false;
 
     try {
-        // If no sport ID provided, use active sport
-        if (!sportId) {
-            const context = await getSportContext(userId);
-            sportId = context?.sportId;
-        }
-
-        if (!sportId) return false;
-
         const { data, error } = await supabase
-            .from('profile_club_sports')
+            .from('profiles')
             .select('role')
-            .eq('user_id', userId)
-            .eq('sport_id', sportId)
+            .eq('id', userId)
             .maybeSingle();
 
         if (error || !data) return false;
@@ -265,22 +187,21 @@ export async function isCoachInSport(userId, sportId = null) {
 }
 
 /**
- * Get the club ID for a user in a specific sport
- * This is important because a user can be in different clubs for different sports
+ * Get the club ID for a user
+ * Simplified: Just returns profiles.club_id
  *
  * @param {string} userId - The user ID
- * @param {string} sportId - The sport ID
+ * @param {string} sportId - Ignored (kept for API compatibility)
  * @returns {Promise<string|null>} Club ID or null
  */
 export async function getClubIdForSport(userId, sportId) {
-    if (!userId || !sportId) return null;
+    if (!userId) return null;
 
     try {
         const { data, error } = await supabase
-            .from('profile_club_sports')
+            .from('profiles')
             .select('club_id')
-            .eq('user_id', userId)
-            .eq('sport_id', sportId)
+            .eq('id', userId)
             .maybeSingle();
 
         if (error || !data) return null;
@@ -293,8 +214,7 @@ export async function getClubIdForSport(userId, sportId) {
 }
 
 /**
- * Reload sport context after switching sport
- * Call this from settings when user changes their active sport
+ * Reload sport context
  *
  * @param {string} userId - The user ID
  * @returns {Promise<Object|null>} New sport context

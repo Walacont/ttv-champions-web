@@ -334,30 +334,7 @@ registrationForm?.addEventListener('submit', async e => {
             }
         }
 
-        // 3. Profile_club_sports Eintrag für Coach/Spieler erstellen
-        if (registrationType === 'code' && invitationCodeData && invitationCodeData.club_id && invitationCodeData.sport_id) {
-            const pcsRole = invitationCodeData.role === 'coach' || invitationCodeData.role === 'head_coach'
-                ? invitationCodeData.role
-                : 'player';
-
-            const { error: pcsError } = await supabase
-                .from('profile_club_sports')
-                .insert({
-                    user_id: user.id,
-                    club_id: invitationCodeData.club_id,
-                    sport_id: invitationCodeData.sport_id,
-                    role: pcsRole
-                });
-
-            if (pcsError) {
-                console.warn('[REGISTER-SUPABASE] Could not create profile_club_sports:', pcsError);
-                // Nicht kritisch - weiter zum Onboarding
-            } else {
-                console.log('[REGISTER-SUPABASE] Created profile_club_sports entry for', pcsRole);
-            }
-        }
-
-        // 4. Invitation Code aktualisieren (use_count erhöhen)
+        // 3. Invitation Code aktualisieren (use_count erhöhen)
         if (registrationType === 'code' && invitationCodeData) {
             await supabase
                 .from('invitation_codes')
@@ -377,7 +354,7 @@ registrationForm?.addEventListener('submit', async e => {
 
         console.log('[REGISTER-SUPABASE] Registration complete, redirecting...');
 
-        // 4. Weiterleitung zum Onboarding
+        // Weiterleitung zum Onboarding
         window.location.href = '/onboarding.html';
 
     } catch (error) {

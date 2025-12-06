@@ -59,22 +59,7 @@ async function initializeAuth() {
             .single();
 
         if (!error && profile) {
-            // Get club from profile_club_sports if profiles.club_id is null (multi-sport support)
-            let effectiveClubId = profile.club_id || null;
-            if (!effectiveClubId && profile.active_sport_id) {
-                const { data: pcsData } = await supabase
-                    .from('profile_club_sports')
-                    .select('club_id')
-                    .eq('user_id', currentUser.id)
-                    .eq('sport_id', profile.active_sport_id)
-                    .maybeSingle();
-
-                if (pcsData?.club_id) {
-                    effectiveClubId = pcsData.club_id;
-                }
-            }
-
-            // Map Supabase profile to expected format
+            // Map Supabase profile to expected format (single sport model)
             currentUserData = {
                 id: currentUser.id,
                 email: profile.email || currentUser.email,
@@ -82,7 +67,7 @@ async function initializeAuth() {
                 lastName: profile.last_name || '',
                 displayName: profile.display_name || '',
                 role: profile.role || 'player',
-                clubId: effectiveClubId,
+                clubId: profile.club_id || null,
                 xp: profile.xp || 0,
                 points: profile.points || 0,
                 eloRating: profile.elo_rating || 1000,
@@ -922,21 +907,7 @@ async function updateClubManagementUI() {
         .single();
 
     if (profile) {
-        // Get club from profile_club_sports if profiles.club_id is null (multi-sport support)
-        let effectiveClubId = profile.club_id || null;
-        if (!effectiveClubId && profile.active_sport_id) {
-            const { data: pcsData } = await supabase
-                .from('profile_club_sports')
-                .select('club_id')
-                .eq('user_id', currentUser.id)
-                .eq('sport_id', profile.active_sport_id)
-                .maybeSingle();
-
-            if (pcsData?.club_id) {
-                effectiveClubId = pcsData.club_id;
-            }
-        }
-        currentUserData.clubId = effectiveClubId;
+        currentUserData.clubId = profile.club_id || null;
     }
 
     // Check for pending join request
@@ -1572,25 +1543,24 @@ async function setActiveSportAndShowClubStatus(sportId, sportName) {
 async function updateSportClubStatus(sportId, sportName) {
     if (!sportClubStatus || !sportClubInfo) return;
 
-    // Check if user is in a club for this sport
-    const { data: clubMembership } = await supabase
-        .from('profile_club_sports')
+    // Check if user is in a club (single sport model - use profiles directly)
+    const { data: profile } = await supabase
+        .from('profiles')
         .select(`
             club_id,
             role,
-            clubs(name)
+            clubs:club_id(name)
         `)
-        .eq('user_id', currentUser.id)
-        .eq('sport_id', sportId)
+        .eq('id', currentUser.id)
         .maybeSingle();
 
     sportClubStatus.classList.remove('hidden');
 
-    if (clubMembership) {
-        // User is in a club for this sport
-        const clubName = clubMembership.clubs?.name || 'Unbekannt';
-        const roleText = clubMembership.role === 'coach' ? 'Spartenleiter' :
-                        clubMembership.role === 'head_coach' ? 'Spartenleiter' : 'Spieler';
+    if (profile?.club_id) {
+        // User is in a club
+        const clubName = profile.clubs?.name || 'Unbekannt';
+        const roleText = profile.role === 'coach' ? 'Spartenleiter' :
+                        profile.role === 'head_coach' ? 'Spartenleiter' : 'Spieler';
 
         sportClubInfo.innerHTML = `
             <div class="bg-green-50 border border-green-200 p-3 rounded-lg">
@@ -1670,15 +1640,16 @@ async function loadClubsForSport(sportId, sportName) {
     sportClubList.innerHTML = '<p class="text-sm text-gray-500">Lade Vereine...</p>';
 
     try {
-        // Find clubs that have at least one coach for this sport
-        const { data: clubsWithSport, error } = await supabase
-            .from('profile_club_sports')
+        // Find clubs that have at least one coach for this sport (single sport model)
+        const { data: coachProfiles, error } = await supabase
+            .from('profiles')
             .select(`
                 club_id,
-                clubs!inner(id, name, is_test_club)
+                clubs:club_id(id, name, is_test_club)
             `)
-            .eq('sport_id', sportId)
-            .in('role', ['coach', 'head_coach']);
+            .eq('active_sport_id', sportId)
+            .in('role', ['coach', 'head_coach'])
+            .not('club_id', 'is', null);
 
         if (error) throw error;
 
@@ -1686,7 +1657,7 @@ async function loadClubsForSport(sportId, sportName) {
         const uniqueClubs = [];
         const seenClubIds = new Set();
 
-        for (const row of clubsWithSport || []) {
+        for (const row of coachProfiles || []) {
             if (!row.clubs || row.clubs.is_test_club) continue;
             if (seenClubIds.has(row.club_id)) continue;
             seenClubIds.add(row.club_id);
@@ -1713,10 +1684,10 @@ async function loadClubsForSport(sportId, sportName) {
         const clubHtml = [];
         for (const club of uniqueClubs) {
             const { count: memberCount } = await supabase
-                .from('profile_club_sports')
+                .from('profiles')
                 .select('*', { count: 'exact', head: true })
                 .eq('club_id', club.id)
-                .eq('sport_id', sportId);
+                .eq('active_sport_id', sportId);
 
             clubHtml.push(`
                 <div class="bg-gray-50 border border-gray-200 p-3 rounded-lg flex items-center justify-between">
