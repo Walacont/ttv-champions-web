@@ -2198,8 +2198,21 @@
                 <div id="tab-content-exercises" class="tab-content hidden">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Neue Übung erstellen</h2>
-                            <form id="create-exercise-form" class="space-y-4">
+                            <!-- Toggle Button for Exercise Creation -->
+                            <button
+                                id="toggle-exercise-form"
+                                class="w-full mb-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <svg id="exercise-form-icon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                                <span>Neue Übung erstellen</span>
+                            </button>
+
+                            <!-- Collapsible Form Container -->
+                            <div id="exercise-form-container" class="hidden">
+                                <h2 class="text-xl font-semibold mb-4">Neue Übung erstellen</h2>
+                                <form id="create-exercise-form" class="space-y-4">
                                 <div>
                                     <label
                                         for="exercise-title-form"
@@ -2413,6 +2426,8 @@
                                 id="exercise-feedback"
                                 class="mt-3 text-sm font-medium text-center"
                             ></p>
+                            </div>
+                            <!-- End Collapsible Form Container -->
                         </div>
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Globaler Übungskatalog</h2>
@@ -4647,6 +4662,30 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
+
+        <!-- Exercise Form Toggle Script -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const toggleBtn = document.getElementById('toggle-exercise-form');
+                const formContainer = document.getElementById('exercise-form-container');
+                const formIcon = document.getElementById('exercise-form-icon');
+
+                if (toggleBtn && formContainer && formIcon) {
+                    toggleBtn.addEventListener('click', function() {
+                        const isHidden = formContainer.classList.contains('hidden');
+
+                        if (isHidden) {
+                            formContainer.classList.remove('hidden');
+                            formIcon.style.transform = 'rotate(180deg)';
+                        } else {
+                            formContainer.classList.add('hidden');
+                            formIcon.style.transform = 'rotate(0deg)';
+                        }
+                    });
+                }
+            });
+        </script>
+
         <!-- Firebase: <script type="module" src="/js/coach.js"></script> -->
         <script type="module" src="/js/coach-supabase.js"></script>
     </body>

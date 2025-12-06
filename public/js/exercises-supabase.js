@@ -635,37 +635,31 @@ function renderCoachExercises(exercises, filterTag) {
             ? '<span class="inline-block bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs font-medium">🏠 Nur Verein</span>'
             : '<span class="inline-block bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">🌍 Global</span>';
 
-        // XP Badge for coach cards
-        const xpBadge = `<span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg z-10 pointer-events-none">${exercise.points} XP</span>`;
-
-        const imageHtml = exercise.imageUrl
-            ? `<div class="relative">
-                   <img src="${exercise.imageUrl}" alt="${exercise.title}" class="w-full h-56 object-cover pointer-events-none">
-                   ${xpBadge}
-               </div>`
-            : `<div class="relative w-full h-56 bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center border-b border-gray-200 pointer-events-none">
-                   ${xpBadge}
-                   <div class="text-center">
-                       <svg class="w-16 h-16 mx-auto text-indigo-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                       </svg>
-                       <p class="text-xs text-gray-400">Kein Bild</p>
-                   </div>
-               </div>`;
-
         card.innerHTML = `
-            ${imageHtml}
-            <div class="p-4 flex flex-col flex-grow pointer-events-none">
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="font-bold text-md flex-grow">${exercise.title}</h3>
-                    <span class="ml-2 bg-gray-100 text-gray-700 text-sm font-bold px-2 py-1 rounded">${coachBadge}</span>
+            <div class="p-5 flex flex-col flex-grow relative">
+                <!-- XP Badge in top-right corner -->
+                <span class="absolute top-3 right-3 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold pointer-events-none">${exercise.points} XP</span>
+
+                <!-- Title -->
+                <h3 class="font-bold text-lg mb-3 text-gray-900 pr-20 pointer-events-none">${exercise.title}</h3>
+
+                <!-- Visibility & Creator Info -->
+                <div class="flex items-center gap-2 mb-3 pointer-events-none">
+                    ${visibilityBadge}
+                    <span class="text-xs text-gray-600">${coachBadge}</span>
                 </div>
-                <div class="flex items-center gap-2 mb-2">${visibilityBadge}</div>
-                <div class="pt-2">${tagsHtml}</div>
+
+                <!-- Tags -->
+                <div class="mb-3 pointer-events-none">${tagsHtml}</div>
+
+                <!-- Description -->
+                <p class="text-sm text-gray-600 mb-4 flex-grow pointer-events-none">${exercise.description || ''}</p>
+
+                <!-- Delete Button (only if can edit) -->
                 ${canEdit ? `
-                <div class="mt-3 pointer-events-auto">
-                    <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700 transition-colors">
-                        Löschen
+                <div class="mt-auto pointer-events-auto">
+                    <button onclick="deleteExercise('${exercise.id}')" class="w-full bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors">
+                        🗑️ Löschen
                     </button>
                 </div>
                 ` : ''}
