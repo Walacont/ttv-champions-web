@@ -11,6 +11,7 @@ import { AGE_GROUPS } from './ui-utils-supabase.js';
 import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
+import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -2290,19 +2291,67 @@ function setupMatchForm() {
     const setScoreContainer = document.getElementById('set-score-container');
     const singlesToggle = document.getElementById('player-singles-toggle');
     const doublesToggle = document.getElementById('player-doubles-toggle');
+    const goldenPointCheckbox = document.getElementById('golden-point-checkbox');
+    const matchTieBreakCheckbox = document.getElementById('match-tiebreak-checkbox');
+    const tennisOptionsContainer = document.getElementById('tennis-options-container');
 
     if (!form) return;
 
-    // Initialize set score inputs
-    if (setScoreContainer) {
-        setScoreHandler = createSetScoreInput(setScoreContainer, [], matchModeSelect?.value || 'best-of-5');
+    // Determine sport type from currentSportContext (already loaded in initializeDashboard)
+    const sportName = currentSportContext?.sportName;
+    const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
+    const isBadminton = sportName === 'badminton';
+
+    console.log('[SetupMatchForm] Sport:', sportName, 'isTennis:', isTennisOrPadel, 'isBadminton:', isBadminton);
+
+    // Show/hide tennis options based on sport
+    if (tennisOptionsContainer) {
+        if (isTennisOrPadel) {
+            tennisOptionsContainer.classList.remove('hidden');
+        } else {
+            tennisOptionsContainer.classList.add('hidden');
+        }
     }
+
+    // Adjust default match mode based on sport
+    if (matchModeSelect && (isTennisOrPadel || isBadminton)) {
+        matchModeSelect.value = 'best-of-3';
+    }
+
+    // Helper function to create appropriate score input based on sport
+    function createScoreInputForSport(mode) {
+        if (!setScoreContainer) return null;
+
+        if (isTennisOrPadel) {
+            const options = {
+                mode: mode || 'best-of-3',
+                goldenPoint: goldenPointCheckbox?.checked || false,
+                matchTieBreak: matchTieBreakCheckbox?.checked || false
+            };
+            return createTennisScoreInput(setScoreContainer, [], options);
+        } else if (isBadminton) {
+            return createBadmintonScoreInput(setScoreContainer, [], 'best-of-3');
+        } else {
+            // Table Tennis (default)
+            return createSetScoreInput(setScoreContainer, [], mode || 'best-of-5');
+        }
+    }
+
+    // Initialize set score inputs based on sport
+    setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
 
     // Match mode change
     matchModeSelect?.addEventListener('change', () => {
-        if (setScoreContainer) {
-            setScoreHandler = createSetScoreInput(setScoreContainer, [], matchModeSelect.value);
-        }
+        setScoreHandler = createScoreInputForSport(matchModeSelect.value);
+    });
+
+    // Tennis-specific options: Golden Point and Match Tie-Break
+    goldenPointCheckbox?.addEventListener('change', () => {
+        setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
+    });
+
+    matchTieBreakCheckbox?.addEventListener('change', () => {
+        setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
     });
 
     // Singles/Doubles toggle
