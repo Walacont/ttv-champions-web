@@ -2304,6 +2304,31 @@ function setupMatchForm() {
 
     console.log('[SetupMatchForm] Sport:', sportName, 'isTennis:', isTennisOrPadel, 'isBadminton:', isBadminton);
 
+    // Update dropdown options based on sport
+    if (matchModeSelect) {
+        if (isTennisOrPadel) {
+            matchModeSelect.innerHTML = `
+                <option value="best-of-3" selected>Best of 3 (Standard)</option>
+                <option value="pro-set">Einzelsatz (bis 9/10)</option>
+                <option value="timed">Zeit / Fortlaufend</option>
+                <option value="fast4">Fast4 (Sätze bis 4)</option>
+            `;
+        } else if (isBadminton) {
+            matchModeSelect.innerHTML = `
+                <option value="best-of-3" selected>Best of 3 (Standard)</option>
+                <option value="single-set">1 Satz</option>
+            `;
+        } else {
+            // Table Tennis - keep default options
+            matchModeSelect.innerHTML = `
+                <option value="best-of-3">Best of 3</option>
+                <option value="best-of-5" selected>Best of 5 (Standard)</option>
+                <option value="best-of-7">Best of 7</option>
+                <option value="single-set">1 Satz</option>
+            `;
+        }
+    }
+
     // Show/hide tennis options based on sport
     if (tennisOptionsContainer) {
         if (isTennisOrPadel) {
@@ -2313,12 +2338,7 @@ function setupMatchForm() {
         }
     }
 
-    // Adjust default match mode based on sport
-    if (matchModeSelect && (isTennisOrPadel || isBadminton)) {
-        matchModeSelect.value = 'best-of-3';
-    }
-
-    // Helper function to create appropriate score input based on sport
+    // Helper function to create appropriate score input based on sport and mode
     function createScoreInputForSport(mode) {
         if (!setScoreContainer) return null;
 

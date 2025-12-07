@@ -598,7 +598,11 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
 /**
  * Creates a Tennis/Padel score input component
- * Supports: Best of 3, Golden Point (No-Ad), Match Tie-Break
+ * Supports multiple modes:
+ * - best-of-3: Standard 2 winning sets, each to 6 games
+ * - pro-set: Single long set (to 9/10 games)
+ * - timed: Free game count (no set validation)
+ * - fast4: Sets to 4 games, tie-break at 3:3
  * @param {HTMLElement} container - Container element for the score inputs
  * @param {Array} existingSets - Existing set scores (optional)
  * @param {Object} options - Match options { mode: 'best-of-3', goldenPoint: false, matchTieBreak: false }
@@ -609,11 +613,30 @@ export function createTennisScoreInput(container, existingSets = [], options = {
 
     container.innerHTML = '';
 
+    // Mode-specific configuration
+    const isTimedMode = mode === 'timed';
+    const isProSetMode = mode === 'pro-set';
+    const isFast4Mode = mode === 'fast4';
+    const isStandardMode = !isTimedMode && !isProSetMode && !isFast4Mode;
+
+    // Games needed to win a set (for validation)
+    const gamesForSet = isFast4Mode ? 4 : 6;
+    const tieBreakAt = isFast4Mode ? 3 : 6; // Tie-break triggers at this score
+
     let minSets, maxSets, setsToWin;
-    switch (mode) {
-        case 'best-of-3': minSets = 2; maxSets = 3; setsToWin = 2; break;
-        case 'best-of-5': minSets = 3; maxSets = 5; setsToWin = 3; break;
-        default: minSets = 2; maxSets = 3; setsToWin = 2;
+    if (isTimedMode || isProSetMode) {
+        // Single "set" mode - just one score entry
+        minSets = 1; maxSets = 1; setsToWin = 1;
+    } else if (isFast4Mode) {
+        // Fast4: Best of 3 with shorter sets
+        minSets = 2; maxSets = 3; setsToWin = 2;
+    } else {
+        // Standard modes
+        switch (mode) {
+            case 'best-of-3': minSets = 2; maxSets = 3; setsToWin = 2; break;
+            case 'best-of-5': minSets = 3; maxSets = 5; setsToWin = 3; break;
+            default: minSets = 2; maxSets = 3; setsToWin = 2;
+        }
     }
 
     const sets = existingSets.length > 0 ? [...existingSets] : [];
@@ -623,9 +646,6 @@ export function createTennisScoreInput(container, existingSets = [], options = {
 
     /**
      * Validates if a set score is valid according to tennis rules
-     * - Standard: 6 games to win, must win by 2 (e.g., 6:4, 7:5)
-     * - At 6:6: Tie-break (result: 7:6)
-     * - Match Tie-Break (if enabled in 3rd set): First to 10, must win by 2
      */
     function isValidSet(scoreA, scoreB, setIndex) {
         const a = parseInt(scoreA) || 0;
@@ -633,6 +653,29 @@ export function createTennisScoreInput(container, existingSets = [], options = {
 
         // Empty set is not valid
         if (a === 0 && b === 0) return false;
+
+        // Timed mode: Any score where someone has more games is valid
+        if (isTimedMode) {
+            return a !== b; // Just need a winner (not a tie)
+        }
+
+        // Pro Set mode: First to 9 (or 10), must win by 2
+        if (isProSetMode) {
+            if (a < 9 && b < 9) return false; // Someone must reach 9
+            return Math.abs(a - b) >= 2; // Must win by 2 (e.g., 9:7, 10:8)
+        }
+
+        // Fast4 mode: Sets to 4, tie-break at 3:3
+        if (isFast4Mode) {
+            // Tie-break win: 4:3
+            if (a === 4 && b === 3) return true;
+            if (b === 4 && a === 3) return true;
+            // Standard win: 4:0, 4:1, 4:2
+            if (a >= 4 || b >= 4) {
+                return Math.abs(a - b) >= 1 && (a === 4 || b === 4);
+            }
+            return false;
+        }
 
         // Check if this is a match tie-break (3rd set in best-of-3 or 5th in best-of-5)
         const isMatchTieBreakSet = matchTieBreak && setIndex === (maxSets - 1) && sets.length === maxSets;
@@ -671,37 +714,84 @@ export function createTennisScoreInput(container, existingSets = [], options = {
     function renderSets() {
         container.innerHTML = '';
 
-        sets.forEach((set, index) => {
-            const isTieBreakPossible = (parseInt(set.playerA) === 7 && parseInt(set.playerB) === 6) ||
-                                       (parseInt(set.playerB) === 7 && parseInt(set.playerA) === 6);
-
-            const isMatchTieBreakSet = matchTieBreak && index === (maxSets - 1);
-            const setLabel = isMatchTieBreakSet ? 'Match Tie-Break' : `Satz ${index + 1}`;
-
-            const setDiv = document.createElement('div');
-            setDiv.className = 'mb-4';
-            setDiv.innerHTML = `
-                <label class="text-sm font-medium text-gray-700 block mb-2">${setLabel}:</label>
+        // For timed mode, show a simple game count input
+        if (isTimedMode) {
+            const div = document.createElement('div');
+            div.className = 'mb-4';
+            div.innerHTML = `
+                <label class="text-sm font-medium text-gray-700 block mb-2">Gewonnene Spiele:</label>
+                <div class="flex items-center gap-3">
+                    <input type="number" min="0" max="99"
+                           class="set-input-a w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                           data-set="0" data-player="A" placeholder="0" value="${sets[0]?.playerA || ''}"/>
+                    <span class="text-gray-500">:</span>
+                    <input type="number" min="0" max="99"
+                           class="set-input-b w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                           data-set="0" data-player="B" placeholder="0" value="${sets[0]?.playerB || ''}"/>
+                    <span class="text-xs text-gray-500 ml-2">Spiele</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">z.B. 14:11 bei Zeitspiel</p>
+            `;
+            container.appendChild(div);
+        }
+        // For pro-set mode, show single set with higher limit
+        else if (isProSetMode) {
+            const div = document.createElement('div');
+            div.className = 'mb-4';
+            div.innerHTML = `
+                <label class="text-sm font-medium text-gray-700 block mb-2">Einzelsatz (bis 9/10):</label>
                 <div class="flex items-center gap-3">
                     <input type="number" min="0" max="20"
                            class="set-input-a w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                           data-set="${index}" data-player="A" placeholder="0" value="${set.playerA}"/>
+                           data-set="0" data-player="A" placeholder="0" value="${sets[0]?.playerA || ''}"/>
                     <span class="text-gray-500">:</span>
                     <input type="number" min="0" max="20"
                            class="set-input-b w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
-                           data-set="${index}" data-player="B" placeholder="0" value="${set.playerB}"/>
-                    ${isTieBreakPossible && !isMatchTieBreakSet ? `
-                        <span class="text-xs text-gray-500 ml-2">(</span>
-                        <input type="number" min="0" max="99"
-                               class="tiebreak-input w-14 px-2 py-1 border border-gray-300 rounded-md text-sm text-center"
-                               data-set="${index}" placeholder="Pkt" value="${set.tiebreak || ''}"
-                               title="Tie-Break Punkte des Verlierers (z.B. 4 bei 7:6 (4))"/>
-                        <span class="text-xs text-gray-500">)</span>
-                    ` : ''}
+                           data-set="0" data-player="B" placeholder="0" value="${sets[0]?.playerB || ''}"/>
                 </div>
+                <p class="text-xs text-gray-500 mt-1">z.B. 9:7 oder 10:8 (2 Spiele Vorsprung)</p>
             `;
-            container.appendChild(setDiv);
-        });
+            container.appendChild(div);
+        }
+        // Standard or Fast4 mode
+        else {
+            sets.forEach((set, index) => {
+                const a = parseInt(set.playerA) || 0;
+                const b = parseInt(set.playerB) || 0;
+
+                // Check if tie-break display is needed
+                const isTieBreakPossible = isFast4Mode
+                    ? (a === 4 && b === 3) || (b === 4 && a === 3)
+                    : (a === 7 && b === 6) || (b === 7 && a === 6);
+
+                const isMatchTieBreakSet = matchTieBreak && index === (maxSets - 1);
+                const setLabel = isMatchTieBreakSet ? 'Match Tie-Break' : `Satz ${index + 1}`;
+
+                const setDiv = document.createElement('div');
+                setDiv.className = 'mb-4';
+                setDiv.innerHTML = `
+                    <label class="text-sm font-medium text-gray-700 block mb-2">${setLabel}:</label>
+                    <div class="flex items-center gap-3">
+                        <input type="number" min="0" max="20"
+                               class="set-input-a w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                               data-set="${index}" data-player="A" placeholder="0" value="${set.playerA}"/>
+                        <span class="text-gray-500">:</span>
+                        <input type="number" min="0" max="20"
+                               class="set-input-b w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                               data-set="${index}" data-player="B" placeholder="0" value="${set.playerB}"/>
+                        ${isTieBreakPossible && !isMatchTieBreakSet ? `
+                            <span class="text-xs text-gray-500 ml-2">(</span>
+                            <input type="number" min="0" max="99"
+                                   class="tiebreak-input w-14 px-2 py-1 border border-gray-300 rounded-md text-sm text-center"
+                                   data-set="${index}" placeholder="Pkt" value="${set.tiebreak || ''}"
+                                   title="Tie-Break Punkte des Verlierers"/>
+                            <span class="text-xs text-gray-500">)</span>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(setDiv);
+            });
+        }
 
         container.querySelectorAll('.set-input-a, .set-input-b').forEach(input => {
             input.addEventListener('input', handleSetInput);
@@ -718,6 +808,12 @@ export function createTennisScoreInput(container, existingSets = [], options = {
         // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
         const value = e.target.value.trim();
         sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
+
+        // For timed/pro-set modes, no auto-add of sets
+        if (isTimedMode || isProSetMode) {
+            renderSets();
+            return;
+        }
 
         // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
@@ -754,6 +850,34 @@ export function createTennisScoreInput(container, existingSets = [], options = {
 
     function validate() {
         const filledSets = getSets();
+
+        // For timed mode, just need any valid score
+        if (isTimedMode) {
+            if (filledSets.length === 0) {
+                return { valid: false, error: 'Bitte gib die Anzahl der gewonnenen Spiele ein.' };
+            }
+            const set = filledSets[0];
+            if (set.playerA === set.playerB) {
+                return { valid: false, error: 'Bei Zeitspiel muss es einen Gewinner geben (kein Unentschieden).' };
+            }
+            const winner = set.playerA > set.playerB ? 'A' : 'B';
+            return { valid: true, winnerId: winner, playerAWins: set.playerA > set.playerB ? 1 : 0, playerBWins: set.playerB > set.playerA ? 1 : 0 };
+        }
+
+        // For pro-set mode
+        if (isProSetMode) {
+            if (filledSets.length === 0) {
+                return { valid: false, error: 'Bitte gib das Ergebnis ein.' };
+            }
+            const set = filledSets[0];
+            if (!isValidSet(set.playerA, set.playerB, 0)) {
+                return { valid: false, error: 'Ungültiges Ergebnis. Einzelsatz: Erster bis 9 (oder mehr), 2 Spiele Vorsprung (z.B. 9:7, 10:8).' };
+            }
+            const winner = set.playerA > set.playerB ? 'A' : 'B';
+            return { valid: true, winnerId: winner, playerAWins: 1, playerBWins: 0 };
+        }
+
+        // Standard and Fast4 validation
         if (filledSets.length < minSets) {
             return { valid: false, error: `Mindestens ${minSets} Sätze müssen ausgefüllt sein.` };
         }
@@ -764,6 +888,9 @@ export function createTennisScoreInput(container, existingSets = [], options = {
                 const isMatchTieBreakSet = matchTieBreak && i === (maxSets - 1);
                 if (isMatchTieBreakSet) {
                     return { valid: false, error: `Match Tie-Break: Ein Spieler muss 10+ Punkte erreichen und 2 Punkte Vorsprung haben.` };
+                }
+                if (isFast4Mode) {
+                    return { valid: false, error: `Satz ${i + 1}: Ungültiges Ergebnis. Fast4-Regeln: Satz bis 4 Spiele, bei 3:3 Tie-Break (4:3).` };
                 }
                 return { valid: false, error: `Satz ${i + 1}: Ungültiges Ergebnis. Tennis-Regeln: 6 Spiele mit 2 Spielen Vorsprung oder 7:6 (Tie-Break).` };
             }
@@ -793,6 +920,18 @@ export function createTennisScoreInput(container, existingSets = [], options = {
         const filledSets = getSets();
 
         if (filledSets.length === 0) {
+            return null;
+        }
+
+        // For timed/pro-set mode
+        if (isTimedMode || isProSetMode) {
+            const set = filledSets[0];
+            if (set.playerA > set.playerB) {
+                return { winner: 'A', setsA: 1, setsB: 0 };
+            }
+            if (set.playerB > set.playerA) {
+                return { winner: 'B', setsA: 0, setsB: 1 };
+            }
             return null;
         }
 
@@ -829,6 +968,7 @@ export function createTennisScoreInput(container, existingSets = [], options = {
         refresh: renderSets,
         reset,
         getMatchWinner,
+        mode // Export mode for reference
     };
 }
 
