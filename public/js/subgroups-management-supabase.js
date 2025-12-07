@@ -10,6 +10,18 @@ import { getSportContext } from './sport-context-supabase.js';
 // Store current sport context for use in other functions
 let currentSportContext = null;
 
+// Global reference to refresh function (set by loadSubgroupsList)
+let refreshSubgroupsListFn = null;
+
+/**
+ * Refreshes the subgroups list (can be called from anywhere)
+ */
+export function refreshSubgroupsList() {
+    if (refreshSubgroupsListFn) {
+        refreshSubgroupsListFn();
+    }
+}
+
 /**
  * Maps subgroup data from Supabase (snake_case) to app format (camelCase)
  */
@@ -171,11 +183,8 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
     // Initial load
     loadSubgroups();
 
-    // Listen for manual refresh events (from create/delete operations)
-    const handleSubgroupsChanged = () => {
-        loadSubgroups();
-    };
-    window.addEventListener('subgroups-changed', handleSubgroupsChanged);
+    // Store global reference for direct refresh calls
+    refreshSubgroupsListFn = loadSubgroups;
 
     // Set up real-time subscription
     const subscription = supabase
@@ -196,7 +205,7 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
 
     setUnsubscribe(() => {
         subscription.unsubscribe();
-        window.removeEventListener('subgroups-changed', handleSubgroupsChanged);
+        refreshSubgroupsListFn = null;
     });
 }
 
@@ -248,8 +257,8 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
 
         form.reset();
 
-        // Dispatch event to refresh the list immediately
-        window.dispatchEvent(new CustomEvent('subgroups-changed', { detail: { action: 'created' } }));
+        // Refresh the list immediately
+        refreshSubgroupsList();
 
         setTimeout(() => {
             if (feedbackEl) feedbackEl.textContent = '';
@@ -349,8 +358,8 @@ export async function handleEditSubgroupSubmit(e, supabase) {
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         }
 
-        // Dispatch event to refresh the list immediately
-        window.dispatchEvent(new CustomEvent('subgroups-changed', { detail: { action: 'updated' } }));
+        // Refresh the list immediately
+        refreshSubgroupsList();
 
         setTimeout(() => {
             closeEditSubgroupModal();
@@ -420,8 +429,8 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
             }
         }
 
-        // Dispatch event to refresh the list immediately
-        window.dispatchEvent(new CustomEvent('subgroups-changed', { detail: { action: 'deleted' } }));
+        // Refresh the list immediately
+        refreshSubgroupsList();
 
         alert('Untergruppe erfolgreich gelöscht!');
     } catch (error) {
