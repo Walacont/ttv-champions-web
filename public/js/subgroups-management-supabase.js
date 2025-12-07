@@ -10,8 +10,11 @@ import { getSportContext } from './sport-context-supabase.js';
 // Store current sport context for use in other functions
 let currentSportContext = null;
 
-// Global reference to refresh function (set by loadSubgroupsList)
+// Global reference to refresh function and context (set by loadSubgroupsList)
 let refreshSubgroupsListFn = null;
+let storedSupabase = null;
+let storedClubId = null;
+let storedUserId = null;
 
 /**
  * Refreshes the subgroups list (can be called from anywhere)
@@ -19,6 +22,24 @@ let refreshSubgroupsListFn = null;
 export function refreshSubgroupsList() {
     if (refreshSubgroupsListFn) {
         refreshSubgroupsListFn();
+    } else if (storedSupabase && storedClubId) {
+        // Fallback: reload the list directly if function reference not available
+        reloadSubgroupsListDirectly();
+    }
+}
+
+/**
+ * Direct reload of subgroups list (used as fallback)
+ */
+async function reloadSubgroupsListDirectly() {
+    const subgroupsListContainer = document.getElementById('subgroups-list');
+    if (!subgroupsListContainer || !storedSupabase || !storedClubId) return;
+
+    // Trigger the same loading logic by dispatching a fake tab click
+    // or just reload the page section
+    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
+    if (subgroupsTabButton) {
+        subgroupsTabButton.click();
     }
 }
 
@@ -180,6 +201,11 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
         }
     }
 
+    // Store context for refresh functionality
+    storedSupabase = supabase;
+    storedClubId = clubId;
+    storedUserId = userId;
+
     // Initial load
     loadSubgroups();
 
@@ -206,6 +232,7 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
     setUnsubscribe(() => {
         subscription.unsubscribe();
         refreshSubgroupsListFn = null;
+        // Note: Don't clear storedSupabase/storedClubId so fallback refresh still works
     });
 }
 
@@ -217,6 +244,11 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
  */
 export async function handleCreateSubgroup(e, supabase, clubId) {
     e.preventDefault();
+
+    // Store context for refresh functionality (in case loadSubgroupsList wasn't called first)
+    storedSupabase = supabase;
+    storedClubId = clubId;
+
     const form = e.target;
     const nameInput = form.querySelector('#subgroup-name');
     const colorInput = form.querySelector('input[name="subgroup-color"]:checked');
