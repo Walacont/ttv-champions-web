@@ -691,10 +691,12 @@ export function createTennisScoreInput(container, existingSets = [], options = {
                            class="set-input-b w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                            data-set="${index}" data-player="B" placeholder="0" value="${set.playerB}"/>
                     ${isTieBreakPossible && !isMatchTieBreakSet ? `
-                        <span class="text-xs text-gray-500 ml-2">Tie-Break:</span>
-                        <input type="number" min="0" max="20"
-                               class="tiebreak-input w-16 px-2 py-1 border border-gray-300 rounded-md text-sm"
-                               data-set="${index}" placeholder="z.B. 7:3" value="${set.tiebreak || ''}"/>
+                        <span class="text-xs text-gray-500 ml-2">(</span>
+                        <input type="number" min="0" max="99"
+                               class="tiebreak-input w-14 px-2 py-1 border border-gray-300 rounded-md text-sm text-center"
+                               data-set="${index}" placeholder="Pkt" value="${set.tiebreak || ''}"
+                               title="Tie-Break Punkte des Verlierers (z.B. 4 bei 7:6 (4))"/>
+                        <span class="text-xs text-gray-500">)</span>
                     ` : ''}
                 </div>
             `;
