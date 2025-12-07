@@ -267,17 +267,18 @@ registrationForm?.addEventListener('submit', async e => {
                         if (offlinePlayer.subgroup_ids) profileUpdates.subgroup_ids = offlinePlayer.subgroup_ids;
 
                         // Delete the old offline player profile after copying data
-                        console.log('[REGISTER] Deleting old offline player profile:', invitationCodeData.player_id);
-                        const { error: deleteError } = await supabase
-                            .from('profiles')
-                            .delete()
-                            .eq('id', invitationCodeData.player_id)
-                            .eq('is_offline', true); // Safety: only delete if still marked as offline
+                        // Use RPC function to bypass RLS (direct delete is blocked by RLS)
+                        console.log('[REGISTER] Deleting old offline player profile via RPC:', invitationCodeData.player_id);
+                        const { data: deleteResult, error: deleteError } = await supabase.rpc('delete_offline_player', {
+                            p_offline_player_id: invitationCodeData.player_id
+                        });
 
                         if (deleteError) {
-                            console.error('[REGISTER] Failed to delete offline player:', deleteError);
+                            console.error('[REGISTER] Failed to delete offline player (RPC error):', deleteError);
+                        } else if (deleteResult && deleteResult.success) {
+                            console.log('[REGISTER] Old offline player profile deleted successfully via RPC');
                         } else {
-                            console.log('[REGISTER] Old offline player profile deleted successfully');
+                            console.warn('[REGISTER] Delete RPC returned:', deleteResult);
                         }
                     }
                 } else if (migrationResult && migrationResult.success === true) {
