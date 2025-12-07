@@ -85,47 +85,55 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
                     'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
                 card.innerHTML = `
                 <div class="p-4">
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-2 mb-1">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
                                 <div class="w-4 h-4 flex-shrink-0 rounded-full border-2 border-gray-300" style="background-color: ${subgroup.color || '#6366f1'};"></div>
                                 <button
                                     data-subgroup-id="${subgroup.id}"
-                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors min-w-0"
+                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors min-w-0 overflow-hidden"
                                 >
                                     <svg class="h-5 w-5 flex-shrink-0 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                     </svg>
-                                    <h3 class="text-lg font-semibold text-gray-900 truncate">${subgroup.name}</h3>
+                                    <span class="text-lg font-semibold text-gray-900 truncate block">${subgroup.name}</span>
                                 </button>
-                                ${isDefault ? '<span class="text-xs flex-shrink-0 bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
+                                ${isDefault ? '<span class="text-xs flex-shrink-0 bg-blue-100 text-blue-800 px-2 py-1 rounded-full whitespace-nowrap">Standard</span>' : ''}
                             </div>
-                            <p class="text-sm text-gray-500 ml-7 truncate">ID: ${subgroup.id}</p>
-                            <p class="text-xs text-gray-400 ml-7 mt-1">Erstellt: ${formatDate(subgroup.createdAt) || 'Unbekannt'}</p>
-                        </div>
-                        <div class="flex gap-2 flex-shrink-0 ml-7 sm:ml-0">
-                            <button
-                                data-id="${subgroup.id}"
-                                data-name="${subgroup.name}"
-                                data-color="${subgroup.color || '#6366f1'}"
-                                data-is-default="${isDefault}"
-                                class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors whitespace-nowrap"
-                            >
-                                Bearbeiten
-                            </button>
-                            ${
-                                !isDefault
-                                    ? `
+                            <div class="flex gap-2 flex-shrink-0">
                                 <button
                                     data-id="${subgroup.id}"
                                     data-name="${subgroup.name}"
-                                    class="delete-subgroup-btn text-red-600 hover:text-red-900 px-3 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
+                                    data-color="${subgroup.color || '#6366f1'}"
+                                    data-is-default="${isDefault}"
+                                    class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-2 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors whitespace-nowrap"
                                 >
-                                    Löschen
+                                    <span class="hidden sm:inline">Bearbeiten</span>
+                                    <svg class="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
                                 </button>
-                            `
-                                    : '<span class="text-xs text-gray-400 px-3 py-1 whitespace-nowrap">Standard kann nicht gelöscht werden</span>'
-                            }
+                                ${
+                                    !isDefault
+                                        ? `
+                                    <button
+                                        data-id="${subgroup.id}"
+                                        data-name="${subgroup.name}"
+                                        class="delete-subgroup-btn text-red-600 hover:text-red-900 px-2 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
+                                    >
+                                        <span class="hidden sm:inline">Löschen</span>
+                                        <svg class="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                `
+                                        : ''
+                                }
+                            </div>
+                        </div>
+                        <div class="ml-7">
+                            <p class="text-sm text-gray-500 truncate">ID: ${subgroup.id}</p>
+                            <p class="text-xs text-gray-400 mt-1">Erstellt: ${formatDate(subgroup.createdAt) || 'Unbekannt'}</p>
                         </div>
                     </div>
                 </div>
