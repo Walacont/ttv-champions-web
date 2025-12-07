@@ -163,6 +163,12 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
     // Initial load
     loadSubgroups();
 
+    // Listen for manual refresh events (from create/delete operations)
+    const handleSubgroupsChanged = () => {
+        loadSubgroups();
+    };
+    window.addEventListener('subgroups-changed', handleSubgroupsChanged);
+
     // Set up real-time subscription
     const subscription = supabase
         .channel('subgroups-list-changes')
@@ -182,6 +188,7 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
 
     setUnsubscribe(() => {
         subscription.unsubscribe();
+        window.removeEventListener('subgroups-changed', handleSubgroupsChanged);
     });
 }
 
@@ -232,6 +239,9 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
         }
 
         form.reset();
+
+        // Dispatch event to refresh the list immediately
+        window.dispatchEvent(new CustomEvent('subgroups-changed', { detail: { action: 'created' } }));
 
         setTimeout(() => {
             if (feedbackEl) feedbackEl.textContent = '';
@@ -331,6 +341,9 @@ export async function handleEditSubgroupSubmit(e, supabase) {
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
         }
 
+        // Dispatch event to refresh the list immediately
+        window.dispatchEvent(new CustomEvent('subgroups-changed', { detail: { action: 'updated' } }));
+
         setTimeout(() => {
             closeEditSubgroupModal();
         }, 1000);
@@ -398,6 +411,9 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
                 }
             }
         }
+
+        // Dispatch event to refresh the list immediately
+        window.dispatchEvent(new CustomEvent('subgroups-changed', { detail: { action: 'deleted' } }));
 
         alert('Untergruppe erfolgreich gelöscht!');
     } catch (error) {
