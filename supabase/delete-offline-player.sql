@@ -2,6 +2,9 @@
 -- Used as fallback when migrate_offline_player fails
 -- Only deletes profiles that are marked as is_offline = TRUE
 
+-- Drop old function first to allow parameter name changes
+DROP FUNCTION IF EXISTS delete_offline_player(UUID);
+
 CREATE OR REPLACE FUNCTION delete_offline_player(
     p_offline_player_id UUID
 )
