@@ -10,21 +10,26 @@ import { getSportContext } from './sport-context-supabase.js';
 // Store current sport context for use in other functions
 let currentSportContext = null;
 
-// Global reference to refresh function and context (set by loadSubgroupsList)
-let refreshSubgroupsListFn = null;
+// Module-level storage for refresh functionality
 let storedSupabase = null;
 let storedClubId = null;
 let storedUserId = null;
 
 /**
  * Refreshes the subgroups list (can be called from anywhere)
+ * Uses window.__subgroupsRefresh which is set by loadSubgroupsList
  */
 export function refreshSubgroupsList() {
-    if (refreshSubgroupsListFn) {
-        refreshSubgroupsListFn();
-    } else if (storedSupabase && storedClubId) {
-        // Fallback: reload the list directly if function reference not available
-        reloadSubgroupsListDirectly();
+    console.log('[Subgroups] refreshSubgroupsList called, window.__subgroupsRefresh:', typeof window.__subgroupsRefresh);
+    if (typeof window.__subgroupsRefresh === 'function') {
+        console.log('[Subgroups] Calling window.__subgroupsRefresh()');
+        window.__subgroupsRefresh();
+    } else {
+        console.warn('[Subgroups] No refresh function available, trying direct reload');
+        // Fallback: try direct reload if we have stored context
+        if (storedSupabase && storedClubId) {
+            reloadSubgroupsListDirectly();
+        }
     }
 }
 
@@ -326,11 +331,12 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
     storedClubId = clubId;
     storedUserId = userId;
 
+    // Store global reference for direct refresh calls (on window for cross-module access)
+    window.__subgroupsRefresh = loadSubgroups;
+    console.log('[Subgroups] window.__subgroupsRefresh set to loadSubgroups function');
+
     // Initial load
     loadSubgroups();
-
-    // Store global reference for direct refresh calls
-    refreshSubgroupsListFn = loadSubgroups;
 
     // Set up real-time subscription
     const subscription = supabase
@@ -351,7 +357,7 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
 
     setUnsubscribe(() => {
         subscription.unsubscribe();
-        refreshSubgroupsListFn = null;
+        window.__subgroupsRefresh = null;
         // Note: Don't clear storedSupabase/storedClubId so fallback refresh still works
     });
 }
