@@ -2340,7 +2340,22 @@ async function searchOpponents(query, resultsContainer) {
 
         // Get current user's sport for filtering
         const userSportId = currentUserData.active_sport_id;
-        console.log('[Opponent Search] Searching with sport ID:', userSportId);
+        console.log('[Opponent Search] Searching with sport ID:', userSportId, 'query:', query);
+
+        // DEBUG: First check how many players exist with this sport (without name filter)
+        const { data: allSportPlayers, error: debugError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, role, active_sport_id')
+            .eq('active_sport_id', userSportId)
+            .neq('id', currentUser.id);
+
+        console.log('[Opponent Search] DEBUG - All players in this sport:', allSportPlayers?.length || 0);
+        if (allSportPlayers?.length > 0) {
+            allSportPlayers.forEach(p => console.log('[Opponent Search] DEBUG - Player:', p.first_name, p.last_name, 'role:', p.role));
+        }
+        if (debugError) {
+            console.error('[Opponent Search] DEBUG error:', debugError);
+        }
 
         // Build query - filter by sport if user has one
         let playersQuery = supabase
@@ -2348,7 +2363,7 @@ async function searchOpponents(query, resultsContainer) {
             .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, active_sport_id, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach', 'head_coach'])
-            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
+            .ilike('first_name', `%${query}%`);  // Simplified: just search first_name
 
         // Filter by same sport (single sport model)
         if (userSportId) {
@@ -2357,7 +2372,10 @@ async function searchOpponents(query, resultsContainer) {
 
         const { data: players, error } = await playersQuery.limit(50);
 
-        if (error) throw error;
+        if (error) {
+            console.error('[Opponent Search] Query error:', error);
+            throw error;
+        }
 
         console.log('[Opponent Search] Raw query returned:', players?.length || 0, 'players');
         if (players?.length > 0) {
