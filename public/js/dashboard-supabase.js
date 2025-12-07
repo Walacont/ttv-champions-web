@@ -342,10 +342,8 @@ function setupFilters() {
     const ageGroupFilter = document.getElementById('player-age-group-filter');
 
     if (subgroupFilter) {
-        // Load subgroups if user has a club
-        if (currentUserData.club_id) {
-            loadSubgroupsForFilter(subgroupFilter);
-        }
+        // Note: Subgroups are loaded by populatePlayerSubgroupFilter() in initializeDashboard()
+        // Do NOT call loadSubgroupsForFilter here - it causes duplicates
 
         subgroupFilter.addEventListener('change', () => {
             currentSubgroupFilter = subgroupFilter.value;
@@ -451,42 +449,6 @@ function matchesAgeGroup(birthdate, ageGroupFilter) {
         case 'o80': return age >= 80;
         case 'o85': return age >= 85;
         default: return true;
-    }
-}
-
-async function loadSubgroupsForFilter(selectElement) {
-    try {
-        // Only load subgroups that the user is a member of
-        const userSubgroupIds = currentUserData.subgroup_ids || [];
-
-        if (userSubgroupIds.length === 0) {
-            // User is not in any subgroups - don't show the section
-            return;
-        }
-
-        const { data: subgroups } = await supabase
-            .from('subgroups')
-            .select('id, name')
-            .eq('club_id', currentUserData.club_id)
-            .in('id', userSubgroupIds)
-            .order('name');
-
-        if (subgroups && subgroups.length > 0) {
-            // Create optgroup with header
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = '📋 Meine Untergruppen im Verein';
-
-            subgroups.forEach(sg => {
-                const option = document.createElement('option');
-                option.value = sg.id;
-                option.textContent = sg.name;
-                optgroup.appendChild(option);
-            });
-
-            selectElement.appendChild(optgroup);
-        }
-    } catch (error) {
-        console.error('Error loading subgroups:', error);
     }
 }
 
