@@ -213,16 +213,16 @@ async function initializeDashboard() {
     // Populate player subgroup filter with age groups
     await populatePlayerSubgroupFilter(currentUserData);
 
-    // Show coach switch button only if user is coach or head_coach in the ACTIVE SPORT
-    // User might be coach in one sport but player in another
+    // Show coach switch button only if user is coach or head_coach AND has a club
+    // Coaches without a club should not see the toggle (they were downgraded but role not yet updated)
     const isCoachInActiveSport = currentSportContext?.role === 'coach' || currentSportContext?.role === 'head_coach';
-    if (isCoachInActiveSport) {
+    const effectiveClub = currentSportContext?.clubId || currentUserData.club_id;
+    if (isCoachInActiveSport && effectiveClub) {
         const switchBtn = document.getElementById('switch-to-coach-btn');
         if (switchBtn) switchBtn.classList.remove('hidden');
     }
 
-    // Show no-club info if needed
-    const effectiveClub = currentSportContext?.clubId || currentUserData.club_id;
+    // Show no-club info if needed (reuses effectiveClub from above)
     if (!effectiveClub) {
         const noClubBox = document.getElementById('no-club-info-box');
         if (noClubBox && localStorage.getItem('noClubInfoDismissed') !== 'true') {

@@ -222,6 +222,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             if (userData.role === 'coach' || userData.role === 'head_coach' || userData.role === 'admin') {
+                // Coaches must be in a club - if not, redirect to dashboard
+                if (!userData.clubId && userData.role !== 'admin') {
+                    console.warn('[COACH] Coach without club detected, redirecting to dashboard');
+                    window.location.replace('/dashboard.html');
+                    return;
+                }
+
                 currentUserData = userData;
 
                 // Check for season reset
