@@ -2435,23 +2435,67 @@ function setupMatchForm() {
         }
     }
 
+    // Helper function to update winner display
+    function updateWinnerDisplay() {
+        const matchWinnerInfo = document.getElementById('match-winner-info');
+        const matchWinnerText = document.getElementById('match-winner-text');
+
+        if (!setScoreHandler || !matchWinnerInfo || !matchWinnerText) return;
+
+        // Check if getMatchWinner method exists
+        if (typeof setScoreHandler.getMatchWinner !== 'function') return;
+
+        const winnerData = setScoreHandler.getMatchWinner();
+
+        if (winnerData && winnerData.winner) {
+            // We have a winner
+            let winnerName;
+            if (winnerData.winner === 'A') {
+                winnerName = currentUserData?.first_name || 'Du';
+            } else {
+                winnerName = selectedOpponent?.name || 'Gegner';
+            }
+
+            matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
+            matchWinnerInfo.classList.remove('hidden');
+        } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
+            // Match in progress, show current score
+            matchWinnerText.textContent = `Aktueller Stand: ${winnerData.setsA}:${winnerData.setsB} Sätze`;
+            matchWinnerInfo.classList.remove('hidden');
+        } else {
+            // No valid sets yet
+            matchWinnerInfo.classList.add('hidden');
+        }
+    }
+
     // Helper function to create appropriate score input based on sport and mode
     function createScoreInputForSport(mode) {
         if (!setScoreContainer) return null;
 
+        let handler;
         if (isTennisOrPadel) {
             const options = {
                 mode: mode || 'best-of-3',
                 goldenPoint: goldenPointCheckbox?.checked || false,
                 matchTieBreak: matchTieBreakCheckbox?.checked || false
             };
-            return createTennisScoreInput(setScoreContainer, [], options);
+            handler = createTennisScoreInput(setScoreContainer, [], options);
         } else if (isBadminton) {
-            return createBadmintonScoreInput(setScoreContainer, [], 'best-of-3');
+            handler = createBadmintonScoreInput(setScoreContainer, [], 'best-of-3');
         } else {
             // Table Tennis (default)
-            return createSetScoreInput(setScoreContainer, [], mode || 'best-of-5');
+            handler = createSetScoreInput(setScoreContainer, [], mode || 'best-of-5');
         }
+
+        // Add input listener to update winner display
+        if (setScoreContainer) {
+            setScoreContainer.addEventListener('input', updateWinnerDisplay);
+        }
+
+        // Initial update
+        setTimeout(updateWinnerDisplay, 100);
+
+        return handler;
     }
 
     // Initialize set score inputs based on sport
