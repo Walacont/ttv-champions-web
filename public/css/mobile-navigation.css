@@ -1,13 +1,12 @@
 /**
  * Mobile Navigation System
  * Strava-inspired mobile layout for SC Champions
- * ONLY for Capacitor Native Apps (Android/iOS)
- * Mobile Web browsers will show desktop layout
+ * Works on both Mobile Web and Capacitor Native Apps (Android/iOS)
  * Primary Color: Indigo (#4f46e5)
  */
 
 /* ============================================
-   DESKTOP LAYOUT (Default - includes mobile web)
+   DESKTOP LAYOUT (Default for large screens)
    ============================================ */
 
 /* Hide mobile elements by default */
@@ -22,18 +21,54 @@
 }
 
 /* ============================================
-   NATIVE APP LAYOUT (Capacitor only)
-   Only applies to Android/iOS native apps
+   MOBILE WEB LAYOUT (< 768px)
    ============================================ */
 
-/* Hide desktop header in native apps */
+@media (max-width: 767px) {
+    /* Hide desktop header on mobile */
+    .desktop-header {
+        display: none !important;
+    }
+
+    /* Show mobile elements on mobile */
+    .mobile-header,
+    .mobile-bottom-nav {
+        display: flex;
+    }
+
+    /* Adjust body padding for fixed elements */
+    body {
+        padding-top: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
+        padding-bottom: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
+    }
+
+    /* Main content container adjustments */
+    #main-content {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* Hide desktop navigation tabs on mobile */
+    #main-nav {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   NATIVE APP LAYOUT (Capacitor)
+   Additional styles for Capacitor apps
+   ============================================ */
+
+/* Hide desktop header in native apps (regardless of screen size) */
 html.plt-capacitor .desktop-header,
 html.plt-android .desktop-header,
 html.plt-ios .desktop-header {
     display: none !important;
 }
 
-/* Show mobile elements in native apps */
+/* Show mobile elements in native apps (regardless of screen size) */
 html.plt-capacitor .mobile-header,
 html.plt-capacitor .mobile-bottom-nav,
 html.plt-android .mobile-header,
@@ -69,22 +104,18 @@ html.plt-ios #main-nav {
 }
 
 /* ============================================
-   MOBILE HEADER (Top Fixed) - Native Apps Only
+   MOBILE HEADER (Top Fixed) - Mobile Web & Native Apps
    ============================================ */
 
-html.plt-capacitor .mobile-header,
-html.plt-android .mobile-header,
-html.plt-ios .mobile-header {
+.mobile-header {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
-    padding-top: max(env(safe-area-inset-top, 0px), 0px);
+    height: 52px;
     background-color: #eef2ff; /* bg-indigo-50 */
     border-bottom: 1px solid #e0e7ff; /* indigo-100 border */
     z-index: 1000;
-    display: flex;
     align-items: center;
     justify-content: space-between;
     padding-left: 12px;
@@ -92,21 +123,17 @@ html.plt-ios .mobile-header {
     box-shadow: 0 1px 2px rgba(79, 70, 229, 0.08);
 }
 
-html.plt-capacitor .mobile-header-left,
-html.plt-android .mobile-header-left,
-html.plt-ios .mobile-header-left {
+.mobile-header-left {
     display: flex;
     align-items: center;
     gap: 12px;
     flex: 1;
 }
 
-html.plt-capacitor .mobile-header-title,
-html.plt-android .mobile-header-title,
-html.plt-ios .mobile-header-title {
+.mobile-header-title {
     font-size: 16px;
     font-weight: 600;
-    color: #ffffff;
+    color: #1f2937; /* gray-800 */
     text-align: center;
     flex: 1;
     white-space: nowrap;
@@ -114,9 +141,7 @@ html.plt-ios .mobile-header-title {
     text-overflow: ellipsis;
 }
 
-html.plt-capacitor .mobile-header-right,
-html.plt-android .mobile-header-right,
-html.plt-ios .mobile-header-right {
+.mobile-header-right {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -125,52 +150,66 @@ html.plt-ios .mobile-header-right {
 }
 
 /* Profile Picture */
-html.plt-capacitor .mobile-profile-pic,
-html.plt-android .mobile-profile-pic,
-html.plt-ios .mobile-profile-pic {
+.mobile-profile-pic {
     width: 36px;
     height: 36px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #ffffff;
+    border: 2px solid #4f46e5; /* indigo-600 */
     cursor: pointer;
     transition: opacity 0.2s;
 }
 
-html.plt-capacitor .mobile-profile-pic:hover,
-html.plt-android .mobile-profile-pic:hover,
-html.plt-ios .mobile-profile-pic:hover {
+.mobile-profile-pic:hover {
     opacity: 0.8;
 }
 
 /* Header Icons */
-html.plt-capacitor .mobile-header-icon,
-html.plt-android .mobile-header-icon,
-html.plt-ios .mobile-header-icon {
+.mobile-header-icon {
     position: relative;
     width: 20px;
     height: 20px;
-    color: #ffffff;
+    color: #4f46e5; /* indigo-600 */
     cursor: pointer;
     transition: opacity 0.2s;
 }
 
-html.plt-capacitor .mobile-header-icon:hover,
-html.plt-android .mobile-header-icon:hover,
-html.plt-ios .mobile-header-icon:hover {
+.mobile-header-icon:hover {
     opacity: 0.8;
 }
 
-html.plt-capacitor .mobile-header-icon i,
-html.plt-android .mobile-header-icon i,
-html.plt-ios .mobile-header-icon i {
+.mobile-header-icon i {
     font-size: 20px;
 }
 
+/* Capacitor-specific overrides (safe areas, different colors) */
+html.plt-capacitor .mobile-header,
+html.plt-android .mobile-header,
+html.plt-ios .mobile-header {
+    height: calc(52px + max(env(safe-area-inset-top, 0px), 0px));
+    padding-top: max(env(safe-area-inset-top, 0px), 0px);
+}
+
+html.plt-capacitor .mobile-header-title,
+html.plt-android .mobile-header-title,
+html.plt-ios .mobile-header-title {
+    color: #ffffff;
+}
+
+html.plt-capacitor .mobile-profile-pic,
+html.plt-android .mobile-profile-pic,
+html.plt-ios .mobile-profile-pic {
+    border-color: #ffffff;
+}
+
+html.plt-capacitor .mobile-header-icon,
+html.plt-android .mobile-header-icon,
+html.plt-ios .mobile-header-icon {
+    color: #ffffff;
+}
+
 /* Badge Counter (like Strava's red badge) */
-html.plt-capacitor .mobile-icon-badge,
-html.plt-android .mobile-icon-badge,
-html.plt-ios .mobile-icon-badge {
+.mobile-icon-badge {
     position: absolute;
     top: -6px;
     right: -6px;
@@ -189,22 +228,18 @@ html.plt-ios .mobile-icon-badge {
 }
 
 /* ============================================
-   BOTTOM NAVIGATION (Fixed) - Native Apps Only
+   BOTTOM NAVIGATION (Fixed) - Mobile Web & Native Apps
    ============================================ */
 
-html.plt-capacitor .mobile-bottom-nav,
-html.plt-android .mobile-bottom-nav,
-html.plt-ios .mobile-bottom-nav {
+.mobile-bottom-nav {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    height: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+    height: 60px;
     background-color: #eef2ff; /* bg-indigo-50 */
     border-top: 1px solid #e0e7ff; /* indigo-100 border */
     z-index: 1000;
-    display: flex;
     align-items: center;
     justify-content: space-around;
     box-shadow: 0 -1px 3px rgba(79, 70, 229, 0.08);
@@ -212,10 +247,16 @@ html.plt-ios .mobile-bottom-nav {
     padding-right: 4px;
 }
 
+/* Capacitor-specific override for safe area */
+html.plt-capacitor .mobile-bottom-nav,
+html.plt-android .mobile-bottom-nav,
+html.plt-ios .mobile-bottom-nav {
+    height: calc(60px + max(env(safe-area-inset-bottom, 0px), 0px));
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+}
+
 /* Navigation Items */
-html.plt-capacitor .mobile-nav-item,
-html.plt-android .mobile-nav-item,
-html.plt-ios .mobile-nav-item {
+.mobile-nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -224,60 +265,45 @@ html.plt-ios .mobile-nav-item {
     padding: 6px 8px;
     cursor: pointer;
     transition: all 0.2s;
-    color: #ffffff;
+    color: #4f46e5; /* indigo-600 */
     text-decoration: none;
     min-width: 56px;
     position: relative;
     opacity: 0.5; /* Inaktive Tabs halbtransparent */
 }
 
-html.plt-capacitor .mobile-nav-item i,
-html.plt-android .mobile-nav-item i,
-html.plt-ios .mobile-nav-item i {
+.mobile-nav-item i {
     font-size: 20px;
     transition: all 0.2s;
 }
 
-html.plt-capacitor .mobile-nav-item span,
-html.plt-android .mobile-nav-item span,
-html.plt-ios .mobile-nav-item span {
+.mobile-nav-item span {
     font-size: 10px;
     font-weight: 500;
     transition: all 0.2s;
     line-height: 1.2;
 }
 
-/* Active State - Sehr deutlich unterscheidbar */
-html.plt-capacitor .mobile-nav-item.active,
-html.plt-android .mobile-nav-item.active,
-html.plt-ios .mobile-nav-item.active {
-    color: #ffffff;
+/* Active State */
+.mobile-nav-item.active {
     opacity: 1; /* Voll sichtbar */
 }
 
-html.plt-capacitor .mobile-nav-item.active i,
-html.plt-android .mobile-nav-item.active i,
-html.plt-ios .mobile-nav-item.active i {
+.mobile-nav-item.active i {
     transform: scale(1.2); /* Größeres Icon */
 }
 
-html.plt-capacitor .mobile-nav-item.active span,
-html.plt-android .mobile-nav-item.active span,
-html.plt-ios .mobile-nav-item.active span {
+.mobile-nav-item.active span {
     font-weight: 700; /* Fetter Text */
 }
 
 /* Middle Item (Wettkampf) - Highlighted with Circle */
-html.plt-capacitor .mobile-nav-item.middle-action,
-html.plt-android .mobile-nav-item.middle-action,
-html.plt-ios .mobile-nav-item.middle-action {
+.mobile-nav-item.middle-action {
     margin-top: -16px;
-    opacity: 1 !important; /* Immer voll sichtbar (überschreibt .mobile-nav-item opacity) */
+    opacity: 1 !important;
 }
 
-html.plt-capacitor .mobile-nav-item.middle-action .nav-icon-wrapper,
-html.plt-android .mobile-nav-item.middle-action .nav-icon-wrapper,
-html.plt-ios .mobile-nav-item.middle-action .nav-icon-wrapper {
+.mobile-nav-item.middle-action .nav-icon-wrapper {
     width: 48px;
     height: 48px;
     border-radius: 50%;
@@ -289,32 +315,43 @@ html.plt-ios .mobile-nav-item.middle-action .nav-icon-wrapper {
     transition: all 0.3s ease;
 }
 
-html.plt-capacitor .mobile-nav-item.middle-action.active .nav-icon-wrapper,
-html.plt-android .mobile-nav-item.middle-action.active .nav-icon-wrapper,
-html.plt-ios .mobile-nav-item.middle-action.active .nav-icon-wrapper {
-    transform: scale(1.15); /* Größer wenn aktiv */
-    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6); /* Stärkerer Glow wenn aktiv */
+.mobile-nav-item.middle-action.active .nav-icon-wrapper {
+    transform: scale(1.15);
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
 }
 
-html.plt-capacitor .mobile-nav-item.middle-action .nav-icon-wrapper:active,
-html.plt-android .mobile-nav-item.middle-action .nav-icon-wrapper:active,
-html.plt-ios .mobile-nav-item.middle-action .nav-icon-wrapper:active {
+.mobile-nav-item.middle-action .nav-icon-wrapper:active {
     transform: scale(0.95);
 }
 
-html.plt-capacitor .mobile-nav-item.middle-action i,
-html.plt-android .mobile-nav-item.middle-action i,
-html.plt-ios .mobile-nav-item.middle-action i {
+.mobile-nav-item.middle-action i {
     font-size: 22px;
     color: white;
+}
+
+.mobile-nav-item.middle-action span {
+    color: #4f46e5; /* indigo-600 */
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+/* Capacitor-specific overrides (white text in apps) */
+html.plt-capacitor .mobile-nav-item,
+html.plt-android .mobile-nav-item,
+html.plt-ios .mobile-nav-item {
+    color: #ffffff;
+}
+
+html.plt-capacitor .mobile-nav-item.active,
+html.plt-android .mobile-nav-item.active,
+html.plt-ios .mobile-nav-item.active {
+    color: #ffffff;
 }
 
 html.plt-capacitor .mobile-nav-item.middle-action span,
 html.plt-android .mobile-nav-item.middle-action span,
 html.plt-ios .mobile-nav-item.middle-action span {
     color: #ffffff;
-    font-weight: 600;
-    margin-top: 2px;
 }
 
 html.plt-capacitor .mobile-nav-item.middle-action.active span,
