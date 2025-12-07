@@ -2342,6 +2342,21 @@ async function searchOpponents(query, resultsContainer) {
         const userSportId = currentUserData.active_sport_id;
         console.log('[Opponent Search] Searching with sport ID:', userSportId, 'query:', query);
 
+        // DEBUG: Check if RLS allows us to see ANY other profiles
+        const { data: rlsTest, error: rlsError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, active_sport_id')
+            .neq('id', currentUser.id)
+            .limit(5);
+
+        console.log('[Opponent Search] RLS TEST - Can see', rlsTest?.length || 0, 'profiles total');
+        if (rlsTest?.length > 0) {
+            rlsTest.forEach(p => console.log('[Opponent Search] RLS TEST - Found:', p.first_name, p.last_name, 'sport_id:', p.active_sport_id));
+        }
+        if (rlsError) {
+            console.error('[Opponent Search] RLS ERROR:', rlsError);
+        }
+
         // DEBUG: First check how many players exist with this sport (without name filter)
         const { data: allSportPlayers, error: debugError } = await supabase
             .from('profiles')
