@@ -33,13 +33,133 @@ export function refreshSubgroupsList() {
  */
 async function reloadSubgroupsListDirectly() {
     const subgroupsListContainer = document.getElementById('subgroups-list');
-    if (!subgroupsListContainer || !storedSupabase || !storedClubId) return;
+    if (!subgroupsListContainer || !storedSupabase || !storedClubId) {
+        console.log('[Subgroups] Cannot reload: missing container or context');
+        return;
+    }
 
-    // Trigger the same loading logic by dispatching a fake tab click
-    // or just reload the page section
-    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
-    if (subgroupsTabButton) {
-        subgroupsTabButton.click();
+    console.log('[Subgroups] Reloading list directly...');
+
+    try {
+        // Get sport context for filtering
+        let activeSportId = null;
+        if (storedUserId) {
+            const sportContext = await getSportContext(storedUserId);
+            activeSportId = sportContext?.sportId;
+        }
+
+        let query = storedSupabase
+            .from('subgroups')
+            .select('*')
+            .eq('club_id', storedClubId)
+            .order('created_at', { ascending: true });
+
+        if (activeSportId) {
+            query = query.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        // Re-render the list
+        subgroupsListContainer.innerHTML = '';
+
+        if (!data || data.length === 0) {
+            subgroupsListContainer.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <p>Noch keine Untergruppen vorhanden.</p>
+                    <p class="text-sm mt-2">Erstelle eine neue Untergruppe, um loszulegen.</p>
+                </div>
+            `;
+            return;
+        }
+
+        data.forEach(subgroupData => {
+            const subgroup = mapSubgroupFromSupabase(subgroupData);
+            const isDefault = subgroup.isDefault || false;
+
+            const card = document.createElement('div');
+            card.className =
+                'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
+            card.innerHTML = `
+                <div class="p-4">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+                                <div class="w-4 h-4 flex-shrink-0 rounded-full border-2 border-gray-300" style="background-color: ${subgroup.color || '#6366f1'};"></div>
+                                <button
+                                    data-subgroup-id="${subgroup.id}"
+                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors min-w-0 overflow-hidden"
+                                >
+                                    <svg class="h-5 w-5 flex-shrink-0 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    <span class="text-lg font-semibold text-gray-900 truncate block">${subgroup.name}</span>
+                                </button>
+                                ${isDefault ? '<span class="text-xs flex-shrink-0 bg-blue-100 text-blue-800 px-2 py-1 rounded-full whitespace-nowrap">Standard</span>' : ''}
+                            </div>
+                            <div class="flex gap-2 flex-shrink-0">
+                                <button
+                                    data-id="${subgroup.id}"
+                                    data-name="${subgroup.name}"
+                                    data-color="${subgroup.color || '#6366f1'}"
+                                    data-is-default="${isDefault}"
+                                    class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-2 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors whitespace-nowrap"
+                                >
+                                    <span class="hidden sm:inline">Bearbeiten</span>
+                                    <svg class="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </button>
+                                ${
+                                    !isDefault
+                                        ? `
+                                    <button
+                                        data-id="${subgroup.id}"
+                                        data-name="${subgroup.name}"
+                                        class="delete-subgroup-btn text-red-600 hover:text-red-900 px-2 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
+                                    >
+                                        <span class="hidden sm:inline">Löschen</span>
+                                        <svg class="h-4 w-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                `
+                                        : ''
+                                }
+                            </div>
+                        </div>
+                        <div class="ml-7">
+                            <p class="text-sm text-gray-500 truncate">ID: ${subgroup.id}</p>
+                            <p class="text-xs text-gray-400 mt-1">Erstellt: ${formatDate(subgroup.createdAt) || 'Unbekannt'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expandable Player List -->
+                <div id="player-list-${subgroup.id}" class="hidden bg-gray-50 border-t border-gray-200 p-4">
+                    <div class="mb-3 flex justify-between items-center">
+                        <h4 class="text-sm font-semibold text-gray-700">Spieler zuweisen</h4>
+                        <button
+                            data-subgroup-id="${subgroup.id}"
+                            class="save-player-assignments-btn bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1 px-3 rounded-md transition-colors"
+                        >
+                            Änderungen speichern
+                        </button>
+                    </div>
+                    <div id="player-checkboxes-${subgroup.id}" class="max-h-80 overflow-y-auto space-y-2">
+                        <p class="text-sm text-gray-500">Spieler werden geladen...</p>
+                    </div>
+                </div>
+            `;
+
+            subgroupsListContainer.appendChild(card);
+        });
+
+        console.log('[Subgroups] List reloaded with', data.length, 'subgroups');
+    } catch (error) {
+        console.error('[Subgroups] Error reloading list:', error);
     }
 }
 
