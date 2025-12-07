@@ -16,15 +16,22 @@ let storedClubId = null;
 let storedUserId = null;
 
 /**
- * Refreshes the subgroups list (can be called from anywhere)
- * Uses stored context to reload directly
+ * Refreshes the subgroups list by simulating a tab click
+ * This ensures a completely fresh load without any caching issues
  */
 export async function refreshSubgroupsList() {
-    console.log('[Subgroups] refreshSubgroupsList called, storedSupabase:', !!storedSupabase, 'storedClubId:', storedClubId);
-    if (storedSupabase && storedClubId) {
-        await reloadSubgroupsListDirectly();
+    console.log('[Subgroups] refreshSubgroupsList called - triggering tab reload');
+
+    // Simply click the subgroups tab button to trigger a fresh load
+    const subgroupsTabButton = document.querySelector('.tab-button[data-tab="subgroups"]');
+    if (subgroupsTabButton) {
+        console.log('[Subgroups] Clicking tab button to reload');
+        subgroupsTabButton.click();
     } else {
-        console.warn('[Subgroups] No stored context available for refresh');
+        console.warn('[Subgroups] Tab button not found, trying direct reload');
+        if (storedSupabase && storedClubId) {
+            await reloadSubgroupsListDirectly();
+        }
     }
 }
 
