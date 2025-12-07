@@ -2757,19 +2757,35 @@ async function submitMatchRequest() {
     const winnerId = validation.winnerId === 'A' ? currentUser.id : selectedOpponent.id;
     const loserId = validation.winnerId === 'A' ? selectedOpponent.id : currentUser.id;
 
+    // Get sport ID from context
+    const sportId = currentSportContext?.sportId || currentUserData.active_sport_id || null;
+    const myClubId = currentSportContext?.clubId || currentUserData.club_id || null;
+    const opponentClubId = selectedOpponent.clubId || selectedOpponent.club_id || null;
+
+    // Determine if this is a cross-club match
+    const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
+
     try {
         const { error } = await supabase
             .from('match_requests')
             .insert({
                 player_a_id: currentUser.id,
                 player_b_id: selectedOpponent.id,
-                club_id: currentUserData.club_id,
+                club_id: myClubId,
+                sport_id: sportId,
                 sets: sets,
                 match_mode: matchMode,
                 handicap_used: handicapUsed,
                 winner_id: winnerId,
                 loser_id: loserId,
                 status: 'pending_player',
+                is_cross_club: isCrossClub,
+                approvals: JSON.stringify({
+                    player_a: true,
+                    player_b: false,
+                    coach_a: null,
+                    coach_b: null
+                }),
                 created_at: new Date().toISOString()
             });
 
