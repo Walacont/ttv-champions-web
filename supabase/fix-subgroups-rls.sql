@@ -3,6 +3,30 @@
 -- Also adds head_coach to all coach-level policies
 
 -- ============================================
+-- PROFILES UPDATE POLICY FOR COACHES
+-- ============================================
+-- Coaches need to update subgroup_ids on player profiles in their club
+
+DROP POLICY IF EXISTS profiles_update_coach ON profiles;
+CREATE POLICY profiles_update_coach ON profiles FOR UPDATE
+    USING (
+        -- Coach/Head Coach can update players in their club
+        club_id IN (
+            SELECT club_id FROM profiles
+            WHERE id = (SELECT auth.uid())
+            AND role IN ('coach', 'head_coach', 'admin')
+        )
+    )
+    WITH CHECK (
+        -- Can only update profiles in their own club
+        club_id IN (
+            SELECT club_id FROM profiles
+            WHERE id = (SELECT auth.uid())
+            AND role IN ('coach', 'head_coach', 'admin')
+        )
+    );
+
+-- ============================================
 -- SUBGROUPS POLICIES
 -- ============================================
 
