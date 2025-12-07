@@ -2760,9 +2760,28 @@ function checkHandicap() {
     if (diff >= 100) {
         const stronger = myElo > opponentElo ? 'Du bist' : `${selectedOpponent.name} ist`;
         const weaker = myElo > opponentElo ? selectedOpponent.name : 'Du';
-        const handicapPoints = Math.min(Math.floor(diff / 50), 5);
 
-        handicapText.textContent = `${stronger} ${diff} Elo-Punkte stärker. Empfohlener Handicap: ${weaker} startet jeden Satz mit ${handicapPoints} Punkten.`;
+        // Sport-specific handicap suggestions
+        const sportName = currentSportContext?.sportName;
+        const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
+        const isBadminton = sportName === 'badminton';
+
+        let handicapSuggestion;
+        if (isTennisOrPadel) {
+            // Tennis/Padel: Games handicap (1-3 games head start per set)
+            const handicapGames = Math.min(Math.floor(diff / 100), 3);
+            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapGames} Spiel${handicapGames > 1 ? 'en' : ''} Vorsprung (z.B. ${handicapGames}:0).`;
+        } else if (isBadminton) {
+            // Badminton: Points handicap (similar to table tennis but max 5)
+            const handicapPoints = Math.min(Math.floor(diff / 50), 5);
+            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapPoints} Punkten Vorsprung.`;
+        } else {
+            // Table Tennis: Points handicap
+            const handicapPoints = Math.min(Math.floor(diff / 50), 5);
+            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapPoints} Punkten.`;
+        }
+
+        handicapText.textContent = `${stronger} ${diff} Elo-Punkte stärker. Empfohlener Handicap: ${handicapSuggestion}`;
         handicapInfo.classList.remove('hidden');
     } else {
         handicapInfo.classList.add('hidden');
