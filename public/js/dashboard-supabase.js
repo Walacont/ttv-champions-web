@@ -1028,7 +1028,9 @@ async function fetchLeaderboardData() {
 
         // Get users in the current sport for multi-sport filtering
         const effectiveClubId = currentSportContext?.clubId || currentUserData.club_id;
-        const sportId = currentSportContext?.sportId;
+        // Use sport from context, falling back to profile's active_sport_id
+        const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
+        console.log('[Leaderboard] Using sport ID:', sportId, '(from context:', !!currentSportContext?.sportId, ', from profile:', !!currentUserData.active_sport_id, ')');
 
         // Fetch club data - players in same sport AND club (single sport model)
         if (effectiveClubId) {
