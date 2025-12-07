@@ -1224,7 +1224,17 @@ leaveClubBtn?.addEventListener('click', async () => {
         console.error('Error loading club name:', error);
     }
 
-    if (!confirm(`Möchtest du wirklich eine Austrittsanfrage für "${clubName}" senden?`)) {
+    // Special warning for coaches - they will lose their coach role
+    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
+    let confirmMessage = `Möchtest du wirklich eine Austrittsanfrage für "${clubName}" senden?`;
+
+    if (isCoach) {
+        confirmMessage = `⚠️ ACHTUNG: Du bist ${currentUserData.role === 'head_coach' ? 'Haupttrainer' : 'Spartenleiter'}!\n\n` +
+            `Wenn du den Verein "${clubName}" verlässt, verlierst du deine Trainer-Rechte und wirst zu einem normalen Spieler herabgestuft.\n\n` +
+            `Möchtest du trotzdem eine Austrittsanfrage senden?`;
+    }
+
+    if (!confirm(confirmMessage)) {
         return;
     }
 

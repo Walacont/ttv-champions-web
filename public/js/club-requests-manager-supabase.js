@@ -38,6 +38,7 @@ function mapLeaveRequestFromSupabase(request) {
         ? `${request.player.first_name || ''} ${request.player.last_name || ''}`.trim()
         : 'Unbekannt';
     const playerEmail = request.player?.email || 'Keine E-Mail';
+    const playerRole = request.player?.role || 'player';
 
     return {
         id: request.id,
@@ -45,6 +46,8 @@ function mapLeaveRequestFromSupabase(request) {
         playerId: request.player_id,
         playerName: playerName || playerEmail,
         playerEmail: playerEmail,
+        playerRole: playerRole,
+        isCoach: playerRole === 'coach' || playerRole === 'head_coach',
         status: request.status,
         createdAt: request.created_at,
         updatedAt: request.updated_at
@@ -119,11 +122,13 @@ async function handleLeaveRequestClick(e) {
 
     const action = button.dataset.action;
     const requestId = button.dataset.requestId;
+    const isCoach = button.dataset.isCoach === 'true';
+    const playerName = button.dataset.playerName || 'Spieler';
 
-    console.log('[ClubRequests] Button clicked:', action, requestId);
+    console.log('[ClubRequests] Button clicked:', action, requestId, 'isCoach:', isCoach);
 
     if (action === 'approve-leave') {
-        await approveLeaveRequest(requestId);
+        await approveLeaveRequest(requestId, isCoach, playerName);
     } else if (action === 'reject-leave') {
         await rejectLeaveRequest(requestId);
     }
@@ -222,12 +227,12 @@ async function loadLeaveRequests() {
 
             console.log('[ClubRequests] Found', data?.length || 0, 'pending leave requests');
 
-            // Fetch player data for each request
+            // Fetch player data for each request (including role)
             const requestsWithPlayerData = await Promise.all(
                 (data || []).map(async (request) => {
                     const { data: playerData } = await supabaseClient
                         .from('profiles')
-                        .select('first_name, last_name, email')
+                        .select('first_name, last_name, email, role')
                         .eq('id', request.player_id)
                         .single();
 
@@ -328,20 +333,37 @@ function displayLeaveRequests(requests) {
 
     container.innerHTML = requests
         .map(
-            request => `
-        <div class="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+            request => {
+                // Show warning if the leaving player is a coach
+                const coachWarning = request.isCoach ? `
+                    <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <strong>Achtung:</strong> ${request.playerRole === 'head_coach' ? 'Haupttrainer' : 'Spartenleiter'} -
+                        wird bei Genehmigung zum Spieler herabgestuft!
+                    </div>
+                ` : '';
+
+                const roleLabel = request.isCoach
+                    ? `<span class="ml-2 px-2 py-0.5 text-xs rounded ${request.playerRole === 'head_coach' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">${request.playerRole === 'head_coach' ? 'Haupttrainer' : 'Spartenleiter'}</span>`
+                    : '';
+
+                return `
+        <div class="bg-white rounded-lg border ${request.isCoach ? 'border-yellow-300' : 'border-gray-200'} p-4 hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between">
                 <div class="flex-1">
-                    <h4 class="font-medium text-gray-900">${request.playerName}</h4>
+                    <h4 class="font-medium text-gray-900">${request.playerName}${roleLabel}</h4>
                     <p class="text-sm text-gray-600">${request.playerEmail}</p>
                     <p class="text-xs text-gray-400 mt-1">
                         Angefragt am: ${formatDate(request.createdAt, { includeTime: true })}
                     </p>
+                    ${coachWarning}
                 </div>
                 <div class="flex gap-2">
                     <button
                         data-action="approve-leave"
                         data-request-id="${request.id}"
+                        data-is-coach="${request.isCoach}"
+                        data-player-name="${request.playerName}"
                         class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
                     >
                         Genehmigen
@@ -356,7 +378,8 @@ function displayLeaveRequests(requests) {
                 </div>
             </div>
         </div>
-    `
+    `;
+            }
         )
         .join('');
 }
@@ -436,11 +459,21 @@ async function rejectClubRequest(requestId) {
 }
 
 // Approve leave request
-async function approveLeaveRequest(requestId) {
-    if (!confirm('Möchtest du diese Austrittsanfrage wirklich genehmigen?')) return;
+async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spieler') {
+    // Special confirmation for coaches
+    let confirmMessage = 'Möchtest du diese Austrittsanfrage wirklich genehmigen?';
+    if (isCoach) {
+        confirmMessage = `⚠️ ACHTUNG: ${playerName} ist ein Trainer!\n\n` +
+            `Wenn du diese Anfrage genehmigst, wird ${playerName}:\n` +
+            `• Den Verein verlassen\n` +
+            `• Zum normalen Spieler herabgestuft\n\n` +
+            `Möchtest du fortfahren?`;
+    }
+
+    if (!confirm(confirmMessage)) return;
 
     try {
-        console.log('[ClubRequests] Approving leave request via RPC:', requestId);
+        console.log('[ClubRequests] Approving leave request via RPC:', requestId, 'isCoach:', isCoach);
 
         // Call RPC function that bypasses RLS
         const { data, error } = await supabaseClient.rpc('approve_club_leave_request', {
@@ -465,7 +498,12 @@ async function approveLeaveRequest(requestId) {
             await reloadLeaveRequests();
         }
 
-        alert('Spieler hat den Verein verlassen.');
+        // Show appropriate message
+        if (isCoach) {
+            alert(`${playerName} hat den Verein verlassen und wurde zum Spieler herabgestuft.`);
+        } else {
+            alert('Spieler hat den Verein verlassen.');
+        }
     } catch (error) {
         console.error('Error approving leave request:', error);
         alert('Fehler beim Genehmigen: ' + error.message);
