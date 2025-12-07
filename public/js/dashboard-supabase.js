@@ -2304,6 +2304,101 @@ function setupMatchForm() {
 
     console.log('[SetupMatchForm] Sport:', sportName, 'isTennis:', isTennisOrPadel, 'isBadminton:', isBadminton);
 
+    // Mode info texts for each sport
+    const modeInfoTexts = {
+        // Tennis/Padel modes
+        'best-of-3-tennis': {
+            title: 'Best of 3 (Standard)',
+            desc: 'Wer zuerst 2 Sätze gewinnt. Ein Satz geht bis 6 Spiele mit 2 Spielen Vorsprung. Bei 6:6 wird ein Tie-Break gespielt (7:6).',
+            example: 'z.B. 6:4, 3:6, 7:5'
+        },
+        'pro-set': {
+            title: 'Einzelsatz (Pro Set)',
+            desc: 'Nur ein langer Satz. Wer zuerst 9 (oder 10) Spiele erreicht, gewinnt. Es müssen 2 Spiele Vorsprung sein.',
+            example: 'z.B. 9:7 oder 10:8'
+        },
+        'timed': {
+            title: 'Zeit / Fortlaufend',
+            desc: 'Ideal für Trainingsmatches mit fester Zeit. Es werden einfach die gewonnenen Spiele gezählt, ohne Satz-Logik.',
+            example: 'z.B. 14:11 nach 60 Minuten'
+        },
+        'fast4': {
+            title: 'Fast4 (Schnellformat)',
+            desc: 'Verkürzte Sätze bis 4 Spiele. Bei 3:3 gibt es einen Tie-Break. Best of 3 Sätze.',
+            example: 'z.B. 4:2, 3:4, 4:1'
+        },
+        // Table Tennis modes
+        'best-of-3-tt': {
+            title: 'Best of 3',
+            desc: 'Wer zuerst 2 Sätze gewinnt. Ein Satz geht bis 11 Punkte mit 2 Punkten Vorsprung.',
+            example: 'z.B. 11:9, 8:11, 11:7'
+        },
+        'best-of-5': {
+            title: 'Best of 5 (Standard)',
+            desc: 'Wer zuerst 3 Sätze gewinnt. Ein Satz geht bis 11 Punkte mit 2 Punkten Vorsprung.',
+            example: 'z.B. 11:9, 11:7, 9:11, 11:5'
+        },
+        'best-of-7': {
+            title: 'Best of 7',
+            desc: 'Wer zuerst 4 Sätze gewinnt. Wird oft bei wichtigen Turnieren gespielt.',
+            example: 'z.B. 11:9, 11:7, 9:11, 11:5, 11:8'
+        },
+        'single-set': {
+            title: '1 Satz',
+            desc: 'Nur ein einzelner Satz. Schnelles Format für Training oder Zeitdruck.',
+            example: 'z.B. 11:8'
+        },
+        // Badminton modes
+        'best-of-3-badminton': {
+            title: 'Best of 3 (Standard)',
+            desc: 'Wer zuerst 2 Sätze gewinnt. Ein Satz geht bis 21 Punkte mit 2 Punkten Vorsprung (max. 30).',
+            example: 'z.B. 21:18, 19:21, 21:15'
+        }
+    };
+
+    // Helper to get mode info key
+    function getModeInfoKey(mode) {
+        if (isTennisOrPadel) {
+            if (mode === 'best-of-3') return 'best-of-3-tennis';
+            return mode;
+        } else if (isBadminton) {
+            if (mode === 'best-of-3') return 'best-of-3-badminton';
+            return mode;
+        } else {
+            // Table Tennis
+            if (mode === 'best-of-3') return 'best-of-3-tt';
+            return mode;
+        }
+    }
+
+    // Create mode info container
+    let modeInfoContainer = document.getElementById('match-mode-info');
+    if (!modeInfoContainer && matchModeSelect) {
+        modeInfoContainer = document.createElement('div');
+        modeInfoContainer.id = 'match-mode-info';
+        modeInfoContainer.className = 'mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm';
+        matchModeSelect.parentNode.appendChild(modeInfoContainer);
+    }
+
+    // Update mode info display
+    function updateModeInfo(mode) {
+        if (!modeInfoContainer) return;
+        const key = getModeInfoKey(mode);
+        const info = modeInfoTexts[key];
+        if (info) {
+            modeInfoContainer.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <i class="fas fa-info-circle text-indigo-500 mt-0.5"></i>
+                    <div>
+                        <div class="font-medium text-gray-700">${info.title}</div>
+                        <div class="text-gray-600 mt-1">${info.desc}</div>
+                        <div class="text-gray-500 mt-1 italic">${info.example}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
     // Update dropdown options based on sport
     if (matchModeSelect) {
         if (isTennisOrPadel) {
@@ -2327,6 +2422,8 @@ function setupMatchForm() {
                 <option value="single-set">1 Satz</option>
             `;
         }
+        // Show initial mode info
+        updateModeInfo(matchModeSelect.value);
     }
 
     // Show/hide tennis options based on sport
@@ -2363,6 +2460,7 @@ function setupMatchForm() {
     // Match mode change
     matchModeSelect?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect.value);
+        updateModeInfo(matchModeSelect.value);
     });
 
     // Tennis-specific options: Golden Point and Match Tie-Break
