@@ -62,8 +62,13 @@ async function reloadSubgroupsListDirectly() {
 
         if (error) throw error;
 
+        // Debug: Log what we got from database
+        console.log('[Subgroups] Query returned', data?.length, 'subgroups:', data?.map(s => s.name));
+
         // Re-render the list
+        console.log('[Subgroups] Clearing container innerHTML...');
         subgroupsListContainer.innerHTML = '';
+        console.log('[Subgroups] Container cleared, now rendering...');
 
         if (!data || data.length === 0) {
             subgroupsListContainer.innerHTML = `
@@ -72,6 +77,7 @@ async function reloadSubgroupsListDirectly() {
                     <p class="text-sm mt-2">Erstelle eine neue Untergruppe, um loszulegen.</p>
                 </div>
             `;
+            console.log('[Subgroups] No subgroups, showing empty state');
             return;
         }
 
@@ -406,8 +412,10 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
 
         form.reset();
 
-        // Refresh the list immediately
-        console.log('[Subgroups] Insert successful, refreshing list...');
+        // Small delay to ensure database consistency, then refresh
+        console.log('[Subgroups] Insert successful, waiting 200ms for DB sync...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log('[Subgroups] Now refreshing list...');
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed');
 
@@ -589,8 +597,10 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
             }
         }
 
-        // Refresh the list immediately
-        console.log('[Subgroups] Delete successful, refreshing list...');
+        // Small delay to ensure database consistency, then refresh
+        console.log('[Subgroups] Delete successful, waiting 200ms for DB sync...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log('[Subgroups] Now refreshing list...');
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed after delete');
 
