@@ -2600,7 +2600,7 @@ async function searchOpponents(query, resultsContainer) {
         // Build query - filter by sport if user has one
         let playersQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, active_sport_id, clubs(name)')
+            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, active_sport_id, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach', 'head_coach'])
             .ilike('first_name', `%${query}%`);  // Simplified: just search first_name
@@ -2624,10 +2624,11 @@ async function searchOpponents(query, resultsContainer) {
 
         // Filter by privacy settings, match-readiness, and test clubs
         const filteredPlayers = (players || []).filter(player => {
-            // Must have completed at least 5 Grundlagen
+            // Must be match-ready OR have completed at least 5 Grundlagen
+            const isMatchReady = player.is_match_ready === true;
             const grundlagenCompleted = player.grundlagen_completed || 0;
-            if (grundlagenCompleted < 5) {
-                console.log('[Opponent Search] Filtered out (grundlagen):', player.first_name, player.last_name, '- only', grundlagenCompleted);
+            if (!isMatchReady && grundlagenCompleted < 5) {
+                console.log('[Opponent Search] Filtered out (not match-ready):', player.first_name, player.last_name, '- is_match_ready:', isMatchReady, 'grundlagen:', grundlagenCompleted);
                 return false;
             }
 
