@@ -486,6 +486,12 @@ async function initializeCoachPage(userData) {
         });
     });
 
+    // Listen for subgroup changes to refresh the filter dropdown
+    window.addEventListener('subgroupsChanged', () => {
+        console.log('[Coach] Subgroups changed, refreshing filter dropdown...');
+        populateSubgroupFilter(userData.clubId, supabase);
+    });
+
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', async () => {
         try {

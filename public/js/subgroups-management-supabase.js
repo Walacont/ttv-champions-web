@@ -442,6 +442,10 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed');
 
+        // Dispatch event to refresh filter dropdowns
+        console.log('[Subgroups] Dispatching subgroupsChanged event');
+        window.dispatchEvent(new CustomEvent('subgroupsChanged'));
+
         setTimeout(() => {
             if (feedbackEl) feedbackEl.textContent = '';
         }, 2000);
@@ -636,6 +640,10 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
         console.log('[Subgroups] Now refreshing list...');
         await refreshSubgroupsList();
         console.log('[Subgroups] List refreshed after delete');
+
+        // Dispatch event to refresh filter dropdowns
+        console.log('[Subgroups] Dispatching subgroupsChanged event');
+        window.dispatchEvent(new CustomEvent('subgroupsChanged'));
 
         alert('Untergruppe erfolgreich gelöscht!');
     } catch (error) {
