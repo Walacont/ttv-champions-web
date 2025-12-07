@@ -67,8 +67,14 @@ async function reloadSubgroupsListDirectly() {
 
         // Re-render the list
         console.log('[Subgroups] Clearing container innerHTML...');
+        console.log('[Subgroups] Container element:', subgroupsListContainer);
+        console.log('[Subgroups] Container children before clear:', subgroupsListContainer.children.length);
         subgroupsListContainer.innerHTML = '';
-        console.log('[Subgroups] Container cleared, now rendering...');
+        console.log('[Subgroups] Container children after clear:', subgroupsListContainer.children.length);
+
+        // Add visual flash to confirm DOM update
+        subgroupsListContainer.style.opacity = '0.5';
+        setTimeout(() => { subgroupsListContainer.style.opacity = '1'; }, 200);
 
         if (!data || data.length === 0) {
             subgroupsListContainer.innerHTML = `
