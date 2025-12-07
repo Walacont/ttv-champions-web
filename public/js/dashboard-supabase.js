@@ -2447,8 +2447,8 @@ function setupMatchForm() {
 
         const winnerData = setScoreHandler.getMatchWinner();
 
+        // Only show when match is complete (has a winner)
         if (winnerData && winnerData.winner) {
-            // We have a winner
             let winnerName;
             if (winnerData.winner === 'A') {
                 winnerName = currentUserData?.first_name || 'Du';
@@ -2458,12 +2458,8 @@ function setupMatchForm() {
 
             matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
             matchWinnerInfo.classList.remove('hidden');
-        } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
-            // Match in progress, show current score
-            matchWinnerText.textContent = `Aktueller Stand: ${winnerData.setsA}:${winnerData.setsB} Sätze`;
-            matchWinnerInfo.classList.remove('hidden');
         } else {
-            // No valid sets yet
+            // Match not complete yet - hide winner display
             matchWinnerInfo.classList.add('hidden');
         }
     }
