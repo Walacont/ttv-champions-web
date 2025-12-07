@@ -2336,14 +2336,23 @@ async function searchOpponents(query, resultsContainer) {
         // Check if current user is from a test club
         const isCurrentUserInTestClub = currentUserData.club_id && testClubIds.includes(currentUserData.club_id);
 
-        // Load all matching players (global search with privacy filter)
-        const { data: players, error } = await supabase
+        // Get current user's sport for filtering
+        const userSportId = currentUserData.active_sport_id;
+
+        // Build query - filter by sport if user has one
+        let playersQuery = supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach'])
-            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-            .limit(50);
+            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
+
+        // Filter by same sport (single sport model)
+        if (userSportId) {
+            playersQuery = playersQuery.eq('active_sport_id', userSportId);
+        }
+
+        const { data: players, error } = await playersQuery.limit(50);
 
         if (error) throw error;
 
