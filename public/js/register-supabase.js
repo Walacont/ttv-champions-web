@@ -259,6 +259,20 @@ registrationForm?.addEventListener('submit', async e => {
                         if (offlinePlayer.birthdate) profileUpdates.birthdate = offlinePlayer.birthdate;
                         if (offlinePlayer.gender) profileUpdates.gender = offlinePlayer.gender;
                         if (offlinePlayer.subgroup_ids) profileUpdates.subgroup_ids = offlinePlayer.subgroup_ids;
+
+                        // Delete the old offline player profile after copying data
+                        console.log('[REGISTER] Deleting old offline player profile:', invitationCodeData.player_id);
+                        const { error: deleteError } = await supabase
+                            .from('profiles')
+                            .delete()
+                            .eq('id', invitationCodeData.player_id)
+                            .eq('is_offline', true); // Safety: only delete if still marked as offline
+
+                        if (deleteError) {
+                            console.error('[REGISTER] Failed to delete offline player:', deleteError);
+                        } else {
+                            console.log('[REGISTER] Old offline player profile deleted successfully');
+                        }
                     }
                 } else {
                     console.log('[REGISTER] Migration successful:', migrationResult);
