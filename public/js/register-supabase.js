@@ -240,8 +240,14 @@ registrationForm?.addEventListener('submit', async e => {
                     p_offline_player_id: invitationCodeData.player_id
                 });
 
-                if (migrationError) {
-                    console.error('[REGISTER] Migration error:', migrationError);
+                console.log('[REGISTER] Migration RPC result:', migrationResult, 'error:', migrationError);
+
+                // Check for RPC error or if the function returned success: false
+                const migrationFailed = migrationError || (migrationResult && migrationResult.success === false);
+
+                if (migrationFailed) {
+                    const errorMsg = migrationError?.message || migrationResult?.error || 'Unknown error';
+                    console.error('[REGISTER] Migration error:', errorMsg);
                     // Fallback: At least set basic data
                     const { data: offlinePlayer } = await supabase
                         .from('profiles')
@@ -274,11 +280,15 @@ registrationForm?.addEventListener('submit', async e => {
                             console.log('[REGISTER] Old offline player profile deleted successfully');
                         }
                     }
-                } else {
+                } else if (migrationResult && migrationResult.success === true) {
                     console.log('[REGISTER] Migration successful:', migrationResult);
+                    console.log('[REGISTER] Migrated elo_rating:', migrationResult.elo_rating);
+                    console.log('[REGISTER] Old profile deleted:', migrationResult.old_profile_deleted);
                     // Migration RPC handles everything - no need to update profile manually
                     // Clear profileUpdates since RPC already did the work
                     profileUpdates = {};
+                } else {
+                    console.warn('[REGISTER] Unexpected migration result:', migrationResult);
                 }
             } else {
                 // Check if invitation code has birthdate/gender (from offline player creation)

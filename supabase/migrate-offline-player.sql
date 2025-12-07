@@ -1,6 +1,9 @@
 -- Function to migrate an offline player to a new online account
 -- This transfers all data and updates references in related tables
 
+-- Drop old function first to allow return type change
+DROP FUNCTION IF EXISTS migrate_offline_player(UUID, UUID);
+
 CREATE OR REPLACE FUNCTION migrate_offline_player(
     p_new_user_id UUID,
     p_offline_player_id UUID
@@ -13,6 +16,7 @@ AS $$
 DECLARE
     v_offline_player RECORD;
     v_result JSON;
+    v_matches_updated INT := 0;
 BEGIN
     -- Get the offline player's complete data
     SELECT * INTO v_offline_player
@@ -20,7 +24,11 @@ BEGIN
     WHERE id = p_offline_player_id AND is_offline = TRUE;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Offline player not found or is not offline';
+        -- Return error as JSON instead of raising exception (better for frontend handling)
+        RETURN json_build_object(
+            'success', FALSE,
+            'error', 'Offline player not found or is not offline'
+        );
     END IF;
 
     -- Update the new user's profile with ALL offline player data
@@ -109,7 +117,7 @@ BEGIN
     WHERE player_id = p_offline_player_id AND used_by IS NULL;
 
     -- Delete the old offline player profile
-    DELETE FROM profiles WHERE id = p_offline_player_id;
+    DELETE FROM profiles WHERE id = p_offline_player_id AND is_offline = TRUE;
 
     -- Return success with migrated data summary
     SELECT json_build_object(
@@ -118,10 +126,19 @@ BEGIN
         'migrated_to', p_new_user_id,
         'xp', v_offline_player.xp,
         'points', v_offline_player.points,
-        'elo_rating', v_offline_player.elo_rating
+        'elo_rating', v_offline_player.elo_rating,
+        'old_profile_deleted', TRUE
     ) INTO v_result;
 
     RETURN v_result;
+
+EXCEPTION WHEN OTHERS THEN
+    -- Return error as JSON instead of raising exception
+    RETURN json_build_object(
+        'success', FALSE,
+        'error', SQLERRM,
+        'detail', SQLSTATE
+    );
 END;
 $$;
 

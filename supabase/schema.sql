@@ -79,13 +79,13 @@ CREATE TABLE profiles (
     -- Stats
     xp INTEGER DEFAULT 0,
     points INTEGER DEFAULT 0,
-    elo_rating INTEGER DEFAULT 1000,
-    highest_elo INTEGER DEFAULT 1000,
+    elo_rating INTEGER DEFAULT 800,
+    highest_elo INTEGER DEFAULT 800,
     league TEXT,  -- "Diamond", "Gold", etc.
 
     -- Doubles Stats
-    doubles_elo_rating INTEGER DEFAULT 1000,
-    highest_doubles_elo INTEGER DEFAULT 1000,
+    doubles_elo_rating INTEGER DEFAULT 800,
+    highest_doubles_elo INTEGER DEFAULT 800,
     doubles_matches_played INTEGER DEFAULT 0,
     doubles_matches_won INTEGER DEFAULT 0,
     doubles_matches_lost INTEGER DEFAULT 0,
