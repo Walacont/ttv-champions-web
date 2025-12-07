@@ -2776,8 +2776,8 @@ function checkHandicap() {
             const handicapPoints = Math.min(Math.floor(diff / 50), 5);
             handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapPoints} Punkten Vorsprung.`;
         } else {
-            // Table Tennis: Points handicap
-            const handicapPoints = Math.min(Math.floor(diff / 50), 5);
+            // Table Tennis: Points handicap (max 8 points at 400+ Elo diff)
+            const handicapPoints = Math.min(Math.floor(diff / 50), 8);
             handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapPoints} Punkten.`;
         }
 
