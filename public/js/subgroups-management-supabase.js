@@ -407,10 +407,20 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
         }
 
+        // Get current user's sport context
+        const { data: { user } } = await supabase.auth.getUser();
+        let sportId = null;
+        if (user) {
+            const sportContext = await getSportContext(user.id);
+            sportId = sportContext?.sportId || null;
+            console.log('[Subgroups] Using sport_id from context:', sportId);
+        }
+
         const { error } = await supabase
             .from('subgroups')
             .insert([{
                 club_id: clubId,
+                sport_id: sportId,
                 name: name,
                 color: color,
                 is_default: false,
