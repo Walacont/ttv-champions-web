@@ -17,19 +17,14 @@ let storedUserId = null;
 
 /**
  * Refreshes the subgroups list (can be called from anywhere)
- * Uses window.__subgroupsRefresh which is set by loadSubgroupsList
+ * Uses stored context to reload directly
  */
-export function refreshSubgroupsList() {
-    console.log('[Subgroups] refreshSubgroupsList called, window.__subgroupsRefresh:', typeof window.__subgroupsRefresh);
-    if (typeof window.__subgroupsRefresh === 'function') {
-        console.log('[Subgroups] Calling window.__subgroupsRefresh()');
-        window.__subgroupsRefresh();
+export async function refreshSubgroupsList() {
+    console.log('[Subgroups] refreshSubgroupsList called, storedSupabase:', !!storedSupabase, 'storedClubId:', storedClubId);
+    if (storedSupabase && storedClubId) {
+        await reloadSubgroupsListDirectly();
     } else {
-        console.warn('[Subgroups] No refresh function available, trying direct reload');
-        // Fallback: try direct reload if we have stored context
-        if (storedSupabase && storedClubId) {
-            reloadSubgroupsListDirectly();
-        }
+        console.warn('[Subgroups] No stored context available for refresh');
     }
 }
 
@@ -330,10 +325,7 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
     storedSupabase = supabase;
     storedClubId = clubId;
     storedUserId = userId;
-
-    // Store global reference for direct refresh calls (on window for cross-module access)
-    window.__subgroupsRefresh = loadSubgroups;
-    console.log('[Subgroups] window.__subgroupsRefresh set to loadSubgroups function');
+    console.log('[Subgroups] Context stored - supabase:', !!supabase, 'clubId:', clubId, 'userId:', userId);
 
     // Initial load
     loadSubgroups();
@@ -357,8 +349,7 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
 
     setUnsubscribe(() => {
         subscription.unsubscribe();
-        window.__subgroupsRefresh = null;
-        // Note: Don't clear storedSupabase/storedClubId so fallback refresh still works
+        // Note: Don't clear storedSupabase/storedClubId so refresh still works
     });
 }
 
@@ -416,7 +407,9 @@ export async function handleCreateSubgroup(e, supabase, clubId) {
         form.reset();
 
         // Refresh the list immediately
-        refreshSubgroupsList();
+        console.log('[Subgroups] Insert successful, refreshing list...');
+        await refreshSubgroupsList();
+        console.log('[Subgroups] List refreshed');
 
         setTimeout(() => {
             if (feedbackEl) feedbackEl.textContent = '';
@@ -477,6 +470,9 @@ export function closeEditSubgroupModal() {
 export async function handleEditSubgroupSubmit(e, supabase) {
     e.preventDefault();
 
+    // Store supabase reference for refresh
+    storedSupabase = supabase;
+
     const idInput = document.getElementById('edit-subgroup-id');
     const nameInput = document.getElementById('edit-subgroup-name');
     const colorInput = document.querySelector('input[name="edit-subgroup-color"]:checked');
@@ -517,7 +513,9 @@ export async function handleEditSubgroupSubmit(e, supabase) {
         }
 
         // Refresh the list immediately
-        refreshSubgroupsList();
+        console.log('[Subgroups] Update successful, refreshing list...');
+        await refreshSubgroupsList();
+        console.log('[Subgroups] List refreshed after edit');
 
         setTimeout(() => {
             closeEditSubgroupModal();
@@ -539,6 +537,10 @@ export async function handleEditSubgroupSubmit(e, supabase) {
  * @param {string} clubId - Club ID
  */
 export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, clubId) {
+    // Store context for refresh functionality
+    storedSupabase = supabase;
+    storedClubId = clubId;
+
     // Check if any players are assigned to this subgroup
     try {
         const { data: playersInSubgroup, error: queryError } = await supabase
@@ -588,7 +590,9 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
         }
 
         // Refresh the list immediately
-        refreshSubgroupsList();
+        console.log('[Subgroups] Delete successful, refreshing list...');
+        await refreshSubgroupsList();
+        console.log('[Subgroups] List refreshed after delete');
 
         alert('Untergruppe erfolgreich gelöscht!');
     } catch (error) {
