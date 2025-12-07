@@ -134,14 +134,8 @@
             });
         }
 
-        // Notifications button (placeholder for future)
-        const notificationsBtn = document.getElementById('mobile-notifications-btn');
-        if (notificationsBtn) {
-            notificationsBtn.addEventListener('click', () => {
-                console.log('Notifications clicked - Feature coming soon');
-                // TODO: Implement notifications
-            });
-        }
+        // Notifications button now links to /notifications.html
+        // No event handler needed - using native link navigation
 
         // Profile picture click
         const profilePic = document.getElementById('mobile-profile-pic');

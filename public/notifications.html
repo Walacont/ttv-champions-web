@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <script src="/js/capacitor-init.js"></script>
+        <title>Benachrichtigungen - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/css/mobile-navigation.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: #000000;
+                color: #ffffff;
+            }
+
+            .notification-item {
+                border-bottom: 1px solid #2d2d2d;
+                transition: background-color 0.2s ease;
+            }
+
+            .notification-item:hover {
+                background-color: #1a1a1a;
+            }
+
+            .notification-item.unread {
+                background-color: #0f1419;
+            }
+
+            .notification-header {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                background-color: #000000;
+                border-bottom: 1px solid #2d2d2d;
+                z-index: 1000;
+                padding-top: max(env(safe-area-inset-top, 0px), 0px);
+                height: calc(56px + max(env(safe-area-inset-top, 0px), 0px));
+            }
+
+            .notification-list {
+                padding-top: calc(56px + max(env(safe-area-inset-top, 0px), 0px));
+                padding-bottom: max(env(safe-area-inset-bottom, 0px), 20px);
+            }
+
+            .back-button {
+                padding: 8px;
+                border-radius: 50%;
+                transition: background-color 0.2s ease;
+            }
+
+            .back-button:hover {
+                background-color: #2d2d2d;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Header -->
+        <header class="notification-header">
+            <div class="flex items-center justify-between px-4 h-14">
+                <button onclick="history.back()" class="back-button">
+                    <i class="fas fa-arrow-left text-xl text-white"></i>
+                </button>
+                <h1 class="text-lg font-semibold text-white">Benachrichtigungen</h1>
+                <button id="mark-all-read" class="text-sm text-indigo-400 hover:text-indigo-300">
+                    Alle lesen
+                </button>
+            </div>
+        </header>
+
+        <!-- Notifications List -->
+        <div class="notification-list">
+            <!-- Notification Item 1 -->
+            <div class="notification-item unread flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/4f46e5/ffffff?text=NV"
+                    alt="Noah Vey"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Neue Kudos</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Noah Vey und 1 weitere Person haben dir Kudos für Evening Table Tennis gegeben
+                    </p>
+                    <p class="text-gray-500 text-xs">Heute, 09:05</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 2 -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/10b981/ffffff?text=🏓"
+                    alt="Activity"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0 bg-green-600"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Noch eine Aktivität geschafft 🙌</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Tolle Arbeit da draußen. Schau dir jetzt deine Statistik an!
+                    </p>
+                    <p class="text-gray-500 text-xs">Vorgestern, 23:50</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 3 -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/f59e0b/ffffff?text=TM"
+                    alt="Tobias Mühling"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Neue Aktivität</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Dein/e Freund/in Tobias Mühling hat eine virtuelle Radfahrt absolviert. Zeit für Kudos!
+                    </p>
+                    <p class="text-gray-500 text-xs">04.12.2025, 22:21</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 4 -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/f59e0b/ffffff?text=TM"
+                    alt="Tobias Mühling"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Neue Aktivität</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Dein/e Freund/in Tobias Mühling hat eine Gewichtstraining-Einheit absolviert. Zeit für Kudos!
+                    </p>
+                    <p class="text-gray-500 text-xs">04.12.2025, 22:20</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 5 -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/f59e0b/ffffff?text=TM"
+                    alt="Tobias Mühling"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Neue Kudos</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Tobias Mühling hat dir Kudos für Evening Table Tennis gegeben
+                    </p>
+                    <p class="text-gray-500 text-xs">04.12.2025, 19:19</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 6 -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/10b981/ffffff?text=👏"
+                    alt="Achievement"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0 bg-green-600"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Gut gemacht, Tommy 👏</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Kudos für eine weitere abgehakte Aktivität! Schau sie dir jetzt an.
+                    </p>
+                    <p class="text-gray-500 text-xs">04.12.2025, 00:55</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 7 -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/6b7280/ffffff?text=R"
+                    alt="ROGUE"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">Neue Kudos</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        ROGUE Adrian und Sandra haben dir Kudos für Afternoon Table Tennis gegeben
+                    </p>
+                    <p class="text-gray-500 text-xs">03.12.2025, 20:46</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 8 - Wettkampf-Anfrage -->
+            <div class="notification-item unread flex items-start gap-3 p-4">
+                <img
+                    src="https://placehold.co/48x48/ef4444/ffffff?text=MK"
+                    alt="Max Kraft"
+                    class="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                />
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">🏓 Neue Wettkampf-Anfrage</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Max Kraft fordert dich zu einem Wettkampf heraus!
+                    </p>
+                    <p class="text-gray-500 text-xs mb-3">Vor 2 Stunden</p>
+                    <div class="flex gap-2">
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2 px-4 rounded-lg">
+                            Annehmen
+                        </button>
+                        <button class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-semibold py-2 px-4 rounded-lg">
+                            Ablehnen
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Item 9 - Rang aufgestiegen -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-trophy text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">🎉 Rang aufgestiegen!</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Glückwunsch! Du bist jetzt ein "Fortgeschrittener". Weiter so!
+                    </p>
+                    <p class="text-gray-500 text-xs">Gestern, 18:30</p>
+                </div>
+            </div>
+
+            <!-- Notification Item 10 - Challenge abgeschlossen -->
+            <div class="notification-item flex items-start gap-3 p-4">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-star text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-white font-semibold mb-1">✨ Challenge abgeschlossen!</h3>
+                    <p class="text-gray-300 text-sm mb-2">
+                        Du hast die "5 Tage Streak" Challenge gemeistert. +50 XP!
+                    </p>
+                    <p class="text-gray-500 text-xs">Gestern, 12:15</p>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Mark all as read functionality
+            document.getElementById('mark-all-read').addEventListener('click', () => {
+                const unreadItems = document.querySelectorAll('.notification-item.unread');
+                unreadItems.forEach(item => {
+                    item.classList.remove('unread');
+                });
+
+                // Show feedback
+                const button = document.getElementById('mark-all-read');
+                const originalText = button.textContent;
+                button.textContent = '✓ Erledigt';
+                button.classList.add('text-green-400');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('text-green-400');
+                }, 2000);
+            });
+
+            // Make notification items clickable
+            document.querySelectorAll('.notification-item').forEach(item => {
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', (e) => {
+                    // Don't trigger if clicking on buttons
+                    if (e.target.tagName === 'BUTTON') return;
+
+                    // Remove unread state
+                    item.classList.remove('unread');
+
+                    // TODO: Navigate to relevant page or show detail
+                    console.log('Notification clicked');
+                });
+            });
+        </script>
+    </body>
+</html>
