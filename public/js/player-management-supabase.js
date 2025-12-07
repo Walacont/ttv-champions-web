@@ -12,6 +12,12 @@ import { isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayer
 // Keep track of the current Grundlagen listener to avoid duplicates
 let currentGrundlagenListener = null;
 
+// Module-level storage for refresh functionality
+let storedSupabase = null;
+let storedClubId = null;
+let storedUserData = null;
+let storedSetUnsubscribe = null;
+
 /**
  * Validates if a string is a valid UUID format
  * @param {string} str - String to validate
@@ -492,6 +498,12 @@ async function logAuditEvent(supabase, action, actorId, targetId, targetType, cl
  * @param {Object} currentUserData - Current user data with role and activeSportId (for permission checks and sport filtering)
  */
 export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData = null) {
+    // Store context for refresh functionality
+    storedSupabase = supabase;
+    storedClubId = clubId;
+    storedUserData = currentUserData;
+    storedSetUnsubscribe = setUnsubscribe;
+
     const modalPlayerList = document.getElementById('modal-player-list');
     const tableContainer = document.getElementById('modal-player-list-container');
     const loader = document.getElementById('modal-loader');
@@ -1179,14 +1191,20 @@ export async function handleSavePlayerSubgroups(supabase) {
         feedbackEl.textContent = 'Erfolgreich gespeichert!';
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
-        // 4. Modal nach kurzer Verzögerung schließen
+        // 4. Spielerliste sofort aktualisieren
+        if (storedSupabase && storedClubId) {
+            console.log('[PlayerManagement] Refreshing player list after subgroup save...');
+            loadPlayerList(storedClubId, storedSupabase, storedSetUnsubscribe || (() => {}), storedUserData);
+        }
+
+        // 5. Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
             const modal = document.getElementById('edit-player-modal');
             if (modal) modal.classList.add('hidden');
             saveButton.disabled = false;
             saveButton.textContent = 'Änderungen speichern';
 
-            // 5. Detailansicht aktualisieren (Placeholder anzeigen, damit Klick neu lädt)
+            // 6. Detailansicht aktualisieren (Placeholder anzeigen, damit Klick neu lädt)
             const detailPanel = document.getElementById('player-detail-panel');
             const placeholder = document.getElementById('player-detail-placeholder');
             if (detailPanel) detailPanel.classList.add('hidden');
