@@ -474,3 +474,112 @@ html.plt-android.dark .mobile-profile-pic:hover,
 html.plt-ios.dark .mobile-profile-pic:hover {
     opacity: 0.8;
 }
+
+/* ============================================
+   SUB-NAVIGATION for "Du" Tab
+   Horizontal tabs with swipe support
+   ============================================ */
+
+.profile-sub-nav {
+    display: flex;
+    gap: 0;
+    background-color: #ffffff;
+    border-bottom: 2px solid #e5e7eb; /* gray-200 */
+    overflow-x: auto;
+    scrollbar-width: none; /* Firefox */
+    -webkit-overflow-scrolling: touch;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    margin-bottom: 1rem;
+}
+
+.profile-sub-nav::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+}
+
+.profile-sub-nav-item {
+    flex: 1;
+    min-width: fit-content;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500;
+    color: #6b7280; /* gray-500 */
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.profile-sub-nav-item:hover {
+    color: #4f46e5; /* indigo-600 */
+    background-color: #eef2ff; /* indigo-50 */
+}
+
+.profile-sub-nav-item.active {
+    color: #4f46e5; /* indigo-600 */
+    font-weight: 700;
+    border-bottom-color: #4f46e5; /* indigo-600 */
+    background-color: #eef2ff; /* indigo-50 */
+}
+
+.profile-sub-content {
+    display: none;
+}
+
+.profile-sub-content.active {
+    display: block;
+    animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Native Apps Only */
+html.plt-capacitor .profile-sub-nav,
+html.plt-android .profile-sub-nav,
+html.plt-ios .profile-sub-nav {
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+/* Dark Mode for Sub-Navigation */
+html.plt-capacitor.dark .profile-sub-nav,
+html.plt-android.dark .profile-sub-nav,
+html.plt-ios.dark .profile-sub-nav {
+    background-color: #1f2937; /* gray-800 */
+    border-bottom-color: #374151; /* gray-700 */
+}
+
+html.plt-capacitor.dark .profile-sub-nav-item,
+html.plt-android.dark .profile-sub-nav-item,
+html.plt-ios.dark .profile-sub-nav-item {
+    color: #9ca3af; /* gray-400 */
+}
+
+html.plt-capacitor.dark .profile-sub-nav-item:hover,
+html.plt-android.dark .profile-sub-nav-item:hover,
+html.plt-ios.dark .profile-sub-nav-item:hover {
+    color: #ffffff;
+    background-color: #312e81; /* indigo-900 */
+}
+
+html.plt-capacitor.dark .profile-sub-nav-item.active,
+html.plt-android.dark .profile-sub-nav-item.active,
+html.plt-ios.dark .profile-sub-nav-item.active {
+    color: #ffffff;
+    border-bottom-color: #4f46e5;
+    background-color: #312e81;
+}

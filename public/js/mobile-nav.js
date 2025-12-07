@@ -201,6 +201,37 @@
     };
 
     /**
+     * Setup Profile Sub-Navigation (for "Du" Tab)
+     */
+    function setupProfileSubNavigation() {
+        const subNavItems = document.querySelectorAll('.profile-sub-nav-item');
+
+        subNavItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const targetSubTab = item.getAttribute('data-profile-tab');
+
+                // Update active state on sub-nav items
+                subNavItems.forEach(navItem => navItem.classList.remove('active'));
+                item.classList.add('active');
+
+                // Show corresponding sub-content
+                const allSubContents = document.querySelectorAll('.profile-sub-content');
+                allSubContents.forEach(content => content.classList.remove('active'));
+
+                const targetContent = document.getElementById(`profile-sub-${targetSubTab}`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
+    }
+
+    // Initialize profile sub-navigation when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        setupProfileSubNavigation();
+    });
+
+    /**
      * Public API for external modules
      */
     window.MobileNav = {
@@ -209,6 +240,12 @@
             const navItem = document.querySelector(`[data-mobile-tab="${tabName}"]`);
             if (navItem) {
                 navItem.click();
+            }
+        },
+        switchToProfileSubTab: function(subTabName) {
+            const subNavItem = document.querySelector(`[data-profile-tab="${subTabName}"]`);
+            if (subNavItem) {
+                subNavItem.click();
             }
         }
     };
