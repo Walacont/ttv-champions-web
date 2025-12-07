@@ -85,31 +85,31 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
                     'bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow';
                 card.innerHTML = `
                 <div class="p-4">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                        <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 mb-1">
-                                <div class="w-4 h-4 rounded-full border-2 border-gray-300" style="background-color: ${subgroup.color || '#6366f1'};"></div>
+                                <div class="w-4 h-4 flex-shrink-0 rounded-full border-2 border-gray-300" style="background-color: ${subgroup.color || '#6366f1'};"></div>
                                 <button
                                     data-subgroup-id="${subgroup.id}"
-                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                                    class="toggle-player-list-btn flex items-center gap-2 hover:text-indigo-600 transition-colors min-w-0"
                                 >
-                                    <svg class="h-5 w-5 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg class="h-5 w-5 flex-shrink-0 transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                     </svg>
-                                    <h3 class="text-lg font-semibold text-gray-900">${subgroup.name}</h3>
+                                    <h3 class="text-lg font-semibold text-gray-900 truncate">${subgroup.name}</h3>
                                 </button>
-                                ${isDefault ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
+                                ${isDefault ? '<span class="text-xs flex-shrink-0 bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Standard</span>' : ''}
                             </div>
-                            <p class="text-sm text-gray-500 ml-7">ID: ${subgroup.id}</p>
+                            <p class="text-sm text-gray-500 ml-7 truncate">ID: ${subgroup.id}</p>
                             <p class="text-xs text-gray-400 ml-7 mt-1">Erstellt: ${formatDate(subgroup.createdAt) || 'Unbekannt'}</p>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-shrink-0 ml-7 sm:ml-0">
                             <button
                                 data-id="${subgroup.id}"
                                 data-name="${subgroup.name}"
                                 data-color="${subgroup.color || '#6366f1'}"
                                 data-is-default="${isDefault}"
-                                class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors"
+                                class="edit-subgroup-btn text-indigo-600 hover:text-indigo-900 px-3 py-1 text-sm font-medium border border-indigo-600 rounded-md hover:bg-indigo-50 transition-colors whitespace-nowrap"
                             >
                                 Bearbeiten
                             </button>
@@ -119,12 +119,12 @@ export function loadSubgroupsList(clubId, supabase, setUnsubscribe, userId = nul
                                 <button
                                     data-id="${subgroup.id}"
                                     data-name="${subgroup.name}"
-                                    class="delete-subgroup-btn text-red-600 hover:text-red-900 px-3 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors"
+                                    class="delete-subgroup-btn text-red-600 hover:text-red-900 px-3 py-1 text-sm font-medium border border-red-600 rounded-md hover:bg-red-50 transition-colors whitespace-nowrap"
                                 >
                                     Löschen
                                 </button>
                             `
-                                    : '<span class="text-xs text-gray-400 px-3 py-1">Standard kann nicht gelöscht werden</span>'
+                                    : '<span class="text-xs text-gray-400 px-3 py-1 whitespace-nowrap">Standard kann nicht gelöscht werden</span>'
                             }
                         </div>
                     </div>
