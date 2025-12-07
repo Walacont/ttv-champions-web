@@ -572,13 +572,23 @@ export async function handleDeleteSubgroup(subgroupId, subgroupName, supabase, c
             }
         }
 
-        // Delete the subgroup
-        const { error: deleteError } = await supabase
+        // Delete the subgroup - use .select() to see what was actually deleted
+        const { data: deletedData, error: deleteError } = await supabase
             .from('subgroups')
             .delete()
-            .eq('id', subgroupId);
+            .eq('id', subgroupId)
+            .select();
 
         if (deleteError) throw deleteError;
+
+        // Check if RLS silently blocked the delete
+        if (!deletedData || deletedData.length === 0) {
+            console.error('[Subgroups] DELETE returned no data - RLS might have blocked it. SubgroupId:', subgroupId);
+            alert('Fehler: Die Untergruppe konnte nicht gelöscht werden. Möglicherweise fehlen die Berechtigungen. Bitte stelle sicher, dass die RLS-Policies in Supabase korrekt sind.');
+            return;
+        }
+
+        console.log('[Subgroups] Successfully deleted:', deletedData);
 
         // Remove subgroup from all players
         if (playerCount > 0) {
