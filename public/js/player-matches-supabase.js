@@ -459,7 +459,9 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
     function handleSetInput(e) {
         const setIndex = parseInt(e.target.dataset.set);
         const player = e.target.dataset.player;
-        sets[setIndex][`player${player}`] = parseInt(e.target.value) || '';
+        // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
+        const value = e.target.value.trim();
+        sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
 
         // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
@@ -711,7 +713,9 @@ export function createTennisScoreInput(container, existingSets = [], options = {
     function handleSetInput(e) {
         const setIndex = parseInt(e.target.dataset.set);
         const player = e.target.dataset.player;
-        sets[setIndex][`player${player}`] = parseInt(e.target.value) || '';
+        // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
+        const value = e.target.value.trim();
+        sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
 
         // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
@@ -919,7 +923,9 @@ export function createBadmintonScoreInput(container, existingSets = [], mode = '
     function handleSetInput(e) {
         const setIndex = parseInt(e.target.dataset.set);
         const player = e.target.dataset.player;
-        sets[setIndex][`player${player}`] = parseInt(e.target.value) || '';
+        // Fix: Allow 0 as valid value (parseInt("0") || '' would wrongly become '')
+        const value = e.target.value.trim();
+        sets[setIndex][`player${player}`] = value === '' ? '' : parseInt(value);
 
         // Auto-add sets based on score
         let playerAWins = 0, playerBWins = 0;
