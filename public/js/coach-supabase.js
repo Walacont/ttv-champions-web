@@ -472,6 +472,20 @@ async function initializeCoachPage(userData) {
         calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
     });
 
+    // Listen for player subgroup changes to reload clubPlayers and refresh filtered views
+    window.addEventListener('playerSubgroupsChanged', () => {
+        console.log('[Coach] Player subgroups changed, reloading clubPlayers...');
+        loadPlayersForAttendance(userData.clubId, supabase, players => {
+            clubPlayers = players;
+            console.log('[Coach] clubPlayers refreshed with', players.length, 'players');
+            // Refresh all filtered views with updated player data
+            populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+            populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+            updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
+            updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
+        });
+    });
+
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', async () => {
         try {

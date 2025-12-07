@@ -1197,7 +1197,11 @@ export async function handleSavePlayerSubgroups(supabase) {
             loadPlayerList(storedClubId, storedSupabase, storedSetUnsubscribe || (() => {}), storedUserData);
         }
 
-        // 5. Modal nach kurzer Verzögerung schließen
+        // 5. Custom Event dispatchen um den Coach-View zu aktualisieren (Filter, Dropdowns, etc.)
+        console.log('[PlayerManagement] Dispatching playerSubgroupsChanged event');
+        window.dispatchEvent(new CustomEvent('playerSubgroupsChanged'));
+
+        // 6. Modal nach kurzer Verzögerung schließen
         setTimeout(() => {
             const modal = document.getElementById('edit-player-modal');
             if (modal) modal.classList.add('hidden');
