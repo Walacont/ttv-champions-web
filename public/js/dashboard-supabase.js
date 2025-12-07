@@ -213,10 +213,28 @@ async function initializeDashboard() {
     // Populate player subgroup filter with age groups
     await populatePlayerSubgroupFilter(currentUserData);
 
-    // Show coach switch button only if user is coach or head_coach AND has a club
-    // Coaches without a club should not see the toggle (they were downgraded but role not yet updated)
+    // Check if user is coach without a club - if so, downgrade to player
     const isCoachInActiveSport = currentSportContext?.role === 'coach' || currentSportContext?.role === 'head_coach';
     const effectiveClub = currentSportContext?.clubId || currentUserData.club_id;
+
+    if (isCoachInActiveSport && !effectiveClub) {
+        // Coach without club - downgrade role to player
+        console.warn('[DASHBOARD] Coach without club detected, downgrading to player');
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ role: 'player' })
+            .eq('id', currentUser.id);
+
+        if (updateError) {
+            console.error('[DASHBOARD] Failed to downgrade role:', updateError);
+        } else {
+            console.log('[DASHBOARD] Role successfully downgraded to player');
+            // Update local data
+            currentUserData.role = 'player';
+        }
+    }
+
+    // Show coach switch button only if user is coach or head_coach AND has a club
     if (isCoachInActiveSport && effectiveClub) {
         const switchBtn = document.getElementById('switch-to-coach-btn');
         if (switchBtn) switchBtn.classList.remove('hidden');

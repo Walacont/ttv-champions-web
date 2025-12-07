@@ -222,9 +222,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
 
             if (userData.role === 'coach' || userData.role === 'head_coach' || userData.role === 'admin') {
-                // Coaches must be in a club - if not, redirect to dashboard
+                // Coaches must be in a club - if not, downgrade to player and redirect
                 if (!userData.clubId && userData.role !== 'admin') {
-                    console.warn('[COACH] Coach without club detected, redirecting to dashboard');
+                    console.warn('[COACH] Coach without club detected, downgrading to player');
+
+                    // Update role in database
+                    const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({ role: 'player' })
+                        .eq('id', user.uid);
+
+                    if (updateError) {
+                        console.error('[COACH] Failed to downgrade role:', updateError);
+                    } else {
+                        console.log('[COACH] Role successfully downgraded to player');
+                    }
+
                     window.location.replace('/dashboard.html');
                     return;
                 }
