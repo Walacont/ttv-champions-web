@@ -17,6 +17,7 @@ DECLARE
     v_offline_player RECORD;
     v_result JSON;
     v_matches_updated INT := 0;
+    v_deleted_count INT := 0;
 BEGIN
     -- Get the offline player's complete data
     SELECT * INTO v_offline_player
@@ -119,7 +120,10 @@ BEGIN
     -- Delete the old offline player profile
     DELETE FROM profiles WHERE id = p_offline_player_id AND is_offline = TRUE;
 
-    -- Return success with migrated data summary
+    -- Check if delete actually worked
+    GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+
+    -- Return success with migrated data summary (including actual delete status)
     SELECT json_build_object(
         'success', TRUE,
         'migrated_from', p_offline_player_id,
@@ -127,7 +131,8 @@ BEGIN
         'xp', v_offline_player.xp,
         'points', v_offline_player.points,
         'elo_rating', v_offline_player.elo_rating,
-        'old_profile_deleted', TRUE
+        'old_profile_deleted', v_deleted_count > 0,
+        'deleted_count', v_deleted_count
     ) INTO v_result;
 
     RETURN v_result;

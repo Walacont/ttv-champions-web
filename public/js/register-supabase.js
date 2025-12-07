@@ -285,6 +285,25 @@ registrationForm?.addEventListener('submit', async e => {
                     console.log('[REGISTER] Migration successful:', migrationResult);
                     console.log('[REGISTER] Migrated elo_rating:', migrationResult.elo_rating);
                     console.log('[REGISTER] Old profile deleted:', migrationResult.old_profile_deleted);
+                    console.log('[REGISTER] Deleted count:', migrationResult.deleted_count);
+
+                    // Check if the delete actually worked
+                    if (migrationResult.old_profile_deleted === false) {
+                        console.warn('[REGISTER] Migration succeeded but delete failed! Trying fallback delete...');
+                        // Try fallback delete via RPC
+                        const { data: deleteResult, error: deleteError } = await supabase.rpc('delete_offline_player', {
+                            p_offline_player_id: invitationCodeData.player_id
+                        });
+
+                        if (deleteError) {
+                            console.error('[REGISTER] Fallback delete failed (RPC error):', deleteError);
+                        } else if (deleteResult && deleteResult.success) {
+                            console.log('[REGISTER] Fallback delete succeeded!');
+                        } else {
+                            console.error('[REGISTER] Fallback delete also failed:', deleteResult);
+                        }
+                    }
+
                     // Migration RPC handles everything - no need to update profile manually
                     // Clear profileUpdates since RPC already did the work
                     profileUpdates = {};
