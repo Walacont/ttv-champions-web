@@ -367,7 +367,7 @@ export async function loadMatchSuggestions(
         let playersQuery = supabase
             .from('profiles')
             .select('*')
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .eq('club_id', effectiveClubId);
 
         // Filter by sport if available

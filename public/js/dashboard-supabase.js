@@ -606,7 +606,7 @@ async function loadRivalData() {
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, elo_rating, xp, club_id')
-            .in('role', ['player', 'coach']);
+            .in('role', ['player', 'coach', 'head_coach']);
 
         // Apply sport filter
         if (sportId) {
@@ -1037,7 +1037,7 @@ async function fetchLeaderboardData() {
             let clubQuery = supabase
                 .from('profiles')
                 .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
-                .in('role', ['player', 'coach']);
+                .in('role', ['player', 'coach', 'head_coach']);
 
             // Filter by sport
             if (sportId) {
@@ -1066,7 +1066,7 @@ async function fetchLeaderboardData() {
         let globalQuery = supabase
             .from('profiles')
             .select('id, first_name, last_name, photo_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
-            .in('role', ['player', 'coach']);
+            .in('role', ['player', 'coach', 'head_coach']);
 
         // Filter by sport for global leaderboard
         if (sportId) {
@@ -2340,13 +2340,14 @@ async function searchOpponents(query, resultsContainer) {
 
         // Get current user's sport for filtering
         const userSportId = currentUserData.active_sport_id;
+        console.log('[Opponent Search] Searching with sport ID:', userSportId);
 
         // Build query - filter by sport if user has one
         let playersQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, clubs(name)')
+            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, active_sport_id, clubs(name)')
             .neq('id', currentUser.id)
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
 
         // Filter by same sport (single sport model)
@@ -2358,11 +2359,19 @@ async function searchOpponents(query, resultsContainer) {
 
         if (error) throw error;
 
+        console.log('[Opponent Search] Raw query returned:', players?.length || 0, 'players');
+        if (players?.length > 0) {
+            console.log('[Opponent Search] First player:', players[0].first_name, players[0].last_name, 'sport:', players[0].active_sport_id, 'grundlagen:', players[0].grundlagen_completed);
+        }
+
         // Filter by privacy settings, match-readiness, and test clubs
         const filteredPlayers = (players || []).filter(player => {
             // Must have completed at least 5 Grundlagen
             const grundlagenCompleted = player.grundlagen_completed || 0;
-            if (grundlagenCompleted < 5) return false;
+            if (grundlagenCompleted < 5) {
+                console.log('[Opponent Search] Filtered out (grundlagen):', player.first_name, player.last_name, '- only', grundlagenCompleted);
+                return false;
+            }
 
             // Test club filter: hide players from test clubs unless current user is also from a test club
             if (player.club_id && testClubIds.includes(player.club_id)) {
@@ -2900,7 +2909,7 @@ async function loadMatchSuggestions() {
             .select('id, display_name, avatar_url, elo_rating')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .limit(10);
 
         if (error) throw error;

@@ -1002,7 +1002,7 @@ async function populatePartnerDropdown(db, activePlayerId) {
             .from('profiles')
             .select('id, first_name, last_name')
             .eq('club_id', clubId)
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .neq('id', activePlayerId);
 
         if (playersData) {
@@ -1044,7 +1044,7 @@ async function populateManualPartnerDropdown(db, activePlayerId) {
             .from('profiles')
             .select('id, first_name, last_name')
             .eq('club_id', clubId)
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .neq('id', activePlayerId);
 
         if (playersData) {

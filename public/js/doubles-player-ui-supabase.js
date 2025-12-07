@@ -160,7 +160,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             const { data: usersData, error } = await supabase
                 .from('profiles')
                 .select('*')
-                .in('role', ['player', 'coach']);
+                .in('role', ['player', 'coach', 'head_coach']);
 
             if (error) throw error;
 

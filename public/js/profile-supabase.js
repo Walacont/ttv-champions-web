@@ -205,7 +205,7 @@ export function loadRivalData(userData, supabase, currentSubgroupFilter = 'club'
             let query = supabase
                 .from('profiles')
                 .select('id, first_name, last_name, elo_rating, xp, subgroup_ids')
-                .in('role', ['player', 'coach']);
+                .in('role', ['player', 'coach', 'head_coach']);
 
             if (currentSubgroupFilter === 'club') {
                 query = query.eq('club_id', userData.clubId);

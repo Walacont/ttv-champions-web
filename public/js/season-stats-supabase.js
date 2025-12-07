@@ -35,7 +35,7 @@ export function loadTopXPPlayers(clubId, supabase, setUnsubscribeCallback = null
                 .from('profiles')
                 .select('id, first_name, last_name, role, xp')
                 .eq('club_id', clubId)
-                .in('role', ['player', 'coach']);
+                .in('role', ['player', 'coach', 'head_coach']);
 
             if (error) throw error;
 

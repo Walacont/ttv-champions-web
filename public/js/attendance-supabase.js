@@ -879,7 +879,7 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
             .from('profiles')
             .select('id, first_name, last_name, email, subgroup_ids, is_match_ready, role, grundlagen_completed, elo_rating, birthdate, gender, doubles_elo_rating')
             .eq('club_id', clubId)
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .order('last_name', { ascending: true })
             .limit(PLAYER_LIMIT);
 

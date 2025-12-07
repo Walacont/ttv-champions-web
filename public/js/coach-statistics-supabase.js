@@ -194,7 +194,7 @@ async function loadTeamOverview(userData, supabase, currentSubgroupFilter = 'all
             .from('profiles')
             .select('*')
             .eq('club_id', userData.clubId)
-            .in('role', ['player', 'coach']);
+            .in('role', ['player', 'coach', 'head_coach']);
 
         if (error) throw error;
 
@@ -455,7 +455,7 @@ async function loadActivityMonitor(userData, supabase, currentSubgroupFilter = '
             .from('profiles')
             .select('*')
             .eq('club_id', userData.clubId)
-            .in('role', ['player', 'coach']);
+            .in('role', ['player', 'coach', 'head_coach']);
 
         if (playersError) throw playersError;
 

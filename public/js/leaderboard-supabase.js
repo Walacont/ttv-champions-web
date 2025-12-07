@@ -264,7 +264,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings, club_id')
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .order('elo_rating', { ascending: false });
 
         // Filter by sport if set
@@ -351,7 +351,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .order('xp', { ascending: false });
 
         // Filter by sport if set
@@ -434,7 +434,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
-            .in('role', ['player', 'coach'])
+            .in('role', ['player', 'coach', 'head_coach'])
             .order('points', { ascending: false });
 
         // Filter by sport if set
@@ -673,7 +673,7 @@ async function loadLeaderboardFallback(sportId) {
             id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
             club_id, clubs:club_id(name), subgroup_ids, birthdate, gender, privacy_settings
         `)
-        .in('role', ['player', 'coach'])
+        .in('role', ['player', 'coach', 'head_coach'])
         .order('elo_rating', { ascending: false });
 
     // Apply sport filter (single sport model)
@@ -1176,7 +1176,7 @@ async function loadRanksView(userData) {
         let query = supabase
             .from('profiles')
             .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
-            .in('role', ['player', 'coach']);
+            .in('role', ['player', 'coach', 'head_coach']);
 
         // Filter by sport if set
         if (currentLeaderboardSportId) {
