@@ -877,13 +877,18 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
     try {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, email, subgroup_ids, is_match_ready, role, grundlagen_completed, elo_rating, birthdate, gender, doubles_elo_rating')
+            .select('id, first_name, last_name, email, subgroup_ids, is_match_ready, role, grundlagen_completed, elo_rating, birthdate, gender, doubles_elo_rating, is_offline')
             .eq('club_id', clubId)
             .in('role', ['player', 'coach', 'head_coach'])
             .order('last_name', { ascending: true })
             .limit(PLAYER_LIMIT);
 
         if (error) throw error;
+
+        // Debug: Log all players including offline ones
+        console.log(`[Attendance] Loaded ${data?.length || 0} players from DB:`,
+            data?.map(p => ({ id: p.id, name: `${p.first_name} ${p.last_name}`, is_offline: p.is_offline }))
+        );
 
         // Deduplicate players
         const playersMap = new Map();
@@ -902,7 +907,8 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
                 eloRating: p.elo_rating || 1000,
                 birthdate: p.birthdate,
                 gender: p.gender,
-                doublesEloRating: p.doubles_elo_rating || 800
+                doublesEloRating: p.doubles_elo_rating || 800,
+                isOffline: p.is_offline || false
             };
 
             const emailKey = player.email?.toLowerCase()?.trim();

@@ -847,7 +847,8 @@ export function updatePointsPlayerDropdown(clubPlayers, subgroupFilter, excludeP
         .forEach(p => {
             const option = document.createElement('option');
             option.value = p.id;
-            option.textContent = `${p.firstName} ${p.lastName}`;
+            const offlineMarker = p.isOffline ? ' (Offline)' : '';
+            option.textContent = `${p.firstName} ${p.lastName}${offlineMarker}`;
             option.dataset.grundlagen = p.grundlagenCompleted || 0;
             option.dataset.rank = p.rank || 'Rekrut';
             select.appendChild(option);
