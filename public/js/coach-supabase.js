@@ -767,12 +767,36 @@ async function initializeCoachPage(userData) {
         // Logik für "Gruppen bearbeiten"-Button
         if (button.classList.contains('edit-subgroups-btn')) {
             const playerId = button.dataset.id;
-            const player = clubPlayers.find(p => p.id === playerId);
+            let player = clubPlayers.find(p => p.id === playerId);
+
+            // If player not in cache, fetch from database
+            if (!player) {
+                console.log('[Coach] Player not in cache, fetching from database:', playerId);
+                try {
+                    const { data, error } = await supabase
+                        .from('profiles')
+                        .select('id, first_name, last_name, subgroup_ids')
+                        .eq('id', playerId)
+                        .single();
+
+                    if (error) throw error;
+                    if (data) {
+                        player = {
+                            id: data.id,
+                            firstName: data.first_name,
+                            lastName: data.last_name,
+                            subgroupIDs: data.subgroup_ids || []
+                        };
+                    }
+                } catch (err) {
+                    console.error('[Coach] Error fetching player:', err);
+                }
+            }
 
             if (player) {
                 openEditPlayerModal(player, supabase, userData.clubId);
             } else {
-                console.error('Spieler nicht im lokalen Cache gefunden.');
+                console.error('Spieler nicht gefunden.');
                 alert('Fehler: Spielerdaten konnten nicht geladen werden.');
             }
         }
