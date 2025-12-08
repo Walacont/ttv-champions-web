@@ -12,7 +12,17 @@ import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
-import { initNotifications, cleanupNotifications } from './notifications-supabase.js';
+
+// Optional notifications - loaded dynamically to prevent blocking if table doesn't exist
+let initNotifications = null;
+let cleanupNotifications = null;
+try {
+    const notifModule = await import('./notifications-supabase.js');
+    initNotifications = notifModule.initNotifications;
+    cleanupNotifications = notifModule.cleanupNotifications;
+} catch (e) {
+    console.warn('Notifications module not available:', e);
+}
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -84,8 +94,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load user profile
     await loadUserProfile();
 
-    // Initialize notifications
-    initNotifications(currentUser.id);
+    // Initialize notifications (if available)
+    if (initNotifications) {
+        initNotifications(currentUser.id);
+    }
 
     // Listen for auth changes
     onAuthStateChange((event, session) => {
@@ -99,8 +111,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- Cleanup ---
 function cleanupSubscriptions() {
-    // Cleanup notification subscriptions
-    cleanupNotifications();
+    // Cleanup notification subscriptions (if available)
+    if (cleanupNotifications) cleanupNotifications();
 
     realtimeSubscriptions.forEach(sub => {
         if (sub && typeof sub.unsubscribe === 'function') {

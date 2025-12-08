@@ -96,7 +96,17 @@ import {
     setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
 import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
-import { initNotifications, cleanupNotifications } from './notifications-supabase.js';
+
+// Optional notifications - loaded dynamically to prevent blocking if table doesn't exist
+let initNotifications = null;
+let cleanupNotifications = null;
+try {
+    const notifModule = await import('./notifications-supabase.js');
+    initNotifications = notifModule.initNotifications;
+    cleanupNotifications = notifModule.cleanupNotifications;
+} catch (e) {
+    console.warn('Notifications module not available:', e);
+}
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -493,15 +503,17 @@ async function initializeCoachPage(userData) {
         populateSubgroupFilter(userData.clubId, supabase);
     });
 
-    // Initialize notifications
-    initNotifications(user.uid);
+    // Initialize notifications (if available)
+    if (initNotifications) {
+        initNotifications(user.uid);
+    }
 
     // --- Event Listeners ---
     const logoutBtn = document.getElementById('logout-button');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             try {
-                cleanupNotifications();
+                if (cleanupNotifications) cleanupNotifications();
                 await supabase.auth.signOut();
                 // Clear SPA cache to prevent back-button access to authenticated pages
                 if (window.spaEnhancer) {
