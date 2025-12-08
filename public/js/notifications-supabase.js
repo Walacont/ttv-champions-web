@@ -14,24 +14,28 @@ export async function initNotifications(userId) {
     const db = getSupabase();
     if (!db || !userId) return;
 
-    // Load initial notification count
-    await updateNotificationBadge(userId);
-
-    // Subscribe to real-time notifications
-    notificationSubscription = db
-        .channel(`notifications-${userId}`)
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`
-        }, () => {
-            updateNotificationBadge(userId);
-        })
-        .subscribe();
-
-    // Setup notification bell click handlers
+    // Setup notification bell click handlers FIRST (before async operations)
     setupNotificationHandlers(userId);
+
+    // Load initial notification count (non-blocking)
+    try {
+        await updateNotificationBadge(userId);
+
+        // Subscribe to real-time notifications
+        notificationSubscription = db
+            .channel(`notifications-${userId}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'notifications',
+                filter: `user_id=eq.${userId}`
+            }, () => {
+                updateNotificationBadge(userId);
+            })
+            .subscribe();
+    } catch (e) {
+        console.warn('Could not load notifications:', e);
+    }
 }
 
 /**
@@ -134,17 +138,20 @@ async function showNotificationModal(userId) {
                 ${notifications && notifications.length > 0 ? `
                     <ul class="divide-y divide-gray-200">
                         ${notifications.map(n => `
-                            <li class="p-4 ${n.is_read ? 'bg-white' : 'bg-blue-50'} hover:bg-gray-50 cursor-pointer notification-item" data-id="${n.id}">
+                            <li class="p-4 ${n.is_read ? 'bg-white' : 'bg-blue-50'} hover:bg-gray-50 notification-item" data-id="${n.id}" data-read="${n.is_read}">
                                 <div class="flex items-start gap-3">
                                     <div class="flex-shrink-0 mt-1">
                                         ${getNotificationIcon(n.type)}
                                     </div>
-                                    <div class="flex-1 min-w-0">
+                                    <div class="flex-1 min-w-0 cursor-pointer notification-content">
                                         <p class="text-sm font-medium text-gray-900">${escapeHtml(n.title)}</p>
                                         <p class="text-sm text-gray-600 mt-0.5">${escapeHtml(n.message)}</p>
                                         <p class="text-xs text-gray-400 mt-1">${formatTimeAgo(n.created_at)}</p>
                                     </div>
-                                    ${!n.is_read ? '<span class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></span>' : ''}
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                        ${!n.is_read ? '<span class="unread-dot w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
+                                        ${n.is_read ? `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>` : ''}
+                                    </div>
                                 </div>
                             </li>
                         `).join('')}
@@ -157,9 +164,12 @@ async function showNotificationModal(userId) {
                 `}
             </div>
             ${notifications && notifications.length > 0 ? `
-                <div class="p-3 border-t">
-                    <button id="mark-all-read" class="w-full text-sm text-indigo-600 hover:text-indigo-800 font-medium py-2">
-                        Alle als gelesen markieren
+                <div class="p-3 border-t flex gap-2">
+                    <button id="mark-all-read" class="flex-1 text-sm text-indigo-600 hover:text-indigo-800 font-medium py-2">
+                        Alle gelesen
+                    </button>
+                    <button id="delete-all-read" class="flex-1 text-sm text-red-500 hover:text-red-700 font-medium py-2">
+                        Gelesene löschen
                     </button>
                 </div>
             ` : ''}
@@ -180,16 +190,47 @@ async function showNotificationModal(userId) {
 
     document.getElementById('close-notification-modal')?.addEventListener('click', closeModal);
 
-    // Mark as read on click
-    modal.querySelectorAll('.notification-item').forEach(item => {
-        item.addEventListener('click', async () => {
+    // Mark as read on click (on content, not delete button)
+    modal.querySelectorAll('.notification-content').forEach(content => {
+        content.addEventListener('click', async () => {
+            const item = content.closest('.notification-item');
             const notificationId = item.dataset.id;
             await markNotificationAsRead(notificationId);
             item.classList.remove('bg-blue-50');
             item.classList.add('bg-white');
-            item.querySelector('.w-2.h-2')?.remove();
+            item.querySelector('.unread-dot')?.remove();
+            item.dataset.read = 'true';
+            // Add delete button after marking as read
+            const actionsDiv = item.querySelector('.flex.items-center.gap-2');
+            if (actionsDiv && !actionsDiv.querySelector('.delete-notification')) {
+                actionsDiv.innerHTML = `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>`;
+            }
             updateNotificationBadge(userId);
         });
+    });
+
+    // Delete single notification
+    modal.addEventListener('click', async (e) => {
+        const deleteBtn = e.target.closest('.delete-notification');
+        if (deleteBtn) {
+            e.stopPropagation();
+            const item = deleteBtn.closest('.notification-item');
+            const notificationId = item.dataset.id;
+            await deleteNotification(notificationId);
+            item.remove();
+            updateNotificationBadge(userId);
+            // Check if no notifications left
+            const remainingItems = modal.querySelectorAll('.notification-item');
+            if (remainingItems.length === 0) {
+                modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
+                    <div class="p-8 text-center text-gray-500">
+                        <i class="far fa-bell-slash text-4xl mb-3"></i>
+                        <p>Keine Benachrichtigungen</p>
+                    </div>
+                `;
+                modal.querySelector('.p-3.border-t')?.remove();
+            }
+        }
     });
 
     // Mark all as read
@@ -198,9 +239,35 @@ async function showNotificationModal(userId) {
         modal.querySelectorAll('.notification-item').forEach(item => {
             item.classList.remove('bg-blue-50');
             item.classList.add('bg-white');
-            item.querySelector('.w-2.h-2')?.remove();
+            item.querySelector('.unread-dot')?.remove();
+            item.dataset.read = 'true';
+            // Add delete button
+            const actionsDiv = item.querySelector('.flex.items-center.gap-2');
+            if (actionsDiv && !actionsDiv.querySelector('.delete-notification')) {
+                actionsDiv.innerHTML = `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>`;
+            }
         });
         updateNotificationBadge(userId);
+    });
+
+    // Delete all read notifications
+    document.getElementById('delete-all-read')?.addEventListener('click', async () => {
+        await deleteAllReadNotifications(userId);
+        modal.querySelectorAll('.notification-item[data-read="true"]').forEach(item => {
+            item.remove();
+        });
+        updateNotificationBadge(userId);
+        // Check if no notifications left
+        const remainingItems = modal.querySelectorAll('.notification-item');
+        if (remainingItems.length === 0) {
+            modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
+                <div class="p-8 text-center text-gray-500">
+                    <i class="far fa-bell-slash text-4xl mb-3"></i>
+                    <p>Keine Benachrichtigungen</p>
+                </div>
+            `;
+            modal.querySelector('.p-3.border-t')?.remove();
+        }
     });
 }
 
@@ -229,6 +296,33 @@ async function markAllNotificationsAsRead(userId) {
         .update({ is_read: true })
         .eq('user_id', userId)
         .eq('is_read', false);
+}
+
+/**
+ * Delete a single notification
+ */
+async function deleteNotification(notificationId) {
+    const db = getSupabase();
+    if (!db) return;
+
+    await db
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+}
+
+/**
+ * Delete all read notifications for a user
+ */
+async function deleteAllReadNotifications(userId) {
+    const db = getSupabase();
+    if (!db) return;
+
+    await db
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+        .eq('is_read', true);
 }
 
 /**
