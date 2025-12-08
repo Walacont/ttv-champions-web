@@ -459,7 +459,7 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
 
             const currentUserClub = currentUserData ? clubsMap.get(currentUserData.club_id) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
-            const isCoachOrAdmin = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'admin');
+            const isCoachOrAdmin = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach' || currentUserData.role === 'admin');
 
             const pairings = [];
 

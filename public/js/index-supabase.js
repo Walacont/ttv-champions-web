@@ -130,7 +130,7 @@ onAuthStateChange(async (event, session) => {
                 // Redirect based on role
                 let targetUrl;
                 if (profile.role === 'admin') targetUrl = '/admin.html';
-                else if (profile.role === 'coach') targetUrl = '/coach.html';
+                else if (profile.role === 'coach' || profile.role === 'head_coach') targetUrl = '/coach.html';
                 else targetUrl = '/dashboard.html';
 
                 console.log('[INDEX-SUPABASE] Redirecting to:', targetUrl);

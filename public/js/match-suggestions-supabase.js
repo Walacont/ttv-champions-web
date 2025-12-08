@@ -149,7 +149,7 @@ export async function calculateMatchSuggestions(userData, allPlayers, supabase) 
         const eligiblePlayers = allPlayers.filter(p => {
             const isNotSelf = p.id !== userData.id;
             const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
-            const isPlayerOrCoach = p.role === 'player' || p.role === 'coach';
+            const isPlayerOrCoach = p.role === 'player' || p.role === 'coach' || p.role === 'head_coach';
             return isNotSelf && isMatchReady && isPlayerOrCoach;
         });
 

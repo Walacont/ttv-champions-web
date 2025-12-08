@@ -516,7 +516,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
                 .contains('present_player_ids', [currentUser.id]);
 
             if (!attendanceError) attendance = attendanceData || [];
-        } else if (userData?.role === 'coach' && userData?.club_id) {
+        } else if ((userData?.role === 'coach' || userData?.role === 'head_coach') && userData?.club_id) {
             const { data: attendanceData, error: attendanceError } = await supabase
                 .from('attendance')
                 .select('*')

@@ -66,7 +66,7 @@ export function requireRole(allowedRoles = []) {
                     );
 
                     // Redirect based on user's actual role
-                    if (userData.role === 'coach') {
+                    if (userData.role === 'coach' || userData.role === 'head_coach') {
                         window.location.replace('/coach.html');
                     } else if (userData.role === 'admin') {
                         window.location.replace('/admin.html');

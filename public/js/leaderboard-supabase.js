@@ -164,7 +164,7 @@ async function filterTestClubPlayers(players, currentUserId) {
     }
 
     const currentUser = currentUserId ? await loadCurrentUserData(currentUserId) : null;
-    const isCoach = currentUser && currentUser.role === 'coach';
+    const isCoach = currentUser && (currentUser.role === 'coach' || currentUser.role === 'head_coach');
     const currentUserClubId = currentUser?.club_id;
     const isCurrentUserInTestClub = currentUserClubId && testClubIds.includes(currentUserClubId);
 

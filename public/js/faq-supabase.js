@@ -23,7 +23,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         if (!error && userData) {
             const { role } = userData;
             if (role === 'admin') backLink.href = '/admin.html';
-            else if (role === 'coach') backLink.href = '/coach.html';
+            else if (role === 'coach' || role === 'head_coach') backLink.href = '/coach.html';
             else backLink.href = '/dashboard.html';
         } else {
             // User exists but no profile - go to index
