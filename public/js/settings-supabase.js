@@ -1187,6 +1187,54 @@ clubSearchBtn?.addEventListener('click', async () => {
 });
 
 /**
+ * Notify all coaches in a club about a join/leave request
+ */
+async function notifyClubCoaches(clubId, type, playerName) {
+    try {
+        // Find all coaches and head_coaches in this club
+        const { data: coaches, error: coachError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('club_id', clubId)
+            .in('role', ['coach', 'head_coach']);
+
+        if (coachError) {
+            console.error('Error finding coaches:', coachError);
+            return;
+        }
+
+        if (!coaches || coaches.length === 0) {
+            console.log('[Settings] No coaches found in club to notify');
+            return;
+        }
+
+        // Create notifications for all coaches
+        const notifications = coaches.map(coach => ({
+            user_id: coach.id,
+            type: type === 'join' ? 'club_join_request' : 'club_leave_request',
+            title: type === 'join' ? 'Neue Beitrittsanfrage' : 'Neue Austrittsanfrage',
+            message: type === 'join'
+                ? `${playerName} möchte dem Verein beitreten.`
+                : `${playerName} möchte den Verein verlassen.`,
+            data: { player_name: playerName },
+            is_read: false
+        }));
+
+        const { error: notifyError } = await supabase
+            .from('notifications')
+            .insert(notifications);
+
+        if (notifyError) {
+            console.error('Error creating coach notifications:', notifyError);
+        } else {
+            console.log(`[Settings] Notified ${coaches.length} coach(es) about ${type} request`);
+        }
+    } catch (error) {
+        console.error('Error notifying coaches:', error);
+    }
+}
+
+/**
  * Request to join a club
  */
 async function requestToJoinClub(clubId, clubName) {
@@ -1206,6 +1254,10 @@ async function requestToJoinClub(clubId, clubName) {
         });
 
         if (error) throw error;
+
+        // Notify coaches about the new request
+        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
+        await notifyClubCoaches(clubId, 'join', playerName);
 
         clubManagementFeedback.textContent = `✓ Beitrittsanfrage an "${clubName}" gesendet!`;
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
@@ -1275,6 +1327,10 @@ leaveClubBtn?.addEventListener('click', async () => {
         });
 
         if (error) throw error;
+
+        // Notify coaches about the leave request
+        const playerName = `${currentUserData.firstName || ''} ${currentUserData.lastName || ''}`.trim() || currentUserData.email;
+        await notifyClubCoaches(currentUserData.clubId, 'leave', playerName);
 
         clubManagementFeedback.textContent = `✓ Austrittsanfrage gesendet!`;
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
