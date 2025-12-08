@@ -8,9 +8,9 @@ DROP POLICY IF EXISTS points_history_select ON points_history;
 CREATE POLICY points_history_select ON points_history FOR SELECT
     USING (
         -- Player can see their own history
-        player_id = (SELECT auth.uid())
+        user_id = (SELECT auth.uid())
         -- Coaches, head_coaches, and admins can see all players in their club
-        OR player_id IN (
+        OR user_id IN (
             SELECT id FROM profiles
             WHERE club_id IN (
                 SELECT club_id FROM profiles

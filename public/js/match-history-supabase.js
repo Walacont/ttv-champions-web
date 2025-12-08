@@ -401,7 +401,7 @@ async function enrichMatchData(supabase, match, userData) {
             const { data: historyData, error: historyError } = await supabase
                 .from('points_history')
                 .select('*')
-                .eq('player_id', userData.id)
+                .eq('user_id', userData.id)
                 .order('timestamp', { ascending: false })
                 .limit(200);
 

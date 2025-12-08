@@ -390,7 +390,7 @@ async function enrichCoachMatchData(supabase, match, playerId, playerData) {
             const { data: historyData, error: historyError } = await supabase
                 .from('points_history')
                 .select('*')
-                .eq('player_id', playerId)
+                .eq('user_id', playerId)
                 .order('timestamp', { ascending: false })
                 .limit(200);
 
