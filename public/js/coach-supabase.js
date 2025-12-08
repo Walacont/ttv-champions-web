@@ -499,7 +499,7 @@ async function initializeCoachPage(userData) {
     try {
         notificationsModule = await import('./notifications-supabase.js');
         if (notificationsModule.initNotifications) {
-            notificationsModule.initNotifications(user.uid);
+            notificationsModule.initNotifications(userData.id);
         }
     } catch (e) {
         console.warn('Notifications not available:', e);
