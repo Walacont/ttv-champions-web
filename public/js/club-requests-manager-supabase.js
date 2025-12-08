@@ -59,8 +59,8 @@ export async function initClubRequestsManager(userData, supabase) {
     currentUserData = userData;
     supabaseClient = supabase;
 
-    // Only load for coaches/admins
-    if (!['coach', 'admin'].includes(userData.role)) {
+    // Only load for coaches/head_coaches/admins
+    if (!['coach', 'head_coach', 'admin'].includes(userData.role)) {
         return;
     }
 
