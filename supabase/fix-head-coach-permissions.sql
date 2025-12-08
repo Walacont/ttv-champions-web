@@ -76,14 +76,18 @@ CREATE POLICY match_proposals_select ON match_proposals FOR SELECT
 
 -- ============================================
 -- DOUBLES MATCHES
+-- Note: Using club membership check for coaches/admins
+-- Player checks handled separately by existing policies
 -- ============================================
 DROP POLICY IF EXISTS doubles_matches_create ON doubles_matches;
 CREATE POLICY doubles_matches_create ON doubles_matches FOR INSERT
     WITH CHECK (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
+        -- Users in the same club can create doubles matches
+        -- (processed doubles matches come from approved requests)
+        club_id IN (
+            SELECT club_id FROM profiles WHERE id = (SELECT auth.uid())
+        )
+        -- Or coaches/head_coaches/admins can create for their club
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
@@ -116,29 +120,32 @@ CREATE POLICY doubles_matches_delete ON doubles_matches FOR DELETE
 
 -- ============================================
 -- DOUBLES MATCH REQUESTS
+-- Note: Using initiated_by and club membership for access control
 -- ============================================
 DROP POLICY IF EXISTS doubles_requests_select ON doubles_match_requests;
 CREATE POLICY doubles_requests_select ON doubles_match_requests FOR SELECT
     USING (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
+        -- Initiator can see their requests
+        initiated_by = (SELECT auth.uid())
+        -- Coaches/head_coaches/admins can see all in their club
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
             AND club_id = doubles_match_requests.club_id
             AND role IN ('coach', 'head_coach', 'admin')
         )
+        -- Or authenticated users in same club can see
+        OR club_id IN (
+            SELECT club_id FROM profiles WHERE id = (SELECT auth.uid())
+        )
     );
 
 DROP POLICY IF EXISTS doubles_requests_insert ON doubles_match_requests;
 CREATE POLICY doubles_requests_insert ON doubles_match_requests FOR INSERT
     WITH CHECK (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
+        -- User is the initiator
+        initiated_by = (SELECT auth.uid())
+        -- Or coaches/head_coaches/admins can create for their club
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
@@ -150,25 +157,27 @@ CREATE POLICY doubles_requests_insert ON doubles_match_requests FOR INSERT
 DROP POLICY IF EXISTS doubles_requests_update ON doubles_match_requests;
 CREATE POLICY doubles_requests_update ON doubles_match_requests FOR UPDATE
     USING (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
+        -- Initiator can update their requests
+        initiated_by = (SELECT auth.uid())
+        -- Or coaches/head_coaches/admins can update for their club
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
             AND club_id = doubles_match_requests.club_id
             AND role IN ('coach', 'head_coach', 'admin')
         )
+        -- Or user is in same club (for confirmations)
+        OR club_id IN (
+            SELECT club_id FROM profiles WHERE id = (SELECT auth.uid())
+        )
     );
 
 DROP POLICY IF EXISTS doubles_requests_delete ON doubles_match_requests;
 CREATE POLICY doubles_requests_delete ON doubles_match_requests FOR DELETE
     USING (
-        team_a_player1_id = (SELECT auth.uid())
-        OR team_a_player2_id = (SELECT auth.uid())
-        OR team_b_player1_id = (SELECT auth.uid())
-        OR team_b_player2_id = (SELECT auth.uid())
+        -- Initiator can delete their requests
+        initiated_by = (SELECT auth.uid())
+        -- Or coaches/head_coaches/admins can delete for their club
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
