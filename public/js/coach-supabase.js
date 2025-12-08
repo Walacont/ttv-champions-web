@@ -96,17 +96,6 @@ import {
     setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
 import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
-
-// Optional notifications - loaded dynamically to prevent blocking if table doesn't exist
-let initNotifications = null;
-let cleanupNotifications = null;
-try {
-    const notifModule = await import('./notifications-supabase.js');
-    initNotifications = notifModule.initNotifications;
-    cleanupNotifications = notifModule.cleanupNotifications;
-} catch (e) {
-    console.warn('Notifications module not available:', e);
-}
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -159,6 +148,9 @@ import { coachTutorialSteps } from './tutorial-coach.js';
 
 // Initialize Supabase
 const supabase = getSupabase();
+
+// Notifications module - loaded dynamically
+let notificationsModule = null;
 
 // --- State ---
 let currentUserData = null;
@@ -503,9 +495,14 @@ async function initializeCoachPage(userData) {
         populateSubgroupFilter(userData.clubId, supabase);
     });
 
-    // Initialize notifications (if available)
-    if (initNotifications) {
-        initNotifications(user.uid);
+    // Initialize notifications (loaded dynamically, non-blocking)
+    try {
+        notificationsModule = await import('./notifications-supabase.js');
+        if (notificationsModule.initNotifications) {
+            notificationsModule.initNotifications(user.uid);
+        }
+    } catch (e) {
+        console.warn('Notifications not available:', e);
     }
 
     // --- Event Listeners ---
@@ -513,7 +510,9 @@ async function initializeCoachPage(userData) {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             try {
-                if (cleanupNotifications) cleanupNotifications();
+                if (notificationsModule && notificationsModule.cleanupNotifications) {
+                    notificationsModule.cleanupNotifications();
+                }
                 await supabase.auth.signOut();
                 // Clear SPA cache to prevent back-button access to authenticated pages
                 if (window.spaEnhancer) {

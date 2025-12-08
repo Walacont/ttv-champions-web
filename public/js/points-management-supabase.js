@@ -4,13 +4,20 @@
 import { getSupabase } from './supabase-init.js';
 import { formatDate } from './ui-utils.js';
 
-// Optional notification import - doesn't block main functionality if it fails
-let createPointsNotification = null;
-try {
-    const notifModule = await import('./notifications-supabase.js');
-    createPointsNotification = notifModule.createPointsNotification;
-} catch (e) {
-    console.warn('Notifications module not available:', e);
+// Notifications module - loaded dynamically when needed
+let notificationsModule = null;
+let notificationsLoaded = false;
+
+async function getNotificationsModule() {
+    if (notificationsLoaded) return notificationsModule;
+    notificationsLoaded = true;
+    try {
+        notificationsModule = await import('./notifications-supabase.js');
+        return notificationsModule;
+    } catch (e) {
+        console.warn('Notifications module not available:', e);
+        return null;
+    }
 }
 
 /**
@@ -672,9 +679,10 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         await db.from('points_history').insert(historyEntry);
 
         // Create notification for the player (if notifications are available)
-        if (createPointsNotification) {
+        const notifMod = await getNotificationsModule();
+        if (notifMod && notifMod.createPointsNotification) {
             try {
-                await createPointsNotification(
+                await notifMod.createPointsNotification(
                     playerId,
                     actualPointsChange,
                     actualXPChange,
@@ -686,7 +694,7 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
                 // Also create notification for partner if applicable
                 if (hasPartnerSystem && partnerId && partnerName) {
                     const partnerReason = `Partner: ${reason} (mit ${playerData.first_name} ${playerData.last_name})`;
-                    await createPointsNotification(
+                    await notifMod.createPointsNotification(
                         partnerId,
                         actualPartnerPointsChange,
                         actualPartnerXPChange,

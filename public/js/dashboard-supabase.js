@@ -13,16 +13,8 @@ import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 
-// Optional notifications - loaded dynamically to prevent blocking if table doesn't exist
-let initNotifications = null;
-let cleanupNotifications = null;
-try {
-    const notifModule = await import('./notifications-supabase.js');
-    initNotifications = notifModule.initNotifications;
-    cleanupNotifications = notifModule.cleanupNotifications;
-} catch (e) {
-    console.warn('Notifications module not available:', e);
-}
+// Notifications loaded dynamically - not critical for main functionality
+let notificationsModule = null;
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -94,9 +86,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load user profile
     await loadUserProfile();
 
-    // Initialize notifications (if available)
-    if (initNotifications) {
-        initNotifications(currentUser.id);
+    // Initialize notifications (loaded dynamically, non-blocking)
+    try {
+        notificationsModule = await import('./notifications-supabase.js');
+        if (notificationsModule.initNotifications) {
+            notificationsModule.initNotifications(currentUser.id);
+        }
+    } catch (e) {
+        console.warn('Notifications not available:', e);
     }
 
     // Listen for auth changes
@@ -112,7 +109,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 // --- Cleanup ---
 function cleanupSubscriptions() {
     // Cleanup notification subscriptions (if available)
-    if (cleanupNotifications) cleanupNotifications();
+    if (notificationsModule && notificationsModule.cleanupNotifications) {
+        notificationsModule.cleanupNotifications();
+    }
 
     realtimeSubscriptions.forEach(sub => {
         if (sub && typeof sub.unsubscribe === 'function') {
