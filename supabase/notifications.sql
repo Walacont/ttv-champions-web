@@ -29,16 +29,11 @@ CREATE POLICY notifications_select ON notifications FOR SELECT
 CREATE POLICY notifications_update ON notifications FOR UPDATE
     USING (user_id = (SELECT auth.uid()));
 
--- Coaches/admins can insert notifications for any user
+-- Any authenticated user can insert notifications
+-- This allows players to notify coaches about join/leave requests
+-- Security: Users can only SELECT/UPDATE/DELETE their own notifications
 CREATE POLICY notifications_insert ON notifications FOR INSERT
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE profiles.id = (SELECT auth.uid())
-            AND profiles.role IN ('coach', 'head_coach', 'admin')
-        )
-        OR user_id = (SELECT auth.uid())
-    );
+    WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Users can delete their own notifications
 CREATE POLICY notifications_delete ON notifications FOR DELETE
