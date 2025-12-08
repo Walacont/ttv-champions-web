@@ -3,7 +3,15 @@
 
 import { getSupabase } from './supabase-init.js';
 import { formatDate } from './ui-utils.js';
-import { createPointsNotification } from './notifications-supabase.js';
+
+// Optional notification import - doesn't block main functionality if it fails
+let createPointsNotification = null;
+try {
+    const notifModule = await import('./notifications-supabase.js');
+    createPointsNotification = notifModule.createPointsNotification;
+} catch (e) {
+    console.warn('Notifications module not available:', e);
+}
 
 /**
  * Gets the current season key from Supabase config table
@@ -663,31 +671,33 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
         // Insert points history entry
         await db.from('points_history').insert(historyEntry);
 
-        // Create notification for the player
-        try {
-            await createPointsNotification(
-                playerId,
-                actualPointsChange,
-                actualXPChange,
-                0, // elo change
-                reason,
-                `${currentUserData.firstName} ${currentUserData.lastName}`
-            );
-
-            // Also create notification for partner if applicable
-            if (hasPartnerSystem && partnerId && partnerName) {
-                const partnerReason = `Partner: ${reason} (mit ${playerData.first_name} ${playerData.last_name})`;
+        // Create notification for the player (if notifications are available)
+        if (createPointsNotification) {
+            try {
                 await createPointsNotification(
-                    partnerId,
-                    actualPartnerPointsChange,
-                    actualPartnerXPChange,
-                    0,
-                    partnerReason,
+                    playerId,
+                    actualPointsChange,
+                    actualXPChange,
+                    0, // elo change
+                    reason,
                     `${currentUserData.firstName} ${currentUserData.lastName}`
                 );
+
+                // Also create notification for partner if applicable
+                if (hasPartnerSystem && partnerId && partnerName) {
+                    const partnerReason = `Partner: ${reason} (mit ${playerData.first_name} ${playerData.last_name})`;
+                    await createPointsNotification(
+                        partnerId,
+                        actualPartnerPointsChange,
+                        actualPartnerXPChange,
+                        0,
+                        partnerReason,
+                        `${currentUserData.firstName} ${currentUserData.lastName}`
+                    );
+                }
+            } catch (notifError) {
+                console.warn('Could not create notification:', notifError);
             }
-        } catch (notifError) {
-            console.warn('Could not create notification:', notifError);
         }
 
         // Build feedback message
