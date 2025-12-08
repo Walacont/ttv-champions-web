@@ -1241,6 +1241,7 @@ async function notifyClubCoaches(clubId, type, playerName) {
         }
 
         // Create notifications for all coaches
+        // Include player_id in data so the player can delete the notification if they withdraw
         const notifications = coaches.map(coach => ({
             user_id: coach.id,
             type: type === 'join' ? 'club_join_request' : 'club_leave_request',
@@ -1248,7 +1249,7 @@ async function notifyClubCoaches(clubId, type, playerName) {
             message: type === 'join'
                 ? `${playerName} möchte dem Verein beitreten.`
                 : `${playerName} möchte den Verein verlassen.`,
-            data: { player_name: playerName },
+            data: { player_name: playerName, player_id: currentUser.id },
             is_read: false
         }));
 
@@ -1383,6 +1384,28 @@ leaveClubBtn?.addEventListener('click', async () => {
 });
 
 /**
+ * Remove notifications created by this player for a specific type
+ */
+async function removePlayerNotifications(playerId, notificationType) {
+    try {
+        // Delete notifications where data->player_id matches and type matches
+        const { error } = await supabase
+            .from('notifications')
+            .delete()
+            .eq('type', notificationType)
+            .filter('data->>player_id', 'eq', playerId);
+
+        if (error) {
+            console.error('Error removing notifications:', error);
+        } else {
+            console.log(`[Settings] Removed ${notificationType} notifications for player ${playerId}`);
+        }
+    } catch (error) {
+        console.error('Error removing notifications:', error);
+    }
+}
+
+/**
  * Withdraw join request
  */
 async function withdrawJoinRequest(requestId) {
@@ -1400,6 +1423,9 @@ async function withdrawJoinRequest(requestId) {
             .eq('id', requestId);
 
         if (error) throw error;
+
+        // Also remove the notifications sent to coaches
+        await removePlayerNotifications(currentUser.id, 'club_join_request');
 
         clubManagementFeedback.textContent = '✓ Beitrittsanfrage zurückgezogen';
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';
@@ -1430,6 +1456,9 @@ async function withdrawLeaveRequest(requestId) {
             .eq('id', requestId);
 
         if (error) throw error;
+
+        // Also remove the notifications sent to coaches
+        await removePlayerNotifications(currentUser.id, 'club_leave_request');
 
         clubManagementFeedback.textContent = '✓ Austrittsanfrage zurückgezogen';
         clubManagementFeedback.className = 'text-sm mt-3 text-green-600';

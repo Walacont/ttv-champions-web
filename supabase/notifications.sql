@@ -36,8 +36,12 @@ CREATE POLICY notifications_insert ON notifications FOR INSERT
     WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Users can delete their own notifications
+-- OR notifications they created for others (where data->>'player_id' matches their id)
 CREATE POLICY notifications_delete ON notifications FOR DELETE
-    USING (user_id = (SELECT auth.uid()));
+    USING (
+        user_id = auth.uid()
+        OR (data->>'player_id')::uuid = auth.uid()
+    );
 
 -- Enable Realtime for this table
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
