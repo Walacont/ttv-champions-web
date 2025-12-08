@@ -65,8 +65,8 @@ CREATE POLICY match_requests_delete ON match_requests FOR DELETE
 DROP POLICY IF EXISTS match_proposals_select ON match_proposals;
 CREATE POLICY match_proposals_select ON match_proposals FOR SELECT
     USING (
-        player1_id = (SELECT auth.uid())
-        OR player2_id = (SELECT auth.uid())
+        requester_id = (SELECT auth.uid())
+        OR recipient_id = (SELECT auth.uid())
         OR club_id IN (
             SELECT club_id FROM profiles
             WHERE id = (SELECT auth.uid())
