@@ -752,7 +752,7 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
     if (!container) return;
 
     try {
-        // Query all players in the club
+        // Query all players in the club (including offline players)
         const { data: players, error } = await supabase
             .from('profiles')
             .select('*')
@@ -760,6 +760,16 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
             .order('first_name', { ascending: true });
 
         if (error) throw error;
+
+        // Debug: Log loaded players including offline status
+        console.log(`[Subgroups] Loaded ${players?.length || 0} players for checkboxes:`,
+            players?.map(p => ({
+                id: p.id,
+                name: `${p.first_name} ${p.last_name}`,
+                is_offline: p.is_offline,
+                club_id: p.club_id
+            }))
+        );
 
         if (!players || players.length === 0) {
             container.innerHTML =
@@ -775,6 +785,10 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
             const checkboxItem = document.createElement('label');
             checkboxItem.className =
                 'flex items-center gap-3 p-2 hover:bg-white rounded-md cursor-pointer transition-colors';
+            const offlineMarker = player.is_offline
+                ? '<span class="text-xs text-yellow-600 font-medium">(Offline)</span>'
+                : '';
+
             checkboxItem.innerHTML = `
                 <input
                     type="checkbox"
@@ -784,6 +798,7 @@ export async function loadPlayerCheckboxes(subgroupId, clubId, supabase) {
                 >
                 <span class="text-sm text-gray-700">
                     ${player.first_name || ''} ${player.last_name || ''}
+                    ${offlineMarker}
                     ${player.email ? `<span class="text-xs text-gray-400">(${player.email})</span>` : ''}
                 </span>
             `;
