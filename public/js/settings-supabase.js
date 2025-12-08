@@ -1112,16 +1112,48 @@ clubSearchBtn?.addEventListener('click', async () => {
         clubSearchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Suche...';
         clubSearchResults.innerHTML = '<p class="text-sm text-gray-500">Suche...</p>';
 
-        // Get all clubs matching search term
-        const { data: clubsData, error } = await supabase
-            .from('clubs')
-            .select('*')
-            .ilike('name', `%${searchTerm}%`)
-            .eq('is_test_club', false);
+        // Get user's active sport
+        const userSportId = currentUserData.activeSportId;
 
-        if (error) throw error;
+        // Get all clubs matching search term that support the user's sport
+        let clubsData = [];
 
-        let clubs = clubsData || [];
+        if (userSportId) {
+            // Find clubs that have the user's sport in club_sports
+            const { data: clubSportsData, error: csError } = await supabase
+                .from('club_sports')
+                .select('club_id')
+                .eq('sport_id', userSportId)
+                .eq('is_active', true);
+
+            if (csError) throw csError;
+
+            const clubIdsWithSport = (clubSportsData || []).map(cs => cs.club_id);
+
+            if (clubIdsWithSport.length > 0) {
+                const { data, error } = await supabase
+                    .from('clubs')
+                    .select('*')
+                    .ilike('name', `%${searchTerm}%`)
+                    .eq('is_test_club', false)
+                    .in('id', clubIdsWithSport);
+
+                if (error) throw error;
+                clubsData = data || [];
+            }
+        } else {
+            // No sport filter - show all clubs (fallback)
+            const { data, error } = await supabase
+                .from('clubs')
+                .select('*')
+                .ilike('name', `%${searchTerm}%`)
+                .eq('is_test_club', false);
+
+            if (error) throw error;
+            clubsData = data || [];
+        }
+
+        let clubs = clubsData;
 
         // Count members for each club (including offline players and coaches)
         for (const club of clubs) {
@@ -1138,7 +1170,7 @@ clubSearchBtn?.addEventListener('click', async () => {
             clubSearchResults.innerHTML = `
                 <p class="text-sm text-gray-500">
                     <i class="fas fa-search mr-1"></i>
-                    Keine Vereine gefunden.
+                    Keine Vereine mit deiner Sportart gefunden.
                 </p>
             `;
         } else {
