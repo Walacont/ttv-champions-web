@@ -12,6 +12,7 @@ import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { initNotifications, cleanupNotifications } from './notifications-supabase.js';
 
 console.log('[DASHBOARD-SUPABASE] Script starting...');
 
@@ -83,6 +84,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load user profile
     await loadUserProfile();
 
+    // Initialize notifications
+    initNotifications(currentUser.id);
+
     // Listen for auth changes
     onAuthStateChange((event, session) => {
         console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
@@ -95,6 +99,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- Cleanup ---
 function cleanupSubscriptions() {
+    // Cleanup notification subscriptions
+    cleanupNotifications();
+
     realtimeSubscriptions.forEach(sub => {
         if (sub && typeof sub.unsubscribe === 'function') {
             sub.unsubscribe();

@@ -124,6 +124,30 @@ onAuthStateChange((event, session) => {
     }
 });
 
+// Setup logout button
+const logoutButton = document.getElementById('logout-button');
+if (logoutButton) {
+    logoutButton.addEventListener('click', async () => {
+        try {
+            logoutButton.disabled = true;
+            logoutButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Abmelden...';
+
+            // Clear SPA cache to prevent back-button access to authenticated pages
+            if (window.spaEnhancer) {
+                window.spaEnhancer.clearCache();
+            }
+
+            await supabase.auth.signOut();
+            // Use replace() to clear history and prevent back navigation
+            window.location.replace('/index.html');
+        } catch (error) {
+            console.error('Logout error:', error);
+            logoutButton.disabled = false;
+            logoutButton.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Abmelden';
+        }
+    });
+}
+
 // Zeigt den Email-Verifizierungs-Status an
 function updateEmailVerificationStatus(isVerified) {
     if (isVerified) {

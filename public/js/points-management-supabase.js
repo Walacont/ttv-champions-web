@@ -3,6 +3,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { formatDate } from './ui-utils.js';
+import { createPointsNotification } from './notifications-supabase.js';
 
 /**
  * Gets the current season key from Supabase config table
@@ -74,9 +75,45 @@ export function loadPointsHistory(userData, db, unsubscribes) {
             .eq('user_id', userData.id)
             .order('timestamp', { ascending: false });
 
+        // Update summary totals
+        const totalPointsEl = document.getElementById('history-total-points');
+        const totalXpEl = document.getElementById('history-total-xp');
+        const totalEloEl = document.getElementById('history-total-elo');
+
         if (error || !historyData || historyData.length === 0) {
             pointsHistoryEl.innerHTML = `<li><p class="text-gray-400">Noch keine Punkte erhalten.</p></li>`;
+            if (totalPointsEl) totalPointsEl.textContent = '0';
+            if (totalXpEl) totalXpEl.textContent = '0';
+            if (totalEloEl) totalEloEl.textContent = '0';
             return;
+        }
+
+        // Calculate totals from history
+        let totalPoints = 0;
+        let totalXp = 0;
+        let totalElo = 0;
+
+        historyData.forEach(entry => {
+            totalPoints += entry.points || 0;
+            totalXp += (entry.xp !== undefined ? entry.xp : entry.points) || 0;
+            totalElo += entry.elo_change || 0;
+        });
+
+        // Update summary display with +/- signs
+        if (totalPointsEl) {
+            const sign = totalPoints >= 0 ? '+' : '';
+            totalPointsEl.textContent = `${sign}${totalPoints}`;
+            totalPointsEl.className = totalPoints >= 0 ? 'text-lg font-bold text-yellow-600' : 'text-lg font-bold text-red-600';
+        }
+        if (totalXpEl) {
+            const sign = totalXp >= 0 ? '+' : '';
+            totalXpEl.textContent = `${sign}${totalXp}`;
+            totalXpEl.className = totalXp >= 0 ? 'text-lg font-bold text-purple-600' : 'text-lg font-bold text-red-600';
+        }
+        if (totalEloEl) {
+            const sign = totalElo >= 0 ? '+' : '';
+            totalEloEl.textContent = `${sign}${totalElo}`;
+            totalEloEl.className = totalElo >= 0 ? 'text-lg font-bold text-blue-600' : 'text-lg font-bold text-red-600';
         }
 
         pointsHistoryEl.innerHTML = '';
@@ -655,6 +692,33 @@ export async function handlePointsFormSubmit(e, db, currentUserData, handleReaso
 
         // Insert points history entry
         await db.from('points_history').insert(historyEntry);
+
+        // Create notification for the player
+        try {
+            await createPointsNotification(
+                playerId,
+                actualPointsChange,
+                actualXPChange,
+                0, // elo change
+                reason,
+                `${currentUserData.firstName} ${currentUserData.lastName}`
+            );
+
+            // Also create notification for partner if applicable
+            if (hasPartnerSystem && partnerId && partnerName) {
+                const partnerReason = `Partner: ${reason} (mit ${playerData.first_name} ${playerData.last_name})`;
+                await createPointsNotification(
+                    partnerId,
+                    actualPartnerPointsChange,
+                    actualPartnerXPChange,
+                    0,
+                    partnerReason,
+                    `${currentUserData.firstName} ${currentUserData.lastName}`
+                );
+            }
+        } catch (notifError) {
+            console.warn('Could not create notification:', notifError);
+        }
 
         // Build feedback message
         const sign = actualPointsChange >= 0 ? '+' : '';

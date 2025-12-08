@@ -96,6 +96,7 @@ import {
     setDoublesUserId,
 } from './doubles-coach-ui-supabase.js';
 import { setupTabs, updateSeasonCountdown, AGE_GROUPS, GENDER_GROUPS } from './ui-utils-supabase.js';
+import { initNotifications, cleanupNotifications } from './notifications-supabase.js';
 import {
     handleAddOfflinePlayer,
     handlePlayerListActions,
@@ -492,21 +493,28 @@ async function initializeCoachPage(userData) {
         populateSubgroupFilter(userData.clubId, supabase);
     });
 
+    // Initialize notifications
+    initNotifications(user.uid);
+
     // --- Event Listeners ---
-    document.getElementById('logout-button').addEventListener('click', async () => {
-        try {
-            await supabase.auth.signOut();
-            // Clear SPA cache to prevent back-button access to authenticated pages
-            if (window.spaEnhancer) {
-                window.spaEnhancer.clearCache();
+    const logoutBtn = document.getElementById('logout-button');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                cleanupNotifications();
+                await supabase.auth.signOut();
+                // Clear SPA cache to prevent back-button access to authenticated pages
+                if (window.spaEnhancer) {
+                    window.spaEnhancer.clearCache();
+                }
+                // Use replace() instead of href to clear history and prevent back navigation
+                window.location.replace('/index.html');
+            } catch (error) {
+                console.error('Logout error:', error);
             }
-            // Use replace() instead of href to clear history and prevent back navigation
-            window.location.replace('/index.html');
-        } catch (error) {
-            console.error('Logout error:', error);
-        }
-    });
-    document.getElementById('error-logout-button').addEventListener('click', async () => {
+        });
+    }
+    document.getElementById('error-logout-button')?.addEventListener('click', async () => {
         try {
             await supabase.auth.signOut();
             if (window.spaEnhancer) {

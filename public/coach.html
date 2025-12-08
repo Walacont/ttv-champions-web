@@ -204,6 +204,15 @@
                             <i class="fas fa-table-tennis mr-1"></i>
                             <span class="hidden sm:inline">Spieler</span>
                         </a>
+                        <!-- Notification Bell -->
+                        <button
+                            id="desktop-notifications-btn"
+                            class="relative text-gray-500 hover:text-gray-800 transition-colors"
+                            title="Benachrichtigungen"
+                        >
+                            <i class="far fa-bell text-xl"></i>
+                            <span id="desktop-notifications-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                        </button>
                         <a
                             href="/settings.html"
                             class="text-gray-500 hover:text-gray-800 transition-colors"
@@ -230,12 +239,6 @@
                                 ></path>
                             </svg>
                         </a>
-                        <button
-                            id="logout-button"
-                            class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
-                        >
-                            Logout
-                        </button>
                     </div>
                 </div>
 

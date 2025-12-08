@@ -220,6 +220,15 @@
                             <i class="fas fa-user-shield mr-1"></i>
                             <span class="hidden sm:inline">Coach</span>
                         </a>
+                        <!-- Notification Bell -->
+                        <button
+                            id="desktop-notifications-btn"
+                            class="relative text-gray-500 hover:text-gray-800 transition-colors"
+                            title="Benachrichtigungen"
+                        >
+                            <i class="far fa-bell text-xl"></i>
+                            <span id="desktop-notifications-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                        </button>
                         <a
                             href="/settings.html"
                             class="text-gray-500 hover:text-gray-800 transition-colors"
@@ -246,12 +255,6 @@
                                 ></path>
                             </svg>
                         </a>
-                        <button
-                            id="logout-button"
-                            class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
-                        >
-                            Logout
-                        </button>
                     </div>
                 </div>
 
@@ -605,6 +608,21 @@
                             class="dashboard-widget bg-white p-6 rounded-xl shadow-md md:col-span-1 lg:col-span-2"
                         >
                             <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
+                            <!-- Summary Header -->
+                            <div id="points-history-summary" class="grid grid-cols-3 gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+                                <div class="text-center">
+                                    <p class="text-xs text-yellow-700 font-medium">Saisonpunkte</p>
+                                    <p id="history-total-points" class="text-lg font-bold text-yellow-600">0</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-xs text-purple-700 font-medium">XP</p>
+                                    <p id="history-total-xp" class="text-lg font-bold text-purple-600">0</p>
+                                </div>
+                                <div class="text-center">
+                                    <p class="text-xs text-blue-700 font-medium">Elo</p>
+                                    <p id="history-total-elo" class="text-lg font-bold text-blue-600">0</p>
+                                </div>
+                            </div>
                             <ul id="points-history" class="space-y-3 max-h-64 overflow-y-auto">
                                 <li>Historie wird geladen...</li>
                             </ul>
