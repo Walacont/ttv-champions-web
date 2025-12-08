@@ -10,20 +10,32 @@ ALTER TABLE club_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leave_club_requests ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
--- DROP ALL EXISTING BROKEN POLICIES
+-- DROP ALL EXISTING POLICIES (comprehensive list)
 -- ============================================
 
-DROP POLICY IF EXISTS club_requests_select_own ON club_requests;
-DROP POLICY IF EXISTS club_requests_select_coach ON club_requests;
-DROP POLICY IF EXISTS club_requests_insert ON club_requests;
-DROP POLICY IF EXISTS club_requests_update ON club_requests;
-DROP POLICY IF EXISTS club_requests_delete ON club_requests;
+-- club_requests - drop ALL possible policy names
+DROP POLICY IF EXISTS "club_requests_select_own" ON club_requests;
+DROP POLICY IF EXISTS "club_requests_select_coach" ON club_requests;
+DROP POLICY IF EXISTS "club_requests_select" ON club_requests;
+DROP POLICY IF EXISTS "club_requests_insert" ON club_requests;
+DROP POLICY IF EXISTS "club_requests_update" ON club_requests;
+DROP POLICY IF EXISTS "club_requests_delete" ON club_requests;
+DROP POLICY IF EXISTS "club_requests_all" ON club_requests;
+DROP POLICY IF EXISTS "Enable read access for own requests" ON club_requests;
+DROP POLICY IF EXISTS "Enable insert for own requests" ON club_requests;
 
-DROP POLICY IF EXISTS leave_requests_select_own ON leave_club_requests;
-DROP POLICY IF EXISTS leave_requests_select_coach ON leave_club_requests;
-DROP POLICY IF EXISTS leave_requests_insert ON leave_club_requests;
-DROP POLICY IF EXISTS leave_requests_update ON leave_club_requests;
-DROP POLICY IF EXISTS leave_requests_delete ON leave_club_requests;
+-- leave_club_requests - drop ALL possible policy names
+DROP POLICY IF EXISTS "leave_requests_select_own" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_requests_select_coach" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_requests_select" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_requests_insert" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_requests_update" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_requests_delete" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_requests_all" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_club_requests_select_own" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_club_requests_select_coach" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_club_requests_insert" ON leave_club_requests;
+DROP POLICY IF EXISTS "leave_club_requests_delete" ON leave_club_requests;
 
 -- ============================================
 -- CLUB_REQUESTS POLICIES
