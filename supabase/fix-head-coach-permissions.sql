@@ -454,27 +454,8 @@ CREATE POLICY exercise_milestones_update ON exercise_milestones FOR UPDATE
     );
 
 -- ============================================
--- PLAYER POINTS
+-- PLAYER POINTS - Table does not exist, skipped
 -- ============================================
-DROP POLICY IF EXISTS player_points_insert ON player_points;
-CREATE POLICY player_points_insert ON player_points FOR INSERT
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND role IN ('coach', 'head_coach', 'admin')
-        )
-    );
-
-DROP POLICY IF EXISTS player_points_update ON player_points;
-CREATE POLICY player_points_update ON player_points FOR UPDATE
-    USING (
-        EXISTS (
-            SELECT 1 FROM profiles
-            WHERE id = (SELECT auth.uid())
-            AND role IN ('coach', 'head_coach', 'admin')
-        )
-    );
 
 -- ============================================
 -- POINTS HISTORY (already fixed separately)
