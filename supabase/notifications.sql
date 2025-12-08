@@ -43,3 +43,6 @@ CREATE POLICY notifications_insert ON notifications FOR INSERT
 -- Users can delete their own notifications
 CREATE POLICY notifications_delete ON notifications FOR DELETE
     USING (user_id = (SELECT auth.uid()));
+
+-- Enable Realtime for this table
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
