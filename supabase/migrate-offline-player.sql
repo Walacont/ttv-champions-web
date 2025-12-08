@@ -111,11 +111,14 @@ BEGIN
     UPDATE user_sport_stats SET user_id = p_new_user_id
     WHERE user_id = p_offline_player_id;
 
-    -- Mark the invitation code as used (if not already)
+    -- Mark the invitation code as used AND clear player_id reference
+    -- (player_id must be cleared to allow deleting the offline player profile
+    -- because invitation_codes has a foreign key to profiles without ON DELETE CASCADE)
     UPDATE invitation_codes SET
+        player_id = NULL,  -- Clear reference to allow profile deletion
         used_by = p_new_user_id,
         used_at = NOW()
-    WHERE player_id = p_offline_player_id AND used_by IS NULL;
+    WHERE player_id = p_offline_player_id;
 
     -- Delete the old offline player profile
     DELETE FROM profiles WHERE id = p_offline_player_id AND is_offline = TRUE;

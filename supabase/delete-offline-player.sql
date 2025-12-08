@@ -16,6 +16,11 @@ AS $$
 DECLARE
     v_deleted_count INT;
 BEGIN
+    -- First, clear any invitation_code references to this player
+    -- (invitation_codes has a foreign key to profiles without ON DELETE CASCADE)
+    UPDATE invitation_codes SET player_id = NULL
+    WHERE player_id = p_offline_player_id;
+
     -- Only delete if the profile exists and is marked as offline
     DELETE FROM profiles
     WHERE id = p_offline_player_id
