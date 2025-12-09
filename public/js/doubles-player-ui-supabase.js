@@ -185,11 +185,12 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     privacySettings: p.privacy_settings,
                     isOffline: p.is_offline,
                     activeSportId: p.active_sport_id,
+                    isMatchReady: p.is_match_ready,
                 }))
                 .filter(p => {
                     // Filter: not self, match-ready, and privacy check
-                    const playerGrundlagen = p.grundlagenCompleted || 0;
-                    const isMatchReady = playerGrundlagen >= 5;
+                    // Use is_match_ready flag (set by coach) as authoritative source
+                    const isMatchReady = p.isMatchReady === true;
                     const isSelf = p.id === userData.id;
 
                     if (isSelf || !isMatchReady) return false;
