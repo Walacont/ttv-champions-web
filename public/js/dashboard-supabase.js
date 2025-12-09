@@ -3010,20 +3010,25 @@ function setupMatchForm() {
 
     // Initialize set score inputs based on sport
     setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
+    // Expose to window for doubles handler access
+    window.playerSetScoreInput = setScoreHandler;
 
     // Match mode change
     matchModeSelect?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect.value);
+        window.playerSetScoreInput = setScoreHandler;
         updateModeInfo(matchModeSelect.value);
     });
 
     // Tennis-specific options: Golden Point and Match Tie-Break
     goldenPointCheckbox?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
+        window.playerSetScoreInput = setScoreHandler;
     });
 
     matchTieBreakCheckbox?.addEventListener('change', () => {
         setScoreHandler = createScoreInputForSport(matchModeSelect?.value);
+        window.playerSetScoreInput = setScoreHandler;
     });
 
     // Singles/Doubles toggle
