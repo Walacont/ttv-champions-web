@@ -375,7 +375,9 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
 
     resultsContainer.innerHTML = players.map(player => {
         const clubName = player.clubId || 'Kein Verein';
-        const isSameClub = player.clubId === userData.clubId;
+        // Check both camelCase and snake_case for userData club ID
+        const userClubId = userData.clubId || userData.club_id;
+        const isSameClub = player.clubId === userClubId;
         const doublesElo = Math.round(player.doublesEloRating || 800);
 
         return `
