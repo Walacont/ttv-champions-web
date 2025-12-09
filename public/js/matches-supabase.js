@@ -26,6 +26,35 @@ import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, 
 
 const supabase = getSupabase();
 
+/**
+ * Helper function to create a notification for a user
+ */
+async function createNotification(userId, type, title, message, data = {}) {
+    const db = getSupabase();
+    if (!db) return;
+
+    try {
+        const { error } = await db
+            .from('notifications')
+            .insert({
+                user_id: userId,
+                type: type,
+                title: title,
+                message: message,
+                data: data,
+                is_read: false
+            });
+
+        if (error) {
+            console.error('[Matches] Error creating notification:', error);
+        } else {
+            console.log(`[Matches] Notification sent to ${userId}: ${type}`);
+        }
+    } catch (error) {
+        console.error('[Matches] Error creating notification:', error);
+    }
+}
+
 // Global variables
 let coachSetScoreInput = null;
 let currentPairingsSession = null;
@@ -972,7 +1001,14 @@ async function handleCoachApproval(requestId, approve, userData) {
 
     try {
         if (!approve) {
-            // Rejected - update status
+            // Rejected - first get the request to notify players
+            const { data: rejectedRequest } = await supabase
+                .from('match_requests')
+                .select('player_a_id, player_b_id')
+                .eq('id', requestId)
+                .single();
+
+            // Update status
             const { error } = await supabase
                 .from('match_requests')
                 .update({
@@ -982,6 +1018,22 @@ async function handleCoachApproval(requestId, approve, userData) {
                 .eq('id', requestId);
 
             if (error) throw error;
+
+            // Notify both players that the match was rejected
+            if (rejectedRequest) {
+                await createNotification(
+                    rejectedRequest.player_a_id,
+                    'match_coach_rejected',
+                    'Spiel abgelehnt',
+                    'Der Coach hat euer Spiel abgelehnt.'
+                );
+                await createNotification(
+                    rejectedRequest.player_b_id,
+                    'match_coach_rejected',
+                    'Spiel abgelehnt',
+                    'Der Coach hat euer Spiel abgelehnt.'
+                );
+            }
 
             alert('Anfrage abgelehnt');
             loadCoachMatchRequests(userData, supabase);
@@ -1057,6 +1109,20 @@ async function handleCoachApproval(requestId, approve, userData) {
             .eq('id', requestId);
 
         if (updateError) throw updateError;
+
+        // Notify both players that the match was approved
+        await createNotification(
+            request.player_a_id,
+            'match_approved',
+            'Spiel freigegeben',
+            'Euer Spiel wurde vom Coach freigegeben und eingetragen!'
+        );
+        await createNotification(
+            request.player_b_id,
+            'match_approved',
+            'Spiel freigegeben',
+            'Euer Spiel wurde vom Coach freigegeben und eingetragen!'
+        );
 
         console.log('[Coach] Match approved and created:', requestId);
         alert('Match genehmigt und erstellt!');

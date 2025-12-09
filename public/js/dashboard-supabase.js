@@ -55,6 +55,74 @@ async function loadTestClubIds() {
     return testClubIdsCache;
 }
 
+/**
+ * Helper function to create a notification for a user
+ */
+async function createNotification(userId, type, title, message, data = {}) {
+    try {
+        const { error } = await supabase
+            .from('notifications')
+            .insert({
+                user_id: userId,
+                type: type,
+                title: title,
+                message: message,
+                data: data,
+                is_read: false
+            });
+
+        if (error) {
+            console.error('[Dashboard] Error creating notification:', error);
+        } else {
+            console.log(`[Dashboard] Notification sent to ${userId}: ${type}`);
+        }
+    } catch (error) {
+        console.error('[Dashboard] Error creating notification:', error);
+    }
+}
+
+/**
+ * Helper function to notify all coaches in a club
+ */
+async function notifyClubCoaches(clubId, type, title, message, data = {}) {
+    try {
+        const { data: coaches, error: coachError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('club_id', clubId)
+            .in('role', ['coach', 'head_coach']);
+
+        if (coachError) {
+            console.error('[Dashboard] Error finding coaches:', coachError);
+            return;
+        }
+
+        if (!coaches || coaches.length === 0) {
+            console.log('[Dashboard] No coaches found in club to notify');
+            return;
+        }
+
+        const notifications = coaches.map(coach => ({
+            user_id: coach.id,
+            type: type,
+            title: title,
+            message: message,
+            data: data,
+            is_read: false
+        }));
+
+        const { error } = await supabase.from('notifications').insert(notifications);
+
+        if (error) {
+            console.error('[Dashboard] Error creating coach notifications:', error);
+        } else {
+            console.log(`[Dashboard] Notified ${coaches.length} coach(es) about ${type}`);
+        }
+    } catch (error) {
+        console.error('[Dashboard] Error notifying coaches:', error);
+    }
+}
+
 // --- Constants ---
 const RANKS = [
     { name: 'Rekrut', minXP: 0, icon: '🔰' },
@@ -2136,12 +2204,31 @@ window.respondToMatchRequest = async (requestId, accept) => {
     try {
         if (!accept) {
             // Rejected - simple update
+            // First get player A info for notification
+            const { data: request } = await supabase
+                .from('match_requests')
+                .select('player_a_id')
+                .eq('id', requestId)
+                .single();
+
             const { error } = await supabase
                 .from('match_requests')
                 .update({ status: 'rejected', updated_at: new Date().toISOString() })
                 .eq('id', requestId);
 
             if (error) throw error;
+
+            // Notify player A that player B rejected the match
+            if (request?.player_a_id) {
+                const playerBName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Der Gegner';
+                await createNotification(
+                    request.player_a_id,
+                    'match_rejected',
+                    'Spielanfrage abgelehnt',
+                    `${playerBName} hat deine Spielanfrage abgelehnt.`
+                );
+            }
+
             loadMatchRequests();
             return;
         }
@@ -2208,6 +2295,37 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // If auto-approved, create the actual match
         if (newStatus === 'approved') {
             await createMatchFromRequest(request);
+        }
+        // If pending_coach, notify the coaches
+        else if (newStatus === 'pending_coach') {
+            // Get player names for the notification
+            const { data: playerProfiles } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name')
+                .in('id', [request.player_a_id, request.player_b_id]);
+
+            const playerA = playerProfiles?.find(p => p.id === request.player_a_id);
+            const playerB = playerProfiles?.find(p => p.id === request.player_b_id);
+            const playerAName = `${playerA?.first_name || ''} ${playerA?.last_name || ''}`.trim() || 'Spieler A';
+            const playerBName = `${playerB?.first_name || ''} ${playerB?.last_name || ''}`.trim() || 'Spieler B';
+
+            // Notify coaches in both clubs (if cross-club) or just the one club
+            if (playerAClubId) {
+                await notifyClubCoaches(
+                    playerAClubId,
+                    'match_pending_approval',
+                    'Spiel wartet auf Freigabe',
+                    `${playerAName} vs ${playerBName} - Bitte das Spiel freigeben.`
+                );
+            }
+            if (playerBClubId && playerBClubId !== playerAClubId) {
+                await notifyClubCoaches(
+                    playerBClubId,
+                    'match_pending_approval',
+                    'Spiel wartet auf Freigabe',
+                    `${playerAName} vs ${playerBName} - Bitte das Spiel freigeben.`
+                );
+            }
         }
 
         loadMatchRequests();
@@ -2830,6 +2948,15 @@ async function submitMatchRequest() {
             });
 
         if (error) throw error;
+
+        // Notify opponent about the match request
+        const playerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
+        await createNotification(
+            selectedOpponent.id,
+            'match_request',
+            'Neue Spielanfrage',
+            `${playerName} möchte ein Spiel mit dir eintragen. Bitte bestätige das Ergebnis.`
+        );
 
         showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');
 
