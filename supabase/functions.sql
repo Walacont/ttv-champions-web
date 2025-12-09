@@ -536,21 +536,21 @@ AS $$
 BEGIN
     -- Only process when status changes to 'approved'
     IF NEW.status = 'approved' AND (OLD.status IS NULL OR OLD.status != 'approved') THEN
-        -- Create doubles match from request
+        -- Create doubles match from request (extract from JSONB team_a and team_b)
         INSERT INTO doubles_matches (
             club_id, winning_team,
             team_a_player1_id, team_a_player2_id, team_a_pairing_id,
             team_b_player1_id, team_b_player2_id, team_b_pairing_id,
-            set1_a, set1_b, set2_a, set2_b, set3_a, set3_b,
-            set4_a, set4_b, set5_a, set5_b,
-            handicap_used, requested_by, approved_by, created_at
+            sets, is_cross_club, created_at
         ) VALUES (
             NEW.club_id, NEW.winning_team,
-            NEW.team_a_player1_id, NEW.team_a_player2_id, NEW.team_a_pairing_id,
-            NEW.team_b_player1_id, NEW.team_b_player2_id, NEW.team_b_pairing_id,
-            NEW.set1_a, NEW.set1_b, NEW.set2_a, NEW.set2_b, NEW.set3_a, NEW.set3_b,
-            NEW.set4_a, NEW.set4_b, NEW.set5_a, NEW.set5_b,
-            NEW.handicap_used, NEW.requested_by, NEW.approved_by, NOW()
+            (NEW.team_a->>'player1_id')::UUID,
+            (NEW.team_a->>'player2_id')::UUID,
+            NEW.team_a->>'pairing_id',
+            (NEW.team_b->>'player1_id')::UUID,
+            (NEW.team_b->>'player2_id')::UUID,
+            NEW.team_b->>'pairing_id',
+            NEW.sets, NEW.is_cross_club, NOW()
         );
 
         -- Delete the request
