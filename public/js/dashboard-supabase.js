@@ -2657,10 +2657,12 @@ async function searchOpponents(query, resultsContainer) {
         }
 
         // Filter by privacy settings, match-readiness, and test clubs
+        console.log('[Opponent Search] Current user club:', currentUserData.club_id, 'isTestClub:', isCurrentUserInTestClub);
+
         const filteredPlayers = (players || []).filter(player => {
             // Must be match-ready
             if (player.is_match_ready !== true) {
-                console.log('[Opponent Search] Filtered out (not match-ready):', player.first_name, player.last_name);
+                console.log('[Opponent Search] Filtered out (not match-ready):', player.first_name, player.last_name, 'is_match_ready:', player.is_match_ready);
                 return false;
             }
 
@@ -2668,6 +2670,7 @@ async function searchOpponents(query, resultsContainer) {
             if (player.club_id && testClubIds.includes(player.club_id)) {
                 // Only show test club players if current user is from the same test club
                 if (!isCurrentUserInTestClub || currentUserData.club_id !== player.club_id) {
+                    console.log('[Opponent Search] Filtered out (test club):', player.first_name, player.last_name, 'playerClub:', player.club_id, 'userClub:', currentUserData.club_id);
                     return false;
                 }
             }
@@ -2682,14 +2685,18 @@ async function searchOpponents(query, resultsContainer) {
             // Get searchable setting (default: global)
             const searchable = player.privacy_settings?.searchable || 'global';
 
-            // Global: visible to everyone
-            if (searchable === 'global') return true;
-
-            // Club only: only visible to same club members
-            if (searchable === 'club_only' && currentUserData.club_id && player.club_id === currentUserData.club_id) {
+            // Same club members should ALWAYS see each other, regardless of privacy setting
+            if (currentUserData.club_id && player.club_id === currentUserData.club_id) {
+                console.log('[Opponent Search] Same club - visible:', player.first_name, player.last_name);
                 return true;
             }
 
+            // Global: visible to everyone (outside of club)
+            if (searchable === 'global') return true;
+
+            // Club only: player has set privacy to club_only, and we're not in the same club
+            // So they should NOT be visible to outsiders
+            console.log('[Opponent Search] Filtered out (privacy club_only):', player.first_name, player.last_name);
             return false;
         }).slice(0, 10); // Limit to 10 results
 
