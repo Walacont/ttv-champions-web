@@ -8,6 +8,10 @@ ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS handicap_used BOOLEAN DEFAU
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_a_pairing_id TEXT REFERENCES doubles_pairings(id);
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_b_pairing_id TEXT REFERENCES doubles_pairings(id);
 
+-- Add missing columns to doubles_pairings table for win/loss tracking
+ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0;
+ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0;
+
 -- Add missing columns to profiles table for doubles stats
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS doubles_highest_elo INTEGER DEFAULT 800;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS doubles_wins INTEGER DEFAULT 0;
