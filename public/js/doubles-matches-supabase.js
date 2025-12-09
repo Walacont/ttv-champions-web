@@ -284,7 +284,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         handicap_used: handicapUsed || false,
         match_mode: matchMode,
         initiated_by: initiatorId,
-        confirmations: {
+        approvals: {
             [partnerId]: false,
             [opponent1Id]: false,
             [opponent2Id]: false,
@@ -375,10 +375,10 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
     }
 
     // Auto-approve when opponent confirms (no coach approval needed)
-    const updatedConfirmations = { ...request.confirmations, [playerId]: true };
+    const updatedApprovals = { ...request.approvals, [playerId]: true };
 
     const updateData = {
-        confirmations: updatedConfirmations,
+        approvals: updatedApprovals,
         confirmed_by: playerId,
         confirmed_at: new Date().toISOString(),
         status: 'approved',

@@ -60,6 +60,7 @@ function switchPlayerMatchType(type) {
     const doublesToggle = document.getElementById('player-doubles-toggle');
     const singlesContainer = document.getElementById('singles-opponent-container');
     const doublesContainer = document.getElementById('doubles-players-container');
+    const teamEloDisplay = document.getElementById('doubles-team-elo-display');
 
     if (type === 'singles') {
         // Update toggle buttons
@@ -69,6 +70,11 @@ function switchPlayerMatchType(type) {
         // Show singles, hide doubles
         singlesContainer.classList.remove('hidden');
         doublesContainer.classList.add('hidden');
+
+        // Hide team Elo display
+        if (teamEloDisplay) {
+            teamEloDisplay.classList.add('hidden');
+        }
 
         // Clear doubles selections
         clearDoublesSelections();
@@ -626,6 +632,9 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
     const handicapInfo = document.getElementById('match-handicap-info');
     const handicapText = document.getElementById('match-handicap-text');
     const handicapToggleContainer = document.getElementById('match-handicap-toggle-container');
+    const teamEloDisplay = document.getElementById('doubles-team-elo-display');
+    const teamAEloValue = document.getElementById('team-a-elo-value');
+    const teamBEloValue = document.getElementById('team-b-elo-value');
 
     if (!partnerIdField || !opponent1IdField || !opponent2IdField || !handicapInfo || !handicapText) {
         console.warn('Handicap elements not found for doubles player form');
@@ -642,10 +651,13 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
         // Check if all 3 players are selected
         if (!partnerId || !opponent1Id || !opponent2Id) {
-            // Hide handicap if not all players selected
+            // Hide handicap and team Elo if not all players selected
             handicapInfo.classList.add('hidden');
             if (handicapToggleContainer) {
                 handicapToggleContainer.classList.add('hidden');
+            }
+            if (teamEloDisplay) {
+                teamEloDisplay.classList.add('hidden');
             }
             return;
         }
@@ -655,25 +667,45 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
         const opponent1 = playersData.players.find(p => p.id === opponent1Id);
         const opponent2 = playersData.players.find(p => p.id === opponent2Id);
 
-        // If any player not found, hide handicap
+        // If any player not found, hide handicap and team Elo
         if (!partner || !opponent1 || !opponent2) {
             handicapInfo.classList.add('hidden');
             if (handicapToggleContainer) {
                 handicapToggleContainer.classList.add('hidden');
             }
+            if (teamEloDisplay) {
+                teamEloDisplay.classList.add('hidden');
+            }
             return;
+        }
+
+        // Get individual Elo ratings
+        const userElo = userData.doubles_elo_rating || userData.doublesEloRating || 800;
+        const partnerElo = partner.doubles_elo_rating || partner.doublesEloRating || 800;
+        const opponent1Elo = opponent1.doubles_elo_rating || opponent1.doublesEloRating || 800;
+        const opponent2Elo = opponent2.doubles_elo_rating || opponent2.doublesEloRating || 800;
+
+        // Calculate team averages
+        const teamAAvgElo = Math.round((userElo + partnerElo) / 2);
+        const teamBAvgElo = Math.round((opponent1Elo + opponent2Elo) / 2);
+
+        // Display team Elo values
+        if (teamEloDisplay && teamAEloValue && teamBEloValue) {
+            teamAEloValue.textContent = teamAAvgElo;
+            teamBEloValue.textContent = teamBAvgElo;
+            teamEloDisplay.classList.remove('hidden');
         }
 
         // Build team objects for handicap calculation
         // Use snake_case for Supabase data
         const teamA = {
-            player1: { eloRating: userData.doubles_elo_rating || userData.doublesEloRating || 800 },
-            player2: { eloRating: partner.doubles_elo_rating || partner.doublesEloRating || 800 }
+            player1: { eloRating: userElo },
+            player2: { eloRating: partnerElo }
         };
 
         const teamB = {
-            player1: { eloRating: opponent1.doubles_elo_rating || opponent1.doublesEloRating || 800 },
-            player2: { eloRating: opponent2.doubles_elo_rating || opponent2.doublesEloRating || 800 }
+            player1: { eloRating: opponent1Elo },
+            player2: { eloRating: opponent2Elo }
         };
 
         // Calculate handicap
