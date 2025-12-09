@@ -2388,6 +2388,11 @@ function setupMatchForm() {
             desc: 'Wer zuerst 2 Sätze gewinnt. Ein Satz geht bis 6 Spiele mit 2 Spielen Vorsprung. Bei 6:6 wird ein Tie-Break gespielt (7:6).',
             example: 'z.B. 6:4, 3:6, 7:5'
         },
+        'best-of-5-tennis': {
+            title: 'Best of 5 (Grand Slam)',
+            desc: 'Wer zuerst 3 Sätze gewinnt. Ein Satz geht bis 6 Spiele mit 2 Spielen Vorsprung. Bei 6:6 wird ein Tie-Break gespielt.',
+            example: 'z.B. 6:4, 3:6, 7:6, 6:3'
+        },
         'pro-set': {
             title: 'Einzelsatz (Pro Set)',
             desc: 'Nur ein langer Satz. Wer zuerst 9 (oder 10) Spiele erreicht, gewinnt. Es müssen 2 Spiele Vorsprung sein.',
@@ -2436,6 +2441,7 @@ function setupMatchForm() {
     function getModeInfoKey(mode) {
         if (isTennisOrPadel) {
             if (mode === 'best-of-3') return 'best-of-3-tennis';
+            if (mode === 'best-of-5') return 'best-of-5-tennis';
             return mode;
         } else if (isBadminton) {
             if (mode === 'best-of-3') return 'best-of-3-badminton';
@@ -2480,7 +2486,8 @@ function setupMatchForm() {
         if (isTennisOrPadel) {
             matchModeSelect.innerHTML = `
                 <option value="best-of-3" selected>Best of 3 (Standard)</option>
-                <option value="pro-set">Einzelsatz (bis 9/10)</option>
+                <option value="best-of-5">Best of 5 (Grand Slam)</option>
+                <option value="pro-set">Pro-Set (bis 9/10)</option>
                 <option value="timed">Zeit / Fortlaufend</option>
                 <option value="fast4">Fast4 (Sätze bis 4)</option>
             `;
