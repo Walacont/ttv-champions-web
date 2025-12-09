@@ -3077,7 +3077,7 @@ async function checkHandicap() {
         }
     }
 
-    // --- Check 2: Head-to-Head handicap (consecutive losses) ---
+    // --- Check 2: Head-to-Head handicap (consecutive wins by same player) ---
     try {
         const { data: h2hData, error } = await supabase
             .rpc('get_h2h_handicap', {
@@ -3088,23 +3088,25 @@ async function checkHandicap() {
         if (!error && h2hData && h2hData.length > 0) {
             const h2h = h2hData[0];
 
-            // Only show if there's a suggested handicap and I am the stronger player who's been losing
-            if (h2h.suggested_handicap > 0 && h2h.stronger_player_id === currentUser.id) {
-                const losses = h2h.consecutive_losses;
-                handicapSuggestions.push({
-                    type: 'h2h',
-                    value: h2h.suggested_handicap,
-                    text: `Du hast ${losses}x in Folge gegen ${selectedOpponent.name} verloren → ${selectedOpponent.name} startet mit +${h2h.suggested_handicap} ${unitText}`
-                });
-            }
-            // Also check if opponent is stronger and has been losing to me
-            else if (h2h.suggested_handicap > 0 && h2h.stronger_player_id === selectedOpponent.id) {
-                const losses = h2h.consecutive_losses;
-                handicapSuggestions.push({
-                    type: 'h2h',
-                    value: h2h.suggested_handicap,
-                    text: `${selectedOpponent.name} hat ${losses}x in Folge gegen dich verloren → Du startest mit +${h2h.suggested_handicap} ${unitText}`
-                });
+            // Show handicap suggestion if there's a winning streak
+            if (h2h.suggested_handicap > 0 && h2h.streak_winner_id) {
+                const wins = h2h.consecutive_wins;
+
+                if (h2h.streak_winner_id === selectedOpponent.id) {
+                    // Opponent has been winning against me
+                    handicapSuggestions.push({
+                        type: 'h2h',
+                        value: h2h.suggested_handicap,
+                        text: `${selectedOpponent.name} hat ${wins}x in Folge gegen dich gewonnen. Du startest mit +${h2h.suggested_handicap} ${unitText}`
+                    });
+                } else if (h2h.streak_winner_id === currentUser.id) {
+                    // I have been winning against opponent
+                    handicapSuggestions.push({
+                        type: 'h2h',
+                        value: h2h.suggested_handicap,
+                        text: `Du hast ${wins}x in Folge gegen ${selectedOpponent.name} gewonnen. ${selectedOpponent.name} startet mit +${h2h.suggested_handicap} ${unitText}`
+                    });
+                }
             }
         }
     } catch (e) {

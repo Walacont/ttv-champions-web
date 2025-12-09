@@ -1,33 +1,37 @@
 -- =========================================
--- Dynamic Head-to-Head Handicap System
+-- Dynamic Head-to-Head Handicap System (v2)
 -- =========================================
--- Tracks consecutive losses between player pairs
--- Suggests handicap when stronger player loses 2+ times in a row
+-- Tracks consecutive wins between player pairs
+-- Suggests handicap when ANY player wins 2+ times in a row
+-- (Not based on Elo - purely based on win streak)
 
 -- =========================================
--- STEP 1: Create head_to_head_stats table
+-- STEP 1: Drop old table and create new one
 -- =========================================
-CREATE TABLE IF NOT EXISTS head_to_head_stats (
+DROP TABLE IF EXISTS head_to_head_stats CASCADE;
+
+CREATE TABLE head_to_head_stats (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    -- Always store with player_a having higher Elo at creation time
-    -- But we track from perspective of who is currently stronger
+    -- Store players ordered by UUID for consistency
     player_a_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     player_b_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
 
-    -- Consecutive losses by the stronger player against the weaker
-    -- Positive = stronger is losing streak, 0 = reset after win
-    stronger_consecutive_losses INTEGER DEFAULT 0,
+    -- Who is currently on a winning streak (NULL if no streak >= 2)
+    current_streak_winner_id UUID,
 
-    -- Who is currently the stronger player (by Elo)
-    current_stronger_id UUID,
+    -- Current consecutive wins by streak winner
+    consecutive_wins INTEGER DEFAULT 0,
 
-    -- Suggested handicap points (0-7)
+    -- Suggested handicap points (0-7) for the losing player
     suggested_handicap INTEGER DEFAULT 0,
 
     -- Total match stats
     player_a_wins INTEGER DEFAULT 0,
     player_b_wins INTEGER DEFAULT 0,
     total_matches INTEGER DEFAULT 0,
+
+    -- Last winner (to track streaks)
+    last_winner_id UUID,
 
     last_match_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -89,74 +93,43 @@ SECURITY DEFINER
 AS $$
 DECLARE
     h2h_id UUID;
-    winner_elo INTEGER;
-    loser_elo INTEGER;
-    stronger_id UUID;
-    weaker_id UUID;
-    current_losses INTEGER;
-    new_losses INTEGER;
+    prev_last_winner UUID;
+    prev_consecutive INTEGER;
+    new_consecutive INTEGER;
     new_handicap INTEGER;
-    ordered_a UUID;
-    ordered_b UUID;
 BEGIN
-    -- Get Elo ratings
-    SELECT elo_rating INTO winner_elo FROM profiles WHERE id = NEW.winner_id;
-    SELECT elo_rating INTO loser_elo FROM profiles WHERE id = NEW.loser_id;
-
-    -- Determine who is stronger (by Elo before the match)
-    -- Note: We use the Elo BEFORE the match result is applied
-    -- Since this trigger runs after process_match_result, we need to reverse the change
-    winner_elo := winner_elo - COALESCE(NEW.winner_elo_change, 0);
-    loser_elo := loser_elo - COALESCE(NEW.loser_elo_change, 0);
-
-    IF winner_elo >= loser_elo THEN
-        stronger_id := NEW.winner_id;
-        weaker_id := NEW.loser_id;
-    ELSE
-        stronger_id := NEW.loser_id;
-        weaker_id := NEW.winner_id;
-    END IF;
-
-    -- Order player IDs consistently
-    IF NEW.winner_id < NEW.loser_id THEN
-        ordered_a := NEW.winner_id;
-        ordered_b := NEW.loser_id;
-    ELSE
-        ordered_a := NEW.loser_id;
-        ordered_b := NEW.winner_id;
-    END IF;
-
     -- Get or create h2h record
     h2h_id := get_or_create_h2h_stats(NEW.winner_id, NEW.loser_id);
 
-    -- Get current consecutive losses
-    SELECT stronger_consecutive_losses INTO current_losses
+    -- Get previous state
+    SELECT last_winner_id, consecutive_wins
+    INTO prev_last_winner, prev_consecutive
     FROM head_to_head_stats WHERE id = h2h_id;
 
-    current_losses := COALESCE(current_losses, 0);
+    prev_consecutive := COALESCE(prev_consecutive, 0);
 
-    -- Update based on who won
-    IF NEW.winner_id = stronger_id THEN
-        -- Stronger player won -> reset streak
-        new_losses := 0;
-        new_handicap := 0;
+    -- Check if same player won again (continuing streak) or new winner (reset)
+    IF prev_last_winner IS NULL OR prev_last_winner = NEW.winner_id THEN
+        -- Same winner or first match - increment streak
+        new_consecutive := prev_consecutive + 1;
     ELSE
-        -- Weaker player won (upset) -> increment streak
-        new_losses := current_losses + 1;
+        -- Different winner - reset streak
+        new_consecutive := 1;
+    END IF;
 
-        -- Calculate handicap: starts at 0, then after 2 losses = 1, after 3 = 2, etc.
-        -- Max 7
-        IF new_losses >= 2 THEN
-            new_handicap := LEAST(new_losses - 1, 7);
-        ELSE
-            new_handicap := 0;
-        END IF;
+    -- Calculate handicap: starts after 2 wins, +1 per additional win, max 7
+    -- 2 wins = +1, 3 wins = +2, 4 wins = +3, etc.
+    IF new_consecutive >= 2 THEN
+        new_handicap := LEAST(new_consecutive - 1, 7);
+    ELSE
+        new_handicap := 0;
     END IF;
 
     -- Update the h2h stats
     UPDATE head_to_head_stats SET
-        stronger_consecutive_losses = new_losses,
-        current_stronger_id = stronger_id,
+        last_winner_id = NEW.winner_id,
+        consecutive_wins = new_consecutive,
+        current_streak_winner_id = CASE WHEN new_consecutive >= 2 THEN NEW.winner_id ELSE NULL END,
         suggested_handicap = new_handicap,
         player_a_wins = CASE WHEN NEW.winner_id = player_a_id THEN player_a_wins + 1 ELSE player_a_wins END,
         player_b_wins = CASE WHEN NEW.winner_id = player_b_id THEN player_b_wins + 1 ELSE player_b_wins END,
@@ -185,9 +158,9 @@ CREATE TRIGGER trigger_update_h2h_stats
 CREATE OR REPLACE FUNCTION get_h2h_handicap(p1_id UUID, p2_id UUID)
 RETURNS TABLE(
     suggested_handicap INTEGER,
-    consecutive_losses INTEGER,
-    stronger_player_id UUID,
-    weaker_player_id UUID,
+    consecutive_wins INTEGER,
+    streak_winner_id UUID,
+    streak_loser_id UUID,
     total_matches INTEGER,
     p1_wins INTEGER,
     p2_wins INTEGER
@@ -198,8 +171,6 @@ DECLARE
     ordered_a UUID;
     ordered_b UUID;
     h2h RECORD;
-    p1_elo INTEGER;
-    p2_elo INTEGER;
 BEGIN
     -- Order IDs
     IF p1_id < p2_id THEN
@@ -210,10 +181,6 @@ BEGIN
         ordered_b := p1_id;
     END IF;
 
-    -- Get current Elo ratings
-    SELECT elo_rating INTO p1_elo FROM profiles WHERE id = p1_id;
-    SELECT elo_rating INTO p2_elo FROM profiles WHERE id = p2_id;
-
     -- Find h2h record
     SELECT * INTO h2h FROM head_to_head_stats
     WHERE player_a_id = ordered_a AND player_b_id = ordered_b;
@@ -223,17 +190,22 @@ BEGIN
         RETURN QUERY SELECT
             0::INTEGER,
             0::INTEGER,
-            (CASE WHEN p1_elo >= p2_elo THEN p1_id ELSE p2_id END)::UUID,
-            (CASE WHEN p1_elo < p2_elo THEN p1_id ELSE p2_id END)::UUID,
+            NULL::UUID,
+            NULL::UUID,
             0::INTEGER,
             0::INTEGER,
             0::INTEGER;
     ELSE
         RETURN QUERY SELECT
             h2h.suggested_handicap,
-            h2h.stronger_consecutive_losses,
-            h2h.current_stronger_id,
-            (CASE WHEN h2h.current_stronger_id = p1_id THEN p2_id ELSE p1_id END)::UUID,
+            h2h.consecutive_wins,
+            h2h.current_streak_winner_id,
+            -- The loser is the other player
+            (CASE
+                WHEN h2h.current_streak_winner_id = p1_id THEN p2_id
+                WHEN h2h.current_streak_winner_id = p2_id THEN p1_id
+                ELSE NULL
+            END)::UUID,
             h2h.total_matches,
             (CASE WHEN p1_id = h2h.player_a_id THEN h2h.player_a_wins ELSE h2h.player_b_wins END)::INTEGER,
             (CASE WHEN p2_id = h2h.player_a_id THEN h2h.player_a_wins ELSE h2h.player_b_wins END)::INTEGER;
@@ -246,12 +218,16 @@ $$;
 -- =========================================
 ALTER TABLE head_to_head_stats ENABLE ROW LEVEL SECURITY;
 
+-- Drop old policies if exist
+DROP POLICY IF EXISTS "Users can view own h2h stats" ON head_to_head_stats;
+DROP POLICY IF EXISTS "System can manage h2h stats" ON head_to_head_stats;
+
 -- Players can view their own h2h stats
 CREATE POLICY "Users can view own h2h stats" ON head_to_head_stats
     FOR SELECT
     USING (auth.uid() = player_a_id OR auth.uid() = player_b_id);
 
--- System can insert/update
+-- System can insert/update (using SECURITY DEFINER functions)
 CREATE POLICY "System can manage h2h stats" ON head_to_head_stats
     FOR ALL
     USING (true)
@@ -262,9 +238,10 @@ CREATE POLICY "System can manage h2h stats" ON head_to_head_stats
 -- =========================================
 DO $$
 BEGIN
-    RAISE NOTICE 'Head-to-Head Handicap System erstellt:';
-    RAISE NOTICE '- Tabelle: head_to_head_stats';
-    RAISE NOTICE '- Trigger: Nach jedem Match wird H2H aktualisiert';
-    RAISE NOTICE '- Regel: Nach 2 Niederlagen = +1 Handicap, max +7';
-    RAISE NOTICE '- Reset: Bei Sieg des Stärkeren -> Handicap = 0';
+    RAISE NOTICE 'Head-to-Head Handicap System v2:';
+    RAISE NOTICE '- Verfolgt Siegesserie zwischen zwei Spielern';
+    RAISE NOTICE '- 2 Siege in Folge = +1 Handicap fuer Verlierer';
+    RAISE NOTICE '- 3 Siege = +2, bis max +7';
+    RAISE NOTICE '- Bei Niederlage des Seriengewinners: Reset auf 0';
+    RAISE NOTICE '- Unabhaengig von Elo!';
 END $$;
