@@ -265,24 +265,24 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
     // Get player names from requestData if provided, otherwise use userData
     const playerNames = requestData.playerNames || {};
 
-    // Build the request document data
+    // Build the request document data using JSONB structure for teams
     const doublesRequestData = {
-        team_a_player1_id: initiatorId,
-        team_a_player2_id: partnerId,
-        team_a_player1_name: playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
-        team_a_player2_name: playerNames.player2 || 'Unbekannt',
-        team_a_pairing_id: initiatorPairingId,
-        team_b_player1_id: opponent1Id,
-        team_b_player2_id: opponent2Id,
-        team_b_player1_name: playerNames.opponent1 || 'Unbekannt',
-        team_b_player2_name: playerNames.opponent2 || 'Unbekannt',
-        team_b_pairing_id: opponentPairingId,
+        team_a: {
+            player1_id: initiatorId,
+            player2_id: partnerId,
+            player1_name: playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
+            player2_name: playerNames.player2 || 'Unbekannt',
+            pairing_id: initiatorPairingId,
+        },
+        team_b: {
+            player1_id: opponent1Id,
+            player2_id: opponent2Id,
+            player1_name: playerNames.opponent1 || 'Unbekannt',
+            player2_name: playerNames.opponent2 || 'Unbekannt',
+            pairing_id: opponentPairingId,
+        },
         winning_team: winningTeam,
-        winning_pairing_id: winningTeam === 'A' ? initiatorPairingId : opponentPairingId,
-        losing_pairing_id: winningTeam === 'A' ? opponentPairingId : initiatorPairingId,
         sets: sets,
-        handicap_used: handicapUsed || false,
-        match_mode: matchMode,
         initiated_by: initiatorId,
         approvals: {
             [partnerId]: false,
@@ -368,8 +368,9 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
     if (fetchError) throw fetchError;
     if (!request) throw new Error('Anfrage nicht gefunden');
 
-    // Check if player is one of the opponents
-    const isOpponent = request.team_b_player1_id === playerId || request.team_b_player2_id === playerId;
+    // Check if player is one of the opponents (using JSONB structure)
+    const teamB = request.team_b || {};
+    const isOpponent = teamB.player1_id === playerId || teamB.player2_id === playerId;
     if (!isOpponent) {
         throw new Error('Du bist kein Gegner in diesem Match');
     }
@@ -379,12 +380,7 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
 
     const updateData = {
         approvals: updatedApprovals,
-        confirmed_by: playerId,
-        confirmed_at: new Date().toISOString(),
         status: 'approved',
-        approved_by: 'auto_approved',
-        approved_at: new Date().toISOString(),
-        approval_reason: 'Opponent confirmation is sufficient',
     };
 
     const { error: updateError } = await supabase
@@ -396,16 +392,17 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
 
     console.log('Doubles match request confirmed and auto-approved by opponent:', playerId);
 
-    // Notify all 4 players that the match is approved
+    // Notify all 4 players that the match is approved (using JSONB structure)
+    const teamA = request.team_a || {};
     const allPlayerIds = [
-        request.team_a_player1_id,
-        request.team_a_player2_id,
-        request.team_b_player1_id,
-        request.team_b_player2_id
-    ];
+        teamA.player1_id,
+        teamA.player2_id,
+        teamB.player1_id,
+        teamB.player2_id
+    ].filter(id => id); // Filter out undefined
 
-    const teamANames = `${request.team_a_player1_name || 'Spieler'} & ${request.team_a_player2_name || 'Spieler'}`;
-    const teamBNames = `${request.team_b_player1_name || 'Spieler'} & ${request.team_b_player2_name || 'Spieler'}`;
+    const teamANames = `${teamA.player1_name || 'Spieler'} & ${teamA.player2_name || 'Spieler'}`;
+    const teamBNames = `${teamB.player1_name || 'Spieler'} & ${teamB.player2_name || 'Spieler'}`;
     const approvedMessage = `Das Doppel-Match ${teamANames} vs ${teamBNames} wurde bestätigt!`;
 
     for (const pId of allPlayerIds) {
@@ -932,12 +929,16 @@ export async function loadCoachDoublesMatchRequests(userData, supabase, containe
 
             const requests = [];
             for (const data of requestsData) {
+                // Use JSONB structure for team data
+                const teamA = data.team_a || {};
+                const teamB = data.team_b || {};
+
                 const playerIds = [
-                    data.team_a_player1_id,
-                    data.team_a_player2_id,
-                    data.team_b_player1_id,
-                    data.team_b_player2_id
-                ];
+                    teamA.player1_id,
+                    teamA.player2_id,
+                    teamB.player1_id,
+                    teamB.player2_id
+                ].filter(id => id);
 
                 const { data: players } = await supabase
                     .from('profiles')
@@ -950,20 +951,20 @@ export async function loadCoachDoublesMatchRequests(userData, supabase, containe
                 requests.push({
                     id: data.id,
                     teamA: {
-                        player1Id: data.team_a_player1_id,
-                        player2Id: data.team_a_player2_id,
+                        player1Id: teamA.player1_id,
+                        player2Id: teamA.player2_id,
                     },
                     teamB: {
-                        player1Id: data.team_b_player1_id,
-                        player2Id: data.team_b_player2_id,
+                        player1Id: teamB.player1_id,
+                        player2Id: teamB.player2_id,
                     },
                     winningTeam: data.winning_team,
                     sets: data.sets,
                     createdAt: data.created_at,
-                    teamAPlayer1: playerMap.get(data.team_a_player1_id),
-                    teamAPlayer2: playerMap.get(data.team_a_player2_id),
-                    teamBPlayer1: playerMap.get(data.team_b_player1_id),
-                    teamBPlayer2: playerMap.get(data.team_b_player2_id),
+                    teamAPlayer1: playerMap.get(teamA.player1_id),
+                    teamAPlayer2: playerMap.get(teamA.player2_id),
+                    teamBPlayer1: playerMap.get(teamB.player1_id),
+                    teamBPlayer2: playerMap.get(teamB.player2_id),
                 });
             }
 
@@ -1125,10 +1126,11 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
                 return;
             }
 
-            // Filter to only show requests where current user is an opponent
-            const relevantRequests = requestsData.filter(
-                req => req.team_b_player1_id === userData.id || req.team_b_player2_id === userData.id
-            );
+            // Filter to only show requests where current user is an opponent (using JSONB structure)
+            const relevantRequests = requestsData.filter(req => {
+                const teamB = req.team_b || {};
+                return teamB.player1_id === userData.id || teamB.player2_id === userData.id;
+            });
 
             if (relevantRequests.length === 0) {
                 container.innerHTML =
@@ -1138,12 +1140,16 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
 
             const requests = [];
             for (const data of relevantRequests) {
+                // Use JSONB structure for team data
+                const teamA = data.team_a || {};
+                const teamB = data.team_b || {};
+
                 const playerIds = [
-                    data.team_a_player1_id,
-                    data.team_a_player2_id,
-                    data.team_b_player1_id,
-                    data.team_b_player2_id
-                ];
+                    teamA.player1_id,
+                    teamA.player2_id,
+                    teamB.player1_id,
+                    teamB.player2_id
+                ].filter(id => id);
 
                 const { data: players } = await supabase
                     .from('profiles')
@@ -1156,20 +1162,20 @@ export function loadPendingDoublesRequestsForOpponent(userData, supabase, contai
                 requests.push({
                     id: data.id,
                     teamA: {
-                        player1Id: data.team_a_player1_id,
-                        player2Id: data.team_a_player2_id,
+                        player1Id: teamA.player1_id,
+                        player2Id: teamA.player2_id,
                     },
                     teamB: {
-                        player1Id: data.team_b_player1_id,
-                        player2Id: data.team_b_player2_id,
+                        player1Id: teamB.player1_id,
+                        player2Id: teamB.player2_id,
                     },
                     winningTeam: data.winning_team,
                     sets: data.sets,
                     createdAt: data.created_at,
-                    teamAPlayer1: playerMap.get(data.team_a_player1_id),
-                    teamAPlayer2: playerMap.get(data.team_a_player2_id),
-                    teamBPlayer1: playerMap.get(data.team_b_player1_id),
-                    teamBPlayer2: playerMap.get(data.team_b_player2_id),
+                    teamAPlayer1: playerMap.get(teamA.player1_id),
+                    teamAPlayer2: playerMap.get(teamA.player2_id),
+                    teamBPlayer1: playerMap.get(teamB.player1_id),
+                    teamBPlayer2: playerMap.get(teamB.player2_id),
                 });
             }
 

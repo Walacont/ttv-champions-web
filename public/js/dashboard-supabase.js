@@ -1576,13 +1576,15 @@ async function loadMatchRequests() {
 
         if (doublesError) throw doublesError;
 
-        // Filter doubles requests where current user is involved
-        const doublesRequests = (allDoublesRequests || []).filter(r =>
-            r.team_a_player1_id === currentUser.id ||
-            r.team_a_player2_id === currentUser.id ||
-            r.team_b_player1_id === currentUser.id ||
-            r.team_b_player2_id === currentUser.id
-        ).slice(0, 10);
+        // Filter doubles requests where current user is involved (using JSONB structure)
+        const doublesRequests = (allDoublesRequests || []).filter(r => {
+            const teamA = r.team_a || {};
+            const teamB = r.team_b || {};
+            return teamA.player1_id === currentUser.id ||
+                   teamA.player2_id === currentUser.id ||
+                   teamB.player1_id === currentUser.id ||
+                   teamB.player2_id === currentUser.id;
+        }).slice(0, 10);
 
         // Mark each request type
         const singles = (singlesRequests || []).map(r => ({ ...r, _type: 'singles' }));
@@ -1603,7 +1605,10 @@ async function loadMatchRequests() {
             if (r._type === 'singles') {
                 return [r.player_a_id, r.player_b_id];
             } else {
-                return [r.team_a_player1_id, r.team_a_player2_id, r.team_b_player1_id, r.team_b_player2_id];
+                // Use JSONB structure for doubles
+                const teamA = r.team_a || {};
+                const teamB = r.team_b || {};
+                return [teamA.player1_id, teamA.player2_id, teamB.player1_id, teamB.player2_id].filter(id => id);
             }
         }))];
 
@@ -1636,7 +1641,9 @@ async function loadMatchRequests() {
         if (badge) {
             const singlesPending = singles.filter(r => r.player_b_id === currentUser.id && r.status === 'pending_player').length;
             const doublesPending = doubles.filter(r => {
-                const isTeamB = r.team_b_player1_id === currentUser.id || r.team_b_player2_id === currentUser.id;
+                // Use JSONB structure for doubles
+                const teamB = r.team_b || {};
+                const isTeamB = teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id;
                 return isTeamB && r.status === 'pending_opponent';
             }).length;
             const pendingCount = singlesPending + doublesPending;
@@ -1722,14 +1729,18 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
 
 // Helper to render doubles request card
 function renderDoublesRequestCard(req, profileMap) {
+    // Use JSONB structure for team data
+    const teamA = req.team_a || {};
+    const teamB = req.team_b || {};
+
     // Determine which team the current user is on
-    const isTeamA = req.team_a_player1_id === currentUser.id || req.team_a_player2_id === currentUser.id;
+    const isTeamA = teamA.player1_id === currentUser.id || teamA.player2_id === currentUser.id;
 
     // Get player names
-    const teamAPlayer1 = profileMap[req.team_a_player1_id];
-    const teamAPlayer2 = profileMap[req.team_a_player2_id];
-    const teamBPlayer1 = profileMap[req.team_b_player1_id];
-    const teamBPlayer2 = profileMap[req.team_b_player2_id];
+    const teamAPlayer1 = profileMap[teamA.player1_id];
+    const teamAPlayer2 = profileMap[teamA.player2_id];
+    const teamBPlayer1 = profileMap[teamB.player1_id];
+    const teamBPlayer2 = profileMap[teamB.player2_id];
 
     const teamAName1 = teamAPlayer1?.first_name || 'Spieler';
     const teamAName2 = teamAPlayer2?.first_name || 'Spieler';
