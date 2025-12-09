@@ -2257,8 +2257,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             .from('match_requests')
             .update({
                 status: newStatus,
-                approvals: approvals,
-                updated_at: new Date().toISOString()
+                approvals: approvals
             })
             .eq('id', requestId);
 
@@ -3019,11 +3018,11 @@ function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
 
         if (playerAWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-green-100 text-green-800';
-            winnerPreview.innerHTML = `<i class="fas fa-trophy mr-2"></i>Gewinner: ${playerAName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.innerHTML = `Gewinner: ${playerAName} (${playerAWins}:${playerBWins})`;
             winnerPreview.classList.remove('hidden');
         } else if (playerBWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-blue-100 text-blue-800';
-            winnerPreview.innerHTML = `<i class="fas fa-trophy mr-2"></i>Gewinner: ${playerBName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.innerHTML = `Gewinner: ${playerBName} (${playerAWins}:${playerBWins})`;
             winnerPreview.classList.remove('hidden');
         } else if (playerAWins > 0 || playerBWins > 0) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-gray-100 text-gray-700';
@@ -3169,7 +3168,7 @@ async function loadPendingRequests() {
 
             // Determine winner
             const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
-            const handicapText = req.handicap_used ? '<span class="text-purple-600 ml-2"><i class="fas fa-balance-scale"></i> Handicap</span>' : '';
+            const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
 
             const statusText = req.status === 'pending_player' ? 'Wartet auf Bestätigung' : 'Wartet auf Coach';
             const needsResponse = !isPlayerA && req.status === 'pending_player';
@@ -3181,28 +3180,28 @@ async function loadPendingRequests() {
                             <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                             <div>
                                 <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
-                                ${otherClubName ? `<p class="text-xs text-blue-600"><i class="fas fa-building mr-1"></i>${otherClubName}</p>` : ''}
+                                ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
                             </div>
                         </div>
                         <span class="text-xs ${req.status === 'pending_coach' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'} px-2 py-1 rounded-full">${statusText}</span>
                     </div>
                     <div class="bg-gray-50 rounded-lg p-3 mb-3">
                         <p class="text-sm font-medium text-gray-700 mb-1">Ergebnis: ${setsDisplay}</p>
-                        <p class="text-sm text-green-700"><i class="fas fa-trophy mr-1"></i>Gewinner: ${winnerName}${handicapText}</p>
+                        <p class="text-sm text-green-700">Gewinner: ${winnerName}${handicapText}</p>
                     </div>
                     ${needsResponse ? `
                         <div class="flex gap-2">
                             <button onclick="respondToMatchRequest('${req.id}', true)" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md">
-                                <i class="fas fa-check mr-1"></i> Akzeptieren
+                                Akzeptieren
                             </button>
                             <button onclick="respondToMatchRequest('${req.id}', false)" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md">
-                                <i class="fas fa-times mr-1"></i> Ablehnen
+                                Ablehnen
                             </button>
                         </div>
                     ` : isPlayerA ? `
                         <div class="flex gap-2">
                             <button onclick="deleteMatchRequest('${req.id}')" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md">
-                                <i class="fas fa-trash mr-1"></i> Zurückziehen
+                                Zurückziehen
                             </button>
                         </div>
                     ` : ''}
