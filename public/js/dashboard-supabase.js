@@ -3128,17 +3128,49 @@ async function loadPendingRequests() {
             return;
         }
 
-        // Get player profiles
+        // Get player profiles with club info
         const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
-        const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, display_name, avatar_url, club_id')
+            .in('id', userIds);
         const profileMap = {};
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
+
+        // Get club names
+        const clubIds = [...new Set((profiles || []).map(p => p.club_id).filter(Boolean))];
+        const { data: clubs } = clubIds.length > 0
+            ? await supabase.from('clubs').select('id, name').in('id', clubIds)
+            : { data: [] };
+        const clubMap = {};
+        (clubs || []).forEach(c => { clubMap[c.id] = c.name; });
 
         container.innerHTML = requests.map(req => {
             const isPlayerA = req.player_a_id === currentUser.id;
             const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
             const otherPlayer = profileMap[otherPlayerId];
+            const otherPlayerName = otherPlayer?.display_name ||
+                `${otherPlayer?.first_name || ''} ${otherPlayer?.last_name || ''}`.trim() || 'Unbekannt';
+
+            // Club info - only show if different club
+            const otherPlayerClubId = otherPlayer?.club_id;
+            const myClubId = currentUserData?.club_id;
+            const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
+            const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
+
+            // Match result display
             const setsDisplay = formatSetsDisplay(req.sets);
+            const playerAProfile = profileMap[req.player_a_id];
+            const playerBProfile = profileMap[req.player_b_id];
+            const playerAName = playerAProfile?.display_name ||
+                `${playerAProfile?.first_name || ''} ${playerAProfile?.last_name || ''}`.trim() || 'Spieler A';
+            const playerBName = playerBProfile?.display_name ||
+                `${playerBProfile?.first_name || ''} ${playerBProfile?.last_name || ''}`.trim() || 'Spieler B';
+
+            // Determine winner
+            const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
+            const handicapText = req.handicap_used ? '<span class="text-purple-600 ml-2"><i class="fas fa-balance-scale"></i> Handicap</span>' : '';
+
             const statusText = req.status === 'pending_player' ? 'Wartet auf Bestätigung' : 'Wartet auf Coach';
             const needsResponse = !isPlayerA && req.status === 'pending_player';
 
@@ -3148,14 +3180,18 @@ async function loadPendingRequests() {
                         <div class="flex items-center gap-3">
                             <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                             <div>
-                                <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
-                                <p class="text-xs text-gray-500">${setsDisplay}</p>
+                                <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
+                                ${otherClubName ? `<p class="text-xs text-blue-600"><i class="fas fa-building mr-1"></i>${otherClubName}</p>` : ''}
                             </div>
                         </div>
                         <span class="text-xs ${req.status === 'pending_coach' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'} px-2 py-1 rounded-full">${statusText}</span>
                     </div>
+                    <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                        <p class="text-sm font-medium text-gray-700 mb-1">Ergebnis: ${setsDisplay}</p>
+                        <p class="text-sm text-green-700"><i class="fas fa-trophy mr-1"></i>Gewinner: ${winnerName}${handicapText}</p>
+                    </div>
                     ${needsResponse ? `
-                        <div class="flex gap-2 mt-3">
+                        <div class="flex gap-2">
                             <button onclick="respondToMatchRequest('${req.id}', true)" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-sm py-2 px-3 rounded-md">
                                 <i class="fas fa-check mr-1"></i> Akzeptieren
                             </button>
@@ -3164,7 +3200,7 @@ async function loadPendingRequests() {
                             </button>
                         </div>
                     ` : isPlayerA ? `
-                        <div class="flex gap-2 mt-3">
+                        <div class="flex gap-2">
                             <button onclick="deleteMatchRequest('${req.id}')" class="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-md">
                                 <i class="fas fa-trash mr-1"></i> Zurückziehen
                             </button>
