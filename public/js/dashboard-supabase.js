@@ -3446,12 +3446,15 @@ async function loadMatchHistory() {
             // Stats display
             let statsHtml = '';
             if (isWinner) {
-                statsHtml = `<span class="text-green-600 font-medium">+${eloChange} Elo</span>`;
+                const displayElo = Math.abs(eloChange);
+                statsHtml = `<span class="text-green-600 font-medium">+${displayElo} Elo</span>`;
                 if (pointsAwarded > 0) {
                     statsHtml += `<span class="text-green-600 font-medium ml-2">+${pointsAwarded} Pkt</span>`;
                 }
             } else {
-                statsHtml = `<span class="text-red-600 font-medium">${eloChange} Elo</span>`;
+                // Loser: always show negative
+                const displayElo = Math.abs(eloChange);
+                statsHtml = `<span class="text-red-600 font-medium">-${displayElo} Elo</span>`;
             }
 
             // Handicap badge
@@ -3585,9 +3588,9 @@ window.showMatchDetails = function(matchId) {
     };
     const modeDisplay = modeLabels[match.match_mode] || match.match_mode || 'Standard';
 
-    // Elo changes
-    const winnerEloChange = match.winner_elo_change || 0;
-    const loserEloChange = match.loser_elo_change || 0;
+    // Elo changes - winner gains (positive), loser loses (negative display)
+    const winnerEloChange = Math.abs(match.winner_elo_change || 0);
+    const loserEloChange = -Math.abs(match.loser_elo_change || 0);
     const myEloChange = isWinner ? winnerEloChange : loserEloChange;
     const oppEloChange = isWinner ? loserEloChange : winnerEloChange;
 
