@@ -200,13 +200,14 @@ async function loadUserProfile() {
                 club:clubs(id, name)
             `)
             .eq('id', currentUser.id)
-            .single();
+            .maybeSingle(); // Use maybeSingle to avoid error when no rows found
 
         if (error) throw error;
 
         if (!profile) {
-            console.error('[DASHBOARD-SUPABASE] No profile found');
-            await supabase.auth.signOut();
+            console.error('[DASHBOARD-SUPABASE] No profile found for user:', currentUser.id);
+            // Try to create a basic profile or redirect to onboarding
+            window.location.href = '/onboarding.html';
             return;
         }
 
