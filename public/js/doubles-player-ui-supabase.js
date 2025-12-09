@@ -187,10 +187,10 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     isMatchReady: p.is_match_ready,
                 }))
                 .filter(p => {
-                    // Filter: not self and match-ready (set by coach)
-                    // Only is_match_ready flag matters - not grundlagen_completed
+                    // Filter: not self, match-ready, and online (can accept requests)
                     const isSelf = p.id === userData.id;
-                    if (isSelf || !p.isMatchReady) return false;
+                    const isOffline = p.isOffline === true;
+                    if (isSelf || !p.isMatchReady || isOffline) return false;
 
                     // Test club filtering
                     if (!isCurrentUserFromTestClub && p.clubId) {
