@@ -5,8 +5,8 @@
 -- Add missing columns to doubles_matches table
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false;
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS handicap_used BOOLEAN DEFAULT false;
-ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_a_pairing_id UUID REFERENCES doubles_pairings(id);
-ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_b_pairing_id UUID REFERENCES doubles_pairings(id);
+ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_a_pairing_id TEXT REFERENCES doubles_pairings(id);
+ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_b_pairing_id TEXT REFERENCES doubles_pairings(id);
 
 -- Add missing columns to profiles table for doubles stats
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS doubles_highest_elo INTEGER DEFAULT 800;
