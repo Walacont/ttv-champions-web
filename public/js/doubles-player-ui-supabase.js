@@ -181,17 +181,21 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             if (error) throw error;
 
             playersData.players = (usersData || [])
-                .map(p => ({
-                    id: p.id,
-                    firstName: p.first_name,
-                    lastName: p.last_name,
-                    clubId: p.club_id,
-                    doublesEloRating: p.doubles_elo_rating,
-                    privacySettings: p.privacy_settings,
-                    isOffline: p.is_offline,
-                    activeSportId: p.active_sport_id,
-                    isMatchReady: p.is_match_ready,
-                }))
+                .map(p => {
+                    const playerClub = p.club_id ? clubsMap.get(p.club_id) : null;
+                    return {
+                        id: p.id,
+                        firstName: p.first_name,
+                        lastName: p.last_name,
+                        clubId: p.club_id,
+                        clubName: playerClub ? playerClub.name : null,
+                        doublesEloRating: p.doubles_elo_rating,
+                        privacySettings: p.privacy_settings,
+                        isOffline: p.is_offline,
+                        activeSportId: p.active_sport_id,
+                        isMatchReady: p.is_match_ready,
+                    };
+                })
                 .filter(p => {
                     // Filter: not self, match-ready, and online (can accept requests)
                     const isSelf = p.id === userData.id;
@@ -380,7 +384,7 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
     }
 
     resultsContainer.innerHTML = players.map(player => {
-        const clubName = player.clubId || 'Kein Verein';
+        const clubName = player.clubName || 'Kein Verein';
         // Check both camelCase and snake_case for userData club ID
         const userClubId = userData.clubId || userData.club_id;
         const isSameClub = player.clubId === userClubId;

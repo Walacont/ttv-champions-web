@@ -627,12 +627,13 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                 }
 
                 // Filter by club membership for club-specific leaderboards
-                // At least one player must be in the specified club
+                // BOTH players must currently be in the specified club
+                // This is dynamic - if a player joins the club later, the pairing will appear
                 if (!isGlobal && clubId) {
                     const player1InClub = player1Data?.club_id === clubId;
                     const player2InClub = player2Data?.club_id === clubId;
-                    if (!player1InClub && !player2InClub) {
-                        continue; // Skip this pairing - neither player is in the club
+                    if (!player1InClub || !player2InClub) {
+                        continue; // Skip this pairing - both players must be in the club
                     }
                 }
 
