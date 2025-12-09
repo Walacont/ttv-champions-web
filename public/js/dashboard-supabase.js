@@ -2637,7 +2637,7 @@ async function searchOpponents(query, resultsContainer) {
             .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, active_sport_id, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach', 'head_coach'])
-            .ilike('first_name', `%${query}%`);  // Simplified: just search first_name
+            .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);  // Search both first and last name
 
         // Filter by same sport (single sport model)
         if (userSportId) {
