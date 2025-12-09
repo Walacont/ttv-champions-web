@@ -1554,8 +1554,8 @@ async function loadMatchRequests() {
     if (!container) return;
 
     try {
-        // Get pending requests where user is involved
-        const { data: requests, error } = await supabase
+        // Get pending SINGLES requests where user is involved
+        const { data: singlesRequests, error: singlesError } = await supabase
             .from('match_requests')
             .select('*')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
@@ -1563,15 +1563,42 @@ async function loadMatchRequests() {
             .order('created_at', { ascending: false })
             .limit(10);
 
-        if (error) throw error;
+        if (singlesError) throw singlesError;
 
-        if (!requests || requests.length === 0) {
+        // Get pending DOUBLES requests where user is involved
+        const { data: doublesRequests, error: doublesError } = await supabase
+            .from('doubles_match_requests')
+            .select('*')
+            .or(`team_a_player1_id.eq.${currentUser.id},team_a_player2_id.eq.${currentUser.id},team_b_player1_id.eq.${currentUser.id},team_b_player2_id.eq.${currentUser.id}`)
+            .in('status', ['pending_opponent', 'pending_coach'])
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (doublesError) throw doublesError;
+
+        // Mark each request type
+        const singles = (singlesRequests || []).map(r => ({ ...r, _type: 'singles' }));
+        const doubles = (doublesRequests || []).map(r => ({ ...r, _type: 'doubles' }));
+
+        // Combine and sort by created_at
+        const allRequests = [...singles, ...doubles].sort((a, b) =>
+            new Date(b.created_at) - new Date(a.created_at)
+        ).slice(0, 10);
+
+        if (allRequests.length === 0) {
             container.innerHTML = '<p class="text-gray-500 text-center py-4">Keine ausstehenden Anfragen</p>';
             return;
         }
 
         // Get unique user IDs to fetch profiles with club info
-        const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
+        const userIds = [...new Set(allRequests.flatMap(r => {
+            if (r._type === 'singles') {
+                return [r.player_a_id, r.player_b_id];
+            } else {
+                return [r.team_a_player1_id, r.team_a_player2_id, r.team_b_player1_id, r.team_b_player2_id];
+            }
+        }))];
+
         const { data: profiles } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, avatar_url, club_id')
@@ -1588,74 +1615,24 @@ async function loadMatchRequests() {
         const clubMap = {};
         (clubs || []).forEach(c => { clubMap[c.id] = c.name; });
 
-        container.innerHTML = requests.map(req => {
-            const isPlayerA = req.player_a_id === currentUser.id;
-            const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
-            const otherPlayer = profileMap[otherPlayerId];
-            const otherPlayerName = otherPlayer ? `${otherPlayer.first_name || ''} ${otherPlayer.last_name || ''}`.trim() || 'Unbekannt' : 'Unbekannt';
-
-            // Club info - only show if different club
-            const otherPlayerClubId = otherPlayer?.club_id;
-            const myClubId = currentUserData?.club_id;
-            const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
-            const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
-
-            // Match result
-            const setsDisplay = formatSetsDisplay(req.sets);
-            const playerAProfile = profileMap[req.player_a_id];
-            const playerBProfile = profileMap[req.player_b_id];
-            const playerAName = playerAProfile ? `${playerAProfile.first_name || ''} ${playerAProfile.last_name || ''}`.trim() : 'Spieler A';
-            const playerBName = playerBProfile ? `${playerBProfile.first_name || ''} ${playerBProfile.last_name || ''}`.trim() : 'Spieler B';
-            const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
-            const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
-
-            const statusText = req.status === 'pending_player' ? 'Warte auf Bestätigung' : 'Warte auf Coach';
-
-            return `
-                <div class="p-3 bg-white rounded-lg border mb-2">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-3">
-                            <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
-                                 class="w-10 h-10 rounded-full object-cover"
-                                 onerror="this.src='${DEFAULT_AVATAR}'">
-                            <div>
-                                <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
-                                ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
-                            </div>
-                        </div>
-                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">${statusText}</span>
-                    </div>
-                    <div class="bg-gray-50 rounded p-2 mb-2 text-sm">
-                        <p class="text-gray-700">Ergebnis: ${setsDisplay}</p>
-                        <p class="text-green-700">Gewinner: ${winnerName}${handicapText}</p>
-                    </div>
-                    ${!isPlayerA && req.status === 'pending_player' ? `
-                        <div class="flex gap-2">
-                            <button onclick="respondToMatchRequest('${req.id}', true)"
-                                    class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
-                                Annehmen
-                            </button>
-                            <button onclick="respondToMatchRequest('${req.id}', false)"
-                                    class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
-                                Ablehnen
-                            </button>
-                        </div>
-                    ` : isPlayerA ? `
-                        <div class="flex gap-2">
-                            <button onclick="deleteMatchRequest('${req.id}')"
-                                    class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
-                                Zurückziehen
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
+        container.innerHTML = allRequests.map(req => {
+            if (req._type === 'singles') {
+                return renderSinglesRequestCard(req, profileMap, clubMap);
+            } else {
+                return renderDoublesRequestCard(req, profileMap);
+            }
         }).join('');
 
-        // Update badge
+        // Update badge (count all pending requests for current user)
         const badge = document.getElementById('match-request-badge');
         if (badge) {
-            const pendingCount = requests.filter(r => r.player_b_id === currentUser.id && r.status === 'pending_player').length;
+            const singlesPending = singles.filter(r => r.player_b_id === currentUser.id && r.status === 'pending_player').length;
+            const doublesPending = doubles.filter(r => {
+                const isTeamB = r.team_b_player1_id === currentUser.id || r.team_b_player2_id === currentUser.id;
+                return isTeamB && r.status === 'pending_opponent';
+            }).length;
+            const pendingCount = singlesPending + doublesPending;
+
             if (pendingCount > 0) {
                 badge.textContent = pendingCount;
                 badge.classList.remove('hidden');
@@ -1668,6 +1645,156 @@ async function loadMatchRequests() {
         console.error('Error loading match requests:', error);
         container.innerHTML = '<p class="text-red-500">Fehler beim Laden</p>';
     }
+}
+
+// Helper to render singles request card
+function renderSinglesRequestCard(req, profileMap, clubMap) {
+    const isPlayerA = req.player_a_id === currentUser.id;
+    const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
+    const otherPlayer = profileMap[otherPlayerId];
+    const otherPlayerName = otherPlayer ? `${otherPlayer.first_name || ''} ${otherPlayer.last_name || ''}`.trim() || 'Unbekannt' : 'Unbekannt';
+
+    // Club info - only show if different club
+    const otherPlayerClubId = otherPlayer?.club_id;
+    const myClubId = currentUserData?.club_id;
+    const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
+    const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
+
+    // Match result
+    const setsDisplay = formatSetsDisplay(req.sets);
+    const playerAProfile = profileMap[req.player_a_id];
+    const playerBProfile = profileMap[req.player_b_id];
+    const playerAName = playerAProfile ? `${playerAProfile.first_name || ''} ${playerAProfile.last_name || ''}`.trim() : 'Spieler A';
+    const playerBName = playerBProfile ? `${playerBProfile.first_name || ''} ${playerBProfile.last_name || ''}`.trim() : 'Spieler B';
+    const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
+    const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+
+    const statusText = req.status === 'pending_player' ? 'Warte auf Bestätigung' : 'Warte auf Coach';
+
+    return `
+        <div class="p-3 bg-white rounded-lg border mb-2">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
+                         class="w-10 h-10 rounded-full object-cover"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div>
+                        <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
+                        ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
+                    </div>
+                </div>
+                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">${statusText}</span>
+            </div>
+            <div class="bg-gray-50 rounded p-2 mb-2 text-sm">
+                <p class="text-gray-700">Ergebnis: ${setsDisplay}</p>
+                <p class="text-green-700">Gewinner: ${winnerName}${handicapText}</p>
+            </div>
+            ${!isPlayerA && req.status === 'pending_player' ? `
+                <div class="flex gap-2">
+                    <button onclick="respondToMatchRequest('${req.id}', true)"
+                            class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                        Annehmen
+                    </button>
+                    <button onclick="respondToMatchRequest('${req.id}', false)"
+                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                        Ablehnen
+                    </button>
+                </div>
+            ` : isPlayerA ? `
+                <div class="flex gap-2">
+                    <button onclick="deleteMatchRequest('${req.id}')"
+                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                        Zurückziehen
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// Helper to render doubles request card
+function renderDoublesRequestCard(req, profileMap) {
+    // Determine which team the current user is on
+    const isTeamA = req.team_a_player1_id === currentUser.id || req.team_a_player2_id === currentUser.id;
+
+    // Get player names
+    const teamAPlayer1 = profileMap[req.team_a_player1_id];
+    const teamAPlayer2 = profileMap[req.team_a_player2_id];
+    const teamBPlayer1 = profileMap[req.team_b_player1_id];
+    const teamBPlayer2 = profileMap[req.team_b_player2_id];
+
+    const teamAName1 = teamAPlayer1?.first_name || 'Spieler';
+    const teamAName2 = teamAPlayer2?.first_name || 'Spieler';
+    const teamBName1 = teamBPlayer1?.first_name || 'Spieler';
+    const teamBName2 = teamBPlayer2?.first_name || 'Spieler';
+
+    // Determine winner team names
+    const winnerTeamName = req.winning_team === 'A'
+        ? `${teamAName1} & ${teamAName2}`
+        : `${teamBName1} & ${teamBName2}`;
+
+    // Format sets display for doubles
+    const setsDisplay = (req.sets || []).map(set => {
+        const scoreA = set.teamA ?? set.playerA ?? 0;
+        const scoreB = set.teamB ?? set.playerB ?? 0;
+        return `${scoreA}:${scoreB}`;
+    }).join(', ') || '-';
+
+    const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+    const statusText = req.status === 'pending_opponent' ? 'Warte auf Gegner' : 'Warte auf Coach';
+
+    // Request direction text
+    let directionText;
+    if (isTeamA) {
+        directionText = `Doppel-Anfrage an ${teamBName1} & ${teamBName2}`;
+    } else {
+        directionText = `Doppel-Anfrage von ${teamAName1} & ${teamAName2}`;
+    }
+
+    return `
+        <div class="p-3 bg-white rounded-lg border border-purple-200 mb-2">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                        <i class="fas fa-users text-purple-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-medium">${directionText}</p>
+                        <p class="text-xs text-purple-600">Doppel-Match</p>
+                    </div>
+                </div>
+                <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">${statusText}</span>
+            </div>
+            <div class="bg-gray-50 rounded p-2 mb-2 text-sm">
+                <p class="text-gray-700 mb-1">
+                    <span class="text-indigo-600">${teamAName1} & ${teamAName2}</span>
+                    <span class="text-gray-500 mx-1">vs</span>
+                    <span class="text-indigo-600">${teamBName1} & ${teamBName2}</span>
+                </p>
+                <p class="text-gray-700">Ergebnis: ${setsDisplay}</p>
+                <p class="text-green-700">Gewinner: ${winnerTeamName}${handicapText}</p>
+            </div>
+            ${!isTeamA && req.status === 'pending_opponent' ? `
+                <div class="flex gap-2">
+                    <button onclick="respondToDoublesMatchRequest('${req.id}', true)"
+                            class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                        Annehmen
+                    </button>
+                    <button onclick="respondToDoublesMatchRequest('${req.id}', false)"
+                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                        Ablehnen
+                    </button>
+                </div>
+            ` : isTeamA ? `
+                <div class="flex gap-2">
+                    <button onclick="deleteDoublesMatchRequest('${req.id}')"
+                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                        Zurückziehen
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `;
 }
 
 // --- Load Calendar ---
@@ -2498,6 +2625,80 @@ window.respondToMatchRequest = async (requestId, accept) => {
     }
 };
 
+// --- Doubles Match Request Handlers ---
+window.respondToDoublesMatchRequest = async (requestId, accept) => {
+    try {
+        if (!accept) {
+            // Rejected
+            const { error } = await supabase
+                .from('doubles_match_requests')
+                .update({ status: 'rejected', updated_at: new Date().toISOString() })
+                .eq('id', requestId);
+
+            if (error) throw error;
+            loadMatchRequests();
+            return;
+        }
+
+        // Accepted - update approvals and check if auto-approved
+        const { data: request, error: fetchError } = await supabase
+            .from('doubles_match_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) throw fetchError;
+
+        // Parse approvals
+        let approvals = request.approvals || {};
+        if (typeof approvals === 'string') {
+            approvals = JSON.parse(approvals);
+        }
+
+        // Mark current user's approval
+        approvals[currentUser.id] = true;
+
+        // Check if request is fully approved (at least one opponent confirmed)
+        // For doubles, we auto-approve when one opponent confirms
+        const newStatus = 'approved';
+
+        const { error: updateError } = await supabase
+            .from('doubles_match_requests')
+            .update({
+                status: newStatus,
+                approvals: approvals,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', requestId);
+
+        if (updateError) throw updateError;
+
+        loadMatchRequests();
+        alert('Doppel-Match bestätigt!');
+
+    } catch (error) {
+        console.error('Error responding to doubles match request:', error);
+        alert('Fehler beim Verarbeiten der Doppel-Anfrage');
+    }
+};
+
+window.deleteDoublesMatchRequest = async (requestId) => {
+    if (!confirm('Möchtest du diese Doppel-Anfrage wirklich zurückziehen?')) return;
+
+    try {
+        const { error } = await supabase
+            .from('doubles_match_requests')
+            .delete()
+            .eq('id', requestId);
+
+        if (error) throw error;
+        loadMatchRequests();
+    } catch (error) {
+        console.error('Error deleting doubles match request:', error);
+        alert('Fehler beim Löschen der Doppel-Anfrage');
+    }
+};
+
 /**
  * Create actual match from approved request
  */
@@ -2726,11 +2927,34 @@ function setupMatchForm() {
 
         // Only show when match is complete (has a winner)
         if (winnerData && winnerData.winner) {
+            // Check if doubles mode is active
+            const doublesToggle = document.getElementById('player-doubles-toggle');
+            const isDoublesMode = doublesToggle && doublesToggle.classList.contains('active');
+
             let winnerName;
-            if (winnerData.winner === 'A') {
-                winnerName = currentUserData?.first_name || 'Du';
+            if (isDoublesMode) {
+                // Doubles: Show both players from winning team
+                const partnerInput = document.getElementById('partner-search-input');
+                const opponent1Input = document.getElementById('opponent1-search-input');
+                const opponent2Input = document.getElementById('opponent2-search-input');
+
+                const myName = currentUserData?.first_name || 'Du';
+                const partnerName = partnerInput?.value?.split(' ')[0] || 'Partner';
+                const opp1Name = opponent1Input?.value?.split(' ')[0] || 'Gegner 1';
+                const opp2Name = opponent2Input?.value?.split(' ')[0] || 'Gegner 2';
+
+                if (winnerData.winner === 'A') {
+                    winnerName = `${myName} & ${partnerName}`;
+                } else {
+                    winnerName = `${opp1Name} & ${opp2Name}`;
+                }
             } else {
-                winnerName = selectedOpponent?.name || 'Gegner';
+                // Singles: Show single player
+                if (winnerData.winner === 'A') {
+                    winnerName = currentUserData?.first_name || 'Du';
+                } else {
+                    winnerName = selectedOpponent?.name || 'Gegner';
+                }
             }
 
             matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
