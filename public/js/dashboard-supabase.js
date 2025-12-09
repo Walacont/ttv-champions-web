@@ -2392,12 +2392,24 @@ window.respondToMatchRequest = async (requestId, accept) => {
  */
 async function createMatchFromRequest(request) {
     try {
+        // Get club_id from request, or from current user's profile if not set
+        let clubId = request.club_id;
+        if (!clubId) {
+            // Try to get from player profiles
+            const { data: playerA } = await supabase
+                .from('profiles')
+                .select('club_id')
+                .eq('id', request.player_a_id)
+                .single();
+            clubId = playerA?.club_id;
+        }
+
         const { error } = await supabase
             .from('matches')
             .insert({
                 player_a_id: request.player_a_id,
                 player_b_id: request.player_b_id,
-                club_id: request.club_id,
+                club_id: clubId,
                 sport_id: request.sport_id,
                 winner_id: request.winner_id,
                 loser_id: request.loser_id,
