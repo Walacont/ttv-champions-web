@@ -1566,15 +1566,23 @@ async function loadMatchRequests() {
         if (singlesError) throw singlesError;
 
         // Get pending DOUBLES requests where user is involved
-        const { data: doublesRequests, error: doublesError } = await supabase
+        // Fetch all pending doubles requests and filter in JS (Supabase or() with 4 conditions can fail)
+        const { data: allDoublesRequests, error: doublesError } = await supabase
             .from('doubles_match_requests')
             .select('*')
-            .or(`team_a_player1_id.eq.${currentUser.id},team_a_player2_id.eq.${currentUser.id},team_b_player1_id.eq.${currentUser.id},team_b_player2_id.eq.${currentUser.id}`)
             .in('status', ['pending_opponent', 'pending_coach'])
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
         if (doublesError) throw doublesError;
+
+        // Filter doubles requests where current user is involved
+        const doublesRequests = (allDoublesRequests || []).filter(r =>
+            r.team_a_player1_id === currentUser.id ||
+            r.team_a_player2_id === currentUser.id ||
+            r.team_b_player1_id === currentUser.id ||
+            r.team_b_player2_id === currentUser.id
+        ).slice(0, 10);
 
         // Mark each request type
         const singles = (singlesRequests || []).map(r => ({ ...r, _type: 'singles' }));
