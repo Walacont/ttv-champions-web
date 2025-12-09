@@ -533,19 +533,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         const result = await createDoublesMatchRequest(requestData, supabase, currentUserData);
 
         if (result.success) {
-            // Check if at least one team has no club → auto-approve message
-            const teamANoClub = hasNoClub(currentUserData.clubId) && hasNoClub(partnerData?.club_id);
-            const teamBNoClub = hasNoClub(opponent1Data?.club_id) && hasNoClub(opponent2Data?.club_id);
-            const shouldAutoApprove = teamANoClub || teamBNoClub;
-
-            let message = 'Doppel-Anfrage gesendet! Einer der Gegner muss bestätigen';
-            if (shouldAutoApprove) {
-                message += '. Da mindestens ein Team keinem Verein angehört, wird das Match automatisch genehmigt, sobald ein Gegner bestätigt.';
-            } else {
-                message += ', dann muss der Coach genehmigen.';
-            }
-
-            feedbackEl.textContent = message;
+            feedbackEl.textContent = 'Doppel-Anfrage gesendet! Einer der Gegner muss bestätigen, dann wird das Match automatisch genehmigt.';
             feedbackEl.className =
                 'bg-green-100 border border-green-300 text-green-700 px-4 py-3 rounded';
 

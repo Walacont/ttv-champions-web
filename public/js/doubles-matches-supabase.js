@@ -7,6 +7,42 @@ import { showDoublesHeadToHeadModal } from './doubles-head-to-head-supabase.js';
  */
 
 // ========================================================================
+// ===== NOTIFICATION HELPER =====
+// ========================================================================
+
+/**
+ * Creates a notification for a user
+ * @param {Object} supabase - Supabase client instance
+ * @param {string} userId - User ID to notify
+ * @param {string} type - Notification type
+ * @param {string} title - Notification title
+ * @param {string} message - Notification message
+ * @param {Object} data - Additional data (optional)
+ */
+async function createNotification(supabase, userId, type, title, message, data = {}) {
+    try {
+        const { error } = await supabase
+            .from('notifications')
+            .insert({
+                user_id: userId,
+                type: type,
+                title: title,
+                message: message,
+                data: data,
+                is_read: false
+            });
+
+        if (error) {
+            console.error('Error creating notification:', error);
+        } else {
+            console.log(`[Doubles] Notification sent to ${userId}: ${type}`);
+        }
+    } catch (error) {
+        console.error('Error creating notification:', error);
+    }
+}
+
+// ========================================================================
 // ===== HELPER FUNCTIONS =====
 // ========================================================================
 
@@ -277,6 +313,41 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
     if (insertError) throw insertError;
 
     console.log('Doubles match request created successfully! ID:', request.id);
+
+    // Send notifications to partner and both opponents
+    const initiatorName = playerNames.player1 || 'Ein Spieler';
+    const notificationMessage = `${initiatorName} möchte ein Doppel-Match mit dir eintragen.`;
+
+    // Notify partner
+    await createNotification(
+        supabase,
+        partnerId,
+        'doubles_match_request',
+        'Neue Doppel-Spielanfrage',
+        notificationMessage,
+        { request_id: request.id, initiator_id: initiatorId }
+    );
+
+    // Notify opponent 1
+    await createNotification(
+        supabase,
+        opponent1Id,
+        'doubles_match_request',
+        'Neue Doppel-Spielanfrage',
+        notificationMessage,
+        { request_id: request.id, initiator_id: initiatorId }
+    );
+
+    // Notify opponent 2
+    await createNotification(
+        supabase,
+        opponent2Id,
+        'doubles_match_request',
+        'Neue Doppel-Spielanfrage',
+        notificationMessage,
+        { request_id: request.id, initiator_id: initiatorId }
+    );
+
     return { success: true, requestId: request.id };
 }
 
@@ -324,6 +395,30 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
     if (updateError) throw updateError;
 
     console.log('Doubles match request confirmed and auto-approved by opponent:', playerId);
+
+    // Notify all 4 players that the match is approved
+    const allPlayerIds = [
+        request.team_a_player1_id,
+        request.team_a_player2_id,
+        request.team_b_player1_id,
+        request.team_b_player2_id
+    ];
+
+    const teamANames = `${request.team_a_player1_name || 'Spieler'} & ${request.team_a_player2_name || 'Spieler'}`;
+    const teamBNames = `${request.team_b_player1_name || 'Spieler'} & ${request.team_b_player2_name || 'Spieler'}`;
+    const approvedMessage = `Das Doppel-Match ${teamANames} vs ${teamBNames} wurde bestätigt!`;
+
+    for (const pId of allPlayerIds) {
+        await createNotification(
+            supabase,
+            pId,
+            'doubles_match_approved',
+            'Doppel-Match bestätigt',
+            approvedMessage,
+            { request_id: requestId }
+        );
+    }
+
     return { success: true, autoApproved: true };
 }
 
@@ -351,14 +446,23 @@ export async function approveDoublesMatchRequest(requestId, supabase, currentUse
 }
 
 /**
- * Rejects a doubles match request (Coach only)
+ * Rejects a doubles match request (by opponent or coach)
  * @param {string} requestId - Request document ID
  * @param {string} reason - Rejection reason
  * @param {Object} supabase - Supabase client instance
- * @param {Object} currentUserData - Coach user data
+ * @param {Object} currentUserData - User data of person rejecting
  * @returns {Promise<Object>} Result object with success status
  */
 export async function rejectDoublesMatchRequest(requestId, reason, supabase, currentUserData) {
+    // First fetch the request to get player info for notifications
+    const { data: request, error: fetchError } = await supabase
+        .from('doubles_match_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+    if (fetchError) throw fetchError;
+
     const { error } = await supabase
         .from('doubles_match_requests')
         .update({
@@ -371,7 +475,21 @@ export async function rejectDoublesMatchRequest(requestId, reason, supabase, cur
 
     if (error) throw error;
 
-    console.log('Doubles match request rejected by coach');
+    console.log('Doubles match request rejected');
+
+    // Notify the initiator that the match was rejected
+    if (request && request.initiated_by) {
+        const rejecterName = `${currentUserData.firstName || currentUserData.first_name || ''} ${currentUserData.lastName || currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
+        await createNotification(
+            supabase,
+            request.initiated_by,
+            'doubles_match_rejected',
+            'Doppel-Match abgelehnt',
+            `${rejecterName} hat die Doppel-Spielanfrage abgelehnt.`,
+            { request_id: requestId, reason: reason || 'Keine Angabe' }
+        );
+    }
+
     return { success: true };
 }
 
