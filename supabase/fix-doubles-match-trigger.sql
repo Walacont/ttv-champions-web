@@ -11,6 +11,7 @@ ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_b_pairing_id TEXT REFE
 -- Add missing columns to doubles_pairings table for win/loss tracking
 ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0;
 ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0;
+ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Add missing columns to profiles table for doubles stats
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS doubles_highest_elo INTEGER DEFAULT 800;
