@@ -3050,10 +3050,21 @@ function setupMatchForm() {
         searchTimeout = setTimeout(() => searchOpponents(query, opponentSearchResults), 300);
     });
 
-    // Form submission
+    // Form submission - check if singles or doubles mode
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        await submitMatchRequest();
+
+        // Check if doubles mode is active
+        const doublesToggle = document.getElementById('player-doubles-toggle');
+        const isDoublesMode = doublesToggle && doublesToggle.classList.contains('active');
+
+        if (isDoublesMode) {
+            // Import and call doubles match request handler
+            const { handleDoublesPlayerMatchRequest } = await import('./doubles-player-ui-supabase.js');
+            await handleDoublesPlayerMatchRequest(e, supabase, currentUserData);
+        } else {
+            await submitMatchRequest();
+        }
     });
 
     // Setup match suggestions toggle
