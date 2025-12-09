@@ -14,8 +14,26 @@ ADD COLUMN IF NOT EXISTS match_mode VARCHAR(50) DEFAULT 'best-of-5';
 ALTER TABLE matches
 ADD COLUMN IF NOT EXISTS match_mode VARCHAR(50) DEFAULT 'best-of-5';
 
+-- Add processed column (required by trigger_process_match_result)
+ALTER TABLE matches
+ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false;
+
+-- Add Elo change tracking columns (set by trigger)
+ALTER TABLE matches
+ADD COLUMN IF NOT EXISTS winner_elo_change INTEGER;
+
+ALTER TABLE matches
+ADD COLUMN IF NOT EXISTS loser_elo_change INTEGER;
+
+ALTER TABLE matches
+ADD COLUMN IF NOT EXISTS season_points_awarded INTEGER;
+
 -- Comments for documentation
 COMMENT ON COLUMN match_requests.handicap_used IS 'Whether handicap scoring was used for this match request';
 COMMENT ON COLUMN matches.handicap_used IS 'Whether handicap scoring was used for this match';
 COMMENT ON COLUMN match_requests.match_mode IS 'Match format: single-set, best-of-3, best-of-5, best-of-7';
 COMMENT ON COLUMN matches.match_mode IS 'Match format: single-set, best-of-3, best-of-5, best-of-7';
+COMMENT ON COLUMN matches.processed IS 'Whether the match result has been processed for Elo/stats';
+COMMENT ON COLUMN matches.winner_elo_change IS 'Elo points gained by winner';
+COMMENT ON COLUMN matches.loser_elo_change IS 'Elo points lost by loser';
+COMMENT ON COLUMN matches.season_points_awarded IS 'Season points awarded for this match';
