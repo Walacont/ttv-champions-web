@@ -3120,11 +3120,11 @@ async function checkHandicap() {
         let displayText = '';
         if (h2hSuggestion && eloSuggestion) {
             // Both exist - show both
-            displayText = `📊 Elo: ${eloSuggestion.text}\n🎯 H2H: ${h2hSuggestion.text}`;
+            displayText = `Elo: ${eloSuggestion.text}\nH2H: ${h2hSuggestion.text}`;
         } else if (h2hSuggestion) {
-            displayText = `🎯 ${h2hSuggestion.text}`;
+            displayText = h2hSuggestion.text;
         } else if (eloSuggestion) {
-            displayText = `📊 ${eloSuggestion.text}`;
+            displayText = eloSuggestion.text;
         }
 
         handicapText.innerHTML = displayText.replace(/\n/g, '<br>');
