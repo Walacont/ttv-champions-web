@@ -3358,8 +3358,8 @@ async function loadMatchHistory() {
             .from('matches')
             .select('*')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
-            .order('played_at', { ascending: false })
-            .limit(20);
+            .order('created_at', { ascending: false })
+            .limit(10);
 
         if (error) throw error;
 
@@ -3368,58 +3368,332 @@ async function loadMatchHistory() {
             return;
         }
 
-        // Get player profiles
+        // Get player profiles with rank data
         const userIds = [...new Set(matches.flatMap(m => [m.player_a_id, m.player_b_id]))];
-        const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, wins, losses')
+            .in('id', userIds);
+
+        // Calculate ranks based on Elo
+        const { data: allPlayers } = await supabase
+            .from('profiles')
+            .select('id, elo_rating')
+            .in('role', ['player', 'coach', 'head_coach'])
+            .order('elo_rating', { ascending: false });
+
+        const rankMap = {};
+        (allPlayers || []).forEach((p, index) => {
+            rankMap[p.id] = index + 1;
+        });
+
         const profileMap = {};
-        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+        (profiles || []).forEach(p => {
+            profileMap[p.id] = {
+                ...p,
+                rank: rankMap[p.id] || '-'
+            };
+        });
 
         container.innerHTML = matches.map(match => {
-            const playerA = profileMap[match.player_a_id];
-            const playerB = profileMap[match.player_b_id];
+            const playerA = profileMap[match.player_a_id] || {};
+            const playerB = profileMap[match.player_b_id] || {};
+            const isCurrentUserA = match.player_a_id === currentUser.id;
             const isWinner = match.winner_id === currentUser.id;
-            const setsDisplay = formatSetsDisplay(match.sets);
 
-            // Use correct column names from trigger
+            // Current user and opponent
+            const currentPlayer = isCurrentUserA ? playerA : playerB;
+            const opponent = isCurrentUserA ? playerB : playerA;
+
+            // Set wins calculation
+            let playerASetWins = 0;
+            let playerBSetWins = 0;
+            const sets = match.sets || [];
+            sets.forEach(set => {
+                const scoreA = set.playerA ?? set.teamA ?? 0;
+                const scoreB = set.playerB ?? set.teamB ?? 0;
+                if (scoreA > scoreB) playerASetWins++;
+                else if (scoreB > scoreA) playerBSetWins++;
+            });
+
+            // Score display (from current user's perspective)
+            const mySetWins = isCurrentUserA ? playerASetWins : playerBSetWins;
+            const oppSetWins = isCurrentUserA ? playerBSetWins : playerASetWins;
+
+            // Set scores (individual)
+            const setScoresDisplay = sets.map(set => {
+                const scoreA = set.playerA ?? set.teamA ?? 0;
+                const scoreB = set.playerB ?? set.teamB ?? 0;
+                // Show from current user's perspective
+                return isCurrentUserA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
+            }).join(', ');
+
+            // Elo/Points
             const eloChange = isWinner
                 ? (match.winner_elo_change || 0)
                 : (match.loser_elo_change || 0);
             const pointsAwarded = isWinner ? (match.season_points_awarded || 0) : 0;
 
-            // Build stats display
-            let statsDisplay = '';
+            // Date formatting
+            const matchDate = new Date(match.created_at);
+            const dateDisplay = formatRelativeDate(matchDate);
+            const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+            // Avatar URLs
+            const myAvatar = currentPlayer.avatar_url || DEFAULT_AVATAR;
+            const oppAvatar = opponent.avatar_url || DEFAULT_AVATAR;
+
+            // Stats display
+            let statsHtml = '';
             if (isWinner) {
-                // Winner: show +Elo and +Points
-                statsDisplay = `
-                    <span class="text-green-600">+${eloChange} Elo</span>
-                    ${pointsAwarded > 0 ? `<span class="text-green-600 ml-2">+${pointsAwarded} Pkt</span>` : ''}
-                `;
+                statsHtml = `<span class="text-green-600 font-medium">+${eloChange} Elo</span>`;
+                if (pointsAwarded > 0) {
+                    statsHtml += `<span class="text-green-600 font-medium ml-2">+${pointsAwarded} Pkt</span>`;
+                }
             } else {
-                // Loser: show -Elo only
-                statsDisplay = `<span class="text-red-600">${eloChange} Elo</span>`;
+                statsHtml = `<span class="text-red-600 font-medium">${eloChange} Elo</span>`;
             }
 
+            // Handicap badge
+            const handicapBadge = match.handicap_used
+                ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
+                : '';
+
             return `
-                <div class="bg-white border ${isWinner ? 'border-green-200' : 'border-red-200'} rounded-lg p-4 shadow-sm mb-3">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-medium">${playerA?.display_name || 'Unbekannt'} vs ${playerB?.display_name || 'Unbekannt'}</p>
-                            <p class="text-sm text-gray-600">${setsDisplay}</p>
+                <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
+                    <!-- Header: Date & Result -->
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
+                        <span class="px-3 py-1 rounded-full text-sm font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${isWinner ? 'Sieg' : 'Niederlage'}
+                        </span>
+                    </div>
+
+                    <!-- Players & Score -->
+                    <div class="flex items-center justify-between mb-3">
+                        <!-- Current User -->
+                        <div class="flex items-center">
+                            <div class="relative">
+                                <img src="${myAvatar}" alt="Du"
+                                    class="w-12 h-12 rounded-full object-cover border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}"
+                                    onerror="this.src='${DEFAULT_AVATAR}'">
+                            </div>
+                            <div class="ml-3">
+                                <p class="font-semibold">Du</p>
+                                <p class="text-xs text-gray-500">Rang #${currentPlayer.rank}</p>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <span class="${isWinner ? 'text-green-600' : 'text-red-600'} font-bold">${isWinner ? 'Gewonnen' : 'Verloren'}</span>
-                            <p class="text-xs">${statsDisplay}</p>
+
+                        <!-- Score -->
+                        <div class="text-center px-4">
+                            <p class="text-2xl font-bold">${mySetWins} : ${oppSetWins}</p>
+                            <p class="text-xs text-gray-500">${setScoresDisplay}</p>
                         </div>
+
+                        <!-- Opponent -->
+                        <div class="flex items-center">
+                            <div class="mr-3 text-right">
+                                <p class="font-semibold">${opponent.first_name || opponent.display_name || 'Gegner'}</p>
+                                <p class="text-xs text-gray-500">Rang #${opponent.rank}</p>
+                            </div>
+                            <div class="relative">
+                                <img src="${oppAvatar}" alt="Gegner"
+                                    class="w-12 h-12 rounded-full object-cover border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}"
+                                    onerror="this.src='${DEFAULT_AVATAR}'">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer: Stats & Details -->
+                    <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <div class="flex items-center">
+                            ${statsHtml}${handicapBadge}
+                        </div>
+                        <button onclick="showMatchDetails('${match.id}')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                            Details
+                        </button>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Store matches for details modal
+        window.matchHistoryData = { matches, profileMap };
 
     } catch (error) {
         console.error('Error loading match history:', error);
         container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
     }
 }
+
+// --- Format Relative Date ---
+function formatRelativeDate(date) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const matchDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (matchDay.getTime() === today.getTime()) {
+        return 'Heute';
+    } else if (matchDay.getTime() === yesterday.getTime()) {
+        return 'Gestern';
+    } else {
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+}
+
+// --- Show Match Details Modal ---
+window.showMatchDetails = function(matchId) {
+    const { matches, profileMap } = window.matchHistoryData || {};
+    const match = matches?.find(m => m.id === matchId);
+    if (!match) return;
+
+    const playerA = profileMap[match.player_a_id] || {};
+    const playerB = profileMap[match.player_b_id] || {};
+    const isCurrentUserA = match.player_a_id === currentUser.id;
+    const isWinner = match.winner_id === currentUser.id;
+
+    const currentPlayer = isCurrentUserA ? playerA : playerB;
+    const opponent = isCurrentUserA ? playerB : playerA;
+
+    // Set details
+    const sets = match.sets || [];
+    let setsHtml = sets.map((set, i) => {
+        const scoreA = set.playerA ?? set.teamA ?? 0;
+        const scoreB = set.playerB ?? set.teamB ?? 0;
+        const myScore = isCurrentUserA ? scoreA : scoreB;
+        const oppScore = isCurrentUserA ? scoreB : scoreA;
+        const wonSet = myScore > oppScore;
+        return `
+            <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
+                <span class="text-gray-600">Satz ${i + 1}</span>
+                <span class="font-semibold ${wonSet ? 'text-green-600' : 'text-red-600'}">${myScore} : ${oppScore}</span>
+            </div>
+        `;
+    }).join('');
+
+    // Match mode display
+    const modeLabels = {
+        'single-set': '1 Satz',
+        'best-of-3': 'Best of 3',
+        'best-of-5': 'Best of 5',
+        'best-of-7': 'Best of 7',
+        'pro-set': 'Pro-Set',
+        'timed': 'Zeit/Fortlaufend',
+        'fast4': 'Fast4'
+    };
+    const modeDisplay = modeLabels[match.match_mode] || match.match_mode || 'Standard';
+
+    // Elo changes
+    const winnerEloChange = match.winner_elo_change || 0;
+    const loserEloChange = match.loser_elo_change || 0;
+    const myEloChange = isWinner ? winnerEloChange : loserEloChange;
+    const oppEloChange = isWinner ? loserEloChange : winnerEloChange;
+
+    // Date
+    const matchDate = new Date(match.created_at);
+    const dateStr = matchDate.toLocaleDateString('de-DE', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    const modalHtml = `
+        <div id="match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
+            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <!-- Header -->
+                <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-bold">Match Details</h3>
+                    <button onclick="document.getElementById('match-details-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-4">
+                    <!-- Result Badge -->
+                    <div class="text-center mb-4">
+                        <span class="px-4 py-2 rounded-full text-lg font-bold ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                            ${isWinner ? 'Sieg' : 'Niederlage'}
+                        </span>
+                    </div>
+
+                    <!-- Players -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="text-center">
+                            <img src="${currentPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <p class="font-semibold mt-2">Du</p>
+                            <p class="text-xs text-gray-500">${currentPlayer.elo_rating || 800} Elo</p>
+                        </div>
+                        <div class="text-2xl font-bold text-gray-400">VS</div>
+                        <div class="text-center">
+                            <img src="${opponent.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <p class="font-semibold mt-2">${opponent.first_name || opponent.display_name || 'Gegner'}</p>
+                            <p class="text-xs text-gray-500">${opponent.elo_rating || 800} Elo</p>
+                        </div>
+                    </div>
+
+                    <!-- Set Scores -->
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4">
+                        <h4 class="font-semibold mb-2 text-sm text-gray-600">Satzergebnisse</h4>
+                        ${setsHtml}
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-gray-500">Deine Elo-Änderung</p>
+                            <p class="text-lg font-bold ${myEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${myEloChange >= 0 ? '+' : ''}${myEloChange}
+                            </p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-gray-500">Gegner Elo-Änderung</p>
+                            <p class="text-lg font-bold ${oppEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${oppEloChange >= 0 ? '+' : ''}${oppEloChange}
+                            </p>
+                        </div>
+                        ${isWinner && match.season_points_awarded ? `
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-gray-500">Saisonpunkte</p>
+                            <p class="text-lg font-bold text-green-600">+${match.season_points_awarded}</p>
+                        </div>
+                        ` : ''}
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-gray-500">Spielmodus</p>
+                            <p class="text-sm font-semibold">${modeDisplay}</p>
+                        </div>
+                    </div>
+
+                    <!-- Handicap Info -->
+                    ${match.handicap_used ? `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-center">
+                        <span class="text-yellow-800 font-medium">Handicap-Match</span>
+                        <p class="text-xs text-yellow-600 mt-1">Feste Elo-Änderung: ±8 Punkte</p>
+                    </div>
+                    ` : ''}
+
+                    <!-- Date -->
+                    <div class="text-center text-sm text-gray-500">
+                        ${dateStr}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Remove existing modal if any
+    const existing = document.getElementById('match-details-modal');
+    if (existing) existing.remove();
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
 
 // --- Format Sets Display ---
 // Works for all sports: table tennis, tennis, badminton, padel
