@@ -2874,6 +2874,7 @@ async function submitMatchRequest() {
                 sport_id: sportId,
                 sets: sets,
                 match_mode: matchMode,
+                handicap_used: handicapUsed,
                 winner_id: winnerId,
                 loser_id: loserId,
                 status: 'pending_player',
