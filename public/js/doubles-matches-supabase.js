@@ -265,12 +265,17 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
     // Get player names from requestData if provided, otherwise use userData
     const playerNames = requestData.playerNames || {};
 
+    // Handle both camelCase and snake_case for user data
+    const userFirstName = currentUserData.firstName || currentUserData.first_name || '';
+    const userLastName = currentUserData.lastName || currentUserData.last_name || '';
+    const defaultUserName = `${userFirstName} ${userLastName}`.trim() || 'Unbekannt';
+
     // Build the request document data using JSONB structure for teams
     const doublesRequestData = {
         team_a: {
             player1_id: initiatorId,
             player2_id: partnerId,
-            player1_name: playerNames.player1 || `${currentUserData.firstName} ${currentUserData.lastName}`,
+            player1_name: playerNames.player1 || defaultUserName,
             player2_name: playerNames.player2 || 'Unbekannt',
             pairing_id: initiatorPairingId,
         },

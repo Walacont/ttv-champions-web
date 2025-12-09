@@ -562,6 +562,10 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         const opponent1Data = playersData.get(opponent1Id);
         const opponent2Data = playersData.get(opponent2Id);
 
+        // Handle both camelCase and snake_case for user data
+        const userFirstName = currentUserData.firstName || currentUserData.first_name || '';
+        const userLastName = currentUserData.lastName || currentUserData.last_name || '';
+
         const requestData = {
             partnerId: partnerId,
             opponent1Id: opponent1Id,
@@ -570,7 +574,7 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
             handicapUsed: handicapUsed,
             matchMode: matchMode,
             playerNames: {
-                player1: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                player1: `${userFirstName} ${userLastName}`.trim() || 'Unbekannt',
                 player2: partnerData
                     ? `${partnerData.first_name} ${partnerData.last_name}`
                     : 'Unbekannt',
