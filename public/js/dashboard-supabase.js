@@ -1515,11 +1515,10 @@ async function loadMatchRequests() {
     if (!container) return;
 
     try {
-        // Get pending requests where user is involved (ALL sports)
-        // Schema uses player_a_id and player_b_id (not requester_id/opponent_id)
+        // Get pending requests where user is involved
         const { data: requests, error } = await supabase
             .from('match_requests')
-            .select('*, sports(display_name)')
+            .select('*')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .in('status', ['pending_player', 'pending_coach'])
             .order('created_at', { ascending: false })
@@ -1532,49 +1531,81 @@ async function loadMatchRequests() {
             return;
         }
 
-        // Get unique user IDs to fetch profiles
+        // Get unique user IDs to fetch profiles with club info
         const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
         const { data: profiles } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url')
+            .select('id, first_name, last_name, photo_url, club_id')
             .in('id', userIds);
 
         const profileMap = {};
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
+        // Get club names
+        const clubIds = [...new Set((profiles || []).map(p => p.club_id).filter(Boolean))];
+        const { data: clubs } = clubIds.length > 0
+            ? await supabase.from('clubs').select('id, name').in('id', clubIds)
+            : { data: [] };
+        const clubMap = {};
+        (clubs || []).forEach(c => { clubMap[c.id] = c.name; });
+
         container.innerHTML = requests.map(req => {
-            // player_a is usually the one who created the request
             const isPlayerA = req.player_a_id === currentUser.id;
             const otherPlayerId = isPlayerA ? req.player_b_id : req.player_a_id;
             const otherPlayer = profileMap[otherPlayerId];
             const otherPlayerName = otherPlayer ? `${otherPlayer.first_name || ''} ${otherPlayer.last_name || ''}`.trim() || 'Unbekannt' : 'Unbekannt';
-            const statusText = req.status === 'pending_player' ? 'Warte auf Spieler' : 'Warte auf Coach';
-            const sportName = req.sports?.display_name || '';
-            const sportBadge = sportName ? `<span class="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">${sportName}</span>` : '';
+
+            // Club info - only show if different club
+            const otherPlayerClubId = otherPlayer?.club_id;
+            const myClubId = currentUserData?.club_id;
+            const isDifferentClub = otherPlayerClubId && myClubId && otherPlayerClubId !== myClubId;
+            const otherClubName = isDifferentClub ? clubMap[otherPlayerClubId] : null;
+
+            // Match result
+            const setsDisplay = formatSetsDisplay(req.sets);
+            const playerAProfile = profileMap[req.player_a_id];
+            const playerBProfile = profileMap[req.player_b_id];
+            const playerAName = playerAProfile ? `${playerAProfile.first_name || ''} ${playerAProfile.last_name || ''}`.trim() : 'Spieler A';
+            const playerBName = playerBProfile ? `${playerBProfile.first_name || ''} ${playerBProfile.last_name || ''}`.trim() : 'Spieler B';
+            const winnerName = req.winner_id === req.player_a_id ? playerAName : playerBName;
+            const handicapText = req.handicap_used ? ' (mit Handicap)' : '';
+
+            const statusText = req.status === 'pending_player' ? 'Warte auf Bestätigung' : 'Warte auf Coach';
 
             return `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg border">
-                    <div class="flex items-center gap-3">
-                        <img src="${otherPlayer?.photo_url || DEFAULT_AVATAR}"
-                             class="w-10 h-10 rounded-full object-cover"
-                             onerror="this.src='${DEFAULT_AVATAR}'">
-                        <div>
-                            <p class="font-medium flex items-center gap-2">
-                                ${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}
-                                ${sportBadge}
-                            </p>
-                            <p class="text-xs text-gray-500">${statusText}${req.is_cross_club ? ' (Vereinsübergreifend)' : ''}</p>
+                <div class="p-3 bg-white rounded-lg border mb-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <img src="${otherPlayer?.photo_url || DEFAULT_AVATAR}"
+                                 class="w-10 h-10 rounded-full object-cover"
+                                 onerror="this.src='${DEFAULT_AVATAR}'">
+                            <div>
+                                <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayerName}</p>
+                                ${otherClubName ? `<p class="text-xs text-blue-600">${otherClubName}</p>` : ''}
+                            </div>
                         </div>
+                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">${statusText}</span>
+                    </div>
+                    <div class="bg-gray-50 rounded p-2 mb-2 text-sm">
+                        <p class="text-gray-700">Ergebnis: ${setsDisplay}</p>
+                        <p class="text-green-700">Gewinner: ${winnerName}${handicapText}</p>
                     </div>
                     ${!isPlayerA && req.status === 'pending_player' ? `
                         <div class="flex gap-2">
                             <button onclick="respondToMatchRequest('${req.id}', true)"
-                                    class="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                                    class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
                                 Annehmen
                             </button>
                             <button onclick="respondToMatchRequest('${req.id}', false)"
-                                    class="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                                    class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
                                 Ablehnen
+                            </button>
+                        </div>
+                    ` : isPlayerA ? `
+                        <div class="flex gap-2">
+                            <button onclick="deleteMatchRequest('${req.id}')"
+                                    class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                                Zurückziehen
                             </button>
                         </div>
                     ` : ''}
@@ -1819,22 +1850,38 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(profileSub);
 
-    // Subscribe to match requests
-    if (currentUserData.club_id) {
-        const matchRequestSub = supabase
-            .channel('match_request_changes')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'match_requests',
-                filter: `club_id=eq.${currentUserData.club_id}`
-            }, () => {
-                loadMatchRequests();
-            })
-            .subscribe();
+    // Subscribe to match requests for current user (as player_a or player_b)
+    const matchRequestSubA = supabase
+        .channel('match_request_player_a')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'match_requests',
+            filter: `player_a_id=eq.${currentUser.id}`
+        }, () => {
+            console.log('[Realtime] Match request update (player_a)');
+            loadMatchRequests();
+            loadPendingRequests();
+        })
+        .subscribe();
 
-        realtimeSubscriptions.push(matchRequestSub);
-    }
+    realtimeSubscriptions.push(matchRequestSubA);
+
+    const matchRequestSubB = supabase
+        .channel('match_request_player_b')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'match_requests',
+            filter: `player_b_id=eq.${currentUser.id}`
+        }, () => {
+            console.log('[Realtime] Match request update (player_b)');
+            loadMatchRequests();
+            loadPendingRequests();
+        })
+        .subscribe();
+
+    realtimeSubscriptions.push(matchRequestSubB);
 }
 
 // --- Helper Functions ---
@@ -2292,11 +2339,7 @@ async function createMatchFromRequest(request) {
                 winner_id: request.winner_id,
                 loser_id: request.loser_id,
                 sets: request.sets,
-                match_mode: request.match_mode,
-                handicap_used: request.handicap_used,
-                is_cross_club: request.is_cross_club,
-                match_request_id: request.id,
-                created_at: new Date().toISOString()
+                is_cross_club: request.is_cross_club
             });
 
         if (error) throw error;
