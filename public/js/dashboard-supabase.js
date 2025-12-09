@@ -5,6 +5,7 @@
 import { getSupabase, onAuthStateChange } from './supabase-init.js';
 import { RANK_ORDER, groupPlayersByRank, calculateRank, getRankProgress } from './ranks.js';
 import { loadDoublesLeaderboard } from './doubles-matches-supabase.js';
+import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences-supabase.js';
 import { initializeWidgetSystem } from './dashboard-widgets-supabase.js';
 import { AGE_GROUPS } from './ui-utils-supabase.js';
@@ -2828,6 +2829,10 @@ function setupMatchForm() {
 
     // Setup leaderboard preferences toggle
     setupLeaderboardPreferences();
+
+    // Initialize doubles player UI (toggle and player search)
+    initializeDoublesPlayerUI();
+    initializeDoublesPlayerSearch(supabase, currentUserData);
 }
 
 // --- Search Opponents ---
