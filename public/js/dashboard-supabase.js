@@ -3125,10 +3125,8 @@ async function checkHandicap() {
         const eloSuggestion = handicapSuggestions.find(s => s.type === 'elo');
 
         let displayText = '';
-        if (h2hSuggestion && eloSuggestion) {
-            // Both exist - show both
-            displayText = `Elo: ${eloSuggestion.text}\nH2H: ${h2hSuggestion.text}`;
-        } else if (h2hSuggestion) {
+        // H2H takes priority over Elo-based (more specific to the matchup)
+        if (h2hSuggestion) {
             displayText = h2hSuggestion.text;
         } else if (eloSuggestion) {
             displayText = eloSuggestion.text;
