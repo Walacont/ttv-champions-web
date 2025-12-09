@@ -1870,7 +1870,9 @@ async function updateSeasonCountdown() {
 
 // --- Realtime Subscriptions ---
 function setupRealtimeSubscriptions() {
-    // Subscribe to profile changes
+    console.log('[Realtime] Setting up realtime subscriptions...');
+
+    // Subscribe to profile changes for current user
     const profileSub = supabase
         .channel('profile_changes')
         .on('postgres_changes', {
@@ -1879,16 +1881,18 @@ function setupRealtimeSubscriptions() {
             table: 'profiles',
             filter: `id=eq.${currentUser.id}`
         }, payload => {
-            console.log('[DASHBOARD-SUPABASE] Profile updated:', payload.new);
+            console.log('[Realtime] Profile updated:', payload.new);
             currentUserData = { ...currentUserData, ...payload.new };
             updateStatsDisplay();
             updateRankDisplay();
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log('[Realtime] Profile subscription status:', status);
+        });
 
     realtimeSubscriptions.push(profileSub);
 
-    // Subscribe to match requests for current user (as player_a or player_b)
+    // Subscribe to match requests for current user (as player_a - sent requests)
     const matchRequestSubA = supabase
         .channel('match_request_player_a')
         .on('postgres_changes', {
@@ -1896,15 +1900,18 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'match_requests',
             filter: `player_a_id=eq.${currentUser.id}`
-        }, () => {
-            console.log('[Realtime] Match request update (player_a)');
+        }, (payload) => {
+            console.log('[Realtime] Match request update (player_a):', payload.eventType);
             loadMatchRequests();
             loadPendingRequests();
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log('[Realtime] Match request (player_a) subscription status:', status);
+        });
 
     realtimeSubscriptions.push(matchRequestSubA);
 
+    // Subscribe to match requests for current user (as player_b - received requests)
     const matchRequestSubB = supabase
         .channel('match_request_player_b')
         .on('postgres_changes', {
@@ -1912,16 +1919,22 @@ function setupRealtimeSubscriptions() {
             schema: 'public',
             table: 'match_requests',
             filter: `player_b_id=eq.${currentUser.id}`
-        }, () => {
-            console.log('[Realtime] Match request update (player_b)');
+        }, (payload) => {
+            console.log('[Realtime] Match request update (player_b):', payload.eventType);
             loadMatchRequests();
             loadPendingRequests();
+            // Show notification for new incoming requests
+            if (payload.eventType === 'INSERT') {
+                showNewRequestNotification();
+            }
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log('[Realtime] Match request (player_b) subscription status:', status);
+        });
 
     realtimeSubscriptions.push(matchRequestSubB);
 
-    // Subscribe to matches table for history updates
+    // Subscribe to matches table for history updates (singles)
     const matchesSub = supabase
         .channel('matches_updates')
         .on('postgres_changes', {
@@ -1934,7 +1947,7 @@ function setupRealtimeSubscriptions() {
                 payload.new.player_b_id === currentUser.id ||
                 payload.new.winner_id === currentUser.id ||
                 payload.new.loser_id === currentUser.id) {
-                console.log('[Realtime] New match created, updating history');
+                console.log('[Realtime] New singles match created, updating history');
                 loadMatchHistory();
                 loadPointsHistory();
                 // Also refresh match requests as the request may have been deleted
@@ -1942,9 +1955,101 @@ function setupRealtimeSubscriptions() {
                 loadPendingRequests();
             }
         })
-        .subscribe();
+        .subscribe((status) => {
+            console.log('[Realtime] Matches subscription status:', status);
+        });
 
     realtimeSubscriptions.push(matchesSub);
+
+    // Subscribe to doubles matches for history updates
+    const doublesMatchesSub = supabase
+        .channel('doubles_matches_updates')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'doubles_matches'
+        }, (payload) => {
+            // Check if current user is involved in this doubles match
+            if (payload.new.team_a_player1_id === currentUser.id ||
+                payload.new.team_a_player2_id === currentUser.id ||
+                payload.new.team_b_player1_id === currentUser.id ||
+                payload.new.team_b_player2_id === currentUser.id) {
+                console.log('[Realtime] New doubles match created, updating history');
+                loadMatchHistory();
+            }
+        })
+        .subscribe((status) => {
+            console.log('[Realtime] Doubles matches subscription status:', status);
+        });
+
+    realtimeSubscriptions.push(doublesMatchesSub);
+
+    // Subscribe to ALL profile Elo changes for leaderboard updates
+    const leaderboardSub = supabase
+        .channel('leaderboard_updates')
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles'
+        }, (payload) => {
+            // Only reload if Elo changed (to avoid unnecessary reloads)
+            if (payload.old?.elo_rating !== payload.new?.elo_rating) {
+                console.log('[Realtime] Elo rating changed, updating leaderboard');
+                loadLeaderboards();
+                // Also update own rank display if it might have changed
+                updateRankDisplay();
+            }
+        })
+        .subscribe((status) => {
+            console.log('[Realtime] Leaderboard subscription status:', status);
+        });
+
+    realtimeSubscriptions.push(leaderboardSub);
+
+    console.log('[Realtime] All subscriptions set up');
+}
+
+// --- Show notification for new incoming match request ---
+function showNewRequestNotification() {
+    // Visual notification
+    const requestsSection = document.querySelector('[data-section="match-requests"]');
+    if (requestsSection) {
+        requestsSection.classList.add('animate-pulse');
+        setTimeout(() => requestsSection.classList.remove('animate-pulse'), 2000);
+    }
+
+    // Browser notification if permitted
+    if (Notification.permission === 'granted') {
+        new Notification('Neue Spielanfrage!', {
+            body: 'Du hast eine neue Wettkampfanfrage erhalten.',
+            icon: '/img/logo.png'
+        });
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission();
+    }
+
+    // Toast notification
+    showToast('Neue Spielanfrage erhalten!', 'info');
+}
+
+// --- Toast notification helper ---
+function showToast(message, type = 'info') {
+    const colors = {
+        info: 'bg-indigo-600',
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        warning: 'bg-yellow-600'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'transition-opacity');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // --- Helper Functions ---
