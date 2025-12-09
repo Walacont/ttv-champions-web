@@ -62,6 +62,16 @@ let currentPairingSessionId = null;
 let currentPairingPlayerAId = null;
 let currentPairingPlayerBId = null;
 let currentHandicapData = null;
+let currentSportName = 'table_tennis'; // Default sport
+
+/**
+ * Sets the current sport name for handicap calculations
+ * @param {string} sportName - The sport name (table_tennis, tennis, badminton, padel)
+ */
+export function setCurrentSport(sportName) {
+    currentSportName = sportName?.toLowerCase() || 'table_tennis';
+    console.log('[Matches] Sport set to:', currentSportName);
+}
 
 /**
  * Updates the coach match winner display based on current set scores
@@ -309,13 +319,14 @@ export function renderPairingsInModal(pairings, leftoverPlayer) {
 
         pairings[groupName].forEach(pair => {
             const [playerA, playerB] = pair;
-            const handicap = calculateHandicap(playerA, playerB);
+            const handicap = calculateHandicap(playerA, playerB, currentSportName);
 
             let handicapHTML = '<p class="text-xs text-gray-400 mt-1">Kein Handicap</p>';
             if (handicap) {
+                const unitText = handicap.unit || 'Punkte';
                 handicapHTML = `<p class="text-xs text-blue-600 mt-1 font-semibold">
                     <i class="fas fa-balance-scale-right"></i> ${handicap.player.firstName} startet mit
-                    <strong>${handicap.points}</strong> Pkt. Vorsprung.
+                    <strong>${handicap.points}</strong> ${unitText} Vorsprung.
                 </p>`;
             }
 
@@ -564,7 +575,7 @@ export function updateMatchUI(clubPlayers) {
     const playerB = clubPlayers.find(p => p.id === playerBId);
 
     if (playerA && playerB && playerAId !== playerBId) {
-        const handicap = calculateHandicap(playerA, playerB);
+        const handicap = calculateHandicap(playerA, playerB, currentSportName);
 
         if (handicap && handicap.points > 0) {
             currentHandicapData = {
@@ -572,8 +583,9 @@ export function updateMatchUI(clubPlayers) {
                 points: handicap.points,
             };
 
+            const unitText = handicap.unit || 'Punkte';
             document.getElementById('handicap-text').textContent =
-                `${handicap.player.firstName} startet mit ${handicap.points} Punkten Vorsprung pro Satz.`;
+                `${handicap.player.firstName} startet mit ${handicap.points} ${unitText} Vorsprung pro Satz.`;
             handicapContainer?.classList.remove('hidden');
             handicapToggleContainer?.classList.remove('hidden');
             handicapToggleContainer?.classList.add('flex');

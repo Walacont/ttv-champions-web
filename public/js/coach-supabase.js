@@ -86,6 +86,7 @@ import {
     initializeCoachSetScoreInput,
     loadSavedPairings,
     initializeHandicapToggle,
+    setCurrentSport,
 } from './matches-supabase.js';
 import {
     initializeDoublesCoachUI,
@@ -202,6 +203,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Get club and sport directly from profile (single sport model)
             const effectiveClubId = supabaseProfile.club_id || null;
             const effectiveSportId = supabaseProfile.active_sport_id || null;
+
+            // Get sport name for handicap calculations
+            let sportName = 'table_tennis';
+            if (effectiveSportId) {
+                const { data: sportData } = await supabase
+                    .from('sports')
+                    .select('name')
+                    .eq('id', effectiveSportId)
+                    .single();
+                if (sportData?.name) {
+                    sportName = sportData.name;
+                }
+            }
+            // Set sport for handicap calculations
+            setCurrentSport(sportName);
 
             // Map Supabase profile to expected format
             const userData = {

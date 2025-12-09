@@ -3024,6 +3024,10 @@ window.clearOpponentSelection = function() {
 };
 
 // --- Check Handicap ---
+// Sport-specific handicap configuration:
+// - Tischtennis: 1 Punkt pro 40 Elo, max 7 Punkte, ab 40 Elo Diff
+// - Badminton: 1 Punkt pro 40 Elo, max 12 Punkte, ab 40 Elo Diff
+// - Tennis/Padel: 1 Game pro 150 Elo, max 3 Games, ab 150 Elo Diff
 function checkHandicap() {
     const handicapInfo = document.getElementById('match-handicap-info');
     const handicapText = document.getElementById('match-handicap-text');
@@ -3034,32 +3038,41 @@ function checkHandicap() {
     const opponentElo = selectedOpponent.elo;
     const diff = Math.abs(myElo - opponentElo);
 
-    if (diff >= 100) {
+    // Sport-specific configuration
+    const sportName = currentSportContext?.sportName?.toLowerCase();
+    const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
+    const isBadminton = sportName === 'badminton';
+
+    // Get sport-specific threshold
+    const threshold = isTennisOrPadel ? 150 : 40;
+
+    if (diff >= threshold) {
         const stronger = myElo > opponentElo ? 'Du bist' : `${selectedOpponent.name} ist`;
         const weaker = myElo > opponentElo ? selectedOpponent.name : 'Du';
 
-        // Sport-specific handicap suggestions
-        const sportName = currentSportContext?.sportName;
-        const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
-        const isBadminton = sportName === 'badminton';
-
         let handicapSuggestion;
+        let handicapValue;
+
         if (isTennisOrPadel) {
-            // Tennis/Padel: Games handicap (1-3 games head start per set)
-            const handicapGames = Math.min(Math.floor(diff / 100), 3);
-            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapGames} Spiel${handicapGames > 1 ? 'en' : ''} Vorsprung (z.B. ${handicapGames}:0).`;
+            // Tennis/Padel: 1 Game pro 150 Elo, max 3 Games
+            handicapValue = Math.min(Math.floor(diff / 150), 3);
+            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapValue} Game${handicapValue > 1 ? 's' : ''} Vorsprung (z.B. ${handicapValue}:0).`;
         } else if (isBadminton) {
-            // Badminton: Points handicap (similar to table tennis but max 5)
-            const handicapPoints = Math.min(Math.floor(diff / 50), 5);
-            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapPoints} Punkten Vorsprung.`;
+            // Badminton: 1 Punkt pro 40 Elo, max 12 Punkte
+            handicapValue = Math.min(Math.floor(diff / 40), 12);
+            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapValue} Punkten Vorsprung.`;
         } else {
-            // Table Tennis: Points handicap (max 8 points at 400+ Elo diff)
-            const handicapPoints = Math.min(Math.floor(diff / 50), 8);
-            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapPoints} Punkten.`;
+            // Table Tennis (default): 1 Punkt pro 40 Elo, max 7 Punkte
+            handicapValue = Math.min(Math.floor(diff / 40), 7);
+            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapValue} Punkten Vorsprung.`;
         }
 
-        handicapText.textContent = `${stronger} ${diff} Elo-Punkte stärker. Empfohlener Handicap: ${handicapSuggestion}`;
-        handicapInfo.classList.remove('hidden');
+        if (handicapValue > 0) {
+            handicapText.textContent = `${stronger} ${diff} Elo-Punkte stärker. Empfohlener Handicap: ${handicapSuggestion}`;
+            handicapInfo.classList.remove('hidden');
+        } else {
+            handicapInfo.classList.add('hidden');
+        }
     } else {
         handicapInfo.classList.add('hidden');
     }
