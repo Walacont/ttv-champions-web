@@ -1417,7 +1417,10 @@ async function loadPointsHistory() {
             if (eloChange !== 0) {
                 const eloSign = eloChange > 0 ? '+' : '';
                 const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
-                details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
+                // Check if this is a doubles match to show "Doppel-Elo"
+                const isDoubles = reason.toLowerCase().includes('doppel');
+                const eloLabel = isDoubles ? 'Doppel-Elo' : 'Elo';
+                details.push(`<span class="${eloClass}">${eloSign}${eloChange} ${eloLabel}</span>`);
             }
 
             const detailsHtml = details.length > 0

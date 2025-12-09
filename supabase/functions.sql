@@ -235,6 +235,8 @@ DECLARE
     protected_elo INTEGER;
     winner_elo_change INTEGER;
     loser_elo_change INTEGER;
+    partner_name_1 TEXT;
+    partner_name_2 TEXT;
 BEGIN
     -- Skip if already processed
     IF NEW.processed = true THEN
@@ -398,33 +400,63 @@ BEGIN
         loser_elo_change := -elo_result.elo_delta;
     END IF;
 
-    -- Add points_history for winning players
-    FOREACH player_id IN ARRAY winning_players LOOP
-        INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
-        VALUES (
-            player_id,
-            season_point_change,
-            COALESCE(xp_per_player, 0),
-            winner_elo_change,
-            'Doppel-Match gewonnen',
-            NOW(),
-            NOW()
-        );
-    END LOOP;
+    -- Add points_history for winning players (with partner name)
+    -- Get partner names for winning team
+    SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_1 FROM profiles WHERE id = winning_players[1];
+    SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_2 FROM profiles WHERE id = winning_players[2];
 
-    -- Add points_history for losing players
-    FOREACH player_id IN ARRAY losing_players LOOP
-        INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
-        VALUES (
-            player_id,
-            0,
-            0,
-            loser_elo_change,
-            'Doppel-Match verloren',
-            NOW(),
-            NOW()
-        );
-    END LOOP;
+    -- First winning player (partner is second)
+    INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
+    VALUES (
+        winning_players[1],
+        season_point_change,
+        COALESCE(xp_per_player, 0),
+        winner_elo_change,
+        'Doppel gewonnen (mit ' || COALESCE(partner_name_2, 'Partner') || ')',
+        NOW(),
+        NOW()
+    );
+
+    -- Second winning player (partner is first)
+    INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
+    VALUES (
+        winning_players[2],
+        season_point_change,
+        COALESCE(xp_per_player, 0),
+        winner_elo_change,
+        'Doppel gewonnen (mit ' || COALESCE(partner_name_1, 'Partner') || ')',
+        NOW(),
+        NOW()
+    );
+
+    -- Add points_history for losing players (with partner name)
+    -- Get partner names for losing team
+    SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_1 FROM profiles WHERE id = losing_players[1];
+    SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_2 FROM profiles WHERE id = losing_players[2];
+
+    -- First losing player (partner is second)
+    INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
+    VALUES (
+        losing_players[1],
+        0,
+        0,
+        loser_elo_change,
+        'Doppel verloren (mit ' || COALESCE(partner_name_2, 'Partner') || ')',
+        NOW(),
+        NOW()
+    );
+
+    -- Second losing player (partner is first)
+    INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
+    VALUES (
+        losing_players[2],
+        0,
+        0,
+        loser_elo_change,
+        'Doppel verloren (mit ' || COALESCE(partner_name_1, 'Partner') || ')',
+        NOW(),
+        NOW()
+    );
 
     -- Mark match as processed
     NEW.processed := true;
