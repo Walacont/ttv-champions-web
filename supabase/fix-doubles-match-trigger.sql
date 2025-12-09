@@ -19,6 +19,9 @@ ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS set5_a INTEGER DEFAULT 0;
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS set5_b INTEGER DEFAULT 0;
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS requested_by UUID REFERENCES profiles(id);
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES profiles(id);
+ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_a_elo_change INTEGER DEFAULT 0;
+ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS team_b_elo_change INTEGER DEFAULT 0;
+ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS season_points_awarded INTEGER DEFAULT 0;
 
 -- Add missing columns to doubles_pairings table for win/loss tracking
 ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0;

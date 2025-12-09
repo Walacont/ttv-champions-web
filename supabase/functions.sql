@@ -364,6 +364,29 @@ BEGIN
         WHERE id = NEW.team_a_pairing_id;
     END IF;
 
+    -- Store Elo changes on the match record
+    IF COALESCE(NEW.handicap_used, false) THEN
+        -- Handicap match: Fixed ±8 points
+        IF NEW.winning_team = 'A' THEN
+            NEW.team_a_elo_change := handicap_points;
+            NEW.team_b_elo_change := -handicap_points;
+        ELSE
+            NEW.team_a_elo_change := -handicap_points;
+            NEW.team_b_elo_change := handicap_points;
+        END IF;
+        NEW.season_points_awarded := season_point_change;
+    ELSE
+        -- Standard match: Use calculated delta
+        IF NEW.winning_team = 'A' THEN
+            NEW.team_a_elo_change := elo_result.elo_delta;
+            NEW.team_b_elo_change := -elo_result.elo_delta;
+        ELSE
+            NEW.team_a_elo_change := -elo_result.elo_delta;
+            NEW.team_b_elo_change := elo_result.elo_delta;
+        END IF;
+        NEW.season_points_awarded := season_point_change;
+    END IF;
+
     -- Mark match as processed
     NEW.processed := true;
 

@@ -223,7 +223,16 @@ DROP POLICY IF EXISTS doubles_matches_select ON doubles_matches;
 DROP POLICY IF EXISTS doubles_matches_read ON doubles_matches;
 CREATE POLICY doubles_matches_select ON doubles_matches FOR SELECT
     USING (
+        -- Same club matches
         club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid()))
+        -- OR cross-club matches
+        OR club_id IS NULL
+        -- OR player is in team A
+        OR team_a_player1_id = (SELECT auth.uid())
+        OR team_a_player2_id = (SELECT auth.uid())
+        -- OR player is in team B
+        OR team_b_player1_id = (SELECT auth.uid())
+        OR team_b_player2_id = (SELECT auth.uid())
     );
 
 DROP POLICY IF EXISTS doubles_matches_create ON doubles_matches;

@@ -4375,6 +4375,13 @@ function showDoublesMatchDetails(match, profileMap) {
     };
     const modeDisplay = modeLabels[match.match_mode] || match.match_mode || 'Standard';
 
+    // Elo changes for doubles - winner gains, loser loses
+    const teamAEloChange = match.team_a_elo_change || 0;
+    const teamBEloChange = match.team_b_elo_change || 0;
+    const myEloChange = isInTeamA ? teamAEloChange : teamBEloChange;
+    const oppEloChange = isInTeamA ? teamBEloChange : teamAEloChange;
+    const seasonPoints = match.season_points_awarded || 0;
+
     // Date
     const matchDate = new Date(match.created_at);
     const dateStr = matchDate.toLocaleDateString('de-DE', {
@@ -4441,12 +4448,26 @@ function showDoublesMatchDetails(match, profileMap) {
                     <!-- Stats Grid -->
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <div class="bg-gray-50 rounded-lg p-3 text-center">
-                            <p class="text-xs text-gray-500">Spielmodus</p>
-                            <p class="text-sm font-semibold">${modeDisplay}</p>
+                            <p class="text-xs text-gray-500">Deine Doppel-Elo</p>
+                            <p class="text-lg font-bold ${myEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${myEloChange >= 0 ? '+' : ''}${myEloChange}
+                            </p>
                         </div>
                         <div class="bg-gray-50 rounded-lg p-3 text-center">
-                            <p class="text-xs text-gray-500">Spieltyp</p>
-                            <p class="text-sm font-semibold">Doppel</p>
+                            <p class="text-xs text-gray-500">Gegner Doppel-Elo</p>
+                            <p class="text-lg font-bold ${oppEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${oppEloChange >= 0 ? '+' : ''}${oppEloChange}
+                            </p>
+                        </div>
+                        ${isWinner && seasonPoints > 0 ? `
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-gray-500">Saisonpunkte</p>
+                            <p class="text-lg font-bold text-green-600">+${seasonPoints}</p>
+                        </div>
+                        ` : ''}
+                        <div class="bg-gray-50 rounded-lg p-3 text-center">
+                            <p class="text-xs text-gray-500">Spielmodus</p>
+                            <p class="text-sm font-semibold">${modeDisplay}</p>
                         </div>
                     </div>
 
@@ -4454,6 +4475,7 @@ function showDoublesMatchDetails(match, profileMap) {
                     ${match.handicap_used ? `
                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-center">
                         <span class="text-yellow-800 font-medium">Handicap-Match</span>
+                        <p class="text-xs text-yellow-600 mt-1">Feste Elo-Änderung: ±8 Punkte</p>
                     </div>
                     ` : ''}
 

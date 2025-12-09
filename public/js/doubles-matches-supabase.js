@@ -607,28 +607,26 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                 const player1Deleted = player1Data?.deleted || !player1Data?.first_name || !player1Data?.last_name;
                 const player2Deleted = player2Data?.deleted || !player2Data?.first_name || !player2Data?.last_name;
 
-                // Determine club display
+                // Determine club display (always calculate, shown only in global but needed for data)
                 let clubDisplay = 'Kein Verein';
                 let clubType = 'none';
 
-                if (isGlobal) {
-                    const p1ClubId = data.player1_club_id_at_match !== undefined
-                        ? data.player1_club_id_at_match
-                        : player1Data?.club_id;
-                    const p2ClubId = data.player2_club_id_at_match !== undefined
-                        ? data.player2_club_id_at_match
-                        : player2Data?.club_id;
+                const p1ClubId = data.player1_club_id_at_match !== undefined
+                    ? data.player1_club_id_at_match
+                    : player1Data?.club_id;
+                const p2ClubId = data.player2_club_id_at_match !== undefined
+                    ? data.player2_club_id_at_match
+                    : player2Data?.club_id;
 
-                    if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
-                        clubType = 'same';
-                        clubDisplay = clubsMap.has(p1ClubId) ? clubsMap.get(p1ClubId).name : p1ClubId;
-                    } else if (!p1ClubId && !p2ClubId) {
-                        clubType = 'none';
-                        clubDisplay = 'Kein Verein';
-                    } else {
-                        clubType = 'mix';
-                        clubDisplay = 'Mix';
-                    }
+                if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
+                    clubType = 'same';
+                    clubDisplay = clubsMap.has(p1ClubId) ? clubsMap.get(p1ClubId).name : p1ClubId;
+                } else if (!p1ClubId && !p2ClubId) {
+                    clubType = 'none';
+                    clubDisplay = 'Kein Verein';
+                } else {
+                    clubType = 'mix';
+                    clubDisplay = 'Mix';
                 }
 
                 pairings.push({
