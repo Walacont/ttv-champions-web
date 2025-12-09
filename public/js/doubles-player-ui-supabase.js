@@ -21,6 +21,7 @@ function hasNoClub(clubId) {
 }
 
 let currentPlayerMatchType = 'singles'; // 'singles' or 'doubles'
+let supabaseClient = null; // Store supabase client for use in handicap calculation
 
 // ========================================================================
 // ===== INITIALIZATION =====
@@ -147,6 +148,9 @@ function clearDoublesSelections() {
  * @param {Object} userData - Current user data
  */
 export async function initializeDoublesPlayerSearch(supabase, userData) {
+    // Store supabase client for later use (e.g., handicap calculation)
+    supabaseClient = supabase;
+
     // Load all searchable players - with real-time updates
     // Use object wrapper so search functions always access current data
     const playersData = { players: [] };
@@ -388,17 +392,14 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         // Check both camelCase and snake_case for userData club ID
         const userClubId = userData.clubId || userData.club_id;
         const isSameClub = player.clubId === userClubId;
-        const doublesElo = Math.round(player.doublesEloRating || 800);
 
         return `
             <div class="player-search-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
                  data-player-id="${player.id}"
-                 data-player-elo="${doublesElo}"
                  data-player-name="${player.firstName} ${player.lastName}">
                 <div class="flex justify-between items-center">
                     <div class="flex-1">
                         <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
-                        <p class="text-sm text-gray-600">Doppel-Elo: ${doublesElo}</p>
                         <p class="text-xs text-gray-500 mt-1">
                             <i class="fas fa-users mr-1"></i>${clubName}
                         </p>
@@ -414,11 +415,11 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         result.addEventListener('click', () => {
             const playerId = result.dataset.playerId;
             const playerName = result.dataset.playerName;
-            const playerElo = result.dataset.playerElo;
 
             // Set selected player
             selectedIdField.value = playerId;
-            if (selectedEloField) selectedEloField.value = playerElo;
+            // Note: Individual Elo field is deprecated - pairing Elo is now used
+            if (selectedEloField) selectedEloField.value = '800'; // Default, will be looked up from pairing
 
             // Update search input to show selected player
             searchInput.value = playerName;
@@ -656,8 +657,9 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
     /**
      * Calculate and display handicap based on current selections
+     * Uses PAIRING Elo from doubles_pairings table (not individual player average)
      */
-    function calculateAndDisplayHandicap() {
+    async function calculateAndDisplayHandicap() {
         const partnerId = partnerIdField.value;
         const opponent1Id = opponent1IdField.value;
         const opponent2Id = opponent2IdField.value;
@@ -692,33 +694,67 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             return;
         }
 
-        // Get individual Elo ratings
-        const userElo = userData.doubles_elo_rating || userData.doublesEloRating || 800;
-        const partnerElo = partner.doubles_elo_rating || partner.doublesEloRating || 800;
-        const opponent1Elo = opponent1.doubles_elo_rating || opponent1.doublesEloRating || 800;
-        const opponent2Elo = opponent2.doubles_elo_rating || opponent2.doublesEloRating || 800;
+        // Calculate pairing IDs (sorted player IDs for consistency)
+        const currentUserId = userData.id;
+        const teamAPairingId = currentUserId < partnerId
+            ? `${currentUserId}_${partnerId}`
+            : `${partnerId}_${currentUserId}`;
+        const teamBPairingId = opponent1Id < opponent2Id
+            ? `${opponent1Id}_${opponent2Id}`
+            : `${opponent2Id}_${opponent1Id}`;
 
-        // Calculate team averages
-        const teamAAvgElo = Math.round((userElo + partnerElo) / 2);
-        const teamBAvgElo = Math.round((opponent1Elo + opponent2Elo) / 2);
+        // Fetch PAIRING Elo from database (not individual player average!)
+        let teamAElo = 800; // Default for new pairing
+        let teamBElo = 800; // Default for new pairing
+        let teamAIsNew = true;
+        let teamBIsNew = true;
 
-        // Display team Elo values
+        if (supabaseClient) {
+            try {
+                // Fetch Team A pairing
+                const { data: teamAPairing } = await supabaseClient
+                    .from('doubles_pairings')
+                    .select('current_elo_rating')
+                    .eq('id', teamAPairingId)
+                    .single();
+
+                if (teamAPairing) {
+                    teamAElo = teamAPairing.current_elo_rating || 800;
+                    teamAIsNew = false;
+                }
+
+                // Fetch Team B pairing
+                const { data: teamBPairing } = await supabaseClient
+                    .from('doubles_pairings')
+                    .select('current_elo_rating')
+                    .eq('id', teamBPairingId)
+                    .single();
+
+                if (teamBPairing) {
+                    teamBElo = teamBPairing.current_elo_rating || 800;
+                    teamBIsNew = false;
+                }
+            } catch (err) {
+                console.warn('Could not fetch pairing Elo, using defaults:', err);
+            }
+        }
+
+        // Display team Elo values with "Neu" indicator for new pairings
         if (teamEloDisplay && teamAEloValue && teamBEloValue) {
-            teamAEloValue.textContent = teamAAvgElo;
-            teamBEloValue.textContent = teamBAvgElo;
+            teamAEloValue.textContent = teamAIsNew ? `Neu (${teamAElo})` : teamAElo;
+            teamBEloValue.textContent = teamBIsNew ? `Neu (${teamBElo})` : teamBElo;
             teamEloDisplay.classList.remove('hidden');
         }
 
-        // Build team objects for handicap calculation
-        // Use snake_case for Supabase data
+        // Build team objects for handicap calculation using PAIRING Elo
         const teamA = {
-            player1: { eloRating: userElo },
-            player2: { eloRating: partnerElo }
+            player1: { eloRating: teamAElo / 2 }, // Split for handicap calc formula
+            player2: { eloRating: teamAElo / 2 }
         };
 
         const teamB = {
-            player1: { eloRating: opponent1Elo },
-            player2: { eloRating: opponent2Elo }
+            player1: { eloRating: teamBElo / 2 },
+            player2: { eloRating: teamBElo / 2 }
         };
 
         // Calculate handicap
@@ -740,7 +776,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
             const weakerTeamName = handicapResult.team === 'A' ? teamAName.trim() : teamBName.trim();
 
-            handicapText.textContent = `${weakerTeamName} startet mit ${handicapResult.points} Punkt${handicapResult.points !== 1 ? 'en' : ''} Vorsprung (Ø ${handicapResult.averageEloA} vs ${handicapResult.averageEloB} Elo)`;
+            handicapText.textContent = `${weakerTeamName} startet mit ${handicapResult.points} Punkt${handicapResult.points !== 1 ? 'en' : ''} Vorsprung (${teamAElo} vs ${teamBElo} Elo)`;
             handicapInfo.classList.remove('hidden');
             if (handicapToggleContainer) {
                 handicapToggleContainer.classList.remove('hidden');

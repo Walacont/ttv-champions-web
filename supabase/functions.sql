@@ -218,21 +218,18 @@ AS $$
 DECLARE
     winning_players UUID[];
     losing_players UUID[];
-    player_data RECORD;
+    team_a_pairing TEXT;
+    team_b_pairing TEXT;
+    winner_pairing TEXT;
+    loser_pairing TEXT;
     team_a_elo INTEGER;
     team_b_elo INTEGER;
-    winning_team_elo INTEGER;
-    losing_team_elo INTEGER;
     elo_result RECORD;
     season_point_change INTEGER;
     xp_per_player INTEGER;
     k_factor INTEGER := 32;
     handicap_points INTEGER := 8;
     player_id UUID;
-    current_elo INTEGER;
-    current_highest INTEGER;
-    new_elo INTEGER;
-    protected_elo INTEGER;
     winner_elo_change INTEGER;
     loser_elo_change INTEGER;
     partner_name_1 TEXT;
@@ -252,160 +249,153 @@ BEGIN
         losing_players := ARRAY[NEW.team_a_player1_id, NEW.team_a_player2_id];
     END IF;
 
-    -- Calculate average Elo for each team
-    SELECT COALESCE(AVG(COALESCE(doubles_elo_rating, 800)), 800)::INTEGER INTO team_a_elo
-    FROM profiles WHERE id IN (NEW.team_a_player1_id, NEW.team_a_player2_id);
-
-    SELECT COALESCE(AVG(COALESCE(doubles_elo_rating, 800)), 800)::INTEGER INTO team_b_elo
-    FROM profiles WHERE id IN (NEW.team_b_player1_id, NEW.team_b_player2_id);
-
-    IF NEW.winning_team = 'A' THEN
-        winning_team_elo := team_a_elo;
-        losing_team_elo := team_b_elo;
+    -- Calculate pairing IDs (sorted player IDs for consistency)
+    IF NEW.team_a_player1_id < NEW.team_a_player2_id THEN
+        team_a_pairing := NEW.team_a_player1_id || '_' || NEW.team_a_player2_id;
     ELSE
-        winning_team_elo := team_b_elo;
-        losing_team_elo := team_a_elo;
+        team_a_pairing := NEW.team_a_player2_id || '_' || NEW.team_a_player1_id;
     END IF;
+
+    IF NEW.team_b_player1_id < NEW.team_b_player2_id THEN
+        team_b_pairing := NEW.team_b_player1_id || '_' || NEW.team_b_player2_id;
+    ELSE
+        team_b_pairing := NEW.team_b_player2_id || '_' || NEW.team_b_player1_id;
+    END IF;
+
+    -- Store pairing IDs on match record
+    NEW.team_a_pairing_id := team_a_pairing;
+    NEW.team_b_pairing_id := team_b_pairing;
+
+    -- Determine winner/loser pairings
+    IF NEW.winning_team = 'A' THEN
+        winner_pairing := team_a_pairing;
+        loser_pairing := team_b_pairing;
+    ELSE
+        winner_pairing := team_b_pairing;
+        loser_pairing := team_a_pairing;
+    END IF;
+
+    -- Create pairings if they don't exist (start at 800 Elo)
+    INSERT INTO doubles_pairings (id, player1_id, player2_id, club_id, player1_name, player2_name, current_elo_rating)
+    VALUES (
+        team_a_pairing,
+        LEAST(NEW.team_a_player1_id, NEW.team_a_player2_id),
+        GREATEST(NEW.team_a_player1_id, NEW.team_a_player2_id),
+        NEW.club_id,
+        (SELECT first_name || ' ' || last_name FROM profiles WHERE id = NEW.team_a_player1_id),
+        (SELECT first_name || ' ' || last_name FROM profiles WHERE id = NEW.team_a_player2_id),
+        800
+    ) ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO doubles_pairings (id, player1_id, player2_id, club_id, player1_name, player2_name, current_elo_rating)
+    VALUES (
+        team_b_pairing,
+        LEAST(NEW.team_b_player1_id, NEW.team_b_player2_id),
+        GREATEST(NEW.team_b_player1_id, NEW.team_b_player2_id),
+        NEW.club_id,
+        (SELECT first_name || ' ' || last_name FROM profiles WHERE id = NEW.team_b_player1_id),
+        (SELECT first_name || ' ' || last_name FROM profiles WHERE id = NEW.team_b_player2_id),
+        800
+    ) ON CONFLICT (id) DO NOTHING;
+
+    -- Get PAIRING Elo (not individual player average!)
+    SELECT COALESCE(current_elo_rating, 800) INTO team_a_elo
+    FROM doubles_pairings WHERE id = team_a_pairing;
+
+    SELECT COALESCE(current_elo_rating, 800) INTO team_b_elo
+    FROM doubles_pairings WHERE id = team_b_pairing;
 
     IF COALESCE(NEW.handicap_used, false) THEN
         -- Handicap match: Fixed changes
-        season_point_change := handicap_points / 2; -- Half for doubles
+        season_point_change := handicap_points / 2;
         xp_per_player := 0;
-
-        -- Update winning players
-        FOREACH player_id IN ARRAY winning_players LOOP
-            UPDATE profiles SET
-                doubles_elo_rating = COALESCE(doubles_elo_rating, 800) + handicap_points,
-                doubles_highest_elo = GREATEST(COALESCE(doubles_elo_rating, 800) + handicap_points, COALESCE(doubles_highest_elo, 800)),
-                points = COALESCE(points, 0) + season_point_change,
-                doubles_wins = COALESCE(doubles_wins, 0) + 1,
-                updated_at = NOW()
-            WHERE id = player_id;
-        END LOOP;
-
-        -- Update losing players
-        FOREACH player_id IN ARRAY losing_players LOOP
-            SELECT doubles_elo_rating, doubles_highest_elo INTO current_elo, current_highest
-            FROM profiles WHERE id = player_id;
-
-            current_elo := COALESCE(current_elo, 800);
-            current_highest := COALESCE(current_highest, current_elo);
-            new_elo := current_elo - handicap_points;
-            protected_elo := apply_elo_gate(new_elo, current_elo, current_highest);
-
-            UPDATE profiles SET
-                doubles_elo_rating = protected_elo,
-                doubles_highest_elo = GREATEST(protected_elo, current_highest),
-                doubles_losses = COALESCE(doubles_losses, 0) + 1,
-                updated_at = NOW()
-            WHERE id = player_id;
-        END LOOP;
-    ELSE
-        -- Standard match: Calculate Elo dynamically
-        SELECT * INTO elo_result FROM calculate_elo(winning_team_elo, losing_team_elo, k_factor);
-
-        season_point_change := ROUND(elo_result.elo_delta * 0.2 / 2); -- Half for each player
-        xp_per_player := ROUND(elo_result.elo_delta / 2);
-
-        -- Update winning players
-        FOREACH player_id IN ARRAY winning_players LOOP
-            SELECT doubles_elo_rating, doubles_highest_elo INTO current_elo, current_highest
-            FROM profiles WHERE id = player_id;
-
-            current_elo := COALESCE(current_elo, 800);
-            current_highest := COALESCE(current_highest, current_elo);
-            new_elo := current_elo + (elo_result.new_winner_elo - winning_team_elo);
-
-            UPDATE profiles SET
-                doubles_elo_rating = new_elo,
-                doubles_highest_elo = GREATEST(new_elo, current_highest),
-                points = COALESCE(points, 0) + season_point_change,
-                xp = COALESCE(xp, 0) + xp_per_player,
-                doubles_wins = COALESCE(doubles_wins, 0) + 1,
-                updated_at = NOW()
-            WHERE id = player_id;
-        END LOOP;
-
-        -- Update losing players
-        FOREACH player_id IN ARRAY losing_players LOOP
-            SELECT doubles_elo_rating, doubles_highest_elo INTO current_elo, current_highest
-            FROM profiles WHERE id = player_id;
-
-            current_elo := COALESCE(current_elo, 800);
-            current_highest := COALESCE(current_highest, current_elo);
-            new_elo := current_elo + (elo_result.new_loser_elo - losing_team_elo);
-            protected_elo := apply_elo_gate(new_elo, current_elo, current_highest);
-
-            UPDATE profiles SET
-                doubles_elo_rating = protected_elo,
-                doubles_highest_elo = GREATEST(protected_elo, current_highest),
-                doubles_losses = COALESCE(doubles_losses, 0) + 1,
-                updated_at = NOW()
-            WHERE id = player_id;
-        END LOOP;
-    END IF;
-
-    -- Update doubles pairings stats
-    IF NEW.winning_team = 'A' THEN
-        UPDATE doubles_pairings SET
-            wins = COALESCE(wins, 0) + 1,
-            updated_at = NOW()
-        WHERE id = NEW.team_a_pairing_id;
-
-        UPDATE doubles_pairings SET
-            losses = COALESCE(losses, 0) + 1,
-            updated_at = NOW()
-        WHERE id = NEW.team_b_pairing_id;
-    ELSE
-        UPDATE doubles_pairings SET
-            wins = COALESCE(wins, 0) + 1,
-            updated_at = NOW()
-        WHERE id = NEW.team_b_pairing_id;
-
-        UPDATE doubles_pairings SET
-            losses = COALESCE(losses, 0) + 1,
-            updated_at = NOW()
-        WHERE id = NEW.team_a_pairing_id;
-    END IF;
-
-    -- Store Elo changes on the match record
-    IF COALESCE(NEW.handicap_used, false) THEN
-        -- Handicap match: Fixed ±8 points
-        IF NEW.winning_team = 'A' THEN
-            NEW.team_a_elo_change := handicap_points;
-            NEW.team_b_elo_change := -handicap_points;
-        ELSE
-            NEW.team_a_elo_change := -handicap_points;
-            NEW.team_b_elo_change := handicap_points;
-        END IF;
-        NEW.season_points_awarded := season_point_change;
-    ELSE
-        -- Standard match: Use calculated delta
-        IF NEW.winning_team = 'A' THEN
-            NEW.team_a_elo_change := elo_result.elo_delta;
-            NEW.team_b_elo_change := -elo_result.elo_delta;
-        ELSE
-            NEW.team_a_elo_change := -elo_result.elo_delta;
-            NEW.team_b_elo_change := elo_result.elo_delta;
-        END IF;
-        NEW.season_points_awarded := season_point_change;
-    END IF;
-
-    -- Add points_history entries for all players
-    IF COALESCE(NEW.handicap_used, false) THEN
         winner_elo_change := handicap_points;
         loser_elo_change := -handicap_points;
+
+        -- Update PAIRING Elo (winner)
+        UPDATE doubles_pairings SET
+            current_elo_rating = current_elo_rating + handicap_points,
+            matches_played = COALESCE(matches_played, 0) + 1,
+            matches_won = COALESCE(matches_won, 0) + 1,
+            win_rate = (COALESCE(matches_won, 0) + 1)::REAL / (COALESCE(matches_played, 0) + 1)::REAL,
+            last_played = NOW(),
+            updated_at = NOW()
+        WHERE id = winner_pairing;
+
+        -- Update PAIRING Elo (loser) with floor at 100
+        UPDATE doubles_pairings SET
+            current_elo_rating = GREATEST(100, current_elo_rating - handicap_points),
+            matches_played = COALESCE(matches_played, 0) + 1,
+            matches_lost = COALESCE(matches_lost, 0) + 1,
+            win_rate = COALESCE(matches_won, 0)::REAL / (COALESCE(matches_played, 0) + 1)::REAL,
+            last_played = NOW(),
+            updated_at = NOW()
+        WHERE id = loser_pairing;
     ELSE
+        -- Standard match: Calculate Elo based on PAIRING ratings
+        SELECT * INTO elo_result FROM calculate_elo(
+            CASE WHEN NEW.winning_team = 'A' THEN team_a_elo ELSE team_b_elo END,
+            CASE WHEN NEW.winning_team = 'A' THEN team_b_elo ELSE team_a_elo END,
+            k_factor
+        );
+
+        season_point_change := ROUND(elo_result.elo_delta * 0.2 / 2);
+        xp_per_player := ROUND(elo_result.elo_delta / 2);
         winner_elo_change := elo_result.elo_delta;
         loser_elo_change := -elo_result.elo_delta;
+
+        -- Update PAIRING Elo (winner)
+        UPDATE doubles_pairings SET
+            current_elo_rating = current_elo_rating + elo_result.elo_delta,
+            matches_played = COALESCE(matches_played, 0) + 1,
+            matches_won = COALESCE(matches_won, 0) + 1,
+            win_rate = (COALESCE(matches_won, 0) + 1)::REAL / (COALESCE(matches_played, 0) + 1)::REAL,
+            last_played = NOW(),
+            updated_at = NOW()
+        WHERE id = winner_pairing;
+
+        -- Update PAIRING Elo (loser) with floor at 100
+        UPDATE doubles_pairings SET
+            current_elo_rating = GREATEST(100, current_elo_rating - elo_result.elo_delta),
+            matches_played = COALESCE(matches_played, 0) + 1,
+            matches_lost = COALESCE(matches_lost, 0) + 1,
+            win_rate = COALESCE(matches_won, 0)::REAL / (COALESCE(matches_played, 0) + 1)::REAL,
+            last_played = NOW(),
+            updated_at = NOW()
+        WHERE id = loser_pairing;
     END IF;
 
+    -- Update individual player stats (wins/losses, points, XP - but NOT individual doubles_elo_rating)
+    FOREACH player_id IN ARRAY winning_players LOOP
+        UPDATE profiles SET
+            points = COALESCE(points, 0) + season_point_change,
+            xp = COALESCE(xp, 0) + COALESCE(xp_per_player, 0),
+            doubles_wins = COALESCE(doubles_wins, 0) + 1,
+            updated_at = NOW()
+        WHERE id = player_id;
+    END LOOP;
+
+    FOREACH player_id IN ARRAY losing_players LOOP
+        UPDATE profiles SET
+            doubles_losses = COALESCE(doubles_losses, 0) + 1,
+            updated_at = NOW()
+        WHERE id = player_id;
+    END LOOP;
+
+    -- Store Elo changes on the match record
+    IF NEW.winning_team = 'A' THEN
+        NEW.team_a_elo_change := winner_elo_change;
+        NEW.team_b_elo_change := loser_elo_change;
+    ELSE
+        NEW.team_a_elo_change := loser_elo_change;
+        NEW.team_b_elo_change := winner_elo_change;
+    END IF;
+    NEW.season_points_awarded := season_point_change;
+
     -- Add points_history for winning players (with partner name)
-    -- Get partner names for winning team
     SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_1 FROM profiles WHERE id = winning_players[1];
     SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_2 FROM profiles WHERE id = winning_players[2];
 
-    -- First winning player (partner is second)
     INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
     VALUES (
         winning_players[1],
@@ -417,7 +407,6 @@ BEGIN
         NOW()
     );
 
-    -- Second winning player (partner is first)
     INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
     VALUES (
         winning_players[2],
@@ -430,11 +419,9 @@ BEGIN
     );
 
     -- Add points_history for losing players (with partner name)
-    -- Get partner names for losing team
     SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_1 FROM profiles WHERE id = losing_players[1];
     SELECT CONCAT(first_name, ' ', last_name) INTO partner_name_2 FROM profiles WHERE id = losing_players[2];
 
-    -- First losing player (partner is second)
     INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
     VALUES (
         losing_players[1],
@@ -446,7 +433,6 @@ BEGIN
         NOW()
     );
 
-    -- Second losing player (partner is first)
     INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
     VALUES (
         losing_players[2],

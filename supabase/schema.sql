@@ -375,7 +375,7 @@ CREATE TABLE doubles_pairings (
     matches_won INTEGER DEFAULT 0,
     matches_lost INTEGER DEFAULT 0,
     win_rate REAL DEFAULT 0.0,
-    current_elo_rating INTEGER DEFAULT 1000,
+    current_elo_rating INTEGER DEFAULT 800,
 
     last_played TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
