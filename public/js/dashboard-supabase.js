@@ -3318,9 +3318,37 @@ async function loadMatchHistory() {
 }
 
 // --- Format Sets Display ---
+// Works for all sports: table tennis, tennis, badminton, padel
+// Supports all modes: single-set, best-of-3, best-of-5, best-of-7
 function formatSetsDisplay(sets) {
     if (!sets || sets.length === 0) return 'Keine Sätze';
-    return sets.map((set, i) => `${set.playerA || set.teamA || 0}:${set.playerB || set.teamB || 0}`).join(', ');
+
+    // Count set wins for each player/team
+    let playerASetWins = 0;
+    let playerBSetWins = 0;
+
+    sets.forEach(set => {
+        const scoreA = set.playerA ?? set.teamA ?? 0;
+        const scoreB = set.playerB ?? set.teamB ?? 0;
+        if (scoreA > scoreB) playerASetWins++;
+        else if (scoreB > scoreA) playerBSetWins++;
+    });
+
+    // Format individual set scores
+    const setScores = sets.map(set => {
+        const scoreA = set.playerA ?? set.teamA ?? 0;
+        const scoreB = set.playerB ?? set.teamB ?? 0;
+        return `${scoreA}:${scoreB}`;
+    }).join(', ');
+
+    // Single set mode: just show the score
+    if (sets.length === 1) {
+        return setScores;
+    }
+
+    // Multiple sets: show set count and individual scores
+    // Format: "3:1 (11:5, 11:7, 9:11, 11:3)"
+    return `${playerASetWins}:${playerBSetWins} (${setScores})`;
 }
 
 // --- Delete Match Request ---
