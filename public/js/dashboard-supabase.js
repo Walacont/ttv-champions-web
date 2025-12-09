@@ -2233,8 +2233,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             return;
         }
 
-        // Accepted - need to check club membership to determine next status
-        // First get the match request details
+        // Accepted - get the match request details
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
             .select('*, sports(display_name)')
@@ -2243,42 +2242,15 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
         if (fetchError) throw fetchError;
 
-        // Get club info for both players (single sport model - use profiles directly)
-        let playerAClubId = null;
-        let playerBClubId = null;
-
-        const { data: players } = await supabase
-            .from('profiles')
-            .select('id, club_id')
-            .in('id', [request.player_a_id, request.player_b_id]);
-
-        players?.forEach(p => {
-            if (p.id === request.player_a_id) playerAClubId = p.club_id;
-            if (p.id === request.player_b_id) playerBClubId = p.club_id;
-        });
-
-        // Determine next status based on club membership
-        let newStatus;
+        // Auto-approve when Player B confirms (no coach approval needed)
+        let newStatus = 'approved';
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
             approvals = JSON.parse(approvals);
         }
         approvals.player_b = true;
 
-        // Case 1: Both players have NO club → Auto-approve
-        if (!playerAClubId && !playerBClubId) {
-            newStatus = 'approved';
-            console.log('[Match] Auto-approved: Both players have no club');
-        }
-        // Case 2: At least one player has a club → pending_coach
-        else {
-            newStatus = 'pending_coach';
-            console.log('[Match] Pending coach approval:', {
-                playerAClub: playerAClubId,
-                playerBClub: playerBClubId,
-                isCrossClub: playerAClubId !== playerBClubId && playerAClubId && playerBClubId
-            });
-        }
+        console.log('[Match] Auto-approved: Player B confirmed');
 
         // Update the request
         const { error: updateError } = await supabase
@@ -2292,49 +2264,13 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
         if (updateError) throw updateError;
 
-        // If auto-approved, create the actual match
-        if (newStatus === 'approved') {
-            await createMatchFromRequest(request);
-        }
-        // If pending_coach, notify the coaches
-        else if (newStatus === 'pending_coach') {
-            // Get player names for the notification
-            const { data: playerProfiles } = await supabase
-                .from('profiles')
-                .select('id, first_name, last_name')
-                .in('id', [request.player_a_id, request.player_b_id]);
-
-            const playerA = playerProfiles?.find(p => p.id === request.player_a_id);
-            const playerB = playerProfiles?.find(p => p.id === request.player_b_id);
-            const playerAName = `${playerA?.first_name || ''} ${playerA?.last_name || ''}`.trim() || 'Spieler A';
-            const playerBName = `${playerB?.first_name || ''} ${playerB?.last_name || ''}`.trim() || 'Spieler B';
-
-            // Notify coaches in both clubs (if cross-club) or just the one club
-            if (playerAClubId) {
-                await notifyClubCoaches(
-                    playerAClubId,
-                    'match_pending_approval',
-                    'Spiel wartet auf Freigabe',
-                    `${playerAName} vs ${playerBName} - Bitte das Spiel freigeben.`
-                );
-            }
-            if (playerBClubId && playerBClubId !== playerAClubId) {
-                await notifyClubCoaches(
-                    playerBClubId,
-                    'match_pending_approval',
-                    'Spiel wartet auf Freigabe',
-                    `${playerAName} vs ${playerBName} - Bitte das Spiel freigeben.`
-                );
-            }
-        }
+        // Create the actual match (always auto-approved now)
+        await createMatchFromRequest(request);
 
         loadMatchRequests();
 
         // Show feedback
-        const feedbackMsg = newStatus === 'approved'
-            ? 'Match bestätigt!'
-            : 'Anfrage angenommen - wartet auf Coach-Bestätigung';
-        alert(feedbackMsg);
+        alert('Match bestätigt!');
 
     } catch (error) {
         console.error('Error responding to match request:', error);

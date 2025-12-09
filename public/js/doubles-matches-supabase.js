@@ -303,53 +303,18 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
         throw new Error('Du bist kein Gegner in diesem Match');
     }
 
-    // Load all 4 players to check club status
-    const allPlayerIds = [
-        request.team_a_player1_id,
-        request.team_a_player2_id,
-        request.team_b_player1_id,
-        request.team_b_player2_id
-    ];
-
-    const { data: players, error: playersError } = await supabase
-        .from('profiles')
-        .select('id, club_id')
-        .in('id', allPlayerIds);
-
-    if (playersError) throw playersError;
-
-    const playerMap = new Map();
-    (players || []).forEach(p => playerMap.set(p.id, p));
-
-    const player1ClubId = playerMap.get(request.team_a_player1_id)?.club_id;
-    const player2ClubId = playerMap.get(request.team_a_player2_id)?.club_id;
-    const player3ClubId = playerMap.get(request.team_b_player1_id)?.club_id;
-    const player4ClubId = playerMap.get(request.team_b_player2_id)?.club_id;
-
-    // Check if at least one team has no club → auto-approve
-    const teamANoClub = hasNoClub(player1ClubId) && hasNoClub(player2ClubId);
-    const teamBNoClub = hasNoClub(player3ClubId) && hasNoClub(player4ClubId);
-    const shouldAutoApprove = teamANoClub || teamBNoClub;
-
-    // Update confirmations
+    // Auto-approve when opponent confirms (no coach approval needed)
     const updatedConfirmations = { ...request.confirmations, [playerId]: true };
 
     const updateData = {
         confirmations: updatedConfirmations,
         confirmed_by: playerId,
         confirmed_at: new Date().toISOString(),
+        status: 'approved',
+        approved_by: 'auto_approved',
+        approved_at: new Date().toISOString(),
+        approval_reason: 'Opponent confirmation is sufficient',
     };
-
-    if (shouldAutoApprove) {
-        updateData.status = 'approved';
-        updateData.approved_by = 'auto_approved';
-        updateData.approved_at = new Date().toISOString();
-        updateData.approval_reason = teamANoClub && teamBNoClub
-            ? 'Both teams have no club'
-            : 'One team has no club';
-    } else {
-        updateData.status = 'pending_coach';
-    }
 
     const { error: updateError } = await supabase
         .from('doubles_match_requests')
@@ -358,8 +323,8 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
 
     if (updateError) throw updateError;
 
-    console.log('Doubles match request confirmed by opponent:', playerId, 'Auto-approved:', shouldAutoApprove);
-    return { success: true, autoApproved: shouldAutoApprove };
+    console.log('Doubles match request confirmed and auto-approved by opponent:', playerId);
+    return { success: true, autoApproved: true };
 }
 
 /**
@@ -1193,12 +1158,8 @@ function renderPendingDoublesRequestsForOpponent(requests, container, supabase, 
             if (!confirm('Möchtest du dieses Doppel-Match bestätigen?')) return;
 
             try {
-                const result = await confirmDoublesMatchRequest(request.id, userData.id, supabase);
-                if (result.autoApproved) {
-                    alert('Doppel-Match bestätigt und automatisch genehmigt! Da mindestens ein Team keinem Verein angehört, wurde das Match direkt freigegeben.');
-                } else {
-                    alert('Doppel-Match bestätigt! Wartet nun auf Coach-Genehmigung.');
-                }
+                await confirmDoublesMatchRequest(request.id, userData.id, supabase);
+                alert('Doppel-Match bestätigt!');
             } catch (error) {
                 console.error('Error confirming doubles request:', error);
                 alert('Fehler beim Bestätigen: ' + error.message);
