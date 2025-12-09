@@ -145,6 +145,9 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
     // Use object wrapper so search functions always access current data
     const playersData = { players: [] };
 
+    // Get current user's sport ID for filtering
+    const userSportId = userData.activeSportId || userData.active_sport_id;
+
     async function loadPlayers() {
         try {
             // Load clubs for test club filtering
@@ -156,11 +159,18 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             const currentUserClub = userData.clubId ? clubsMap.get(userData.clubId) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
 
-            // Load players and coaches
-            const { data: usersData, error } = await supabase
+            // Load players and coaches - filter by same sport
+            let query = supabase
                 .from('profiles')
                 .select('*')
                 .in('role', ['player', 'coach', 'head_coach']);
+
+            // Filter by same sport if user has a sport set
+            if (userSportId) {
+                query = query.eq('active_sport_id', userSportId);
+            }
+
+            const { data: usersData, error } = await query;
 
             if (error) throw error;
 
@@ -174,6 +184,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     doublesEloRating: p.doubles_elo_rating,
                     privacySettings: p.privacy_settings,
                     isOffline: p.is_offline,
+                    activeSportId: p.active_sport_id,
                 }))
                 .filter(p => {
                     // Filter: not self, match-ready, and privacy check
