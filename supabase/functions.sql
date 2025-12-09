@@ -233,6 +233,8 @@ DECLARE
     current_highest INTEGER;
     new_elo INTEGER;
     protected_elo INTEGER;
+    winner_elo_change INTEGER;
+    loser_elo_change INTEGER;
 BEGIN
     -- Skip if already processed
     IF NEW.processed = true THEN
@@ -386,6 +388,43 @@ BEGIN
         END IF;
         NEW.season_points_awarded := season_point_change;
     END IF;
+
+    -- Add points_history entries for all players
+    IF COALESCE(NEW.handicap_used, false) THEN
+        winner_elo_change := handicap_points;
+        loser_elo_change := -handicap_points;
+    ELSE
+        winner_elo_change := elo_result.elo_delta;
+        loser_elo_change := -elo_result.elo_delta;
+    END IF;
+
+    -- Add points_history for winning players
+    FOREACH player_id IN ARRAY winning_players LOOP
+        INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
+        VALUES (
+            player_id,
+            season_point_change,
+            COALESCE(xp_per_player, 0),
+            winner_elo_change,
+            'Doppel-Match gewonnen',
+            NOW(),
+            NOW()
+        );
+    END LOOP;
+
+    -- Add points_history for losing players
+    FOREACH player_id IN ARRAY losing_players LOOP
+        INSERT INTO points_history (user_id, points, xp, elo_change, reason, timestamp, created_at)
+        VALUES (
+            player_id,
+            0,
+            0,
+            loser_elo_change,
+            'Doppel-Match verloren',
+            NOW(),
+            NOW()
+        );
+    END LOOP;
 
     -- Mark match as processed
     NEW.processed := true;
