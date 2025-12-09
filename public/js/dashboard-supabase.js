@@ -1385,7 +1385,7 @@ async function loadPointsHistory() {
             .from('points_history')
             .select('*')
             .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
+            .order('timestamp', { ascending: false })
             .limit(10);
 
         if (error) throw error;
@@ -1395,17 +1395,55 @@ async function loadPointsHistory() {
             return;
         }
 
-        container.innerHTML = history.map(entry => `
-            <li class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                <div>
-                    <span class="text-sm">${entry.description || entry.reason || 'Punkte'}</span>
-                    <span class="text-xs text-gray-400 block">${formatDate(entry.created_at)}</span>
-                </div>
-                <span class="font-bold ${entry.points >= 0 ? 'text-green-600' : 'text-red-600'}">
-                    ${entry.points >= 0 ? '+' : ''}${entry.points}
-                </span>
-            </li>
-        `).join('');
+        container.innerHTML = history.map(entry => {
+            const points = entry.points || 0;
+            const xp = entry.xp || 0;
+            const eloChange = entry.elo_change || 0;
+            const reason = entry.description || entry.reason || 'Punkte';
+            const date = formatDate(entry.timestamp || entry.created_at);
+
+            // Build points display
+            const pointsClass = points > 0 ? 'text-green-600' : points < 0 ? 'text-red-600' : 'text-gray-600';
+            const pointsSign = points > 0 ? '+' : points < 0 ? '' : '±';
+
+            // Build details (XP and Elo)
+            const details = [];
+            if (xp !== 0) {
+                const xpSign = xp > 0 ? '+' : '';
+                const xpClass = xp > 0 ? 'text-green-600' : xp < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${xpClass}">${xpSign}${xp} XP</span>`);
+            }
+            if (eloChange !== 0) {
+                const eloSign = eloChange > 0 ? '+' : '';
+                const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
+            }
+
+            const detailsHtml = details.length > 0
+                ? `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`
+                : '';
+
+            // Partner badge
+            let partnerBadge = '';
+            if (entry.is_active_player) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">Aktiv</span>';
+            } else if (entry.is_partner) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-2">Partner</span>';
+            }
+
+            return `
+                <li class="flex justify-between items-start text-sm p-2 bg-gray-50 rounded">
+                    <div>
+                        <p class="font-medium">${reason}${partnerBadge}</p>
+                        <p class="text-xs text-gray-500">${date}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-bold ${pointsClass}">${pointsSign}${points} Pkt</span>
+                        ${detailsHtml}
+                    </div>
+                </li>
+            `;
+        }).join('');
 
     } catch (error) {
         console.error('Error loading points history:', error);
@@ -1882,6 +1920,31 @@ function setupRealtimeSubscriptions() {
         .subscribe();
 
     realtimeSubscriptions.push(matchRequestSubB);
+
+    // Subscribe to matches table for history updates
+    const matchesSub = supabase
+        .channel('matches_updates')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'matches'
+        }, (payload) => {
+            // Check if current user is involved in this match
+            if (payload.new.player_a_id === currentUser.id ||
+                payload.new.player_b_id === currentUser.id ||
+                payload.new.winner_id === currentUser.id ||
+                payload.new.loser_id === currentUser.id) {
+                console.log('[Realtime] New match created, updating history');
+                loadMatchHistory();
+                loadPointsHistory();
+                // Also refresh match requests as the request may have been deleted
+                loadMatchRequests();
+                loadPendingRequests();
+            }
+        })
+        .subscribe();
+
+    realtimeSubscriptions.push(matchesSub);
 }
 
 // --- Helper Functions ---
@@ -3297,9 +3360,25 @@ async function loadMatchHistory() {
             const playerB = profileMap[match.player_b_id];
             const isWinner = match.winner_id === currentUser.id;
             const setsDisplay = formatSetsDisplay(match.sets);
-            const eloChange = match.elo_change_a && match.player_a_id === currentUser.id
-                ? match.elo_change_a
-                : match.elo_change_b || 0;
+
+            // Use correct column names from trigger
+            const eloChange = isWinner
+                ? (match.winner_elo_change || 0)
+                : (match.loser_elo_change || 0);
+            const pointsAwarded = isWinner ? (match.season_points_awarded || 0) : 0;
+
+            // Build stats display
+            let statsDisplay = '';
+            if (isWinner) {
+                // Winner: show +Elo and +Points
+                statsDisplay = `
+                    <span class="text-green-600">+${eloChange} Elo</span>
+                    ${pointsAwarded > 0 ? `<span class="text-green-600 ml-2">+${pointsAwarded} Pkt</span>` : ''}
+                `;
+            } else {
+                // Loser: show -Elo only
+                statsDisplay = `<span class="text-red-600">${eloChange} Elo</span>`;
+            }
 
             return `
                 <div class="bg-white border ${isWinner ? 'border-green-200' : 'border-red-200'} rounded-lg p-4 shadow-sm mb-3">
@@ -3310,9 +3389,7 @@ async function loadMatchHistory() {
                         </div>
                         <div class="text-right">
                             <span class="${isWinner ? 'text-green-600' : 'text-red-600'} font-bold">${isWinner ? 'Gewonnen' : 'Verloren'}</span>
-                            <p class="text-xs ${eloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                ${eloChange >= 0 ? '+' : ''}${eloChange} Elo
-                            </p>
+                            <p class="text-xs">${statsDisplay}</p>
                         </div>
                     </div>
                 </div>
