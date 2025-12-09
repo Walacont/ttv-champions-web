@@ -18,6 +18,13 @@ ADD COLUMN IF NOT EXISTS match_mode VARCHAR(50) DEFAULT 'best-of-5';
 ALTER TABLE matches
 ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false;
 
+-- Add wins/losses columns to profiles (required by trigger)
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS wins INTEGER DEFAULT 0;
+
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS losses INTEGER DEFAULT 0;
+
 -- Add Elo change tracking columns (set by trigger)
 ALTER TABLE matches
 ADD COLUMN IF NOT EXISTS winner_elo_change INTEGER;
