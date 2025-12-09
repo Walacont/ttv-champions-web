@@ -6,8 +6,8 @@
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false;
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS handicap_used BOOLEAN DEFAULT false;
 
--- Add missing column to doubles_pairings table (tracks highest achieved Elo)
-ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS doubles_highest_elo INTEGER DEFAULT 800;
+-- Add missing column to profiles table (tracks highest achieved doubles Elo per player)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS doubles_highest_elo INTEGER DEFAULT 800;
 
 -- Note: After running this, the triggers will work because:
 -- 1. The trigger_process_doubles_match (BEFORE INSERT) runs first and checks processed=false
