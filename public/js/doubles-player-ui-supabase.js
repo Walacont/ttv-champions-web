@@ -180,7 +180,6 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     firstName: p.first_name,
                     lastName: p.last_name,
                     clubId: p.club_id,
-                    grundlagenCompleted: p.grundlagen_completed,
                     doublesEloRating: p.doubles_elo_rating,
                     privacySettings: p.privacy_settings,
                     isOffline: p.is_offline,
@@ -188,12 +187,10 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     isMatchReady: p.is_match_ready,
                 }))
                 .filter(p => {
-                    // Filter: not self, match-ready, and privacy check
-                    // Use is_match_ready flag (set by coach) as authoritative source
-                    const isMatchReady = p.isMatchReady === true;
+                    // Filter: not self and match-ready (set by coach)
+                    // Only is_match_ready flag matters - not grundlagen_completed
                     const isSelf = p.id === userData.id;
-
-                    if (isSelf || !isMatchReady) return false;
+                    if (isSelf || !p.isMatchReady) return false;
 
                     // Test club filtering
                     if (!isCurrentUserFromTestClub && p.clubId) {
