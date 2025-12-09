@@ -2339,7 +2339,9 @@ async function createMatchFromRequest(request) {
                 winner_id: request.winner_id,
                 loser_id: request.loser_id,
                 sets: request.sets,
-                is_cross_club: request.is_cross_club
+                is_cross_club: request.is_cross_club,
+                handicap_used: request.handicap_used || false,
+                match_mode: request.match_mode || 'best-of-5'
             });
 
         if (error) throw error;
