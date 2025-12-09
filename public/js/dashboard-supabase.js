@@ -1576,14 +1576,19 @@ async function loadMatchRequests() {
 
         if (doublesError) throw doublesError;
 
+        // Debug: Log doubles requests received
+        console.log('[Doubles] All doubles requests fetched:', allDoublesRequests?.length || 0, allDoublesRequests);
+
         // Filter doubles requests where current user is involved (using JSONB structure)
         const doublesRequests = (allDoublesRequests || []).filter(r => {
             const teamA = r.team_a || {};
             const teamB = r.team_b || {};
-            return teamA.player1_id === currentUser.id ||
+            const isInvolved = teamA.player1_id === currentUser.id ||
                    teamA.player2_id === currentUser.id ||
                    teamB.player1_id === currentUser.id ||
                    teamB.player2_id === currentUser.id;
+            console.log('[Doubles] Request:', r.id, 'teamA:', teamA, 'teamB:', teamB, 'currentUser:', currentUser.id, 'isInvolved:', isInvolved);
+            return isInvolved;
         }).slice(0, 10);
 
         // Mark each request type

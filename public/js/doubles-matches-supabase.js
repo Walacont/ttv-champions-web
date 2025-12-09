@@ -307,6 +307,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         status: 'pending_opponent',
         clubId: matchClubId,
         isCrossClub: matchClubId === null,
+        fullData: doublesRequestData,
     });
 
     const { data: request, error: insertError } = await supabase
