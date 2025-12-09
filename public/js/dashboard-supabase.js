@@ -2658,11 +2658,9 @@ async function searchOpponents(query, resultsContainer) {
 
         // Filter by privacy settings, match-readiness, and test clubs
         const filteredPlayers = (players || []).filter(player => {
-            // Must be match-ready OR have completed at least 5 Grundlagen
-            const isMatchReady = player.is_match_ready === true;
-            const grundlagenCompleted = player.grundlagen_completed || 0;
-            if (!isMatchReady && grundlagenCompleted < 5) {
-                console.log('[Opponent Search] Filtered out (not match-ready):', player.first_name, player.last_name, '- is_match_ready:', isMatchReady, 'grundlagen:', grundlagenCompleted);
+            // Must be match-ready
+            if (player.is_match_ready !== true) {
+                console.log('[Opponent Search] Filtered out (not match-ready):', player.first_name, player.last_name);
                 return false;
             }
 
