@@ -638,8 +638,8 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     player2Name: player2Deleted
                         ? (player2Data?.display_name || 'Gelöschter Nutzer')
                         : (data.player2_name || 'Unbekannt'),
-                    player1PhotoURL: player1Data?.photo_url || null,
-                    player2PhotoURL: player2Data?.photo_url || null,
+                    player1PhotoURL: player1Data?.avatar_url || null,
+                    player2PhotoURL: player2Data?.avatar_url || null,
                     player1FirstName: player1Deleted
                         ? (player1Data?.display_name?.substring(0, 2) || 'GN')
                         : (player1Data?.first_name || data.player1_name?.split(' ')[0] || 'U'),
