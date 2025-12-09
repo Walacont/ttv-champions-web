@@ -2874,7 +2874,6 @@ async function submitMatchRequest() {
                 sport_id: sportId,
                 sets: sets,
                 match_mode: matchMode,
-                handicap_used: handicapUsed,
                 winner_id: winnerId,
                 loser_id: loserId,
                 status: 'pending_player',
@@ -2986,9 +2985,54 @@ function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
             container.appendChild(setDiv);
         });
 
+        // Add winner preview div
+        let winnerPreview = container.querySelector('.winner-preview');
+        if (!winnerPreview) {
+            winnerPreview = document.createElement('div');
+            winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold hidden';
+            container.appendChild(winnerPreview);
+        }
+
         container.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', handleSetInput);
         });
+
+        updateWinnerPreview();
+    }
+
+    function updateWinnerPreview() {
+        const winnerPreview = container.querySelector('.winner-preview');
+        if (!winnerPreview) return;
+
+        let playerAWins = 0, playerBWins = 0;
+        sets.forEach(set => {
+            const a = parseInt(set.playerA) || 0;
+            const b = parseInt(set.playerB) || 0;
+            if (a > b && a >= 11 && (a >= 11 && b < 10 || Math.abs(a - b) >= 2)) playerAWins++;
+            if (b > a && b >= 11 && (b >= 11 && a < 10 || Math.abs(a - b) >= 2)) playerBWins++;
+        });
+
+        // Get player names from the UI
+        const playerAName = document.getElementById('current-player-name')?.textContent ||
+                           `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Du';
+        const playerBName = selectedOpponent ?
+                           `${selectedOpponent.firstName || selectedOpponent.first_name || ''} ${selectedOpponent.lastName || selectedOpponent.last_name || ''}`.trim() : 'Gegner';
+
+        if (playerAWins >= setsToWin) {
+            winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-green-100 text-green-800';
+            winnerPreview.innerHTML = `<i class="fas fa-trophy mr-2"></i>Gewinner: ${playerAName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.classList.remove('hidden');
+        } else if (playerBWins >= setsToWin) {
+            winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-blue-100 text-blue-800';
+            winnerPreview.innerHTML = `<i class="fas fa-trophy mr-2"></i>Gewinner: ${playerBName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.classList.remove('hidden');
+        } else if (playerAWins > 0 || playerBWins > 0) {
+            winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-gray-100 text-gray-700';
+            winnerPreview.innerHTML = `Zwischenstand: ${playerAWins}:${playerBWins}`;
+            winnerPreview.classList.remove('hidden');
+        } else {
+            winnerPreview.classList.add('hidden');
+        }
     }
 
     function handleSetInput(e) {
@@ -3013,8 +3057,12 @@ function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
             if (lastSet.playerA !== '' && lastSet.playerB !== '') {
                 sets.push({ playerA: '', playerB: '' });
                 renderSets();
+                return; // renderSets already calls updateWinnerPreview
             }
         }
+
+        // Update winner preview on every input change
+        updateWinnerPreview();
     }
 
     function getSets() {
