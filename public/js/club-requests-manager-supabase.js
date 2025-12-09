@@ -391,6 +391,17 @@ async function approveClubRequest(requestId) {
     try {
         console.log('[ClubRequests] Approving join request via RPC:', requestId);
 
+        // First get the player_id from the request for notification
+        const { data: requestData, error: fetchError } = await supabaseClient
+            .from('club_requests')
+            .select('player_id')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching request data:', fetchError);
+        }
+
         // Call RPC function that bypasses RLS
         const { data, error } = await supabaseClient.rpc('approve_club_join_request', {
             p_request_id: requestId,
@@ -406,6 +417,13 @@ async function approveClubRequest(requestId) {
 
         if (!data.success) {
             throw new Error(data.error || 'Unbekannter Fehler');
+        }
+
+        // Notify the player that their request was approved
+        if (requestData?.player_id) {
+            await notifyPlayer(requestData.player_id, 'club_join_approved',
+                'Beitrittsanfrage genehmigt',
+                'Deine Beitrittsanfrage wurde genehmigt. Willkommen im Verein!');
         }
 
         // Manually reload the requests list
@@ -428,6 +446,17 @@ async function rejectClubRequest(requestId) {
     try {
         console.log('[ClubRequests] Rejecting join request via RPC:', requestId);
 
+        // First get the player_id from the request for notification
+        const { data: requestData, error: fetchError } = await supabaseClient
+            .from('club_requests')
+            .select('player_id')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching request data:', fetchError);
+        }
+
         // Call RPC function that bypasses RLS
         const { data, error } = await supabaseClient.rpc('reject_club_join_request', {
             p_request_id: requestId,
@@ -445,6 +474,13 @@ async function rejectClubRequest(requestId) {
             throw new Error(data.error || 'Unbekannter Fehler');
         }
 
+        // Notify the player that their request was rejected
+        if (requestData?.player_id) {
+            await notifyPlayer(requestData.player_id, 'club_join_rejected',
+                'Beitrittsanfrage abgelehnt',
+                'Deine Beitrittsanfrage wurde leider abgelehnt.');
+        }
+
         // Manually reload the requests list
         if (reloadJoinRequests) {
             console.log('[ClubRequests] Reloading join requests list...');
@@ -455,6 +491,30 @@ async function rejectClubRequest(requestId) {
     } catch (error) {
         console.error('Error rejecting club request:', error);
         alert('Fehler beim Ablehnen: ' + error.message);
+    }
+}
+
+// Helper function to notify a player
+async function notifyPlayer(playerId, type, title, message) {
+    try {
+        const { error } = await supabaseClient
+            .from('notifications')
+            .insert({
+                user_id: playerId,
+                type: type,
+                title: title,
+                message: message,
+                data: {},
+                is_read: false
+            });
+
+        if (error) {
+            console.error('Error creating player notification:', error);
+        } else {
+            console.log(`[ClubRequests] Notified player ${playerId} about ${type}`);
+        }
+    } catch (error) {
+        console.error('Error notifying player:', error);
     }
 }
 
@@ -475,6 +535,17 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
     try {
         console.log('[ClubRequests] Approving leave request via RPC:', requestId, 'isCoach:', isCoach);
 
+        // First get the player_id from the request for notification
+        const { data: requestData, error: fetchError } = await supabaseClient
+            .from('leave_club_requests')
+            .select('player_id')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching request data:', fetchError);
+        }
+
         // Call RPC function that bypasses RLS
         const { data, error } = await supabaseClient.rpc('approve_club_leave_request', {
             p_request_id: requestId,
@@ -490,6 +561,13 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
 
         if (!data.success) {
             throw new Error(data.error || 'Unbekannter Fehler');
+        }
+
+        // Notify the player that their leave request was approved
+        if (requestData?.player_id) {
+            await notifyPlayer(requestData.player_id, 'club_leave_approved',
+                'Austrittsanfrage genehmigt',
+                'Deine Austrittsanfrage wurde genehmigt. Du hast den Verein verlassen.');
         }
 
         // Manually reload the requests list
@@ -517,6 +595,17 @@ async function rejectLeaveRequest(requestId) {
     try {
         console.log('[ClubRequests] Rejecting leave request via RPC:', requestId);
 
+        // First get the player_id from the request for notification
+        const { data: requestData, error: fetchError } = await supabaseClient
+            .from('leave_club_requests')
+            .select('player_id')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) {
+            console.error('Error fetching request data:', fetchError);
+        }
+
         // Call RPC function that bypasses RLS
         const { data, error } = await supabaseClient.rpc('reject_club_leave_request', {
             p_request_id: requestId,
@@ -532,6 +621,13 @@ async function rejectLeaveRequest(requestId) {
 
         if (!data.success) {
             throw new Error(data.error || 'Unbekannter Fehler');
+        }
+
+        // Notify the player that their leave request was rejected
+        if (requestData?.player_id) {
+            await notifyPlayer(requestData.player_id, 'club_leave_rejected',
+                'Austrittsanfrage abgelehnt',
+                'Deine Austrittsanfrage wurde abgelehnt. Du bleibst Mitglied im Verein.');
         }
 
         // Manually reload the requests list
