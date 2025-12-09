@@ -2723,6 +2723,9 @@ window.deleteDoublesMatchRequest = async (requestId) => {
     }
 };
 
+// Expose loadMatchRequests for cross-module access (e.g., doubles form)
+window.loadMatchRequests = loadMatchRequests;
+
 /**
  * Create actual match from approved request
  */

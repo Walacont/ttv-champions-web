@@ -600,6 +600,11 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
             }
             clearDoublesSelections();
 
+            // Refresh match requests list if available
+            if (typeof window.loadMatchRequests === 'function') {
+                window.loadMatchRequests();
+            }
+
             // Hide feedback after 5 seconds
             setTimeout(() => {
                 feedbackEl.classList.add('hidden');
