@@ -971,7 +971,8 @@ function updateLeaderboardContent() {
     } else if (currentLeaderboardTab === 'doubles') {
         const doublesList = document.getElementById('doubles-list');
         if (doublesList) doublesList.classList.remove('hidden');
-        // Doubles content is loaded separately
+        // Reload doubles leaderboard with current scope
+        loadDoublesLeaderboardTab();
     } else {
         // Render the leaderboard content (effort, season, skill)
         renderLeaderboardList();

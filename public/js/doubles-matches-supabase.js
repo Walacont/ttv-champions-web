@@ -514,15 +514,12 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
 
     async function loadData() {
         try {
-            // Build query based on whether it's global or club-specific
+            // Load all pairings (we'll filter by player club membership later)
+            // Don't filter by club_id here as it may be NULL or incorrect
             let query = supabase
                 .from('doubles_pairings')
                 .select('*')
                 .order('matches_won', { ascending: false });
-
-            if (!isGlobal && clubId) {
-                query = query.eq('club_id', clubId);
-            }
 
             const { data: pairingsData, error: pairingsError } = await query;
             if (pairingsError) throw pairingsError;
@@ -627,6 +624,16 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                 } else {
                     clubType = 'mix';
                     clubDisplay = 'Mix';
+                }
+
+                // Filter by club membership for club-specific leaderboards
+                // At least one player must be in the specified club
+                if (!isGlobal && clubId) {
+                    const player1InClub = player1Data?.club_id === clubId;
+                    const player2InClub = player2Data?.club_id === clubId;
+                    if (!player1InClub && !player2InClub) {
+                        continue; // Skip this pairing - neither player is in the club
+                    }
                 }
 
                 pairings.push({
