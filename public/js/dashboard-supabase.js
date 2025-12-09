@@ -3024,11 +3024,15 @@ window.clearOpponentSelection = function() {
 };
 
 // --- Check Handicap ---
+// Two types of handicap suggestions:
+// 1. Elo-based: When there's a large Elo difference
+// 2. H2H-based: When the stronger player has lost 2+ times in a row to the weaker
+//
 // Sport-specific handicap configuration:
 // - Tischtennis: 1 Punkt pro 40 Elo, max 7 Punkte, ab 40 Elo Diff
 // - Badminton: 1 Punkt pro 40 Elo, max 12 Punkte, ab 40 Elo Diff
 // - Tennis/Padel: 1 Game pro 150 Elo, max 3 Games, ab 150 Elo Diff
-function checkHandicap() {
+async function checkHandicap() {
     const handicapInfo = document.getElementById('match-handicap-info');
     const handicapText = document.getElementById('match-handicap-text');
 
@@ -3037,42 +3041,94 @@ function checkHandicap() {
     const myElo = currentUserData.elo_rating || 1000;
     const opponentElo = selectedOpponent.elo;
     const diff = Math.abs(myElo - opponentElo);
+    const iAmStronger = myElo > opponentElo;
 
     // Sport-specific configuration
     const sportName = currentSportContext?.sportName?.toLowerCase();
     const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
     const isBadminton = sportName === 'badminton';
+    const unitText = isTennisOrPadel ? 'Games' : 'Punkten';
 
-    // Get sport-specific threshold
+    // Get sport-specific threshold for Elo-based handicap
     const threshold = isTennisOrPadel ? 150 : 40;
 
+    let handicapSuggestions = [];
+
+    // --- Check 1: Elo-based handicap ---
     if (diff >= threshold) {
-        const stronger = myElo > opponentElo ? 'Du bist' : `${selectedOpponent.name} ist`;
-        const weaker = myElo > opponentElo ? selectedOpponent.name : 'Du';
+        const stronger = iAmStronger ? 'Du bist' : `${selectedOpponent.name} ist`;
+        const weaker = iAmStronger ? selectedOpponent.name : 'Du';
 
-        let handicapSuggestion;
         let handicapValue;
-
         if (isTennisOrPadel) {
-            // Tennis/Padel: 1 Game pro 150 Elo, max 3 Games
             handicapValue = Math.min(Math.floor(diff / 150), 3);
-            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapValue} Game${handicapValue > 1 ? 's' : ''} Vorsprung (z.B. ${handicapValue}:0).`;
         } else if (isBadminton) {
-            // Badminton: 1 Punkt pro 40 Elo, max 12 Punkte
             handicapValue = Math.min(Math.floor(diff / 40), 12);
-            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapValue} Punkten Vorsprung.`;
         } else {
-            // Table Tennis (default): 1 Punkt pro 40 Elo, max 7 Punkte
             handicapValue = Math.min(Math.floor(diff / 40), 7);
-            handicapSuggestion = `${weaker} startet jeden Satz mit ${handicapValue} Punkten Vorsprung.`;
         }
 
         if (handicapValue > 0) {
-            handicapText.textContent = `${stronger} ${diff} Elo-Punkte stärker. Empfohlener Handicap: ${handicapSuggestion}`;
-            handicapInfo.classList.remove('hidden');
-        } else {
-            handicapInfo.classList.add('hidden');
+            handicapSuggestions.push({
+                type: 'elo',
+                value: handicapValue,
+                text: `${stronger} ${diff} Elo stärker → ${weaker} startet mit +${handicapValue} ${unitText}`
+            });
         }
+    }
+
+    // --- Check 2: Head-to-Head handicap (consecutive losses) ---
+    try {
+        const { data: h2hData, error } = await supabase
+            .rpc('get_h2h_handicap', {
+                p1_id: currentUser.id,
+                p2_id: selectedOpponent.id
+            });
+
+        if (!error && h2hData && h2hData.length > 0) {
+            const h2h = h2hData[0];
+
+            // Only show if there's a suggested handicap and I am the stronger player who's been losing
+            if (h2h.suggested_handicap > 0 && h2h.stronger_player_id === currentUser.id) {
+                const losses = h2h.consecutive_losses;
+                handicapSuggestions.push({
+                    type: 'h2h',
+                    value: h2h.suggested_handicap,
+                    text: `Du hast ${losses}x in Folge gegen ${selectedOpponent.name} verloren → ${selectedOpponent.name} startet mit +${h2h.suggested_handicap} ${unitText}`
+                });
+            }
+            // Also check if opponent is stronger and has been losing to me
+            else if (h2h.suggested_handicap > 0 && h2h.stronger_player_id === selectedOpponent.id) {
+                const losses = h2h.consecutive_losses;
+                handicapSuggestions.push({
+                    type: 'h2h',
+                    value: h2h.suggested_handicap,
+                    text: `${selectedOpponent.name} hat ${losses}x in Folge gegen dich verloren → Du startest mit +${h2h.suggested_handicap} ${unitText}`
+                });
+            }
+        }
+    } catch (e) {
+        console.log('[Handicap] H2H check failed:', e);
+    }
+
+    // --- Display suggestions ---
+    if (handicapSuggestions.length > 0) {
+        // Prioritize H2H handicap if it exists, otherwise use Elo-based
+        const h2hSuggestion = handicapSuggestions.find(s => s.type === 'h2h');
+        const eloSuggestion = handicapSuggestions.find(s => s.type === 'elo');
+
+        let displayText = '';
+        if (h2hSuggestion && eloSuggestion) {
+            // Both exist - show both
+            displayText = `📊 Elo: ${eloSuggestion.text}\n🎯 H2H: ${h2hSuggestion.text}`;
+        } else if (h2hSuggestion) {
+            displayText = `🎯 ${h2hSuggestion.text}`;
+        } else if (eloSuggestion) {
+            displayText = `📊 ${eloSuggestion.text}`;
+        }
+
+        handicapText.innerHTML = displayText.replace(/\n/g, '<br>');
+        handicapInfo.classList.remove('hidden');
     } else {
         handicapInfo.classList.add('hidden');
     }
