@@ -1,10 +1,13 @@
--- Fix: doubles_matches table is missing columns that triggers check for
+-- Fix: Missing columns that database triggers check for
 -- This causes errors like: "record 'new' has no field 'processed'"
--- and "record 'new' has no field 'handicap_used'"
+-- and "column 'doubles_highest_elo' does not exist"
 
 -- Add missing columns to doubles_matches table
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS processed BOOLEAN DEFAULT false;
 ALTER TABLE doubles_matches ADD COLUMN IF NOT EXISTS handicap_used BOOLEAN DEFAULT false;
+
+-- Add missing column to doubles_pairings table (tracks highest achieved Elo)
+ALTER TABLE doubles_pairings ADD COLUMN IF NOT EXISTS doubles_highest_elo INTEGER DEFAULT 800;
 
 -- Note: After running this, the triggers will work because:
 -- 1. The trigger_process_doubles_match (BEFORE INSERT) runs first and checks processed=false
