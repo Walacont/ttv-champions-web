@@ -2086,6 +2086,34 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(matchRequestSubB);
 
+    // Subscribe to doubles match requests - all events for any request
+    // Since we filter client-side anyway, subscribe to all changes
+    const doublesRequestSub = supabase
+        .channel('doubles_match_requests_updates')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'doubles_match_requests'
+        }, (payload) => {
+            console.log('[Realtime] Doubles match request update:', payload.eventType, payload);
+            // Reload match requests for all doubles request changes
+            loadMatchRequests();
+            loadPendingRequests();
+            // Show notification for new incoming requests
+            if (payload.eventType === 'INSERT') {
+                // Check if current user is in team_b (opponent)
+                const teamB = payload.new?.team_b || {};
+                if (teamB.player1_id === currentUser.id || teamB.player2_id === currentUser.id) {
+                    showNewRequestNotification();
+                }
+            }
+        })
+        .subscribe((status) => {
+            console.log('[Realtime] Doubles match requests subscription status:', status);
+        });
+
+    realtimeSubscriptions.push(doublesRequestSub);
+
     // Subscribe to matches table for history updates (singles)
     const matchesSub = supabase
         .channel('matches_updates')
@@ -2133,6 +2161,10 @@ function setupRealtimeSubscriptions() {
                 payload.new.team_b_player2_id === currentUser.id) {
                 console.log('[Realtime] New doubles match created, updating history');
                 loadMatchHistory();
+                loadPointsHistory();
+                // Also refresh match requests as the request may have been deleted
+                loadMatchRequests();
+                loadPendingRequests();
             }
         })
         .subscribe((status) => {
