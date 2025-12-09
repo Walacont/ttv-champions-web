@@ -2935,14 +2935,19 @@ function setupMatchForm() {
 
         // Only show when match is complete (has a winner)
         if (winnerData && winnerData.winner) {
-            // Check if doubles mode is active
+            // Check if doubles mode is active (multiple ways to detect)
             const doublesToggle = document.getElementById('player-doubles-toggle');
-            const isDoublesMode = doublesToggle && doublesToggle.classList.contains('active');
+            const doublesContainer = document.getElementById('doubles-players-container');
+            const partnerInput = document.getElementById('partner-search-input');
+
+            // Doubles mode if: toggle has 'active' class OR doubles container is visible OR partner input has value
+            const isDoublesMode = (doublesToggle && doublesToggle.classList.contains('active')) ||
+                                  (doublesContainer && !doublesContainer.classList.contains('hidden')) ||
+                                  (partnerInput && partnerInput.value.trim());
 
             let winnerName;
             if (isDoublesMode) {
                 // Doubles: Show both players from winning team
-                const partnerInput = document.getElementById('partner-search-input');
                 const opponent1Input = document.getElementById('opponent1-search-input');
                 const opponent2Input = document.getElementById('opponent2-search-input');
 
