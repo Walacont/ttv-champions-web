@@ -344,10 +344,10 @@ async function initializeDashboard() {
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iI2UyZThmMCIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iMzUiIHI9IjE1IiBmaWxsPSIjOTRhM2I4Ii8+PHBhdGggZD0iTTIwIDg1YzAtMjAgMTMtMzAgMzAtMzBzMzAgMTAgMzAgMzAiIGZpbGw9IiM5NGEzYjgiLz48L3N2Zz4=';
 
 function setupHeader() {
-    // Profile picture
+    // Profile picture - use avatar_url (saved by settings) or photo_url (legacy)
     const headerPic = document.getElementById('header-profile-pic');
     if (headerPic) {
-        headerPic.src = currentUserData.photo_url || DEFAULT_AVATAR;
+        headerPic.src = currentUserData.avatar_url || currentUserData.photo_url || DEFAULT_AVATAR;
         headerPic.onerror = () => { headerPic.src = DEFAULT_AVATAR; };
     }
 
