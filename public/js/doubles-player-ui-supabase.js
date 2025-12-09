@@ -245,6 +245,22 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         )
         .subscribe();
 
+    // Track selected player IDs to exclude from other searches
+    const selectedIds = {
+        partner: null,
+        opponent1: null,
+        opponent2: null
+    };
+
+    // Function to get all currently selected IDs (excluding a specific field)
+    function getExcludeIds(excludeField) {
+        const ids = [];
+        if (excludeField !== 'partner' && selectedIds.partner) ids.push(selectedIds.partner);
+        if (excludeField !== 'opponent1' && selectedIds.opponent1) ids.push(selectedIds.opponent1);
+        if (excludeField !== 'opponent2' && selectedIds.opponent2) ids.push(selectedIds.opponent2);
+        return ids;
+    }
+
     // Initialize search for Partner - pass playersData object
     initializePlayerSearchInput(
         'partner-search-input',
@@ -253,7 +269,8 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         'selected-partner-elo',
         playersData,
         userData,
-        []
+        () => getExcludeIds('partner'),
+        (id) => { selectedIds.partner = id; }
     );
 
     // Initialize search for Opponent 1
@@ -264,7 +281,8 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         'selected-opponent1-elo',
         playersData,
         userData,
-        []
+        () => getExcludeIds('opponent1'),
+        (id) => { selectedIds.opponent1 = id; }
     );
 
     // Initialize search for Opponent 2
@@ -275,7 +293,8 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
         'selected-opponent2-elo',
         playersData,
         userData,
-        []
+        () => getExcludeIds('opponent2'),
+        (id) => { selectedIds.opponent2 = id; }
     );
 }
 
@@ -287,9 +306,10 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
  * @param {string} selectedEloFieldId - ID of the hidden field storing selected player Elo
  * @param {Object} playersData - Object with players array (for real-time updates)
  * @param {Object} userData - Current user data
- * @param {Array} excludeIds - Array of player IDs to exclude from results
+ * @param {Function} getExcludeIds - Function that returns array of player IDs to exclude
+ * @param {Function} onSelect - Callback when a player is selected
  */
-function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, selectedEloFieldId, playersData, userData, excludeIds) {
+function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, selectedEloFieldId, playersData, userData, getExcludeIds, onSelect) {
     const searchInput = document.getElementById(inputId);
     const searchResults = document.getElementById(resultsId);
     const selectedIdField = document.getElementById(selectedIdFieldId);
@@ -307,22 +327,34 @@ function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, sele
             return;
         }
 
+        // Get current exclude IDs (dynamically)
+        const excludeIds = getExcludeIds();
+
         // Filter players by search term - use playersData.players for real-time data
         const filteredPlayers = playersData.players.filter(player => {
-            // Exclude players in excludeIds
+            // Exclude players already selected in other fields
             if (excludeIds.includes(player.id)) return false;
 
             const fullName = `${player.firstName} ${player.lastName}`.toLowerCase();
             return fullName.includes(searchTerm);
         }).slice(0, 10); // Limit to 10 results
 
-        displaySearchResults(filteredPlayers, searchResults, searchInput, selectedIdField, selectedEloField, userData);
+        displaySearchResults(filteredPlayers, searchResults, searchInput, selectedIdField, selectedEloField, userData, onSelect);
     });
 
     // Clear results when clicking outside
     document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
             searchResults.innerHTML = '';
+        }
+    });
+
+    // Clear selection when input is cleared
+    searchInput.addEventListener('input', (e) => {
+        if (!e.target.value.trim()) {
+            selectedIdField.value = '';
+            if (selectedEloField) selectedEloField.value = '';
+            onSelect(null);
         }
     });
 }
@@ -335,8 +367,9 @@ function initializePlayerSearchInput(inputId, resultsId, selectedIdFieldId, sele
  * @param {HTMLElement} selectedIdField - Hidden field to store selected ID
  * @param {HTMLElement} selectedEloField - Hidden field to store selected Elo
  * @param {Object} userData - Current user data
+ * @param {Function} onSelect - Callback when a player is selected
  */
-function displaySearchResults(players, resultsContainer, searchInput, selectedIdField, selectedEloField, userData) {
+function displaySearchResults(players, resultsContainer, searchInput, selectedIdField, selectedEloField, userData, onSelect) {
     if (players.length === 0) {
         resultsContainer.innerHTML = '<p class="text-gray-500 text-sm p-2">Keine Spieler gefunden.</p>';
         return;
@@ -379,6 +412,9 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
 
             // Update search input to show selected player
             searchInput.value = playerName;
+
+            // Track selection for excluding from other searches
+            if (onSelect) onSelect(playerId);
 
             // Clear search results
             resultsContainer.innerHTML = '';
