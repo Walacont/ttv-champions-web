@@ -2392,31 +2392,38 @@ window.respondToMatchRequest = async (requestId, accept) => {
  */
 async function createMatchFromRequest(request) {
     try {
-        // Get club_id from request, or from current user's profile if not set
-        let clubId = request.club_id;
+        // Get club_id from request, or from current user's profile if available
+        let clubId = request.club_id || null;
         if (!clubId) {
-            // Try to get from player profiles
+            // Try to get from player profiles (optional - players may not have a club)
             const { data: playerA } = await supabase
                 .from('profiles')
                 .select('club_id')
                 .eq('id', request.player_a_id)
                 .single();
-            clubId = playerA?.club_id;
+            clubId = playerA?.club_id || null;
+        }
+
+        // Build match data - club_id is optional
+        const matchData = {
+            player_a_id: request.player_a_id,
+            player_b_id: request.player_b_id,
+            sport_id: request.sport_id,
+            winner_id: request.winner_id,
+            loser_id: request.loser_id,
+            sets: request.sets,
+            handicap_used: request.handicap_used || false,
+            match_mode: request.match_mode || 'best-of-5'
+        };
+
+        // Only add club_id if it exists
+        if (clubId) {
+            matchData.club_id = clubId;
         }
 
         const { error } = await supabase
             .from('matches')
-            .insert({
-                player_a_id: request.player_a_id,
-                player_b_id: request.player_b_id,
-                club_id: clubId,
-                sport_id: request.sport_id,
-                winner_id: request.winner_id,
-                loser_id: request.loser_id,
-                sets: request.sets,
-                handicap_used: request.handicap_used || false,
-                match_mode: request.match_mode || 'best-of-5'
-            });
+            .insert(matchData);
 
         if (error) throw error;
         console.log('[Match] Created match from request:', request.id);
