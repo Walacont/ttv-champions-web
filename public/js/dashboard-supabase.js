@@ -1953,6 +1953,11 @@ function setupRealtimeSubscriptions() {
                 // Also refresh match requests as the request may have been deleted
                 loadMatchRequests();
                 loadPendingRequests();
+                // Refresh match suggestions (last played dates changed)
+                const suggestionsContent = document.getElementById('match-suggestions-content');
+                if (suggestionsContent && !suggestionsContent.classList.contains('hidden')) {
+                    loadMatchSuggestions();
+                }
             }
         })
         .subscribe((status) => {
@@ -4269,21 +4274,32 @@ function setupMatchSuggestions() {
 }
 
 // --- Load Match Suggestions ---
+// Shows 5 players from the club:
+// 1. Players never played against (priority)
+// 2. Players not played against for a long time
+// Includes: last match date, Elo handicap, H2H handicap
 async function loadMatchSuggestions() {
     const container = document.getElementById('match-suggestions-list');
-    if (!container || !currentUserData.club_id) return;
+    if (!container) return;
+
+    // Allow suggestions even without club (show all players)
+    const hasClub = !!currentUserData.club_id;
 
     container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Lade Vorschläge...</p>';
 
     try {
-        // Get club members (only players and coaches, not admins)
-        const { data: clubMembers, error } = await supabase
+        // Get potential opponents
+        let query = supabase
             .from('profiles')
-            .select('id, display_name, avatar_url, elo_rating')
-            .eq('club_id', currentUserData.club_id)
+            .select('id, display_name, first_name, avatar_url, elo_rating')
             .neq('id', currentUser.id)
-            .in('role', ['player', 'coach', 'head_coach'])
-            .limit(10);
+            .in('role', ['player', 'coach', 'head_coach']);
+
+        if (hasClub) {
+            query = query.eq('club_id', currentUserData.club_id);
+        }
+
+        const { data: clubMembers, error } = await query.limit(50);
 
         if (error) throw error;
 
@@ -4292,46 +4308,193 @@ async function loadMatchSuggestions() {
             return;
         }
 
-        // Get recent matches to exclude players we've played recently
-        const { data: recentMatches } = await supabase
+        // Get ALL matches with current user to find last played date
+        const { data: allMatches } = await supabase
             .from('matches')
-            .select('player_a_id, player_b_id')
+            .select('player_a_id, player_b_id, created_at')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
-            .order('played_at', { ascending: false })
-            .limit(20);
+            .order('created_at', { ascending: false });
 
-        const recentOpponents = new Set();
-        (recentMatches || []).forEach(m => {
-            if (m.player_a_id === currentUser.id) recentOpponents.add(m.player_b_id);
-            else recentOpponents.add(m.player_a_id);
+        // Build map of opponent -> last match date
+        const lastMatchMap = {};
+        (allMatches || []).forEach(m => {
+            const opponentId = m.player_a_id === currentUser.id ? m.player_b_id : m.player_a_id;
+            if (!lastMatchMap[opponentId]) {
+                lastMatchMap[opponentId] = new Date(m.created_at);
+            }
         });
 
-        // Prioritize players we haven't played recently
-        const suggestions = clubMembers
-            .map(p => ({ ...p, playedRecently: recentOpponents.has(p.id) }))
-            .sort((a, b) => (a.playedRecently ? 1 : 0) - (b.playedRecently ? 1 : 0))
-            .slice(0, 5);
+        // Get H2H data for all potential opponents
+        const h2hPromises = clubMembers.map(async (player) => {
+            try {
+                const { data } = await supabase.rpc('get_h2h_handicap', {
+                    p1_id: currentUser.id,
+                    p2_id: player.id
+                });
+                return { playerId: player.id, h2h: data?.[0] || null };
+            } catch {
+                return { playerId: player.id, h2h: null };
+            }
+        });
 
-        container.innerHTML = suggestions.map(player => `
-            <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 mb-2">
-                <div class="flex items-center gap-3">
-                    <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-8 h-8 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
-                    <div>
-                        <p class="font-medium text-sm">${player.display_name}</p>
-                        <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
+        const h2hResults = await Promise.all(h2hPromises);
+        const h2hMap = {};
+        h2hResults.forEach(r => { h2hMap[r.playerId] = r.h2h; });
+
+        // Calculate suggestion data for each player
+        const myElo = currentUserData.elo_rating || 1000;
+        const sportName = currentSportContext?.sportName?.toLowerCase();
+        const isTennisOrPadel = sportName && ['tennis', 'padel'].includes(sportName);
+        const threshold = isTennisOrPadel ? 150 : 40;
+        const maxHandicap = isTennisOrPadel ? 3 : 7;
+        const unitText = isTennisOrPadel ? 'Games' : 'Pkt';
+
+        const suggestions = clubMembers.map(player => {
+            const lastMatch = lastMatchMap[player.id];
+            const neverPlayed = !lastMatch;
+            const daysSinceLastMatch = lastMatch
+                ? Math.floor((Date.now() - lastMatch.getTime()) / (1000 * 60 * 60 * 24))
+                : Infinity;
+
+            // Elo handicap
+            const playerElo = player.elo_rating || 1000;
+            const eloDiff = Math.abs(myElo - playerElo);
+            let eloHandicap = 0;
+            let eloHandicapFor = null;
+            if (eloDiff >= threshold) {
+                eloHandicap = Math.min(Math.floor(eloDiff / threshold), maxHandicap);
+                eloHandicapFor = myElo > playerElo ? player.display_name : 'Du';
+            }
+
+            // H2H handicap
+            const h2h = h2hMap[player.id];
+            let h2hHandicap = 0;
+            let h2hHandicapFor = null;
+            if (h2h && h2h.suggested_handicap > 0 && h2h.streak_winner_id) {
+                h2hHandicap = h2h.suggested_handicap;
+                h2hHandicapFor = h2h.streak_winner_id === currentUser.id ? player.display_name : 'Du';
+            }
+
+            return {
+                ...player,
+                lastMatch,
+                neverPlayed,
+                daysSinceLastMatch,
+                eloHandicap,
+                eloHandicapFor,
+                h2hHandicap,
+                h2hHandicapFor,
+                eloDiff
+            };
+        });
+
+        // Sort: never played first, then by days since last match (descending)
+        suggestions.sort((a, b) => {
+            if (a.neverPlayed && !b.neverPlayed) return -1;
+            if (!a.neverPlayed && b.neverPlayed) return 1;
+            return b.daysSinceLastMatch - a.daysSinceLastMatch;
+        });
+
+        // Take top 5
+        const top5 = suggestions.slice(0, 5);
+
+        if (top5.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-center py-2 text-sm">Keine Vorschläge</p>';
+            return;
+        }
+
+        container.innerHTML = top5.map(player => {
+            // Format last match date
+            let lastMatchText;
+            if (player.neverPlayed) {
+                lastMatchText = '<span class="text-green-600 font-medium">Noch nie gespielt</span>';
+            } else if (player.daysSinceLastMatch === 0) {
+                lastMatchText = 'Heute gespielt';
+            } else if (player.daysSinceLastMatch === 1) {
+                lastMatchText = 'Gestern gespielt';
+            } else if (player.daysSinceLastMatch < 7) {
+                lastMatchText = `Vor ${player.daysSinceLastMatch} Tagen`;
+            } else if (player.daysSinceLastMatch < 30) {
+                const weeks = Math.floor(player.daysSinceLastMatch / 7);
+                lastMatchText = `Vor ${weeks} Woche${weeks > 1 ? 'n' : ''}`;
+            } else {
+                const months = Math.floor(player.daysSinceLastMatch / 30);
+                lastMatchText = `<span class="text-orange-600">Vor ${months} Monat${months > 1 ? 'en' : ''}</span>`;
+            }
+
+            // Handicap info
+            let handicapHtml = '';
+            if (player.eloHandicap > 0 || player.h2hHandicap > 0) {
+                const parts = [];
+                if (player.eloHandicap > 0) {
+                    parts.push(`Elo: ${player.eloHandicapFor} +${player.eloHandicap}`);
+                }
+                if (player.h2hHandicap > 0) {
+                    parts.push(`H2H: ${player.h2hHandicapFor} +${player.h2hHandicap}`);
+                }
+                handicapHtml = `<p class="text-xs text-blue-600">${parts.join(' | ')}</p>`;
+            }
+
+            return `
+                <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 mb-2 hover:border-indigo-300 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <div>
+                            <p class="font-medium text-sm">${player.display_name || player.first_name}</p>
+                            <p class="text-xs text-gray-500">${player.elo_rating || 1000} Elo ${player.eloDiff > 0 ? `(${myElo > player.elo_rating ? '+' : ''}${myElo - (player.elo_rating || 1000)})` : ''}</p>
+                            ${handicapHtml}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500">${lastMatchText}</p>
+                        <button onclick="quickSelectOpponent('${player.id}', '${(player.display_name || player.first_name).replace(/'/g, "\\'")}', ${player.elo_rating || 1000})"
+                            class="text-xs text-indigo-600 hover:text-indigo-800 font-medium mt-1">
+                            Herausfordern
+                        </button>
                     </div>
                 </div>
-                <span class="text-xs ${player.playedRecently ? 'text-gray-400' : 'text-green-600 font-medium'}">
-                    ${player.playedRecently ? 'Kürzlich gespielt' : '⭐ Empfohlen'}
-                </span>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (error) {
         console.error('Error loading match suggestions:', error);
         container.innerHTML = '<p class="text-red-500 text-center py-2 text-sm">Fehler beim Laden</p>';
     }
 }
+
+// Quick select opponent from suggestions
+window.quickSelectOpponent = function(playerId, playerName, playerElo) {
+    // Set the opponent in the match request form
+    selectedOpponent = { id: playerId, name: playerName, elo: playerElo };
+    document.getElementById('selected-opponent-id').value = playerId;
+    document.getElementById('selected-opponent-elo').value = playerElo;
+    document.getElementById('opponent-search-input').value = playerName;
+    document.getElementById('opponent-search-results').innerHTML = '';
+
+    // Show the selected opponent display
+    const display = document.getElementById('selected-opponent-display');
+    if (display) {
+        display.innerHTML = `
+            <div class="flex items-center justify-between bg-indigo-50 p-3 rounded-lg">
+                <div>
+                    <p class="font-medium">${playerName}</p>
+                    <p class="text-sm text-gray-500">${playerElo} Elo</p>
+                </div>
+                <button onclick="clearOpponentSelection()" class="text-red-500 hover:text-red-700">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+    }
+
+    // Check handicap
+    checkHandicap();
+
+    // Scroll to match form
+    document.getElementById('match-request-section')?.scrollIntoView({ behavior: 'smooth' });
+};
 
 // --- Setup Leaderboard Preferences ---
 function setupLeaderboardPreferences() {
