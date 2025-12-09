@@ -3013,11 +3013,9 @@ function createSetScoreInput(container, existingSets = [], mode = 'best-of-5') {
             if (b > a && b >= 11 && (b >= 11 && a < 10 || Math.abs(a - b) >= 2)) playerBWins++;
         });
 
-        // Get player names from the UI
-        const playerAName = document.getElementById('current-player-name')?.textContent ||
-                           `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Du';
-        const playerBName = selectedOpponent ?
-                           `${selectedOpponent.firstName || selectedOpponent.first_name || ''} ${selectedOpponent.lastName || selectedOpponent.last_name || ''}`.trim() : 'Gegner';
+        // Get player names
+        const playerAName = `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Du';
+        const playerBName = selectedOpponent?.name || 'Gegner';
 
         if (playerAWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-green-100 text-green-800';
