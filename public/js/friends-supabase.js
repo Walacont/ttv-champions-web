@@ -216,7 +216,7 @@ function renderSearchResults(players) {
 
         return `
             <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition">
-                <div class="flex items-center gap-3 flex-1">
+                <a href="/profile.html?id=${player.id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
@@ -230,7 +230,7 @@ function renderSearchResults(players) {
                             <i class="fas fa-star mr-1"></i>Elo: ${elo}
                         </p>
                     </div>
-                </div>
+                </a>
                 <div>${button}</div>
             </div>
         `;
@@ -463,7 +463,7 @@ function renderReceivedRequests(requests) {
 
         return `
             <div class="flex items-center justify-between p-4 bg-orange-50 rounded-lg border-2 border-orange-200">
-                <div class="flex items-center gap-3 flex-1">
+                <a href="/profile.html?id=${request.requester_id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
@@ -480,7 +480,7 @@ function renderReceivedRequests(requests) {
                             <i class="far fa-clock mr-1"></i>${timeAgo}
                         </p>
                     </div>
-                </div>
+                </a>
                 <div class="flex gap-2">
                     <button
                         onclick="window.acceptFriendRequest('${request.id}')"
@@ -522,7 +522,7 @@ function renderSentRequests(requests) {
 
         return `
             <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div class="flex items-center gap-3 flex-1">
+                <a href="/profile.html?id=${request.addressee_id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
@@ -539,7 +539,7 @@ function renderSentRequests(requests) {
                             <i class="far fa-clock mr-1"></i>Gesendet ${timeAgo}
                         </p>
                     </div>
-                </div>
+                </a>
                 <span class="text-gray-500 text-sm font-medium">
                     <i class="fas fa-clock mr-1"></i> Ausstehend
                 </span>
@@ -599,7 +599,7 @@ function renderFriendsList(friends) {
 
         return `
             <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                <div class="flex items-center gap-3 flex-1">
+                <a href="/profile.html?id=${friend.id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
@@ -616,7 +616,7 @@ function renderFriendsList(friends) {
                             <i class="fas fa-user-friends mr-1"></i>Freunde seit ${friendsSince}
                         </p>
                     </div>
-                </div>
+                </a>
                 <button
                     onclick="window.removeFriend('${friend.id}')"
                     class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition"
