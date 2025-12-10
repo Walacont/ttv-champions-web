@@ -166,13 +166,11 @@ function renderSinglesMatchCard(match, profileMap) {
     const myAvatar = currentPlayer.avatar_url || DEFAULT_AVATAR;
     const oppAvatar = opponent.avatar_url || DEFAULT_AVATAR;
 
+    // Only show ELO on card - points are shown in details modal
     let statsHtml = '';
     if (isWinner) {
         const displayElo = Math.abs(eloChange);
         statsHtml = `<span class="text-green-600 font-medium">+${displayElo} Elo</span>`;
-        if (pointsAwarded > 0) {
-            statsHtml += `<span class="text-green-600 font-medium ml-2">+${pointsAwarded} Pkt</span>`;
-        }
     } else {
         const displayElo = Math.abs(eloChange);
         statsHtml = `<span class="text-red-600 font-medium">-${displayElo} Elo</span>`;
