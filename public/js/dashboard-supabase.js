@@ -15,6 +15,7 @@ import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
+import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -317,8 +318,14 @@ async function initializeDashboard() {
     initMatchFormModule(currentUser, currentUserData, currentSportContext);
     initMatchHistoryModule(currentUser, currentUserData);
 
+    // Initialize activity feed module
+    initActivityFeedModule(currentUser, currentUserData);
+
     // Load match history (after module initialization)
     loadMatchHistory();
+
+    // Load activity feed (shows matches from club + followed users)
+    loadActivityFeed();
 
     // Setup match form (from extracted module)
     setupMatchForm({
