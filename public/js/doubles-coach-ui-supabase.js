@@ -168,6 +168,15 @@ function clearDoublesSelections() {
  * @param {string} currentGenderFilter - Current gender filter
  */
 export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all') {
+    // Debug: Log all players including offline ones
+    console.log('[Doubles] All clubPlayers:', clubPlayers.map(p => ({
+        id: p.id,
+        name: `${p.firstName || p.first_name} ${p.lastName || p.last_name}`,
+        isMatchReady: p.isMatchReady,
+        is_match_ready: p.is_match_ready,
+        isOffline: p.isOffline || p.is_offline
+    })));
+
     // Filter match-ready players (only check isMatchReady flag)
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady === true || p.is_match_ready === true;
@@ -178,6 +187,7 @@ export function populateDoublesDropdowns(clubPlayers, currentSubgroupFilter = 'a
     console.log('[Doubles] populateDoublesDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
+        matchReadyPlayers: matchReadyPlayers.map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`),
         subgroupFilter: currentSubgroupFilter,
         genderFilter: currentGenderFilter,
         excludePlayerId
