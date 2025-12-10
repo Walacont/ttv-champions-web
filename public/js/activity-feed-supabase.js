@@ -1,6 +1,7 @@
 /**
  * Activity Feed Module - Supabase Version
  * Shows recent matches from club members and followed users
+ * Includes Strava-style like/kudos functionality
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -13,6 +14,7 @@ const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/200
 let currentUser = null;
 let currentUserData = null;
 let activityOffset = 0;
+let likesDataCache = {};
 const ACTIVITIES_PER_PAGE = 10;
 
 /**
@@ -22,6 +24,10 @@ export function initActivityFeedModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     activityOffset = 0;
+    likesDataCache = {};
+
+    // Setup global toggle like function
+    window.toggleActivityLike = toggleActivityLike;
 }
 
 /**
@@ -135,6 +141,9 @@ export async function loadActivityFeed() {
             profileMap[p.id] = p;
         });
 
+        // Load likes data for all activities
+        await loadLikesForActivities(activities);
+
         // Render activity feed
         container.innerHTML = activities.map(activity => {
             if (activity.matchType === 'doubles') {
@@ -164,6 +173,217 @@ export async function loadActivityFeed() {
             </div>
         `;
     }
+}
+
+/**
+ * Load likes data for a batch of activities
+ */
+async function loadLikesForActivities(activities) {
+    if (!activities || activities.length === 0) return;
+
+    try {
+        // Prepare batch query parameters
+        const activityIds = activities.map(a => a.id);
+        const matchTypes = activities.map(a => a.matchType);
+
+        // Try to use the batch function, fall back to individual queries if it doesn't exist
+        const { data, error } = await supabase.rpc('get_activity_likes_batch', {
+            p_activity_ids: activityIds,
+            p_match_types: matchTypes
+        });
+
+        if (error) {
+            // Function might not exist yet, use fallback
+            console.warn('[ActivityFeed] Batch likes function not available, using fallback:', error.message);
+            await loadLikesFallback(activities);
+            return;
+        }
+
+        // Cache the results
+        (data || []).forEach(like => {
+            const key = `${like.match_id}_${like.match_type}`;
+            likesDataCache[key] = {
+                likeCount: like.like_count || 0,
+                isLiked: like.is_liked_by_me || false,
+                recentLikers: like.recent_likers || []
+            };
+        });
+
+    } catch (error) {
+        console.error('[ActivityFeed] Error loading likes:', error);
+        await loadLikesFallback(activities);
+    }
+}
+
+/**
+ * Fallback method to load likes individually
+ */
+async function loadLikesFallback(activities) {
+    for (const activity of activities) {
+        const key = `${activity.id}_${activity.matchType}`;
+
+        try {
+            // Get like count
+            const { count } = await supabase
+                .from('activity_likes')
+                .select('id', { count: 'exact', head: true })
+                .eq('match_id', activity.id)
+                .eq('match_type', activity.matchType);
+
+            // Check if current user liked
+            const { data: userLike } = await supabase
+                .from('activity_likes')
+                .select('id')
+                .eq('match_id', activity.id)
+                .eq('match_type', activity.matchType)
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+
+            likesDataCache[key] = {
+                likeCount: count || 0,
+                isLiked: !!userLike,
+                recentLikers: []
+            };
+        } catch (e) {
+            // Table might not exist yet
+            likesDataCache[key] = { likeCount: 0, isLiked: false, recentLikers: [] };
+        }
+    }
+}
+
+/**
+ * Toggle like on an activity
+ */
+async function toggleActivityLike(matchId, matchType) {
+    const key = `${matchId}_${matchType}`;
+    const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
+    const countEl = document.querySelector(`[data-like-count="${key}"]`);
+
+    if (!likeBtn) return;
+
+    // Optimistic UI update
+    const currentData = likesDataCache[key] || { likeCount: 0, isLiked: false };
+    const newIsLiked = !currentData.isLiked;
+    const newCount = newIsLiked ? currentData.likeCount + 1 : Math.max(0, currentData.likeCount - 1);
+
+    // Update UI immediately
+    updateLikeUI(likeBtn, countEl, newIsLiked, newCount);
+    likesDataCache[key] = { ...currentData, isLiked: newIsLiked, likeCount: newCount };
+
+    try {
+        // Try RPC function first
+        const { data, error } = await supabase.rpc('toggle_activity_like', {
+            p_match_id: matchId,
+            p_match_type: matchType
+        });
+
+        if (error) {
+            // RPC might not exist, use direct insert/delete
+            console.warn('[ActivityFeed] Toggle RPC not available, using fallback:', error.message);
+            await toggleLikeFallback(matchId, matchType, newIsLiked, key);
+        } else if (data) {
+            // Update with server response
+            likesDataCache[key] = {
+                ...currentData,
+                isLiked: data.is_liked,
+                likeCount: data.like_count
+            };
+            updateLikeUI(likeBtn, countEl, data.is_liked, data.like_count);
+        }
+
+    } catch (error) {
+        console.error('[ActivityFeed] Error toggling like:', error);
+        // Revert on error
+        updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+        likesDataCache[key] = currentData;
+    }
+}
+
+/**
+ * Fallback method to toggle like directly
+ */
+async function toggleLikeFallback(matchId, matchType, shouldLike, key) {
+    try {
+        if (shouldLike) {
+            await supabase
+                .from('activity_likes')
+                .insert({
+                    match_id: matchId,
+                    match_type: matchType,
+                    user_id: currentUser.id
+                });
+        } else {
+            await supabase
+                .from('activity_likes')
+                .delete()
+                .eq('match_id', matchId)
+                .eq('match_type', matchType)
+                .eq('user_id', currentUser.id);
+        }
+    } catch (e) {
+        console.error('[ActivityFeed] Fallback toggle failed:', e);
+    }
+}
+
+/**
+ * Update the like button UI
+ */
+function updateLikeUI(likeBtn, countEl, isLiked, count) {
+    if (likeBtn) {
+        const icon = likeBtn.querySelector('i');
+        if (isLiked) {
+            likeBtn.classList.add('text-orange-500');
+            likeBtn.classList.remove('text-gray-400', 'hover:text-orange-500');
+            if (icon) {
+                icon.classList.remove('far');
+                icon.classList.add('fas');
+            }
+        } else {
+            likeBtn.classList.remove('text-orange-500');
+            likeBtn.classList.add('text-gray-400', 'hover:text-orange-500');
+            if (icon) {
+                icon.classList.remove('fas');
+                icon.classList.add('far');
+            }
+        }
+    }
+
+    if (countEl) {
+        countEl.textContent = count > 0 ? count : '';
+    }
+}
+
+/**
+ * Get like data for a specific activity
+ */
+function getLikeData(matchId, matchType) {
+    const key = `${matchId}_${matchType}`;
+    return likesDataCache[key] || { likeCount: 0, isLiked: false, recentLikers: [] };
+}
+
+/**
+ * Render the like button HTML
+ */
+function renderLikeButton(matchId, matchType) {
+    const key = `${matchId}_${matchType}`;
+    const likeData = getLikeData(matchId, matchType);
+    const isLiked = likeData.isLiked;
+    const count = likeData.likeCount;
+
+    const iconClass = isLiked ? 'fas' : 'far';
+    const colorClass = isLiked ? 'text-orange-500' : 'text-gray-400 hover:text-orange-500';
+
+    return `
+        <button
+            data-like-btn="${key}"
+            onclick="event.stopPropagation(); toggleActivityLike('${matchId}', '${matchType}')"
+            class="flex items-center gap-1 ${colorClass} transition-colors"
+            title="Kudos geben"
+        >
+            <i class="${iconClass} fa-thumbs-up"></i>
+            <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>
+        </button>
+    `;
 }
 
 /**
@@ -236,11 +456,13 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
         contextIcon = '<i class="fas fa-building text-gray-400 text-xs" title="Verein"></i>';
     }
 
+    const loserId = match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id;
+
     return `
-        <div class="p-4 hover:bg-gray-50 transition cursor-pointer" onclick="window.location.href='/profile.html?id=${match.winner_id}'">
+        <div class="p-4 hover:bg-gray-50 transition">
             <div class="flex items-start gap-3">
                 <!-- Winner Avatar -->
-                <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0" onclick="event.stopPropagation();">
+                <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0">
                     <img src="${winnerAvatar}" alt="${winnerName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-green-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
@@ -249,11 +471,11 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                 <!-- Content -->
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <a href="/profile.html?id=${match.winner_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition" onclick="event.stopPropagation();">
+                        <a href="/profile.html?id=${match.winner_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${winnerName}
                         </a>
                         <span class="text-gray-500 text-sm">besiegte</span>
-                        <a href="/profile.html?id=${match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id}" class="font-medium text-gray-700 hover:text-indigo-600 transition" onclick="event.stopPropagation();">
+                        <a href="/profile.html?id=${loserId}" class="font-medium text-gray-700 hover:text-indigo-600 transition">
                             ${loserName}
                         </a>
                     </div>
@@ -276,10 +498,15 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                             return `<span class="mr-2">Satz ${idx + 1}: ${winnerScore}-${loserScore}</span>`;
                         }).join('')}
                     </div>
+
+                    <!-- Like Button -->
+                    <div class="mt-3 flex items-center gap-4">
+                        ${renderLikeButton(match.id, 'singles')}
+                    </div>
                 </div>
 
                 <!-- Loser Avatar (smaller) -->
-                <a href="/profile.html?id=${match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id}" class="flex-shrink-0" onclick="event.stopPropagation();">
+                <a href="/profile.html?id=${loserId}" class="flex-shrink-0">
                     <img src="${loserAvatar}" alt="${loserName}"
                          class="w-10 h-10 rounded-full object-cover border-2 border-red-300 opacity-75"
                          onerror="this.src='${DEFAULT_AVATAR}'">
@@ -354,6 +581,11 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                             <i class="fas fa-users mr-1"></i>${setScore}
                         </span>
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    <!-- Like Button -->
+                    <div class="mt-3 flex items-center gap-4">
+                        ${renderLikeButton(match.id, 'doubles')}
                     </div>
                 </div>
 
