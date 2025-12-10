@@ -770,6 +770,43 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
         console.log('[Matches] Match saved successfully:', match);
 
+        // Send notifications to online players only
+        const coachName = `${currentUserData.firstName || currentUserData.first_name || ''} ${currentUserData.lastName || currentUserData.last_name || ''}`.trim() || 'Coach';
+        const playerAName = `${playerA.firstName || playerA.first_name || ''} ${playerA.lastName || playerA.last_name || ''}`.trim();
+        const playerBName = `${playerB.firstName || playerB.first_name || ''} ${playerB.lastName || playerB.last_name || ''}`.trim();
+
+        // Get Elo changes from saved match
+        const winnerEloChange = match.winner_elo_change || match.elo_change || 0;
+        const loserEloChange = match.loser_elo_change || -(match.elo_change || 0);
+
+        // Notify Player A (if online)
+        const playerAIsOffline = playerA.isOffline || playerA.is_offline;
+        if (!playerAIsOffline) {
+            const isWinnerA = winnerId === playerAId;
+            const eloChangeA = isWinnerA ? winnerEloChange : loserEloChange;
+            await createNotification(
+                playerAId,
+                'match_recorded',
+                isWinnerA ? 'Match gewonnen!' : 'Match verloren',
+                `${isWinnerA ? 'Sieg' : 'Niederlage'} gegen ${playerBName} (${eloChangeA >= 0 ? '+' : ''}${eloChangeA} Elo) - eingetragen von ${coachName}`,
+                { opponent_name: playerBName, is_winner: isWinnerA, elo_change: eloChangeA }
+            );
+        }
+
+        // Notify Player B (if online)
+        const playerBIsOffline = playerB.isOffline || playerB.is_offline;
+        if (!playerBIsOffline) {
+            const isWinnerB = winnerId === playerBId;
+            const eloChangeB = isWinnerB ? winnerEloChange : loserEloChange;
+            await createNotification(
+                playerBId,
+                'match_recorded',
+                isWinnerB ? 'Match gewonnen!' : 'Match verloren',
+                `${isWinnerB ? 'Sieg' : 'Niederlage'} gegen ${playerAName} (${eloChangeB >= 0 ? '+' : ''}${eloChangeB} Elo) - eingetragen von ${coachName}`,
+                { opponent_name: playerAName, is_winner: isWinnerB, elo_change: eloChangeB }
+            );
+        }
+
         if (feedbackEl) {
             feedbackEl.textContent = 'Match erfolgreich gespeichert!';
             feedbackEl.classList.remove('text-red-600');
