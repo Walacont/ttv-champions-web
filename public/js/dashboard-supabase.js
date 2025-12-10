@@ -14,6 +14,22 @@ import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 
+// Extracted modules for better maintainability
+import {
+    initMatchFormModule,
+    setupMatchForm,
+    createSetScoreInput,
+    clearOpponentSelection
+} from './dashboard-match-form-supabase.js';
+import {
+    initMatchHistoryModule,
+    loadMatchHistory,
+    showMatchDetails,
+    formatRelativeDate,
+    formatSetsDisplay,
+    deleteMatchRequest
+} from './dashboard-match-history-supabase.js';
+
 // Notifications loaded dynamically - not critical for main functionality
 let notificationsModule = null;
 
@@ -293,8 +309,17 @@ async function initializeDashboard() {
     // Initialize season countdown (efficient: loads once, updates display every second)
     initSeasonCountdown();
 
-    // Setup match form
-    setupMatchForm();
+    // Initialize match modules with current user data
+    initMatchFormModule(currentUser, currentUserData, currentSportContext);
+    initMatchHistoryModule(currentUser, currentUserData);
+
+    // Setup match form (from extracted module)
+    setupMatchForm({
+        onSuccess: () => {
+            loadMatchRequests();
+            loadPendingRequests();
+        }
+    });
 
     // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(supabase, currentUser.id, currentUserData);
