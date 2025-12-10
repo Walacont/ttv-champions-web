@@ -744,27 +744,31 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     try {
         const supabase = getSupabase();
 
+        const matchData = {
+            player_a_id: playerAId,
+            player_b_id: playerBId,
+            winner_id: winnerId,
+            loser_id: loserId,
+            sets: sets,
+            club_id: currentUserData.clubId || currentUserData.club_id,
+            sport_id: currentUserData.activeSportId || currentUserData.active_sport_id,
+            created_by: currentUserData.id,
+            match_mode: matchMode,
+            handicap_used: handicapUsed
+        };
+
+        console.log('[Matches] Saving match with data:', matchData);
+
         // Save match result
         const { data: match, error: matchError } = await supabase
             .from('matches')
-            .insert({
-                player_a_id: playerAId,
-                player_b_id: playerBId,
-                winner_id: winnerId,
-                loser_id: loserId,
-                sets: sets,
-                club_id: currentUserData.clubId || currentUserData.club_id,
-                sport_id: currentUserData.activeSportId || currentUserData.active_sport_id,
-                created_by: currentUserData.id,
-                match_mode: matchMode,
-                handicap_used: handicapUsed
-            })
+            .insert(matchData)
             .select()
             .single();
 
         if (matchError) throw matchError;
 
-        console.log('[Matches] Match saved:', match.id);
+        console.log('[Matches] Match saved successfully:', match);
 
         if (feedbackEl) {
             feedbackEl.textContent = 'Match erfolgreich gespeichert!';
