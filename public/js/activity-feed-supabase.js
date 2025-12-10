@@ -1,7 +1,7 @@
 /**
  * Activity Feed Module - Supabase Version
  * Shows recent matches from club members and followed users
- * Includes Strava-style like/kudos functionality and infinite scroll
+ * Includes Strava-style like/kudos functionality, infinite scroll, and filters
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -18,9 +18,10 @@ let likesDataCache = {};
 let isLoadingMore = false;
 let hasMoreActivities = true;
 let infiniteScrollObserver = null;
-let relevantUserIdsCache = null;
 let followingIdsCache = null;
-const ACTIVITIES_PER_PAGE = 8; // Load 8 at a time for smoother scrolling
+let followedClubsCache = null;
+let currentFilter = 'following'; // 'following', 'my-activities', or club id
+const ACTIVITIES_PER_PAGE = 8;
 
 /**
  * Initialize the activity feed module
@@ -32,21 +33,158 @@ export function initActivityFeedModule(user, userData) {
     likesDataCache = {};
     isLoadingMore = false;
     hasMoreActivities = true;
-    relevantUserIdsCache = null;
     followingIdsCache = null;
+    followedClubsCache = null;
+    currentFilter = 'following';
 
     // Setup global toggle like function
     window.toggleActivityLike = toggleActivityLike;
 
     // Setup infinite scroll
     setupInfiniteScroll();
+
+    // Setup filter dropdown
+    setupFilterDropdown();
+
+    // Load followed clubs for filter
+    loadFollowedClubs();
+}
+
+/**
+ * Setup filter dropdown
+ */
+function setupFilterDropdown() {
+    const filterBtn = document.getElementById('activity-filter-btn');
+    const filterDropdown = document.getElementById('activity-filter-dropdown');
+
+    if (!filterBtn || !filterDropdown) return;
+
+    // Toggle dropdown
+    filterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterDropdown.classList.toggle('hidden');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+        filterDropdown.classList.add('hidden');
+    });
+
+    // Filter option clicks
+    filterDropdown.addEventListener('click', (e) => {
+        const option = e.target.closest('.activity-filter-option');
+        if (!option) return;
+
+        e.stopPropagation();
+        const filter = option.dataset.filter;
+        const label = option.querySelector('span').textContent;
+
+        selectFilter(filter, label);
+        filterDropdown.classList.add('hidden');
+    });
+}
+
+/**
+ * Select a filter and reload feed
+ */
+function selectFilter(filter, label) {
+    currentFilter = filter;
+
+    // Update label
+    const labelEl = document.getElementById('activity-filter-label');
+    if (labelEl) labelEl.textContent = label;
+
+    // Update checkmarks
+    document.querySelectorAll('.activity-filter-option .filter-check').forEach(check => {
+        const option = check.closest('.activity-filter-option');
+        if (option.dataset.filter === filter) {
+            check.classList.remove('hidden');
+        } else {
+            check.classList.add('hidden');
+        }
+    });
+
+    // Reload feed with new filter
+    loadActivityFeed();
+}
+
+/**
+ * Load clubs the user follows (for filter options)
+ */
+async function loadFollowedClubs() {
+    try {
+        // Get users the current user follows
+        const { data: following } = await supabase
+            .from('friendships')
+            .select('addressee_id')
+            .eq('requester_id', currentUser.id)
+            .eq('status', 'accepted');
+
+        const followingIds = (following || []).map(f => f.addressee_id);
+
+        if (followingIds.length === 0) {
+            followedClubsCache = [];
+            return;
+        }
+
+        // Get unique clubs from followed users
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('club_id')
+            .in('id', followingIds)
+            .not('club_id', 'is', null);
+
+        const clubIds = [...new Set((profiles || []).map(p => p.club_id).filter(Boolean))];
+
+        if (clubIds.length === 0) {
+            followedClubsCache = [];
+            return;
+        }
+
+        // Get club details
+        const { data: clubs } = await supabase
+            .from('clubs')
+            .select('id, name')
+            .in('id', clubIds);
+
+        followedClubsCache = clubs || [];
+
+        // Render club filter options
+        renderClubFilters();
+
+    } catch (error) {
+        console.error('[ActivityFeed] Error loading followed clubs:', error);
+        followedClubsCache = [];
+    }
+}
+
+/**
+ * Render club filter options in dropdown
+ */
+function renderClubFilters() {
+    const container = document.getElementById('activity-filter-clubs');
+    if (!container || !followedClubsCache) return;
+
+    if (followedClubsCache.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = followedClubsCache.map(club => `
+        <button
+            class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
+            data-filter="club-${club.id}"
+        >
+            <span>${club.name}</span>
+            <i class="fas fa-check text-indigo-600 filter-check hidden"></i>
+        </button>
+    `).join('');
 }
 
 /**
  * Setup infinite scroll using Intersection Observer
  */
 function setupInfiniteScroll() {
-    // Cleanup existing observer
     if (infiniteScrollObserver) {
         infiniteScrollObserver.disconnect();
     }
@@ -64,7 +202,7 @@ function setupInfiniteScroll() {
         },
         {
             root: null,
-            rootMargin: '100px', // Start loading before reaching the bottom
+            rootMargin: '100px',
             threshold: 0.1
         }
     );
@@ -73,7 +211,7 @@ function setupInfiniteScroll() {
 }
 
 /**
- * Load activity feed from club members and followed users
+ * Load activity feed based on current filter
  */
 export async function loadActivityFeed() {
     const container = document.getElementById('activity-feed');
@@ -82,55 +220,43 @@ export async function loadActivityFeed() {
     // Reset state for fresh load
     activityOffset = 0;
     hasMoreActivities = true;
-    relevantUserIdsCache = null;
-    followingIdsCache = null;
+
+    // Show loading
+    container.innerHTML = `
+        <div class="p-6 text-center text-gray-400">
+            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+            <p class="text-sm">Lade Aktivitäten...</p>
+        </div>
+    `;
 
     try {
-        // Get users in the same club
-        let clubMemberIds = [];
-        if (currentUserData.club_id) {
-            const { data: clubMembers } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('club_id', currentUserData.club_id)
-                .neq('id', currentUser.id);
+        // Get user IDs based on filter
+        const userIds = await getUserIdsForFilter();
 
-            clubMemberIds = (clubMembers || []).map(m => m.id);
-        }
-
-        // Get users the current user follows
-        const { data: following } = await supabase
-            .from('friendships')
-            .select('addressee_id')
-            .eq('requester_id', currentUser.id)
-            .eq('status', 'accepted');
-
-        followingIdsCache = (following || []).map(f => f.addressee_id);
-
-        // Combine unique user IDs (club + following)
-        relevantUserIdsCache = [...new Set([...clubMemberIds, ...followingIdsCache])];
-
-        if (relevantUserIdsCache.length === 0) {
+        if (userIds.length === 0) {
             container.innerHTML = `
                 <div class="bg-white rounded-xl shadow-sm p-8 text-center">
                     <i class="fas fa-users text-4xl text-gray-300 mb-3"></i>
                     <p class="text-gray-500 font-medium">Noch keine Aktivitäten</p>
-                    <p class="text-gray-400 text-sm mt-1">Folge anderen Spielern oder tritt einem Verein bei</p>
+                    <p class="text-gray-400 text-sm mt-1">${getEmptyMessage()}</p>
                 </div>
             `;
             hasMoreActivities = false;
             return;
         }
 
+        // Cache for pagination
+        followingIdsCache = userIds;
+
         // Load first batch
-        const activities = await fetchActivities();
+        const activities = await fetchActivities(userIds);
 
         if (activities.length === 0) {
             container.innerHTML = `
                 <div class="bg-white rounded-xl shadow-sm p-8 text-center">
                     <i class="fas fa-table-tennis-paddle-ball text-4xl text-gray-300 mb-3"></i>
                     <p class="text-gray-500 font-medium">Noch keine Aktivitäten</p>
-                    <p class="text-gray-400 text-sm mt-1">Hier erscheinen Spiele von deinem Verein und gefolgten Spielern</p>
+                    <p class="text-gray-400 text-sm mt-1">${getEmptyMessage()}</p>
                 </div>
             `;
             hasMoreActivities = false;
@@ -156,28 +282,88 @@ export async function loadActivityFeed() {
 }
 
 /**
+ * Get user IDs based on current filter
+ */
+async function getUserIdsForFilter() {
+    if (currentFilter === 'my-activities') {
+        return [currentUser.id];
+    }
+
+    if (currentFilter === 'following') {
+        // Get club members + followed users
+        let clubMemberIds = [];
+        if (currentUserData.club_id) {
+            const { data: clubMembers } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('club_id', currentUserData.club_id)
+                .neq('id', currentUser.id);
+
+            clubMemberIds = (clubMembers || []).map(m => m.id);
+        }
+
+        const { data: following } = await supabase
+            .from('friendships')
+            .select('addressee_id')
+            .eq('requester_id', currentUser.id)
+            .eq('status', 'accepted');
+
+        const followingIds = (following || []).map(f => f.addressee_id);
+
+        return [...new Set([...clubMemberIds, ...followingIds])];
+    }
+
+    if (currentFilter.startsWith('club-')) {
+        // Filter by specific club
+        const clubId = currentFilter.replace('club-', '');
+
+        const { data: clubMembers } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('club_id', clubId);
+
+        return (clubMembers || []).map(m => m.id);
+    }
+
+    return [];
+}
+
+/**
+ * Get empty message based on filter
+ */
+function getEmptyMessage() {
+    if (currentFilter === 'my-activities') {
+        return 'Du hast noch keine Spiele gespielt';
+    }
+    if (currentFilter === 'following') {
+        return 'Folge anderen Spielern oder tritt einem Verein bei';
+    }
+    return 'Keine Aktivitäten in diesem Verein';
+}
+
+/**
  * Fetch activities with current offset
  */
-async function fetchActivities() {
-    if (!relevantUserIdsCache || relevantUserIdsCache.length === 0) {
+async function fetchActivities(userIds) {
+    if (!userIds || userIds.length === 0) {
         return [];
     }
 
-    // Load recent singles matches involving these users
+    // Load recent singles matches
     const { data: singlesMatches, error: singlesError } = await supabase
         .from('matches')
         .select('*')
-        .or(`player_a_id.in.(${relevantUserIdsCache.join(',')}),player_b_id.in.(${relevantUserIdsCache.join(',')})`)
+        .or(`player_a_id.in.(${userIds.join(',')}),player_b_id.in.(${userIds.join(',')})`)
         .order('created_at', { ascending: false })
-        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE * 2 - 1); // Fetch more to combine with doubles
+        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE * 2 - 1);
 
     if (singlesError) throw singlesError;
 
-    // Load recent doubles matches involving these users
+    // Load recent doubles matches
     const { data: doublesMatches, error: doublesError } = await supabase
         .from('doubles_matches')
         .select('*')
-        .or(`team_a_player1_id.in.(${relevantUserIdsCache.join(',')}),team_a_player2_id.in.(${relevantUserIdsCache.join(',')}),team_b_player1_id.in.(${relevantUserIdsCache.join(',')}),team_b_player2_id.in.(${relevantUserIdsCache.join(',')})`)
+        .or(`team_a_player1_id.in.(${userIds.join(',')}),team_a_player2_id.in.(${userIds.join(',')}),team_b_player1_id.in.(${userIds.join(',')}),team_b_player2_id.in.(${userIds.join(',')})`)
         .order('created_at', { ascending: false })
         .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
 
@@ -199,7 +385,7 @@ async function fetchActivities() {
         return [];
     }
 
-    // Collect all player IDs needed for profile lookup
+    // Collect all player IDs
     const playerIds = new Set();
     activities.forEach(m => {
         if (m.matchType === 'singles') {
@@ -224,14 +410,24 @@ async function fetchActivities() {
         profileMap[p.id] = p;
     });
 
-    // Load likes data for all activities
+    // Load likes data
     await loadLikesForActivities(activities);
 
-    // Attach profile data to activities
+    // Get following IDs for context icons
+    let followingIds = [];
+    if (currentFilter !== 'my-activities') {
+        const { data: following } = await supabase
+            .from('friendships')
+            .select('addressee_id')
+            .eq('requester_id', currentUser.id)
+            .eq('status', 'accepted');
+        followingIds = (following || []).map(f => f.addressee_id);
+    }
+
     return activities.map(activity => ({
         ...activity,
         profileMap,
-        followingIds: followingIdsCache
+        followingIds
     }));
 }
 
@@ -246,7 +442,7 @@ async function loadMoreActivities() {
     if (loader) loader.classList.remove('hidden');
 
     try {
-        const activities = await fetchActivities();
+        const activities = await fetchActivities(followingIdsCache);
 
         if (activities.length === 0) {
             hasMoreActivities = false;
@@ -255,14 +451,12 @@ async function loadMoreActivities() {
             return;
         }
 
-        // Append to container
         const container = document.getElementById('activity-feed');
         if (container) {
             const newHtml = activities.map(activity => renderActivityCard(activity)).join('');
             container.insertAdjacentHTML('beforeend', newHtml);
         }
 
-        // Update offset
         activityOffset += activities.length;
         hasMoreActivities = activities.length >= ACTIVITIES_PER_PAGE;
 
@@ -292,24 +486,20 @@ async function loadLikesForActivities(activities) {
     if (!activities || activities.length === 0) return;
 
     try {
-        // Prepare batch query parameters
         const activityIds = activities.map(a => a.id);
         const matchTypes = activities.map(a => a.matchType);
 
-        // Try to use the batch function, fall back to individual queries if it doesn't exist
         const { data, error } = await supabase.rpc('get_activity_likes_batch', {
             p_activity_ids: activityIds,
             p_match_types: matchTypes
         });
 
         if (error) {
-            // Function might not exist yet, use fallback
-            console.warn('[ActivityFeed] Batch likes function not available, using fallback:', error.message);
+            console.warn('[ActivityFeed] Batch likes function not available:', error.message);
             await loadLikesFallback(activities);
             return;
         }
 
-        // Cache the results
         (data || []).forEach(like => {
             const key = `${like.match_id}_${like.match_type}`;
             likesDataCache[key] = {
@@ -333,14 +523,12 @@ async function loadLikesFallback(activities) {
         const key = `${activity.id}_${activity.matchType}`;
 
         try {
-            // Get like count
             const { count } = await supabase
                 .from('activity_likes')
                 .select('id', { count: 'exact', head: true })
                 .eq('match_id', activity.id)
                 .eq('match_type', activity.matchType);
 
-            // Check if current user liked
             const { data: userLike } = await supabase
                 .from('activity_likes')
                 .select('id')
@@ -355,7 +543,6 @@ async function loadLikesFallback(activities) {
                 recentLikers: []
             };
         } catch (e) {
-            // Table might not exist yet
             likesDataCache[key] = { likeCount: 0, isLiked: false, recentLikers: [] };
         }
     }
@@ -371,28 +558,23 @@ async function toggleActivityLike(matchId, matchType) {
 
     if (!likeBtn) return;
 
-    // Optimistic UI update
     const currentData = likesDataCache[key] || { likeCount: 0, isLiked: false };
     const newIsLiked = !currentData.isLiked;
     const newCount = newIsLiked ? currentData.likeCount + 1 : Math.max(0, currentData.likeCount - 1);
 
-    // Update UI immediately
     updateLikeUI(likeBtn, countEl, newIsLiked, newCount);
     likesDataCache[key] = { ...currentData, isLiked: newIsLiked, likeCount: newCount };
 
     try {
-        // Try RPC function first
         const { data, error } = await supabase.rpc('toggle_activity_like', {
             p_match_id: matchId,
             p_match_type: matchType
         });
 
         if (error) {
-            // RPC might not exist, use direct insert/delete
-            console.warn('[ActivityFeed] Toggle RPC not available, using fallback:', error.message);
+            console.warn('[ActivityFeed] Toggle RPC not available:', error.message);
             await toggleLikeFallback(matchId, matchType, newIsLiked, key);
         } else if (data) {
-            // Update with server response
             likesDataCache[key] = {
                 ...currentData,
                 isLiked: data.is_liked,
@@ -403,7 +585,6 @@ async function toggleActivityLike(matchId, matchType) {
 
     } catch (error) {
         console.error('[ActivityFeed] Error toggling like:', error);
-        // Revert on error
         updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
         likesDataCache[key] = currentData;
     }
@@ -535,16 +716,18 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Determine context (club or following)
+    // Determine context
     const isFollowingWinner = followingIds.includes(match.winner_id);
     const isFollowingLoser = followingIds.includes(match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id);
     const inSameClub = winnerProfile.club_id === currentUserData.club_id || loserProfile.club_id === currentUserData.club_id;
 
     let contextIcon = '';
-    if (isFollowingWinner || isFollowingLoser) {
-        contextIcon = '<i class="fas fa-user-check text-indigo-400 text-xs" title="Gefolgt"></i>';
-    } else if (inSameClub) {
-        contextIcon = '<i class="fas fa-building text-gray-400 text-xs" title="Verein"></i>';
+    if (currentFilter !== 'my-activities') {
+        if (isFollowingWinner || isFollowingLoser) {
+            contextIcon = '<i class="fas fa-user-check text-indigo-400 text-xs" title="Gefolgt"></i>';
+        } else if (inSameClub) {
+            contextIcon = '<i class="fas fa-building text-gray-400 text-xs" title="Verein"></i>';
+        }
     }
 
     const loserId = match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id;
@@ -552,14 +735,12 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     return `
         <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
             <div class="flex items-start gap-3">
-                <!-- Winner Avatar -->
                 <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0">
                     <img src="${winnerAvatar}" alt="${winnerName}"
                          class="w-12 h-12 rounded-full object-cover border-2 border-green-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </a>
 
-                <!-- Content -->
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <a href="/profile.html?id=${match.winner_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
@@ -579,7 +760,6 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                         ${contextIcon}
                     </div>
 
-                    <!-- Set Details -->
                     <div class="mt-2 text-xs text-gray-500">
                         ${sets.map((set, idx) => {
                             const scoreA = set.playerA ?? set.teamA ?? 0;
@@ -590,13 +770,11 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                         }).join('')}
                     </div>
 
-                    <!-- Like Button -->
                     <div class="mt-3 flex items-center gap-4">
                         ${renderLikeButton(match.id, 'singles')}
                     </div>
                 </div>
 
-                <!-- Loser Avatar (smaller) -->
                 <a href="/profile.html?id=${loserId}" class="flex-shrink-0">
                     <img src="${loserAvatar}" alt="${loserName}"
                          class="w-10 h-10 rounded-full object-cover border-2 border-red-300 opacity-75"
@@ -641,7 +819,6 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
 
     const setScore = `${winnerSets}:${loserSets}`;
 
-    // Format time
     const matchDate = new Date(match.created_at);
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -649,7 +826,6 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
     return `
         <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
             <div class="flex items-start gap-3">
-                <!-- Team Avatars -->
                 <div class="flex-shrink-0 flex -space-x-2">
                     <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
                          class="w-10 h-10 rounded-full object-cover border-2 border-green-400"
@@ -659,7 +835,6 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </div>
 
-                <!-- Content -->
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-semibold text-gray-900">${winnerNames}</span>
@@ -674,13 +849,11 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
                     </div>
 
-                    <!-- Like Button -->
                     <div class="mt-3 flex items-center gap-4">
                         ${renderLikeButton(match.id, 'doubles')}
                     </div>
                 </div>
 
-                <!-- Loser Team Avatars (smaller) -->
                 <div class="flex-shrink-0 flex -space-x-2">
                     <img src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
                          class="w-8 h-8 rounded-full object-cover border-2 border-red-300 opacity-75"

@@ -446,32 +446,17 @@ function setupTabs() {
     }
 }
 
-// --- Setup Search Button (opens Community tab) ---
+// --- Setup Search Button (opens Community fullscreen page) ---
 function setupSearchButton() {
     const searchBtn = document.getElementById('open-community-btn');
-    const headerTitle = document.getElementById('header-title');
+    const closeBtn = document.getElementById('close-community-btn');
+    const communityFullscreen = document.getElementById('community-fullscreen');
 
-    if (searchBtn) {
+    if (searchBtn && communityFullscreen) {
         searchBtn.addEventListener('click', async () => {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-
-            // Show community tab content
-            const communityContent = document.getElementById('tab-content-community');
-            if (communityContent) {
-                communityContent.classList.remove('hidden');
-            }
-
-            // Update tab button states
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('tab-active', 'border-indigo-600', 'text-indigo-600');
-                btn.classList.add('border-transparent', 'text-gray-500');
-            });
-
-            // Update header title
-            if (headerTitle) {
-                headerTitle.textContent = 'Community';
-            }
+            // Show fullscreen community page
+            communityFullscreen.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
 
             // Initialize community modules
             try {
@@ -490,6 +475,22 @@ function setupSearchButton() {
             }, 100);
         });
     }
+
+    // Close button handler
+    if (closeBtn && communityFullscreen) {
+        closeBtn.addEventListener('click', () => {
+            communityFullscreen.classList.add('hidden');
+            document.body.style.overflow = ''; // Restore scrolling
+        });
+    }
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && communityFullscreen && !communityFullscreen.classList.contains('hidden')) {
+            communityFullscreen.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    });
 }
 
 // --- Setup Profile Link ---
