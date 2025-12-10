@@ -779,11 +779,18 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         const winnerEloChange = match.winner_elo_change || match.elo_change || 0;
         const loserEloChange = match.loser_elo_change || -(match.elo_change || 0);
 
+        console.log('[Matches] Sending notifications:', {
+            playerA: { id: playerAId, name: playerAName, isOffline: playerA.isOffline || playerA.is_offline },
+            playerB: { id: playerBId, name: playerBName, isOffline: playerB.isOffline || playerB.is_offline },
+            winnerEloChange, loserEloChange
+        });
+
         // Notify Player A (if online)
         const playerAIsOffline = playerA.isOffline || playerA.is_offline;
         if (!playerAIsOffline) {
             const isWinnerA = winnerId === playerAId;
             const eloChangeA = isWinnerA ? winnerEloChange : loserEloChange;
+            console.log('[Matches] Notifying Player A:', playerAId, isWinnerA ? 'winner' : 'loser');
             await createNotification(
                 playerAId,
                 'match_recorded',
@@ -791,6 +798,8 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 `${isWinnerA ? 'Sieg' : 'Niederlage'} gegen ${playerBName} (${eloChangeA >= 0 ? '+' : ''}${eloChangeA} Elo) - eingetragen von ${coachName}`,
                 { opponent_name: playerBName, is_winner: isWinnerA, elo_change: eloChangeA }
             );
+        } else {
+            console.log('[Matches] Skipping notification for offline Player A:', playerAId);
         }
 
         // Notify Player B (if online)
@@ -798,6 +807,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         if (!playerBIsOffline) {
             const isWinnerB = winnerId === playerBId;
             const eloChangeB = isWinnerB ? winnerEloChange : loserEloChange;
+            console.log('[Matches] Notifying Player B:', playerBId, isWinnerB ? 'winner' : 'loser');
             await createNotification(
                 playerBId,
                 'match_recorded',
@@ -805,6 +815,8 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 `${isWinnerB ? 'Sieg' : 'Niederlage'} gegen ${playerAName} (${eloChangeB >= 0 ? '+' : ''}${eloChangeB} Elo) - eingetragen von ${coachName}`,
                 { opponent_name: playerAName, is_winner: isWinnerB, elo_change: eloChangeB }
             );
+        } else {
+            console.log('[Matches] Skipping notification for offline Player B:', playerBId);
         }
 
         if (feedbackEl) {
