@@ -10,6 +10,8 @@ const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/200
 // Module state
 let currentUser = null;
 let currentUserData = null;
+let currentTypeFilter = 'all';
+let currentModeFilter = 'all';
 
 /**
  * Initialize the module with user data
@@ -18,6 +20,31 @@ export function initMatchHistoryModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     console.log('[MatchHistory] Module initialized with user:', user?.id, 'userData:', userData?.id);
+
+    // Setup filter event listeners
+    setupMatchHistoryFilters();
+}
+
+/**
+ * Setup filter event listeners
+ */
+function setupMatchHistoryFilters() {
+    const typeFilter = document.getElementById('match-history-type-filter');
+    const modeFilter = document.getElementById('match-history-mode-filter');
+
+    if (typeFilter) {
+        typeFilter.addEventListener('change', (e) => {
+            currentTypeFilter = e.target.value;
+            loadMatchHistory();
+        });
+    }
+
+    if (modeFilter) {
+        modeFilter.addEventListener('change', (e) => {
+            currentModeFilter = e.target.value;
+            loadMatchHistory();
+        });
+    }
 }
 
 /**
@@ -38,44 +65,57 @@ export async function loadMatchHistory() {
             .single();
         console.log('[MatchHistory] User profile club_id:', userProfile?.club_id);
 
-        // Fetch singles matches
+        // Fetch singles matches (fetch more to allow for filtering)
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
             .select('*')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
-        console.log('[MatchHistory] Singles matches found:', singlesMatches?.length, singlesMatches);
+        console.log('[MatchHistory] Singles matches found:', singlesMatches?.length);
         if (singlesError) {
             console.error('[MatchHistory] Singles error:', singlesError);
             throw singlesError;
         }
 
-        // Fetch doubles matches
+        // Fetch doubles matches (fetch more to allow for filtering)
         const { data: doublesMatches, error: doublesError } = await supabase
             .from('doubles_matches')
             .select('*')
             .or(`team_a_player1_id.eq.${currentUser.id},team_a_player2_id.eq.${currentUser.id},team_b_player1_id.eq.${currentUser.id},team_b_player2_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
         if (doublesError) console.warn('Error fetching doubles:', doublesError);
 
         // Combine and normalize matches
-        const allMatches = [
+        let allMatches = [
             ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
             ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
         ];
 
+        // Apply type filter
+        if (currentTypeFilter !== 'all') {
+            allMatches = allMatches.filter(m => m.matchType === currentTypeFilter);
+        }
+
+        // Apply mode filter
+        if (currentModeFilter !== 'all') {
+            allMatches = allMatches.filter(m => m.match_mode === currentModeFilter);
+        }
+
         // Sort by date descending
         allMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        // Take top 10
-        const matches = allMatches.slice(0, 10);
+        // Take top 20 (increased to show more filtered results)
+        const matches = allMatches.slice(0, 20);
 
         if (matches.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+            const hasFilters = currentTypeFilter !== 'all' || currentModeFilter !== 'all';
+            container.innerHTML = hasFilters
+                ? '<p class="text-gray-400 text-center py-4 text-sm">Keine Wettkämpfe mit diesen Filtern gefunden</p>'
+                : '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
             return;
         }
 
