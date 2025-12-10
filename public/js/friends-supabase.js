@@ -3,7 +3,7 @@
  * Handles player search, friend requests, and friends list
  */
 
-import { getSupabaseClient } from './supabase-init.js';
+import { getSupabase } from './supabase-init.js';
 
 let searchTimeout = null;
 let currentUser = null;
@@ -14,13 +14,15 @@ let currentUser = null;
 export async function initFriends() {
     console.log('[Friends] Initializing friends module');
 
-    const { user } = await getSupabaseClient();
-    if (!user) {
+    const supabase = getSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session || !session.user) {
         console.error('[Friends] No user found');
         return;
     }
 
-    currentUser = user;
+    currentUser = session.user;
 
     // Setup event listeners
     setupEventListeners();
@@ -74,7 +76,7 @@ async function searchPlayers(query) {
     const resultsContainer = document.getElementById('player-search-results');
 
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         const { data, error } = await supabase
             .rpc('search_players', {
@@ -173,7 +175,7 @@ function renderSearchResults(players) {
  */
 export async function sendFriendRequest(targetUserId) {
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         const { data, error } = await supabase
             .rpc('send_friend_request', {
@@ -218,7 +220,7 @@ export async function sendFriendRequest(targetUserId) {
  */
 export async function acceptFriendRequest(friendshipId) {
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         const { data, error } = await supabase
             .rpc('accept_friend_request', {
@@ -255,7 +257,7 @@ export async function acceptFriendRequest(friendshipId) {
  */
 export async function declineFriendRequest(friendshipId) {
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         const { data, error } = await supabase
             .rpc('decline_friend_request', {
@@ -293,7 +295,7 @@ export async function removeFriend(friendId) {
     }
 
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         const { data, error } = await supabase
             .rpc('remove_friend', {
@@ -335,7 +337,7 @@ export async function removeFriend(friendId) {
  */
 async function loadFriendRequests() {
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         // Load received requests
         const { data: receivedRequests, error: receivedError } = await supabase
@@ -484,7 +486,7 @@ function renderSentRequests(requests) {
  */
 async function loadFriends() {
     try {
-        const { supabase } = await getSupabaseClient();
+        const supabase = getSupabase();
 
         const { data: friends, error } = await supabase
             .rpc('get_friends', {
