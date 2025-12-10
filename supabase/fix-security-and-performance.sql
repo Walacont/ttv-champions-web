@@ -141,49 +141,49 @@ DROP POLICY IF EXISTS matches_select ON matches;
 CREATE POLICY matches_select ON matches FOR SELECT
     USING (club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid())));
 
--- Match requests
+-- Match requests (uses player_a_id/player_b_id, NOT winner_id/loser_id!)
 DROP POLICY IF EXISTS match_requests_select ON match_requests;
 CREATE POLICY match_requests_select ON match_requests FOR SELECT
     USING (
-        winner_id = (SELECT auth.uid())
+        player_a_id = (SELECT auth.uid())
+        OR player_b_id = (SELECT auth.uid())
+        OR winner_id = (SELECT auth.uid())
         OR loser_id = (SELECT auth.uid())
         OR club_id IN (
             SELECT club_id FROM profiles
             WHERE id = (SELECT auth.uid())
-            AND role IN ('coach', 'admin')
+            AND role IN ('coach', 'head_coach', 'admin')
         )
     );
 
 DROP POLICY IF EXISTS match_requests_insert ON match_requests;
 CREATE POLICY match_requests_insert ON match_requests FOR INSERT
     WITH CHECK (
-        (winner_id = (SELECT auth.uid()) OR loser_id = (SELECT auth.uid()))
-        AND club_id IN (SELECT club_id FROM profiles WHERE id = (SELECT auth.uid()))
+        player_a_id = (SELECT auth.uid())
     );
 
 DROP POLICY IF EXISTS match_requests_update ON match_requests;
 CREATE POLICY match_requests_update ON match_requests FOR UPDATE
     USING (
-        winner_id = (SELECT auth.uid())
-        OR loser_id = (SELECT auth.uid())
+        player_a_id = (SELECT auth.uid())
+        OR player_b_id = (SELECT auth.uid())
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
             AND club_id = match_requests.club_id
-            AND role IN ('coach', 'admin')
+            AND role IN ('coach', 'head_coach', 'admin')
         )
     );
 
 DROP POLICY IF EXISTS match_requests_delete ON match_requests;
 CREATE POLICY match_requests_delete ON match_requests FOR DELETE
     USING (
-        winner_id = (SELECT auth.uid())
-        OR loser_id = (SELECT auth.uid())
+        player_a_id = (SELECT auth.uid())
         OR EXISTS (
             SELECT 1 FROM profiles
             WHERE id = (SELECT auth.uid())
             AND club_id = match_requests.club_id
-            AND role IN ('coach', 'admin')
+            AND role IN ('coach', 'head_coach', 'admin')
         )
     );
 
