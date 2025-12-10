@@ -261,6 +261,12 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
     e.preventDefault();
 
     const feedbackEl = document.getElementById('match-feedback');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+
+    // Prevent double submission
+    if (submitBtn && submitBtn.disabled) {
+        return;
+    }
 
     // Get player selections
     const teamAPlayer1Id = document.getElementById('doubles-team-a-player1-select').value;
@@ -314,6 +320,12 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
 
     feedbackEl.textContent = 'Speichere Doppel-Match...';
     feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
+
+    // Disable submit button to prevent double submission
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Speichere...';
+    }
 
     try {
         const matchData = {
@@ -385,6 +397,12 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
             feedbackEl.textContent = 'Doppel-Match gemeldet! Punkte werden in Kürze aktualisiert.';
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
+            // Re-enable submit button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Match speichern';
+            }
+
             // Reset form
             e.target.reset();
 
@@ -420,6 +438,12 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
         console.error('Error saving doubles match:', error);
         feedbackEl.textContent = `Fehler: ${error.message}`;
         feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+
+        // Re-enable submit button on error
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Match speichern';
+        }
     }
 }
 
