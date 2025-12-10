@@ -82,16 +82,13 @@ BEGIN
     UPDATE doubles_matches SET team_b_player1_id = p_new_user_id WHERE team_b_player1_id = p_offline_player_id;
     UPDATE doubles_matches SET team_b_player2_id = p_new_user_id WHERE team_b_player2_id = p_offline_player_id;
 
-    -- Update other tables
+    -- Update other tables (only if they exist)
     UPDATE attendance SET user_id = p_new_user_id WHERE user_id = p_offline_player_id;
-    UPDATE challenge_completions SET player_id = p_new_user_id WHERE player_id = p_offline_player_id;
     UPDATE profile_club_sports SET user_id = p_new_user_id WHERE user_id = p_offline_player_id;
     UPDATE match_requests SET player_a_id = p_new_user_id WHERE player_a_id = p_offline_player_id;
     UPDATE match_requests SET player_b_id = p_new_user_id WHERE player_b_id = p_offline_player_id;
     UPDATE match_requests SET winner_id = p_new_user_id WHERE winner_id = p_offline_player_id;
     UPDATE match_requests SET loser_id = p_new_user_id WHERE loser_id = p_offline_player_id;
-    UPDATE player_points SET player_id = p_new_user_id WHERE player_id = p_offline_player_id;
-    UPDATE user_sport_stats SET user_id = p_new_user_id WHERE user_id = p_offline_player_id;
 
     -- Clear invitation code reference
     UPDATE invitation_codes SET
