@@ -304,14 +304,16 @@ async function initializeDashboard() {
     loadExercises();
     loadMatchRequests();
     loadPendingRequests();
-    loadMatchHistory();
     loadCalendar();
     // Initialize season countdown (efficient: loads once, updates display every second)
     initSeasonCountdown();
 
-    // Initialize match modules with current user data
+    // Initialize match modules with current user data (MUST be before loadMatchHistory and setupMatchForm)
     initMatchFormModule(currentUser, currentUserData, currentSportContext);
     initMatchHistoryModule(currentUser, currentUserData);
+
+    // Load match history (after module initialization)
+    loadMatchHistory();
 
     // Setup match form (from extracted module)
     setupMatchForm({
