@@ -285,6 +285,7 @@ async function initializeDashboard() {
     setupLogout();
     setupProfileLink();
     setupCoachIndicator();
+    setupSearchButton();
     setupFilters();
     setupModalHandlers();
 
@@ -435,6 +436,52 @@ function setupTabs() {
     // Activate first tab
     if (tabButtons.length > 0) {
         tabButtons[0].click();
+    }
+}
+
+// --- Setup Search Button (opens Community tab) ---
+function setupSearchButton() {
+    const searchBtn = document.getElementById('open-community-btn');
+    const headerTitle = document.getElementById('header-title');
+
+    if (searchBtn) {
+        searchBtn.addEventListener('click', async () => {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+
+            // Show community tab content
+            const communityContent = document.getElementById('tab-content-community');
+            if (communityContent) {
+                communityContent.classList.remove('hidden');
+            }
+
+            // Update tab button states
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('tab-active', 'border-indigo-600', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            // Update header title
+            if (headerTitle) {
+                headerTitle.textContent = 'Community';
+            }
+
+            // Initialize community modules
+            try {
+                await initFriends();
+                await initCommunity();
+            } catch (error) {
+                console.error('Error initializing community modules:', error);
+            }
+
+            // Focus search input after a short delay
+            setTimeout(() => {
+                const searchInput = document.getElementById('player-search-input');
+                if (searchInput) {
+                    searchInput.focus();
+                }
+            }, 100);
+        });
     }
 }
 
