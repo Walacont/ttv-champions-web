@@ -514,10 +514,29 @@ async function renderFollowButton() {
 /**
  * Follow a user
  */
+let followInProgress = false;
 window.followUser = async function(userId) {
     if (!currentUser) {
         window.location.href = '/app.html';
         return;
+    }
+
+    // Prevent double-clicks
+    if (followInProgress) {
+        console.log('[ProfileView] Follow already in progress');
+        return;
+    }
+
+    followInProgress = true;
+
+    // Update button to show loading state
+    const container = document.getElementById('follow-button-container');
+    if (container) {
+        container.innerHTML = `
+            <button class="bg-gray-300 text-gray-500 font-semibold py-2 px-6 rounded-full cursor-wait" disabled>
+                <i class="fas fa-spinner fa-spin mr-2"></i>Wird verarbeitet...
+            </button>
+        `;
     }
 
     try {
@@ -561,6 +580,10 @@ window.followUser = async function(userId) {
     } catch (error) {
         console.error('[ProfileView] Error following user:', error);
         alert('Fehler beim Folgen');
+        // Render button again on error
+        await renderFollowButton();
+    } finally {
+        followInProgress = false;
     }
 };
 

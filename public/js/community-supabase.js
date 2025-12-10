@@ -9,6 +9,8 @@ import { createFollowRequestNotification } from './notifications-supabase.js';
 let currentUser = null;
 let currentUserData = null;
 let clubSearchTimeout = null;
+let pendingRequestIds = new Set(); // Track pending outgoing follow requests
+let friendshipSubscription = null; // Real-time subscription
 
 /**
  * Initialize the community module
@@ -41,11 +43,18 @@ export async function initCommunity() {
     setupEventListeners();
 
     // Load initial data
+    await loadPendingFollowRequests();
     await loadSuggestedUsers();
     await loadCurrentClubStatus();
 
+    // Setup real-time subscription for friendship changes
+    setupFriendshipSubscription();
+
     // Expose tab switch function globally
     window.switchCommunityTab = switchCommunityTab;
+
+    // Expose withdraw function globally
+    window.withdrawFollowRequest = withdrawFollowRequest;
 }
 
 /**
@@ -62,6 +71,31 @@ function setupEventListeners() {
     const followAllBtn = document.getElementById('follow-all-btn');
     if (followAllBtn) {
         followAllBtn.addEventListener('click', followAllSuggested);
+    }
+
+    // Open Community button (search icon in header)
+    const openCommunityBtn = document.getElementById('open-community-btn');
+    if (openCommunityBtn) {
+        openCommunityBtn.addEventListener('click', () => {
+            // Find and click the community tab button or switch to community tab
+            const communityContent = document.getElementById('tab-content-community');
+            if (communityContent) {
+                // Hide all tab contents
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+                // Show community content
+                communityContent.classList.remove('hidden');
+                // Update tab button states (remove active from all)
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('tab-active', 'border-indigo-600', 'text-indigo-600');
+                    btn.classList.add('border-transparent', 'text-gray-500');
+                });
+                // Focus search input
+                const searchInput = document.getElementById('player-search-input');
+                if (searchInput) {
+                    setTimeout(() => searchInput.focus(), 100);
+                }
+            }
+        });
     }
 }
 
@@ -99,6 +133,86 @@ function switchCommunityTab(tab) {
 }
 
 /**
+ * Load pending outgoing follow requests
+ */
+async function loadPendingFollowRequests() {
+    const container = document.getElementById('pending-follow-requests-list');
+    const section = document.getElementById('pending-follow-requests-section');
+    const countEl = document.getElementById('pending-requests-count');
+
+    try {
+        const supabase = getSupabase();
+
+        // Get pending requests where current user is the requester
+        const { data: pendingRequests, error } = await supabase
+            .from('friendships')
+            .select(`
+                id,
+                addressee_id,
+                created_at,
+                addressee:profiles!friendships_addressee_id_fkey(id, first_name, last_name, photo_url, clubs(name))
+            `)
+            .eq('requester_id', currentUser.id)
+            .eq('status', 'pending');
+
+        if (error) {
+            console.error('[Community] Error loading pending requests:', error);
+            return;
+        }
+
+        // Update pending request IDs set
+        pendingRequestIds.clear();
+        if (pendingRequests) {
+            pendingRequests.forEach(r => pendingRequestIds.add(r.addressee_id));
+        }
+
+        if (!container || !section) return;
+
+        if (!pendingRequests || pendingRequests.length === 0) {
+            section.classList.add('hidden');
+            return;
+        }
+
+        section.classList.remove('hidden');
+        if (countEl) countEl.textContent = `(${pendingRequests.length})`;
+
+        const html = pendingRequests.map(request => {
+            const user = request.addressee;
+            const photoUrl = user?.photo_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user?.first_name?.[0] || '?'}`;
+            const fullName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unbekannt';
+            const clubName = user?.clubs?.name || 'Kein Verein';
+
+            return `
+                <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <a href="/profile.html?id=${user?.id}" class="flex items-center gap-3 flex-1 hover:opacity-80 transition">
+                        <img
+                            src="${photoUrl}"
+                            alt="${escapeHtml(fullName)}"
+                            class="h-12 w-12 rounded-full object-cover border-2 border-yellow-200"
+                        />
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-semibold text-gray-800 truncate">${escapeHtml(fullName)}</h4>
+                            <p class="text-sm text-gray-500 truncate">${escapeHtml(clubName)}</p>
+                        </div>
+                    </a>
+                    <button
+                        onclick="window.withdrawFollowRequest('${request.id}', '${user?.id}')"
+                        class="text-red-600 hover:text-white hover:bg-red-600 font-semibold py-2 px-4 rounded-full text-sm transition border border-red-600"
+                    >
+                        Zurückziehen
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = html;
+
+    } catch (error) {
+        console.error('[Community] Error loading pending requests:', error);
+    }
+}
+
+/**
  * Load suggested users (club members not yet followed)
  */
 async function loadSuggestedUsers() {
@@ -108,56 +222,73 @@ async function loadSuggestedUsers() {
     try {
         const supabase = getSupabase();
 
-        // Get users from same club who are not yet friends
-        let query = supabase
-            .from('profiles')
-            .select('id, first_name, last_name, photo_url, elo_rating, club_id, clubs(name)')
-            .neq('id', currentUser.id)
-            .limit(10);
-
-        // If user has a club, prioritize club members
-        if (currentUserData?.club_id) {
-            query = query.eq('club_id', currentUserData.club_id);
-        }
-
-        const { data: potentialUsers, error } = await query;
-
-        if (error) {
-            console.error('[Community] Error loading suggested users:', error);
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Fehler beim Laden</p>';
-            return;
-        }
-
-        // Filter out users already followed
-        const { data: friendships } = await supabase
+        // Get all friendships (both accepted and pending) to filter out
+        const { data: allFriendships } = await supabase
             .from('friendships')
-            .select('requester_id, addressee_id')
-            .or(`requester_id.eq.${currentUser.id},addressee_id.eq.${currentUser.id}`)
-            .eq('status', 'accepted');
+            .select('requester_id, addressee_id, status')
+            .or(`requester_id.eq.${currentUser.id},addressee_id.eq.${currentUser.id}`);
 
-        const friendIds = new Set();
-        if (friendships) {
-            friendships.forEach(f => {
+        const excludeIds = new Set();
+        if (allFriendships) {
+            allFriendships.forEach(f => {
                 if (f.requester_id === currentUser.id) {
-                    friendIds.add(f.addressee_id);
+                    excludeIds.add(f.addressee_id);
                 } else {
-                    friendIds.add(f.requester_id);
+                    excludeIds.add(f.requester_id);
                 }
             });
         }
 
-        const suggestedUsers = (potentialUsers || []).filter(u => !friendIds.has(u.id));
+        let potentialUsers = [];
 
-        if (suggestedUsers.length === 0) {
+        // If user has a club, first get club members
+        if (currentUserData?.club_id) {
+            const { data: clubMembers } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, photo_url, elo_rating, club_id, clubs(name)')
+                .eq('club_id', currentUserData.club_id)
+                .neq('id', currentUser.id)
+                .limit(10);
+
+            if (clubMembers) {
+                potentialUsers = clubMembers.filter(u => !excludeIds.has(u.id));
+            }
+        }
+
+        // If we don't have enough suggestions, get users with similar ELO
+        if (potentialUsers.length < 5) {
+            const currentElo = currentUserData?.elo_rating || 1000;
+            const { data: similarUsers } = await supabase
+                .from('profiles')
+                .select('id, first_name, last_name, photo_url, elo_rating, club_id, clubs(name)')
+                .neq('id', currentUser.id)
+                .gte('elo_rating', currentElo - 200)
+                .lte('elo_rating', currentElo + 200)
+                .limit(10);
+
+            if (similarUsers) {
+                const existingIds = new Set(potentialUsers.map(u => u.id));
+                const newUsers = similarUsers.filter(u => !excludeIds.has(u.id) && !existingIds.has(u.id));
+                potentialUsers = [...potentialUsers, ...newUsers].slice(0, 10);
+            }
+        }
+
+        if (potentialUsers.length === 0) {
             container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Vorschläge verfügbar</p>';
             document.getElementById('follow-all-btn')?.classList.add('hidden');
             return;
         }
 
-        // Store for follow all
-        window._suggestedUserIds = suggestedUsers.map(u => u.id);
+        // Store for follow all (only users not already pending)
+        window._suggestedUserIds = potentialUsers.filter(u => !pendingRequestIds.has(u.id)).map(u => u.id);
 
-        renderSuggestedUsers(suggestedUsers);
+        if (window._suggestedUserIds.length === 0) {
+            document.getElementById('follow-all-btn')?.classList.add('hidden');
+        } else {
+            document.getElementById('follow-all-btn')?.classList.remove('hidden');
+        }
+
+        renderSuggestedUsers(potentialUsers);
 
     } catch (error) {
         console.error('[Community] Error loading suggested users:', error);
@@ -176,7 +307,28 @@ function renderSuggestedUsers(users) {
         const photoUrl = user.photo_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user.first_name?.[0] || '?'}`;
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
         const clubName = user.clubs?.name || 'Kein Verein';
-        const subtitle = currentUserData?.club_id === user.club_id ? 'Aus deinem Verein' : clubName;
+
+        // Only show "Aus deinem Verein" if current user actually has a club AND they share the same club
+        let subtitle;
+        if (currentUserData?.club_id && currentUserData.club_id === user.club_id) {
+            subtitle = 'Aus deinem Verein';
+        } else {
+            subtitle = clubName;
+        }
+
+        // Check if request is pending
+        const isPending = pendingRequestIds.has(user.id);
+
+        const buttonHtml = isPending
+            ? `<span class="text-yellow-600 font-semibold py-2 px-4 rounded-full text-sm border border-yellow-600 bg-yellow-50">
+                   <i class="fas fa-clock mr-1"></i>Ausstehend
+               </span>`
+            : `<button
+                   onclick="window.followUserFromCommunity('${user.id}')"
+                   class="text-indigo-600 hover:text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-full text-sm transition border border-indigo-600"
+               >
+                   Folgen
+               </button>`;
 
         return `
             <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
@@ -191,12 +343,7 @@ function renderSuggestedUsers(users) {
                         <p class="text-sm text-gray-500 truncate">${escapeHtml(subtitle)}</p>
                     </div>
                 </a>
-                <button
-                    onclick="window.followUserFromCommunity('${user.id}')"
-                    class="text-indigo-600 hover:text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-full text-sm transition border border-indigo-600"
-                >
-                    Folgen
-                </button>
+                ${buttonHtml}
             </div>
         `;
     }).join('');
@@ -210,13 +357,19 @@ function renderSuggestedUsers(users) {
 window.followUserFromCommunity = async function(userId) {
     if (!currentUser) return;
 
+    // Check if already pending
+    if (pendingRequestIds.has(userId)) {
+        console.log('[Community] Request already pending for user:', userId);
+        return;
+    }
+
     try {
         const supabase = getSupabase();
 
         // Check target user's privacy settings
         const { data: targetUser } = await supabase
             .from('profiles')
-            .select('privacy_settings')
+            .select('privacy_settings, first_name, last_name')
             .eq('id', userId)
             .single();
 
@@ -230,13 +383,17 @@ window.followUserFromCommunity = async function(userId) {
 
         if (error) throw error;
 
+        // Add to pending set immediately for UI feedback
+        pendingRequestIds.add(userId);
+
         // For non-public profiles, create a notification for the target user
         if (!isPublicProfile) {
             const requesterName = `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Jemand';
             await createFollowRequestNotification(userId, currentUser.id, requesterName);
         }
 
-        // Reload suggested users
+        // Reload suggested users and pending requests
+        await loadPendingFollowRequests();
         await loadSuggestedUsers();
 
         // Also reload friends list if the friends module is active
@@ -583,6 +740,92 @@ window.withdrawClubRequest = async function(requestId) {
 };
 
 /**
+ * Withdraw a follow request
+ */
+async function withdrawFollowRequest(friendshipId, targetUserId) {
+    if (!confirm('Möchtest du die Anfrage wirklich zurückziehen?')) {
+        return;
+    }
+
+    try {
+        const supabase = getSupabase();
+
+        const { error } = await supabase
+            .from('friendships')
+            .delete()
+            .eq('id', friendshipId);
+
+        if (error) throw error;
+
+        // Remove from pending set
+        pendingRequestIds.delete(targetUserId);
+
+        // Reload lists
+        await loadPendingFollowRequests();
+        await loadSuggestedUsers();
+
+    } catch (error) {
+        console.error('[Community] Error withdrawing follow request:', error);
+        alert('Fehler beim Zurückziehen der Anfrage');
+    }
+}
+
+/**
+ * Setup real-time subscription for friendship changes
+ */
+function setupFriendshipSubscription() {
+    if (friendshipSubscription) {
+        // Already subscribed
+        return;
+    }
+
+    const supabase = getSupabase();
+
+    friendshipSubscription = supabase
+        .channel('friendship_changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'friendships',
+                filter: `addressee_id=eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('[Community] Friendship change received:', payload);
+
+                // Reload data when something changes
+                await loadPendingFollowRequests();
+                await loadSuggestedUsers();
+
+                // Trigger notification reload if available
+                if (typeof window.loadNotifications === 'function') {
+                    window.loadNotifications();
+                }
+            }
+        )
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'friendships',
+                filter: `requester_id=eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('[Community] Outgoing friendship change received:', payload);
+
+                // Reload data when something changes
+                await loadPendingFollowRequests();
+                await loadSuggestedUsers();
+            }
+        )
+        .subscribe();
+
+    console.log('[Community] Real-time subscription setup complete');
+}
+
+/**
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
@@ -593,4 +836,4 @@ function escapeHtml(text) {
 }
 
 // Export for use in other modules
-export { loadSuggestedUsers, loadCurrentClubStatus, switchCommunityTab };
+export { loadSuggestedUsers, loadCurrentClubStatus, switchCommunityTab, loadPendingFollowRequests };
