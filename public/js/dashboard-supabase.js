@@ -3216,6 +3216,11 @@ async function searchOpponents(query, resultsContainer) {
         console.log('[Opponent Search] Current user club:', currentUserData.club_id, 'isTestClub:', isCurrentUserInTestClub);
 
         const filteredPlayers = (players || []).filter(player => {
+            // Exclude admins (extra safety)
+            if (player.role === 'admin') {
+                return false;
+            }
+
             // Must be match-ready
             if (player.is_match_ready !== true) {
                 console.log('[Opponent Search] Filtered out (not match-ready):', player.first_name, player.last_name, 'is_match_ready:', player.is_match_ready);

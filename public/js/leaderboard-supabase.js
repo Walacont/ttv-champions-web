@@ -282,22 +282,24 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
 
         if (error) throw error;
 
-        let players = (data || []).map(p => ({
-            id: p.id,
-            firstName: p.first_name,
-            lastName: p.last_name,
-            eloRating: p.elo_rating || 1000,
-            highestElo: p.highest_elo,
-            photoURL: p.avatar_url,
-            role: p.role,
-            subgroupIDs: p.subgroup_ids || [],
-            xp: p.xp || 0,
-            points: p.points || 0,
-            birthdate: p.birthdate,
-            gender: p.gender,
-            clubId: p.club_id || clubId,
-            privacySettings: p.privacy_settings || {}
-        }));
+        let players = (data || [])
+            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .map(p => ({
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                eloRating: p.elo_rating || 1000,
+                highestElo: p.highest_elo,
+                photoURL: p.avatar_url,
+                role: p.role,
+                subgroupIDs: p.subgroup_ids || [],
+                xp: p.xp || 0,
+                points: p.points || 0,
+                birthdate: p.birthdate,
+                gender: p.gender,
+                clubId: p.club_id || clubId,
+                privacySettings: p.privacy_settings || {}
+            }));
 
         // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -368,19 +370,21 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
 
         if (error) throw error;
 
-        let players = (data || []).map(p => ({
-            id: p.id,
-            firstName: p.first_name,
-            lastName: p.last_name,
-            xp: p.xp || 0,
-            photoURL: p.avatar_url,
-            role: p.role,
-            subgroupIDs: p.subgroup_ids || [],
-            birthdate: p.birthdate,
-            gender: p.gender,
-            clubId: p.club_id || clubId,
-            privacySettings: p.privacy_settings || {}
-        }));
+        let players = (data || [])
+            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .map(p => ({
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                xp: p.xp || 0,
+                photoURL: p.avatar_url,
+                role: p.role,
+                subgroupIDs: p.subgroup_ids || [],
+                birthdate: p.birthdate,
+                gender: p.gender,
+                clubId: p.club_id || clubId,
+                privacySettings: p.privacy_settings || {}
+            }));
 
         // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -451,19 +455,21 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
 
         if (error) throw error;
 
-        let players = (data || []).map(p => ({
-            id: p.id,
-            firstName: p.first_name,
-            lastName: p.last_name,
-            points: p.points || 0,
-            photoURL: p.avatar_url,
-            role: p.role,
-            subgroupIDs: p.subgroup_ids || [],
-            birthdate: p.birthdate,
-            gender: p.gender,
-            clubId: p.club_id || clubId,
-            privacySettings: p.privacy_settings || {}
-        }));
+        let players = (data || [])
+            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .map(p => ({
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                points: p.points || 0,
+                photoURL: p.avatar_url,
+                role: p.role,
+                subgroupIDs: p.subgroup_ids || [],
+                birthdate: p.birthdate,
+                gender: p.gender,
+                clubId: p.club_id || clubId,
+                privacySettings: p.privacy_settings || {}
+            }));
 
         // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
@@ -685,21 +691,23 @@ async function loadLeaderboardFallback(sportId) {
 
     if (error) throw error;
 
-    return (data || []).map(p => ({
-        id: p.id,
-        firstName: p.first_name,
-        lastName: p.last_name,
-        eloRating: p.elo_rating || 1000,
-        highestElo: p.highest_elo,
-        photoURL: p.avatar_url,
-        role: p.role,
-        clubId: p.club_id,
-        clubName: p.clubs?.name || 'Kein Verein',
-        subgroupIDs: p.subgroup_ids || [],
-        birthdate: p.birthdate,
-        gender: p.gender,
-        privacySettings: p.privacy_settings || {}
-    }));
+    return (data || [])
+        .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+        .map(p => ({
+            id: p.id,
+            firstName: p.first_name,
+            lastName: p.last_name,
+            eloRating: p.elo_rating || 1000,
+            highestElo: p.highest_elo,
+            photoURL: p.avatar_url,
+            role: p.role,
+            clubId: p.club_id,
+            clubName: p.clubs?.name || 'Kein Verein',
+            subgroupIDs: p.subgroup_ids || [],
+            birthdate: p.birthdate,
+            gender: p.gender,
+            privacySettings: p.privacy_settings || {}
+        }));
 }
 
 /**
@@ -1192,20 +1200,22 @@ async function loadRanksView(userData) {
 
         if (error) throw error;
 
-        let players = (data || []).map(p => ({
-            id: p.id,
-            firstName: p.first_name,
-            lastName: p.last_name,
-            eloRating: p.elo_rating || 1000,
-            xp: p.xp || 0,
-            photoURL: p.avatar_url,
-            role: p.role,
-            subgroupIDs: p.subgroup_ids || [],
-            birthdate: p.birthdate,
-            gender: p.gender,
-            clubId: p.club_id || userData.clubId,
-            privacySettings: p.privacy_settings || {}
-        }));
+        let players = (data || [])
+            .filter(p => p.role !== 'admin') // Extra safety: exclude admins client-side
+            .map(p => ({
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                eloRating: p.elo_rating || 1000,
+                xp: p.xp || 0,
+                photoURL: p.avatar_url,
+                role: p.role,
+                subgroupIDs: p.subgroup_ids || [],
+                birthdate: p.birthdate,
+                gender: p.gender,
+                clubId: p.club_id || userData.clubId,
+                privacySettings: p.privacy_settings || {}
+            }));
 
         // Apply filters
         if (currentLeaderboardSubgroupFilter !== 'all') {
