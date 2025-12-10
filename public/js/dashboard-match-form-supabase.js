@@ -472,10 +472,6 @@ async function searchOpponents(query, resultsContainer) {
                 ? 'opponent-option-disabled flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 mb-2 opacity-60 cursor-not-allowed'
                 : 'opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2';
 
-            const chevronOrInfo = isOffline
-                ? '<i class="fas fa-ban text-orange-400" title="Offline-Spieler können keine Anfragen annehmen"></i>'
-                : '<i class="fas fa-chevron-right text-gray-400"></i>';
-
             return `
             <div class="${containerClass}"
                  data-id="${player.id}"
@@ -491,7 +487,6 @@ async function searchOpponents(query, resultsContainer) {
                 </div>
                 ${offlineBadge}
                 ${clubBadge}
-                ${chevronOrInfo}
             </div>
         `;
         }).join('');
