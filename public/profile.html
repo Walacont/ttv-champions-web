@@ -48,9 +48,6 @@
             #main-content {
                 display: none;
             }
-            .profile-header-gradient {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
             .stat-card {
                 transition: transform 0.2s;
             }
@@ -84,68 +81,67 @@
         </div>
 
         <div id="main-content" class="min-h-screen">
-            <!-- Header with gradient background -->
-            <div class="profile-header-gradient text-white">
-                <div class="container mx-auto px-4 pt-4 pb-24">
-                    <!-- Top Navigation -->
-                    <div class="flex justify-between items-center mb-6">
+            <!-- Top Navigation Bar -->
+            <div class="bg-white border-b border-gray-200 sticky top-0 z-10">
+                <div class="container mx-auto px-4 py-3">
+                    <div class="flex justify-between items-center">
                         <button
                             onclick="window.location.href = document.referrer.includes('dashboard') ? document.referrer : '/dashboard.html#community'"
-                            class="text-white hover:text-gray-200 transition"
+                            class="text-gray-600 hover:text-gray-800 transition flex items-center"
                         >
-                            <i class="fas fa-arrow-left text-xl"></i>
+                            <i class="fas fa-arrow-left text-lg mr-2"></i>
+                            <span class="text-sm font-medium">Zurück</span>
                         </button>
+                        <h1 class="text-lg font-semibold text-gray-800">Profil</h1>
                         <button
                             id="profile-menu-btn"
-                            class="text-white hover:text-gray-200 transition"
+                            class="text-gray-600 hover:text-gray-800 transition"
                         >
-                            <i class="fas fa-ellipsis-h text-xl"></i>
+                            <i class="fas fa-ellipsis-h text-lg"></i>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Profile Card (overlapping header) -->
-            <div class="container mx-auto px-4 -mt-20">
-                <!-- Avatar outside the card to prevent clipping -->
-                <div class="flex justify-center sm:justify-start mb-4">
+            <!-- Profile Content -->
+            <div class="container mx-auto px-4 py-6">
+                <!-- Avatar -->
+                <div class="flex justify-center mb-4">
                     <img
                         id="profile-avatar"
                         src="https://placehold.co/120x120/e2e8f0/64748b?text=..."
                         alt="Profilbild"
-                        class="h-28 w-28 rounded-full object-cover border-4 border-white shadow-lg bg-white"
+                        class="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg bg-white"
                     />
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div class="bg-white rounded-2xl shadow-md overflow-hidden">
                     <!-- Profile Info Section -->
                     <div class="p-6">
-                        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-                            <!-- Name and Location -->
-                            <div class="text-center sm:text-left flex-1">
-                                <h1 id="profile-name" class="text-2xl font-bold text-gray-900">
-                                    Laden...
-                                </h1>
-                                <p id="profile-location" class="text-gray-500 mt-1">
-                                    <i class="fas fa-map-marker-alt mr-1"></i>
-                                    <span>-</span>
-                                </p>
-                            </div>
-
-                            <!-- Follow Button -->
-                            <div id="follow-button-container" class="mt-2 sm:mt-0">
-                                <!-- Button wird dynamisch eingefügt -->
-                            </div>
-                        </div>
-
-                        <!-- Bio -->
-                        <div id="profile-bio-container" class="mt-4 hidden">
-                            <p id="profile-bio" class="text-gray-600 text-center sm:text-left">
+                        <!-- Name and Location -->
+                        <div class="text-center">
+                            <h1 id="profile-name" class="text-2xl font-bold text-gray-900">
+                                Laden...
+                            </h1>
+                            <p id="profile-location" class="text-gray-500 mt-1">
+                                <i class="fas fa-map-marker-alt mr-1"></i>
+                                <span>-</span>
                             </p>
                         </div>
 
+                        <!-- Bio -->
+                        <div id="profile-bio-container" class="mt-3 hidden">
+                            <p id="profile-bio" class="text-gray-600 text-center text-sm">
+                            </p>
+                        </div>
+
+                        <!-- Follow Button -->
+                        <div id="follow-button-container" class="mt-4 flex justify-center">
+                            <!-- Button wird dynamisch eingefügt -->
+                        </div>
+
                         <!-- Follower Stats -->
-                        <div class="flex justify-center sm:justify-start gap-6 mt-4 pt-4 border-t">
+                        <div class="flex justify-center gap-8 mt-4 pt-4 border-t">
                             <div class="text-center">
                                 <span id="following-count" class="text-xl font-bold text-gray-900">0</span>
                                 <p class="text-sm text-gray-500">Gefolgt</p>
@@ -170,53 +166,43 @@
                     <div id="public-profile-content" class="hidden">
                         <!-- Stats Grid -->
                         <div class="p-6 border-t">
-                            <h2 class="text-lg font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-chart-bar mr-2 text-indigo-600"></i>Statistiken
-                            </h2>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                <div class="stat-card bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 rounded-xl text-center">
-                                    <i class="fas fa-bolt text-indigo-600 text-xl mb-2"></i>
-                                    <p id="stat-elo" class="text-2xl font-bold text-indigo-600">-</p>
-                                    <p class="text-xs text-gray-600">Elo Rating</p>
+                            <div class="grid grid-cols-4 gap-2 text-center">
+                                <div class="stat-card p-3">
+                                    <p id="stat-elo" class="text-xl font-bold text-gray-900">-</p>
+                                    <p class="text-xs text-gray-500">Elo</p>
                                 </div>
-                                <div class="stat-card bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl text-center">
-                                    <i class="fas fa-trophy text-green-600 text-xl mb-2"></i>
-                                    <p id="stat-wins" class="text-2xl font-bold text-green-600">-</p>
-                                    <p class="text-xs text-gray-600">Siege</p>
+                                <div class="stat-card p-3">
+                                    <p id="stat-wins" class="text-xl font-bold text-gray-900">-</p>
+                                    <p class="text-xs text-gray-500">Siege</p>
                                 </div>
-                                <div class="stat-card bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl text-center">
-                                    <i class="fas fa-table-tennis-paddle-ball text-orange-600 text-xl mb-2"></i>
-                                    <p id="stat-matches" class="text-2xl font-bold text-orange-600">-</p>
-                                    <p class="text-xs text-gray-600">Matches</p>
+                                <div class="stat-card p-3">
+                                    <p id="stat-matches" class="text-xl font-bold text-gray-900">-</p>
+                                    <p class="text-xs text-gray-500">Spiele</p>
                                 </div>
-                                <div class="stat-card bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl text-center">
-                                    <i class="fas fa-star text-purple-600 text-xl mb-2"></i>
-                                    <p id="stat-points" class="text-2xl font-bold text-purple-600">-</p>
-                                    <p class="text-xs text-gray-600">Punkte</p>
+                                <div class="stat-card p-3">
+                                    <p id="stat-points" class="text-xl font-bold text-gray-900">-</p>
+                                    <p class="text-xs text-gray-500">Punkte</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Club Section -->
                         <div id="club-section" class="p-6 border-t hidden">
-                            <h2 class="text-lg font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-users mr-2 text-indigo-600"></i>Verein
-                            </h2>
-                            <div id="club-info" class="bg-gray-50 p-4 rounded-xl flex items-center gap-4">
-                                <div class="h-12 w-12 bg-indigo-100 rounded-full flex items-center justify-center">
-                                    <i class="fas fa-building text-indigo-600"></i>
+                            <div id="club-info" class="flex items-center gap-3">
+                                <div class="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-building text-gray-500"></i>
                                 </div>
                                 <div>
-                                    <p id="club-name" class="font-semibold text-gray-800">-</p>
+                                    <p id="club-name" class="font-medium text-gray-800">-</p>
                                     <p id="club-members" class="text-sm text-gray-500">- Mitglieder</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Recent Activity Preview -->
-                        <div id="activity-section" class="p-6 border-t bg-gray-50 hidden">
-                            <h2 class="text-lg font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-history mr-2 text-indigo-600"></i>Letzte Aktivität
+                        <div id="activity-section" class="p-6 border-t hidden">
+                            <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                                Letzte Aktivität
                             </h2>
                             <div id="recent-matches">
                                 <p class="text-gray-400 text-center py-4 text-sm">
@@ -228,9 +214,9 @@
                 </div>
 
                 <!-- Mutual Friends Section -->
-                <div id="mutual-friends-section" class="bg-white rounded-2xl shadow-lg mt-4 p-6 hidden">
-                    <h2 class="text-lg font-semibold text-gray-800 mb-4">
-                        <i class="fas fa-user-friends mr-2 text-indigo-600"></i>Gemeinsame Freunde
+                <div id="mutual-friends-section" class="bg-white rounded-2xl shadow-md mt-4 p-6 hidden">
+                    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                        Gemeinsame Freunde
                     </h2>
                     <div id="mutual-friends-list" class="flex flex-wrap gap-3">
                         <!-- Wird dynamisch gefüllt -->
