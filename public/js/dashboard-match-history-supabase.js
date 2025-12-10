@@ -30,6 +30,14 @@ export async function loadMatchHistory() {
     console.log('[MatchHistory] Loading matches for user:', currentUser?.id);
 
     try {
+        // Debug: Check user's profile to see club_id
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('id, club_id, first_name, last_name')
+            .eq('id', currentUser.id)
+            .single();
+        console.log('[MatchHistory] User profile club_id:', userProfile?.club_id);
+
         // Fetch singles matches
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
