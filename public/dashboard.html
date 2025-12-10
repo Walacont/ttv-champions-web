@@ -321,25 +321,18 @@
 
             <main>
                 <div id="tab-content-overview" class="tab-content">
-                    <!-- Activity Feed Section - Now the main content of Start tab -->
+                    <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
-                        <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                            <div class="p-4 border-b border-gray-100">
-                                <h2 class="text-lg font-bold text-gray-800">
-                                    <i class="fas fa-stream text-indigo-600 mr-2"></i>Aktivitäten
-                                </h2>
-                                <p class="text-xs text-gray-500 mt-1">Aktivitäten von deinem Verein und gefolgten Spielern</p>
+                        <div id="activity-feed" class="space-y-3">
+                            <div class="p-6 text-center text-gray-400">
+                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                <p class="text-sm">Lade Aktivitäten...</p>
                             </div>
-                            <div id="activity-feed" class="divide-y divide-gray-100">
-                                <div class="p-6 text-center text-gray-400">
-                                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                                    <p class="text-sm">Lade Aktivitäten...</p>
-                                </div>
-                            </div>
-                            <div id="load-more-activities" class="p-4 text-center hidden">
-                                <button class="text-indigo-600 hover:text-indigo-800 font-semibold text-sm">
-                                    Mehr laden...
-                                </button>
+                        </div>
+                        <!-- Infinite scroll sentinel -->
+                        <div id="activity-feed-sentinel" class="h-10 flex items-center justify-center">
+                            <div id="activity-feed-loader" class="hidden">
+                                <i class="fas fa-spinner fa-spin text-indigo-400"></i>
                             </div>
                         </div>
                     </div>

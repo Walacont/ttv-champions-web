@@ -1,7 +1,7 @@
 /**
  * Activity Feed Module - Supabase Version
  * Shows recent matches from club members and followed users
- * Includes Strava-style like/kudos functionality
+ * Includes Strava-style like/kudos functionality and infinite scroll
  */
 
 import { getSupabase } from './supabase-init.js';
@@ -15,7 +15,12 @@ let currentUser = null;
 let currentUserData = null;
 let activityOffset = 0;
 let likesDataCache = {};
-const ACTIVITIES_PER_PAGE = 10;
+let isLoadingMore = false;
+let hasMoreActivities = true;
+let infiniteScrollObserver = null;
+let relevantUserIdsCache = null;
+let followingIdsCache = null;
+const ACTIVITIES_PER_PAGE = 8; // Load 8 at a time for smoother scrolling
 
 /**
  * Initialize the activity feed module
@@ -25,9 +30,46 @@ export function initActivityFeedModule(user, userData) {
     currentUserData = userData;
     activityOffset = 0;
     likesDataCache = {};
+    isLoadingMore = false;
+    hasMoreActivities = true;
+    relevantUserIdsCache = null;
+    followingIdsCache = null;
 
     // Setup global toggle like function
     window.toggleActivityLike = toggleActivityLike;
+
+    // Setup infinite scroll
+    setupInfiniteScroll();
+}
+
+/**
+ * Setup infinite scroll using Intersection Observer
+ */
+function setupInfiniteScroll() {
+    // Cleanup existing observer
+    if (infiniteScrollObserver) {
+        infiniteScrollObserver.disconnect();
+    }
+
+    const sentinel = document.getElementById('activity-feed-sentinel');
+    if (!sentinel) return;
+
+    infiniteScrollObserver = new IntersectionObserver(
+        (entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !isLoadingMore && hasMoreActivities) {
+                    loadMoreActivities();
+                }
+            });
+        },
+        {
+            root: null,
+            rootMargin: '100px', // Start loading before reaching the bottom
+            threshold: 0.1
+        }
+    );
+
+    infiniteScrollObserver.observe(sentinel);
 }
 
 /**
@@ -36,6 +78,12 @@ export function initActivityFeedModule(user, userData) {
 export async function loadActivityFeed() {
     const container = document.getElementById('activity-feed');
     if (!container) return;
+
+    // Reset state for fresh load
+    activityOffset = 0;
+    hasMoreActivities = true;
+    relevantUserIdsCache = null;
+    followingIdsCache = null;
 
     try {
         // Get users in the same club
@@ -57,121 +105,183 @@ export async function loadActivityFeed() {
             .eq('requester_id', currentUser.id)
             .eq('status', 'accepted');
 
-        const followingIds = (following || []).map(f => f.addressee_id);
+        followingIdsCache = (following || []).map(f => f.addressee_id);
 
         // Combine unique user IDs (club + following)
-        const relevantUserIds = [...new Set([...clubMemberIds, ...followingIds])];
+        relevantUserIdsCache = [...new Set([...clubMemberIds, ...followingIdsCache])];
 
-        if (relevantUserIds.length === 0) {
+        if (relevantUserIdsCache.length === 0) {
             container.innerHTML = `
-                <div class="p-8 text-center">
+                <div class="bg-white rounded-xl shadow-sm p-8 text-center">
                     <i class="fas fa-users text-4xl text-gray-300 mb-3"></i>
                     <p class="text-gray-500 font-medium">Noch keine Aktivitäten</p>
                     <p class="text-gray-400 text-sm mt-1">Folge anderen Spielern oder tritt einem Verein bei</p>
                 </div>
             `;
+            hasMoreActivities = false;
             return;
         }
 
-        // Load recent singles matches involving these users
-        const { data: singlesMatches, error: singlesError } = await supabase
-            .from('matches')
-            .select('*')
-            .or(`player_a_id.in.(${relevantUserIds.join(',')}),player_b_id.in.(${relevantUserIds.join(',')})`)
-            .order('created_at', { ascending: false })
-            .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
-
-        if (singlesError) throw singlesError;
-
-        // Load recent doubles matches involving these users
-        const { data: doublesMatches, error: doublesError } = await supabase
-            .from('doubles_matches')
-            .select('*')
-            .or(`team_a_player1_id.in.(${relevantUserIds.join(',')}),team_a_player2_id.in.(${relevantUserIds.join(',')}),team_b_player1_id.in.(${relevantUserIds.join(',')}),team_b_player2_id.in.(${relevantUserIds.join(',')})`)
-            .order('created_at', { ascending: false })
-            .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
-
-        if (doublesError) console.warn('Error fetching doubles:', doublesError);
-
-        // Combine and normalize matches
-        const allActivities = [
-            ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
-            ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
-        ];
-
-        // Sort by date descending
-        allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-        // Take top results
-        const activities = allActivities.slice(0, ACTIVITIES_PER_PAGE);
+        // Load first batch
+        const activities = await fetchActivities();
 
         if (activities.length === 0) {
             container.innerHTML = `
-                <div class="p-8 text-center">
+                <div class="bg-white rounded-xl shadow-sm p-8 text-center">
                     <i class="fas fa-table-tennis-paddle-ball text-4xl text-gray-300 mb-3"></i>
                     <p class="text-gray-500 font-medium">Noch keine Aktivitäten</p>
                     <p class="text-gray-400 text-sm mt-1">Hier erscheinen Spiele von deinem Verein und gefolgten Spielern</p>
                 </div>
             `;
+            hasMoreActivities = false;
             return;
         }
 
-        // Collect all player IDs needed for profile lookup
-        const playerIds = new Set();
-        activities.forEach(m => {
-            if (m.matchType === 'singles') {
-                playerIds.add(m.player_a_id);
-                playerIds.add(m.player_b_id);
-            } else {
-                playerIds.add(m.team_a_player1_id);
-                playerIds.add(m.team_a_player2_id);
-                playerIds.add(m.team_b_player1_id);
-                playerIds.add(m.team_b_player2_id);
-            }
-        });
+        // Render initial activities
+        container.innerHTML = activities.map(activity => renderActivityCard(activity)).join('');
 
-        // Get player profiles
-        const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
-            .in('id', [...playerIds].filter(Boolean));
-
-        const profileMap = {};
-        (profiles || []).forEach(p => {
-            profileMap[p.id] = p;
-        });
-
-        // Load likes data for all activities
-        await loadLikesForActivities(activities);
-
-        // Render activity feed
-        container.innerHTML = activities.map(activity => {
-            if (activity.matchType === 'doubles') {
-                return renderDoublesActivityCard(activity, profileMap, followingIds);
-            } else {
-                return renderSinglesActivityCard(activity, profileMap, followingIds);
-            }
-        }).join('');
-
-        // Show/hide load more button
-        const loadMoreBtn = document.getElementById('load-more-activities');
-        if (loadMoreBtn) {
-            if (activities.length >= ACTIVITIES_PER_PAGE) {
-                loadMoreBtn.classList.remove('hidden');
-                loadMoreBtn.querySelector('button').onclick = () => loadMoreActivities();
-            } else {
-                loadMoreBtn.classList.add('hidden');
-            }
-        }
+        // Update offset for next load
+        activityOffset += activities.length;
+        hasMoreActivities = activities.length >= ACTIVITIES_PER_PAGE;
 
     } catch (error) {
         console.error('[ActivityFeed] Error loading activities:', error);
         container.innerHTML = `
-            <div class="p-6 text-center text-red-500">
+            <div class="bg-white rounded-xl shadow-sm p-6 text-center text-red-500">
                 <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
                 <p class="text-sm">Fehler beim Laden der Aktivitäten</p>
             </div>
         `;
+    }
+}
+
+/**
+ * Fetch activities with current offset
+ */
+async function fetchActivities() {
+    if (!relevantUserIdsCache || relevantUserIdsCache.length === 0) {
+        return [];
+    }
+
+    // Load recent singles matches involving these users
+    const { data: singlesMatches, error: singlesError } = await supabase
+        .from('matches')
+        .select('*')
+        .or(`player_a_id.in.(${relevantUserIdsCache.join(',')}),player_b_id.in.(${relevantUserIdsCache.join(',')})`)
+        .order('created_at', { ascending: false })
+        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE * 2 - 1); // Fetch more to combine with doubles
+
+    if (singlesError) throw singlesError;
+
+    // Load recent doubles matches involving these users
+    const { data: doublesMatches, error: doublesError } = await supabase
+        .from('doubles_matches')
+        .select('*')
+        .or(`team_a_player1_id.in.(${relevantUserIdsCache.join(',')}),team_a_player2_id.in.(${relevantUserIdsCache.join(',')}),team_b_player1_id.in.(${relevantUserIdsCache.join(',')}),team_b_player2_id.in.(${relevantUserIdsCache.join(',')})`)
+        .order('created_at', { ascending: false })
+        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+
+    if (doublesError) console.warn('Error fetching doubles:', doublesError);
+
+    // Combine and normalize matches
+    const allActivities = [
+        ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
+        ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
+    ];
+
+    // Sort by date descending
+    allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // Take page size
+    const activities = allActivities.slice(0, ACTIVITIES_PER_PAGE);
+
+    if (activities.length === 0) {
+        return [];
+    }
+
+    // Collect all player IDs needed for profile lookup
+    const playerIds = new Set();
+    activities.forEach(m => {
+        if (m.matchType === 'singles') {
+            playerIds.add(m.player_a_id);
+            playerIds.add(m.player_b_id);
+        } else {
+            playerIds.add(m.team_a_player1_id);
+            playerIds.add(m.team_a_player2_id);
+            playerIds.add(m.team_b_player1_id);
+            playerIds.add(m.team_b_player2_id);
+        }
+    });
+
+    // Get player profiles
+    const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
+        .in('id', [...playerIds].filter(Boolean));
+
+    const profileMap = {};
+    (profiles || []).forEach(p => {
+        profileMap[p.id] = p;
+    });
+
+    // Load likes data for all activities
+    await loadLikesForActivities(activities);
+
+    // Attach profile data to activities
+    return activities.map(activity => ({
+        ...activity,
+        profileMap,
+        followingIds: followingIdsCache
+    }));
+}
+
+/**
+ * Load more activities (infinite scroll)
+ */
+async function loadMoreActivities() {
+    if (isLoadingMore || !hasMoreActivities) return;
+
+    isLoadingMore = true;
+    const loader = document.getElementById('activity-feed-loader');
+    if (loader) loader.classList.remove('hidden');
+
+    try {
+        const activities = await fetchActivities();
+
+        if (activities.length === 0) {
+            hasMoreActivities = false;
+            if (loader) loader.classList.add('hidden');
+            isLoadingMore = false;
+            return;
+        }
+
+        // Append to container
+        const container = document.getElementById('activity-feed');
+        if (container) {
+            const newHtml = activities.map(activity => renderActivityCard(activity)).join('');
+            container.insertAdjacentHTML('beforeend', newHtml);
+        }
+
+        // Update offset
+        activityOffset += activities.length;
+        hasMoreActivities = activities.length >= ACTIVITIES_PER_PAGE;
+
+    } catch (error) {
+        console.error('[ActivityFeed] Error loading more activities:', error);
+    } finally {
+        if (loader) loader.classList.add('hidden');
+        isLoadingMore = false;
+    }
+}
+
+/**
+ * Render a single activity card
+ */
+function renderActivityCard(activity) {
+    if (activity.matchType === 'doubles') {
+        return renderDoublesActivityCard(activity, activity.profileMap, activity.followingIds);
+    } else {
+        return renderSinglesActivityCard(activity, activity.profileMap, activity.followingIds);
     }
 }
 
@@ -387,25 +497,6 @@ function renderLikeButton(matchId, matchType) {
 }
 
 /**
- * Load more activities (pagination)
- */
-async function loadMoreActivities() {
-    activityOffset += ACTIVITIES_PER_PAGE;
-
-    const container = document.getElementById('activity-feed');
-    if (!container) return;
-
-    // Add loading indicator at the end
-    const loadMoreBtn = document.getElementById('load-more-activities');
-    if (loadMoreBtn) {
-        loadMoreBtn.innerHTML = '<p class="text-gray-400 text-sm">Laden...</p>';
-    }
-
-    // This is a simplified version - in production you'd append to existing content
-    await loadActivityFeed();
-}
-
-/**
  * Render a singles match activity card
  */
 function renderSinglesActivityCard(match, profileMap, followingIds) {
@@ -459,7 +550,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const loserId = match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id;
 
     return `
-        <div class="p-4 hover:bg-gray-50 transition">
+        <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
             <div class="flex items-start gap-3">
                 <!-- Winner Avatar -->
                 <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0">
@@ -556,7 +647,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
     return `
-        <div class="p-4 hover:bg-gray-50 transition">
+        <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
             <div class="flex items-start gap-3">
                 <!-- Team Avatars -->
                 <div class="flex-shrink-0 flex -space-x-2">
