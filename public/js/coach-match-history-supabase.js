@@ -540,135 +540,17 @@ function renderCoachMatchHistory(container, matches, playerName) {
           </div>
         </div>
 
-        <div class="text-right flex flex-col items-end">
+        <div class="text-right">
           <div class="${eloChangeClass} text-lg">
             ${eloChangeDisplay}
           </div>
-          <button class="text-indigo-600 hover:text-indigo-800 text-xs font-medium mt-2 coach-match-details-btn"
-                  data-match-id="${match.id}"
-                  data-match-type="${isDoubles ? 'doubles' : 'singles'}">
-            Details
-          </button>
+          ${match.pointsGained > 0 ? `<div class="text-xs text-gray-600 mt-1">+${match.pointsGained} Punkte</div>` : ''}
         </div>
       </div>
     `;
 
-        matchDiv.dataset.matchData = JSON.stringify(match);
         container.appendChild(matchDiv);
     });
-
-    // Add click handlers for details buttons
-    container.querySelectorAll('.coach-match-details-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const matchDiv = btn.closest('[data-match-data]');
-            if (matchDiv) {
-                const matchData = JSON.parse(matchDiv.dataset.matchData);
-                showCoachMatchDetailsModal(matchData, playerName);
-            }
-        });
-    });
-}
-
-/**
- * Show coach match details modal
- */
-function showCoachMatchDetailsModal(match, playerName) {
-    const isDoubles = match.type === 'doubles';
-    const matchTime = new Date(match.timestamp || match.playedAt || match.createdAt || Date.now());
-
-    const formattedDateTime = matchTime.toLocaleDateString('de-DE', {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-
-    // Format sets
-    const sets = match.sets || [];
-    let setsHtml = sets.map((set, i) => {
-        let myScore, oppScore;
-        if (isDoubles || (set.teamA !== undefined && set.teamB !== undefined)) {
-            myScore = match.isPlayerA ? set.teamA : set.teamB;
-            oppScore = match.isPlayerA ? set.teamB : set.teamA;
-        } else {
-            myScore = match.isPlayerA ? set.playerA : set.playerB;
-            oppScore = match.isPlayerA ? set.playerB : set.playerA;
-        }
-        const wonSet = myScore > oppScore;
-        return `
-            <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
-                <span class="text-gray-600">Satz ${i + 1}</span>
-                <span class="font-semibold ${wonSet ? 'text-green-600' : 'text-red-600'}">${myScore || 0} : ${oppScore || 0}</span>
-            </div>
-        `;
-    }).join('') || '<p class="text-gray-500 text-sm">Keine Satzdaten verfügbar</p>';
-
-    const eloChangeDisplay = match.eloChange !== null
-        ? `${match.eloChange > 0 ? '+' : ''}${match.eloChange}`
-        : 'N/A';
-    const eloChangeClass = match.eloChange > 0 ? 'text-green-600' : match.eloChange < 0 ? 'text-red-600' : 'text-gray-600';
-
-    const modalHtml = `
-        <div id="coach-match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
-            <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="text-lg font-bold">Match Details</h3>
-                    <button onclick="document.getElementById('coach-match-details-modal').remove()" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="p-4">
-                    <div class="text-center mb-4">
-                        <span class="px-4 py-2 rounded-full text-lg font-bold ${match.isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                            ${match.isWinner ? 'Sieg' : 'Niederlage'}
-                        </span>
-                        ${isDoubles ? '<span class="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">Doppel</span>' : ''}
-                    </div>
-
-                    <div class="text-center mb-4">
-                        <p class="font-semibold text-gray-800">${playerName}</p>
-                        ${isDoubles && match.partnerName ? `<p class="text-sm text-gray-600">mit ${match.partnerName}</p>` : ''}
-                        <p class="text-gray-500 mt-1">gegen</p>
-                        <p class="font-semibold text-gray-800">${match.opponentName || 'Unbekannt'}</p>
-                    </div>
-
-                    <div class="bg-gray-50 rounded-lg p-3 mb-4">
-                        <h4 class="font-semibold text-sm text-gray-700 mb-2">Satzergebnisse</h4>
-                        ${setsHtml}
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div class="bg-gray-50 rounded-lg p-3 text-center">
-                            <p class="text-xs text-gray-500">Elo-Änderung</p>
-                            <p class="text-xl font-bold ${eloChangeClass}">${eloChangeDisplay}</p>
-                        </div>
-                        <div class="bg-gray-50 rounded-lg p-3 text-center">
-                            <p class="text-xs text-gray-500">Punkte</p>
-                            <p class="text-xl font-bold text-indigo-600">${match.pointsGained > 0 ? '+' + match.pointsGained : match.pointsGained || 0}</p>
-                        </div>
-                    </div>
-
-                    <div class="text-center text-xs text-gray-500">
-                        <p>${formattedDateTime}</p>
-                        ${match.handicapUsed ? '<p class="mt-1"><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Handicap-Match</span></p>' : ''}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Remove existing modal if any
-    const existingModal = document.getElementById('coach-match-details-modal');
-    if (existingModal) existingModal.remove();
-
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
 /**
