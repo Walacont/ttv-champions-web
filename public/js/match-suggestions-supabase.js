@@ -315,9 +315,8 @@ export async function loadMatchSuggestions(
           <div class="ml-3">
             <p class="text-sm text-yellow-700">
               <strong>🔒 Match-Vorschläge gesperrt!</strong><br>
-              Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren.<br>
-              Fortschritt: <strong>${grundlagenCompleted}/5</strong> abgeschlossen.
-              ${grundlagenCompleted > 0 ? `<br>Noch <strong>${5 - grundlagenCompleted}</strong> Übung${5 - grundlagenCompleted === 1 ? '' : 'en'} bis zur Freischaltung!` : ''}
+              Du bist noch nicht für Wettkämpfe freigeschaltet.<br>
+              Wende dich an deinen Trainer, um freigeschaltet zu werden.
             </p>
           </div>
         </div>

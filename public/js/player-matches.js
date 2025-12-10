@@ -1743,11 +1743,10 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
         playersMap.set(player.id, player);
     });
 
-    // Check if player has completed Grundlagen requirement
-    const grundlagenCompleted = userData.grundlagenCompleted || 0;
-    const isMatchReady = grundlagenCompleted >= 5;
+    // Check if player is match-ready
+    const isMatchReady = userData.isMatchReady === true || userData.is_match_ready === true;
 
-    // If player hasn't completed Grundlagen, show warning and disable form
+    // If player is not match-ready, show warning and disable form
     if (!isMatchReady) {
         const warningDiv = document.createElement('div');
         warningDiv.className = 'bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4';
@@ -1761,9 +1760,8 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
         <div class="ml-3">
           <p class="text-sm text-yellow-700">
             <strong>🔒 Wettkämpfe gesperrt!</strong><br>
-            Du musst zuerst <strong>5 Grundlagen-Übungen</strong> absolvieren, um Matches spielen zu können.<br>
-            Fortschritt: <strong>${grundlagenCompleted}/5</strong> Grundlagen-Übungen abgeschlossen.
-            ${grundlagenCompleted > 0 ? `<br>Noch <strong>${5 - grundlagenCompleted}</strong> Übung${5 - grundlagenCompleted === 1 ? '' : 'en'} bis zur Freischaltung!` : ''}
+            Du bist noch nicht für Wettkämpfe freigeschaltet.<br>
+            Wende dich an deinen Trainer, um freigeschaltet zu werden.
           </p>
         </div>
       </div>

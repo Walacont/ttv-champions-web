@@ -667,7 +667,7 @@ function updateRankDisplay() {
                     <div class="w-full bg-gray-200 rounded-full h-2">
                         <div class="bg-green-600 h-2 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
                     </div>
-                    ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
+                    ${grundlagenNeeded > 0 ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} für Rang-Aufstieg</p>` : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen für diesen Rang erfüllt</p>`}
                 </div>
                 ` : ''}
             </div>

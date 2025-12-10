@@ -235,10 +235,10 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
 
-    // Only pair players who have completed Grundlagen (5 exercises)
+    // Only pair players who are match-ready
     let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
-        const grundlagen = player.grundlagenCompleted || 0;
-        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+        const isMatchReady = player.isMatchReady === true || player.is_match_ready === true;
+        return presentPlayerIds.includes(player.id) && isMatchReady;
     });
 
     // Filter by subgroup, age group, or gender
@@ -933,12 +933,9 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 
             if (lockedPlayers.length > 0) {
                 const lockedNames = lockedPlayers
-                    .map(p => {
-                        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
-                        return `${p.firstName || p.first_name} (${grundlagen}/5 Grundlagen)`;
-                    })
+                    .map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`)
                     .join(', ');
-                message += `<p class="text-xs text-gray-600 mt-2">🔒 Gesperrt: ${lockedNames}</p>`;
+                message += `<p class="text-xs text-gray-600 mt-2">🔒 Noch nicht wettkampfsbereit: ${lockedNames}</p>`;
             }
 
             handicapSuggestion.innerHTML = message;
