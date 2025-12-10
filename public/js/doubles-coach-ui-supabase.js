@@ -330,6 +330,58 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
         const result = await saveDoublesMatch(matchData, supabase, currentUserData);
 
         if (result.success) {
+            // Send notifications to online players
+            try {
+                const coachName = `${currentUserData.firstName || currentUserData.first_name || ''} ${currentUserData.lastName || currentUserData.last_name || ''}`.trim() || 'Coach';
+
+                // Get player profiles for names and offline status
+                const { data: players } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, is_offline')
+                    .in('id', [teamAPlayer1Id, teamAPlayer2Id, teamBPlayer1Id, teamBPlayer2Id]);
+
+                const playerMap = {};
+                (players || []).forEach(p => {
+                    playerMap[p.id] = {
+                        name: `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+                        isOffline: p.is_offline
+                    };
+                });
+
+                const teamAName = `${playerMap[teamAPlayer1Id]?.name || 'Spieler'} & ${playerMap[teamAPlayer2Id]?.name || 'Spieler'}`;
+                const teamBName = `${playerMap[teamBPlayer1Id]?.name || 'Spieler'} & ${playerMap[teamBPlayer2Id]?.name || 'Spieler'}`;
+                const eloChange = result.match?.team_a_elo_change || result.match?.elo_change || 0;
+
+                // Notify all 4 players (if online)
+                const allPlayers = [
+                    { id: teamAPlayer1Id, isTeamA: true },
+                    { id: teamAPlayer2Id, isTeamA: true },
+                    { id: teamBPlayer1Id, isTeamA: false },
+                    { id: teamBPlayer2Id, isTeamA: false }
+                ];
+
+                for (const player of allPlayers) {
+                    const playerData = playerMap[player.id];
+                    if (playerData && !playerData.isOffline) {
+                        const isWinner = (player.isTeamA && winningTeam === 'A') || (!player.isTeamA && winningTeam === 'B');
+                        const opponentTeam = player.isTeamA ? teamBName : teamAName;
+                        const playerEloChange = isWinner ? Math.abs(eloChange) : -Math.abs(eloChange);
+
+                        await supabase.from('notifications').insert({
+                            user_id: player.id,
+                            type: 'match_recorded',
+                            title: isWinner ? 'Doppel gewonnen!' : 'Doppel verloren',
+                            message: `${isWinner ? 'Sieg' : 'Niederlage'} gegen ${opponentTeam} (${playerEloChange >= 0 ? '+' : ''}${playerEloChange} Elo) - eingetragen von ${coachName}`,
+                            data: { opponent_name: opponentTeam, is_winner: isWinner, elo_change: playerEloChange, match_type: 'doubles' },
+                            is_read: false
+                        });
+                        console.log('[Doubles] Notification sent to:', player.id);
+                    }
+                }
+            } catch (notifError) {
+                console.error('[Doubles] Error sending notifications:', notifError);
+            }
+
             feedbackEl.textContent = 'Doppel-Match gemeldet! Punkte werden in Kürze aktualisiert.';
             feedbackEl.className = 'mt-3 text-sm font-medium text-center text-green-600';
 
