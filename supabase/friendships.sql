@@ -2,11 +2,15 @@
 -- FRIENDSHIPS (Freundschaftssystem)
 -- ============================================
 
--- Enum für Freundschafts-Status
-CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
+-- Enum für Freundschafts-Status (nur erstellen wenn nicht existiert)
+DO $$ BEGIN
+    CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Friendships Tabelle
-CREATE TABLE friendships (
+CREATE TABLE IF NOT EXISTS friendships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     -- Initiator der Freundschaftsanfrage
@@ -33,12 +37,12 @@ CREATE TABLE friendships (
 -- INDEXES
 -- ============================================
 
-CREATE INDEX idx_friendships_requester ON friendships(requester_id);
-CREATE INDEX idx_friendships_addressee ON friendships(addressee_id);
-CREATE INDEX idx_friendships_status ON friendships(status);
+CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_status ON friendships(status);
 
 -- Compound index für schnelle bidirektionale Suche
-CREATE INDEX idx_friendships_both_users ON friendships(requester_id, addressee_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_both_users ON friendships(requester_id, addressee_id);
 
 -- ============================================
 -- RLS POLICIES
@@ -46,6 +50,12 @@ CREATE INDEX idx_friendships_both_users ON friendships(requester_id, addressee_i
 
 -- Enable RLS
 ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own friendships" ON friendships;
+DROP POLICY IF EXISTS "Users can create friendship requests" ON friendships;
+DROP POLICY IF EXISTS "Users can update friendship status" ON friendships;
+DROP POLICY IF EXISTS "Users can delete friendships" ON friendships;
 
 -- Policy: Nutzer können ihre eigenen Freundschaften sehen (als requester oder addressee)
 CREATE POLICY "Users can view their own friendships"
@@ -86,6 +96,7 @@ USING (
 -- UPDATED_AT TRIGGER
 -- ============================================
 
+DROP TRIGGER IF EXISTS update_friendships_updated_at ON friendships;
 CREATE TRIGGER update_friendships_updated_at
 BEFORE UPDATE ON friendships
 FOR EACH ROW
