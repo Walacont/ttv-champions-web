@@ -10,6 +10,11 @@ const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/200
 // Module state
 let currentUser = null;
 let currentUserData = null;
+let currentTypeFilter = 'all';
+let currentModeFilter = 'all';
+let isExpanded = false;
+const COLLAPSED_COUNT = 3;
+const EXPANDED_COUNT = 20;
 
 /**
  * Initialize the module with user data
@@ -18,6 +23,41 @@ export function initMatchHistoryModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     console.log('[MatchHistory] Module initialized with user:', user?.id, 'userData:', userData?.id);
+
+    // Setup filter event listeners
+    setupMatchHistoryFilters();
+}
+
+/**
+ * Setup filter event listeners
+ */
+function setupMatchHistoryFilters() {
+    const typeFilter = document.getElementById('match-history-type-filter');
+    const modeFilter = document.getElementById('match-history-mode-filter');
+
+    if (typeFilter) {
+        typeFilter.addEventListener('change', (e) => {
+            currentTypeFilter = e.target.value;
+            isExpanded = false; // Reset to collapsed when filter changes
+            loadMatchHistory();
+        });
+    }
+
+    if (modeFilter) {
+        modeFilter.addEventListener('change', (e) => {
+            currentModeFilter = e.target.value;
+            isExpanded = false; // Reset to collapsed when filter changes
+            loadMatchHistory();
+        });
+    }
+}
+
+/**
+ * Toggle expanded/collapsed state of match history
+ */
+function toggleMatchHistoryExpand() {
+    isExpanded = !isExpanded;
+    loadMatchHistory();
 }
 
 /**
@@ -38,44 +78,62 @@ export async function loadMatchHistory() {
             .single();
         console.log('[MatchHistory] User profile club_id:', userProfile?.club_id);
 
-        // Fetch singles matches
+        // Fetch singles matches (fetch more to allow for filtering)
         const { data: singlesMatches, error: singlesError } = await supabase
             .from('matches')
             .select('*')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
-        console.log('[MatchHistory] Singles matches found:', singlesMatches?.length, singlesMatches);
+        console.log('[MatchHistory] Singles matches found:', singlesMatches?.length);
         if (singlesError) {
             console.error('[MatchHistory] Singles error:', singlesError);
             throw singlesError;
         }
 
-        // Fetch doubles matches
+        // Fetch doubles matches (fetch more to allow for filtering)
         const { data: doublesMatches, error: doublesError } = await supabase
             .from('doubles_matches')
             .select('*')
             .or(`team_a_player1_id.eq.${currentUser.id},team_a_player2_id.eq.${currentUser.id},team_b_player1_id.eq.${currentUser.id},team_b_player2_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
         if (doublesError) console.warn('Error fetching doubles:', doublesError);
 
         // Combine and normalize matches
-        const allMatches = [
+        let allMatches = [
             ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
             ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
         ];
 
+        // Apply type filter
+        if (currentTypeFilter !== 'all') {
+            allMatches = allMatches.filter(m => m.matchType === currentTypeFilter);
+        }
+
+        // Apply mode filter
+        if (currentModeFilter !== 'all') {
+            allMatches = allMatches.filter(m => m.match_mode === currentModeFilter);
+        }
+
         // Sort by date descending
         allMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        // Take top 10
-        const matches = allMatches.slice(0, 10);
+        // Store all filtered matches for expand/collapse
+        const totalFilteredMatches = allMatches.slice(0, EXPANDED_COUNT);
 
-        if (matches.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
+        // Take based on expanded state
+        const displayCount = isExpanded ? EXPANDED_COUNT : COLLAPSED_COUNT;
+        const matches = totalFilteredMatches.slice(0, displayCount);
+        const hasMoreMatches = totalFilteredMatches.length > COLLAPSED_COUNT;
+
+        if (totalFilteredMatches.length === 0) {
+            const hasFilters = currentTypeFilter !== 'all' || currentModeFilter !== 'all';
+            container.innerHTML = hasFilters
+                ? '<p class="text-gray-400 text-center py-4 text-sm">Keine Wettkämpfe mit diesen Filtern gefunden</p>'
+                : '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
             return;
         }
 
@@ -121,8 +179,7 @@ export async function loadMatchHistory() {
 
         // Render matches
         console.log('[MatchHistory] Rendering', matches.length, 'matches, profileMap:', profileMap);
-        container.innerHTML = matches.map(match => {
-            console.log('[MatchHistory] Rendering match:', match.id, match.matchType);
+        let html = matches.map(match => {
             if (match.matchType === 'doubles') {
                 return renderDoublesMatchCard(match, profileMap);
             } else {
@@ -130,9 +187,30 @@ export async function loadMatchHistory() {
             }
         }).join('');
 
+        // Add show more/less button if there are more matches
+        if (hasMoreMatches) {
+            const buttonText = isExpanded ? 'Weniger anzeigen' : `Mehr anzeigen (${totalFilteredMatches.length - COLLAPSED_COUNT} weitere)`;
+            const buttonIcon = isExpanded ? '▲' : '▼';
+            html += `
+                <button id="match-history-toggle-btn"
+                    class="w-full mt-4 py-2 px-4 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <span>${buttonText}</span>
+                    <span class="text-xs">${buttonIcon}</span>
+                </button>
+            `;
+        }
+
+        container.innerHTML = html;
+
+        // Setup toggle button event listener
+        const toggleBtn = document.getElementById('match-history-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggleMatchHistoryExpand);
+        }
+
         // Store matches for details modal
-        const singlesMatchesForModal = matches.filter(m => m.matchType !== 'doubles');
-        const doublesMatchesForModal = matches.filter(m => m.matchType === 'doubles');
+        const singlesMatchesForModal = totalFilteredMatches.filter(m => m.matchType !== 'doubles');
+        const doublesMatchesForModal = totalFilteredMatches.filter(m => m.matchType === 'doubles');
         window.matchHistoryData = { matches: singlesMatchesForModal, doublesMatches: doublesMatchesForModal, profileMap };
 
     } catch (error) {
