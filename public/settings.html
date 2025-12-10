@@ -223,24 +223,31 @@
         <script type="module">
             import { getSupabase } from '/js/supabase-init.js';
 
-            // Hide loader and show content
-            document.addEventListener('DOMContentLoaded', () => {
+            // Initialize immediately or on DOMContentLoaded
+            function init() {
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
-            });
 
-            // Logout functionality
-            document.getElementById('logout-button').addEventListener('click', async () => {
-                const supabase = getSupabase();
-                const { error } = await supabase.auth.signOut();
+                // Logout functionality
+                document.getElementById('logout-button').addEventListener('click', async () => {
+                    const supabase = getSupabase();
+                    const { error } = await supabase.auth.signOut();
 
-                if (error) {
-                    console.error('Logout error:', error);
-                    alert('Fehler beim Abmelden: ' + error.message);
-                } else {
-                    window.location.href = '/index.html';
-                }
-            });
+                    if (error) {
+                        console.error('Logout error:', error);
+                        alert('Fehler beim Abmelden: ' + error.message);
+                    } else {
+                        window.location.href = '/index.html';
+                    }
+                });
+            }
+
+            // Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
         </script>
     </body>
 </html>
