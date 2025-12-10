@@ -138,18 +138,21 @@ async function showNotificationModal(userId) {
                 ${notifications && notifications.length > 0 ? `
                     <ul class="divide-y divide-gray-200">
                         ${notifications.map(n => `
-                            <li class="p-4 ${n.is_read ? 'bg-white' : 'bg-blue-50'} hover:bg-gray-50 notification-item" data-id="${n.id}" data-read="${n.is_read}">
+                            <li class="p-4 ${n.is_read ? 'bg-white' : 'bg-blue-50'} hover:bg-gray-50 notification-item" data-id="${n.id}" data-read="${n.is_read}" data-type="${n.type}">
                                 <div class="flex items-start gap-3">
                                     <div class="flex-shrink-0 mt-1">
                                         ${getNotificationIcon(n.type)}
                                     </div>
-                                    <div class="flex-1 min-w-0 cursor-pointer notification-content">
-                                        <p class="text-sm font-medium text-gray-900">${escapeHtml(n.title)}</p>
-                                        <p class="text-sm text-gray-600 mt-0.5">${escapeHtml(n.message)}</p>
-                                        <p class="text-xs text-gray-400 mt-1">${formatTimeAgo(n.created_at)}</p>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="cursor-pointer notification-content">
+                                            <p class="text-sm font-medium text-gray-900">${escapeHtml(n.title)}</p>
+                                            <p class="text-sm text-gray-600 mt-0.5">${escapeHtml(n.message)}</p>
+                                            <p class="text-xs text-gray-400 mt-1">${formatTimeAgo(n.created_at)}</p>
+                                        </div>
+                                        ${renderFollowRequestActions(n)}
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0">
-                                        ${!n.is_read ? '<span class="unread-dot w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
+                                        ${!n.is_read && !isFollowRequest(n.type) ? '<span class="unread-dot w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
                                         ${n.is_read ? `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>` : ''}
                                     </div>
                                 </div>
@@ -225,16 +228,67 @@ async function showNotificationModal(userId) {
             await deleteNotification(notificationId);
             item.remove();
             updateNotificationBadge(userId);
-            // Check if no notifications left
-            const remainingItems = modal.querySelectorAll('.notification-item');
-            if (remainingItems.length === 0) {
-                modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
-                    <div class="p-8 text-center text-gray-500">
-                        <i class="far fa-bell-slash text-4xl mb-3"></i>
-                        <p>Keine Benachrichtigungen</p>
-                    </div>
-                `;
-                modal.querySelector('.p-3.border-t')?.remove();
+            checkEmptyNotifications(modal);
+        }
+    });
+
+    // Accept follow request
+    modal.addEventListener('click', async (e) => {
+        const acceptBtn = e.target.closest('.accept-follow-btn');
+        if (acceptBtn) {
+            e.stopPropagation();
+            const requesterId = acceptBtn.dataset.requesterId;
+            const notificationId = acceptBtn.dataset.notificationId;
+            const item = acceptBtn.closest('.notification-item');
+
+            // Disable buttons while processing
+            const actionsDiv = item.querySelector('.follow-request-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
+            }
+
+            const success = await handleAcceptFollow(requesterId, notificationId, userId);
+            if (success) {
+                // Update UI to show accepted
+                item.classList.remove('bg-blue-50');
+                item.classList.add('bg-white');
+                item.dataset.read = 'true';
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-green-600"><i class="fas fa-check mr-1"></i>Angenommen</span>';
+                }
+                updateNotificationBadge(userId);
+            } else {
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                }
+            }
+        }
+    });
+
+    // Decline follow request
+    modal.addEventListener('click', async (e) => {
+        const declineBtn = e.target.closest('.decline-follow-btn');
+        if (declineBtn) {
+            e.stopPropagation();
+            const requesterId = declineBtn.dataset.requesterId;
+            const notificationId = declineBtn.dataset.notificationId;
+            const item = declineBtn.closest('.notification-item');
+
+            // Disable buttons while processing
+            const actionsDiv = item.querySelector('.follow-request-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
+            }
+
+            const success = await handleDeclineFollow(requesterId, notificationId, userId);
+            if (success) {
+                item.remove();
+                updateNotificationBadge(userId);
+                checkEmptyNotifications(modal);
+            } else {
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                }
             }
         }
     });
@@ -354,6 +408,32 @@ export async function createNotification(userId, type, title, message, data = {}
 }
 
 /**
+ * Create a follow request notification
+ */
+export async function createFollowRequestNotification(toUserId, fromUserId, fromUserName) {
+    const title = 'Neue Follow-Anfrage';
+    const message = `${fromUserName} möchte dir folgen`;
+
+    await createNotification(toUserId, 'follow_request', title, message, {
+        requester_id: fromUserId,
+        requester_name: fromUserName
+    });
+}
+
+/**
+ * Create a follow accepted notification
+ */
+export async function createFollowAcceptedNotification(toUserId, accepterId, accepterName) {
+    const title = 'Follow-Anfrage angenommen';
+    const message = `${accepterName} folgt dir jetzt`;
+
+    await createNotification(toUserId, 'follow_accepted', title, message, {
+        accepter_id: accepterId,
+        accepter_name: accepterName
+    });
+}
+
+/**
  * Create a points notification
  */
 export async function createPointsNotification(userId, points, xp, eloChange, reason, awardedBy) {
@@ -383,6 +463,22 @@ export async function createPointsNotification(userId, points, xp, eloChange, re
 }
 
 /**
+ * Check if notifications list is empty and update UI
+ */
+function checkEmptyNotifications(modal) {
+    const remainingItems = modal.querySelectorAll('.notification-item');
+    if (remainingItems.length === 0) {
+        modal.querySelector('.flex-1.overflow-y-auto').innerHTML = `
+            <div class="p-8 text-center text-gray-500">
+                <i class="far fa-bell-slash text-4xl mb-3"></i>
+                <p>Keine Benachrichtigungen</p>
+            </div>
+        `;
+        modal.querySelector('.p-3.border-t')?.remove();
+    }
+}
+
+/**
  * Handle notification click - navigate based on type
  */
 function handleNotificationClick(notification) {
@@ -390,9 +486,23 @@ function handleNotificationClick(notification) {
 
     const type = notification.type;
 
-    // Friend request notifications - navigate to Community tab
-    if (type === 'friend_request' || type === 'friend_request_accepted') {
-        // Find and click community tab
+    // Follow request notifications - navigate to profile or community
+    if (type === 'follow_request' || type === 'friend_request') {
+        const requesterId = notification.data?.requester_id;
+        if (requesterId) {
+            window.location.href = `/profile.html?id=${requesterId}`;
+            return;
+        }
+    }
+
+    // Friend request accepted - navigate to their profile
+    if (type === 'friend_request_accepted' || type === 'follow_accepted') {
+        const accepterId = notification.data?.accepter_id;
+        if (accepterId) {
+            window.location.href = `/profile.html?id=${accepterId}`;
+            return;
+        }
+        // Fallback to community tab
         const communityTab = document.querySelector('[data-tab="community"]');
         if (communityTab) {
             communityTab.click();
@@ -411,11 +521,107 @@ function getNotificationIcon(type) {
         'match_request': '<i class="fas fa-table-tennis-paddle-ball text-indigo-500 text-lg"></i>',
         'match_approved': '<i class="fas fa-check-circle text-green-500 text-lg"></i>',
         'challenge_completed': '<i class="fas fa-trophy text-yellow-500 text-lg"></i>',
+        'follow_request': '<i class="fas fa-user-plus text-blue-500 text-lg"></i>',
         'friend_request': '<i class="fas fa-user-plus text-blue-500 text-lg"></i>',
         'friend_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
+        'follow_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;
+}
+
+/**
+ * Check if notification type is an actionable follow request
+ */
+function isFollowRequest(type) {
+    return type === 'follow_request' || type === 'friend_request';
+}
+
+/**
+ * Render action buttons for follow request notifications
+ */
+function renderFollowRequestActions(notification) {
+    if (!isFollowRequest(notification.type) || notification.is_read) {
+        return '';
+    }
+
+    const requesterId = notification.data?.requester_id;
+    if (!requesterId) return '';
+
+    return `
+        <div class="follow-request-actions flex gap-2 mt-2">
+            <button class="accept-follow-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
+                    data-requester-id="${requesterId}" data-notification-id="${notification.id}">
+                <i class="fas fa-check mr-1"></i>Annehmen
+            </button>
+            <button class="decline-follow-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full transition"
+                    data-requester-id="${requesterId}" data-notification-id="${notification.id}">
+                <i class="fas fa-times mr-1"></i>Ablehnen
+            </button>
+        </div>
+    `;
+}
+
+/**
+ * Handle accept follow request from notification
+ */
+async function handleAcceptFollow(requesterId, notificationId, userId) {
+    const db = getSupabase();
+    if (!db) return false;
+
+    try {
+        // Get current user's name for notification
+        const { data: currentUserProfile } = await db
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', userId)
+            .single();
+
+        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
+
+        const { error } = await db.rpc('accept_friend_request', {
+            from_user_id: requesterId,
+            to_user_id: userId
+        });
+
+        if (error) throw error;
+
+        // Mark notification as read
+        await markNotificationAsRead(notificationId);
+
+        // Notify the requester that their request was accepted
+        await createFollowAcceptedNotification(requesterId, userId, currentUserName);
+
+        return true;
+    } catch (error) {
+        console.error('Error accepting follow request:', error);
+        return false;
+    }
+}
+
+/**
+ * Handle decline follow request from notification
+ */
+async function handleDeclineFollow(requesterId, notificationId, userId) {
+    const db = getSupabase();
+    if (!db) return false;
+
+    try {
+        const { error } = await db.rpc('decline_friend_request', {
+            from_user_id: requesterId,
+            to_user_id: userId
+        });
+
+        if (error) throw error;
+
+        // Delete the notification
+        await deleteNotification(notificationId);
+
+        return true;
+    } catch (error) {
+        console.error('Error declining follow request:', error);
+        return false;
+    }
 }
 
 /**

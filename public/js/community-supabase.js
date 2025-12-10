@@ -4,6 +4,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
+import { createFollowRequestNotification } from './notifications-supabase.js';
 
 let currentUser = null;
 let currentUserData = null;
@@ -212,6 +213,15 @@ window.followUserFromCommunity = async function(userId) {
     try {
         const supabase = getSupabase();
 
+        // Check target user's privacy settings
+        const { data: targetUser } = await supabase
+            .from('profiles')
+            .select('privacy_settings')
+            .eq('id', userId)
+            .single();
+
+        const isPublicProfile = targetUser?.privacy_settings?.profileVisibility === 'public';
+
         const { error } = await supabase
             .rpc('send_friend_request', {
                 current_user_id: currentUser.id,
@@ -219,6 +229,12 @@ window.followUserFromCommunity = async function(userId) {
             });
 
         if (error) throw error;
+
+        // For non-public profiles, create a notification for the target user
+        if (!isPublicProfile) {
+            const requesterName = `${currentUserData?.first_name || ''} ${currentUserData?.last_name || ''}`.trim() || 'Jemand';
+            await createFollowRequestNotification(userId, currentUser.id, requesterName);
+        }
 
         // Reload suggested users
         await loadSuggestedUsers();

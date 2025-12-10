@@ -4,6 +4,7 @@
  */
 
 import { getSupabase } from './supabase-init.js';
+import { createFollowRequestNotification, createFollowAcceptedNotification } from './notifications-supabase.js';
 
 let currentUser = null;
 let profileUser = null;
@@ -525,6 +526,15 @@ window.followUser = async function(userId) {
         // Check if profile is public (no confirmation needed) or private
         const visibility = profileUser?.privacy_settings?.profileVisibility || 'public';
 
+        // Get current user's profile for name
+        const { data: currentUserProfile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', currentUser.id)
+            .single();
+
+        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
+
         if (visibility === 'public') {
             // Direct follow - create accepted friendship
             const { error } = await supabase
@@ -550,6 +560,9 @@ window.followUser = async function(userId) {
                 });
 
             if (error) throw error;
+
+            // Create notification for the target user
+            await createFollowRequestNotification(userId, currentUser.id, currentUserName);
         }
 
         // Refresh button and stats
@@ -633,6 +646,15 @@ window.acceptFollowRequest = async function(userId) {
     try {
         const supabase = getSupabase();
 
+        // Get current user's name to include in notification
+        const { data: currentUserProfile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', currentUser.id)
+            .single();
+
+        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
+
         const { error } = await supabase
             .rpc('accept_friend_request', {
                 from_user_id: userId,
@@ -640,6 +662,9 @@ window.acceptFollowRequest = async function(userId) {
             });
 
         if (error) throw error;
+
+        // Notify the requester that their request was accepted
+        await createFollowAcceptedNotification(userId, currentUser.id, currentUserName);
 
         await loadFollowerStats();
         await renderFollowButton();
