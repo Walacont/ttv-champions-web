@@ -26,6 +26,8 @@ const emailFeedback = document.getElementById('email-feedback');
 // Privacy Settings Elements
 const searchableGlobal = document.getElementById('searchable-global');
 const searchableClubOnly = document.getElementById('searchable-club-only');
+const searchableFriendsOnly = document.getElementById('searchable-friends-only');
+const searchableNone = document.getElementById('searchable-none');
 const showInLeaderboards = document.getElementById('show-in-leaderboards');
 const savePrivacySettingsBtn = document.getElementById('save-privacy-settings-btn');
 const privacyFeedback = document.getElementById('privacy-feedback');
@@ -681,8 +683,15 @@ function loadPrivacySettings(userData) {
     const searchable = userData.privacySettings?.searchable || 'global';
     if (searchable === 'global') {
         searchableGlobal.checked = true;
-    } else {
+    } else if (searchable === 'club_only') {
         searchableClubOnly.checked = true;
+    } else if (searchable === 'friends_only') {
+        searchableFriendsOnly.checked = true;
+    } else if (searchable === 'none') {
+        searchableNone.checked = true;
+    } else {
+        // Fallback for old boolean values
+        searchableGlobal.checked = true;
     }
 
     // Load showInLeaderboards setting (default: true)
@@ -695,6 +704,8 @@ function loadPrivacySettings(userData) {
     // Add listeners to radio buttons to show/hide warning
     searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    searchableFriendsOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    searchableNone.addEventListener('change', () => updateNoClubWarning(userData.clubId));
 }
 
 /**
@@ -724,7 +735,16 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         privacyFeedback.textContent = '';
 
         // Get selected values
-        const searchable = searchableGlobal.checked ? 'global' : 'club_only';
+        let searchable = 'global'; // default
+        if (searchableGlobal.checked) {
+            searchable = 'global';
+        } else if (searchableClubOnly.checked) {
+            searchable = 'club_only';
+        } else if (searchableFriendsOnly.checked) {
+            searchable = 'friends_only';
+        } else if (searchableNone.checked) {
+            searchable = 'none';
+        }
         const showInLeaderboardsValue = showInLeaderboards.checked;
 
         // Update Supabase profiles table
