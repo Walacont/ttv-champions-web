@@ -755,11 +755,9 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 sets: sets,
                 club_id: currentUserData.clubId || currentUserData.club_id,
                 sport_id: currentUserData.activeSportId || currentUserData.active_sport_id,
-                recorded_by: currentUserData.id,
-                match_type: 'singles',
+                created_by: currentUserData.id,
                 match_mode: matchMode,
-                handicap_used: handicapUsed,
-                status: 'completed'
+                handicap_used: handicapUsed
             })
             .select()
             .single();
