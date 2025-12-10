@@ -570,6 +570,20 @@ async function handleAcceptFollow(requesterId, notificationId, userId) {
     if (!db) return false;
 
     try {
+        // Find the friendship
+        const { data: friendship } = await db
+            .from('friendships')
+            .select('id')
+            .eq('requester_id', requesterId)
+            .eq('addressee_id', userId)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (!friendship) {
+            console.error('Friendship not found');
+            return false;
+        }
+
         // Get current user's name for notification
         const { data: currentUserProfile } = await db
             .from('profiles')
@@ -580,8 +594,8 @@ async function handleAcceptFollow(requesterId, notificationId, userId) {
         const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
 
         const { error } = await db.rpc('accept_friend_request', {
-            from_user_id: requesterId,
-            to_user_id: userId
+            current_user_id: userId,
+            friendship_id: friendship.id
         });
 
         if (error) throw error;
@@ -607,9 +621,25 @@ async function handleDeclineFollow(requesterId, notificationId, userId) {
     if (!db) return false;
 
     try {
+        // Find the friendship
+        const { data: friendship } = await db
+            .from('friendships')
+            .select('id')
+            .eq('requester_id', requesterId)
+            .eq('addressee_id', userId)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (!friendship) {
+            console.error('Friendship not found');
+            // Still delete the notification since the friendship might have been handled
+            await deleteNotification(notificationId);
+            return true;
+        }
+
         const { error } = await db.rpc('decline_friend_request', {
-            from_user_id: requesterId,
-            to_user_id: userId
+            current_user_id: userId,
+            friendship_id: friendship.id
         });
 
         if (error) throw error;

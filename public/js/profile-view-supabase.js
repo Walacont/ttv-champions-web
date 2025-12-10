@@ -535,33 +535,17 @@ window.followUser = async function(userId) {
 
         const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Jemand';
 
-        if (visibility === 'public') {
-            // Direct follow - create accepted friendship
-            const { error } = await supabase
-                .rpc('send_friend_request', {
-                    from_user_id: currentUser.id,
-                    to_user_id: userId
-                });
+        // Send follow request
+        const { data, error } = await supabase
+            .rpc('send_friend_request', {
+                current_user_id: currentUser.id,
+                target_user_id: userId
+            });
 
-            if (error) throw error;
+        if (error) throw error;
 
-            // Auto-accept for public profiles
-            await supabase
-                .rpc('accept_friend_request', {
-                    from_user_id: currentUser.id,
-                    to_user_id: userId
-                });
-        } else {
-            // Send follow request
-            const { error } = await supabase
-                .rpc('send_friend_request', {
-                    from_user_id: currentUser.id,
-                    to_user_id: userId
-                });
-
-            if (error) throw error;
-
-            // Create notification for the target user
+        // For non-public profiles, create a notification
+        if (visibility !== 'public') {
             await createFollowRequestNotification(userId, currentUser.id, currentUserName);
         }
 
@@ -613,7 +597,7 @@ window.unfollowUser = async function(userId) {
 };
 
 /**
- * Cancel a pending follow request
+ * Cancel a pending follow request (that current user sent)
  */
 window.cancelFollowRequest = async function(userId) {
     if (!currentUser) return;
@@ -621,10 +605,24 @@ window.cancelFollowRequest = async function(userId) {
     try {
         const supabase = getSupabase();
 
+        // Find the friendship
+        const { data: friendship } = await supabase
+            .from('friendships')
+            .select('id')
+            .eq('requester_id', currentUser.id)
+            .eq('addressee_id', userId)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (!friendship) {
+            console.error('[ProfileView] Friendship not found');
+            return;
+        }
+
         const { error } = await supabase
             .rpc('decline_friend_request', {
-                from_user_id: currentUser.id,
-                to_user_id: userId
+                current_user_id: currentUser.id,
+                friendship_id: friendship.id
             });
 
         if (error) throw error;
@@ -638,13 +636,27 @@ window.cancelFollowRequest = async function(userId) {
 };
 
 /**
- * Accept a follow request
+ * Accept a follow request (from profile user to current user)
  */
 window.acceptFollowRequest = async function(userId) {
     if (!currentUser) return;
 
     try {
         const supabase = getSupabase();
+
+        // Find the friendship
+        const { data: friendship } = await supabase
+            .from('friendships')
+            .select('id')
+            .eq('requester_id', userId)
+            .eq('addressee_id', currentUser.id)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (!friendship) {
+            console.error('[ProfileView] Friendship not found');
+            return;
+        }
 
         // Get current user's name to include in notification
         const { data: currentUserProfile } = await supabase
@@ -657,8 +669,8 @@ window.acceptFollowRequest = async function(userId) {
 
         const { error } = await supabase
             .rpc('accept_friend_request', {
-                from_user_id: userId,
-                to_user_id: currentUser.id
+                current_user_id: currentUser.id,
+                friendship_id: friendship.id
             });
 
         if (error) throw error;
@@ -676,7 +688,7 @@ window.acceptFollowRequest = async function(userId) {
 };
 
 /**
- * Decline a follow request
+ * Decline a follow request (from profile user to current user)
  */
 window.declineFollowRequest = async function(userId) {
     if (!currentUser) return;
@@ -684,10 +696,24 @@ window.declineFollowRequest = async function(userId) {
     try {
         const supabase = getSupabase();
 
+        // Find the friendship
+        const { data: friendship } = await supabase
+            .from('friendships')
+            .select('id')
+            .eq('requester_id', userId)
+            .eq('addressee_id', currentUser.id)
+            .eq('status', 'pending')
+            .maybeSingle();
+
+        if (!friendship) {
+            console.error('[ProfileView] Friendship not found');
+            return;
+        }
+
         const { error } = await supabase
             .rpc('decline_friend_request', {
-                from_user_id: userId,
-                to_user_id: currentUser.id
+                current_user_id: currentUser.id,
+                friendship_id: friendship.id
             });
 
         if (error) throw error;
