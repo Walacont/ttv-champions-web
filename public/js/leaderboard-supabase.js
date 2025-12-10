@@ -48,6 +48,7 @@ let currentUserDataCache = null;
  */
 function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
     let currentUserHidden = false;
+    let currentUserVisibilitySetting = 'global';
 
     console.log('[Privacy Filter] Starting filter with', players.length, 'players');
     console.log('[Privacy Filter] Current user ID:', currentUserId);
@@ -55,31 +56,29 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
 
     const filteredPlayers = players.filter(player => {
         const privacySettings = player.privacySettings || {};
-        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
-        const searchable = privacySettings.searchable || 'global'; // Default: global
+        const leaderboardVisibility = privacySettings.leaderboardVisibility || 'global'; // Default: global
 
         // Check if this is the current user
         const isCurrentUser = player.id === currentUserId;
 
+        // Track current user's visibility setting for info message
+        if (isCurrentUser) {
+            currentUserVisibilitySetting = leaderboardVisibility;
+        }
+
         // Debug log for each player
         console.log('[Privacy Filter] Player:', player.firstName, player.lastName,
-            '| showInLeaderboards:', showInLeaderboards,
-            '| searchable:', searchable,
+            '| leaderboardVisibility:', leaderboardVisibility,
             '| isCurrentUser:', isCurrentUser,
             '| raw privacySettings:', JSON.stringify(privacySettings));
 
-        // If player has disabled leaderboard visibility
-        if (!showInLeaderboards) {
-            if (isCurrentUser) {
-                currentUserHidden = true;
-                return true; // Still show current user to themselves
-            }
-            console.log('[Privacy Filter] HIDING', player.firstName, '- showInLeaderboards is false');
-            return false; // Hide from others
+        // Global: visible to everyone
+        if (leaderboardVisibility === 'global') {
+            return true;
         }
 
-        // If player is only visible to club members
-        if (searchable === 'club_only') {
+        // Club only: only show to players in the same club
+        if (leaderboardVisibility === 'club_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;
                 return true; // Still show current user to themselves
@@ -93,11 +92,36 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
             return false; // Hide from non-club members
         }
 
-        // Global visibility - show to everyone
+        // Friends only: only show to friends
+        // Note: friends system not implemented yet
+        if (leaderboardVisibility === 'friends_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            console.log('[Privacy Filter] HIDING', player.firstName, '- friends_only');
+            return false;
+        }
+
+        // Invisible: don't show to anyone except themselves
+        if (leaderboardVisibility === 'invisible') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            console.log('[Privacy Filter] HIDING', player.firstName, '- invisible');
+            return false;
+        }
+
+        // Default to visible
         return true;
     });
 
     console.log('[Privacy Filter] Filtered from', players.length, 'to', filteredPlayers.length, 'players');
+
+    // Store visibility setting for info message display
+    window.currentUserLeaderboardVisibility = currentUserVisibilitySetting;
+
     return { filteredPlayers, currentUserHidden };
 }
 

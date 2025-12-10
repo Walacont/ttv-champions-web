@@ -1185,6 +1185,34 @@ async function fetchLeaderboardData() {
     }
 }
 
+/**
+ * Update the privacy info message at the top of the leaderboard tab
+ * @param {string} visibilitySetting - The user's leaderboard visibility setting
+ */
+function updateLeaderboardPrivacyInfo(visibilitySetting) {
+    const infoContainer = document.getElementById('leaderboard-privacy-info');
+    const messageElement = document.getElementById('leaderboard-privacy-message');
+
+    if (!infoContainer || !messageElement) return;
+
+    // Messages based on visibility setting
+    const messages = {
+        'global': null, // No message for global visibility
+        'club_only': 'Du bist nur für Vereinsmitglieder sichtbar. Spieler anderer Vereine können dich nicht in der Rangliste sehen.',
+        'friends_only': 'Du bist nur für Freunde sichtbar. Andere Spieler können dich nicht in der Rangliste sehen.',
+        'invisible': 'Du bist auf unsichtbar gestellt. Niemand kann dich in der Rangliste sehen.'
+    };
+
+    const message = messages[visibilitySetting];
+
+    if (message) {
+        messageElement.innerHTML = `<i class="fas fa-eye-slash mr-2"></i>${message} <a href="/settings.html" class="underline hover:text-amber-900">Einstellungen ändern</a>`;
+        infoContainer.classList.remove('hidden');
+    } else {
+        infoContainer.classList.add('hidden');
+    }
+}
+
 function renderLeaderboardList() {
     // Map tab names to container IDs
     const containerMap = {
@@ -1245,25 +1273,26 @@ function renderLeaderboardList() {
 
     // Filter by privacy settings (applies to all users including coaches)
     let currentUserHidden = false;
+    let currentUserVisibilitySetting = 'global';
     players = players.filter(player => {
         const privacySettings = player.privacy_settings || {};
-        const showInLeaderboards = privacySettings.showInLeaderboards !== false; // Default: true
-        const searchable = privacySettings.searchable || 'global'; // Default: global
+        const leaderboardVisibility = privacySettings.leaderboardVisibility || 'global'; // Default: global
 
         const isCurrentUser = player.id === currentUser.id;
         const isSameClub = currentUserData?.club_id && player.club_id === currentUserData.club_id;
 
-        // If player has disabled leaderboard visibility
-        if (!showInLeaderboards) {
-            if (isCurrentUser) {
-                currentUserHidden = true;
-                return true; // Still show current user to themselves
-            }
-            return false; // Hide from others
+        // Track current user's visibility setting for info message
+        if (isCurrentUser) {
+            currentUserVisibilitySetting = leaderboardVisibility;
         }
 
-        // If player is only visible to club members
-        if (searchable === 'club_only') {
+        // Global: visible to everyone
+        if (leaderboardVisibility === 'global') {
+            return true;
+        }
+
+        // Club only: only show to players in the same club
+        if (leaderboardVisibility === 'club_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;
                 return true; // Still show current user to themselves
@@ -1275,8 +1304,34 @@ function renderLeaderboardList() {
             return false; // Hide from non-club members
         }
 
-        return true; // Global visibility
+        // Friends only: only show to friends
+        // Note: friends system not implemented yet
+        if (leaderboardVisibility === 'friends_only') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            // TODO: implement friends check when friends system is ready
+            return false;
+        }
+
+        // Invisible: don't show to anyone except themselves
+        if (leaderboardVisibility === 'invisible') {
+            if (isCurrentUser) {
+                currentUserHidden = true;
+                return true; // Still show current user to themselves
+            }
+            return false;
+        }
+
+        return true; // Default to visible
     });
+
+    // Store visibility setting for info message display
+    window.currentUserLeaderboardVisibility = currentUserVisibilitySetting;
+
+    // Update the privacy info message at the top of the leaderboard tab
+    updateLeaderboardPrivacyInfo(currentUserVisibilitySetting);
 
     // Sort by current tab - map tab names to field names
     const fieldMap = {

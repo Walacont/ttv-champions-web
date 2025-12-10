@@ -425,18 +425,26 @@ async function searchOpponents(query, resultsContainer) {
                 }
             }
 
-            const userHasNoClub = !currentUserData.club_id;
-            const playerHasNoClub = !player.club_id;
-
-            if (userHasNoClub && playerHasNoClub) return true;
-
             const searchable = player.privacy_settings?.searchable || 'global';
 
-            if (currentUserData.club_id && player.club_id === currentUserData.club_id) {
-                return true;
+            // Show players who are searchable globally
+            if (searchable === 'global') return true;
+
+            // club_only: only show to players in the same club
+            if (searchable === 'club_only') {
+                return currentUserData.club_id && player.club_id === currentUserData.club_id;
             }
 
-            if (searchable === 'global') return true;
+            // friends_only: only show to friends
+            // Note: friends system not implemented yet
+            if (searchable === 'friends_only') {
+                return false;
+            }
+
+            // invisible: don't show to anyone
+            if (searchable === 'invisible') {
+                return false;
+            }
 
             return false;
         }).slice(0, 10);
