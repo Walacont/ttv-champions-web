@@ -13,6 +13,7 @@ import { showHeadToHeadModal } from './head-to-head-supabase.js';
 import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { initFriends } from './friends-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -402,7 +403,7 @@ function setupTabs() {
     const tabContents = document.querySelectorAll('.tab-content');
 
     tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
             const tabId = button.dataset.tab;
 
             // Update active states
@@ -415,6 +416,15 @@ function setupTabs() {
                     content.classList.remove('hidden');
                 }
             });
+
+            // Initialize Community tab when activated
+            if (tabId === 'community') {
+                try {
+                    await initFriends();
+                } catch (error) {
+                    console.error('Error initializing friends module:', error);
+                }
+            }
         });
     });
 

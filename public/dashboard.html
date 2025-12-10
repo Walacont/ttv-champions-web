@@ -299,6 +299,13 @@
 
                     <button
                         class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        data-tab="community"
+                    >
+                        Community
+                    </button>
+
+                    <button
+                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
                         data-tab="exercises"
                     >
                         Übungskatalog
@@ -1053,6 +1060,85 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Community Tab -->
+                <div id="tab-content-community" class="tab-content hidden">
+                    <div class="space-y-6 max-w-4xl mx-auto">
+
+                        <!-- Player Search Section -->
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                                <i class="fas fa-search mr-2 text-indigo-600"></i>Spielersuche
+                            </h2>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Finde andere Spieler und sende ihnen Freundschaftsanfragen
+                            </p>
+
+                            <!-- Search Input -->
+                            <div class="mb-4">
+                                <input
+                                    type="text"
+                                    id="player-search-input"
+                                    placeholder="Spieler suchen (Name eingeben)..."
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </div>
+
+                            <!-- Search Results -->
+                            <div id="player-search-results" class="space-y-3">
+                                <p class="text-gray-400 text-center py-4 text-sm">
+                                    Gib einen Namen ein, um nach Spielern zu suchen
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Friend Requests Section -->
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                                <i class="fas fa-user-clock mr-2 text-orange-600"></i>Freundschaftsanfragen
+                            </h2>
+
+                            <!-- Received Friend Requests -->
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold text-gray-700 mb-3">
+                                    📬 Empfangene Anfragen
+                                    <span id="received-requests-count" class="ml-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                                </h3>
+                                <div id="received-friend-requests-list" class="space-y-3">
+                                    <p class="text-gray-400 text-center py-4 text-sm">
+                                        Keine ausstehenden Anfragen
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Sent Friend Requests -->
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-700 mb-3">
+                                    📤 Gesendete Anfragen
+                                </h3>
+                                <div id="sent-friend-requests-list" class="space-y-3">
+                                    <p class="text-gray-400 text-center py-4 text-sm">
+                                        Keine gesendeten Anfragen
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Friends List Section -->
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                                <i class="fas fa-user-friends mr-2 text-green-600"></i>Deine Freunde
+                                <span id="friends-count" class="ml-2 text-sm text-gray-500">(0)</span>
+                            </h2>
+                            <div id="friends-list" class="space-y-3">
+                                <p class="text-gray-400 text-center py-4 text-sm">
+                                    Du hast noch keine Freunde hinzugefügt
+                                </p>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
