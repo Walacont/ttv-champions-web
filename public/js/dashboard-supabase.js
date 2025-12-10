@@ -615,6 +615,12 @@ async function updateStatsDisplay() {
     const eloEl = document.getElementById('player-elo');
     const pointsEl = document.getElementById('player-points');
 
+    // Quick stats elements (new compact display)
+    const quickXpEl = document.getElementById('quick-xp');
+    const quickEloEl = document.getElementById('quick-elo');
+    const quickPointsEl = document.getElementById('quick-points');
+    const quickStatsLink = document.getElementById('quick-stats-link');
+
     // Default values from profile
     let xp = currentUserData.xp || 0;
     let elo = currentUserData.elo_rating || 1000;
@@ -643,9 +649,20 @@ async function updateStatsDisplay() {
         }
     }
 
+    // Update hidden elements (for compatibility)
     if (xpEl) xpEl.textContent = xp;
     if (eloEl) eloEl.textContent = elo;
     if (pointsEl) pointsEl.textContent = points;
+
+    // Update quick stats display
+    if (quickXpEl) quickXpEl.textContent = xp.toLocaleString();
+    if (quickEloEl) quickEloEl.textContent = elo;
+    if (quickPointsEl) quickPointsEl.textContent = points;
+
+    // Setup quick stats link to profile
+    if (quickStatsLink && currentUser) {
+        quickStatsLink.href = `/profile.html?id=${currentUser.id}`;
+    }
 }
 
 // --- Update Rank Display ---

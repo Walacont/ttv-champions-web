@@ -785,112 +785,344 @@ window.declineFollowRequest = async function(userId) {
 
 /**
  * Render additional sections for own profile (XP, rank, challenges, attendance)
+ * Now renders into the Fortschritt tab with dashboard-like widgets
  */
 async function renderOwnProfileExtras(profile) {
     const supabase = getSupabase();
 
-    // Create container for own profile extras
-    const extrasContainer = document.getElementById('own-profile-extras');
-    if (!extrasContainer) return;
+    // Show tab switcher for own profile
+    const tabSwitcher = document.getElementById('profile-tab-switcher');
+    if (tabSwitcher) {
+        tabSwitcher.classList.remove('hidden');
+    }
 
-    extrasContainer.classList.remove('hidden');
+    // Setup global tab switch function
+    window.switchProfileTab = function(tabName) {
+        const aktivitaetContent = document.getElementById('profile-content-aktivitaet');
+        const fortschrittContent = document.getElementById('profile-content-fortschritt');
+        const aktivitaetBtn = document.getElementById('profile-tab-aktivitaet');
+        const fortschrittBtn = document.getElementById('profile-tab-fortschritt');
 
-    // XP and Rank section
+        if (tabName === 'aktivitaet') {
+            aktivitaetContent?.classList.remove('hidden');
+            fortschrittContent?.classList.add('hidden');
+            aktivitaetBtn?.classList.add('border-indigo-600', 'text-indigo-600');
+            aktivitaetBtn?.classList.remove('border-transparent', 'text-gray-500');
+            fortschrittBtn?.classList.remove('border-indigo-600', 'text-indigo-600');
+            fortschrittBtn?.classList.add('border-transparent', 'text-gray-500');
+        } else {
+            aktivitaetContent?.classList.add('hidden');
+            fortschrittContent?.classList.remove('hidden');
+            fortschrittBtn?.classList.add('border-indigo-600', 'text-indigo-600');
+            fortschrittBtn?.classList.remove('border-transparent', 'text-gray-500');
+            aktivitaetBtn?.classList.remove('border-indigo-600', 'text-indigo-600');
+            aktivitaetBtn?.classList.add('border-transparent', 'text-gray-500');
+        }
+    };
+
+    // Build Fortschritt tab content
+    const fortschrittContainer = document.getElementById('profile-content-fortschritt');
+    if (!fortschrittContainer) return;
+
     const xp = profile.xp || 0;
+    const elo = profile.elo_rating || 800;
+    const points = profile.points || 0;
     const rank = calculateRankFromXP(xp);
 
     let html = `
-        <!-- XP and Rank -->
-        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-                <i class="fas fa-star text-purple-600 mr-2"></i>Erfahrung & Rang
-            </h3>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="text-center p-4 bg-purple-50 rounded-lg">
-                    <p class="text-3xl font-bold text-purple-600">${xp.toLocaleString()}</p>
-                    <p class="text-sm text-purple-700">XP</p>
+        <div class="p-4 space-y-4">
+            <!-- Info Banner explaining the 3 systems -->
+            <div class="bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-4 rounded-lg">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-info-circle text-indigo-500"></i>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <p class="text-sm font-medium text-indigo-800">Drei Systeme für deinen Fortschritt</p>
+                        <p class="text-xs text-indigo-700 mt-1">
+                            <strong class="text-purple-700">XP</strong> = Permanenter Fleiß für Rang-Aufstieg •
+                            <strong class="text-blue-700">Elo</strong> = Wettkampf-Spielstärke •
+                            <strong class="text-yellow-700">Saisonpunkte</strong> = Temporärer 6-Wochen-Wettbewerb
+                        </p>
+                    </div>
                 </div>
-                <div class="text-center p-4 bg-indigo-50 rounded-lg">
-                    <p class="text-2xl">${rank.icon}</p>
-                    <p class="text-lg font-bold text-indigo-600">${rank.name}</p>
+            </div>
+
+            <!-- Statistics -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h2 class="text-base font-semibold text-gray-500 mb-3 text-center">Deine Statistiken</h2>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                        <p class="text-xs font-semibold text-purple-800 mb-1">💪 XP</p>
+                        <p class="text-2xl font-bold text-purple-600">${xp.toLocaleString()}</p>
+                    </div>
+                    <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <p class="text-xs font-semibold text-blue-800 mb-1">⚡ Elo</p>
+                        <p class="text-2xl font-bold text-blue-600">${elo}</p>
+                    </div>
+                    <div class="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p class="text-xs font-semibold text-yellow-800 mb-1">🏆 Punkte</p>
+                        <p class="text-2xl font-bold text-yellow-600">${points}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rank -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h2 class="text-base font-semibold text-gray-700 mb-3">Dein Rang</h2>
+                <div id="profile-rank-info" class="flex items-center gap-4">
+                    <div class="text-4xl">${rank.icon}</div>
+                    <div>
+                        <p class="text-xl font-bold text-gray-800">${rank.name}</p>
+                        <p class="text-sm text-gray-500">${xp.toLocaleString()} XP</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rivals Section -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Skill Rival -->
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <h2 class="text-base font-semibold text-gray-700 mb-3">⚡ Skill-Rivale</h2>
+                    <div id="profile-skill-rival" class="text-gray-500 text-sm">
+                        <p>Lade Rivalen...</p>
+                    </div>
+                </div>
+                <!-- Effort Rival -->
+                <div class="bg-white rounded-xl shadow-sm p-4">
+                    <h2 class="text-base font-semibold text-gray-700 mb-3">💪 Fleiß-Rivale</h2>
+                    <div id="profile-effort-rival" class="text-gray-500 text-sm">
+                        <p>Lade Rivalen...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Points History -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h2 class="text-base font-semibold text-gray-700 mb-3">Punkte-Historie</h2>
+                <ul id="profile-points-history" class="space-y-2 max-h-48 overflow-y-auto text-sm">
+                    <li class="text-gray-400">Lade Historie...</li>
+                </ul>
+            </div>
+
+            <!-- Active Challenges -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h2 class="text-base font-semibold text-gray-700 mb-3">Aktive Challenges</h2>
+                <div id="profile-challenges" class="space-y-3">
+                    <p class="text-gray-400 text-sm">Lade Challenges...</p>
+                </div>
+            </div>
+
+            <!-- Attendance Calendar -->
+            <div class="bg-white rounded-xl shadow-sm p-4">
+                <h2 class="text-base font-semibold text-gray-700 mb-3">
+                    <i class="fas fa-calendar-check text-green-600 mr-2"></i>Anwesenheit
+                </h2>
+                <div id="profile-attendance-calendar" class="text-center text-gray-500">
+                    <p class="py-4 text-sm">Lade Anwesenheit...</p>
                 </div>
             </div>
         </div>
     `;
 
-    // Load active challenges
-    const { data: activeChallenges } = await supabase
-        .from('challenge_progress')
-        .select(`
-            id,
-            progress,
-            challenges (
+    fortschrittContainer.innerHTML = html;
+
+    // Load additional data for Fortschritt tab
+    await Promise.all([
+        loadProfileRivals(profile),
+        loadProfilePointsHistory(),
+        loadProfileChallenges(),
+        loadProfileAttendance()
+    ]);
+
+    // Hide old extras container (we now use the tab)
+    const oldExtras = document.getElementById('own-profile-extras');
+    if (oldExtras) {
+        oldExtras.classList.add('hidden');
+    }
+}
+
+/**
+ * Load rival data for profile Fortschritt tab
+ */
+async function loadProfileRivals(profile) {
+    const supabase = getSupabase();
+
+    try {
+        // Get players from same club for rival comparison
+        const { data: clubPlayers } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, elo_rating, xp, photo_url')
+            .eq('club_id', profile.club_id)
+            .neq('id', profileId)
+            .limit(50);
+
+        if (!clubPlayers || clubPlayers.length === 0) {
+            document.getElementById('profile-skill-rival').innerHTML = '<p class="text-gray-400">Keine Rivalen gefunden</p>';
+            document.getElementById('profile-effort-rival').innerHTML = '<p class="text-gray-400">Keine Rivalen gefunden</p>';
+            return;
+        }
+
+        // Find skill rival (closest Elo above)
+        const myElo = profile.elo_rating || 800;
+        const playersAboveElo = clubPlayers.filter(p => (p.elo_rating || 800) > myElo);
+        playersAboveElo.sort((a, b) => (a.elo_rating || 800) - (b.elo_rating || 800));
+        const skillRival = playersAboveElo[0];
+
+        // Find effort rival (closest XP above)
+        const myXp = profile.xp || 0;
+        const playersAboveXp = clubPlayers.filter(p => (p.xp || 0) > myXp);
+        playersAboveXp.sort((a, b) => (a.xp || 0) - (b.xp || 0));
+        const effortRival = playersAboveXp[0];
+
+        // Render skill rival
+        const skillContainer = document.getElementById('profile-skill-rival');
+        if (skillRival) {
+            const rivalName = `${skillRival.first_name || ''} ${skillRival.last_name || ''}`.trim();
+            const eloDiff = (skillRival.elo_rating || 800) - myElo;
+            skillContainer.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <img src="${skillRival.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
+                         class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div>
+                        <p class="font-medium text-gray-800">${escapeHtml(rivalName)}</p>
+                        <p class="text-xs text-gray-500">${skillRival.elo_rating || 800} Elo <span class="text-red-500">(+${eloDiff})</span></p>
+                    </div>
+                </div>
+            `;
+        } else {
+            skillContainer.innerHTML = '<p class="text-green-600 font-medium">Du bist an der Spitze! 🏆</p>';
+        }
+
+        // Render effort rival
+        const effortContainer = document.getElementById('profile-effort-rival');
+        if (effortRival) {
+            const rivalName = `${effortRival.first_name || ''} ${effortRival.last_name || ''}`.trim();
+            const xpDiff = (effortRival.xp || 0) - myXp;
+            effortContainer.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <img src="${effortRival.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
+                         class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div>
+                        <p class="font-medium text-gray-800">${escapeHtml(rivalName)}</p>
+                        <p class="text-xs text-gray-500">${(effortRival.xp || 0).toLocaleString()} XP <span class="text-red-500">(+${xpDiff})</span></p>
+                    </div>
+                </div>
+            `;
+        } else {
+            effortContainer.innerHTML = '<p class="text-green-600 font-medium">Du bist an der Spitze! 🏆</p>';
+        }
+    } catch (error) {
+        console.error('[ProfileView] Error loading rivals:', error);
+    }
+}
+
+/**
+ * Load points history for profile Fortschritt tab
+ */
+async function loadProfilePointsHistory() {
+    const supabase = getSupabase();
+    const container = document.getElementById('profile-points-history');
+    if (!container) return;
+
+    try {
+        const { data: history } = await supabase
+            .from('points_history')
+            .select('*')
+            .eq('player_id', profileId)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (!history || history.length === 0) {
+            container.innerHTML = '<li class="text-gray-400">Keine Einträge vorhanden</li>';
+            return;
+        }
+
+        container.innerHTML = history.map(entry => {
+            const date = new Date(entry.created_at).toLocaleDateString('de-DE');
+            const isPositive = entry.points_change >= 0;
+            const icon = entry.source_type === 'match' ? '🏓' :
+                        entry.source_type === 'exercise' ? '📚' :
+                        entry.source_type === 'challenge' ? '🏆' : '⭐';
+            return `
+                <li class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <div class="flex items-center gap-2">
+                        <span>${icon}</span>
+                        <span class="text-gray-700">${escapeHtml(entry.description || entry.source_type)}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="${isPositive ? 'text-green-600' : 'text-red-600'} font-semibold">
+                            ${isPositive ? '+' : ''}${entry.points_change}
+                        </span>
+                        <span class="text-xs text-gray-400 ml-2">${date}</span>
+                    </div>
+                </li>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('[ProfileView] Error loading points history:', error);
+        container.innerHTML = '<li class="text-red-400">Fehler beim Laden</li>';
+    }
+}
+
+/**
+ * Load challenges for profile Fortschritt tab
+ */
+async function loadProfileChallenges() {
+    const supabase = getSupabase();
+    const container = document.getElementById('profile-challenges');
+    if (!container) return;
+
+    try {
+        const { data: activeChallenges } = await supabase
+            .from('challenge_progress')
+            .select(`
                 id,
-                name,
-                description,
-                target_value,
-                xp_reward
-            )
-        `)
-        .eq('player_id', profileId)
-        .eq('completed', false)
-        .limit(3);
+                progress,
+                challenges (
+                    id,
+                    name,
+                    description,
+                    target_value,
+                    xp_reward
+                )
+            `)
+            .eq('player_id', profileId)
+            .eq('completed', false)
+            .limit(5);
 
-    if (activeChallenges && activeChallenges.length > 0) {
-        html += `
-            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
-                <h3 class="text-lg font-bold text-gray-800 mb-4">
-                    <i class="fas fa-trophy text-yellow-600 mr-2"></i>Aktive Challenges
-                </h3>
-                <div class="space-y-3">
-        `;
+        if (!activeChallenges || activeChallenges.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-sm">Keine aktiven Challenges</p>';
+            return;
+        }
 
-        activeChallenges.forEach(cp => {
+        container.innerHTML = activeChallenges.map(cp => {
             const challenge = cp.challenges;
-            if (!challenge) return;
+            if (!challenge) return '';
 
             const progress = cp.progress || 0;
             const target = challenge.target_value || 1;
             const percentage = Math.min(100, Math.round((progress / target) * 100));
 
-            html += `
+            return `
                 <div class="bg-gray-50 rounded-lg p-3">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="font-medium text-gray-800">${escapeHtml(challenge.name)}</span>
-                        <span class="text-sm text-indigo-600 font-semibold">+${challenge.xp_reward} XP</span>
+                        <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.name)}</span>
+                        <span class="text-xs text-indigo-600 font-semibold">+${challenge.xp_reward} XP</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="flex-1 bg-gray-200 rounded-full h-2">
-                            <div class="bg-indigo-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                            <div class="bg-indigo-600 h-2 rounded-full transition-all" style="width: ${percentage}%"></div>
                         </div>
                         <span class="text-xs text-gray-500">${progress}/${target}</span>
                     </div>
                 </div>
             `;
-        });
-
-        html += `
-                </div>
-            </div>
-        `;
+        }).join('');
+    } catch (error) {
+        console.error('[ProfileView] Error loading challenges:', error);
+        container.innerHTML = '<p class="text-red-400 text-sm">Fehler beim Laden</p>';
     }
-
-    // Attendance calendar placeholder
-    html += `
-        <div class="bg-white rounded-xl shadow-md p-6">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-                <i class="fas fa-calendar-check text-green-600 mr-2"></i>Anwesenheit
-            </h3>
-            <div id="profile-attendance-calendar" class="text-center text-gray-500">
-                <p class="py-4">Lade Anwesenheit...</p>
-            </div>
-        </div>
-    `;
-
-    extrasContainer.innerHTML = html;
-
-    // Load attendance data
-    await loadProfileAttendance();
 }
 
 /**
