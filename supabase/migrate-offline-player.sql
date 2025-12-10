@@ -68,6 +68,10 @@ BEGIN
     UPDATE matches SET winner_id = p_new_user_id
     WHERE winner_id = p_offline_player_id;
 
+    -- Update matches: loser_id
+    UPDATE matches SET loser_id = p_new_user_id
+    WHERE loser_id = p_offline_player_id;
+
     -- Update doubles_matches: team1_player1_id
     UPDATE doubles_matches SET team1_player1_id = p_new_user_id
     WHERE team1_player1_id = p_offline_player_id;

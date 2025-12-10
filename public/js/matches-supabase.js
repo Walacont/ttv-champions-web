@@ -235,10 +235,10 @@ export function handleGeneratePairings(clubPlayers, currentSubgroupFilter = 'all
     const presentPlayerCheckboxes = document.querySelectorAll('#attendance-player-list input:checked');
     const presentPlayerIds = Array.from(presentPlayerCheckboxes).map(cb => cb.value);
 
-    // Only pair players who have completed Grundlagen (5 exercises)
+    // Only pair players who are match-ready
     let matchReadyAndPresentPlayers = clubPlayers.filter(player => {
-        const grundlagen = player.grundlagenCompleted || 0;
-        return presentPlayerIds.includes(player.id) && grundlagen >= 5;
+        const isMatchReady = player.isMatchReady === true || player.is_match_ready === true;
+        return presentPlayerIds.includes(player.id) && isMatchReady;
     });
 
     // Filter by subgroup, age group, or gender
@@ -697,17 +697,29 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         return;
     }
 
-    // Get set scores from input
-    const setScoreInput = document.getElementById('set-score-input');
-    const setsA = parseInt(setScoreInput?.dataset.setsA || '0');
-    const setsB = parseInt(setScoreInput?.dataset.setsB || '0');
-
-    if (setsA === 0 && setsB === 0) {
-        if (feedbackEl) feedbackEl.textContent = 'Bitte Satzergebnis eingeben.';
+    // Get set scores from coach set score input instance
+    if (!coachSetScoreInput) {
+        if (feedbackEl) feedbackEl.textContent = 'Set-Score-Input nicht initialisiert.';
         return;
     }
 
-    const winnerId = setsA > setsB ? playerAId : playerBId;
+    // Validate the set scores
+    const validation = coachSetScoreInput.validate();
+    if (!validation.valid) {
+        if (feedbackEl) feedbackEl.textContent = validation.error || 'Bitte Satzergebnis eingeben.';
+        return;
+    }
+
+    // Get winner data
+    const winnerData = coachSetScoreInput.getMatchWinner();
+    if (!winnerData || !winnerData.winner) {
+        if (feedbackEl) feedbackEl.textContent = 'Bitte vollständiges Satzergebnis eingeben.';
+        return;
+    }
+
+    const setsA = winnerData.setsA;
+    const setsB = winnerData.setsB;
+    const winnerId = winnerData.winner === 'A' ? playerAId : playerBId;
     const playerA = clubPlayers.find(p => p.id === playerAId);
     const playerB = clubPlayers.find(p => p.id === playerBId);
 
@@ -719,37 +731,92 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
+    // Get detailed sets data
+    const sets = coachSetScoreInput.getSets ? coachSetScoreInput.getSets() : [];
+    const loserId = winnerId === playerAId ? playerBId : playerAId;
+
+    // Get match mode and handicap settings
+    const matchModeSelect = document.getElementById('coach-match-mode-select');
+    const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+    const handicapToggle = document.getElementById('coach-handicap-toggle');
+    const handicapUsed = handicapToggle?.checked || false;
+
     try {
         const supabase = getSupabase();
+
+        const matchData = {
+            player_a_id: playerAId,
+            player_b_id: playerBId,
+            winner_id: winnerId,
+            loser_id: loserId,
+            sets: sets,
+            club_id: currentUserData.clubId || currentUserData.club_id,
+            sport_id: currentUserData.activeSportId || currentUserData.active_sport_id,
+            created_by: currentUserData.id,
+            match_mode: matchMode,
+            handicap_used: handicapUsed
+        };
+
+        console.log('[Matches] Saving match with data:', matchData);
 
         // Save match result
         const { data: match, error: matchError } = await supabase
             .from('matches')
-            .insert({
-                player_a_id: playerAId,
-                player_b_id: playerBId,
-                winner_id: winnerId,
-                sets_a: setsA,
-                sets_b: setsB,
-                club_id: currentUserData.clubId,
-                recorded_by: currentUserData.id,
-                match_type: 'singles',
-                status: 'completed'
-            })
+            .insert(matchData)
             .select()
             .single();
 
         if (matchError) throw matchError;
 
-        // Call RPC to process match result and update Elo
-        const { error: rpcError } = await supabase.rpc('process_match_result', {
-            p_match_id: match.id,
-            p_winner_id: winnerId,
-            p_loser_id: winnerId === playerAId ? playerBId : playerAId
+        console.log('[Matches] Match saved successfully:', match);
+
+        // Send notifications to online players only
+        const coachName = `${currentUserData.firstName || currentUserData.first_name || ''} ${currentUserData.lastName || currentUserData.last_name || ''}`.trim() || 'Coach';
+        const playerAName = `${playerA.firstName || playerA.first_name || ''} ${playerA.lastName || playerA.last_name || ''}`.trim();
+        const playerBName = `${playerB.firstName || playerB.first_name || ''} ${playerB.lastName || playerB.last_name || ''}`.trim();
+
+        // Get Elo changes from saved match
+        const winnerEloChange = match.winner_elo_change || match.elo_change || 0;
+        const loserEloChange = match.loser_elo_change || -(match.elo_change || 0);
+
+        console.log('[Matches] Sending notifications:', {
+            playerA: { id: playerAId, name: playerAName, isOffline: playerA.isOffline || playerA.is_offline },
+            playerB: { id: playerBId, name: playerBName, isOffline: playerB.isOffline || playerB.is_offline },
+            winnerEloChange, loserEloChange
         });
 
-        if (rpcError) {
-            console.error('Error processing match result:', rpcError);
+        // Notify Player A (if online)
+        const playerAIsOffline = playerA.isOffline || playerA.is_offline;
+        if (!playerAIsOffline) {
+            const isWinnerA = winnerId === playerAId;
+            const eloChangeA = isWinnerA ? winnerEloChange : loserEloChange;
+            console.log('[Matches] Notifying Player A:', playerAId, isWinnerA ? 'winner' : 'loser');
+            await createNotification(
+                playerAId,
+                'match_recorded',
+                isWinnerA ? 'Match gewonnen!' : 'Match verloren',
+                `${isWinnerA ? 'Sieg' : 'Niederlage'} gegen ${playerBName} (${eloChangeA >= 0 ? '+' : ''}${eloChangeA} Elo) - eingetragen von ${coachName}`,
+                { opponent_name: playerBName, is_winner: isWinnerA, elo_change: eloChangeA }
+            );
+        } else {
+            console.log('[Matches] Skipping notification for offline Player A:', playerAId);
+        }
+
+        // Notify Player B (if online)
+        const playerBIsOffline = playerB.isOffline || playerB.is_offline;
+        if (!playerBIsOffline) {
+            const isWinnerB = winnerId === playerBId;
+            const eloChangeB = isWinnerB ? winnerEloChange : loserEloChange;
+            console.log('[Matches] Notifying Player B:', playerBId, isWinnerB ? 'winner' : 'loser');
+            await createNotification(
+                playerBId,
+                'match_recorded',
+                isWinnerB ? 'Match gewonnen!' : 'Match verloren',
+                `${isWinnerB ? 'Sieg' : 'Niederlage'} gegen ${playerAName} (${eloChangeB >= 0 ? '+' : ''}${eloChangeB} Elo) - eingetragen von ${coachName}`,
+                { opponent_name: playerAName, is_winner: isWinnerB, elo_change: eloChangeB }
+            );
+        } else {
+            console.log('[Matches] Skipping notification for offline Player B:', playerBId);
         }
 
         if (feedbackEl) {
@@ -761,9 +828,16 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         // Reset form
         document.getElementById('player-a-select').value = '';
         document.getElementById('player-b-select').value = '';
-        if (setScoreInput) {
-            setScoreInput.dataset.setsA = '0';
-            setScoreInput.dataset.setsB = '0';
+
+        // Reset set score input
+        if (coachSetScoreInput && coachSetScoreInput.reset) {
+            coachSetScoreInput.reset();
+        }
+
+        // Hide winner display
+        const matchWinnerInfo = document.getElementById('coach-match-winner-info');
+        if (matchWinnerInfo) {
+            matchWinnerInfo.classList.add('hidden');
         }
 
     } catch (error) {
@@ -859,12 +933,9 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 
             if (lockedPlayers.length > 0) {
                 const lockedNames = lockedPlayers
-                    .map(p => {
-                        const grundlagen = p.grundlagenCompleted || p.grundlagen_completed || 0;
-                        return `${p.firstName || p.first_name} (${grundlagen}/5 Grundlagen)`;
-                    })
+                    .map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`)
                     .join(', ');
-                message += `<p class="text-xs text-gray-600 mt-2">🔒 Gesperrt: ${lockedNames}</p>`;
+                message += `<p class="text-xs text-gray-600 mt-2">🔒 Noch nicht wettkampfsbereit: ${lockedNames}</p>`;
             }
 
             handicapSuggestion.innerHTML = message;

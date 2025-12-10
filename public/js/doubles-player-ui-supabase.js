@@ -160,6 +160,8 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
     // Support both camelCase and snake_case for clubId
     const userClubId = userData.clubId || userData.club_id;
 
+    console.log('[Doubles Player Search] Initializing with:', { userSportId, userClubId, userId: userData.id });
+
     async function loadPlayers() {
         try {
             // Load clubs for test club filtering
@@ -171,21 +173,26 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             const currentUserClub = userClubId ? clubsMap.get(userClubId) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
 
-            // Load players and coaches - filter by same sport (explicitly exclude admins)
+            // Load players and coaches (explicitly exclude admins)
+            // Include players with same sport OR no sport set (club-only players)
             let query = supabase
                 .from('profiles')
                 .select('*')
                 .in('role', ['player', 'coach', 'head_coach'])
                 .neq('role', 'admin'); // Extra safety: explicitly exclude admins
 
-            // Filter by same sport if user has a sport set
-            if (userSportId) {
-                query = query.eq('active_sport_id', userSportId);
+            // Filter by same sport OR same club (for offline players without sport)
+            if (userSportId && userClubId) {
+                query = query.or(`active_sport_id.eq.${userSportId},club_id.eq.${userClubId}`);
+            } else if (userSportId) {
+                query = query.or(`active_sport_id.eq.${userSportId},active_sport_id.is.null`);
             }
 
             const { data: usersData, error } = await query;
 
             if (error) throw error;
+
+            console.log('[Doubles Player Search] Raw query returned', usersData?.length, 'players');
 
             playersData.players = (usersData || [])
                 .map(p => {
@@ -204,20 +211,32 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     };
                 })
                 .filter(p => {
-                    // Filter: not self, match-ready, and online (can accept requests)
+                    // Filter: not self, match-ready
+                    // Note: Offline players from same club ARE allowed (coach manages them)
                     const isSelf = p.id === userData.id;
-                    const isOffline = p.isOffline === true;
-                    if (isSelf || !p.isMatchReady || isOffline) return false;
+
+                    // Debug: Log each player's filter status
+                    if (!p.isMatchReady) {
+                        console.log('[Doubles Player Search] Filtered out (not match-ready):', p.firstName, p.lastName, 'isMatchReady:', p.isMatchReady);
+                    }
+
+                    if (isSelf || !p.isMatchReady) return false;
 
                     // Test club filtering
                     if (!isCurrentUserFromTestClub && p.clubId) {
                         const playerClub = clubsMap.get(p.clubId);
                         if (playerClub && playerClub.is_test_club) {
+                            console.log('[Doubles Player Search] Filtered out (test club):', p.firstName, p.lastName);
                             return false;
                         }
                     }
 
-                    // Privacy check
+                    // Privacy check - same club players always allowed
+                    if (userClubId && p.clubId === userClubId) {
+                        return true;
+                    }
+
+                    // No club users can see other no-club users
                     if (hasNoClub(userClubId) && hasNoClub(p.clubId)) {
                         return true;
                     }
@@ -232,10 +251,12 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                         return true;
                     }
 
+                    console.log('[Doubles Player Search] Filtered out (privacy):', p.firstName, p.lastName, 'searchable:', searchable);
                     return false;
                 });
 
-            console.log('[Doubles Player Search] Players list updated with', playersData.players.length, 'players');
+            console.log('[Doubles Player Search] Final players list:', playersData.players.length, 'players');
+            console.log('[Doubles Player Search] Players:', playersData.players.map(p => `${p.firstName} ${p.lastName} (offline: ${p.isOffline}, matchReady: ${p.isMatchReady})`));
         } catch (error) {
             console.error('Error loading players:', error);
         }
@@ -395,11 +416,18 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         // Check both camelCase and snake_case for userData club ID
         const userClubId = userData.clubId || userData.club_id;
         const isSameClub = player.clubId === userClubId;
+        const isOffline = player.isOffline === true;
+
+        // Offline badge
+        const offlineBadge = isOffline
+            ? '<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded mr-1">Offline</span>'
+            : '';
 
         return `
             <div class="player-search-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
                  data-player-id="${player.id}"
-                 data-player-name="${player.firstName} ${player.lastName}">
+                 data-player-name="${player.firstName} ${player.lastName}"
+                 data-player-offline="${isOffline}">
                 <div class="flex justify-between items-center">
                     <div class="flex-1">
                         <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
@@ -407,6 +435,7 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
                             <i class="fas fa-users mr-1"></i>${clubName}
                         </p>
                     </div>
+                    ${offlineBadge}
                     ${!isSameClub && player.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
                 </div>
             </div>
@@ -418,14 +447,17 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         result.addEventListener('click', () => {
             const playerId = result.dataset.playerId;
             const playerName = result.dataset.playerName;
+            const isOffline = result.dataset.playerOffline === 'true';
 
             // Set selected player
             selectedIdField.value = playerId;
+            // Store offline status for validation
+            selectedIdField.dataset.offline = isOffline;
             // Note: Individual Elo field is deprecated - pairing Elo is now used
             if (selectedEloField) selectedEloField.value = '800'; // Default, will be looked up from pairing
 
-            // Update search input to show selected player
-            searchInput.value = playerName;
+            // Update search input to show selected player (with offline indicator)
+            searchInput.value = isOffline ? `${playerName} (Offline)` : playerName;
 
             // Track selection for excluding from other searches
             if (onSelect) onSelect(playerId);
