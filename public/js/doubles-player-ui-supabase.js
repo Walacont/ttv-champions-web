@@ -169,11 +169,12 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             const currentUserClub = userData.clubId ? clubsMap.get(userData.clubId) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
 
-            // Load players and coaches - filter by same sport
+            // Load players and coaches - filter by same sport (explicitly exclude admins)
             let query = supabase
                 .from('profiles')
                 .select('*')
-                .in('role', ['player', 'coach', 'head_coach']);
+                .in('role', ['player', 'coach', 'head_coach'])
+                .neq('role', 'admin'); // Extra safety: explicitly exclude admins
 
             // Filter by same sport if user has a sport set
             if (userSportId) {
