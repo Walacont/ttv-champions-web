@@ -17,6 +17,7 @@ let currentUserData = null;
 export function initMatchHistoryModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
+    console.log('[MatchHistory] Module initialized with user:', user?.id, 'userData:', userData?.id);
 }
 
 /**
@@ -25,6 +26,8 @@ export function initMatchHistoryModule(user, userData) {
 export async function loadMatchHistory() {
     const container = document.getElementById('match-history-list');
     if (!container) return;
+
+    console.log('[MatchHistory] Loading matches for user:', currentUser?.id);
 
     try {
         // Fetch singles matches
@@ -35,7 +38,11 @@ export async function loadMatchHistory() {
             .order('created_at', { ascending: false })
             .limit(10);
 
-        if (singlesError) throw singlesError;
+        console.log('[MatchHistory] Singles matches found:', singlesMatches?.length, singlesMatches);
+        if (singlesError) {
+            console.error('[MatchHistory] Singles error:', singlesError);
+            throw singlesError;
+        }
 
         // Fetch doubles matches
         const { data: doublesMatches, error: doublesError } = await supabase
