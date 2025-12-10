@@ -384,13 +384,6 @@ function setupHeader() {
         headerPic.onerror = () => { headerPic.src = DEFAULT_AVATAR; };
     }
 
-    // Welcome message
-    const welcomeMsg = document.getElementById('welcome-message');
-    if (welcomeMsg) {
-        const name = currentUserData.first_name || 'Spieler';
-        welcomeMsg.textContent = `Willkommen zurück, ${name}!`;
-    }
-
     // Club name - use sport context club if available (multi-sport support)
     // A user might be in different clubs for different sports
     const clubName = document.getElementById('header-club-name');
