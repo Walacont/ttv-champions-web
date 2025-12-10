@@ -27,16 +27,11 @@ const emailFeedback = document.getElementById('email-feedback');
 const searchableGlobal = document.getElementById('searchable-global');
 const searchableClubOnly = document.getElementById('searchable-club-only');
 const searchableFriendsOnly = document.getElementById('searchable-friends-only');
-<<<<<<< HEAD
-const searchableNone = document.getElementById('searchable-none');
-const showInLeaderboards = document.getElementById('show-in-leaderboards');
-=======
 const searchableInvisible = document.getElementById('searchable-invisible');
 const leaderboardGlobal = document.getElementById('leaderboard-global');
 const leaderboardClubOnly = document.getElementById('leaderboard-club-only');
 const leaderboardFriendsOnly = document.getElementById('leaderboard-friends-only');
 const leaderboardInvisible = document.getElementById('leaderboard-invisible');
->>>>>>> 19fc933050cfc690778b8d89fc7876b569002e5f
 const savePrivacySettingsBtn = document.getElementById('save-privacy-settings-btn');
 const privacyFeedback = document.getElementById('privacy-feedback');
 const noClubWarning = document.getElementById('no-club-warning');
@@ -695,16 +690,9 @@ function loadPrivacySettings(userData) {
         searchableClubOnly.checked = true;
     } else if (searchable === 'friends_only') {
         searchableFriendsOnly.checked = true;
-<<<<<<< HEAD
-    } else if (searchable === 'none') {
-        searchableNone.checked = true;
-    } else {
-        // Fallback for old boolean values
-=======
     } else if (searchable === 'invisible') {
         searchableInvisible.checked = true;
     } else {
->>>>>>> 19fc933050cfc690778b8d89fc7876b569002e5f
         searchableGlobal.checked = true;
     }
 
@@ -729,11 +717,7 @@ function loadPrivacySettings(userData) {
     searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
     searchableFriendsOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
-<<<<<<< HEAD
-    searchableNone.addEventListener('change', () => updateNoClubWarning(userData.clubId));
-=======
     searchableInvisible.addEventListener('change', () => updateNoClubWarning(userData.clubId));
->>>>>>> 19fc933050cfc690778b8d89fc7876b569002e5f
 }
 
 /**
@@ -762,20 +746,6 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
         privacyFeedback.textContent = '';
 
-<<<<<<< HEAD
-        // Get selected values
-        let searchable = 'global'; // default
-        if (searchableGlobal.checked) {
-            searchable = 'global';
-        } else if (searchableClubOnly.checked) {
-            searchable = 'club_only';
-        } else if (searchableFriendsOnly.checked) {
-            searchable = 'friends_only';
-        } else if (searchableNone.checked) {
-            searchable = 'none';
-        }
-        const showInLeaderboardsValue = showInLeaderboards.checked;
-=======
         // Get selected searchable value
         let searchable = 'global';
         if (searchableClubOnly?.checked) searchable = 'club_only';
@@ -787,7 +757,6 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         if (leaderboardClubOnly?.checked) leaderboardVisibility = 'club_only';
         else if (leaderboardFriendsOnly?.checked) leaderboardVisibility = 'friends_only';
         else if (leaderboardInvisible?.checked) leaderboardVisibility = 'invisible';
->>>>>>> 19fc933050cfc690778b8d89fc7876b569002e5f
 
         // Update Supabase profiles table
         const newPrivacySettings = {
