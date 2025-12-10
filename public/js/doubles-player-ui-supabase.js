@@ -231,24 +231,35 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                         }
                     }
 
-                    // Privacy check - same club players always allowed
-                    if (userClubId && p.clubId === userClubId) {
-                        return true;
-                    }
-
-                    // No club users can see other no-club users
-                    if (hasNoClub(userClubId) && hasNoClub(p.clubId)) {
-                        return true;
-                    }
-
                     const searchable = p.privacySettings?.searchable || 'global';
 
+                    // Show players who are searchable globally
                     if (searchable === 'global') {
                         return true;
                     }
 
-                    if (searchable === 'club_only' && userClubId && p.clubId === userClubId) {
-                        return true;
+                    // club_only: only show to players in the same club
+                    if (searchable === 'club_only') {
+                        if (userClubId && p.clubId === userClubId) {
+                            return true;
+                        }
+                        console.log('[Doubles Player Search] Filtered out (club_only):', p.firstName, p.lastName);
+                        return false;
+                    }
+
+                    // friends_only: only show to friends
+                    // Note: friends system not implemented yet
+                    if (searchable === 'friends_only') {
+                        // For now, only allow same club members as a fallback
+                        // TODO: implement friends check when friends system is ready
+                        console.log('[Doubles Player Search] Filtered out (friends_only):', p.firstName, p.lastName);
+                        return false;
+                    }
+
+                    // invisible: don't show to anyone
+                    if (searchable === 'invisible') {
+                        console.log('[Doubles Player Search] Filtered out (invisible):', p.firstName, p.lastName);
+                        return false;
                     }
 
                     console.log('[Doubles Player Search] Filtered out (privacy):', p.firstName, p.lastName, 'searchable:', searchable);

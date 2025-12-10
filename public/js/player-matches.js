@@ -1821,12 +1821,6 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
                         }
 
                         // Privacy check
-                        // Special case: Both players have no club → always visible to each other
-                        if (hasNoClub(userData.clubId) && hasNoClub(p.clubId)) {
-                            return true;
-                        }
-
-                        // Get searchable setting (default: global)
                         const searchable = p.privacySettings?.searchable || 'global';
 
                         // Global: visible to everyone
@@ -1835,8 +1829,19 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
                         }
 
                         // Club only: only visible to players in the same club
-                        if (searchable === 'club_only' && userData.clubId && p.clubId === userData.clubId) {
-                            return true;
+                        if (searchable === 'club_only') {
+                            return userData.clubId && p.clubId === userData.clubId;
+                        }
+
+                        // friends_only: only show to friends
+                        // Note: friends system not implemented yet
+                        if (searchable === 'friends_only') {
+                            return false;
+                        }
+
+                        // invisible: don't show to anyone
+                        if (searchable === 'invisible') {
+                            return false;
                         }
 
                         return false;

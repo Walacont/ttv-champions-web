@@ -53,9 +53,9 @@ async function loadClubsMap(supabase) {
 
 /**
  * Filter players based on privacy settings (searchable only)
- * Note: showInLeaderboards only affects leaderboard visibility, not match suggestions
+ * Note: leaderboardVisibility only affects leaderboard visibility, not match suggestions
  * @param {Array} players - Array of player objects
- * @param {Object} currentUserData - Current user's data (with id, role, clubId)
+ * @param {Object} currentUserData - Current user's data (with id, role, clubId, friendIds)
  * @returns {Array} Filtered players
  */
 function filterPlayersByPrivacy(players, currentUserData) {
@@ -70,8 +70,20 @@ function filterPlayersByPrivacy(players, currentUserData) {
         if (searchable === 'global') return true;
 
         // club_only: only show to players in the same club
-        if (searchable === 'club_only' && currentUserData.clubId === player.clubId) {
-            return true;
+        if (searchable === 'club_only') {
+            return currentUserData.clubId && currentUserData.clubId === player.clubId;
+        }
+
+        // friends_only: only show to friends
+        // Note: friends system not implemented yet, so this effectively hides the player
+        if (searchable === 'friends_only') {
+            const friendIds = currentUserData.friendIds || [];
+            return friendIds.includes(player.id);
+        }
+
+        // invisible: don't show to anyone
+        if (searchable === 'invisible') {
+            return false;
         }
 
         return false;
