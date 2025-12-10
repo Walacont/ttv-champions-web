@@ -51,7 +51,6 @@ BEGIN
         gender = COALESCE(v_offline_player.gender, gender),
         subgroup_ids = COALESCE(v_offline_player.subgroup_ids, '{}'),
         active_sport_id = v_offline_player.active_sport_id,
-        qttr_points = v_offline_player.qttr_points,
         is_offline = FALSE,
         updated_at = NOW()
     WHERE id = p_new_user_id;
