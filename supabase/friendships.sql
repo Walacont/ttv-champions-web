@@ -112,7 +112,12 @@ RETURNS TABLE (
     is_friend BOOLEAN,
     friendship_status friendship_status
 ) AS $$
+DECLARE
+    current_user_club_id UUID;
 BEGIN
+    -- Get current user's club_id once
+    SELECT p.club_id INTO current_user_club_id FROM profiles p WHERE p.id = current_user_id;
+
     RETURN QUERY
     SELECT
         p.id,
@@ -154,26 +159,26 @@ BEGIN
             OR (
                 p.privacy_settings->>'searchable' = 'club_only'
                 AND p.club_id IS NOT NULL
-                AND p.club_id = (SELECT club_id FROM profiles WHERE id = current_user_id)
+                AND p.club_id = current_user_club_id
             )
             -- Oder Friends-Only und bereits befreundet
             OR (
                 p.privacy_settings->>'searchable' = 'friends_only'
                 AND EXISTS (
-                    SELECT 1 FROM friendships f
-                    WHERE ((f.requester_id = current_user_id AND f.addressee_id = p.id)
-                        OR (f.requester_id = p.id AND f.addressee_id = current_user_id))
-                    AND f.status = 'accepted'
+                    SELECT 1 FROM friendships f2
+                    WHERE ((f2.requester_id = current_user_id AND f2.addressee_id = p.id)
+                        OR (f2.requester_id = p.id AND f2.addressee_id = current_user_id))
+                    AND f2.status = 'accepted'
                 )
             )
         )
     ORDER BY
         -- Freunde zuerst
         CASE WHEN EXISTS (
-            SELECT 1 FROM friendships f
-            WHERE ((f.requester_id = current_user_id AND f.addressee_id = p.id)
-                OR (f.requester_id = p.id AND f.addressee_id = current_user_id))
-            AND f.status = 'accepted'
+            SELECT 1 FROM friendships f3
+            WHERE ((f3.requester_id = current_user_id AND f3.addressee_id = p.id)
+                OR (f3.requester_id = p.id AND f3.addressee_id = current_user_id))
+            AND f3.status = 'accepted'
         ) THEN 0 ELSE 1 END,
         -- Dann nach Name
         p.first_name, p.last_name
