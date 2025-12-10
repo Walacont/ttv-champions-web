@@ -608,10 +608,11 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                 let clubDisplay = 'Kein Verein';
                 let clubType = 'none';
 
-                const p1ClubId = data.player1_club_id_at_match !== undefined
+                // Use player's current club_id (fall back from stored club_id_at_match only if it exists and is not null)
+                const p1ClubId = data.player1_club_id_at_match != null
                     ? data.player1_club_id_at_match
                     : player1Data?.club_id;
-                const p2ClubId = data.player2_club_id_at_match !== undefined
+                const p2ClubId = data.player2_club_id_at_match != null
                     ? data.player2_club_id_at_match
                     : player2Data?.club_id;
 
