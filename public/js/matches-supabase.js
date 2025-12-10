@@ -790,6 +790,15 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     playerASelect.innerHTML = '<option value="">Spieler A wählen...</option>';
     playerBSelect.innerHTML = '<option value="">Spieler B wählen...</option>';
 
+    // Debug: Log all players including offline ones
+    console.log('[Matches] All clubPlayers:', clubPlayers.map(p => ({
+        id: p.id,
+        name: `${p.firstName || p.first_name} ${p.lastName || p.last_name}`,
+        isMatchReady: p.isMatchReady,
+        is_match_ready: p.is_match_ready,
+        isOffline: p.isOffline || p.is_offline
+    })));
+
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady || p.is_match_ready;
         return isMatchReady === true;
@@ -804,6 +813,8 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     console.log('[Matches] populateMatchDropdowns:', {
         totalPlayers: clubPlayers.length,
         matchReadyBefore: matchReadyPlayers.length,
+        matchReadyPlayers: matchReadyPlayers.map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`),
+        lockedPlayers: lockedPlayers.map(p => `${p.firstName || p.first_name} ${p.lastName || p.last_name}`),
         subgroupFilter: currentSubgroupFilter,
         genderFilter: currentGenderFilter,
         excludePlayerId
