@@ -1216,7 +1216,7 @@ function updateLeaderboardPrivacyInfo(visibilitySetting) {
     const message = messages[visibilitySetting];
 
     if (message) {
-        messageElement.innerHTML = `<i class="fas fa-eye-slash mr-2"></i>${message} <a href="/settings.html" class="underline hover:text-amber-900">Einstellungen ändern</a>`;
+        messageElement.innerHTML = `<i class="fas fa-eye-slash mr-2"></i>${message} <a href="/settings-privacy.html" class="underline hover:text-amber-900">Einstellungen ändern</a>`;
         infoContainer.classList.remove('hidden');
     } else {
         infoContainer.classList.add('hidden');
@@ -1314,14 +1314,12 @@ function renderLeaderboardList() {
             return false; // Hide from non-club members
         }
 
-        // Friends only: only show to friends
-        // Note: friends system not implemented yet
+        // Friends only: only show to friends (not implemented yet)
         if (leaderboardVisibility === 'friends_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;
                 return true; // Still show current user to themselves
             }
-            // TODO: implement friends check when friends system is ready
             return false;
         }
 

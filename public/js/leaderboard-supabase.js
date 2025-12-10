@@ -92,8 +92,7 @@ function filterPlayersByPrivacy(players, currentUserId, currentUserClubId) {
             return false; // Hide from non-club members
         }
 
-        // Friends only: only show to friends
-        // Note: friends system not implemented yet
+        // Friends only: only show to friends (not implemented yet)
         if (leaderboardVisibility === 'friends_only') {
             if (isCurrentUser) {
                 currentUserHidden = true;

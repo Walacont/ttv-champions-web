@@ -1833,8 +1833,7 @@ export function initializeMatchRequestForm(userData, db, clubPlayers, unsubscrib
                             return userData.clubId && p.clubId === userData.clubId;
                         }
 
-                        // friends_only: only show to friends
-                        // Note: friends system not implemented yet
+                        // friends_only: only show to friends (not implemented yet)
                         if (searchable === 'friends_only') {
                             return false;
                         }
