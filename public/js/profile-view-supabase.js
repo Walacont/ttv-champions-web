@@ -9,6 +9,8 @@ let currentUser = null;
 let profileUser = null;
 let profileId = null;
 
+const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
+
 /**
  * Initialize the profile view
  */
@@ -25,7 +27,13 @@ async function initProfileView() {
             return;
         }
 
+        // Ensure Supabase is initialized
         const supabase = getSupabase();
+        if (!supabase) {
+            console.error('[ProfileView] Supabase not initialized');
+            showError('Verbindungsfehler');
+            return;
+        }
 
         // Get current user (viewer)
         const { data: { session } } = await supabase.auth.getSession();
@@ -243,7 +251,26 @@ async function renderClubSection(profile) {
 }
 
 /**
- * Render recent activity (last 5 matches)
+ * Format relative date
+ */
+function formatRelativeDate(date) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const matchDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    if (matchDay.getTime() === today.getTime()) {
+        return 'Heute';
+    } else if (matchDay.getTime() === yesterday.getTime()) {
+        return 'Gestern';
+    } else {
+        return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+}
+
+/**
+ * Render recent activity (last 5 matches) - Card design like Wettkampf-Historie
  */
 async function renderRecentActivity(profile) {
     const supabase = getSupabase();
@@ -255,14 +282,19 @@ async function renderRecentActivity(profile) {
             winner_id,
             player_a_id,
             player_b_id,
-            player_a_sets_won,
-            player_b_sets_won,
+            sets,
             played_at,
-            player_a:profiles!matches_player_a_id_fkey(first_name, last_name),
-            player_b:profiles!matches_player_b_id_fkey(first_name, last_name)
+            created_at,
+            winner_elo_change,
+            loser_elo_change,
+            season_points_awarded,
+            match_mode,
+            handicap_used,
+            player_a:profiles!matches_player_a_id_fkey(id, first_name, last_name, photo_url, elo_rating),
+            player_b:profiles!matches_player_b_id_fkey(id, first_name, last_name, photo_url, elo_rating)
         `)
         .or(`player_a_id.eq.${profileId},player_b_id.eq.${profileId}`)
-        .order('played_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(5);
 
     if (error || !matches || matches.length === 0) {
@@ -275,26 +307,100 @@ async function renderRecentActivity(profile) {
     const container = document.getElementById('recent-matches');
     container.innerHTML = matches.map(match => {
         const isPlayerA = match.player_a_id === profileId;
-        const opponent = isPlayerA ? match.player_b : match.player_a;
-        const opponentName = `${opponent?.first_name || ''} ${opponent?.last_name || ''}`.trim() || 'Unbekannt';
+        const playerA = match.player_a || {};
+        const playerB = match.player_b || {};
         const won = match.winner_id === profileId;
-        const score = isPlayerA
-            ? `${match.player_a_sets_won}:${match.player_b_sets_won}`
-            : `${match.player_b_sets_won}:${match.player_a_sets_won}`;
-        const date = new Date(match.played_at).toLocaleDateString('de-DE');
+
+        const profilePlayer = isPlayerA ? playerA : playerB;
+        const opponent = isPlayerA ? playerB : playerA;
+        const opponentName = `${opponent?.first_name || ''} ${opponent?.last_name || ''}`.trim() || 'Unbekannt';
+        const profilePlayerName = `${profilePlayer?.first_name || ''} ${profilePlayer?.last_name || ''}`.trim() || 'Spieler';
+
+        const profileAvatar = profilePlayer?.photo_url || DEFAULT_AVATAR;
+        const oppAvatar = opponent?.photo_url || DEFAULT_AVATAR;
+
+        // Calculate set wins from sets array
+        let playerASetWins = 0;
+        let playerBSetWins = 0;
+        const sets = match.sets || [];
+        sets.forEach(set => {
+            const scoreA = set.playerA ?? set.teamA ?? 0;
+            const scoreB = set.playerB ?? set.teamB ?? 0;
+            if (scoreA > scoreB) playerASetWins++;
+            else if (scoreB > scoreA) playerBSetWins++;
+        });
+
+        const mySetWins = isPlayerA ? playerASetWins : playerBSetWins;
+        const oppSetWins = isPlayerA ? playerBSetWins : playerASetWins;
+
+        const setScoresDisplay = sets.map(set => {
+            const scoreA = set.playerA ?? set.teamA ?? 0;
+            const scoreB = set.playerB ?? set.teamB ?? 0;
+            return isPlayerA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
+        }).join(', ');
+
+        const eloChange = won ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
+        const pointsAwarded = won ? (match.season_points_awarded || 0) : 0;
+
+        const matchDate = new Date(match.created_at || match.played_at);
+        const dateDisplay = formatRelativeDate(matchDate);
+        const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+        let statsHtml = '';
+        if (won) {
+            const displayElo = Math.abs(eloChange);
+            statsHtml = `<span class="text-green-600 font-medium text-sm">+${displayElo} Elo</span>`;
+            if (pointsAwarded > 0) {
+                statsHtml += `<span class="text-green-600 font-medium text-sm ml-2">+${pointsAwarded} Pkt</span>`;
+            }
+        } else {
+            const displayElo = Math.abs(eloChange);
+            statsHtml = `<span class="text-red-600 font-medium text-sm">-${displayElo} Elo</span>`;
+        }
+
+        const handicapBadge = match.handicap_used
+            ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
+            : '';
 
         return `
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div class="flex items-center gap-3">
-                    <div class="h-10 w-10 rounded-full flex items-center justify-center ${won ? 'bg-green-100' : 'bg-red-100'}">
-                        <i class="fas ${won ? 'fa-trophy text-green-600' : 'fa-times text-red-600'}"></i>
+            <div class="bg-white rounded-xl shadow-sm border-l-4 ${won ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-3">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-medium ${won ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                        ${won ? 'Sieg' : 'Niederlage'}
+                    </span>
+                </div>
+
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <img src="${escapeHtml(profileAvatar)}" alt="${escapeHtml(profilePlayerName)}"
+                            class="w-10 h-10 rounded-full object-cover border-2 ${won ? 'border-green-500' : 'border-red-500'}"
+                            onerror="this.src='${DEFAULT_AVATAR}'">
+                        <div class="ml-2">
+                            <p class="font-semibold text-sm">${escapeHtml(profilePlayerName.split(' ')[0])}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p class="font-medium text-gray-800">vs. ${escapeHtml(opponentName)}</p>
-                        <p class="text-xs text-gray-500">${date}</p>
+
+                    <div class="text-center px-3">
+                        <p class="text-xl font-bold">${mySetWins} : ${oppSetWins}</p>
+                        ${setScoresDisplay ? `<p class="text-xs text-gray-500">${setScoresDisplay}</p>` : ''}
+                    </div>
+
+                    <div class="flex items-center">
+                        <div class="mr-2 text-right">
+                            <p class="font-semibold text-sm">${escapeHtml(opponentName.split(' ')[0])}</p>
+                        </div>
+                        <img src="${escapeHtml(oppAvatar)}" alt="${escapeHtml(opponentName)}"
+                            class="w-10 h-10 rounded-full object-cover border-2 ${!won ? 'border-green-500' : 'border-red-500'}"
+                            onerror="this.src='${DEFAULT_AVATAR}'">
                     </div>
                 </div>
-                <span class="font-bold ${won ? 'text-green-600' : 'text-red-600'}">${score}</span>
+
+                <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                    <div class="flex items-center">
+                        ${statsHtml}${handicapBadge}
+                    </div>
+                </div>
             </div>
         `;
     }).join('');
@@ -599,5 +705,10 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', initProfileView);
+// Initialize when DOM is ready - handle both cases where DOM might already be loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProfileView);
+} else {
+    // DOM is already loaded, initialize immediately
+    initProfileView();
+}
