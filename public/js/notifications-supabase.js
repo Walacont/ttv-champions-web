@@ -377,6 +377,27 @@ export async function createPointsNotification(userId, points, xp, eloChange, re
 }
 
 /**
+ * Create a match recorded notification for online players
+ * @param {string} playerId - Player to notify
+ * @param {string} opponentName - Name of the opponent
+ * @param {boolean} isWinner - Whether the player won
+ * @param {number} eloChange - Elo change (positive or negative)
+ * @param {string} coachName - Name of the coach who recorded the match
+ */
+export async function createMatchRecordedNotification(playerId, opponentName, isWinner, eloChange, coachName) {
+    const title = isWinner ? 'Match gewonnen!' : 'Match verloren';
+    const eloText = eloChange >= 0 ? `+${eloChange}` : `${eloChange}`;
+    const message = `${isWinner ? 'Sieg' : 'Niederlage'} gegen ${opponentName} (${eloText} Elo) - eingetragen von ${coachName}`;
+
+    await createNotification(playerId, 'match_recorded', title, message, {
+        opponent_name: opponentName,
+        is_winner: isWinner,
+        elo_change: eloChange,
+        recorded_by: coachName
+    });
+}
+
+/**
  * Get icon for notification type
  */
 function getNotificationIcon(type) {
@@ -385,6 +406,7 @@ function getNotificationIcon(type) {
         'points_deducted': '<i class="fas fa-minus-circle text-red-500 text-lg"></i>',
         'match_request': '<i class="fas fa-table-tennis-paddle-ball text-indigo-500 text-lg"></i>',
         'match_approved': '<i class="fas fa-check-circle text-green-500 text-lg"></i>',
+        'match_recorded': '<i class="fas fa-table-tennis-paddle-ball text-blue-500 text-lg"></i>',
         'challenge_completed': '<i class="fas fa-trophy text-yellow-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
