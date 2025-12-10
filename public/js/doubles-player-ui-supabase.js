@@ -155,8 +155,10 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
     // Use object wrapper so search functions always access current data
     const playersData = { players: [] };
 
-    // Get current user's sport ID for filtering
+    // Get current user's sport ID for filtering (support both camelCase and snake_case)
     const userSportId = userData.activeSportId || userData.active_sport_id;
+    // Support both camelCase and snake_case for clubId
+    const userClubId = userData.clubId || userData.club_id;
 
     async function loadPlayers() {
         try {
@@ -166,7 +168,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             (clubsData || []).forEach(club => clubsMap.set(club.id, club));
 
             // Check if current user is from a test club
-            const currentUserClub = userData.clubId ? clubsMap.get(userData.clubId) : null;
+            const currentUserClub = userClubId ? clubsMap.get(userClubId) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
 
             // Load players and coaches - filter by same sport (explicitly exclude admins)
@@ -216,7 +218,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     }
 
                     // Privacy check
-                    if (hasNoClub(userData.clubId) && hasNoClub(p.clubId)) {
+                    if (hasNoClub(userClubId) && hasNoClub(p.clubId)) {
                         return true;
                     }
 
@@ -226,7 +228,7 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                         return true;
                     }
 
-                    if (searchable === 'club_only' && userData.clubId && p.clubId === userData.clubId) {
+                    if (searchable === 'club_only' && userClubId && p.clubId === userClubId) {
                         return true;
                     }
 
