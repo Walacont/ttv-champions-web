@@ -103,6 +103,13 @@ FOR EACH ROW
 EXECUTE FUNCTION update_updated_at();
 
 -- ============================================
+-- REALTIME
+-- ============================================
+
+-- Enable realtime for friendships table
+ALTER PUBLICATION supabase_realtime ADD TABLE friendships;
+
+-- ============================================
 -- RPC FUNCTIONS
 -- ============================================
 
@@ -205,12 +212,18 @@ CREATE OR REPLACE FUNCTION send_friend_request(
 RETURNS JSON AS $$
 DECLARE
     existing_friendship friendships%ROWTYPE;
+    new_friendship_id UUID;
+    requester_name TEXT;
     result JSON;
 BEGIN
     -- Validierung: Nicht sich selbst als Freund hinzufügen
     IF current_user_id = target_user_id THEN
         RETURN json_build_object('success', false, 'error', 'Cannot befriend yourself');
     END IF;
+
+    -- Get requester name for notification
+    SELECT first_name || ' ' || last_name INTO requester_name
+    FROM profiles WHERE id = current_user_id;
 
     -- Check ob bereits eine Freundschaft existiert (in beide Richtungen)
     SELECT * INTO existing_friendship
@@ -230,6 +243,16 @@ BEGIN
                 SET status = 'accepted', updated_at = NOW()
                 WHERE id = existing_friendship.id;
 
+                -- Benachrichtigung: Anfrage wurde gegenseitig akzeptiert
+                INSERT INTO notifications (user_id, type, title, message, data)
+                VALUES (
+                    target_user_id,
+                    'friend_request_accepted',
+                    'Freundschaft bestätigt',
+                    requester_name || ' hat deine Freundschaftsanfrage akzeptiert!',
+                    json_build_object('friendship_id', existing_friendship.id, 'user_id', current_user_id)
+                );
+
                 RETURN json_build_object(
                     'success', true,
                     'message', 'Friend request accepted (mutual)',
@@ -246,12 +269,24 @@ BEGIN
     -- Neue Freundschaftsanfrage erstellen
     INSERT INTO friendships (requester_id, addressee_id, status)
     VALUES (current_user_id, target_user_id, 'pending')
-    RETURNING json_build_object(
+    RETURNING id INTO new_friendship_id;
+
+    -- Benachrichtigung erstellen
+    INSERT INTO notifications (user_id, type, title, message, data)
+    VALUES (
+        target_user_id,
+        'friend_request',
+        'Neue Freundschaftsanfrage',
+        requester_name || ' möchte mit dir befreundet sein',
+        json_build_object('friendship_id', new_friendship_id, 'requester_id', current_user_id)
+    );
+
+    result := json_build_object(
         'success', true,
         'message', 'Friend request sent',
         'status', 'pending',
-        'friendship_id', id
-    ) INTO result;
+        'friendship_id', new_friendship_id
+    );
 
     RETURN result;
 END;
@@ -265,6 +300,7 @@ CREATE OR REPLACE FUNCTION accept_friend_request(
 RETURNS JSON AS $$
 DECLARE
     friendship friendships%ROWTYPE;
+    accepter_name TEXT;
 BEGIN
     -- Freundschaft abrufen
     SELECT * INTO friendship
@@ -277,10 +313,24 @@ BEGIN
         RETURN json_build_object('success', false, 'error', 'Friend request not found or not pending');
     END IF;
 
+    -- Get accepter name for notification
+    SELECT first_name || ' ' || last_name INTO accepter_name
+    FROM profiles WHERE id = current_user_id;
+
     -- Status auf 'accepted' setzen
     UPDATE friendships
     SET status = 'accepted', updated_at = NOW()
     WHERE id = friendship_id;
+
+    -- Benachrichtigung an den ursprünglichen Requester senden
+    INSERT INTO notifications (user_id, type, title, message, data)
+    VALUES (
+        friendship.requester_id,
+        'friend_request_accepted',
+        'Freundschaftsanfrage akzeptiert',
+        accepter_name || ' hat deine Freundschaftsanfrage akzeptiert!',
+        json_build_object('friendship_id', friendship_id, 'user_id', current_user_id)
+    );
 
     RETURN json_build_object(
         'success', true,
