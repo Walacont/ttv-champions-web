@@ -321,14 +321,6 @@
                     >
                         Übungskatalog
                     </button>
-
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="profile"
-                        data-title="Anwesenheit"
-                    >
-                        Anwesenheit
-                    </button>
                 </nav>
             </div>
 
@@ -434,75 +426,6 @@
                     <div id="rival-effort-info" class="hidden"></div>
                     <ul id="points-history" class="hidden"></ul>
                     <div id="challenges-list" class="hidden"></div>
-                </div>
-
-                <div id="tab-content-profile" class="tab-content hidden">
-                    <div class="space-y-8">
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-gray-800">Monatsübersicht</h2>
-                                <div class="flex items-center space-x-4">
-                                    <button
-                                        id="prev-month"
-                                        class="text-gray-500 hover:text-indigo-600"
-                                    >
-                                        <i class="fas fa-chevron-left"></i>
-                                    </button>
-                                    <h3
-                                        id="calendar-month-year"
-                                        class="font-semibold text-lg w-32 text-center"
-                                    ></h3>
-                                    <button
-                                        id="next-month"
-                                        class="text-gray-500 hover:text-indigo-600"
-                                    >
-                                        <i class="fas fa-chevron-right"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div
-                                class="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-gray-500 mb-2"
-                            >
-                                <div>Mo</div>
-                                <div>Di</div>
-                                <div>Mi</div>
-                                <div>Do</div>
-                                <div>Fr</div>
-                                <div>Sa</div>
-                                <div>So</div>
-                            </div>
-                            <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
-                            <div class="mt-6 pt-6 border-t">
-                                <h3 class="text-xl font-semibold mb-4">
-                                    Statistiken für <span id="stats-month-name"></span>
-                                </h3>
-                                <div class="grid grid-cols-2 gap-4 text-center">
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-500">Trainingstage</p>
-                                        <p
-                                            id="stats-training-days"
-                                            class="text-2xl font-bold text-indigo-600"
-                                        >
-                                            0
-                                        </p>
-                                    </div>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-500 mb-2">Deine Streaks</p>
-                                        <div id="stats-current-streak" class="space-y-1">
-                                            <p class="text-sm text-gray-400">Lade Streaks...</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                            <h2 class="text-xl font-semibold mb-4">Deine Erfolge</h2>
-                            <p class="text-gray-500">
-                                Hier werden bald deine freigeschalteten Abzeichen und Erfolge
-                                angezeigt.
-                            </p>
-                        </div>
-                    </div>
                 </div>
 
                 <div id="tab-content-exercises" class="tab-content hidden">
