@@ -450,6 +450,12 @@ function renderReceivedRequests(requests) {
     const container = document.getElementById('received-friend-requests-list');
     const countBadge = document.getElementById('received-requests-count');
 
+    // Container may not exist in new Community Tab design
+    if (!container) {
+        console.log('[Friends] Received requests container not found (expected in new design)');
+        return;
+    }
+
     if (countBadge) {
         countBadge.textContent = requests.length;
         countBadge.style.display = requests.length > 0 ? 'inline-block' : 'none';
@@ -513,6 +519,12 @@ function renderReceivedRequests(requests) {
  */
 function renderSentRequests(requests) {
     const container = document.getElementById('sent-friend-requests-list');
+
+    // Container may not exist in new Community Tab design
+    if (!container) {
+        console.log('[Friends] Sent requests container not found (expected in new design)');
+        return;
+    }
 
     if (!requests || requests.length === 0) {
         container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine gesendeten Anfragen</p>';
