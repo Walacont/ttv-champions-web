@@ -112,7 +112,9 @@ export async function loadMatchHistory() {
         });
 
         // Render matches
+        console.log('[MatchHistory] Rendering', matches.length, 'matches, profileMap:', profileMap);
         container.innerHTML = matches.map(match => {
+            console.log('[MatchHistory] Rendering match:', match.id, match.matchType);
             if (match.matchType === 'doubles') {
                 return renderDoublesMatchCard(match, profileMap);
             } else {
