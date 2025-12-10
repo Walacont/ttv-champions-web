@@ -697,17 +697,29 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         return;
     }
 
-    // Get set scores from input
-    const setScoreInput = document.getElementById('set-score-input');
-    const setsA = parseInt(setScoreInput?.dataset.setsA || '0');
-    const setsB = parseInt(setScoreInput?.dataset.setsB || '0');
-
-    if (setsA === 0 && setsB === 0) {
-        if (feedbackEl) feedbackEl.textContent = 'Bitte Satzergebnis eingeben.';
+    // Get set scores from coach set score input instance
+    if (!coachSetScoreInput) {
+        if (feedbackEl) feedbackEl.textContent = 'Set-Score-Input nicht initialisiert.';
         return;
     }
 
-    const winnerId = setsA > setsB ? playerAId : playerBId;
+    // Validate the set scores
+    const validation = coachSetScoreInput.validate();
+    if (!validation.valid) {
+        if (feedbackEl) feedbackEl.textContent = validation.error || 'Bitte Satzergebnis eingeben.';
+        return;
+    }
+
+    // Get winner data
+    const winnerData = coachSetScoreInput.getMatchWinner();
+    if (!winnerData || !winnerData.winner) {
+        if (feedbackEl) feedbackEl.textContent = 'Bitte vollständiges Satzergebnis eingeben.';
+        return;
+    }
+
+    const setsA = winnerData.setsA;
+    const setsB = winnerData.setsB;
+    const winnerId = winnerData.winner === 'A' ? playerAId : playerBId;
     const playerA = clubPlayers.find(p => p.id === playerAId);
     const playerB = clubPlayers.find(p => p.id === playerBId);
 
@@ -719,6 +731,16 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
 
+    // Get detailed sets data
+    const sets = coachSetScoreInput.getSets ? coachSetScoreInput.getSets() : [];
+    const loserId = winnerId === playerAId ? playerBId : playerAId;
+
+    // Get match mode and handicap settings
+    const matchModeSelect = document.getElementById('coach-match-mode-select');
+    const matchMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
+    const handicapToggle = document.getElementById('coach-handicap-toggle');
+    const handicapUsed = handicapToggle?.checked || false;
+
     try {
         const supabase = getSupabase();
 
@@ -729,11 +751,14 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 player_a_id: playerAId,
                 player_b_id: playerBId,
                 winner_id: winnerId,
-                sets_a: setsA,
-                sets_b: setsB,
-                club_id: currentUserData.clubId,
+                loser_id: loserId,
+                sets: sets,
+                club_id: currentUserData.clubId || currentUserData.club_id,
+                sport_id: currentUserData.activeSportId || currentUserData.active_sport_id,
                 recorded_by: currentUserData.id,
                 match_type: 'singles',
+                match_mode: matchMode,
+                handicap_used: handicapUsed,
                 status: 'completed'
             })
             .select()
@@ -741,16 +766,7 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
         if (matchError) throw matchError;
 
-        // Call RPC to process match result and update Elo
-        const { error: rpcError } = await supabase.rpc('process_match_result', {
-            p_match_id: match.id,
-            p_winner_id: winnerId,
-            p_loser_id: winnerId === playerAId ? playerBId : playerAId
-        });
-
-        if (rpcError) {
-            console.error('Error processing match result:', rpcError);
-        }
+        console.log('[Matches] Match saved:', match.id);
 
         if (feedbackEl) {
             feedbackEl.textContent = 'Match erfolgreich gespeichert!';
@@ -761,9 +777,16 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         // Reset form
         document.getElementById('player-a-select').value = '';
         document.getElementById('player-b-select').value = '';
-        if (setScoreInput) {
-            setScoreInput.dataset.setsA = '0';
-            setScoreInput.dataset.setsB = '0';
+
+        // Reset set score input
+        if (coachSetScoreInput && coachSetScoreInput.reset) {
+            coachSetScoreInput.reset();
+        }
+
+        // Hide winner display
+        const matchWinnerInfo = document.getElementById('coach-match-winner-info');
+        if (matchWinnerInfo) {
+            matchWinnerInfo.classList.add('hidden');
         }
 
     } catch (error) {
