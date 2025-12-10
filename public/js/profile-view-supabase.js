@@ -9,6 +9,7 @@ import { createFollowRequestNotification, createFollowAcceptedNotification } fro
 let currentUser = null;
 let profileUser = null;
 let profileId = null;
+let isOwnProfile = false;
 
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
 
@@ -41,11 +42,7 @@ async function initProfileView() {
         currentUser = session?.user || null;
 
         // Check if viewing own profile
-        if (currentUser && currentUser.id === profileId) {
-            // Redirect to own dashboard profile tab
-            window.location.href = '/dashboard.html#profile';
-            return;
-        }
+        isOwnProfile = currentUser && currentUser.id === profileId;
 
         // Load profile data
         await loadProfile();
@@ -101,9 +98,9 @@ async function loadProfile() {
         // Render profile header (always visible)
         renderProfileHeader(profile);
 
-        // Check privacy settings
+        // Check privacy settings - own profile always has full access
         const visibility = profile.privacy_settings?.profileVisibility || 'public';
-        const canViewDetails = await checkViewPermission(profile, visibility);
+        const canViewDetails = isOwnProfile || await checkViewPermission(profile, visibility);
 
         if (canViewDetails) {
             // Show full profile
@@ -113,6 +110,11 @@ async function loadProfile() {
             await renderProfileStats(profile);
             await renderClubSection(profile);
             await renderRecentActivity(profile);
+
+            // Show additional sections for own profile
+            if (isOwnProfile) {
+                await renderOwnProfileExtras(profile);
+            }
         } else {
             // Show private notice
             document.getElementById('public-profile-content').classList.add('hidden');
@@ -177,14 +179,25 @@ function renderProfileHeader(profile) {
     const photoUrl = profile.photo_url || `https://placehold.co/120x120/e2e8f0/64748b?text=${(profile.first_name?.[0] || '?')}`;
 
     // Set page title
-    document.title = `${fullName} - SC Champions`;
+    document.title = isOwnProfile ? 'Mein Profil - SC Champions' : `${fullName} - SC Champions`;
 
     // Avatar
     document.getElementById('profile-avatar').src = photoUrl;
     document.getElementById('profile-avatar').alt = fullName;
 
     // Name
-    document.getElementById('profile-name').textContent = fullName;
+    document.getElementById('profile-name').textContent = isOwnProfile ? 'Mein Profil' : fullName;
+
+    // Show user's actual name below if own profile
+    const subtitleEl = document.getElementById('profile-subtitle');
+    if (subtitleEl) {
+        if (isOwnProfile) {
+            subtitleEl.textContent = fullName;
+            subtitleEl.classList.remove('hidden');
+        } else {
+            subtitleEl.classList.add('hidden');
+        }
+    }
 
     // Location
     const locationEl = document.getElementById('profile-location');
@@ -199,6 +212,21 @@ function renderProfileHeader(profile) {
     if (profile.bio) {
         document.getElementById('profile-bio').textContent = profile.bio;
         document.getElementById('profile-bio-container').classList.remove('hidden');
+    }
+
+    // Show edit button for own profile
+    const editBtnContainer = document.getElementById('edit-profile-btn-container');
+    if (editBtnContainer) {
+        if (isOwnProfile) {
+            editBtnContainer.innerHTML = `
+                <a href="/settings.html" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-6 rounded-full transition inline-flex items-center gap-2">
+                    <i class="fas fa-edit"></i>Profil bearbeiten
+                </a>
+            `;
+            editBtnContainer.classList.remove('hidden');
+        } else {
+            editBtnContainer.classList.add('hidden');
+        }
     }
 }
 
@@ -436,6 +464,12 @@ async function loadFollowerStats() {
  */
 async function renderFollowButton() {
     const container = document.getElementById('follow-button-container');
+
+    // Don't show follow button for own profile
+    if (isOwnProfile) {
+        container.innerHTML = '';
+        return;
+    }
 
     // Not logged in - show login prompt
     if (!currentUser) {
@@ -748,6 +782,227 @@ window.declineFollowRequest = async function(userId) {
         alert('Fehler beim Ablehnen');
     }
 };
+
+/**
+ * Render additional sections for own profile (XP, rank, challenges, attendance)
+ */
+async function renderOwnProfileExtras(profile) {
+    const supabase = getSupabase();
+
+    // Create container for own profile extras
+    const extrasContainer = document.getElementById('own-profile-extras');
+    if (!extrasContainer) return;
+
+    extrasContainer.classList.remove('hidden');
+
+    // XP and Rank section
+    const xp = profile.xp || 0;
+    const rank = calculateRankFromXP(xp);
+
+    let html = `
+        <!-- XP and Rank -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-star text-purple-600 mr-2"></i>Erfahrung & Rang
+            </h3>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <p class="text-3xl font-bold text-purple-600">${xp.toLocaleString()}</p>
+                    <p class="text-sm text-purple-700">XP</p>
+                </div>
+                <div class="text-center p-4 bg-indigo-50 rounded-lg">
+                    <p class="text-2xl">${rank.icon}</p>
+                    <p class="text-lg font-bold text-indigo-600">${rank.name}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Load active challenges
+    const { data: activeChallenges } = await supabase
+        .from('challenge_progress')
+        .select(`
+            id,
+            progress,
+            challenges (
+                id,
+                name,
+                description,
+                target_value,
+                xp_reward
+            )
+        `)
+        .eq('player_id', profileId)
+        .eq('completed', false)
+        .limit(3);
+
+    if (activeChallenges && activeChallenges.length > 0) {
+        html += `
+            <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-trophy text-yellow-600 mr-2"></i>Aktive Challenges
+                </h3>
+                <div class="space-y-3">
+        `;
+
+        activeChallenges.forEach(cp => {
+            const challenge = cp.challenges;
+            if (!challenge) return;
+
+            const progress = cp.progress || 0;
+            const target = challenge.target_value || 1;
+            const percentage = Math.min(100, Math.round((progress / target) * 100));
+
+            html += `
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-medium text-gray-800">${escapeHtml(challenge.name)}</span>
+                        <span class="text-sm text-indigo-600 font-semibold">+${challenge.xp_reward} XP</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 bg-gray-200 rounded-full h-2">
+                            <div class="bg-indigo-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                        <span class="text-xs text-gray-500">${progress}/${target}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    }
+
+    // Attendance calendar placeholder
+    html += `
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-calendar-check text-green-600 mr-2"></i>Anwesenheit
+            </h3>
+            <div id="profile-attendance-calendar" class="text-center text-gray-500">
+                <p class="py-4">Lade Anwesenheit...</p>
+            </div>
+        </div>
+    `;
+
+    extrasContainer.innerHTML = html;
+
+    // Load attendance data
+    await loadProfileAttendance();
+}
+
+/**
+ * Load attendance calendar for own profile
+ */
+async function loadProfileAttendance() {
+    const container = document.getElementById('profile-attendance-calendar');
+    if (!container) return;
+
+    const supabase = getSupabase();
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    // Get first and last day of current month
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const { data: attendance } = await supabase
+        .from('attendance')
+        .select('date, status')
+        .eq('player_id', profileId)
+        .gte('date', firstDay.toISOString().split('T')[0])
+        .lte('date', lastDay.toISOString().split('T')[0]);
+
+    const attendanceDates = new Set();
+    if (attendance) {
+        attendance.forEach(a => {
+            if (a.status === 'present') {
+                attendanceDates.add(a.date);
+            }
+        });
+    }
+
+    // Build simple calendar grid
+    const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
+
+    let calendarHtml = `
+        <h4 class="font-semibold text-gray-700 mb-3">${monthName}</h4>
+        <div class="grid grid-cols-7 gap-1 text-xs">
+            <div class="text-gray-400 font-medium py-1">Mo</div>
+            <div class="text-gray-400 font-medium py-1">Di</div>
+            <div class="text-gray-400 font-medium py-1">Mi</div>
+            <div class="text-gray-400 font-medium py-1">Do</div>
+            <div class="text-gray-400 font-medium py-1">Fr</div>
+            <div class="text-gray-400 font-medium py-1">Sa</div>
+            <div class="text-gray-400 font-medium py-1">So</div>
+    `;
+
+    // Empty cells for days before first of month
+    for (let i = 0; i < startDayOfWeek; i++) {
+        calendarHtml += '<div></div>';
+    }
+
+    // Days of month
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isPresent = attendanceDates.has(dateStr);
+        const isToday = day === now.getDate();
+
+        const dayClass = isPresent
+            ? 'bg-green-500 text-white'
+            : isToday
+                ? 'bg-indigo-100 text-indigo-700 font-bold'
+                : 'text-gray-600';
+
+        calendarHtml += `
+            <div class="aspect-square flex items-center justify-center rounded ${dayClass}">
+                ${day}
+            </div>
+        `;
+    }
+
+    calendarHtml += '</div>';
+
+    // Stats
+    const presentDays = attendanceDates.size;
+    calendarHtml += `
+        <div class="mt-4 text-center">
+            <span class="text-green-600 font-semibold">${presentDays}</span>
+            <span class="text-gray-500 text-sm">Trainingstage diesen Monat</span>
+        </div>
+    `;
+
+    container.innerHTML = calendarHtml;
+}
+
+/**
+ * Calculate rank from XP (simplified version)
+ */
+function calculateRankFromXP(xp) {
+    const RANKS = [
+        { name: 'Rekrut', minXP: 0, icon: '🔰' },
+        { name: 'Lehrling', minXP: 100, icon: '📘' },
+        { name: 'Geselle', minXP: 300, icon: '⚒️' },
+        { name: 'Adept', minXP: 600, icon: '🎯' },
+        { name: 'Experte', minXP: 1000, icon: '⭐' },
+        { name: 'Meister', minXP: 1500, icon: '🏆' },
+        { name: 'Champion', minXP: 2500, icon: '👑' },
+        { name: 'Legende', minXP: 4000, icon: '🌟' }
+    ];
+
+    let rank = RANKS[0];
+    for (const r of RANKS) {
+        if (xp >= r.minXP) {
+            rank = r;
+        }
+    }
+    return rank;
+}
 
 /**
  * Show error message

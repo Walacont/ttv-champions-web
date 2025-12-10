@@ -123,6 +123,7 @@
                             <h1 id="profile-name" class="text-2xl font-bold text-gray-900">
                                 Laden...
                             </h1>
+                            <p id="profile-subtitle" class="text-gray-600 font-medium hidden"></p>
                             <p id="profile-location" class="text-gray-500 mt-1">
                                 <i class="fas fa-map-marker-alt mr-1"></i>
                                 <span>-</span>
@@ -133,6 +134,11 @@
                         <div id="profile-bio-container" class="mt-3 hidden">
                             <p id="profile-bio" class="text-gray-600 text-center text-sm">
                             </p>
+                        </div>
+
+                        <!-- Edit Profile Button (own profile only) -->
+                        <div id="edit-profile-btn-container" class="mt-4 flex justify-center hidden">
+                            <!-- Dynamically filled for own profile -->
                         </div>
 
                         <!-- Follow Button -->
@@ -221,6 +227,11 @@
                     <div id="mutual-friends-list" class="flex flex-wrap gap-3">
                         <!-- Wird dynamisch gefüllt -->
                     </div>
+                </div>
+
+                <!-- Own Profile Extras (XP, Challenges, Attendance) - only shown for own profile -->
+                <div id="own-profile-extras" class="mt-4 hidden">
+                    <!-- Dynamically filled with XP, Rank, Challenges, Attendance -->
                 </div>
             </div>
 

@@ -283,6 +283,8 @@ async function initializeDashboard() {
     setupHeader();
     setupTabs();
     setupLogout();
+    setupProfileLink();
+    setupCoachIndicator();
     setupFilters();
     setupModalHandlers();
 
@@ -402,14 +404,21 @@ function setupHeader() {
 function setupTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
+    const headerTitle = document.getElementById('header-title');
 
     tabButtons.forEach(button => {
         button.addEventListener('click', async () => {
             const tabId = button.dataset.tab;
+            const tabTitle = button.dataset.title || button.textContent.trim();
 
             // Update active states
             tabButtons.forEach(btn => btn.classList.remove('tab-active'));
             button.classList.add('tab-active');
+
+            // Update header title dynamically
+            if (headerTitle) {
+                headerTitle.textContent = tabTitle;
+            }
 
             tabContents.forEach(content => {
                 content.classList.add('hidden');
@@ -433,6 +442,26 @@ function setupTabs() {
     // Activate first tab
     if (tabButtons.length > 0) {
         tabButtons[0].click();
+    }
+}
+
+// --- Setup Profile Link ---
+function setupProfileLink() {
+    const profileLink = document.getElementById('header-profile-link');
+    if (profileLink && currentUser) {
+        profileLink.href = `/profile.html?id=${currentUser.id}`;
+    }
+}
+
+// --- Setup Coach Indicator ---
+function setupCoachIndicator() {
+    const indicator = document.getElementById('coach-player-indicator');
+    if (!indicator || !currentUserData) return;
+
+    // Show indicator if user is a coach
+    const isCoach = currentUserData.role === 'coach' || currentUserData.role === 'head_coach';
+    if (isCoach) {
+        indicator.classList.remove('hidden');
     }
 }
 
