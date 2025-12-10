@@ -416,11 +416,18 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         // Check both camelCase and snake_case for userData club ID
         const userClubId = userData.clubId || userData.club_id;
         const isSameClub = player.clubId === userClubId;
+        const isOffline = player.isOffline === true;
+
+        // Offline badge
+        const offlineBadge = isOffline
+            ? '<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded mr-1">Offline</span>'
+            : '';
 
         return `
             <div class="player-search-result border border-gray-200 rounded-lg p-3 mb-2 cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
                  data-player-id="${player.id}"
-                 data-player-name="${player.firstName} ${player.lastName}">
+                 data-player-name="${player.firstName} ${player.lastName}"
+                 data-player-offline="${isOffline}">
                 <div class="flex justify-between items-center">
                     <div class="flex-1">
                         <h5 class="font-bold text-gray-900">${player.firstName} ${player.lastName}</h5>
@@ -428,6 +435,7 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
                             <i class="fas fa-users mr-1"></i>${clubName}
                         </p>
                     </div>
+                    ${offlineBadge}
                     ${!isSameClub && player.clubId ? '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Anderer Verein</span>' : ''}
                 </div>
             </div>
@@ -439,14 +447,17 @@ function displaySearchResults(players, resultsContainer, searchInput, selectedId
         result.addEventListener('click', () => {
             const playerId = result.dataset.playerId;
             const playerName = result.dataset.playerName;
+            const isOffline = result.dataset.playerOffline === 'true';
 
             // Set selected player
             selectedIdField.value = playerId;
+            // Store offline status for validation
+            selectedIdField.dataset.offline = isOffline;
             // Note: Individual Elo field is deprecated - pairing Elo is now used
             if (selectedEloField) selectedEloField.value = '800'; // Default, will be looked up from pairing
 
-            // Update search input to show selected player
-            searchInput.value = playerName;
+            // Update search input to show selected player (with offline indicator)
+            searchInput.value = isOffline ? `${playerName} (Offline)` : playerName;
 
             // Track selection for excluding from other searches
             if (onSelect) onSelect(playerId);

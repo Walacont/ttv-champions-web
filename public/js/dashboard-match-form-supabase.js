@@ -395,16 +395,20 @@ async function searchOpponents(query, resultsContainer) {
         const testClubIds = await loadTestClubIds();
         const isCurrentUserInTestClub = currentUserData.club_id && testClubIds.includes(currentUserData.club_id);
         const userSportId = currentUserData.active_sport_id;
+        const userClubId = currentUserData.club_id;
 
         let playersQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, active_sport_id, clubs(name)')
+            .select('id, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, is_offline, active_sport_id, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach', 'head_coach'])
             .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
 
-        if (userSportId) {
-            playersQuery = playersQuery.eq('active_sport_id', userSportId);
+        // Filter by same sport OR same club (for offline players)
+        if (userSportId && userClubId) {
+            playersQuery = playersQuery.or(`active_sport_id.eq.${userSportId},club_id.eq.${userClubId}`);
+        } else if (userSportId) {
+            playersQuery = playersQuery.or(`active_sport_id.eq.${userSportId},active_sport_id.is.null`);
         }
 
         const { data: players, error } = await playersQuery.limit(50);
@@ -447,6 +451,7 @@ async function searchOpponents(query, resultsContainer) {
             const playerName = `${player.first_name || ''} ${player.last_name || ''}`.trim() || 'Unbekannt';
             const clubName = player.clubs?.name || null;
             const hasNoClub = !player.club_id;
+            const isOffline = player.is_offline === true;
 
             let clubBadge = '';
             if (!isSameClub && player.club_id && clubName) {
@@ -457,24 +462,41 @@ async function searchOpponents(query, resultsContainer) {
                 clubBadge = '<span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded mr-2">Kein Verein</span>';
             }
 
+            // Offline badge - shows that player can't accept requests
+            const offlineBadge = isOffline
+                ? '<span class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded mr-2" title="Kann keine Anfragen annehmen">Offline</span>'
+                : '';
+
+            // Offline players are shown but not clickable
+            const containerClass = isOffline
+                ? 'opponent-option-disabled flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 mb-2 opacity-60 cursor-not-allowed'
+                : 'opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2';
+
+            const chevronOrInfo = isOffline
+                ? '<i class="fas fa-ban text-orange-400" title="Offline-Spieler können keine Anfragen annehmen"></i>'
+                : '<i class="fas fa-chevron-right text-gray-400"></i>';
+
             return `
-            <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
+            <div class="${containerClass}"
                  data-id="${player.id}"
                  data-name="${playerName}"
-                 data-elo="${player.elo_rating || 1000}">
+                 data-elo="${player.elo_rating || 1000}"
+                 data-offline="${isOffline}">
                 <img src="${player.avatar_url || DEFAULT_AVATAR}"
-                     class="w-10 h-10 rounded-full object-cover"
+                     class="w-10 h-10 rounded-full object-cover ${isOffline ? 'grayscale' : ''}"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div class="flex-1">
-                    <p class="font-medium">${playerName}</p>
+                    <p class="font-medium ${isOffline ? 'text-gray-500' : ''}">${playerName}</p>
                     <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
                 </div>
+                ${offlineBadge}
                 ${clubBadge}
-                <i class="fas fa-chevron-right text-gray-400"></i>
+                ${chevronOrInfo}
             </div>
         `;
         }).join('');
 
+        // Only add click handlers for online players
         resultsContainer.querySelectorAll('.opponent-option').forEach(option => {
             option.addEventListener('click', () => selectOpponent(option));
         });
