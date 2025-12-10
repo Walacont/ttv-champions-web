@@ -606,49 +606,10 @@ CREATE TRIGGER trigger_process_approved_match_request
     EXECUTE FUNCTION process_approved_match_request();
 
 -- ========================================================================
--- FUNCTION 6: Process Approved Doubles Match Request
+-- NOTE: Doubles match request processing is handled in doubles-policies.sql
+-- The trigger process_approved_doubles_request_trigger executes
+-- process_approved_doubles_request() when a request is approved.
 -- ========================================================================
-CREATE OR REPLACE FUNCTION process_approved_doubles_match_request()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-    -- Only process when status changes to 'approved'
-    IF NEW.status = 'approved' AND (OLD.status IS NULL OR OLD.status != 'approved') THEN
-        -- Create doubles match from request (extract from JSONB team_a and team_b)
-        INSERT INTO doubles_matches (
-            club_id, winning_team,
-            team_a_player1_id, team_a_player2_id, team_a_pairing_id,
-            team_b_player1_id, team_b_player2_id, team_b_pairing_id,
-            sets, is_cross_club, created_at
-        ) VALUES (
-            NEW.club_id, NEW.winning_team,
-            (NEW.team_a->>'player1_id')::UUID,
-            (NEW.team_a->>'player2_id')::UUID,
-            NEW.team_a->>'pairing_id',
-            (NEW.team_b->>'player1_id')::UUID,
-            (NEW.team_b->>'player2_id')::UUID,
-            NEW.team_b->>'pairing_id',
-            NEW.sets, NEW.is_cross_club, NOW()
-        );
-
-        -- Delete the request
-        DELETE FROM doubles_match_requests WHERE id = NEW.id;
-
-        RETURN NULL;
-    END IF;
-
-    RETURN NEW;
-END;
-$$;
-
--- Create trigger for doubles match requests
-DROP TRIGGER IF EXISTS trigger_process_approved_doubles_request ON doubles_match_requests;
-CREATE TRIGGER trigger_process_approved_doubles_request
-    AFTER UPDATE ON doubles_match_requests
-    FOR EACH ROW
-    EXECUTE FUNCTION process_approved_doubles_match_request();
 
 -- ========================================================================
 -- FUNCTION 7: Cleanup Expired Invitation Codes
