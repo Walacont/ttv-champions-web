@@ -2,11 +2,15 @@
 -- FRIENDSHIPS (Freundschaftssystem)
 -- ============================================
 
--- Enum für Freundschafts-Status
-CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
+-- Enum für Freundschafts-Status (nur erstellen wenn nicht existiert)
+DO $$ BEGIN
+    CREATE TYPE friendship_status AS ENUM ('pending', 'accepted', 'blocked');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Friendships Tabelle
-CREATE TABLE friendships (
+CREATE TABLE IF NOT EXISTS friendships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     -- Initiator der Freundschaftsanfrage
@@ -33,12 +37,12 @@ CREATE TABLE friendships (
 -- INDEXES
 -- ============================================
 
-CREATE INDEX idx_friendships_requester ON friendships(requester_id);
-CREATE INDEX idx_friendships_addressee ON friendships(addressee_id);
-CREATE INDEX idx_friendships_status ON friendships(status);
+CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships(requester_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships(addressee_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_status ON friendships(status);
 
 -- Compound index für schnelle bidirektionale Suche
-CREATE INDEX idx_friendships_both_users ON friendships(requester_id, addressee_id);
+CREATE INDEX IF NOT EXISTS idx_friendships_both_users ON friendships(requester_id, addressee_id);
 
 -- ============================================
 -- RLS POLICIES
@@ -46,6 +50,12 @@ CREATE INDEX idx_friendships_both_users ON friendships(requester_id, addressee_i
 
 -- Enable RLS
 ALTER TABLE friendships ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view their own friendships" ON friendships;
+DROP POLICY IF EXISTS "Users can create friendship requests" ON friendships;
+DROP POLICY IF EXISTS "Users can update friendship status" ON friendships;
+DROP POLICY IF EXISTS "Users can delete friendships" ON friendships;
 
 -- Policy: Nutzer können ihre eigenen Freundschaften sehen (als requester oder addressee)
 CREATE POLICY "Users can view their own friendships"
@@ -86,10 +96,18 @@ USING (
 -- UPDATED_AT TRIGGER
 -- ============================================
 
+DROP TRIGGER IF EXISTS update_friendships_updated_at ON friendships;
 CREATE TRIGGER update_friendships_updated_at
 BEFORE UPDATE ON friendships
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at();
+
+-- ============================================
+-- REALTIME
+-- ============================================
+
+-- Enable realtime for friendships table
+ALTER PUBLICATION supabase_realtime ADD TABLE friendships;
 
 -- ============================================
 -- RPC FUNCTIONS
@@ -112,7 +130,12 @@ RETURNS TABLE (
     is_friend BOOLEAN,
     friendship_status friendship_status
 ) AS $$
+DECLARE
+    current_user_club_id UUID;
 BEGIN
+    -- Get current user's club_id once
+    SELECT p.club_id INTO current_user_club_id FROM profiles p WHERE p.id = current_user_id;
+
     RETURN QUERY
     SELECT
         p.id,
@@ -154,26 +177,26 @@ BEGIN
             OR (
                 p.privacy_settings->>'searchable' = 'club_only'
                 AND p.club_id IS NOT NULL
-                AND p.club_id = (SELECT club_id FROM profiles WHERE id = current_user_id)
+                AND p.club_id = current_user_club_id
             )
             -- Oder Friends-Only und bereits befreundet
             OR (
                 p.privacy_settings->>'searchable' = 'friends_only'
                 AND EXISTS (
-                    SELECT 1 FROM friendships f
-                    WHERE ((f.requester_id = current_user_id AND f.addressee_id = p.id)
-                        OR (f.requester_id = p.id AND f.addressee_id = current_user_id))
-                    AND f.status = 'accepted'
+                    SELECT 1 FROM friendships f2
+                    WHERE ((f2.requester_id = current_user_id AND f2.addressee_id = p.id)
+                        OR (f2.requester_id = p.id AND f2.addressee_id = current_user_id))
+                    AND f2.status = 'accepted'
                 )
             )
         )
     ORDER BY
         -- Freunde zuerst
         CASE WHEN EXISTS (
-            SELECT 1 FROM friendships f
-            WHERE ((f.requester_id = current_user_id AND f.addressee_id = p.id)
-                OR (f.requester_id = p.id AND f.addressee_id = current_user_id))
-            AND f.status = 'accepted'
+            SELECT 1 FROM friendships f3
+            WHERE ((f3.requester_id = current_user_id AND f3.addressee_id = p.id)
+                OR (f3.requester_id = p.id AND f3.addressee_id = current_user_id))
+            AND f3.status = 'accepted'
         ) THEN 0 ELSE 1 END,
         -- Dann nach Name
         p.first_name, p.last_name
@@ -189,12 +212,18 @@ CREATE OR REPLACE FUNCTION send_friend_request(
 RETURNS JSON AS $$
 DECLARE
     existing_friendship friendships%ROWTYPE;
+    new_friendship_id UUID;
+    requester_name TEXT;
     result JSON;
 BEGIN
     -- Validierung: Nicht sich selbst als Freund hinzufügen
     IF current_user_id = target_user_id THEN
         RETURN json_build_object('success', false, 'error', 'Cannot befriend yourself');
     END IF;
+
+    -- Get requester name for notification
+    SELECT first_name || ' ' || last_name INTO requester_name
+    FROM profiles WHERE id = current_user_id;
 
     -- Check ob bereits eine Freundschaft existiert (in beide Richtungen)
     SELECT * INTO existing_friendship
@@ -214,6 +243,16 @@ BEGIN
                 SET status = 'accepted', updated_at = NOW()
                 WHERE id = existing_friendship.id;
 
+                -- Benachrichtigung: Anfrage wurde gegenseitig akzeptiert
+                INSERT INTO notifications (user_id, type, title, message, data)
+                VALUES (
+                    target_user_id,
+                    'friend_request_accepted',
+                    'Freundschaft bestätigt',
+                    requester_name || ' hat deine Freundschaftsanfrage akzeptiert!',
+                    json_build_object('friendship_id', existing_friendship.id, 'user_id', current_user_id)
+                );
+
                 RETURN json_build_object(
                     'success', true,
                     'message', 'Friend request accepted (mutual)',
@@ -230,12 +269,24 @@ BEGIN
     -- Neue Freundschaftsanfrage erstellen
     INSERT INTO friendships (requester_id, addressee_id, status)
     VALUES (current_user_id, target_user_id, 'pending')
-    RETURNING json_build_object(
+    RETURNING id INTO new_friendship_id;
+
+    -- Benachrichtigung erstellen
+    INSERT INTO notifications (user_id, type, title, message, data)
+    VALUES (
+        target_user_id,
+        'friend_request',
+        'Neue Freundschaftsanfrage',
+        requester_name || ' möchte mit dir befreundet sein',
+        json_build_object('friendship_id', new_friendship_id, 'requester_id', current_user_id)
+    );
+
+    result := json_build_object(
         'success', true,
         'message', 'Friend request sent',
         'status', 'pending',
-        'friendship_id', id
-    ) INTO result;
+        'friendship_id', new_friendship_id
+    );
 
     RETURN result;
 END;
@@ -249,6 +300,7 @@ CREATE OR REPLACE FUNCTION accept_friend_request(
 RETURNS JSON AS $$
 DECLARE
     friendship friendships%ROWTYPE;
+    accepter_name TEXT;
 BEGIN
     -- Freundschaft abrufen
     SELECT * INTO friendship
@@ -261,10 +313,24 @@ BEGIN
         RETURN json_build_object('success', false, 'error', 'Friend request not found or not pending');
     END IF;
 
+    -- Get accepter name for notification
+    SELECT first_name || ' ' || last_name INTO accepter_name
+    FROM profiles WHERE id = current_user_id;
+
     -- Status auf 'accepted' setzen
     UPDATE friendships
     SET status = 'accepted', updated_at = NOW()
     WHERE id = friendship_id;
+
+    -- Benachrichtigung an den ursprünglichen Requester senden
+    INSERT INTO notifications (user_id, type, title, message, data)
+    VALUES (
+        friendship.requester_id,
+        'friend_request_accepted',
+        'Freundschaftsanfrage akzeptiert',
+        accepter_name || ' hat deine Freundschaftsanfrage akzeptiert!',
+        json_build_object('friendship_id', friendship_id, 'user_id', current_user_id)
+    );
 
     RETURN json_build_object(
         'success', true,

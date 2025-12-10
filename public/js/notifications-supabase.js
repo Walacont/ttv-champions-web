@@ -191,10 +191,12 @@ async function showNotificationModal(userId) {
     document.getElementById('close-notification-modal')?.addEventListener('click', closeModal);
 
     // Mark as read on click (on content, not delete button)
-    modal.querySelectorAll('.notification-content').forEach(content => {
+    modal.querySelectorAll('.notification-content').forEach((content, index) => {
         content.addEventListener('click', async () => {
             const item = content.closest('.notification-item');
             const notificationId = item.dataset.id;
+            const notification = notifications[index];
+
             await markNotificationAsRead(notificationId);
             item.classList.remove('bg-blue-50');
             item.classList.add('bg-white');
@@ -206,6 +208,10 @@ async function showNotificationModal(userId) {
                 actionsDiv.innerHTML = `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>`;
             }
             updateNotificationBadge(userId);
+
+            // Handle navigation based on notification type
+            handleNotificationClick(notification);
+            closeModal();
         });
     });
 
@@ -377,6 +383,7 @@ export async function createPointsNotification(userId, points, xp, eloChange, re
 }
 
 /**
+<<<<<<< HEAD
  * Create a match recorded notification for online players
  * @param {string} playerId - Player to notify
  * @param {string} opponentName - Name of the opponent
@@ -395,6 +402,24 @@ export async function createMatchRecordedNotification(playerId, opponentName, is
         elo_change: eloChange,
         recorded_by: coachName
     });
+=======
+ * Handle notification click - navigate based on type
+ */
+function handleNotificationClick(notification) {
+    if (!notification) return;
+
+    const type = notification.type;
+
+    // Friend request notifications - navigate to Community tab
+    if (type === 'friend_request' || type === 'friend_request_accepted') {
+        // Find and click community tab
+        const communityTab = document.querySelector('[data-tab="community"]');
+        if (communityTab) {
+            communityTab.click();
+        }
+    }
+    // Add more navigation handlers for other notification types here
+>>>>>>> claude/merge-branch-013f81j-019RFfMxaNGahBmwvEotq8aD
 }
 
 /**
@@ -408,6 +433,8 @@ function getNotificationIcon(type) {
         'match_approved': '<i class="fas fa-check-circle text-green-500 text-lg"></i>',
         'match_recorded': '<i class="fas fa-table-tennis-paddle-ball text-blue-500 text-lg"></i>',
         'challenge_completed': '<i class="fas fa-trophy text-yellow-500 text-lg"></i>',
+        'friend_request': '<i class="fas fa-user-plus text-blue-500 text-lg"></i>',
+        'friend_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;

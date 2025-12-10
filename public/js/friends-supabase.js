@@ -7,6 +7,7 @@ import { getSupabase } from './supabase-init.js';
 
 let searchTimeout = null;
 let currentUser = null;
+let friendshipsSubscription = null;
 
 /**
  * Initialize the friends module
@@ -27,9 +28,77 @@ export async function initFriends() {
     // Setup event listeners
     setupEventListeners();
 
+    // Setup realtime subscriptions
+    setupRealtimeSubscriptions();
+
     // Load initial data
     await loadFriendRequests();
     await loadFriends();
+}
+
+/**
+ * Setup realtime subscriptions for friendships
+ */
+function setupRealtimeSubscriptions() {
+    const supabase = getSupabase();
+
+    // Cleanup existing subscription
+    if (friendshipsSubscription) {
+        friendshipsSubscription.unsubscribe();
+    }
+
+    // Subscribe to friendships changes (only for current user)
+    friendshipsSubscription = supabase
+        .channel('friendships-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'friendships',
+                filter: `or(requester_id.eq.${currentUser.id},addressee_id.eq.${currentUser.id})`
+            },
+            (payload) => {
+                console.log('[Friends] Realtime update:', payload);
+                handleFriendshipChange(payload);
+            }
+        )
+        .subscribe();
+
+    console.log('[Friends] Realtime subscriptions setup complete');
+}
+
+/**
+ * Handle friendship changes from realtime
+ */
+async function handleFriendshipChange(payload) {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+
+    console.log(`[Friends] Friendship ${eventType}:`, newRecord || oldRecord);
+
+    // Reload data based on event type
+    if (eventType === 'INSERT') {
+        // New friend request received or sent
+        await loadFriendRequests();
+    } else if (eventType === 'UPDATE') {
+        // Friend request accepted or status changed
+        await loadFriendRequests();
+        await loadFriends();
+    } else if (eventType === 'DELETE') {
+        // Friend request declined or friendship removed
+        await loadFriendRequests();
+        await loadFriends();
+    }
+}
+
+/**
+ * Cleanup subscriptions
+ */
+export function cleanupFriendsSubscriptions() {
+    if (friendshipsSubscription) {
+        friendshipsSubscription.unsubscribe();
+        friendshipsSubscription = null;
+    }
 }
 
 /**
