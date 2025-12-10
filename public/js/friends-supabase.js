@@ -126,11 +126,13 @@ function handlePlayerSearch(event) {
     // Show loading state
     const resultsContainer = document.getElementById('player-search-results');
     if (query.length < 2) {
-        resultsContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Gib mindestens 2 Zeichen ein</p>';
+        resultsContainer.classList.add('hidden');
+        resultsContainer.innerHTML = '';
         return;
     }
 
-    resultsContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Suche...</p>';
+    resultsContainer.classList.remove('hidden');
+    resultsContainer.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-md"><p class="text-gray-400 text-center py-4 text-sm">Suche...</p></div>';
 
     // Debounce search
     searchTimeout = setTimeout(async () => {
@@ -156,12 +158,12 @@ async function searchPlayers(query) {
 
         if (error) {
             console.error('[Friends] Error searching players:', error);
-            resultsContainer.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Suchen</p>';
+            resultsContainer.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-md"><p class="text-red-500 text-center py-4 text-sm">Fehler beim Suchen</p></div>';
             return;
         }
 
         if (!data || data.length === 0) {
-            resultsContainer.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Keine Spieler gefunden</p>';
+            resultsContainer.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-md"><p class="text-gray-400 text-center py-4 text-sm">Keine Personen gefunden</p></div>';
             return;
         }
 
@@ -170,7 +172,7 @@ async function searchPlayers(query) {
 
     } catch (error) {
         console.error('[Friends] Error searching players:', error);
-        resultsContainer.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Suchen</p>';
+        resultsContainer.innerHTML = '<div class="bg-white p-6 rounded-xl shadow-md"><p class="text-red-500 text-center py-4 text-sm">Fehler beim Suchen</p></div>';
     }
 }
 
@@ -180,7 +182,7 @@ async function searchPlayers(query) {
 function renderSearchResults(players) {
     const resultsContainer = document.getElementById('player-search-results');
 
-    const html = players.map(player => {
+    const cardsHtml = players.map(player => {
         const photoUrl = player.photo_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (player.first_name?.[0] || '?');
         const fullName = `${player.first_name || ''} ${player.last_name || ''}`.trim();
         const clubName = player.club_name || 'Kein Verein';
@@ -191,52 +193,56 @@ function renderSearchResults(players) {
         if (player.friendship_status === 'accepted') {
             button = `
                 <button
-                    onclick="window.removeFriend('${player.id}')"
-                    class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition"
+                    onclick="event.preventDefault(); window.removeFriend('${player.id}')"
+                    class="text-gray-500 hover:text-red-600 font-semibold py-2 px-4 rounded-full text-sm transition border border-gray-300 hover:border-red-300"
                 >
-                    <i class="fas fa-user-times mr-1"></i> Entfernen
+                    Gefolgt
                 </button>
             `;
         } else if (player.friendship_status === 'pending') {
             button = `
-                <span class="text-gray-500 text-sm font-medium">
-                    <i class="fas fa-clock mr-1"></i> Anfrage ausstehend
+                <span class="text-gray-500 text-sm font-medium border border-gray-300 rounded-full py-2 px-4">
+                    <i class="fas fa-clock mr-1"></i>Angefragt
                 </span>
             `;
         } else {
             button = `
                 <button
-                    onclick="window.sendFriendRequest('${player.id}')"
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition"
+                    onclick="event.preventDefault(); window.sendFriendRequest('${player.id}')"
+                    class="text-indigo-600 hover:text-white hover:bg-indigo-600 font-semibold py-2 px-4 rounded-full text-sm transition border border-indigo-600"
                 >
-                    <i class="fas fa-user-plus mr-1"></i> Anfrage senden
+                    Folgen
                 </button>
             `;
         }
 
         return `
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition">
+            <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                 <a href="/profile.html?id=${player.id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
-                        class="h-12 w-12 rounded-full object-cover border-2 border-gray-300"
+                        class="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
                     />
-                    <div class="flex-1">
-                        <h4 class="font-semibold text-gray-800">${fullName}</h4>
-                        <p class="text-sm text-gray-500">
-                            <i class="fas fa-building mr-1"></i>${clubName}
-                            <span class="mx-2">•</span>
-                            <i class="fas fa-star mr-1"></i>Elo: ${elo}
-                        </p>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-semibold text-gray-800 truncate">${fullName}</h4>
+                        <p class="text-sm text-gray-500 truncate">${clubName}</p>
                     </div>
                 </a>
-                <div>${button}</div>
+                <div class="flex-shrink-0">${button}</div>
             </div>
         `;
     }).join('');
 
-    resultsContainer.innerHTML = html;
+    resultsContainer.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-search mr-2 text-indigo-600"></i>Suchergebnisse
+                <span class="text-sm text-gray-500 font-normal">(${players.length})</span>
+            </h2>
+            <div class="space-y-0">${cardsHtml}</div>
+        </div>
+    `;
 }
 
 /**
@@ -586,7 +592,7 @@ function renderFriendsList(friends) {
     }
 
     if (!friends || friends.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Du hast noch keine Freunde hinzugefügt</p>';
+        container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Du folgst noch niemandem</p>';
         return;
     }
 
@@ -594,34 +600,25 @@ function renderFriendsList(friends) {
         const photoUrl = friend.photo_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (friend.first_name?.[0] || '?');
         const fullName = `${friend.first_name || ''} ${friend.last_name || ''}`.trim();
         const clubName = friend.club_name || 'Kein Verein';
-        const elo = friend.elo_rating || 800;
-        const friendsSince = new Date(friend.friendship_created_at).toLocaleDateString('de-DE');
 
         return `
-            <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+            <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                 <a href="/profile.html?id=${friend.id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
-                        class="h-12 w-12 rounded-full object-cover border-2 border-green-300"
+                        class="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
                     />
-                    <div class="flex-1">
-                        <h4 class="font-semibold text-gray-800">${fullName}</h4>
-                        <p class="text-sm text-gray-500">
-                            <i class="fas fa-building mr-1"></i>${clubName}
-                            <span class="mx-2">•</span>
-                            <i class="fas fa-star mr-1"></i>Elo: ${elo}
-                        </p>
-                        <p class="text-xs text-gray-400 mt-1">
-                            <i class="fas fa-user-friends mr-1"></i>Freunde seit ${friendsSince}
-                        </p>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-semibold text-gray-800 truncate">${fullName}</h4>
+                        <p class="text-sm text-gray-500 truncate">${clubName}</p>
                     </div>
                 </a>
                 <button
                     onclick="window.removeFriend('${friend.id}')"
-                    class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition"
+                    class="text-gray-500 hover:text-red-600 font-semibold py-2 px-4 rounded-full text-sm transition border border-gray-300 hover:border-red-300"
                 >
-                    <i class="fas fa-user-times mr-1"></i> Entfernen
+                    Gefolgt
                 </button>
             </div>
         `;
@@ -629,6 +626,9 @@ function renderFriendsList(friends) {
 
     container.innerHTML = html;
 }
+
+// Expose reload function for community module
+window.reloadFriends = loadFriends;
 
 /**
  * Helper function to get time ago string

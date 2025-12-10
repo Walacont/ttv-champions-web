@@ -14,6 +14,7 @@ import { getSportContext, isCoachInSport } from './sport-context-supabase.js';
 import { setLeaderboardSportFilter } from './leaderboard-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
 import { initFriends } from './friends-supabase.js';
+import { initCommunity } from './community-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -421,8 +422,9 @@ function setupTabs() {
             if (tabId === 'community') {
                 try {
                     await initFriends();
+                    await initCommunity();
                 } catch (error) {
-                    console.error('Error initializing friends module:', error);
+                    console.error('Error initializing community modules:', error);
                 }
             }
         });
