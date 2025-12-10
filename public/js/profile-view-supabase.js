@@ -15,34 +15,39 @@ let profileId = null;
 async function initProfileView() {
     console.log('[ProfileView] Initializing profile view');
 
-    // Get profile ID from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    profileId = urlParams.get('id');
+    try {
+        // Get profile ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        profileId = urlParams.get('id');
 
-    if (!profileId) {
-        showError('Kein Profil angegeben');
-        return;
+        if (!profileId) {
+            showError('Kein Profil angegeben');
+            return;
+        }
+
+        const supabase = getSupabase();
+
+        // Get current user (viewer)
+        const { data: { session } } = await supabase.auth.getSession();
+        currentUser = session?.user || null;
+
+        // Check if viewing own profile
+        if (currentUser && currentUser.id === profileId) {
+            // Redirect to own dashboard profile tab
+            window.location.href = '/dashboard.html#profile';
+            return;
+        }
+
+        // Load profile data
+        await loadProfile();
+
+        // Show main content
+        document.getElementById('page-loader').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+    } catch (error) {
+        console.error('[ProfileView] Initialization error:', error);
+        showError('Fehler beim Laden des Profils');
     }
-
-    const supabase = getSupabase();
-
-    // Get current user (viewer)
-    const { data: { session } } = await supabase.auth.getSession();
-    currentUser = session?.user || null;
-
-    // Check if viewing own profile
-    if (currentUser && currentUser.id === profileId) {
-        // Redirect to own dashboard profile tab
-        window.location.href = '/dashboard.html#profile';
-        return;
-    }
-
-    // Load profile data
-    await loadProfile();
-
-    // Show main content
-    document.getElementById('page-loader').style.display = 'none';
-    document.getElementById('main-content').style.display = 'block';
 }
 
 /**
@@ -53,6 +58,7 @@ async function loadProfile() {
         const supabase = getSupabase();
 
         // Fetch profile with club info
+        // Note: bio and location fields may not exist yet if migration hasn't run
         const { data: profile, error } = await supabase
             .from('profiles')
             .select(`
@@ -60,8 +66,6 @@ async function loadProfile() {
                 first_name,
                 last_name,
                 photo_url,
-                bio,
-                location,
                 elo_rating,
                 highest_elo,
                 points,
