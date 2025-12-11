@@ -2330,6 +2330,26 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(doublesRequestSub);
 
+    // Subscribe to ALL doubles_match_requests DELETE events (without filter)
+    // Row-level filters don't work for DELETE events in Supabase
+    const doublesRequestDeleteSub = supabase
+        .channel('doubles_match_request_deletes')
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'doubles_match_requests'
+        }, (payload) => {
+            console.log('[Realtime] Doubles match request deleted:', payload.old);
+            // Refresh lists - the deleted request might have involved current user
+            loadMatchRequests();
+            loadPendingRequests();
+        })
+        .subscribe((status) => {
+            console.log('[Realtime] Doubles match request DELETE subscription status:', status);
+        });
+
+    realtimeSubscriptions.push(doublesRequestDeleteSub);
+
     // Subscribe to matches table for history updates (singles)
     const matchesSub = supabase
         .channel('matches_updates')
@@ -2961,6 +2981,13 @@ window.deleteDoublesMatchRequest = async (requestId) => {
     if (!confirm('Möchtest du diese Doppel-Anfrage wirklich zurückziehen?')) return;
 
     try {
+        // First get the request to find team B players for notification deletion
+        const { data: request } = await supabase
+            .from('doubles_match_requests')
+            .select('team_b')
+            .eq('id', requestId)
+            .single();
+
         const { error } = await supabase
             .from('doubles_match_requests')
             .delete()
@@ -2968,7 +2995,28 @@ window.deleteDoublesMatchRequest = async (requestId) => {
 
         if (error) throw error;
 
-        // Refresh lists immediately for Player A
+        // Delete notifications for Team B players
+        if (request?.team_b) {
+            const teamB = request.team_b;
+            const teamBPlayerIds = [teamB.player1_id, teamB.player2_id].filter(Boolean);
+
+            for (const playerId of teamBPlayerIds) {
+                // Find and delete notifications with this request_id
+                const { data: notifications } = await supabase
+                    .from('notifications')
+                    .select('id, data')
+                    .eq('user_id', playerId)
+                    .eq('type', 'doubles_match_request');
+
+                for (const notif of (notifications || [])) {
+                    if (notif.data?.request_id === requestId) {
+                        await supabase.from('notifications').delete().eq('id', notif.id);
+                    }
+                }
+            }
+        }
+
+        // Refresh lists immediately for Team A
         loadMatchRequests();
         loadPendingRequests();
     } catch (error) {
