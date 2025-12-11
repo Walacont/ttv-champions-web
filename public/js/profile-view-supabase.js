@@ -517,26 +517,30 @@ async function renderRecentActivity(profile) {
 
 /**
  * Load follower statistics
+ * Uses RPC function to bypass RLS - follower counts should be visible to everyone
  */
 async function loadFollowerStats() {
     const supabase = getSupabase();
 
-    // Count followers (people who follow this user - they are the requesters)
-    const { count: followers } = await supabase
-        .from('friendships')
-        .select('id', { count: 'exact', head: true })
-        .eq('addressee_id', profileId)
-        .eq('status', 'accepted');
+    try {
+        // Use RPC function to get counts (bypasses RLS so everyone can see counts)
+        const { data, error } = await supabase
+            .rpc('get_follow_counts', { p_user_id: profileId });
 
-    // Count following (people this user follows - this user is the requester)
-    const { count: following } = await supabase
-        .from('friendships')
-        .select('id', { count: 'exact', head: true })
-        .eq('requester_id', profileId)
-        .eq('status', 'accepted');
-
-    document.getElementById('followers-count').textContent = followers || 0;
-    document.getElementById('following-count').textContent = following || 0;
+        if (error) {
+            console.error('[ProfileView] Error loading follow counts:', error);
+            // Fallback to 0 if error
+            document.getElementById('followers-count').textContent = '0';
+            document.getElementById('following-count').textContent = '0';
+        } else {
+            document.getElementById('followers-count').textContent = data?.followers || 0;
+            document.getElementById('following-count').textContent = data?.following || 0;
+        }
+    } catch (err) {
+        console.error('[ProfileView] Exception loading follow counts:', err);
+        document.getElementById('followers-count').textContent = '0';
+        document.getElementById('following-count').textContent = '0';
+    }
 
     // Set links to connections page
     const followingLink = document.getElementById('following-link');
