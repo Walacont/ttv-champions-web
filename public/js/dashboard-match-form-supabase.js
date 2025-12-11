@@ -282,8 +282,8 @@ export function setupMatchForm(callbacks = {}) {
                 }
             }
 
-            matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
-            matchWinnerInfo.classList.remove('hidden');
+            // Winner display is handled by winnerPreview only
+            matchWinnerInfo.classList.add('hidden');
         } else {
             matchWinnerInfo.classList.add('hidden');
         }
@@ -839,11 +839,11 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
 
         if (playerAWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-green-100 text-green-800';
-            winnerPreview.innerHTML = `🏆 Gewinner: ${teamAName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.innerHTML = `Gewinner: ${teamAName} (${playerAWins}:${playerBWins})`;
             winnerPreview.classList.remove('hidden');
         } else if (playerBWins >= setsToWin) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-blue-100 text-blue-800';
-            winnerPreview.innerHTML = `🏆 Gewinner: ${teamBName} (${playerAWins}:${playerBWins})`;
+            winnerPreview.innerHTML = `Gewinner: ${teamBName} (${playerAWins}:${playerBWins})`;
             winnerPreview.classList.remove('hidden');
         } else if (playerAWins > 0 || playerBWins > 0) {
             winnerPreview.className = 'winner-preview mt-4 p-3 rounded-lg text-center font-semibold bg-gray-100 text-gray-700';
