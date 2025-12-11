@@ -7,23 +7,28 @@ const supabase = getSupabase();
 const pageLoader = document.getElementById('page-loader');
 const mainContent = document.getElementById('main-content');
 
+// Profile Visibility
+const profileGlobal = document.getElementById('profile-global');
+const profileClubOnly = document.getElementById('profile-club-only');
+const profileFollowersOnly = document.getElementById('profile-followers-only');
+
 // Searchable (Player Search)
 const searchableGlobal = document.getElementById('searchable-global');
 const searchableClubOnly = document.getElementById('searchable-club-only');
-const searchableFriendsOnly = document.getElementById('searchable-friends-only');
+const searchableFollowersOnly = document.getElementById('searchable-followers-only');
 const searchableNone = document.getElementById('searchable-none');
 const noClubWarning = document.getElementById('no-club-warning');
 
 // Leaderboard Visibility
 const leaderboardGlobal = document.getElementById('leaderboard-global');
 const leaderboardClubOnly = document.getElementById('leaderboard-club-only');
-const leaderboardFriendsOnly = document.getElementById('leaderboard-friends-only');
+const leaderboardFollowersOnly = document.getElementById('leaderboard-followers-only');
 const leaderboardNone = document.getElementById('leaderboard-none');
 
 // Matches Visibility
 const matchesGlobal = document.getElementById('matches-global');
 const matchesClubOnly = document.getElementById('matches-club-only');
-const matchesFriendsOnly = document.getElementById('matches-friends-only');
+const matchesFollowersOnly = document.getElementById('matches-followers-only');
 const matchesNone = document.getElementById('matches-none');
 
 // Save button
@@ -85,63 +90,84 @@ onAuthStateChange((event, session) => {
 function loadPrivacySettings(userData) {
     if (!userData) return;
 
+    // Load profile visibility setting (default: 'global')
+    const profileVisibility = userData.privacySettings?.profile_visibility || 'global';
+    if (profileGlobal && profileClubOnly && profileFollowersOnly) {
+        if (profileVisibility === 'global') {
+            profileGlobal.checked = true;
+        } else if (profileVisibility === 'club_only') {
+            profileClubOnly.checked = true;
+        } else if (profileVisibility === 'followers_only') {
+            profileFollowersOnly.checked = true;
+        } else {
+            profileGlobal.checked = true;
+        }
+    }
+
     // Load searchable setting (default: 'global')
     const searchable = userData.privacySettings?.searchable || 'global';
-    if (searchable === 'global') {
-        searchableGlobal.checked = true;
-    } else if (searchable === 'club_only') {
-        searchableClubOnly.checked = true;
-    } else if (searchable === 'friends_only') {
-        searchableFriendsOnly.checked = true;
-    } else if (searchable === 'none') {
-        searchableNone.checked = true;
-    } else {
-        searchableGlobal.checked = true;
+    if (searchableGlobal && searchableClubOnly && searchableFollowersOnly && searchableNone) {
+        if (searchable === 'global') {
+            searchableGlobal.checked = true;
+        } else if (searchable === 'club_only') {
+            searchableClubOnly.checked = true;
+        } else if (searchable === 'followers_only') {
+            searchableFollowersOnly.checked = true;
+        } else if (searchable === 'none') {
+            searchableNone.checked = true;
+        } else {
+            searchableGlobal.checked = true;
+        }
     }
 
     // Load leaderboard visibility setting (default: 'global')
     const leaderboardVisibility = userData.privacySettings?.leaderboard_visibility || 'global';
-    if (leaderboardVisibility === 'global') {
-        leaderboardGlobal.checked = true;
-    } else if (leaderboardVisibility === 'club_only') {
-        leaderboardClubOnly.checked = true;
-    } else if (leaderboardVisibility === 'friends_only') {
-        leaderboardFriendsOnly.checked = true;
-    } else if (leaderboardVisibility === 'none') {
-        leaderboardNone.checked = true;
-    } else {
-        leaderboardGlobal.checked = true;
+    if (leaderboardGlobal && leaderboardClubOnly && leaderboardFollowersOnly && leaderboardNone) {
+        if (leaderboardVisibility === 'global') {
+            leaderboardGlobal.checked = true;
+        } else if (leaderboardVisibility === 'club_only') {
+            leaderboardClubOnly.checked = true;
+        } else if (leaderboardVisibility === 'followers_only') {
+            leaderboardFollowersOnly.checked = true;
+        } else if (leaderboardVisibility === 'none') {
+            leaderboardNone.checked = true;
+        } else {
+            leaderboardGlobal.checked = true;
+        }
     }
 
     // Load matches visibility setting (default: 'global')
     const matchesVisibility = userData.privacySettings?.matches_visibility || 'global';
-    if (matchesVisibility === 'global') {
-        matchesGlobal.checked = true;
-    } else if (matchesVisibility === 'club_only') {
-        matchesClubOnly.checked = true;
-    } else if (matchesVisibility === 'friends_only') {
-        matchesFriendsOnly.checked = true;
-    } else if (matchesVisibility === 'none') {
-        matchesNone.checked = true;
-    } else {
-        matchesGlobal.checked = true;
+    if (matchesGlobal && matchesClubOnly && matchesFollowersOnly && matchesNone) {
+        if (matchesVisibility === 'global') {
+            matchesGlobal.checked = true;
+        } else if (matchesVisibility === 'club_only') {
+            matchesClubOnly.checked = true;
+        } else if (matchesVisibility === 'followers_only') {
+            matchesFollowersOnly.checked = true;
+        } else if (matchesVisibility === 'none') {
+            matchesNone.checked = true;
+        } else {
+            matchesGlobal.checked = true;
+        }
     }
 
     // Show warning if user has no club and selects club_only
     updateNoClubWarning(userData.clubId);
 
     // Add listeners to radio buttons to show/hide warning
-    searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
-    searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
-    searchableFriendsOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
-    searchableNone.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    if (searchableGlobal) searchableGlobal.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    if (searchableClubOnly) searchableClubOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    if (searchableFollowersOnly) searchableFollowersOnly.addEventListener('change', () => updateNoClubWarning(userData.clubId));
+    if (searchableNone) searchableNone.addEventListener('change', () => updateNoClubWarning(userData.clubId));
 }
 
 /**
  * Show/hide warning if user has no club
  */
 function updateNoClubWarning(clubId) {
-    if (!clubId && searchableClubOnly.checked) {
+    if (!noClubWarning) return;
+    if (!clubId && searchableClubOnly?.checked) {
         noClubWarning.classList.remove('hidden');
     } else {
         noClubWarning.classList.add('hidden');
@@ -163,43 +189,54 @@ savePrivacySettingsBtn?.addEventListener('click', async () => {
         savePrivacySettingsBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Speichere...';
         privacyFeedback.textContent = '';
 
+        // Get profile visibility
+        let profileVisibility = 'global';
+        if (profileGlobal?.checked) {
+            profileVisibility = 'global';
+        } else if (profileClubOnly?.checked) {
+            profileVisibility = 'club_only';
+        } else if (profileFollowersOnly?.checked) {
+            profileVisibility = 'followers_only';
+        }
+
         // Get selected values
         let searchable = 'global';
-        if (searchableGlobal.checked) {
+        if (searchableGlobal?.checked) {
             searchable = 'global';
-        } else if (searchableClubOnly.checked) {
+        } else if (searchableClubOnly?.checked) {
             searchable = 'club_only';
-        } else if (searchableFriendsOnly.checked) {
-            searchable = 'friends_only';
-        } else if (searchableNone.checked) {
+        } else if (searchableFollowersOnly?.checked) {
+            searchable = 'followers_only';
+        } else if (searchableNone?.checked) {
             searchable = 'none';
         }
 
         let leaderboardVisibility = 'global';
-        if (leaderboardGlobal.checked) {
+        if (leaderboardGlobal?.checked) {
             leaderboardVisibility = 'global';
-        } else if (leaderboardClubOnly.checked) {
+        } else if (leaderboardClubOnly?.checked) {
             leaderboardVisibility = 'club_only';
-        } else if (leaderboardFriendsOnly.checked) {
-            leaderboardVisibility = 'friends_only';
-        } else if (leaderboardNone.checked) {
+        } else if (leaderboardFollowersOnly?.checked) {
+            leaderboardVisibility = 'followers_only';
+        } else if (leaderboardNone?.checked) {
             leaderboardVisibility = 'none';
         }
 
         let matchesVisibility = 'global';
-        if (matchesGlobal.checked) {
+        if (matchesGlobal?.checked) {
             matchesVisibility = 'global';
-        } else if (matchesClubOnly.checked) {
+        } else if (matchesClubOnly?.checked) {
             matchesVisibility = 'club_only';
-        } else if (matchesFriendsOnly.checked) {
-            matchesVisibility = 'friends_only';
-        } else if (matchesNone.checked) {
+        } else if (matchesFollowersOnly?.checked) {
+            matchesVisibility = 'followers_only';
+        } else if (matchesNone?.checked) {
             matchesVisibility = 'none';
         }
 
         // Update Supabase profiles table
         const newPrivacySettings = {
             ...currentUserData.privacySettings,
+            profile_visibility: profileVisibility,
             searchable: searchable,
             leaderboard_visibility: leaderboardVisibility,
             matches_visibility: matchesVisibility,

@@ -47,6 +47,11 @@ async function initProfileView() {
         // Load profile data
         await loadProfile();
 
+        // Set up real-time subscription for follow status changes
+        if (currentUser && !isOwnProfile) {
+            setupFollowStatusSubscription(supabase);
+        }
+
         // Show main content
         document.getElementById('page-loader').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
@@ -54,6 +59,72 @@ async function initProfileView() {
         console.error('[ProfileView] Initialization error:', error);
         showError('Fehler beim Laden des Profils');
     }
+}
+
+/**
+ * Set up real-time subscription for follow status changes
+ * This updates the UI when the profile owner accepts/declines our follow request
+ */
+function setupFollowStatusSubscription(supabase) {
+    // Subscribe to friendships where current user is the requester
+    // This handles: request accepted, request declined (deleted)
+    const channel = supabase
+        .channel('follow-status-changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'friendships',
+                filter: `requester_id=eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('[ProfileView] Friendship change:', payload);
+
+                // Check if this change is relevant to the profile we're viewing
+                if (payload.new?.addressee_id === profileId || payload.old?.addressee_id === profileId) {
+                    if (payload.eventType === 'UPDATE' && payload.new?.status === 'accepted') {
+                        // Our follow request was accepted
+                        console.log('[ProfileView] Follow request accepted!');
+                        await loadFollowerStats();
+                        await renderFollowButton();
+                        // Reload profile to check if we now have view permission
+                        await loadProfile();
+                    } else if (payload.eventType === 'DELETE') {
+                        // Our follow request was declined (deleted)
+                        console.log('[ProfileView] Follow request declined');
+                        await renderFollowButton();
+                    }
+                }
+            }
+        )
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'friendships',
+                filter: `addressee_id=eq.${currentUser.id}`
+            },
+            async (payload) => {
+                console.log('[ProfileView] Incoming friendship change:', payload);
+
+                // Check if this change is from the profile we're viewing
+                if (payload.new?.requester_id === profileId || payload.old?.requester_id === profileId) {
+                    // Profile user sent us a request, or their request status changed
+                    await loadFollowerStats();
+                    await renderFollowButton();
+                }
+            }
+        )
+        .subscribe((status) => {
+            console.log('[ProfileView] Subscription status:', status);
+        });
+
+    // Clean up subscription when leaving the page
+    window.addEventListener('beforeunload', () => {
+        supabase.removeChannel(channel);
+    });
 }
 
 /**
@@ -99,7 +170,7 @@ async function loadProfile() {
         renderProfileHeader(profile);
 
         // Check privacy settings - own profile always has full access
-        const visibility = profile.privacy_settings?.profileVisibility || 'public';
+        const visibility = profile.privacy_settings?.profile_visibility || 'global';
         const canViewDetails = isOwnProfile || await checkViewPermission(profile, visibility);
 
         if (canViewDetails) {
@@ -133,10 +204,11 @@ async function loadProfile() {
 
 /**
  * Check if current user can view profile details
+ * Based on profile_visibility setting: 'global', 'club_only', 'followers_only'
  */
 async function checkViewPermission(profile, visibility) {
-    // Public profiles are always visible
-    if (visibility === 'public') {
+    // Global profiles are always visible
+    if (visibility === 'global') {
         return true;
     }
 
@@ -145,9 +217,10 @@ async function checkViewPermission(profile, visibility) {
         return false;
     }
 
+    const supabase = getSupabase();
+
     // Check if same club for club_only
     if (visibility === 'club_only') {
-        const supabase = getSupabase();
         const { data: currentProfile } = await supabase
             .from('profiles')
             .select('club_id')
@@ -157,18 +230,25 @@ async function checkViewPermission(profile, visibility) {
         if (currentProfile?.club_id && currentProfile.club_id === profile.club_id) {
             return true;
         }
+        return false;
     }
 
-    // Check if following (for private profiles)
-    const supabase = getSupabase();
-    const { data: friendship } = await supabase
-        .from('friendships')
-        .select('status')
-        .or(`and(requester_id.eq.${currentUser.id},addressee_id.eq.${profileId}),and(requester_id.eq.${profileId},addressee_id.eq.${currentUser.id})`)
-        .eq('status', 'accepted')
-        .maybeSingle();
+    // Check if following for followers_only
+    if (visibility === 'followers_only') {
+        // Current user must follow the profile owner (current user is requester, profile is addressee)
+        const { data: friendship } = await supabase
+            .from('friendships')
+            .select('status')
+            .eq('requester_id', currentUser.id)
+            .eq('addressee_id', profileId)
+            .eq('status', 'accepted')
+            .maybeSingle();
 
-    return !!friendship;
+        return !!friendship;
+    }
+
+    // Default: no access
+    return false;
 }
 
 /**
@@ -636,7 +716,7 @@ window.unfollowUser = async function(userId) {
 
         const { error } = await supabase
             .rpc('remove_friend', {
-                user_id: currentUser.id,
+                current_user_id: currentUser.id,
                 friend_id: userId
             });
 

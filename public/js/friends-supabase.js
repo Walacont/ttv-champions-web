@@ -1,13 +1,15 @@
 /**
  * Friends Module - Supabase Version
- * Handles player search, friend requests, and friends list
+ * Handles player search, follow requests, and followers list
  */
 
 import { getSupabase } from './supabase-init.js';
 
 let searchTimeout = null;
 let currentUser = null;
+let currentUserData = null;
 let friendshipsSubscription = null;
+let notificationsSubscription = null;
 
 /**
  * Initialize the friends module
@@ -24,6 +26,15 @@ export async function initFriends() {
     }
 
     currentUser = session.user;
+
+    // Get user profile
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+    currentUserData = profile;
 
     // Setup event listeners
     setupEventListeners();
@@ -200,10 +211,14 @@ function renderSearchResults(players) {
                 </button>
             `;
         } else if (player.friendship_status === 'pending') {
+            // Check if current user sent the request (can cancel) or received it
             button = `
-                <span class="text-gray-500 text-sm font-medium border border-gray-300 rounded-full py-2 px-4">
+                <button
+                    onclick="event.preventDefault(); window.cancelFollowRequest('${player.id}')"
+                    class="text-orange-500 hover:text-orange-700 font-semibold py-2 px-4 rounded-full text-sm transition border border-orange-300 hover:border-orange-500"
+                >
                     <i class="fas fa-clock mr-1"></i>Angefragt
-                </span>
+                </button>
             `;
         } else {
             button = `
@@ -362,10 +377,10 @@ export async function declineFriendRequest(friendshipId) {
 }
 
 /**
- * Remove friend
+ * Remove friend (unfollow)
  */
 export async function removeFriend(friendId) {
-    if (!confirm('Möchtest du diesen Freund wirklich entfernen?')) {
+    if (!confirm('Möchtest du dieser Person nicht mehr folgen?')) {
         return;
     }
 
@@ -379,16 +394,14 @@ export async function removeFriend(friendId) {
             });
 
         if (error) {
-            console.error('[Friends] Error removing friend:', error);
-            alert('Fehler beim Entfernen des Freundes');
+            console.error('[Friends] Error unfollowing:', error);
+            alert('Fehler beim Entfolgen');
             return;
         }
 
         const result = typeof data === 'string' ? JSON.parse(data) : data;
 
         if (result.success) {
-            alert('Freund entfernt');
-
             // Reload data
             await loadFriends();
 
@@ -398,12 +411,52 @@ export async function removeFriend(friendId) {
                 await searchPlayers(searchInput.value);
             }
         } else {
-            alert(result.error || 'Fehler beim Entfernen');
+            alert(result.error || 'Fehler beim Entfolgen');
         }
 
     } catch (error) {
-        console.error('[Friends] Error removing friend:', error);
-        alert('Fehler beim Entfernen des Freundes');
+        console.error('[Friends] Error unfollowing:', error);
+        alert('Fehler beim Entfolgen');
+    }
+}
+
+/**
+ * Cancel a pending follow request
+ */
+export async function cancelFollowRequest(targetUserId) {
+    try {
+        const supabase = getSupabase();
+
+        const { data, error } = await supabase
+            .rpc('cancel_follow_request', {
+                current_user_id: currentUser.id,
+                target_user_id: targetUserId
+            });
+
+        if (error) {
+            console.error('[Friends] Error cancelling follow request:', error);
+            alert('Fehler beim Zurückziehen der Anfrage');
+            return;
+        }
+
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+
+        if (result.success) {
+            // Reload data
+            await loadFriendRequests();
+
+            // Re-trigger search to update button states
+            const searchInput = document.getElementById('player-search-input');
+            if (searchInput && searchInput.value) {
+                await searchPlayers(searchInput.value);
+            }
+        } else {
+            alert(result.error || 'Fehler beim Zurückziehen');
+        }
+
+    } catch (error) {
+        console.error('[Friends] Error cancelling follow request:', error);
+        alert('Fehler beim Zurückziehen der Anfrage');
     }
 }
 
@@ -672,3 +725,4 @@ window.sendFriendRequest = sendFriendRequest;
 window.acceptFriendRequest = acceptFriendRequest;
 window.declineFriendRequest = declineFriendRequest;
 window.removeFriend = removeFriend;
+window.cancelFollowRequest = cancelFollowRequest;

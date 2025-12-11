@@ -87,6 +87,64 @@
             </div>
 
             <div class="space-y-6">
+                <!-- Profil Sichtbarkeit -->
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h2 class="text-xl font-semibold mb-2" data-i18n="settings.privacy.profile.title">Profil</h2>
+                    <p class="text-sm text-gray-600 mb-4" data-i18n="settings.privacy.profile.description">
+                        Bestimme, wer dein Profil sehen kann.
+                    </p>
+
+                    <div class="space-y-3">
+                        <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition">
+                            <input
+                                type="radio"
+                                name="profile_visibility"
+                                value="global"
+                                id="profile-global"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                            />
+                            <span class="ml-3 flex-1">
+                                <span class="block font-medium text-gray-900" data-i18n="settings.privacy.options.global">Global sichtbar</span>
+                                <span class="block text-xs text-gray-500 mt-0.5" data-i18n="settings.privacy.profile.globalDesc">
+                                    Alle können dein Profil sehen
+                                </span>
+                            </span>
+                        </label>
+
+                        <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition">
+                            <input
+                                type="radio"
+                                name="profile_visibility"
+                                value="club_only"
+                                id="profile-club-only"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                            />
+                            <span class="ml-3 flex-1">
+                                <span class="block font-medium text-gray-900" data-i18n="settings.privacy.options.clubOnly">Nur Vereinsmitglieder</span>
+                                <span class="block text-xs text-gray-500 mt-0.5" data-i18n="settings.privacy.profile.clubDesc">
+                                    Nur Vereinsmitglieder können dein Profil sehen
+                                </span>
+                            </span>
+                        </label>
+
+                        <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition">
+                            <input
+                                type="radio"
+                                name="profile_visibility"
+                                value="followers_only"
+                                id="profile-followers-only"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                            />
+                            <span class="ml-3 flex-1">
+                                <span class="block font-medium text-gray-900" data-i18n="settings.privacy.options.followersOnly">Nur Abonnenten</span>
+                                <span class="block text-xs text-gray-500 mt-0.5" data-i18n="settings.privacy.profile.followersDesc">
+                                    Nur deine Abonnenten können dein Profil sehen
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Spielersuche -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
                     <h2 class="text-xl font-semibold mb-2">Spielersuche</h2>
@@ -131,14 +189,14 @@
                             <input
                                 type="radio"
                                 name="searchable"
-                                value="friends_only"
-                                id="searchable-friends-only"
+                                value="followers_only"
+                                id="searchable-followers-only"
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                             />
                             <span class="ml-3 flex-1">
-                                <span class="block font-medium text-gray-900">Nur Freunde</span>
-                                <span class="block text-xs text-gray-500 mt-0.5">
-                                    Nur deine Freunde können dich finden
+                                <span class="block font-medium text-gray-900" data-i18n="settings.privacy.options.followersOnly">Nur Abonnenten</span>
+                                <span class="block text-xs text-gray-500 mt-0.5" data-i18n="settings.privacy.search.followersDesc">
+                                    Nur deine Abonnenten können dich finden
                                 </span>
                             </span>
                         </label>
@@ -212,14 +270,14 @@
                             <input
                                 type="radio"
                                 name="leaderboard_visibility"
-                                value="friends_only"
-                                id="leaderboard-friends-only"
+                                value="followers_only"
+                                id="leaderboard-followers-only"
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                             />
                             <span class="ml-3 flex-1">
-                                <span class="block font-medium text-gray-900">Nur Freunde</span>
-                                <span class="block text-xs text-gray-500 mt-0.5">
-                                    Nur Freunde sehen deine Position
+                                <span class="block font-medium text-gray-900" data-i18n="settings.privacy.options.followersOnly">Nur Abonnenten</span>
+                                <span class="block text-xs text-gray-500 mt-0.5" data-i18n="settings.privacy.leaderboard.followersDesc">
+                                    Nur Abonnenten sehen deine Position
                                 </span>
                             </span>
                         </label>
@@ -286,14 +344,14 @@
                             <input
                                 type="radio"
                                 name="matches_visibility"
-                                value="friends_only"
-                                id="matches-friends-only"
+                                value="followers_only"
+                                id="matches-followers-only"
                                 class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                             />
                             <span class="ml-3 flex-1">
-                                <span class="block font-medium text-gray-900">Nur Freunde</span>
-                                <span class="block text-xs text-gray-500 mt-0.5">
-                                    Nur Freunde sehen deine Spiele
+                                <span class="block font-medium text-gray-900" data-i18n="settings.privacy.options.followersOnly">Nur Abonnenten</span>
+                                <span class="block text-xs text-gray-500 mt-0.5" data-i18n="settings.privacy.matches.followersDesc">
+                                    Nur Abonnenten sehen deine Spiele
                                 </span>
                             </span>
                         </label>
