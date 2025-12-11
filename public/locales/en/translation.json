@@ -1,0 +1,67 @@
+{
+  "common": {
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "confirm": "Confirm"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": {
+      "title": "Edit Profile",
+      "subtitle": "Name, Email, Password, Photo",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email",
+      "password": "Password",
+      "photo": "Profile Picture",
+      "updateName": "Update Name",
+      "updateEmail": "Update Email",
+      "updatePassword": "Update Password",
+      "uploadPhoto": "Upload Photo"
+    },
+    "privacy": {
+      "title": "Privacy",
+      "subtitle": "Visibility and Data Protection"
+    },
+    "club": {
+      "title": "Club Management",
+      "subtitle": "Join or leave a club"
+    },
+    "support": {
+      "title": "Support",
+      "subtitle": "Help, Tutorials and FAQs"
+    },
+    "legal": {
+      "title": "Legal Information",
+      "subtitle": "Data export, Delete account"
+    },
+    "language": {
+      "title": "Language",
+      "subtitle": "Change app language",
+      "select": "Select Language",
+      "german": "Deutsch",
+      "english": "English",
+      "changed": "Language has been changed"
+    },
+    "logout": "Sign Out"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome"
+  },
+  "auth": {
+    "login": "Sign In",
+    "register": "Sign Up",
+    "logout": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot Password?"
+  }
+}

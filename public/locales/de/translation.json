@@ -1,0 +1,67 @@
+{
+  "common": {
+    "back": "Zurück",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "loading": "Laden...",
+    "success": "Erfolgreich",
+    "error": "Fehler",
+    "confirm": "Bestätigen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "profile": {
+      "title": "Profil bearbeiten",
+      "subtitle": "Name, Email, Passwort, Foto",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail",
+      "password": "Passwort",
+      "photo": "Profilbild",
+      "updateName": "Name aktualisieren",
+      "updateEmail": "E-Mail aktualisieren",
+      "updatePassword": "Passwort aktualisieren",
+      "uploadPhoto": "Foto hochladen"
+    },
+    "privacy": {
+      "title": "Privatsphäre",
+      "subtitle": "Sichtbarkeit und Datenschutz"
+    },
+    "club": {
+      "title": "Vereinsverwaltung",
+      "subtitle": "Verein beitreten oder verlassen"
+    },
+    "support": {
+      "title": "Support",
+      "subtitle": "Hilfe, Tutorials und FAQs"
+    },
+    "legal": {
+      "title": "Rechtsinformationen",
+      "subtitle": "Datenexport, Account löschen"
+    },
+    "language": {
+      "title": "Sprache",
+      "subtitle": "App-Sprache ändern",
+      "select": "Sprache auswählen",
+      "german": "Deutsch",
+      "english": "English",
+      "changed": "Sprache wurde geändert"
+    },
+    "logout": "Abmelden"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Willkommen"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "logout": "Abmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "forgotPassword": "Passwort vergessen?"
+  }
+}

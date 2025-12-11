@@ -51,6 +51,8 @@
         "@tailwindcss/postcss": "^4.1.17",
         "@vitejs/plugin-vue": "^6.0.2",
         "firebase-functions": "^7.0.0",
+        "i18next": "^25.7.2",
+        "i18next-http-backend": "^3.0.2",
         "pinia": "^3.0.4",
         "vite": "^7.2.6",
         "vue": "^3.5.25",
