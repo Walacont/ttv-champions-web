@@ -422,19 +422,10 @@
                 <div id="tab-content-overview" class="tab-content">
                     <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
-                        <!-- Create Post Button -->
-                        <div class="mb-4">
-                            <button
-                                id="create-post-btn"
-                                class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                            >
-                                <i class="fas fa-plus-circle text-xl"></i>
-                                <span>Beitrag oder Umfrage erstellen</span>
-                            </button>
-                        </div>
-
-                        <!-- Filter Dropdown -->
-                        <div class="mb-4 relative">
+                        <!-- Filter and Create Post Button -->
+                        <div class="mb-4 flex items-center gap-3">
+                            <!-- Filter Dropdown -->
+                            <div class="flex-1 relative">
                             <button
                                 id="activity-filter-btn"
                                 class="flex items-center justify-between w-full max-w-xs bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-left shadow-sm hover:bg-gray-50 transition"
@@ -471,6 +462,16 @@
                                     <!-- Club filters will be dynamically inserted here -->
                                 </div>
                             </div>
+                            </div>
+
+                            <!-- Create Post Button -->
+                            <button
+                                id="create-post-btn"
+                                class="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+                                title="Beitrag oder Umfrage erstellen"
+                            >
+                                <i class="fas fa-plus text-xl"></i>
+                            </button>
                         </div>
 
                         <div id="activity-feed" class="space-y-3">

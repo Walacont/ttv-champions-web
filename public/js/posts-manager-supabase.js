@@ -3,7 +3,9 @@
 // Handles creating and managing community posts and polls
 // ============================================
 
-import { supabase } from './supabase-client.js';
+import { getSupabase } from './supabase-init.js';
+
+const supabase = getSupabase();
 
 // Modal elements
 const createPostModal = document.getElementById('create-post-modal');
