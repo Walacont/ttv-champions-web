@@ -449,8 +449,8 @@ async function fetchClubMatches(clubId, limit = 50) {
         .from('matches')
         .select(`
             *,
-            player_a:profiles!matches_player_a_id_fkey(id, display_name, first_name, last_name, elo_rating, photo_url),
-            player_b:profiles!matches_player_b_id_fkey(id, display_name, first_name, last_name, elo_rating, photo_url),
+            player_a:profiles!matches_player_a_id_fkey(id, display_name, first_name, last_name, elo_rating, avatar_url),
+            player_b:profiles!matches_player_b_id_fkey(id, display_name, first_name, last_name, elo_rating, avatar_url),
             winner:profiles!matches_winner_id_fkey(id, display_name, first_name, last_name)
         `)
         .eq('club_id', clubId)
@@ -485,7 +485,7 @@ async function fetchClubMatches(clubId, limit = 50) {
             lastName: match.player_a.last_name,
             displayName: match.player_a.display_name,
             eloRating: match.player_a.elo_rating,
-            photoURL: match.player_a.photo_url
+            photoURL: match.player_a.avatar_url
         } : null,
         playerB: match.player_b ? {
             id: match.player_b.id,
@@ -493,7 +493,7 @@ async function fetchClubMatches(clubId, limit = 50) {
             lastName: match.player_b.last_name,
             displayName: match.player_b.display_name,
             eloRating: match.player_b.elo_rating,
-            photoURL: match.player_b.photo_url
+            photoURL: match.player_b.avatar_url
         } : null,
         winner: match.winner ? {
             id: match.winner.id,

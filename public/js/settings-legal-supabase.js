@@ -131,7 +131,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
                 lastName: userData?.last_name,
                 birthdate: userData?.birthdate,
                 gender: userData?.gender,
-                photoURL: userData?.photo_url,
+                photoURL: userData?.avatar_url,
                 eloRating: userData?.elo_rating,
                 xp: userData?.xp,
                 rankName: userData?.rank_name,

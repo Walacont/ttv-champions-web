@@ -150,7 +150,7 @@ async function loadPendingFollowRequests() {
                 id,
                 addressee_id,
                 created_at,
-                addressee:profiles!friendships_addressee_id_fkey(id, first_name, last_name, photo_url, clubs(name))
+                addressee:profiles!friendships_addressee_id_fkey(id, first_name, last_name, avatar_url, clubs(name))
             `)
             .eq('requester_id', currentUser.id)
             .eq('status', 'pending');
@@ -178,7 +178,7 @@ async function loadPendingFollowRequests() {
 
         const html = pendingRequests.map(request => {
             const user = request.addressee;
-            const photoUrl = user?.photo_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user?.first_name?.[0] || '?'}`;
+            const photoUrl = user?.avatar_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user?.first_name?.[0] || '?'}`;
             const fullName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unbekannt';
             const clubName = user?.clubs?.name || 'Kein Verein';
 
@@ -245,7 +245,7 @@ async function loadSuggestedUsers() {
         if (currentUserData?.club_id) {
             const { data: clubMembers } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, photo_url, elo_rating, club_id, clubs(name)')
+                .select('id, first_name, last_name, avatar_url, elo_rating, club_id, clubs(name)')
                 .eq('club_id', currentUserData.club_id)
                 .neq('id', currentUser.id)
                 .limit(10);
@@ -260,7 +260,7 @@ async function loadSuggestedUsers() {
             const currentElo = currentUserData?.elo_rating || 1000;
             const { data: similarUsers } = await supabase
                 .from('profiles')
-                .select('id, first_name, last_name, photo_url, elo_rating, club_id, clubs(name)')
+                .select('id, first_name, last_name, avatar_url, elo_rating, club_id, clubs(name)')
                 .neq('id', currentUser.id)
                 .gte('elo_rating', currentElo - 200)
                 .lte('elo_rating', currentElo + 200)
@@ -304,7 +304,7 @@ function renderSuggestedUsers(users) {
     if (!container) return;
 
     const html = users.map(user => {
-        const photoUrl = user.photo_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user.first_name?.[0] || '?'}`;
+        const photoUrl = user.avatar_url || `https://placehold.co/64x64/e2e8f0/64748b?text=${user.first_name?.[0] || '?'}`;
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
         const clubName = user.clubs?.name || 'Kein Verein';
 

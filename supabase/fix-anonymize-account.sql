@@ -17,7 +17,7 @@ BEGIN
         email = 'deleted_' || random_suffix || '@anonymous.local',
         first_name = 'Gelöschter',
         last_name = 'Nutzer',
-        photo_url = NULL,
+        avatar_url = NULL,
         birthdate = NULL,
         gender = NULL,
         fcm_token = NULL,

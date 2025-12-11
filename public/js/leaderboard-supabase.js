@@ -263,7 +263,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
         // Build query with direct sport and club filters (single sport model)
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, highest_elo, photo_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings, club_id')
+            .select('id, first_name, last_name, elo_rating, highest_elo, avatar_url, role, subgroup_ids, xp, points, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach'])
             .order('elo_rating', { ascending: false });
 
@@ -290,7 +290,7 @@ export async function loadSkillLeaderboard(clubId, currentUserId, containerId = 
                 lastName: p.last_name,
                 eloRating: p.elo_rating || 1000,
                 highestElo: p.highest_elo,
-                photoURL: p.photo_url,
+                photoURL: p.avatar_url,
                 role: p.role,
                 subgroupIDs: p.subgroup_ids || [],
                 xp: p.xp || 0,
@@ -352,7 +352,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
 
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
+            .select('id, first_name, last_name, xp, avatar_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach'])
             .order('xp', { ascending: false });
 
@@ -377,7 +377,7 @@ export async function loadEffortLeaderboard(clubId, currentUserId, containerId =
                 firstName: p.first_name,
                 lastName: p.last_name,
                 xp: p.xp || 0,
-                photoURL: p.photo_url,
+                photoURL: p.avatar_url,
                 role: p.role,
                 subgroupIDs: p.subgroup_ids || [],
                 birthdate: p.birthdate,
@@ -437,7 +437,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
 
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, points, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
+            .select('id, first_name, last_name, points, avatar_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach'])
             .order('points', { ascending: false });
 
@@ -462,7 +462,7 @@ export async function loadSeasonLeaderboard(clubId, currentUserId, containerId =
                 firstName: p.first_name,
                 lastName: p.last_name,
                 points: p.points || 0,
-                photoURL: p.photo_url,
+                photoURL: p.avatar_url,
                 role: p.role,
                 subgroupIDs: p.subgroup_ids || [],
                 birthdate: p.birthdate,
@@ -570,7 +570,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                     losses,
                     matches_played,
                     profiles!inner(
-                        id, first_name, last_name, photo_url, role,
+                        id, first_name, last_name, avatar_url, role,
                         club_id, clubs(name), subgroup_ids, birthdate, gender, privacy_settings
                     )
                 `)
@@ -590,7 +590,7 @@ async function loadGlobalSkillLeaderboardInternal(currentUserId, containerId = '
                         lastName: p.last_name,
                         eloRating: ss.elo_rating || 1000,
                         highestElo: ss.highest_elo || 1000,
-                        photoURL: p.photo_url,
+                        photoURL: p.avatar_url,
                         role: p.role,
                         clubId: p.club_id,
                         clubName: p.clubs?.name || 'Kein Verein',
@@ -676,7 +676,7 @@ async function loadLeaderboardFallback(sportId) {
     let query = supabase
         .from('profiles')
         .select(`
-            id, first_name, last_name, elo_rating, highest_elo, photo_url, role,
+            id, first_name, last_name, elo_rating, highest_elo, avatar_url, role,
             club_id, clubs:club_id(name), subgroup_ids, birthdate, gender, privacy_settings
         `)
         .in('role', ['player', 'coach', 'head_coach'])
@@ -699,7 +699,7 @@ async function loadLeaderboardFallback(sportId) {
             lastName: p.last_name,
             eloRating: p.elo_rating || 1000,
             highestElo: p.highest_elo,
-            photoURL: p.photo_url,
+            photoURL: p.avatar_url,
             role: p.role,
             clubId: p.club_id,
             clubName: p.clubs?.name || 'Kein Verein',
@@ -1183,7 +1183,7 @@ async function loadRanksView(userData) {
         // Build query (single sport model)
         let query = supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, xp, photo_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
+            .select('id, first_name, last_name, elo_rating, xp, avatar_url, role, subgroup_ids, birthdate, gender, privacy_settings, club_id')
             .in('role', ['player', 'coach', 'head_coach']);
 
         // Filter by sport if set
@@ -1208,7 +1208,7 @@ async function loadRanksView(userData) {
                 lastName: p.last_name,
                 eloRating: p.elo_rating || 1000,
                 xp: p.xp || 0,
-                photoURL: p.photo_url,
+                photoURL: p.avatar_url,
                 role: p.role,
                 subgroupIDs: p.subgroup_ids || [],
                 birthdate: p.birthdate,

@@ -139,7 +139,7 @@ async function loadConnections() {
                     id,
                     addressee_id,
                     addressee:profiles!friendships_addressee_id_fkey(
-                        id, first_name, last_name, photo_url, club_id,
+                        id, first_name, last_name, avatar_url, club_id,
                         clubs(name)
                     )
                 `)
@@ -170,7 +170,7 @@ async function loadConnections() {
                     id,
                     requester_id,
                     requester:profiles!friendships_requester_id_fkey(
-                        id, first_name, last_name, photo_url, club_id,
+                        id, first_name, last_name, avatar_url, club_id,
                         clubs(name)
                     )
                 `)
@@ -239,7 +239,7 @@ function renderUsers(users, followStatuses) {
 
     const html = users.map(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
-        const avatar = user.photo_url || DEFAULT_AVATAR;
+        const avatar = user.avatar_url || DEFAULT_AVATAR;
         const clubName = user.clubs?.name || '';
         const isMe = currentUser && user.id === currentUser.id;
         const followStatus = followStatuses[user.id]; // 'accepted', 'pending', or undefined

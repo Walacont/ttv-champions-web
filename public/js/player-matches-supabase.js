@@ -146,7 +146,7 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
         // Search by display_name, first_name, or last_name
         const { data: players, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, photo_url, elo_rating, privacy_settings')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, privacy_settings')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
             .or(`display_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
@@ -182,7 +182,7 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
                  data-id="${player.id}"
                  data-name="${player.display_name}"
                  data-elo="${player.elo_rating || 1000}">
-                <img src="${player.photo_url || DEFAULT_AVATAR}"
+                <img src="${player.avatar_url || DEFAULT_AVATAR}"
                      class="w-10 h-10 rounded-full object-cover"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div class="flex-1">
@@ -1194,7 +1194,7 @@ export async function loadPendingRequests(currentUser) {
 
         // Get player profiles
         const userIds = [...new Set(requests.flatMap(r => [r.player_a_id, r.player_b_id]))];
-        const { data: profiles } = await supabase.from('profiles').select('id, display_name, photo_url').in('id', userIds);
+        const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
         const profileMap = {};
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
@@ -1210,7 +1210,7 @@ export async function loadPendingRequests(currentUser) {
                 <div class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3">
                     <div class="flex justify-between items-start mb-2">
                         <div class="flex items-center gap-3">
-                            <img src="${otherPlayer?.photo_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                             <div>
                                 <p class="font-medium">${isPlayerA ? 'Anfrage an' : 'Anfrage von'} ${otherPlayer?.display_name || 'Unbekannt'}</p>
                                 <p class="text-xs text-gray-500">${setsDisplay}</p>
@@ -1268,7 +1268,7 @@ export async function loadMatchHistory(currentUser) {
 
         // Get player profiles
         const userIds = [...new Set(matches.flatMap(m => [m.player_a_id, m.player_b_id]))];
-        const { data: profiles } = await supabase.from('profiles').select('id, display_name, photo_url').in('id', userIds);
+        const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
         const profileMap = {};
         (profiles || []).forEach(p => { profileMap[p.id] = p; });
 
@@ -1396,7 +1396,7 @@ export async function loadMatchSuggestions(currentUser, currentUserData) {
         // Get club members
         const { data: clubMembers, error } = await supabase
             .from('profiles')
-            .select('id, display_name, photo_url, elo_rating')
+            .select('id, display_name, avatar_url, elo_rating')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
             .neq('role', 'admin')
@@ -1432,7 +1432,7 @@ export async function loadMatchSuggestions(currentUser, currentUserData) {
         container.innerHTML = suggestions.map(player => `
             <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 mb-2">
                 <div class="flex items-center gap-3">
-                    <img src="${player.photo_url || DEFAULT_AVATAR}" class="w-8 h-8 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-8 h-8 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
                         <p class="font-medium text-sm">${player.display_name}</p>
                         <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>

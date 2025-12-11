@@ -67,7 +67,7 @@ async function initializeAuth() {
                 highestElo: profile.highest_elo || 1000,
                 gender: profile.gender || null,
                 birthdate: profile.birthdate || null,
-                photoURL: profile.photo_url || null,
+                photoURL: profile.avatar_url || null,
                 onboardingComplete: profile.onboarding_complete || false,
                 tutorialCompleted: profile.tutorial_completed || {},
                 privacySettings: profile.privacy_settings || {},
@@ -246,7 +246,7 @@ uploadPhotoForm.addEventListener('submit', async e => {
         // Update profile
         const { error: updateError } = await supabase
             .from('profiles')
-            .update({ photo_url: photoURL })
+            .update({ avatar_url: photoURL })
             .eq('id', currentUser.id);
 
         if (updateError) throw updateError;
@@ -561,7 +561,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', async () =
                 lastName: userData?.last_name,
                 birthdate: userData?.birthdate,
                 gender: userData?.gender,
-                photoURL: userData?.photo_url,
+                photoURL: userData?.avatar_url,
                 eloRating: userData?.elo_rating,
                 xp: userData?.xp,
                 rankName: userData?.rank_name,

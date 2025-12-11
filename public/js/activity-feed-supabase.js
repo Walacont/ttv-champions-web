@@ -406,7 +406,7 @@ async function fetchActivities(userIds) {
     // Get player profiles
     const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, display_name, first_name, last_name, photo_url, elo_rating, club_id')
+        .select('id, display_name, first_name, last_name, avatar_url, elo_rating, club_id')
         .in('id', [...playerIds].filter(Boolean));
 
     const profileMap = {};
@@ -694,8 +694,8 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const winnerName = getDisplayName(winnerProfile);
     const loserName = getDisplayName(loserProfile);
 
-    const winnerAvatar = winnerProfile.photo_url || DEFAULT_AVATAR;
-    const loserAvatar = loserProfile.photo_url || DEFAULT_AVATAR;
+    const winnerAvatar = winnerProfile.avatar_url || DEFAULT_AVATAR;
+    const loserAvatar = loserProfile.avatar_url || DEFAULT_AVATAR;
 
     // Calculate set score
     let winnerSets = 0;
@@ -831,10 +831,10 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
         <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
             <div class="flex items-start gap-3">
                 <div class="flex-shrink-0 flex -space-x-2">
-                    <img src="${winnerTeam[0]?.photo_url || DEFAULT_AVATAR}" alt=""
+                    <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
                          class="w-10 h-10 rounded-full object-cover border-2 border-green-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
-                    <img src="${winnerTeam[1]?.photo_url || DEFAULT_AVATAR}" alt=""
+                    <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
                          class="w-10 h-10 rounded-full object-cover border-2 border-green-400"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </div>
@@ -859,10 +859,10 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                 </div>
 
                 <div class="flex-shrink-0 flex -space-x-2">
-                    <img src="${loserTeam[0]?.photo_url || DEFAULT_AVATAR}" alt=""
+                    <img src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
                          class="w-8 h-8 rounded-full object-cover border-2 border-red-300 opacity-75"
                          onerror="this.src='${DEFAULT_AVATAR}'">
-                    <img src="${loserTeam[1]?.photo_url || DEFAULT_AVATAR}" alt=""
+                    <img src="${loserTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
                          class="w-8 h-8 rounded-full object-cover border-2 border-red-300 opacity-75"
                          onerror="this.src='${DEFAULT_AVATAR}'">
                 </div>

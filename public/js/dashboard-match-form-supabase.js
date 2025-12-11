@@ -398,7 +398,7 @@ async function searchOpponents(query, resultsContainer) {
 
         let playersQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, photo_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, active_sport_id, clubs(name)')
+            .select('id, first_name, last_name, avatar_url, elo_rating, club_id, privacy_settings, grundlagen_completed, is_match_ready, active_sport_id, clubs(name)')
             .neq('id', currentUser.id)
             .in('role', ['player', 'coach', 'head_coach'])
             .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
@@ -462,7 +462,7 @@ async function searchOpponents(query, resultsContainer) {
                  data-id="${player.id}"
                  data-name="${playerName}"
                  data-elo="${player.elo_rating || 1000}">
-                <img src="${player.photo_url || DEFAULT_AVATAR}"
+                <img src="${player.avatar_url || DEFAULT_AVATAR}"
                      class="w-10 h-10 rounded-full object-cover"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div class="flex-1">

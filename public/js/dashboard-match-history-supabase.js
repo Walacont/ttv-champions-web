@@ -81,7 +81,7 @@ export async function loadMatchHistory() {
         // Get player profiles
         const { data: profiles } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, photo_url, elo_rating, wins, losses')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, wins, losses')
             .in('id', [...playerIds].filter(Boolean));
 
         // Calculate ranks based on Elo
@@ -163,8 +163,8 @@ function renderSinglesMatchCard(match, profileMap) {
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    const myAvatar = currentPlayer.photo_url || DEFAULT_AVATAR;
-    const oppAvatar = opponent.photo_url || DEFAULT_AVATAR;
+    const myAvatar = currentPlayer.avatar_url || DEFAULT_AVATAR;
+    const oppAvatar = opponent.avatar_url || DEFAULT_AVATAR;
 
     let statsHtml = '';
     if (isWinner) {
@@ -269,10 +269,10 @@ function renderDoublesMatchCard(match, profileMap) {
     const dateDisplay = formatRelativeDate(matchDate);
     const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    const myAvatar = currentUserData?.photo_url || DEFAULT_AVATAR;
-    const partnerAvatar = partner.photo_url || DEFAULT_AVATAR;
-    const opp1Avatar = oppTeamPlayer1?.photo_url || DEFAULT_AVATAR;
-    const opp2Avatar = oppTeamPlayer2?.photo_url || DEFAULT_AVATAR;
+    const myAvatar = currentUserData?.avatar_url || DEFAULT_AVATAR;
+    const partnerAvatar = partner.avatar_url || DEFAULT_AVATAR;
+    const opp1Avatar = oppTeamPlayer1?.avatar_url || DEFAULT_AVATAR;
+    const opp2Avatar = oppTeamPlayer2?.avatar_url || DEFAULT_AVATAR;
 
     const partnerName = partner.first_name || partner.display_name || 'Partner';
     const opp1Name = oppTeamPlayer1?.first_name || oppTeamPlayer1?.display_name || 'Gegner';
@@ -454,13 +454,13 @@ export function showMatchDetails(matchId, matchType = 'singles') {
 
                     <div class="flex items-center justify-between mb-6">
                         <div class="text-center">
-                            <img src="${currentPlayer.photo_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${currentPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
                             <p class="font-semibold mt-2">Du</p>
                             <p class="text-xs text-gray-500">${currentPlayer.elo_rating || 800} Elo</p>
                         </div>
                         <div class="text-2xl font-bold text-gray-400">VS</div>
                         <div class="text-center">
-                            <img src="${opponent.photo_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${opponent.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
                             <p class="font-semibold mt-2">${opponent.first_name || opponent.display_name || 'Gegner'}</p>
                             <p class="text-xs text-gray-500">${opponent.elo_rating || 800} Elo</p>
                         </div>
@@ -533,23 +533,23 @@ function showDoublesMatchDetails(match, profileMap) {
     if (isInTeamA) {
         const me = match.team_a_player1_id === currentUser.id ? teamAPlayer1 : teamAPlayer2;
         const partner = match.team_a_player1_id === currentUser.id ? teamAPlayer2 : teamAPlayer1;
-        myAvatar = me.photo_url || DEFAULT_AVATAR;
-        partnerAvatar = partner.photo_url || DEFAULT_AVATAR;
+        myAvatar = me.avatar_url || DEFAULT_AVATAR;
+        partnerAvatar = partner.avatar_url || DEFAULT_AVATAR;
         partnerName = partner.first_name || partner.display_name || 'Partner';
         opp1Name = teamBPlayer1.first_name || teamBPlayer1.display_name || 'Gegner 1';
         opp2Name = teamBPlayer2.first_name || teamBPlayer2.display_name || 'Gegner 2';
-        opp1Avatar = teamBPlayer1.photo_url || DEFAULT_AVATAR;
-        opp2Avatar = teamBPlayer2.photo_url || DEFAULT_AVATAR;
+        opp1Avatar = teamBPlayer1.avatar_url || DEFAULT_AVATAR;
+        opp2Avatar = teamBPlayer2.avatar_url || DEFAULT_AVATAR;
     } else {
         const me = match.team_b_player1_id === currentUser.id ? teamBPlayer1 : teamBPlayer2;
         const partner = match.team_b_player1_id === currentUser.id ? teamBPlayer2 : teamBPlayer1;
-        myAvatar = me.photo_url || DEFAULT_AVATAR;
-        partnerAvatar = partner.photo_url || DEFAULT_AVATAR;
+        myAvatar = me.avatar_url || DEFAULT_AVATAR;
+        partnerAvatar = partner.avatar_url || DEFAULT_AVATAR;
         partnerName = partner.first_name || partner.display_name || 'Partner';
         opp1Name = teamAPlayer1.first_name || teamAPlayer1.display_name || 'Gegner 1';
         opp2Name = teamAPlayer2.first_name || teamAPlayer2.display_name || 'Gegner 2';
-        opp1Avatar = teamAPlayer1.photo_url || DEFAULT_AVATAR;
-        opp2Avatar = teamAPlayer2.photo_url || DEFAULT_AVATAR;
+        opp1Avatar = teamAPlayer1.avatar_url || DEFAULT_AVATAR;
+        opp2Avatar = teamAPlayer2.avatar_url || DEFAULT_AVATAR;
     }
 
     const sets = match.sets || [];
