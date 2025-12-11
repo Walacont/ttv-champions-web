@@ -158,6 +158,13 @@
     "title": "Dashboard",
     "welcome": "Willkommen",
     "welcomeBack": "Willkommen zurück",
+    "loading": "Lade Daten...",
+    "tabs": {
+      "start": "Start",
+      "leaderboard": "Ranglisten",
+      "competition": "Wettkampf",
+      "exercises": "Übungskatalog"
+    },
     "stats": {
       "title": "Deine Statistiken",
       "matches": "Spiele",
@@ -186,22 +193,206 @@
     },
     "activityFeed": {
       "title": "Aktivitäten",
-      "noActivity": "Noch keine Aktivitäten"
+      "noActivity": "Noch keine Aktivitäten",
+      "loading": "Lade Aktivitäten...",
+      "filter": {
+        "all": "Alle Aktivitäten",
+        "following": "Abonniert",
+        "myActivities": "Meine Aktivitäten"
+      }
     },
     "training": {
       "title": "Training",
       "nextSession": "Nächste Trainingseinheit",
       "noSessions": "Keine anstehenden Trainings"
+    },
+    "community": {
+      "title": "Community",
+      "persons": "Personen",
+      "clubs": "Clubs",
+      "searchPersons": "Nach Personen suchen...",
+      "searchClubs": "Nach Clubs suchen...",
+      "suggested": "Vorgeschlagen",
+      "followAll": "Allen folgen",
+      "loadingSuggestions": "Lade Vorschläge...",
+      "pendingRequests": "Ausstehende Anfragen",
+      "noPendingRequests": "Keine ausstehenden Anfragen",
+      "yourClub": "Dein Verein",
+      "enterClubName": "Gib einen Namen ein, um nach Clubs zu suchen"
+    },
+    "noClub": {
+      "title": "Du bist noch keinem Verein beigetreten",
+      "description": "Möchtest du einem Verein beitreten? Du kannst in den Einstellungen nach Vereinen suchen und eine Beitrittsanfrage stellen.",
+      "settingsLink": "Einstellungen"
+    },
+    "coachIndicator": {
+      "message": "Du befindest dich im Spieler-Dashboard",
+      "switchToCoach": "Zur Coach-Ansicht"
+    },
+    "exercises": {
+      "title": "Übungskatalog",
+      "filterTags": "Tags filtern",
+      "searchTag": "Tag suchen...",
+      "loading": "Übungen werden geladen...",
+      "showAbbreviations": "Abkürzungen anzeigen"
+    },
+    "matches": {
+      "suggestions": {
+        "title": "Match-Vorschläge",
+        "description": "Gegen wen hast du noch nie oder lange nicht gespielt?",
+        "loading": "Lade Vorschläge..."
+      },
+      "report": {
+        "title": "Wettkampf melden",
+        "subtitle": "Für bereits gespielte Matches",
+        "singles": "Einzel",
+        "doubles": "Doppel",
+        "gameMode": "Spielmodus",
+        "singleSet": "1 Satz",
+        "bestOf3": "Best of 3",
+        "bestOf5": "Best of 5 (Standard)",
+        "bestOf7": "Best of 7",
+        "searchOpponent": "Gegner suchen",
+        "searchOpponentPlaceholder": "Gegner suchen (Name eingeben)...",
+        "yourTeam": "Dein Team",
+        "selectPartner": "Partner wählen",
+        "searchPartner": "Suche nach Partner...",
+        "opponentTeam": "Gegnerisches Team",
+        "opponent1": "Gegner 1",
+        "opponent2": "Gegner 2",
+        "searchOpponent1": "Suche nach Gegner 1...",
+        "searchOpponent2": "Suche nach Gegner 2...",
+        "yourTeamElo": "Dein Team Elo",
+        "opponentTeamElo": "Gegner Team Elo",
+        "enterScore": "Spielergebnis eingeben (mind. 3 Sätze)",
+        "scoreHint": "Du bist Spieler A, dein Gegner ist Spieler B",
+        "handicapSuggestion": "Handicap-Vorschlag",
+        "handicapUsed": "Handicap wurde verwendet",
+        "winner": "Gewinner",
+        "sendRequest": "Anfrage senden"
+      },
+      "history": {
+        "title": "Wettkampf-Historie",
+        "subtitle": "Alle gespielten Wettkämpfe mit Ergebnissen und ELO-Änderungen",
+        "loading": "Lade Historie..."
+      },
+      "pending": {
+        "title": "Ausstehende Anfragen",
+        "subtitle": "Anfragen, die noch auf Bestätigung warten",
+        "none": "Keine ausstehenden Anfragen"
+      },
+      "requestHistory": {
+        "title": "Anfragen-Historie",
+        "subtitle": "Alle abgeschlossenen Anfragen (gesendet & empfangen)",
+        "resultRequests": "Ergebnis-Anfragen",
+        "none": "Keine Ergebnis-Anfragen"
+      },
+      "tennisOptions": {
+        "title": "Tennis/Padel Optionen",
+        "goldenPoint": "Golden Point (No-Ad bei 40:40)",
+        "matchTiebreak": "Match Tie-Break statt 3. Satz (bis 10 Punkte)"
+      }
+    },
+    "leaderboard": {
+      "title": "Rangliste",
+      "seasonEnd": "Saison-Ende",
+      "loading": "Lädt...",
+      "settings": {
+        "title": "Ranglisten-Einstellungen",
+        "subtitle": "Passe an, welche Ranglisten angezeigt werden",
+        "effort": "Fleiß (XP)",
+        "season": "Season (Punkte)",
+        "skill": "Skill (Elo)",
+        "ranks": "Ränge (Level)",
+        "doubles": "Doppel (Teams)",
+        "autoSave": "Die Einstellungen werden automatisch gespeichert."
+      },
+      "filter": {
+        "view": "Ansicht",
+        "myClub": "Mein Verein",
+        "global": "Global",
+        "gender": "Geschlecht",
+        "all": "Alle",
+        "male": "Jungen/Herren",
+        "female": "Mädchen/Damen"
+      },
+      "tabs": {
+        "effort": "Fleiß",
+        "effortSub": "(XP)",
+        "season": "Season",
+        "seasonSub": "(Punkte)",
+        "skill": "Skill",
+        "skillSub": "(Elo)",
+        "ranks": "Ränge",
+        "ranksSub": "(Level)",
+        "doubles": "Doppel",
+        "doublesSub": "(Teams)"
+      },
+      "ageGroups": {
+        "youth": "Jugend (nach Alter)",
+        "u11": "U11",
+        "u13": "U13",
+        "u15": "U15",
+        "u17": "U17",
+        "u19": "U19",
+        "adults": "Erwachsene (18-39)",
+        "seniors": "Senioren (nach Alter)",
+        "o40": "Ü40",
+        "o45": "Ü45",
+        "o50": "Ü50",
+        "o55": "Ü55",
+        "o60": "Ü60",
+        "o65": "Ü65",
+        "o70": "Ü70",
+        "o75": "Ü75",
+        "o80": "Ü80"
+      }
+    },
+    "widgets": {
+      "customize": "Startseite anpassen",
+      "customizeDesc": "Wähle aus, welche Widgets auf deiner Startseite angezeigt werden sollen",
+      "resetToDefault": "Auf Standard zurücksetzen",
+      "save": "Speichern"
+    },
+    "footer": {
+      "bugFound": "Bug gefunden?",
+      "bugDescription": "Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an",
+      "imprint": "Impressum",
+      "privacy": "Datenschutzerklärung",
+      "copyright": "© 2025 SC Champions. Alle Rechte vorbehalten.",
+      "disclaimer": "Hinweis: SC Champions ist derzeit ein Forschungsprojekt im Rahmen einer Bachelorarbeit und befindet sich in der Testphase."
     }
   },
   "profile": {
     "title": "Profil",
+    "back": "Zurück",
+    "loading": "Laden...",
     "editProfile": "Profil bearbeiten",
     "publicProfile": "Öffentliches Profil",
     "stats": "Statistiken",
     "matches": "Spiele",
     "achievements": "Erfolge",
     "friends": "Freunde",
+    "following": "Gefolgt",
+    "followers": "Abonnenten",
+    "privateProfile": {
+      "title": "Dieses Profil ist privat",
+      "description": "Folge dieser Person, um Aktivitäten, Erfolge und mehr zu sehen"
+    },
+    "tabs": {
+      "activity": "Aktivität",
+      "progress": "Fortschritt"
+    },
+    "statLabels": {
+      "elo": "Elo",
+      "wins": "Siege",
+      "matches": "Spiele",
+      "points": "Punkte"
+    },
+    "recentActivity": "Letzte Aktivität",
+    "noActivities": "Keine Aktivitäten",
+    "mutualFriends": "Gemeinsame Freunde",
+    "members": "Mitglieder",
     "info": {
       "memberSince": "Mitglied seit",
       "club": "Verein",
@@ -401,6 +592,20 @@
     "minutesAgo_plural": "vor {{count}} Minuten",
     "secondsAgo": "vor {{count}} Sekunde",
     "secondsAgo_plural": "vor {{count}} Sekunden"
+  },
+  "connections": {
+    "title": "Verbindungen",
+    "following": "Abonniert",
+    "followers": "Abonnenten",
+    "noConnections": "Keine Verbindungen",
+    "followingYou": "Sportler, denen du folgst",
+    "followingOther": "Sportler, denen {{name}} folgt",
+    "followersYou": "Deine Abonnenten",
+    "followersOther": "Abonnenten von {{name}}",
+    "noFollowing": "Du folgst noch niemandem",
+    "noFollowingOther": "{{name}} folgt noch niemandem",
+    "noFollowersYou": "Du hast noch keine Abonnenten",
+    "noFollowersOther": "{{name}} hat noch keine Abonnenten"
   },
   "follow": {
     "follow": "Folgen",

@@ -158,6 +158,13 @@
     "title": "Dashboard",
     "welcome": "Welcome",
     "welcomeBack": "Welcome back",
+    "loading": "Loading data...",
+    "tabs": {
+      "start": "Home",
+      "leaderboard": "Leaderboards",
+      "competition": "Competition",
+      "exercises": "Exercise Catalog"
+    },
     "stats": {
       "title": "Your Statistics",
       "matches": "Matches",
@@ -186,22 +193,206 @@
     },
     "activityFeed": {
       "title": "Activity",
-      "noActivity": "No activity yet"
+      "noActivity": "No activity yet",
+      "loading": "Loading activities...",
+      "filter": {
+        "all": "All Activities",
+        "following": "Following",
+        "myActivities": "My Activities"
+      }
     },
     "training": {
       "title": "Training",
       "nextSession": "Next Training Session",
       "noSessions": "No upcoming training sessions"
+    },
+    "community": {
+      "title": "Community",
+      "persons": "People",
+      "clubs": "Clubs",
+      "searchPersons": "Search for people...",
+      "searchClubs": "Search for clubs...",
+      "suggested": "Suggested",
+      "followAll": "Follow all",
+      "loadingSuggestions": "Loading suggestions...",
+      "pendingRequests": "Pending Requests",
+      "noPendingRequests": "No pending requests",
+      "yourClub": "Your Club",
+      "enterClubName": "Enter a name to search for clubs"
+    },
+    "noClub": {
+      "title": "You haven't joined a club yet",
+      "description": "Would you like to join a club? You can search for clubs in the settings and send a join request.",
+      "settingsLink": "Settings"
+    },
+    "coachIndicator": {
+      "message": "You are in the player dashboard",
+      "switchToCoach": "Switch to Coach View"
+    },
+    "exercises": {
+      "title": "Exercise Catalog",
+      "filterTags": "Filter tags",
+      "searchTag": "Search tag...",
+      "loading": "Loading exercises...",
+      "showAbbreviations": "Show abbreviations"
+    },
+    "matches": {
+      "suggestions": {
+        "title": "Match Suggestions",
+        "description": "Who haven't you played against yet or in a long time?",
+        "loading": "Loading suggestions..."
+      },
+      "report": {
+        "title": "Report Competition",
+        "subtitle": "For matches already played",
+        "singles": "Singles",
+        "doubles": "Doubles",
+        "gameMode": "Game Mode",
+        "singleSet": "1 Set",
+        "bestOf3": "Best of 3",
+        "bestOf5": "Best of 5 (Standard)",
+        "bestOf7": "Best of 7",
+        "searchOpponent": "Search Opponent",
+        "searchOpponentPlaceholder": "Search opponent (enter name)...",
+        "yourTeam": "Your Team",
+        "selectPartner": "Select Partner",
+        "searchPartner": "Search for partner...",
+        "opponentTeam": "Opponent Team",
+        "opponent1": "Opponent 1",
+        "opponent2": "Opponent 2",
+        "searchOpponent1": "Search for opponent 1...",
+        "searchOpponent2": "Search for opponent 2...",
+        "yourTeamElo": "Your Team Elo",
+        "opponentTeamElo": "Opponent Team Elo",
+        "enterScore": "Enter game score (min. 3 sets)",
+        "scoreHint": "You are player A, your opponent is player B",
+        "handicapSuggestion": "Handicap Suggestion",
+        "handicapUsed": "Handicap was used",
+        "winner": "Winner",
+        "sendRequest": "Send Request"
+      },
+      "history": {
+        "title": "Competition History",
+        "subtitle": "All played competitions with results and Elo changes",
+        "loading": "Loading history..."
+      },
+      "pending": {
+        "title": "Pending Requests",
+        "subtitle": "Requests waiting for confirmation",
+        "none": "No pending requests"
+      },
+      "requestHistory": {
+        "title": "Request History",
+        "subtitle": "All completed requests (sent & received)",
+        "resultRequests": "Result Requests",
+        "none": "No result requests"
+      },
+      "tennisOptions": {
+        "title": "Tennis/Padel Options",
+        "goldenPoint": "Golden Point (No-Ad at deuce)",
+        "matchTiebreak": "Match Tie-Break instead of 3rd set (to 10 points)"
+      }
+    },
+    "leaderboard": {
+      "title": "Leaderboard",
+      "seasonEnd": "Season End",
+      "loading": "Loading...",
+      "settings": {
+        "title": "Leaderboard Settings",
+        "subtitle": "Customize which leaderboards are displayed",
+        "effort": "Effort (XP)",
+        "season": "Season (Points)",
+        "skill": "Skill (Elo)",
+        "ranks": "Ranks (Level)",
+        "doubles": "Doubles (Teams)",
+        "autoSave": "Settings are saved automatically."
+      },
+      "filter": {
+        "view": "View",
+        "myClub": "My Club",
+        "global": "Global",
+        "gender": "Gender",
+        "all": "All",
+        "male": "Boys/Men",
+        "female": "Girls/Women"
+      },
+      "tabs": {
+        "effort": "Effort",
+        "effortSub": "(XP)",
+        "season": "Season",
+        "seasonSub": "(Points)",
+        "skill": "Skill",
+        "skillSub": "(Elo)",
+        "ranks": "Ranks",
+        "ranksSub": "(Level)",
+        "doubles": "Doubles",
+        "doublesSub": "(Teams)"
+      },
+      "ageGroups": {
+        "youth": "Youth (by age)",
+        "u11": "U11",
+        "u13": "U13",
+        "u15": "U15",
+        "u17": "U17",
+        "u19": "U19",
+        "adults": "Adults (18-39)",
+        "seniors": "Seniors (by age)",
+        "o40": "O40",
+        "o45": "O45",
+        "o50": "O50",
+        "o55": "O55",
+        "o60": "O60",
+        "o65": "O65",
+        "o70": "O70",
+        "o75": "O75",
+        "o80": "O80"
+      }
+    },
+    "widgets": {
+      "customize": "Customize Homepage",
+      "customizeDesc": "Choose which widgets to display on your homepage",
+      "resetToDefault": "Reset to default",
+      "save": "Save"
+    },
+    "footer": {
+      "bugFound": "Found a bug?",
+      "bugDescription": "Help us improve the app! Send bug reports and feedback to",
+      "imprint": "Imprint",
+      "privacy": "Privacy Policy",
+      "copyright": "© 2025 SC Champions. All rights reserved.",
+      "disclaimer": "Note: SC Champions is currently a research project as part of a bachelor's thesis and is in the testing phase."
     }
   },
   "profile": {
     "title": "Profile",
+    "back": "Back",
+    "loading": "Loading...",
     "editProfile": "Edit Profile",
     "publicProfile": "Public Profile",
     "stats": "Statistics",
     "matches": "Matches",
     "achievements": "Achievements",
     "friends": "Friends",
+    "following": "Following",
+    "followers": "Followers",
+    "privateProfile": {
+      "title": "This profile is private",
+      "description": "Follow this person to see their activities, achievements and more"
+    },
+    "tabs": {
+      "activity": "Activity",
+      "progress": "Progress"
+    },
+    "statLabels": {
+      "elo": "Elo",
+      "wins": "Wins",
+      "matches": "Matches",
+      "points": "Points"
+    },
+    "recentActivity": "Recent Activity",
+    "noActivities": "No activities",
+    "mutualFriends": "Mutual Friends",
+    "members": "Members",
     "info": {
       "memberSince": "Member since",
       "club": "Club",
@@ -401,6 +592,20 @@
     "minutesAgo_plural": "{{count}} minutes ago",
     "secondsAgo": "{{count}} second ago",
     "secondsAgo_plural": "{{count}} seconds ago"
+  },
+  "connections": {
+    "title": "Connections",
+    "following": "Following",
+    "followers": "Followers",
+    "noConnections": "No connections",
+    "followingYou": "Athletes you follow",
+    "followingOther": "Athletes {{name}} follows",
+    "followersYou": "Your followers",
+    "followersOther": "Followers of {{name}}",
+    "noFollowing": "You're not following anyone yet",
+    "noFollowingOther": "{{name}} is not following anyone yet",
+    "noFollowersYou": "You don't have any followers yet",
+    "noFollowersOther": "{{name}} doesn't have any followers yet"
   },
   "follow": {
     "follow": "Follow",

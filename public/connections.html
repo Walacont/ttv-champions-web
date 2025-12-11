@@ -97,7 +97,7 @@
                         >
                             <i class="fas fa-chevron-left text-lg"></i>
                         </button>
-                        <h1 class="text-lg font-semibold text-gray-800">Verbindungen</h1>
+                        <h1 class="text-lg font-semibold text-gray-800" data-i18n="connections.title">Verbindungen</h1>
                         <div class="w-6"></div>
                     </div>
                 </div>
@@ -108,6 +108,7 @@
                         id="tab-following"
                         class="tab-btn flex-1 py-3 text-center font-semibold text-sm active"
                         onclick="switchConnectionsTab('following')"
+                        data-i18n="connections.following"
                     >
                         Abonniert
                     </button>
@@ -115,6 +116,7 @@
                         id="tab-followers"
                         class="tab-btn flex-1 py-3 text-center font-semibold text-sm"
                         onclick="switchConnectionsTab('followers')"
+                        data-i18n="connections.followers"
                     >
                         Abonnenten
                     </button>
@@ -135,14 +137,14 @@
                     <!-- Users will be loaded here -->
                     <div class="p-8 text-center text-gray-400">
                         <i class="fas fa-spinner fa-spin text-2xl"></i>
-                        <p class="mt-2 text-sm">Lade...</p>
+                        <p class="mt-2 text-sm" data-i18n="common.loading">Lade...</p>
                     </div>
                 </div>
 
                 <!-- Empty State -->
                 <div id="empty-state" class="hidden p-8 text-center">
                     <i class="fas fa-users text-4xl text-gray-300 mb-3"></i>
-                    <p id="empty-message" class="text-gray-500">Keine Verbindungen</p>
+                    <p id="empty-message" class="text-gray-500" data-i18n="connections.noConnections">Keine Verbindungen</p>
                 </div>
             </div>
         </div>
