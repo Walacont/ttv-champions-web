@@ -279,6 +279,15 @@ async function showNotificationModal(userId) {
             const notificationId = item.dataset.id;
             const notification = notifications[index];
 
+            // For match requests: navigate to Wettkampf tab without marking as read
+            // User should accept/decline there, which will handle the notification
+            if (isMatchRequest(notification.type)) {
+                handleNotificationClick(notification);
+                closeModal();
+                return;
+            }
+
+            // For other notifications: mark as read and navigate
             await markNotificationAsRead(notificationId);
             item.classList.remove('bg-blue-50');
             item.classList.add('bg-white');
@@ -628,6 +637,23 @@ function handleNotificationClick(notification) {
 
     const type = notification.type;
 
+    // Match request notifications - navigate to Wettkampf tab
+    if (type === 'match_request') {
+        // Try to click the Wettkampf tab
+        const wettkampfTab = document.querySelector('[data-tab="matches"]') ||
+                            document.querySelector('[data-tab="wettkampf"]') ||
+                            document.querySelector('button[onclick*="matches"]');
+        if (wettkampfTab) {
+            wettkampfTab.click();
+            return;
+        }
+        // If we're not on dashboard, navigate there
+        if (!window.location.pathname.includes('dashboard')) {
+            window.location.href = '/dashboard.html#matches';
+        }
+        return;
+    }
+
     // Follow request notifications - navigate to profile or community
     if (type === 'follow_request' || type === 'friend_request') {
         const requesterId = notification.data?.requester_id;
@@ -719,22 +745,13 @@ function renderFollowRequestActions(notification) {
         `;
     }
 
-    // Handle match requests
+    // Handle match requests - show hint to go to Wettkampf tab
     if (isMatchRequest(notification.type) && !notification.is_read) {
-        const requestId = notification.data?.request_id;
-        const requesterId = notification.data?.requester_id;
-        if (!requestId && !requesterId) return '';
-
         return `
-            <div class="match-request-actions flex gap-2 mt-2">
-                <button class="accept-match-btn bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
-                        data-request-id="${requestId || ''}" data-requester-id="${requesterId || ''}" data-notification-id="${notification.id}">
-                    <i class="fas fa-check mr-1"></i>Annehmen
-                </button>
-                <button class="decline-match-btn bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
-                        data-request-id="${requestId || ''}" data-requester-id="${requesterId || ''}" data-notification-id="${notification.id}">
-                    <i class="fas fa-times mr-1"></i>Ablehnen
-                </button>
+            <div class="match-request-hint mt-2">
+                <span class="text-xs text-indigo-600 font-medium">
+                    <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zum Wettkampf-Tab zu gelangen
+                </span>
             </div>
         `;
     }
