@@ -46,7 +46,7 @@ let currentUserData = null;
 let currentClubData = null;
 let currentSportContext = null; // Multi-sport: stores sportId, clubId, role for active sport
 let realtimeSubscriptions = [];
-let currentSubgroupFilter = 'club';
+let currentSubgroupFilter = 'global'; // Will be set properly in populatePlayerSubgroupFilter
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
 
@@ -287,7 +287,6 @@ async function initializeDashboard() {
     setupProfileLink();
     setupCoachIndicator();
     setupSearchButton();
-    setupFilters();
     setupModalHandlers();
 
     // Initialize leaderboard preferences (must be after tabs are set up)
@@ -304,7 +303,8 @@ async function initializeDashboard() {
     updateStatsDisplay();
     updateRankDisplay();
     loadRivalData();
-    loadLeaderboards();
+    await loadLeaderboards();
+    setupFilters(); // Setup filters after leaderboard HTML is rendered
     loadPointsHistory();
     loadChallenges();
     loadExercises();
@@ -555,9 +555,13 @@ function setupFilters() {
             // Update leaderboard scope based on filter selection
             if (currentSubgroupFilter === 'global') {
                 currentLeaderboardScope = 'global';
+            } else if (currentSubgroupFilter === 'club') {
+                // Club filter - use club scope (only for users with club)
+                currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             } else {
-                // For 'club', age groups, and subgroups - use club data
-                currentLeaderboardScope = 'club';
+                // For age groups and subgroups - use global if user has no club
+                // This allows users without clubs to filter by age across all players
+                currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             }
             updateLeaderboardScope();
 
@@ -936,13 +940,28 @@ async function loadLeaderboards() {
                 </div>
             </div>
 
-            <!-- Club/Global Toggle -->
-            ${currentUserData.club_id ? `
-            <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100 mb-4">
-                <button id="lb-scope-club" class="lb-scope-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors">Mein Verein</button>
-                <button id="lb-scope-global" class="lb-scope-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors">Global</button>
+            <!-- Filter Row -->
+            <div id="player-subgroup-filter-container" class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <label for="player-subgroup-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        👥 Ansicht:
+                    </label>
+                    <select id="player-subgroup-filter" class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
+                        <option value="club">🏠 Mein Verein</option>
+                        <option value="global">🌍 Global</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2 flex-1 sm:flex-none">
+                    <label for="player-gender-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        ⚧ Geschlecht:
+                    </label>
+                    <select id="player-gender-filter" class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
+                        <option value="all">Alle</option>
+                        <option value="male">Jungen/Herren</option>
+                        <option value="female">Mädchen/Damen</option>
+                    </select>
+                </div>
             </div>
-            ` : ''}
 
             <!-- Effort/Fleiß Content -->
             <div id="content-effort" class="leaderboard-tab-content mt-4 space-y-2 hidden">
@@ -3316,22 +3335,18 @@ async function populatePlayerSubgroupFilter(userData) {
     // Save current selection
     const currentSelection = dropdown.value;
 
-    // If user has no club, show only Global option
-    if (!hasClub) {
-        dropdown.innerHTML = '';
-        dropdown.appendChild(createOption('global', '🌍 Global'));
-        dropdown.value = 'global';
-        return;
-    }
-
     // Start building dropdown options
     dropdown.innerHTML = '';
 
-    // Add club and global options first
-    dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
+    // Add club option only if user has a club
+    if (hasClub) {
+        dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
+    }
+
+    // Global option always available
     dropdown.appendChild(createOption('global', '🌍 Global'));
 
-    // Add Youth Age Groups
+    // Add Youth Age Groups (always show for all users)
     const youthGroup = document.createElement('optgroup');
     youthGroup.label = '⚽ Jugend (nach Alter)';
     AGE_GROUPS.youth.forEach(group => {
@@ -3340,7 +3355,7 @@ async function populatePlayerSubgroupFilter(userData) {
     });
     dropdown.appendChild(youthGroup);
 
-    // Add Adults Age Group
+    // Add Adults Age Group (always show for all users)
     const adultsGroup = document.createElement('optgroup');
     adultsGroup.label = '👥 Erwachsene';
     AGE_GROUPS.adults.forEach(group => {
@@ -3349,7 +3364,7 @@ async function populatePlayerSubgroupFilter(userData) {
     });
     dropdown.appendChild(adultsGroup);
 
-    // Add Senior Age Groups
+    // Add Senior Age Groups (always show for all users)
     const seniorGroup = document.createElement('optgroup');
     seniorGroup.label = '🎖️ Senioren (nach Alter)';
     AGE_GROUPS.seniors.forEach(group => {
@@ -3358,8 +3373,8 @@ async function populatePlayerSubgroupFilter(userData) {
     });
     dropdown.appendChild(seniorGroup);
 
-    // Load and add custom subgroups if user has any
-    if (subgroupIDs.length > 0) {
+    // Load and add custom subgroups if user has any (only for users with club)
+    if (hasClub && subgroupIDs.length > 0) {
         try {
             const { data: subgroups, error } = await supabase
                 .from('subgroups')
@@ -3387,7 +3402,21 @@ async function populatePlayerSubgroupFilter(userData) {
     if (validValues.includes(currentSelection)) {
         dropdown.value = currentSelection;
     } else {
-        dropdown.value = 'club';
+        // Default: club if available, otherwise global
+        dropdown.value = hasClub ? 'club' : 'global';
+    }
+
+    // Sync currentSubgroupFilter with dropdown value
+    currentSubgroupFilter = dropdown.value;
+
+    // Also sync leaderboard scope
+    if (currentSubgroupFilter === 'global') {
+        currentLeaderboardScope = 'global';
+    } else if (currentSubgroupFilter === 'club') {
+        currentLeaderboardScope = hasClub ? 'club' : 'global';
+    } else {
+        // Age groups and subgroups - use global if no club
+        currentLeaderboardScope = hasClub ? 'club' : 'global';
     }
 }
 

@@ -123,6 +123,23 @@
     "letsGetStarted": "Let's get started",
     "step": "Step",
     "of": "of",
+    "title": "Complete your profile",
+    "subtitle": "Almost done! We just need a few more details.",
+    "selectPhoto": "Select profile picture",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "birthdate": "Date of Birth",
+    "day": "Day",
+    "month": "Month",
+    "year": "Year",
+    "gender": "Gender",
+    "selectGender": "Select gender",
+    "male": "Male",
+    "female": "Female",
+    "diverse": "Diverse",
+    "sport": "Sport",
+    "selectSport": "Select sport...",
+    "saveProfile": "Save profile",
     "profile": {
       "title": "Complete your profile",
       "description": "Tell us a bit about yourself",
@@ -158,6 +175,13 @@
     "title": "Dashboard",
     "welcome": "Welcome",
     "welcomeBack": "Welcome back",
+    "loading": "Loading data...",
+    "tabs": {
+      "start": "Home",
+      "leaderboard": "Leaderboards",
+      "competition": "Competition",
+      "exercises": "Exercise Catalog"
+    },
     "stats": {
       "title": "Your Statistics",
       "matches": "Matches",
@@ -186,22 +210,206 @@
     },
     "activityFeed": {
       "title": "Activity",
-      "noActivity": "No activity yet"
+      "noActivity": "No activity yet",
+      "loading": "Loading activities...",
+      "filter": {
+        "all": "All Activities",
+        "following": "Following",
+        "myActivities": "My Activities"
+      }
     },
     "training": {
       "title": "Training",
       "nextSession": "Next Training Session",
       "noSessions": "No upcoming training sessions"
+    },
+    "community": {
+      "title": "Community",
+      "persons": "People",
+      "clubs": "Clubs",
+      "searchPersons": "Search for people...",
+      "searchClubs": "Search for clubs...",
+      "suggested": "Suggested",
+      "followAll": "Follow all",
+      "loadingSuggestions": "Loading suggestions...",
+      "pendingRequests": "Pending Requests",
+      "noPendingRequests": "No pending requests",
+      "yourClub": "Your Club",
+      "enterClubName": "Enter a name to search for clubs"
+    },
+    "noClub": {
+      "title": "You haven't joined a club yet",
+      "description": "Would you like to join a club? You can search for clubs in the settings and send a join request.",
+      "settingsLink": "Settings"
+    },
+    "coachIndicator": {
+      "message": "You are in the player dashboard",
+      "switchToCoach": "Switch to Coach View"
+    },
+    "exercises": {
+      "title": "Exercise Catalog",
+      "filterTags": "Filter tags",
+      "searchTag": "Search tag...",
+      "loading": "Loading exercises...",
+      "showAbbreviations": "Show abbreviations"
+    },
+    "matches": {
+      "suggestions": {
+        "title": "Match Suggestions",
+        "description": "Who haven't you played against yet or in a long time?",
+        "loading": "Loading suggestions..."
+      },
+      "report": {
+        "title": "Report Competition",
+        "subtitle": "For matches already played",
+        "singles": "Singles",
+        "doubles": "Doubles",
+        "gameMode": "Game Mode",
+        "singleSet": "1 Set",
+        "bestOf3": "Best of 3",
+        "bestOf5": "Best of 5 (Standard)",
+        "bestOf7": "Best of 7",
+        "searchOpponent": "Search Opponent",
+        "searchOpponentPlaceholder": "Search opponent (enter name)...",
+        "yourTeam": "Your Team",
+        "selectPartner": "Select Partner",
+        "searchPartner": "Search for partner...",
+        "opponentTeam": "Opponent Team",
+        "opponent1": "Opponent 1",
+        "opponent2": "Opponent 2",
+        "searchOpponent1": "Search for opponent 1...",
+        "searchOpponent2": "Search for opponent 2...",
+        "yourTeamElo": "Your Team Elo",
+        "opponentTeamElo": "Opponent Team Elo",
+        "enterScore": "Enter game score (min. 3 sets)",
+        "scoreHint": "You are player A, your opponent is player B",
+        "handicapSuggestion": "Handicap Suggestion",
+        "handicapUsed": "Handicap was used",
+        "winner": "Winner",
+        "sendRequest": "Send Request"
+      },
+      "history": {
+        "title": "Competition History",
+        "subtitle": "All played competitions with results and Elo changes",
+        "loading": "Loading history..."
+      },
+      "pending": {
+        "title": "Pending Requests",
+        "subtitle": "Requests waiting for confirmation",
+        "none": "No pending requests"
+      },
+      "requestHistory": {
+        "title": "Request History",
+        "subtitle": "All completed requests (sent & received)",
+        "resultRequests": "Result Requests",
+        "none": "No result requests"
+      },
+      "tennisOptions": {
+        "title": "Tennis/Padel Options",
+        "goldenPoint": "Golden Point (No-Ad at deuce)",
+        "matchTiebreak": "Match Tie-Break instead of 3rd set (to 10 points)"
+      }
+    },
+    "leaderboard": {
+      "title": "Leaderboard",
+      "seasonEnd": "Season End",
+      "loading": "Loading...",
+      "settings": {
+        "title": "Leaderboard Settings",
+        "subtitle": "Customize which leaderboards are displayed",
+        "effort": "Effort (XP)",
+        "season": "Season (Points)",
+        "skill": "Skill (Elo)",
+        "ranks": "Ranks (Level)",
+        "doubles": "Doubles (Teams)",
+        "autoSave": "Settings are saved automatically."
+      },
+      "filter": {
+        "view": "View",
+        "myClub": "My Club",
+        "global": "Global",
+        "gender": "Gender",
+        "all": "All",
+        "male": "Boys/Men",
+        "female": "Girls/Women"
+      },
+      "tabs": {
+        "effort": "Effort",
+        "effortSub": "(XP)",
+        "season": "Season",
+        "seasonSub": "(Points)",
+        "skill": "Skill",
+        "skillSub": "(Elo)",
+        "ranks": "Ranks",
+        "ranksSub": "(Level)",
+        "doubles": "Doubles",
+        "doublesSub": "(Teams)"
+      },
+      "ageGroups": {
+        "youth": "Youth (by age)",
+        "u11": "U11",
+        "u13": "U13",
+        "u15": "U15",
+        "u17": "U17",
+        "u19": "U19",
+        "adults": "Adults (18-39)",
+        "seniors": "Seniors (by age)",
+        "o40": "O40",
+        "o45": "O45",
+        "o50": "O50",
+        "o55": "O55",
+        "o60": "O60",
+        "o65": "O65",
+        "o70": "O70",
+        "o75": "O75",
+        "o80": "O80"
+      }
+    },
+    "widgets": {
+      "customize": "Customize Homepage",
+      "customizeDesc": "Choose which widgets to display on your homepage",
+      "resetToDefault": "Reset to default",
+      "save": "Save"
+    },
+    "footer": {
+      "bugFound": "Found a bug?",
+      "bugDescription": "Help us improve the app! Send bug reports and feedback to",
+      "imprint": "Imprint",
+      "privacy": "Privacy Policy",
+      "copyright": "© 2025 SC Champions. All rights reserved.",
+      "disclaimer": "Note: SC Champions is currently a research project as part of a bachelor's thesis and is in the testing phase."
     }
   },
   "profile": {
     "title": "Profile",
+    "back": "Back",
+    "loading": "Loading...",
     "editProfile": "Edit Profile",
     "publicProfile": "Public Profile",
     "stats": "Statistics",
     "matches": "Matches",
     "achievements": "Achievements",
     "friends": "Friends",
+    "following": "Following",
+    "followers": "Followers",
+    "privateProfile": {
+      "title": "This profile is private",
+      "description": "Follow this person to see their activities, achievements and more"
+    },
+    "tabs": {
+      "activity": "Activity",
+      "progress": "Progress"
+    },
+    "statLabels": {
+      "elo": "Elo",
+      "wins": "Wins",
+      "matches": "Matches",
+      "points": "Points"
+    },
+    "recentActivity": "Recent Activity",
+    "noActivities": "No activities",
+    "mutualFriends": "Mutual Friends",
+    "members": "Members",
     "info": {
       "memberSince": "Member since",
       "club": "Club",
@@ -402,6 +610,20 @@
     "secondsAgo": "{{count}} second ago",
     "secondsAgo_plural": "{{count}} seconds ago"
   },
+  "connections": {
+    "title": "Connections",
+    "following": "Following",
+    "followers": "Followers",
+    "noConnections": "No connections",
+    "followingYou": "Athletes you follow",
+    "followingOther": "Athletes {{name}} follows",
+    "followersYou": "Your followers",
+    "followersOther": "Followers of {{name}}",
+    "noFollowing": "You're not following anyone yet",
+    "noFollowingOther": "{{name}} is not following anyone yet",
+    "noFollowersYou": "You don't have any followers yet",
+    "noFollowersOther": "{{name}} doesn't have any followers yet"
+  },
   "follow": {
     "follow": "Follow",
     "following": "Following",
@@ -438,5 +660,106 @@
       "followRequestAccepted": "{{name}} accepted your request",
       "followRequestDeclined": "{{name}} declined your request"
     }
+  },
+  "settingsClub": {
+    "title": "Club Management",
+    "searchClub": "Search Club",
+    "enterClubName": "Enter club name",
+    "enterClubNamePlaceholder": "Enter club name...",
+    "joinRequestInfo": "After sending a join request, a coach from your desired club must approve it.",
+    "leaveClub": "Leave Club",
+    "sendLeaveRequest": "Send leave request",
+    "leaveRequestInfo": "After sending a leave request, a coach from your club must approve it."
+  },
+  "settingsLegal": {
+    "title": "Legal Information",
+    "dataExport": {
+      "title": "Data Export",
+      "description": "Download all your stored data as a JSON file. This includes your profile, match history, training attendance and statistics.",
+      "button": "Download data"
+    },
+    "deleteAccount": {
+      "title": "Delete Account",
+      "warningTitle": "⚠️ What happens when you delete your account:",
+      "warning1": "Your account will be deactivated - login no longer possible",
+      "warning2": "Personal data will be deleted (name, email, date of birth, profile picture)",
+      "warning3": "Your name will be replaced with \"Deleted User\"",
+      "warning4": "Match history will be preserved (anonymized)",
+      "warning5": "Leaderboard entries will remain as \"Deleted User\"",
+      "warning6": "This action cannot be undone!",
+      "recommendation": "Recommendation: Download your data first (see above).",
+      "button": "Delete account permanently"
+    }
+  },
+  "settingsProfile": {
+    "title": "Edit Profile",
+    "profilePicture": "Profile Picture",
+    "changePhoto": "Change photo",
+    "name": "Name",
+    "saveName": "Save name",
+    "email": {
+      "title": "Email Address",
+      "current": "Current email:",
+      "new": "New email address",
+      "newPlaceholder": "new-email@example.com",
+      "currentPassword": "Current password (for confirmation)",
+      "passwordReason": "For security reasons, you must enter your password",
+      "changeButton": "Change email address"
+    },
+    "personalData": {
+      "title": "Personal Data",
+      "pleaseSelect": "Please select",
+      "preferNotToSay": "Prefer not to say",
+      "saveButton": "Save personal data"
+    },
+    "password": {
+      "title": "Change Password",
+      "current": "Current password",
+      "new": "New password",
+      "minChars": "At least 8 characters",
+      "confirm": "Confirm new password",
+      "changeButton": "Change password"
+    }
+  },
+  "settingsSupport": {
+    "title": "Support",
+    "pending": "Pending",
+    "startTutorial": "Start tutorial",
+    "tutorialTip": "Tip: The tutorial can be cancelled at any time. You can repeat it here later.",
+    "coachTutorial": {
+      "title": "Coach Tutorial",
+      "description": "Learn all the important features for coaches: player management, competitions, challenges, leaderboards and more."
+    },
+    "playerTutorial": {
+      "title": "Player Tutorial",
+      "description": "Learn all the important features: switch views, use leaderboards, request competitions, customize dashboard and more."
+    },
+    "faq": {
+      "title": "FAQ & Rules",
+      "description": "Frequently asked questions and game rules",
+      "openButton": "Open FAQ"
+    }
+  },
+  "resetPassword": {
+    "setNewPassword": "Set New Password",
+    "enterNewPassword": "Enter your new password.",
+    "newPassword": "New password",
+    "minChars": "At least 6 characters",
+    "confirmPassword": "Confirm password",
+    "repeatPassword": "Repeat password",
+    "savePassword": "Save password",
+    "success": {
+      "title": "Password changed!",
+      "description": "Your password has been successfully changed. You can now sign in with your new password."
+    },
+    "toLogin": "Go to login",
+    "error": {
+      "title": "Invalid link",
+      "description": "This password reset link is invalid or has expired."
+    },
+    "requestNewLink": "Request new link:",
+    "emailPlaceholder": "Your email address",
+    "sendNewLink": "Send new link",
+    "toHomepage": "Go to homepage"
   }
 }

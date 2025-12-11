@@ -54,6 +54,15 @@
             .stat-card:hover {
                 transform: translateY(-2px);
             }
+            /* Ensure scrolling works */
+            html, body {
+                overflow-y: auto;
+                min-height: 100%;
+            }
+            #main-content {
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom, 20px);
+            }
         </style>
     </head>
     <body class="bg-gray-100 text-gray-800">
@@ -90,9 +99,9 @@
                             class="text-gray-600 hover:text-gray-800 transition flex items-center"
                         >
                             <i class="fas fa-arrow-left text-lg mr-2"></i>
-                            <span class="text-sm font-medium">Zurück</span>
+                            <span class="text-sm font-medium" data-i18n="profile.back">Zurück</span>
                         </button>
-                        <h1 class="text-lg font-semibold text-gray-800">Profil</h1>
+                        <h1 class="text-lg font-semibold text-gray-800" data-i18n="profile.title">Profil</h1>
                         <button
                             id="profile-menu-btn"
                             class="text-gray-600 hover:text-gray-800 transition"
@@ -120,7 +129,7 @@
                     <div class="p-6">
                         <!-- Name and Location -->
                         <div class="text-center">
-                            <h1 id="profile-name" class="text-2xl font-bold text-gray-900">
+                            <h1 id="profile-name" class="text-2xl font-bold text-gray-900" data-i18n="profile.loading">
                                 Laden...
                             </h1>
                             <p id="profile-subtitle" class="text-gray-600 font-medium hidden"></p>
@@ -148,14 +157,14 @@
 
                         <!-- Follower Stats -->
                         <div class="flex justify-center gap-8 mt-4 pt-4 border-t">
-                            <div class="text-center">
+                            <a id="following-link" href="#" class="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition cursor-pointer">
                                 <span id="following-count" class="text-xl font-bold text-gray-900">0</span>
-                                <p class="text-sm text-gray-500">Gefolgt</p>
-                            </div>
-                            <div class="text-center">
+                                <p class="text-sm text-gray-500" data-i18n="profile.following">Gefolgt</p>
+                            </a>
+                            <a id="followers-link" href="#" class="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition cursor-pointer">
                                 <span id="followers-count" class="text-xl font-bold text-gray-900">0</span>
-                                <p class="text-sm text-gray-500">Abonnenten</p>
-                            </div>
+                                <p class="text-sm text-gray-500" data-i18n="profile.followers">Abonnenten</p>
+                            </a>
                         </div>
                     </div>
 
@@ -163,8 +172,8 @@
                     <div id="private-profile-notice" class="hidden bg-gray-50 p-6 border-t">
                         <div class="text-center">
                             <i class="fas fa-lock text-4xl text-gray-400 mb-3"></i>
-                            <h3 class="text-lg font-semibold text-gray-700">Dieses Profil ist privat</h3>
-                            <p class="text-gray-500 mt-1">Folge dieser Person, um Aktivitäten, Erfolge und mehr zu sehen</p>
+                            <h3 class="text-lg font-semibold text-gray-700" data-i18n="profile.privateProfile.title">Dieses Profil ist privat</h3>
+                            <p class="text-gray-500 mt-1" data-i18n="profile.privateProfile.description">Folge dieser Person, um Aktivitäten, Erfolge und mehr zu sehen</p>
                         </div>
                     </div>
 
@@ -178,14 +187,14 @@
                                     class="profile-tab-btn flex-1 py-3 text-center font-semibold text-sm border-b-2 border-indigo-600 text-indigo-600 transition"
                                     onclick="switchProfileTab('aktivitaet')"
                                 >
-                                    <i class="fas fa-running mr-1"></i>Aktivität
+                                    <i class="fas fa-running mr-1"></i><span data-i18n="profile.tabs.activity">Aktivität</span>
                                 </button>
                                 <button
                                     id="profile-tab-fortschritt"
                                     class="profile-tab-btn flex-1 py-3 text-center font-semibold text-sm border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
                                     onclick="switchProfileTab('fortschritt')"
                                 >
-                                    <i class="fas fa-chart-line mr-1"></i>Fortschritt
+                                    <i class="fas fa-chart-line mr-1"></i><span data-i18n="profile.tabs.progress">Fortschritt</span>
                                 </button>
                             </div>
                         </div>
@@ -197,19 +206,19 @@
                                 <div class="grid grid-cols-4 gap-2 text-center">
                                     <div class="stat-card p-3">
                                         <p id="stat-elo" class="text-xl font-bold text-gray-900">-</p>
-                                        <p class="text-xs text-gray-500">Elo</p>
+                                        <p class="text-xs text-gray-500" data-i18n="profile.statLabels.elo">Elo</p>
                                     </div>
                                     <div class="stat-card p-3">
                                         <p id="stat-wins" class="text-xl font-bold text-gray-900">-</p>
-                                        <p class="text-xs text-gray-500">Siege</p>
+                                        <p class="text-xs text-gray-500" data-i18n="profile.statLabels.wins">Siege</p>
                                     </div>
                                     <div class="stat-card p-3">
                                         <p id="stat-matches" class="text-xl font-bold text-gray-900">-</p>
-                                        <p class="text-xs text-gray-500">Spiele</p>
+                                        <p class="text-xs text-gray-500" data-i18n="profile.statLabels.matches">Spiele</p>
                                     </div>
                                     <div class="stat-card p-3">
                                         <p id="stat-points" class="text-xl font-bold text-gray-900">-</p>
-                                        <p class="text-xs text-gray-500">Punkte</p>
+                                        <p class="text-xs text-gray-500" data-i18n="profile.statLabels.points">Punkte</p>
                                     </div>
                                 </div>
                             </div>
@@ -229,11 +238,11 @@
 
                             <!-- Recent Activity Preview -->
                             <div id="activity-section" class="p-6 border-t hidden">
-                                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                                <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4" data-i18n="profile.recentActivity">
                                     Letzte Aktivität
                                 </h2>
                                 <div id="recent-matches">
-                                    <p class="text-gray-400 text-center py-4 text-sm">
+                                    <p class="text-gray-400 text-center py-4 text-sm" data-i18n="profile.noActivities">
                                         Keine Aktivitäten
                                     </p>
                                 </div>
@@ -249,7 +258,7 @@
 
                 <!-- Mutual Friends Section -->
                 <div id="mutual-friends-section" class="bg-white rounded-2xl shadow-md mt-4 p-6 hidden">
-                    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4" data-i18n="profile.mutualFriends">
                         Gemeinsame Freunde
                     </h2>
                     <div id="mutual-friends-list" class="flex flex-wrap gap-3">

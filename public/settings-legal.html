@@ -81,9 +81,9 @@
                     class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4"
                 >
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Zurück
+                    <span data-i18n="common.back">Zurück</span>
                 </a>
-                <h1 class="text-3xl font-bold text-gray-900 text-center">Rechtsinformationen</h1>
+                <h1 class="text-3xl font-bold text-gray-900 text-center" data-i18n="settingsLegal.title">Rechtsinformationen</h1>
             </div>
 
             <div class="space-y-6">
@@ -94,8 +94,8 @@
                             <i class="fas fa-download text-blue-600 text-xl"></i>
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-blue-900 mb-2">Datenexport</h3>
-                            <p class="text-sm text-blue-800 mb-3">
+                            <h3 class="font-semibold text-blue-900 mb-2" data-i18n="settingsLegal.dataExport.title">Datenexport</h3>
+                            <p class="text-sm text-blue-800 mb-3" data-i18n="settingsLegal.dataExport.description">
                                 Lade alle deine gespeicherten Daten als JSON-Datei herunter.
                                 Dies umfasst dein Profil, Match-Historie, Trainings-Teilnahmen und Statistiken.
                             </p>
@@ -104,7 +104,7 @@
                                 class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition shadow-md"
                             >
                                 <i class="fas fa-file-download mr-2"></i>
-                                Daten herunterladen
+                                <span data-i18n="settingsLegal.dataExport.button">Daten herunterladen</span>
                             </button>
                             <p id="export-feedback" class="text-sm mt-2"></p>
                         </div>
@@ -118,24 +118,24 @@
                             <i class="fas fa-user-slash text-red-600 text-xl"></i>
                         </div>
                         <div class="flex-1">
-                            <h3 class="font-semibold text-red-900 mb-2">Account löschen</h3>
+                            <h3 class="font-semibold text-red-900 mb-2" data-i18n="settingsLegal.deleteAccount.title">Account löschen</h3>
                             <div class="bg-white border border-red-300 p-4 rounded-lg mb-4">
-                                <p class="text-sm text-gray-800 font-medium mb-2">
+                                <p class="text-sm text-gray-800 font-medium mb-2" data-i18n="settingsLegal.deleteAccount.warningTitle">
                                     ⚠️ Was passiert bei der Account-Löschung:
                                 </p>
                                 <ul class="text-sm text-gray-700 space-y-1 ml-5 list-disc">
-                                    <li>Dein Account wird deaktiviert - Login nicht mehr möglich</li>
-                                    <li>Persönliche Daten werden gelöscht (Name, Email, Geburtsdatum, Profilbild)</li>
-                                    <li>Dein Name wird durch "Gelöschter Nutzer" ersetzt</li>
-                                    <li>Match-Historie bleibt erhalten (anonymisiert)</li>
-                                    <li>Ranglisten-Einträge bleiben als "Gelöschter Nutzer"</li>
-                                    <li><strong>Diese Aktion kann nicht rückgängig gemacht werden!</strong></li>
+                                    <li data-i18n="settingsLegal.deleteAccount.warning1">Dein Account wird deaktiviert - Login nicht mehr möglich</li>
+                                    <li data-i18n="settingsLegal.deleteAccount.warning2">Persönliche Daten werden gelöscht (Name, Email, Geburtsdatum, Profilbild)</li>
+                                    <li data-i18n="settingsLegal.deleteAccount.warning3">Dein Name wird durch "Gelöschter Nutzer" ersetzt</li>
+                                    <li data-i18n="settingsLegal.deleteAccount.warning4">Match-Historie bleibt erhalten (anonymisiert)</li>
+                                    <li data-i18n="settingsLegal.deleteAccount.warning5">Ranglisten-Einträge bleiben als "Gelöschter Nutzer"</li>
+                                    <li><strong data-i18n="settingsLegal.deleteAccount.warning6">Diese Aktion kann nicht rückgängig gemacht werden!</strong></li>
                                 </ul>
                             </div>
 
                             <p class="text-sm text-red-800 mb-4">
                                 <i class="fas fa-info-circle mr-1"></i>
-                                <strong>Empfehlung:</strong> Lade zuerst deine Daten herunter (siehe oben).
+                                <span data-i18n="settingsLegal.deleteAccount.recommendation">Empfehlung: Lade zuerst deine Daten herunter (siehe oben).</span>
                             </p>
 
                             <button
@@ -143,7 +143,7 @@
                                 class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md"
                             >
                                 <i class="fas fa-trash-alt mr-2"></i>
-                                Account unwiderruflich löschen
+                                <span data-i18n="settingsLegal.deleteAccount.button">Account unwiderruflich löschen</span>
                             </button>
                         </div>
                     </div>

@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     highestElo: supabaseProfile.highest_elo || 1000,
                     gender: supabaseProfile.gender || null,
                     birthdate: supabaseProfile.birthdate || null,
-                    photoURL: supabaseProfile.photo_url || null,
+                    photoURL: supabaseProfile.avatar_url || null,
                     onboardingComplete: true,
                     isOffline: false,
                     createdAt: new Date()

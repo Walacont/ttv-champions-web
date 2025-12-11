@@ -170,7 +170,7 @@ RETURNS TABLE (
     last_name TEXT,
     email TEXT,
     role TEXT,
-    photo_url TEXT
+    avatar_url TEXT
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -180,7 +180,7 @@ BEGIN
         p.last_name,
         p.email,
         pcs.role,
-        p.photo_url
+        p.avatar_url
     FROM profile_club_sports pcs
     JOIN profiles p ON p.id = pcs.user_id
     WHERE pcs.club_id = p_club_id

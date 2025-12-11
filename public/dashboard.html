@@ -134,7 +134,7 @@
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                 </svg>
-                <p id="loader-text" class="mt-4 text-sm font-medium text-gray-600">Lade Daten...</p>
+                <p id="loader-text" class="mt-4 text-sm font-medium text-gray-600" data-i18n="dashboard.loading">Lade Daten...</p>
             </div>
         </div>
 
@@ -149,7 +149,7 @@
                     >
                         <i class="fas fa-arrow-left text-xl"></i>
                     </button>
-                    <h1 class="ml-3 text-lg font-bold text-gray-900">Community</h1>
+                    <h1 class="ml-3 text-lg font-bold text-gray-900" data-i18n="dashboard.community.title">Community</h1>
                 </div>
             </div>
 
@@ -163,14 +163,14 @@
                             class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-indigo-600 text-indigo-600 transition"
                             onclick="switchCommunityTab('persons')"
                         >
-                            <i class="fas fa-users mr-2"></i>Personen
+                            <i class="fas fa-users mr-2"></i><span data-i18n="dashboard.community.persons">Personen</span>
                         </button>
                         <button
                             id="community-tab-clubs"
                             class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
                             onclick="switchCommunityTab('clubs')"
                         >
-                            <i class="fas fa-building mr-2"></i>Clubs
+                            <i class="fas fa-building mr-2"></i><span data-i18n="dashboard.community.clubs">Clubs</span>
                         </button>
                     </div>
                 </div>
@@ -185,6 +185,7 @@
                                 type="text"
                                 id="player-search-input"
                                 placeholder="Nach Personen suchen..."
+                                data-i18n-placeholder="dashboard.community.searchPersons"
                                 class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                                 autofocus
                             />
@@ -199,18 +200,19 @@
                     <!-- Suggested Users Section -->
                     <div id="suggested-users-section" class="bg-white p-6 rounded-xl shadow-md">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-lg font-bold text-gray-800">
+                            <h2 class="text-lg font-bold text-gray-800" data-i18n="dashboard.community.suggested">
                                 Vorgeschlagen
                             </h2>
                             <button
                                 id="follow-all-btn"
                                 class="text-indigo-600 hover:text-indigo-700 text-sm font-semibold border border-indigo-600 rounded-full px-4 py-1 transition hover:bg-indigo-50"
+                                data-i18n="dashboard.community.followAll"
                             >
                                 Allen folgen
                             </button>
                         </div>
                         <div id="suggested-users-list" class="space-y-3">
-                            <p class="text-gray-400 text-center py-4 text-sm">
+                            <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.community.loadingSuggestions">
                                 Lade Vorschläge...
                             </p>
                         </div>
@@ -219,11 +221,11 @@
                     <!-- Pending Follow Requests Section (outgoing) -->
                     <div id="pending-follow-requests-section" class="bg-white p-6 rounded-xl shadow-md hidden">
                         <h2 class="text-lg font-bold text-gray-800 mb-4">
-                            <i class="fas fa-clock mr-2 text-yellow-600"></i>Ausstehende Anfragen
+                            <i class="fas fa-clock mr-2 text-yellow-600"></i><span data-i18n="dashboard.community.pendingRequests">Ausstehende Anfragen</span>
                             <span id="pending-requests-count" class="ml-2 text-sm text-gray-500 font-normal">(0)</span>
                         </h2>
                         <div id="pending-follow-requests-list" class="space-y-3">
-                            <p class="text-gray-400 text-center py-4 text-sm">
+                            <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.community.noPendingRequests">
                                 Keine ausstehenden Anfragen
                             </p>
                         </div>
@@ -240,13 +242,14 @@
                                 type="text"
                                 id="club-search-input"
                                 placeholder="Nach Clubs suchen..."
+                                data-i18n-placeholder="dashboard.community.searchClubs"
                                 class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
                             />
                         </div>
 
                         <!-- Club Search Results -->
                         <div id="club-search-results" class="space-y-3">
-                            <p class="text-gray-400 text-center py-4 text-sm">
+                            <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.community.enterClubName">
                                 Gib einen Namen ein, um nach Clubs zu suchen
                             </p>
                         </div>
@@ -255,7 +258,7 @@
                     <!-- Current Club Status -->
                     <div id="current-club-section" class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-lg font-bold text-gray-800 mb-4">
-                            <i class="fas fa-building mr-2 text-indigo-600"></i>Dein Verein
+                            <i class="fas fa-building mr-2 text-indigo-600"></i><span data-i18n="dashboard.community.yourClub">Dein Verein</span>
                         </h2>
                         <div id="current-club-status">
                             <!-- Dynamisch gefüllt -->
@@ -341,53 +344,13 @@
                 <div id="coach-player-indicator" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
                     <div class="flex items-center gap-2 text-purple-700">
                         <i class="fas fa-info-circle"></i>
-                        <span class="text-sm font-medium">Du befindest dich im Spieler-Dashboard</span>
+                        <span class="text-sm font-medium" data-i18n="dashboard.coachIndicator.message">Du befindest dich im Spieler-Dashboard</span>
                         <a href="/coach.html" class="ml-auto text-purple-600 hover:text-purple-800 text-sm font-semibold">
-                            Zur Coach-Ansicht <i class="fas fa-arrow-right ml-1"></i>
+                            <span data-i18n="dashboard.coachIndicator.switchToCoach">Zur Coach-Ansicht</span> <i class="fas fa-arrow-right ml-1"></i>
                         </a>
                     </div>
                 </div>
 
-                <!-- Second Row: Filter-Switcher (Mobile-friendly stacked layout) -->
-                <div
-                    id="player-subgroup-filter-container"
-                    class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
-                >
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <label
-                            for="player-subgroup-filter"
-                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
-                            onclick="document.getElementById('player-subgroup-filter').focus(); document.getElementById('player-subgroup-filter').click();"
-                        >
-                            👥 Ansicht:
-                        </label>
-                        <select
-                            id="player-subgroup-filter"
-                            class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                        >
-                            <option value="club">🏠 Mein Verein</option>
-                            <option value="global">🌍 Global</option>
-                            <!-- Subgroup options will be added dynamically -->
-                        </select>
-                    </div>
-                    <div id="gender-filter-container" class="flex items-center gap-2 flex-1 sm:flex-none">
-                        <label
-                            for="player-gender-filter"
-                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
-                            onclick="document.getElementById('player-gender-filter').focus(); document.getElementById('player-gender-filter').click();"
-                        >
-                            ⚧ Geschlecht:
-                        </label>
-                        <select
-                            id="player-gender-filter"
-                            class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                        >
-                            <option value="all">Alle</option>
-                            <option value="male">Jungen/Herren</option>
-                            <option value="female">Mädchen/Damen</option>
-                        </select>
-                    </div>
-                </div>
             </header>
 
             <!-- Info Box for Players without Club (hidden by default, shown via JS) -->
@@ -397,11 +360,11 @@
                         <i class="fas fa-info-circle text-blue-400 text-2xl"></i>
                     </div>
                     <div class="ml-3 flex-1">
-                        <h3 class="text-sm font-medium text-blue-800">
+                        <h3 class="text-sm font-medium text-blue-800" data-i18n="dashboard.noClub.title">
                             Du bist noch keinem Verein beigetreten
                         </h3>
                         <div class="mt-2 text-sm text-blue-700">
-                            <p>
+                            <p data-i18n="[html]dashboard.noClub.description">
                                 Möchtest du einem Verein beitreten? Du kannst in den
                                 <a href="/settings.html#club-management" class="font-semibold underline hover:text-blue-900">
                                     Einstellungen
@@ -422,6 +385,7 @@
                         class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
                         data-tab="overview"
                         data-title="Start"
+                        data-i18n="dashboard.tabs.start"
                     >
                         Start
                     </button>
@@ -429,6 +393,7 @@
                         class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
                         data-tab="leaderboard"
                         data-title="Ranglisten"
+                        data-i18n="dashboard.tabs.leaderboard"
                     >
                         Ranglisten
                     </button>
@@ -437,6 +402,7 @@
                         class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
                         data-tab="matches"
                         data-title="Wettkampf"
+                        data-i18n="dashboard.tabs.competition"
                     >
                         Wettkampf
                     </button>
@@ -445,6 +411,7 @@
                         class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
                         data-tab="exercises"
                         data-title="Übungskatalog"
+                        data-i18n="dashboard.tabs.exercises"
                     >
                         Übungskatalog
                     </button>
@@ -461,7 +428,7 @@
                                 id="activity-filter-btn"
                                 class="flex items-center justify-between w-full max-w-xs bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-left shadow-sm hover:bg-gray-50 transition"
                             >
-                                <span id="activity-filter-label" class="font-medium text-gray-800">Alle Aktivitäten</span>
+                                <span id="activity-filter-label" class="font-medium text-gray-800" data-i18n="dashboard.activityFeed.filter.all">Alle Aktivitäten</span>
                                 <i class="fas fa-chevron-down text-gray-400 ml-2"></i>
                             </button>
                             <div
@@ -472,21 +439,21 @@
                                     class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
                                     data-filter="all"
                                 >
-                                    <span>Alle Aktivitäten</span>
+                                    <span data-i18n="dashboard.activityFeed.filter.all">Alle Aktivitäten</span>
                                     <i class="fas fa-check text-indigo-600 filter-check"></i>
                                 </button>
                                 <button
                                     class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
                                     data-filter="following"
                                 >
-                                    <span>Abonniert</span>
+                                    <span data-i18n="dashboard.activityFeed.filter.following">Abonniert</span>
                                     <i class="fas fa-check text-indigo-600 filter-check hidden"></i>
                                 </button>
                                 <button
                                     class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
                                     data-filter="my-activities"
                                 >
-                                    <span>Meine Aktivitäten</span>
+                                    <span data-i18n="dashboard.activityFeed.filter.myActivities">Meine Aktivitäten</span>
                                     <i class="fas fa-check text-indigo-600 filter-check hidden"></i>
                                 </button>
                                 <div id="activity-filter-clubs" class="border-t border-gray-100">
@@ -498,7 +465,7 @@
                         <div id="activity-feed" class="space-y-3">
                             <div class="p-6 text-center text-gray-400">
                                 <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                                <p class="text-sm">Lade Aktivitäten...</p>
+                                <p class="text-sm" data-i18n="dashboard.activityFeed.loading">Lade Aktivitäten...</p>
                             </div>
                         </div>
                         <!-- Infinite scroll sentinel -->
@@ -527,7 +494,7 @@
 
                 <div id="tab-content-exercises" class="tab-content hidden">
                     <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                        <h2 class="text-xl font-semibold mb-4" data-i18n="dashboard.exercises.title">Übungskatalog</h2>
                         <!-- Tag Filter Section (Collapsible) -->
                         <div class="mb-4">
                             <button
@@ -548,7 +515,7 @@
                                         d="M19 9l-7 7-7-7"
                                     ></path>
                                 </svg>
-                                🏷️ Tags filtern
+                                🏷️ <span data-i18n="dashboard.exercises.filterTags">Tags filtern</span>
                             </button>
                             <div
                                 id="tags-filter-section-player"
@@ -558,6 +525,7 @@
                                     type="text"
                                     id="tag-search-player"
                                     placeholder="Tag suchen..."
+                                    data-i18n-placeholder="dashboard.exercises.searchTag"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                                 <div
@@ -572,7 +540,7 @@
                             id="exercises-list"
                             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                         >
-                            <p>Übungen werden geladen...</p>
+                            <p data-i18n="dashboard.exercises.loading">Übungen werden geladen...</p>
                         </div>
                     </div>
                 </div>
@@ -589,9 +557,9 @@
                             >
                                 <div>
                                     <h2 class="text-lg font-bold text-gray-800">
-                                        ⭐ Match-Vorschläge
+                                        ⭐ <span data-i18n="dashboard.matches.suggestions.title">Match-Vorschläge</span>
                                     </h2>
-                                    <p class="text-xs text-gray-600">
+                                    <p class="text-xs text-gray-600" data-i18n="dashboard.matches.suggestions.description">
                                         Gegen wen hast du noch nie oder lange nicht gespielt?
                                     </p>
                                 </div>
@@ -602,7 +570,7 @@
                             </button>
                             <div id="match-suggestions-content" class="hidden px-4 pb-4">
                                 <div id="match-suggestions-list" class="space-y-2">
-                                    <p class="text-gray-500 text-center py-2 text-sm">
+                                    <p class="text-gray-500 text-center py-2 text-sm" data-i18n="dashboard.matches.suggestions.loading">
                                         Lade Vorschläge...
                                     </p>
                                 </div>
@@ -612,9 +580,9 @@
                         <!-- Match Request Form -->
                         <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
                             <h2 class="text-lg font-bold text-gray-800 mb-1">
-                                🏓 Wettkampf melden
+                                🏓 <span data-i18n="dashboard.matches.report.title">Wettkampf melden</span>
                             </h2>
-                            <p class="text-xs text-gray-600 mb-4">Für bereits gespielte Matches</p>
+                            <p class="text-xs text-gray-600 mb-4" data-i18n="dashboard.matches.report.subtitle">Für bereits gespielte Matches</p>
                             <form id="match-request-form" class="space-y-6">
                                 <!-- Match Type Toggle (Singles/Doubles) -->
                                 <div class="flex justify-center mb-6">
@@ -626,14 +594,14 @@
                                             id="player-singles-toggle"
                                             class="player-match-type-toggle active px-6 py-2 rounded-md text-sm font-medium transition-all"
                                         >
-                                            <i class="fas fa-user mr-2"></i>Einzel
+                                            <i class="fas fa-user mr-2"></i><span data-i18n="dashboard.matches.report.singles">Einzel</span>
                                         </button>
                                         <button
                                             type="button"
                                             id="player-doubles-toggle"
                                             class="player-match-type-toggle px-6 py-2 rounded-md text-sm font-medium transition-all"
                                         >
-                                            <i class="fas fa-users mr-2"></i>Doppel
+                                            <i class="fas fa-users mr-2"></i><span data-i18n="dashboard.matches.report.doubles">Doppel</span>
                                         </button>
                                     </div>
                                 </div>
@@ -643,6 +611,7 @@
                                     <label
                                         for="match-mode-select"
                                         class="block text-sm font-medium text-gray-700 mb-2"
+                                        data-i18n="dashboard.matches.report.gameMode"
                                     >
                                         Spielmodus
                                     </label>
@@ -650,19 +619,19 @@
                                         id="match-mode-select"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                                     >
-                                        <option value="single-set">1 Satz</option>
-                                        <option value="best-of-3">Best of 3</option>
-                                        <option value="best-of-5" selected>
+                                        <option value="single-set" data-i18n="dashboard.matches.report.singleSet">1 Satz</option>
+                                        <option value="best-of-3" data-i18n="dashboard.matches.report.bestOf3">Best of 3</option>
+                                        <option value="best-of-5" selected data-i18n="dashboard.matches.report.bestOf5">
                                             Best of 5 (Standard)
                                         </option>
-                                        <option value="best-of-7">Best of 7</option>
+                                        <option value="best-of-7" data-i18n="dashboard.matches.report.bestOf7">Best of 7</option>
                                     </select>
                                 </div>
 
                                 <!-- Tennis/Padel Specific Options (hidden for Table Tennis) -->
                                 <div id="tennis-options-container" class="hidden space-y-3 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                                     <h4 class="text-sm font-semibold text-blue-900 mb-2">
-                                        <i class="fas fa-tennis-ball mr-2"></i>Tennis/Padel Optionen
+                                        <i class="fas fa-tennis-ball mr-2"></i><span data-i18n="dashboard.matches.tennisOptions.title">Tennis/Padel Optionen</span>
                                     </h4>
                                     <div class="flex items-center gap-2">
                                         <input
@@ -670,7 +639,7 @@
                                             id="golden-point-checkbox"
                                             class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         />
-                                        <label for="golden-point-checkbox" class="text-sm text-gray-700">
+                                        <label for="golden-point-checkbox" class="text-sm text-gray-700" data-i18n="dashboard.matches.tennisOptions.goldenPoint">
                                             Golden Point (No-Ad bei 40:40)
                                         </label>
                                     </div>
@@ -680,7 +649,7 @@
                                             id="match-tiebreak-checkbox"
                                             class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         />
-                                        <label for="match-tiebreak-checkbox" class="text-sm text-gray-700">
+                                        <label for="match-tiebreak-checkbox" class="text-sm text-gray-700" data-i18n="dashboard.matches.tennisOptions.matchTiebreak">
                                             Match Tie-Break statt 3. Satz (bis 10 Punkte)
                                         </label>
                                     </div>
@@ -691,6 +660,7 @@
                                     <label
                                         for="opponent-search-input"
                                         class="block text-sm font-medium text-gray-700 mb-2"
+                                        data-i18n="dashboard.matches.report.searchOpponent"
                                     >
                                         Gegner suchen
                                     </label>
@@ -698,6 +668,7 @@
                                         type="text"
                                         id="opponent-search-input"
                                         placeholder="Gegner suchen (Name eingeben)..."
+                                        data-i18n-placeholder="dashboard.matches.report.searchOpponentPlaceholder"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                     <div id="opponent-search-results" class="mt-2 max-h-64 overflow-y-auto">
@@ -714,12 +685,13 @@
                                         class="border-2 border-green-100 rounded-lg p-4 bg-green-50"
                                     >
                                         <h3 class="text-md font-semibold text-green-800 mb-3">
-                                            <i class="fas fa-user-friends mr-2"></i>Dein Team
+                                            <i class="fas fa-user-friends mr-2"></i><span data-i18n="dashboard.matches.report.yourTeam">Dein Team</span>
                                         </h3>
                                         <div>
                                             <label
                                                 for="partner-search-input"
                                                 class="block text-sm font-medium text-gray-700 mb-2"
+                                                data-i18n="dashboard.matches.report.selectPartner"
                                             >
                                                 Partner wählen
                                             </label>
@@ -727,6 +699,7 @@
                                                 type="text"
                                                 id="partner-search-input"
                                                 placeholder="Suche nach Partner..."
+                                                data-i18n-placeholder="dashboard.matches.report.searchPartner"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                 autocomplete="off"
                                             />
@@ -739,14 +712,14 @@
                                         class="border-2 border-orange-100 rounded-lg p-4 bg-orange-50"
                                     >
                                         <h3 class="text-md font-semibold text-orange-800 mb-3">
-                                            <i class="fas fa-user-friends mr-2"></i>Gegnerisches
-                                            Team
+                                            <i class="fas fa-user-friends mr-2"></i><span data-i18n="dashboard.matches.report.opponentTeam">Gegnerisches Team</span>
                                         </h3>
                                         <div class="space-y-3">
                                             <div>
                                                 <label
                                                     for="opponent1-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
+                                                    data-i18n="dashboard.matches.report.opponent1"
                                                 >
                                                     Gegner 1
                                                 </label>
@@ -754,6 +727,7 @@
                                                     type="text"
                                                     id="opponent1-search-input"
                                                     placeholder="Suche nach Gegner 1..."
+                                                    data-i18n-placeholder="dashboard.matches.report.searchOpponent1"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     autocomplete="off"
                                                 />
@@ -765,6 +739,7 @@
                                                 <label
                                                     for="opponent2-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
+                                                    data-i18n="dashboard.matches.report.opponent2"
                                                 >
                                                     Gegner 2
                                                 </label>
@@ -772,6 +747,7 @@
                                                     type="text"
                                                     id="opponent2-search-input"
                                                     placeholder="Suche nach Gegner 2..."
+                                                    data-i18n-placeholder="dashboard.matches.report.searchOpponent2"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     autocomplete="off"
                                                 />
@@ -788,13 +764,13 @@
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div class="bg-green-50 border border-green-200 rounded-lg p-3">
                                             <div class="text-xs text-green-600 font-medium mb-1">
-                                                <i class="fas fa-users mr-1"></i>Dein Team Elo
+                                                <i class="fas fa-users mr-1"></i><span data-i18n="dashboard.matches.report.yourTeamElo">Dein Team Elo</span>
                                             </div>
                                             <div id="team-a-elo-value" class="text-xl font-bold text-green-800">--</div>
                                         </div>
                                         <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                                             <div class="text-xs text-orange-600 font-medium mb-1">
-                                                <i class="fas fa-users mr-1"></i>Gegner Team Elo
+                                                <i class="fas fa-users mr-1"></i><span data-i18n="dashboard.matches.report.opponentTeamElo">Gegner Team Elo</span>
                                             </div>
                                             <div id="team-b-elo-value" class="text-xl font-bold text-orange-800">--</div>
                                         </div>
@@ -806,13 +782,14 @@
                                     <label
                                         id="set-score-label"
                                         class="block text-sm font-medium text-gray-700 mb-3"
+                                        data-i18n="dashboard.matches.report.enterScore"
                                     >
                                         Spielergebnis eingeben (mind. 3 Sätze)
                                     </label>
                                     <div id="set-score-container" class="space-y-2">
                                         <!-- Set inputs will be generated dynamically -->
                                     </div>
-                                    <p class="text-xs text-gray-500 mt-2">
+                                    <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.matches.report.scoreHint">
                                         * Du bist Spieler A, dein Gegner ist Spieler B
                                     </p>
                                 </div>
@@ -823,7 +800,7 @@
                                     class="hidden bg-blue-50 border border-blue-200 rounded-md p-4"
                                 >
                                     <p class="text-sm text-blue-800 font-medium mb-2">
-                                        <i class="fas fa-info-circle"></i> Handicap-Vorschlag
+                                        <i class="fas fa-info-circle"></i> <span data-i18n="dashboard.matches.report.handicapSuggestion">Handicap-Vorschlag</span>
                                     </p>
                                     <p id="match-handicap-text" class="text-sm text-blue-700"></p>
                                     <div class="flex items-center mt-3">
@@ -835,6 +812,7 @@
                                         <label
                                             for="match-handicap-toggle"
                                             class="ml-2 text-sm text-gray-700"
+                                            data-i18n="dashboard.matches.report.handicapUsed"
                                         >
                                             Handicap wurde verwendet
                                         </label>
@@ -847,7 +825,7 @@
                                     class="hidden bg-green-50 border border-green-200 rounded-md p-4"
                                 >
                                     <p class="text-sm text-green-800 font-medium mb-1">
-                                        <i class="fas fa-trophy"></i> Gewinner
+                                        <i class="fas fa-trophy"></i> <span data-i18n="dashboard.matches.report.winner">Gewinner</span>
                                     </p>
                                     <p id="match-winner-text" class="text-lg text-green-700 font-bold"></p>
                                 </div>
@@ -858,7 +836,7 @@
                                         type="submit"
                                         class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition shadow-md"
                                     >
-                                        <i class="fas fa-paper-plane mr-2"></i> Anfrage senden
+                                        <i class="fas fa-paper-plane mr-2"></i> <span data-i18n="dashboard.matches.report.sendRequest">Anfrage senden</span>
                                     </button>
                                 </div>
 
@@ -870,13 +848,13 @@
                         <!-- Match History - Competition Results -->
                         <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                             <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                🏆 Wettkampf-Historie
+                                🏆 <span data-i18n="dashboard.matches.history.title">Wettkampf-Historie</span>
                             </h2>
-                            <p class="text-xs text-gray-500 mb-4">
+                            <p class="text-xs text-gray-500 mb-4" data-i18n="dashboard.matches.history.subtitle">
                                 Alle gespielten Wettkämpfe mit Ergebnissen und ELO-Änderungen
                             </p>
                             <div id="match-history-list" class="space-y-3 min-h-[100px]">
-                                <p class="text-gray-400 text-center py-4 text-sm">
+                                <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.matches.history.loading">
                                     Lade Historie...
                                 </p>
                             </div>
@@ -885,13 +863,13 @@
                         <!-- Pending Requests -->
                         <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                             <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                ⏳ Ausstehende Anfragen
+                                ⏳ <span data-i18n="dashboard.matches.pending.title">Ausstehende Anfragen</span>
                             </h2>
-                            <p class="text-xs text-gray-500 mb-4">
+                            <p class="text-xs text-gray-500 mb-4" data-i18n="dashboard.matches.pending.subtitle">
                                 Anfragen, die noch auf Bestätigung warten
                             </p>
                             <div id="pending-result-requests-list" class="space-y-3 min-h-[100px]">
-                                <p class="text-gray-400 text-center py-4 text-sm">
+                                <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.matches.pending.none">
                                     Keine ausstehenden Anfragen
                                 </p>
                             </div>
@@ -900,9 +878,9 @@
                         <!-- History - Completed Requests -->
                         <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                             <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                📋 Anfragen-Historie
+                                📋 <span data-i18n="dashboard.matches.requestHistory.title">Anfragen-Historie</span>
                             </h2>
-                            <p class="text-xs text-gray-500 mb-4">
+                            <p class="text-xs text-gray-500 mb-4" data-i18n="dashboard.matches.requestHistory.subtitle">
                                 Alle abgeschlossenen Anfragen (gesendet & empfangen)
                             </p>
                             <div>
@@ -910,14 +888,14 @@
                                     class="text-sm font-semibold text-blue-700 mb-2 flex items-center"
                                 >
                                     <span class="bg-blue-100 px-2 py-1 rounded"
-                                        >📊 Ergebnis-Anfragen</span
+                                        >📊 <span data-i18n="dashboard.matches.requestHistory.resultRequests">Ergebnis-Anfragen</span></span
                                     >
                                 </h3>
                                 <div
                                     id="history-result-requests-list"
                                     class="space-y-3 min-h-[100px]"
                                 >
-                                    <p class="text-gray-400 text-center py-4 text-sm">
+                                    <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.matches.requestHistory.none">
                                         Keine Ergebnis-Anfragen
                                     </p>
                                 </div>
@@ -951,7 +929,7 @@
                                 </div>
                                 <div>
                                     <h3 class="text-xs font-semibold text-yellow-900">
-                                        ⏳ Saison-Ende
+                                        ⏳ <span data-i18n="dashboard.leaderboard.seasonEnd">Saison-Ende</span>
                                     </h3>
                                 </div>
                             </div>
@@ -959,6 +937,7 @@
                                 <p
                                     id="season-countdown"
                                     class="text-lg font-bold text-yellow-900"
+                                    data-i18n="dashboard.leaderboard.loading"
                                 >
                                     Lädt...
                                 </p>
@@ -976,9 +955,9 @@
                         >
                             <div>
                                 <h2 class="text-lg font-semibold text-gray-800">
-                                    ⚙️ Ranglisten-Einstellungen
+                                    ⚙️ <span data-i18n="dashboard.leaderboard.settings.title">Ranglisten-Einstellungen</span>
                                 </h2>
-                                <p class="text-xs text-gray-600">
+                                <p class="text-xs text-gray-600" data-i18n="dashboard.leaderboard.settings.subtitle">
                                     Passe an, welche Ranglisten angezeigt werden
                                 </p>
                             </div>
@@ -998,7 +977,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">💪 Fleiß (XP)</span>
+                                    <span class="text-gray-700">💪 <span data-i18n="dashboard.leaderboard.settings.effort">Fleiß (XP)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1009,7 +988,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">⭐ Season (Punkte)</span>
+                                    <span class="text-gray-700">⭐ <span data-i18n="dashboard.leaderboard.settings.season">Season (Punkte)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1020,7 +999,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">⚡ Skill (Elo)</span>
+                                    <span class="text-gray-700">⚡ <span data-i18n="dashboard.leaderboard.settings.skill">Skill (Elo)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1031,7 +1010,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">🏆 Ränge (Level)</span>
+                                    <span class="text-gray-700">🏆 <span data-i18n="dashboard.leaderboard.settings.ranks">Ränge (Level)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1042,10 +1021,10 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">🎾 Doppel (Teams)</span>
+                                    <span class="text-gray-700">🎾 <span data-i18n="dashboard.leaderboard.settings.doubles">Doppel (Teams)</span></span>
                                 </label>
                             </div>
-                            <p class="text-xs text-gray-500 mt-4">
+                            <p class="text-xs text-gray-500 mt-4" data-i18n="dashboard.leaderboard.settings.autoSave">
                                 Die Einstellungen werden automatisch gespeichert.
                             </p>
                         </div>
@@ -1121,7 +1100,7 @@
                                 d="M19 9l-7 7-7-7"
                             ></path>
                         </svg>
-                        📖 Abkürzungen anzeigen
+                        📖 <span data-i18n="dashboard.exercises.showAbbreviations">Abkürzungen anzeigen</span>
                     </button>
                     <div id="abbreviations-content" class="hidden mt-3 bg-gray-50 rounded-lg p-3">
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -1255,10 +1234,10 @@
             <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h3 class="text-2xl leading-6 font-bold text-gray-900">
+                        <h3 class="text-2xl leading-6 font-bold text-gray-900" data-i18n="dashboard.widgets.customize">
                             Startseite anpassen
                         </h3>
-                        <p class="text-sm text-gray-600 mt-1">
+                        <p class="text-sm text-gray-600 mt-1" data-i18n="dashboard.widgets.customizeDesc">
                             Wähle aus, welche Widgets auf deiner Startseite angezeigt werden sollen
                         </p>
                     </div>
@@ -1317,9 +1296,9 @@
                     <div class="flex items-start gap-3">
                         <i class="fas fa-bug text-blue-600 text-xl mt-1"></i>
                         <div class="flex-1">
-                            <h3 class="text-sm font-semibold text-blue-900 mb-1">Bug gefunden?</h3>
+                            <h3 class="text-sm font-semibold text-blue-900 mb-1" data-i18n="dashboard.footer.bugFound">Bug gefunden?</h3>
                             <p class="text-xs text-blue-800">
-                                Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an
+                                <span data-i18n="dashboard.footer.bugDescription">Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an</span>
                                 <a href="mailto:support@sc-champions.de" class="font-semibold underline hover:text-blue-900">
                                     support@sc-champions.de
                                 </a>
@@ -1331,18 +1310,18 @@
                 <!-- Links -->
                 <div class="text-center text-xs text-gray-600 space-y-2">
                     <div class="flex justify-center items-center gap-4">
-                        <a href="/docs/impressum.html" class="hover:text-indigo-600 transition-colors">
+                        <a href="/docs/impressum.html" class="hover:text-indigo-600 transition-colors" data-i18n="dashboard.footer.imprint">
                             Impressum
                         </a>
                         <span class="text-gray-400">•</span>
-                        <a href="/docs/datenschutz.html" class="hover:text-indigo-600 transition-colors">
+                        <a href="/docs/datenschutz.html" class="hover:text-indigo-600 transition-colors" data-i18n="dashboard.footer.privacy">
                             Datenschutzerklärung
                         </a>
                     </div>
-                    <p class="text-gray-500">
+                    <p class="text-gray-500" data-i18n="dashboard.footer.copyright">
                         © 2025 SC Champions. Alle Rechte vorbehalten.
                     </p>
-                    <p class="text-gray-400 text-xs italic mt-2">
+                    <p class="text-gray-400 text-xs italic mt-2" data-i18n="dashboard.footer.disclaimer">
                         Hinweis: SC Champions ist derzeit ein Forschungsprojekt im Rahmen einer Bachelorarbeit und befindet sich in der Testphase.
                     </p>
                 </div>

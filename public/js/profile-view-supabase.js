@@ -142,7 +142,7 @@ async function loadProfile() {
                 id,
                 first_name,
                 last_name,
-                photo_url,
+                avatar_url,
                 elo_rating,
                 highest_elo,
                 points,
@@ -256,7 +256,7 @@ async function checkViewPermission(profile, visibility) {
  */
 function renderProfileHeader(profile) {
     const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannt';
-    const photoUrl = profile.photo_url || `https://placehold.co/120x120/e2e8f0/64748b?text=${(profile.first_name?.[0] || '?')}`;
+    const photoUrl = profile.avatar_url || `https://placehold.co/120x120/e2e8f0/64748b?text=${(profile.first_name?.[0] || '?')}`;
 
     // Set page title
     document.title = isOwnProfile ? 'Mein Profil - SC Champions' : `${fullName} - SC Champions`;
@@ -399,8 +399,8 @@ async function renderRecentActivity(profile) {
             season_points_awarded,
             match_mode,
             handicap_used,
-            player_a:profiles!matches_player_a_id_fkey(id, first_name, last_name, photo_url, elo_rating),
-            player_b:profiles!matches_player_b_id_fkey(id, first_name, last_name, photo_url, elo_rating)
+            player_a:profiles!matches_player_a_id_fkey(id, first_name, last_name, avatar_url, elo_rating),
+            player_b:profiles!matches_player_b_id_fkey(id, first_name, last_name, avatar_url, elo_rating)
         `)
         .or(`player_a_id.eq.${profileId},player_b_id.eq.${profileId}`)
         .order('created_at', { ascending: false })
@@ -425,8 +425,8 @@ async function renderRecentActivity(profile) {
         const opponentName = `${opponent?.first_name || ''} ${opponent?.last_name || ''}`.trim() || 'Unbekannt';
         const profilePlayerName = `${profilePlayer?.first_name || ''} ${profilePlayer?.last_name || ''}`.trim() || 'Spieler';
 
-        const profileAvatar = profilePlayer?.photo_url || DEFAULT_AVATAR;
-        const oppAvatar = opponent?.photo_url || DEFAULT_AVATAR;
+        const profileAvatar = profilePlayer?.avatar_url || DEFAULT_AVATAR;
+        const oppAvatar = opponent?.avatar_url || DEFAULT_AVATAR;
 
         // Calculate set wins from sets array
         let playerASetWins = 0;
@@ -521,14 +521,14 @@ async function renderRecentActivity(profile) {
 async function loadFollowerStats() {
     const supabase = getSupabase();
 
-    // Count followers (people who sent accepted friend requests to this user)
+    // Count followers (people who follow this user - they are the requesters)
     const { count: followers } = await supabase
         .from('friendships')
         .select('id', { count: 'exact', head: true })
         .eq('addressee_id', profileId)
         .eq('status', 'accepted');
 
-    // Count following (people this user sent accepted friend requests to)
+    // Count following (people this user follows - this user is the requester)
     const { count: following } = await supabase
         .from('friendships')
         .select('id', { count: 'exact', head: true })
@@ -537,6 +537,17 @@ async function loadFollowerStats() {
 
     document.getElementById('followers-count').textContent = followers || 0;
     document.getElementById('following-count').textContent = following || 0;
+
+    // Set links to connections page
+    const followingLink = document.getElementById('following-link');
+    const followersLink = document.getElementById('followers-link');
+
+    if (followingLink) {
+        followingLink.href = `/connections.html?id=${profileId}&tab=following`;
+    }
+    if (followersLink) {
+        followersLink.href = `/connections.html?id=${profileId}&tab=followers`;
+    }
 }
 
 /**
@@ -1032,7 +1043,7 @@ async function loadProfileRivals(profile) {
         // Get players from same club for rival comparison
         const { data: clubPlayers } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, elo_rating, xp, photo_url')
+            .select('id, first_name, last_name, elo_rating, xp, avatar_url')
             .eq('club_id', profile.club_id)
             .neq('id', profileId)
             .limit(50);
@@ -1062,7 +1073,7 @@ async function loadProfileRivals(profile) {
             const eloDiff = (skillRival.elo_rating || 800) - myElo;
             skillContainer.innerHTML = `
                 <div class="flex items-center gap-3">
-                    <img src="${skillRival.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
+                    <img src="${skillRival.avatar_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
                          class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
                         <p class="font-medium text-gray-800">${escapeHtml(rivalName)}</p>
@@ -1081,7 +1092,7 @@ async function loadProfileRivals(profile) {
             const xpDiff = (effortRival.xp || 0) - myXp;
             effortContainer.innerHTML = `
                 <div class="flex items-center gap-3">
-                    <img src="${effortRival.photo_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
+                    <img src="${effortRival.avatar_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
                          class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
                         <p class="font-medium text-gray-800">${escapeHtml(rivalName)}</p>

@@ -72,7 +72,7 @@ CREATE TABLE profiles (
     last_name TEXT,
     birthdate TEXT,  -- Firebase speichert als String "2001-12-09"
     gender TEXT,
-    photo_url TEXT,  -- Firebase: photoURL
+    avatar_url TEXT,  -- Firebase: photoURL
     role user_role DEFAULT 'player',
     club_id UUID REFERENCES clubs(id) ON DELETE SET NULL,
 
