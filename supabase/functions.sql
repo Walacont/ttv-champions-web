@@ -37,38 +37,25 @@ END $$;
 -- HELPER FUNCTIONS
 -- ========================================================================
 
--- Get highest Elo gate a player has reached
+-- Get highest Elo gate a player has reached (DISABLED - no gates)
 CREATE OR REPLACE FUNCTION get_highest_elo_gate(current_elo INTEGER, highest_elo INTEGER)
 RETURNS INTEGER
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    gates INTEGER[] := ARRAY[800, 850, 900, 1000, 1100, 1300, 1600];
-    max_reached INTEGER;
-    i INTEGER;
 BEGIN
-    max_reached := GREATEST(current_elo, COALESCE(highest_elo, 0));
-
-    FOR i IN REVERSE array_length(gates, 1)..1 LOOP
-        IF max_reached >= gates[i] THEN
-            RETURN gates[i];
-        END IF;
-    END LOOP;
-
+    -- No gates - always return 0
     RETURN 0;
 END;
 $$;
 
--- Apply Elo gate protection
+-- Apply Elo gate protection (DISABLED - no protection)
 CREATE OR REPLACE FUNCTION apply_elo_gate(new_elo INTEGER, current_elo INTEGER, highest_elo INTEGER)
 RETURNS INTEGER
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    gate INTEGER;
 BEGIN
-    gate := get_highest_elo_gate(current_elo, highest_elo);
-    RETURN GREATEST(new_elo, gate);
+    -- No gate protection - only prevent negative Elo
+    RETURN GREATEST(new_elo, 0);
 END;
 $$;
 
