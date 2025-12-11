@@ -5,6 +5,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { createFollowRequestNotification, createFollowAcceptedNotification } from './notifications-supabase.js';
+import { getRankProgress, RANKS } from './ranks.js';
 
 let currentUser = null;
 let profileUser = null;
@@ -922,7 +923,78 @@ async function renderOwnProfileExtras(profile) {
     const xp = profile.xp || 0;
     const elo = profile.elo_rating || 800;
     const points = profile.points || 0;
-    const rank = calculateRankFromXP(xp);
+    const grundlagenCount = profile.grundlagen_completed || 0;
+
+    // Get detailed rank progress
+    const progress = getRankProgress(elo, xp, grundlagenCount);
+    const { currentRank, nextRank, eloProgress, xpProgress, grundlagenProgress, eloNeeded, xpNeeded, grundlagenNeeded, isMaxRank } = progress;
+
+    // Build rank progress HTML
+    let rankProgressHtml = `
+        <div class="flex items-center justify-center space-x-3 mb-4">
+            <span class="text-5xl">${currentRank.emoji}</span>
+            <div>
+                <p class="font-bold text-xl" style="color: ${currentRank.color};">${currentRank.name}</p>
+                <p class="text-xs text-gray-500">${currentRank.description}</p>
+            </div>
+        </div>
+    `;
+
+    if (!isMaxRank && nextRank) {
+        rankProgressHtml += `
+            <div class="mt-4 text-sm">
+                <p class="text-gray-600 font-medium mb-3">Fortschritt zu ${nextRank.emoji} ${nextRank.name}:</p>
+
+                <!-- ELO Progress -->
+                ${nextRank.minElo > 0 ? `
+                <div class="mb-3">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Elo: ${elo}/${nextRank.minElo}</span>
+                        <span>${eloProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-blue-600 h-2.5 rounded-full transition-all" style="width: ${eloProgress}%"></div>
+                    </div>
+                    ${eloNeeded > 0
+                        ? `<p class="text-xs text-gray-500 mt-1">Noch ${eloNeeded} Elo benötigt</p>`
+                        : `<p class="text-xs text-green-600 mt-1">✓ Elo-Anforderung erfüllt</p>`}
+                </div>
+                ` : ''}
+
+                <!-- XP Progress -->
+                <div class="mb-3">
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>XP: ${xp}/${nextRank.minXP}</span>
+                        <span>${xpProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-purple-600 h-2.5 rounded-full transition-all" style="width: ${xpProgress}%"></div>
+                    </div>
+                    ${xpNeeded > 0
+                        ? `<p class="text-xs text-gray-500 mt-1">Noch ${xpNeeded} XP benötigt</p>`
+                        : `<p class="text-xs text-green-600 mt-1">✓ XP-Anforderung erfüllt</p>`}
+                </div>
+
+                <!-- Grundlagen Progress -->
+                ${nextRank.requiresGrundlagen ? `
+                <div>
+                    <div class="flex justify-between text-xs text-gray-600 mb-1">
+                        <span>Grundlagen-Übungen: ${grundlagenCount}/${nextRank.grundlagenRequired || 5}</span>
+                        <span>${grundlagenProgress}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-green-600 h-2.5 rounded-full transition-all" style="width: ${grundlagenProgress}%"></div>
+                    </div>
+                    ${grundlagenNeeded > 0
+                        ? `<p class="text-xs text-gray-500 mt-1">Noch ${grundlagenNeeded} Übung${grundlagenNeeded > 1 ? 'en' : ''} bis du Wettkämpfe spielen kannst</p>`
+                        : `<p class="text-xs text-green-600 mt-1">✓ Grundlagen abgeschlossen - du kannst Wettkämpfe spielen!</p>`}
+                </div>
+                ` : ''}
+            </div>
+        `;
+    } else {
+        rankProgressHtml += `<p class="text-sm text-green-600 font-medium mt-2 text-center">🏆 Höchster Rang erreicht!</p>`;
+    }
 
     let html = `
         <div class="p-4 space-y-4">
@@ -962,15 +1034,11 @@ async function renderOwnProfileExtras(profile) {
                 </div>
             </div>
 
-            <!-- Rank -->
+            <!-- Rank with Progress -->
             <div class="bg-white rounded-xl shadow-sm p-4">
                 <h2 class="text-base font-semibold text-gray-700 mb-3">Dein Rang</h2>
-                <div id="profile-rank-info" class="flex items-center gap-4">
-                    <div class="text-4xl">${rank.icon}</div>
-                    <div>
-                        <p class="text-xl font-bold text-gray-800">${rank.name}</p>
-                        <p class="text-sm text-gray-500">${xp.toLocaleString()} XP</p>
-                    </div>
+                <div id="profile-rank-info">
+                    ${rankProgressHtml}
                 </div>
             </div>
 
@@ -1074,38 +1142,54 @@ async function loadProfileRivals(profile) {
         const skillContainer = document.getElementById('profile-skill-rival');
         if (skillRival) {
             const rivalName = `${skillRival.first_name || ''} ${skillRival.last_name || ''}`.trim();
-            const eloDiff = (skillRival.elo_rating || 800) - myElo;
+            const rivalElo = skillRival.elo_rating || 800;
+            const eloDiff = rivalElo - myElo;
             skillContainer.innerHTML = `
                 <div class="flex items-center gap-3">
                     <img src="${skillRival.avatar_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
-                         class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
-                    <div>
+                         class="w-12 h-12 rounded-full object-cover border-2 border-blue-200" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="flex-1">
                         <p class="font-medium text-gray-800">${escapeHtml(rivalName)}</p>
-                        <p class="text-xs text-gray-500">${skillRival.elo_rating || 800} Elo <span class="text-red-500">(+${eloDiff})</span></p>
+                        <p class="text-xs text-gray-500">${rivalElo} Elo</p>
                     </div>
+                </div>
+                <div class="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-blue-700 font-medium">Abstand:</span>
+                        <span class="text-lg font-bold text-blue-600">${eloDiff} Elo</span>
+                    </div>
+                    <p class="text-xs text-blue-600 mt-1">Gewinne ~${Math.ceil(eloDiff / 15)} Matches um aufzuholen</p>
                 </div>
             `;
         } else {
-            skillContainer.innerHTML = '<p class="text-green-600 font-medium">Du bist an der Spitze! 🏆</p>';
+            skillContainer.innerHTML = '<p class="text-green-600 font-medium text-center py-2">Du bist an der Spitze! 🏆</p>';
         }
 
         // Render effort rival
         const effortContainer = document.getElementById('profile-effort-rival');
         if (effortRival) {
             const rivalName = `${effortRival.first_name || ''} ${effortRival.last_name || ''}`.trim();
-            const xpDiff = (effortRival.xp || 0) - myXp;
+            const rivalXp = effortRival.xp || 0;
+            const xpDiff = rivalXp - myXp;
             effortContainer.innerHTML = `
                 <div class="flex items-center gap-3">
                     <img src="${effortRival.avatar_url || DEFAULT_AVATAR}" alt="${escapeHtml(rivalName)}"
-                         class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
-                    <div>
+                         class="w-12 h-12 rounded-full object-cover border-2 border-purple-200" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="flex-1">
                         <p class="font-medium text-gray-800">${escapeHtml(rivalName)}</p>
-                        <p class="text-xs text-gray-500">${(effortRival.xp || 0).toLocaleString()} XP <span class="text-red-500">(+${xpDiff})</span></p>
+                        <p class="text-xs text-gray-500">${rivalXp.toLocaleString()} XP</p>
                     </div>
+                </div>
+                <div class="mt-3 p-2 bg-purple-50 rounded-lg border border-purple-200">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-purple-700 font-medium">Abstand:</span>
+                        <span class="text-lg font-bold text-purple-600">${xpDiff} XP</span>
+                    </div>
+                    <p class="text-xs text-purple-600 mt-1">Sammle ${xpDiff} XP durch Training & Matches</p>
                 </div>
             `;
         } else {
-            effortContainer.innerHTML = '<p class="text-green-600 font-medium">Du bist an der Spitze! 🏆</p>';
+            effortContainer.innerHTML = '<p class="text-green-600 font-medium text-center py-2">Du bist an der Spitze! 🏆</p>';
         }
     } catch (error) {
         console.error('[ProfileView] Error loading rivals:', error);
