@@ -252,7 +252,7 @@ SELECT
     p.first_name,
     p.last_name,
     p.display_name,
-    p.avatar_url,
+    p.photo_url,
     p.gender,
     p.birthdate,
     uss.elo_rating,

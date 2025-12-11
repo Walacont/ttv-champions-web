@@ -12,8 +12,8 @@ const fieldMappings = {
     // User/Profile fields (1:1 Firebase mapping)
     firstName: 'first_name',
     lastName: 'last_name',
-    photoURL: 'avatar_url',
-    avatarUrl: 'avatar_url',
+    photoURL: 'photo_url',
+    avatarUrl: 'photo_url',
     clubId: 'club_id',
     eloRating: 'elo_rating',
     highestElo: 'highest_elo',

@@ -60,7 +60,7 @@ function mapPlayerFromSupabase(player) {
         grundlagenCompleted: player.grundlagen_completed,
         subgroupIDs: player.subgroup_ids || [],
         qttrPoints: player.qttr_points,
-        photoURL: player.avatar_url,
+        photoURL: player.photo_url,
         rank: player.rank,
         createdAt: player.created_at,
         birthdate: player.birthdate,
@@ -89,7 +89,7 @@ function mapPlayerToSupabase(playerData) {
     if (playerData.grundlagenCompleted !== undefined) mapped.grundlagen_completed = playerData.grundlagenCompleted;
     if (playerData.subgroupIDs !== undefined) mapped.subgroup_ids = playerData.subgroupIDs;
     if (playerData.qttrPoints !== undefined) mapped.qttr_points = playerData.qttrPoints;
-    if (playerData.photoURL !== undefined) mapped.avatar_url = playerData.photoURL;
+    if (playerData.photoURL !== undefined) mapped.photo_url = playerData.photoURL;
     if (playerData.birthdate !== undefined) mapped.birthdate = playerData.birthdate;
     if (playerData.gender !== undefined) mapped.gender = playerData.gender;
 

@@ -97,7 +97,7 @@ async function loadHeadToHeadStats(supabase, currentUserId, opponentId) {
             lastName: opponentDoc.last_name,
             eloRating: opponentDoc.elo_rating,
             clubId: opponentDoc.club_id,
-            photoURL: opponentDoc.avatar_url
+            photoURL: opponentDoc.photo_url
         };
         const opponentName = `${opponentData.firstName || ''} ${opponentData.lastName || ''}`.trim();
 

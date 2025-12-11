@@ -234,7 +234,7 @@ onboardingForm?.addEventListener('submit', async e => {
             throw new Error('Benutzerdaten nicht geladen. Bitte Seite neu laden.');
         }
 
-        let photoURL = currentUserData.avatar_url || null;
+        let photoURL = currentUserData.photo_url || null;
 
         // Upload photo to Supabase Storage if selected
         if (selectedFile) {
@@ -277,7 +277,7 @@ onboardingForm?.addEventListener('submit', async e => {
             display_name: `${document.getElementById('firstName')?.value || ''} ${document.getElementById('lastName')?.value || ''}`.trim(),
             birthdate: birthdate,
             gender: document.getElementById('gender')?.value || null,
-            avatar_url: photoURL,
+            photo_url: photoURL,
             active_sport_id: selectedSportId,
             onboarding_complete: true,
             is_offline: false,

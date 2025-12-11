@@ -61,7 +61,7 @@ async function initializeAuth() {
                 lastName: profile.last_name || '',
                 gender: profile.gender || null,
                 birthdate: profile.birthdate || null,
-                photoURL: profile.avatar_url || null,
+                photoURL: profile.photo_url || null,
             };
 
             const initials = (currentUserData.firstName?.[0] || '') + (currentUserData.lastName?.[0] || '');
@@ -196,7 +196,7 @@ uploadPhotoForm.addEventListener('submit', async e => {
         // Update profile
         const { error: updateError } = await supabase
             .from('profiles')
-            .update({ avatar_url: photoURL })
+            .update({ photo_url: photoURL })
             .eq('id', currentUser.id);
 
         if (updateError) throw updateError;
