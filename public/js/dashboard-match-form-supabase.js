@@ -661,7 +661,7 @@ async function submitMatchRequest(callbacks = {}) {
     const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
 
     try {
-        const { error } = await supabase
+        const { data: insertedRequest, error } = await supabase
             .from('match_requests')
             .insert({
                 player_a_id: currentUser.id,
@@ -675,24 +675,31 @@ async function submitMatchRequest(callbacks = {}) {
                 loser_id: loserId,
                 status: 'pending_player',
                 is_cross_club: isCrossClub,
-                approvals: JSON.stringify({
+                approvals: {
                     player_a: true,
                     player_b: false,
                     coach_a: null,
                     coach_b: null
-                }),
+                },
                 created_at: new Date().toISOString()
-            });
+            })
+            .select('id')
+            .single();
 
         if (error) throw error;
 
-        // Notify opponent
+        // Notify opponent with request_id for direct accept/decline
         const playerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
         await createNotification(
             selectedOpponent.id,
             'match_request',
             'Neue Spielanfrage',
-            `${playerName} möchte ein Spiel mit dir eintragen. Bitte bestätige das Ergebnis.`
+            `${playerName} möchte ein Spiel mit dir eintragen. Bitte bestätige das Ergebnis.`,
+            {
+                request_id: insertedRequest?.id,
+                requester_id: currentUser.id,
+                requester_name: playerName
+            }
         );
 
         showFeedback(feedbackEl, 'Anfrage erfolgreich gesendet! Warte auf Bestätigung.', 'success');

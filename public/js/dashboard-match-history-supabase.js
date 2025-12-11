@@ -721,6 +721,13 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
     if (!confirm('Möchtest du diese Anfrage wirklich zurückziehen?')) return;
 
     try {
+        // First get the request to find player_b_id
+        const { data: request } = await supabase
+            .from('match_requests')
+            .select('player_b_id')
+            .eq('id', requestId)
+            .single();
+
         const { error } = await supabase
             .from('match_requests')
             .delete()
@@ -728,6 +735,22 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
             .eq('player_a_id', currentUser.id);
 
         if (error) throw error;
+
+        // Delete the notification for player B
+        if (request?.player_b_id) {
+            // Find and delete notifications with this request_id
+            const { data: notifications } = await supabase
+                .from('notifications')
+                .select('id, data')
+                .eq('user_id', request.player_b_id)
+                .eq('type', 'match_request');
+
+            for (const notif of (notifications || [])) {
+                if (notif.data?.request_id === requestId) {
+                    await supabase.from('notifications').delete().eq('id', notif.id);
+                }
+            }
+        }
 
         if (callbacks.onSuccess) {
             callbacks.onSuccess();

@@ -4,6 +4,7 @@
 import { getSupabase } from './supabase-init.js';
 
 let notificationSubscription = null;
+let matchRequestSubscription = null;
 let notificationModalOpen = false;
 
 /**
@@ -29,12 +30,90 @@ export async function initNotifications(userId) {
                 schema: 'public',
                 table: 'notifications',
                 filter: `user_id=eq.${userId}`
-            }, () => {
+            }, (payload) => {
                 updateNotificationBadge(userId);
+                // If notification modal is open, refresh it
+                if (notificationModalOpen) {
+                    refreshNotificationModal(userId);
+                }
+            })
+            .subscribe();
+
+        // Subscribe to match_requests changes (for real-time updates when requests are withdrawn)
+        matchRequestSubscription = db
+            .channel(`match-requests-${userId}`)
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'match_requests',
+                filter: `player_b_id=eq.${userId}`
+            }, async (payload) => {
+                // When a match request is deleted (withdrawn), remove the corresponding notification
+                const deletedRequestId = payload.old?.id;
+                if (deletedRequestId) {
+                    await removeMatchRequestNotification(userId, deletedRequestId);
+                    updateNotificationBadge(userId);
+                    if (notificationModalOpen) {
+                        refreshNotificationModal(userId);
+                    }
+                    // Also refresh match requests list if available
+                    if (typeof window.loadMatchRequests === 'function') {
+                        window.loadMatchRequests();
+                    }
+                }
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'match_requests',
+                filter: `player_b_id=eq.${userId}`
+            }, async (payload) => {
+                // When a match request is updated (e.g., status changed), refresh
+                if (typeof window.loadMatchRequests === 'function') {
+                    window.loadMatchRequests();
+                }
             })
             .subscribe();
     } catch (e) {
         console.warn('Could not load notifications:', e);
+    }
+}
+
+/**
+ * Remove notification for a withdrawn match request
+ */
+async function removeMatchRequestNotification(userId, requestId) {
+    const db = getSupabase();
+    if (!db) return;
+
+    try {
+        // Find and delete notifications with this request_id
+        const { data: notifications } = await db
+            .from('notifications')
+            .select('id, data')
+            .eq('user_id', userId)
+            .eq('type', 'match_request');
+
+        for (const notif of (notifications || [])) {
+            if (notif.data?.request_id === requestId) {
+                await db.from('notifications').delete().eq('id', notif.id);
+            }
+        }
+    } catch (error) {
+        console.error('Error removing match request notification:', error);
+    }
+}
+
+/**
+ * Refresh the notification modal if it's open
+ */
+async function refreshNotificationModal(userId) {
+    const existingModal = document.getElementById('notification-modal');
+    if (existingModal) {
+        existingModal.remove();
+        notificationModalOpen = false;
+        // Re-open the modal with fresh data
+        showNotificationModal(userId);
     }
 }
 
@@ -152,7 +231,7 @@ async function showNotificationModal(userId) {
                                         ${renderFollowRequestActions(n)}
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0">
-                                        ${!n.is_read && !isFollowRequest(n.type) ? '<span class="unread-dot w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
+                                        ${!n.is_read && !isActionableRequest(n.type) ? '<span class="unread-dot w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
                                         ${n.is_read ? `<button class="delete-notification text-gray-400 hover:text-red-500 p-1" title="Löschen"><i class="fas fa-trash-alt text-sm"></i></button>` : ''}
                                     </div>
                                 </div>
@@ -281,6 +360,69 @@ async function showNotificationModal(userId) {
             }
 
             const success = await handleDeclineFollow(requesterId, notificationId, userId);
+            if (success) {
+                item.remove();
+                updateNotificationBadge(userId);
+                checkEmptyNotifications(modal);
+            } else {
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                }
+            }
+        }
+    });
+
+    // Accept match request
+    modal.addEventListener('click', async (e) => {
+        const acceptBtn = e.target.closest('.accept-match-btn');
+        if (acceptBtn) {
+            e.stopPropagation();
+            const requestId = acceptBtn.dataset.requestId;
+            const requesterId = acceptBtn.dataset.requesterId;
+            const notificationId = acceptBtn.dataset.notificationId;
+            const item = acceptBtn.closest('.notification-item');
+
+            // Disable buttons while processing
+            const actionsDiv = item.querySelector('.match-request-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
+            }
+
+            const success = await handleAcceptMatch(requestId, requesterId, notificationId, userId);
+            if (success) {
+                // Update UI to show accepted
+                item.classList.remove('bg-blue-50');
+                item.classList.add('bg-white');
+                item.dataset.read = 'true';
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-green-600"><i class="fas fa-check mr-1"></i>Angenommen</span>';
+                }
+                updateNotificationBadge(userId);
+            } else {
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                }
+            }
+        }
+    });
+
+    // Decline match request
+    modal.addEventListener('click', async (e) => {
+        const declineBtn = e.target.closest('.decline-match-btn');
+        if (declineBtn) {
+            e.stopPropagation();
+            const requestId = declineBtn.dataset.requestId;
+            const requesterId = declineBtn.dataset.requesterId;
+            const notificationId = declineBtn.dataset.notificationId;
+            const item = declineBtn.closest('.notification-item');
+
+            // Disable buttons while processing
+            const actionsDiv = item.querySelector('.match-request-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
+            }
+
+            const success = await handleDeclineMatch(requestId, requesterId, notificationId, userId);
             if (success) {
                 item.remove();
                 updateNotificationBadge(userId);
@@ -541,28 +683,63 @@ function isFollowRequest(type) {
 }
 
 /**
+ * Check if notification type is an actionable match request
+ */
+function isMatchRequest(type) {
+    return type === 'match_request';
+}
+
+/**
+ * Check if notification is actionable (follow or match request)
+ */
+function isActionableRequest(type) {
+    return isFollowRequest(type) || isMatchRequest(type);
+}
+
+/**
  * Render action buttons for follow request notifications
  */
 function renderFollowRequestActions(notification) {
-    if (!isFollowRequest(notification.type) || notification.is_read) {
-        return '';
+    // Handle follow requests
+    if (isFollowRequest(notification.type) && !notification.is_read) {
+        const requesterId = notification.data?.requester_id;
+        if (!requesterId) return '';
+
+        return `
+            <div class="follow-request-actions flex gap-2 mt-2">
+                <button class="accept-follow-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
+                        data-requester-id="${requesterId}" data-notification-id="${notification.id}">
+                    <i class="fas fa-check mr-1"></i>Annehmen
+                </button>
+                <button class="decline-follow-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full transition"
+                        data-requester-id="${requesterId}" data-notification-id="${notification.id}">
+                    <i class="fas fa-times mr-1"></i>Ablehnen
+                </button>
+            </div>
+        `;
     }
 
-    const requesterId = notification.data?.requester_id;
-    if (!requesterId) return '';
+    // Handle match requests
+    if (isMatchRequest(notification.type) && !notification.is_read) {
+        const requestId = notification.data?.request_id;
+        const requesterId = notification.data?.requester_id;
+        if (!requestId && !requesterId) return '';
 
-    return `
-        <div class="follow-request-actions flex gap-2 mt-2">
-            <button class="accept-follow-btn bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
-                    data-requester-id="${requesterId}" data-notification-id="${notification.id}">
-                <i class="fas fa-check mr-1"></i>Annehmen
-            </button>
-            <button class="decline-follow-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full transition"
-                    data-requester-id="${requesterId}" data-notification-id="${notification.id}">
-                <i class="fas fa-times mr-1"></i>Ablehnen
-            </button>
-        </div>
-    `;
+        return `
+            <div class="match-request-actions flex gap-2 mt-2">
+                <button class="accept-match-btn bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
+                        data-request-id="${requestId || ''}" data-requester-id="${requesterId || ''}" data-notification-id="${notification.id}">
+                    <i class="fas fa-check mr-1"></i>Annehmen
+                </button>
+                <button class="decline-match-btn bg-red-500 hover:bg-red-600 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
+                        data-request-id="${requestId || ''}" data-requester-id="${requesterId || ''}" data-notification-id="${notification.id}">
+                    <i class="fas fa-times mr-1"></i>Ablehnen
+                </button>
+            </div>
+        `;
+    }
+
+    return '';
 }
 
 /**
@@ -658,6 +835,176 @@ async function handleDeclineFollow(requesterId, notificationId, userId) {
 }
 
 /**
+ * Handle accept match request from notification
+ */
+async function handleAcceptMatch(requestId, requesterId, notificationId, userId) {
+    const db = getSupabase();
+    if (!db) return false;
+
+    try {
+        // Find the match request - either by ID or by requester
+        let matchRequest;
+        if (requestId) {
+            const { data } = await db
+                .from('match_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+            matchRequest = data;
+        } else if (requesterId) {
+            // Find pending request from this requester to current user
+            const { data } = await db
+                .from('match_requests')
+                .select('*')
+                .eq('player_a_id', requesterId)
+                .eq('player_b_id', userId)
+                .eq('status', 'pending_player')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            matchRequest = data;
+        }
+
+        if (!matchRequest) {
+            console.error('Match request not found');
+            await deleteNotification(notificationId);
+            return true; // Still return true to remove notification UI
+        }
+
+        // Update approvals
+        let approvals = matchRequest.approvals || {};
+        if (typeof approvals === 'string') {
+            approvals = JSON.parse(approvals);
+        }
+        approvals.player_b = true;
+
+        // Update the match request to approved
+        const { error: updateError } = await db
+            .from('match_requests')
+            .update({
+                status: 'approved',
+                approvals: approvals,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', matchRequest.id);
+
+        if (updateError) throw updateError;
+
+        // Create the actual match using the global function if available
+        if (typeof window.createMatchFromRequest === 'function') {
+            await window.createMatchFromRequest(matchRequest);
+        }
+
+        // Mark notification as read
+        await markNotificationAsRead(notificationId);
+
+        // Notify player A that match was accepted
+        const { data: currentUserProfile } = await db
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', userId)
+            .single();
+
+        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Der Gegner';
+
+        await createNotification(
+            matchRequest.player_a_id,
+            'match_approved',
+            'Spiel bestätigt',
+            `${currentUserName} hat deine Spielanfrage angenommen.`
+        );
+
+        // Refresh match requests if function exists
+        if (typeof window.loadMatchRequests === 'function') {
+            window.loadMatchRequests();
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error accepting match request:', error);
+        return false;
+    }
+}
+
+/**
+ * Handle decline match request from notification
+ */
+async function handleDeclineMatch(requestId, requesterId, notificationId, userId) {
+    const db = getSupabase();
+    if (!db) return false;
+
+    try {
+        // Find the match request
+        let matchRequest;
+        if (requestId) {
+            const { data } = await db
+                .from('match_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+            matchRequest = data;
+        } else if (requesterId) {
+            const { data } = await db
+                .from('match_requests')
+                .select('*')
+                .eq('player_a_id', requesterId)
+                .eq('player_b_id', userId)
+                .eq('status', 'pending_player')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            matchRequest = data;
+        }
+
+        if (!matchRequest) {
+            console.error('Match request not found');
+            await deleteNotification(notificationId);
+            return true;
+        }
+
+        // Update the match request to rejected
+        const { error: updateError } = await db
+            .from('match_requests')
+            .update({
+                status: 'rejected',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', matchRequest.id);
+
+        if (updateError) throw updateError;
+
+        // Delete the notification
+        await deleteNotification(notificationId);
+
+        // Notify player A that match was rejected
+        const { data: currentUserProfile } = await db
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', userId)
+            .single();
+
+        const currentUserName = `${currentUserProfile?.first_name || ''} ${currentUserProfile?.last_name || ''}`.trim() || 'Der Gegner';
+
+        await createNotification(
+            matchRequest.player_a_id,
+            'match_rejected',
+            'Spielanfrage abgelehnt',
+            `${currentUserName} hat deine Spielanfrage abgelehnt.`
+        );
+
+        // Refresh match requests if function exists
+        if (typeof window.loadMatchRequests === 'function') {
+            window.loadMatchRequests();
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error declining match request:', error);
+        return false;
+    }
+}
+
+/**
  * Format time ago
  */
 function formatTimeAgo(dateString) {
@@ -691,5 +1038,9 @@ export function cleanupNotifications() {
     if (notificationSubscription) {
         notificationSubscription.unsubscribe();
         notificationSubscription = null;
+    }
+    if (matchRequestSubscription) {
+        matchRequestSubscription.unsubscribe();
+        matchRequestSubscription = null;
     }
 }
