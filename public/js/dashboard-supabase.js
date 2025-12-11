@@ -360,6 +360,10 @@ async function initializeDashboard() {
         }
     });
 
+    // Setup collapsible sections (match suggestions and leaderboard preferences toggles)
+    setupMatchSuggestions();
+    setupLeaderboardPreferences();
+
     // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(supabase, currentUser.id, currentUserData);
 
@@ -1225,7 +1229,8 @@ function renderRanksList() {
     const grouped = groupPlayersByRank(players.map(p => ({
         ...p,
         eloRating: p.elo_rating,
-        xp: p.xp
+        xp: p.xp,
+        grundlagenCompleted: p.grundlagen_completed || 0
     })));
 
     let html = '';
@@ -1288,7 +1293,7 @@ async function fetchLeaderboardData() {
         if (effectiveClubId) {
             let clubQuery = supabase
                 .from('profiles')
-                .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
+                .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, grundlagen_completed, clubs:club_id(name), privacy_settings')
                 .in('role', ['player', 'coach', 'head_coach']);
 
             // Filter by sport
@@ -1317,7 +1322,7 @@ async function fetchLeaderboardData() {
         // Fetch global data - ALL players in sport (to calculate user's rank, but display only top 100)
         let globalQuery = supabase
             .from('profiles')
-            .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, clubs:club_id(name), privacy_settings')
+            .select('id, first_name, last_name, avatar_url, xp, elo_rating, points, role, birthdate, gender, subgroup_ids, club_id, grundlagen_completed, clubs:club_id(name), privacy_settings')
             .in('role', ['player', 'coach', 'head_coach']);
 
         // Filter by sport for global leaderboard

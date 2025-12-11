@@ -494,6 +494,8 @@ function renderActivityCard(activity) {
         return renderSinglesActivityCard(activity, activity.profileMap, activity.followingIds);
     } else if (activity.activityType === 'club_join') {
         return renderClubJoinCard(activity);
+    } else if (activity.activityType === 'club_leave') {
+        return renderClubLeaveCard(activity);
     } else if (activity.activityType === 'rank_up') {
         return renderRankUpCard(activity);
     }
@@ -945,6 +947,48 @@ function renderClubJoinCard(activity) {
                     <div class="mt-2 text-sm text-gray-600">
                         <i class="fas fa-handshake text-blue-500 mr-1"></i>
                         Willkommen im Team!
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a club leave activity card
+ */
+function renderClubLeaveCard(activity) {
+    const eventData = activity.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const clubName = eventData.club_name || 'Unbekannt';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+        <div class="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-gray-200">
+            <div class="flex items-start gap-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-gray-400"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fas fa-door-open text-gray-500"></i>
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        <span class="text-gray-600 text-sm">hat den Verein</span>
+                        <span class="font-semibold text-gray-700">${clubName}</span>
+                        <span class="text-gray-600 text-sm">verlassen</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
                     </div>
                 </div>
             </div>
