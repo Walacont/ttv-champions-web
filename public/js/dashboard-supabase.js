@@ -3396,6 +3396,9 @@ async function populatePlayerSubgroupFilter(userData) {
         dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
     }
 
+    // Add following option (always available)
+    dropdown.appendChild(createOption('following', '👥 Abonniert'));
+
     // Global option always available
     dropdown.appendChild(createOption('global', '🌍 Global'));
 
