@@ -974,17 +974,17 @@ async function loadLeaderboards() {
             <div id="player-subgroup-filter-container" class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                     <label for="player-subgroup-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        👥 Ansicht:
+                        Ansicht:
                     </label>
                     <select id="player-subgroup-filter" class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
-                        <option value="club">🏠 Mein Verein</option>
-                        <option value="following">👥 Abonniert</option>
-                        <option value="global">🌍 Global</option>
+                        <option value="club">Mein Verein</option>
+                        <option value="following">Abonniert</option>
+                        <option value="global">Global</option>
                     </select>
                 </div>
                 <div class="flex items-center gap-2 flex-1 sm:flex-none">
                     <label for="player-gender-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
-                        ⚧ Geschlecht:
+                        Geschlecht:
                     </label>
                     <select id="player-gender-filter" class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
                         <option value="all">Alle</option>
@@ -3393,18 +3393,18 @@ async function populatePlayerSubgroupFilter(userData) {
 
     // Add club option only if user has a club
     if (hasClub) {
-        dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
+        dropdown.appendChild(createOption('club', 'Mein Verein'));
     }
 
     // Add following option (always available)
-    dropdown.appendChild(createOption('following', '👥 Abonniert'));
+    dropdown.appendChild(createOption('following', 'Abonniert'));
 
     // Global option always available
-    dropdown.appendChild(createOption('global', '🌍 Global'));
+    dropdown.appendChild(createOption('global', 'Global'));
 
     // Add Youth Age Groups (always show for all users)
     const youthGroup = document.createElement('optgroup');
-    youthGroup.label = '⚽ Jugend (nach Alter)';
+    youthGroup.label = 'Jugend (nach Alter)';
     AGE_GROUPS.youth.forEach(group => {
         const option = createOption(group.id, group.label);
         youthGroup.appendChild(option);
@@ -3413,7 +3413,7 @@ async function populatePlayerSubgroupFilter(userData) {
 
     // Add Adults Age Group (always show for all users)
     const adultsGroup = document.createElement('optgroup');
-    adultsGroup.label = '👥 Erwachsene';
+    adultsGroup.label = 'Erwachsene';
     AGE_GROUPS.adults.forEach(group => {
         const option = createOption(group.id, group.label);
         adultsGroup.appendChild(option);
@@ -3422,7 +3422,7 @@ async function populatePlayerSubgroupFilter(userData) {
 
     // Add Senior Age Groups (always show for all users)
     const seniorGroup = document.createElement('optgroup');
-    seniorGroup.label = '🎖️ Senioren (nach Alter)';
+    seniorGroup.label = 'Senioren (nach Alter)';
     AGE_GROUPS.seniors.forEach(group => {
         const option = createOption(group.id, group.label);
         seniorGroup.appendChild(option);
@@ -3441,7 +3441,7 @@ async function populatePlayerSubgroupFilter(userData) {
 
             if (!error && subgroups && subgroups.length > 0) {
                 const customGroup = document.createElement('optgroup');
-                customGroup.label = '📋 Meine Untergruppen im Verein';
+                customGroup.label = 'Meine Untergruppen im Verein';
                 subgroups.forEach(subgroup => {
                     const option = createOption(`subgroup:${subgroup.id}`, subgroup.name);
                     customGroup.appendChild(option);
