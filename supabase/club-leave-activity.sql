@@ -12,100 +12,108 @@ ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
 -- UPDATE RLS POLICY: Add club_leave visibility
 -- ============================================
 -- club_leave events should only be visible to club members (same as club_join)
+-- IMPORTANT: club_join/club_leave checks are moved OUTSIDE the EXISTS subquery
+-- to avoid RLS conflicts with the profiles table
 
 -- Drop existing policy
 DROP POLICY IF EXISTS "Users can view activity events based on type and privacy" ON activity_events;
 
 -- Recreate policy with club_leave included
+-- Structure: Direct checks first (no subqueries that might hit other RLS policies)
 CREATE POLICY "Users can view activity events based on type and privacy"
     ON activity_events FOR SELECT
     USING (
-        -- User can always see their own events
+        -- 1. User can always see their own events
         user_id = auth.uid()
         OR
-        -- Check privacy settings and event type
-        EXISTS (
-            SELECT 1 FROM profiles p
-            WHERE p.id = activity_events.user_id
-            -- User must not be invisible (searchable = 'none')
-            AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none'
-            AND (
-                -- club_join and club_leave events: Only visible to club members
-                (
-                    activity_events.event_type IN ('club_join', 'club_leave')
-                    AND activity_events.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                )
-                OR
-                -- rank_up events: Visible based on privacy settings
-                (
-                    activity_events.event_type = 'rank_up'
-                    AND (
-                        -- If searchable = 'global': visible to club members and followers
-                        (
-                            COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
-                            AND (
-                                -- Club members can see it
-                                p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                                OR
-                                -- Followers can see it
-                                EXISTS (
+        -- 2. club_join and club_leave events: Directly check if viewer is in the same club
+        --    (Moved outside EXISTS to avoid profiles RLS conflicts)
+        (
+            event_type IN ('club_join', 'club_leave')
+            AND club_id IS NOT NULL
+            AND club_id = (SELECT p.club_id FROM profiles p WHERE p.id = auth.uid())
+        )
+        OR
+        -- 3. Other events (rank_up, milestone, achievement): Check privacy settings
+        (
+            event_type NOT IN ('club_join', 'club_leave')
+            AND EXISTS (
+                SELECT 1 FROM profiles p
+                WHERE p.id = activity_events.user_id
+                -- User must not be invisible (searchable = 'none')
+                AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none'
+                AND (
+                    -- rank_up events: Visible based on privacy settings
+                    (
+                        activity_events.event_type = 'rank_up'
+                        AND (
+                            -- If searchable = 'global': visible to club members and followers
+                            (
+                                COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
+                                AND (
+                                    -- Club members can see it
+                                    p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                                    OR
+                                    -- Followers can see it
+                                    EXISTS (
+                                        SELECT 1 FROM friendships
+                                        WHERE requester_id = auth.uid()
+                                        AND addressee_id = activity_events.user_id
+                                        AND status = 'accepted'
+                                    )
+                                )
+                            )
+                            OR
+                            -- If searchable = 'club_only': only club members can see it
+                            (
+                                p.privacy_settings->>'searchable' = 'club_only'
+                                AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                            )
+                            OR
+                            -- If searchable = 'friends_only': only followers can see it
+                            (
+                                p.privacy_settings->>'searchable' = 'friends_only'
+                                AND EXISTS (
                                     SELECT 1 FROM friendships
                                     WHERE requester_id = auth.uid()
                                     AND addressee_id = activity_events.user_id
                                     AND status = 'accepted'
                                 )
-                            )
-                        )
-                        OR
-                        -- If searchable = 'club_only': only club members can see it
-                        (
-                            p.privacy_settings->>'searchable' = 'club_only'
-                            AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                        )
-                        OR
-                        -- If searchable = 'friends_only': only followers can see it
-                        (
-                            p.privacy_settings->>'searchable' = 'friends_only'
-                            AND EXISTS (
-                                SELECT 1 FROM friendships
-                                WHERE requester_id = auth.uid()
-                                AND addressee_id = activity_events.user_id
-                                AND status = 'accepted'
                             )
                         )
                     )
-                )
-                OR
-                -- milestone and achievement events: same as rank_up
-                (
-                    activity_events.event_type IN ('milestone', 'achievement')
-                    AND (
-                        (
-                            COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
-                            AND (
-                                p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                                OR
-                                EXISTS (
+                    OR
+                    -- milestone and achievement events: same as rank_up
+                    (
+                        activity_events.event_type IN ('milestone', 'achievement')
+                        AND (
+                            (
+                                COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
+                                AND (
+                                    p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                                    OR
+                                    EXISTS (
+                                        SELECT 1 FROM friendships
+                                        WHERE requester_id = auth.uid()
+                                        AND addressee_id = activity_events.user_id
+                                        AND status = 'accepted'
+                                    )
+                                )
+                            )
+                            OR
+                            (
+                                p.privacy_settings->>'searchable' = 'club_only'
+                                AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                            )
+                            OR
+                            (
+                                p.privacy_settings->>'searchable' = 'friends_only'
+                                AND EXISTS (
                                     SELECT 1 FROM friendships
                                     WHERE requester_id = auth.uid()
                                     AND addressee_id = activity_events.user_id
                                     AND status = 'accepted'
                                 )
-                            )
-                        )
-                        OR
-                        (
-                            p.privacy_settings->>'searchable' = 'club_only'
-                            AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                        )
-                        OR
-                        (
-                            p.privacy_settings->>'searchable' = 'friends_only'
-                            AND EXISTS (
-                                SELECT 1 FROM friendships
-                                WHERE requester_id = auth.uid()
-                                AND addressee_id = activity_events.user_id
-                                AND status = 'accepted'
                             )
                         )
                     )
