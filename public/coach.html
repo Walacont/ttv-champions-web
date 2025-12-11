@@ -182,14 +182,14 @@
 
                         <!-- Title and Club Info -->
                         <div class="flex-1">
-                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">
+                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900" data-i18n="coachPage.title">
                                 Coach Dashboard
                             </h1>
-                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
+                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600" data-i18n="coachPage.welcomeBack">
                                 Willkommen zurück!
                             </p>
                             <p id="header-club-info" class="text-xs sm:text-sm text-gray-500 mt-1">
-                                <i class="fas fa-building mr-1"></i><span id="header-club-name">Lade...</span>
+                                <i class="fas fa-building mr-1"></i><span id="header-club-name" data-i18n="coachPage.loading">Lade...</span>
                             </p>
                         </div>
                     </div>
@@ -4755,6 +4755,20 @@
                     });
                 }
             });
+        </script>
+
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
         </script>
 
         <!-- Firebase: <script type="module" src="/js/coach.js"></script> -->

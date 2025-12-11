@@ -762,5 +762,93 @@
     "emailPlaceholder": "Your email address",
     "sendNewLink": "Send new link",
     "toHomepage": "Go to homepage"
+  },
+  "faq": {
+    "title": "FAQ & Rules",
+    "subtitle": "Everything you need to know about SC Champions.",
+    "backToDashboard": "Back to Dashboard",
+    "sections": {
+      "pointSystem": "The Point System",
+      "gameMechanics": "Game Mechanics"
+    },
+    "questions": {
+      "eloVsXp": "What is the difference between Elo, XP and Season Points?",
+      "qttrConversion": "How are QTTR points converted to Elo?",
+      "singlesPoints": "How do points work in singles matches?",
+      "handicapSystem": "How does the handicap system work?",
+      "doublesMatches": "How do doubles matches work?",
+      "losePoints": "Can I lose points?",
+      "attendancePoints": "How does the attendance point system work?",
+      "exercisesPoints": "How do exercises and points work?",
+      "milestones": "What are milestone exercises and challenges?",
+      "seasonReset": "How does the season reset work?",
+      "ranksLeaderboard": "How do ranks and the leaderboard work?"
+    },
+    "answers": {
+      "eloVsXp": "There are three types of points you can collect:<ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>Skill (Elo/Q-TTR):</strong> This is your permanent playing strength. You start with <strong>1200 Elo points</strong>. You gain Elo by winning competitive matches against others. You lose Elo when you lose. The calculation is based on the <strong>Q-TTR system</strong> of the German Table Tennis Association. Your Elo value significantly determines your rank.</li><li><strong>Effort (XP):</strong> These are your permanent experience points. You gain XP for almost everything: attendance, exercises, challenges and match wins. <strong>XP is never deducted</strong> - you can only gain it! XP (just like Elo) is necessary for your rank advancement. However, penalties for unsportsmanlike behavior can also cost XP (see below).</li><li><strong>Season Points:</strong> These points are only for the \"Season Competition\" (every 6 weeks). They are awarded for attendance, exercises, challenges and matches. Unlike XP, you can lose Season Points from match losses or penalties. At the end of the season they are reset.</li></ul>",
+      "qttrConversion": "<p>We use the <strong>Q-TTR system</strong> (Quality Table Tennis Rating), which is also used by the German Table Tennis Association.</p><p class=\"mt-3 font-semibold\">The Formula:</p><div class=\"mt-1 bg-indigo-50 p-3 rounded-lg border border-indigo-200\"><p><strong>Win Probability:</strong> P = 1 / (1 + 10^(Diff/150))</p><p class=\"mt-1\"><strong>New Points:</strong> Elo_new = Elo_old + 16 × (Result - P)</p><p class=\"text-sm text-gray-600 mt-1\">(Result: Win=1, Loss=0)</p></div><p class=\"mt-3\"><strong>Example Calculation:</strong></p><p class=\"text-sm\">Player A (1200 Elo) vs Player B (1040 Elo) - Difference: 160</p><ul class=\"list-none mt-2 space-y-1 bg-gray-50 p-3 rounded text-sm\"><li>A wins (expected): A gets <strong>+2</strong>, B gets <strong>-2</strong></li><li>B wins (surprise): B gets <strong>+14</strong>, A gets <strong>-14</strong></li></ul><p class=\"mt-3\"><strong>Important:</strong></p><ul class=\"list-disc list-inside mt-1 space-y-1\"><li>The point change is <strong>symmetrical</strong>: What the winner gains, the loser loses.</li><li>Wins against stronger opponents bring more points.</li><li>Losses against stronger opponents cost fewer points.</li><li>Without QTTR input, players start with 1200 Elo.</li></ul>",
+      "singlesPoints": "<p>When you play a competitive match (no handicap match), your <strong>Elo points</strong> and your <strong>Season Points</strong> are adjusted. Your <strong>XP</strong> can only increase.</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Win:</strong> You gain Elo points, Season Points and XP.</li><li><strong>Loss:</strong> You lose Elo points and Season Points. You do <strong>not</strong> lose XP.</li><li><strong>Fairness:</strong> If you win against a stronger player (higher Elo), you receive more points. If you lose against a stronger player, you only lose a few points.</li></ul><p class=\"mt-2\"><strong>Important for Recruits:</strong> As a Recruit (lowest rank) you must first complete <strong>5 basic exercises</strong> before you are allowed to play competitive matches. This ensures you have mastered the basics!</p>",
+      "handicapSystem": "<p>The handicap system ensures fair games between players of different strengths. There are two types of handicap suggestions:</p><p class=\"mt-3 font-semibold\">1. Elo-based Handicap:</p><p class=\"mt-1\">From 40 Elo points difference, a handicap is suggested. The weaker player starts each set with a points advantage.</p><ul class=\"list-none mt-2 space-y-1 bg-gray-50 p-3 rounded text-sm\"><li>40-79 Elo difference: +1 point</li><li>80-119 Elo difference: +2 points</li><li>120-159 Elo difference: +3 points</li><li>160-199 Elo difference: +4 points</li><li>... up to +7 points maximum</li></ul><p class=\"mt-3 font-semibold\">2. Head-to-Head Handicap:</p><p class=\"mt-1\">When a player wins 2x or more in a row against the same opponent, a dynamic handicap is suggested:</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>2 wins in a row: +1 point for the loser</li><li>3 wins in a row: +2 points</li><li>4 wins in a row: +3 points</li><li>... up to +7 points maximum</li></ul><p class=\"mt-1 text-sm\">With a win by the other player, the handicap is reset.</p><p class=\"mt-3 font-semibold\">Elo Change in Handicap Matches:</p><p class=\"mt-1\">In handicap matches, a <strong>fixed point value</strong> is awarded, regardless of the Elo difference:</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Win with handicap:</strong> +8 Elo (fixed)</li><li><strong>Loss with handicap:</strong> -8 Elo (fixed)</li></ul><p class=\"mt-2 text-sm\"><strong>Tip:</strong> The handicap is optional - both players must agree to activate it.</p>",
+      "doublesMatches": "<p>In addition to singles matches, you can also play <strong>doubles matches</strong>! In doubles, you play with a partner against another team.</p><p class=\"mt-3\"><strong>The Process:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Form team:</strong> You choose a partner (Team A) and two opponents (Team B)</li><li><strong>Send request:</strong> The opposing team must confirm the request</li><li><strong>Coach approval:</strong> After confirmation, a coach must approve the match and enter the result</li><li><strong>Points:</strong> All 4 players receive or lose doubles Elo points</li></ul><p class=\"mt-3\"><strong>Doubles Elo System:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>You have a <strong>separate doubles Elo</strong> (starts at 800), independent of your singles Elo</li><li>The team Elo is calculated from the average of both players</li><li><strong>Example:</strong> Player A (Doubles Elo 900) + Player B (Doubles Elo 1000) = Team Elo 950</li><li>As in singles: Wins against stronger teams bring more points</li></ul><p class=\"mt-3\"><strong>Doubles Leaderboard:</strong></p><p class=\"mt-1\">There is a separate doubles leaderboard that you can find in the <strong>Leaderboard tab</strong>. There you can see which teams have the best doubles Elo values!</p><p class=\"mt-3\"><strong>Points Calculation:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Win:</strong> Both players of the winning team receive Doubles Elo and Season Points</li><li><strong>Loss:</strong> Both players of the losing team lose Doubles Elo and Season Points</li><li><strong>XP:</strong> As in singles, only the winning team receives XP (no XP loss on defeat)</li><li><strong>Handicap:</strong> Doubles matches can also be played with handicap (no Elo change)</li></ul><p class=\"mt-3\"><strong>Tip:</strong> Doubles matches are a great way to train teamwork and learn new playing styles. Even if you're not very strong in singles yet, you can be successful in doubles with a good partner!</p>",
+      "losePoints": "Yes, you can lose points – even <strong>XP</strong>, but only for serious violations!<ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>Match loss:</strong> You lose Elo and Season Points (see above). You do <strong>not</strong> lose XP.</li><li><strong>Minor violations (e.g. not listening to instructions, not helping with setup):</strong><br/><strong>-10 Season Points</strong> and <strong>-5 XP</strong></li><li><strong>Medium violations (e.g. not training properly, messing around, throwing balls):</strong><br/><strong>-20 Season Points</strong> and <strong>-10 XP</strong></li><li><strong>Serious violations (e.g. disrespectful behavior towards coaches or fellow players):</strong><br/><strong>-30 Season Points</strong> and <strong>-20 XP</strong></li></ul><p class=\"mt-2\"><strong>Important:</strong> Penalties hit you twice – they deduct both Season Points and XP. So: Stay fair and treat each other respectfully!</p>",
+      "attendancePoints": "<p class=\"mb-3\"><strong>Points for Training Attendance:</strong></p><p>For each training you receive points (Season & XP). The amount depends on your \"streak\" – a series of consecutive trainings:</p><ul class=\"list-disc list-inside mt-2 space-y-1 mb-3\"><li><strong>Normal attendance (1-2x in a row):</strong> <strong>+3 points</strong></li><li><strong>Streak bonus (3-4x in a row):</strong> <strong>+5 points</strong></li><li><strong>Super streak (5x or more):</strong> <strong>+6 points</strong></li></ul><p class=\"mt-3 mb-3\"><strong>Multiple trainings on the same day:</strong></p><p>If you participate in <strong>multiple trainings on the same day</strong> (e.g. Basic Training 4-5 PM and Performance Training 5-6 PM), the following applies:</p><ul class=\"list-disc list-inside mt-2 space-y-1 mb-3\"><li><strong>1st training of the day:</strong> Full points (3/5/6 depending on streak)</li><li><strong>2nd training of the day:</strong> Half points (rounded up)<ul class=\"list-circle list-inside ml-6 mt-1 space-y-1 text-sm\"><li>3 points → 2 points (1.5 rounded up)</li><li>5 points → 3 points (2.5 rounded up)</li><li>6 points → 3 points</li></ul></li></ul><p class=\"mt-3\"><strong>Important:</strong> If you miss a training, your streak is reset to zero. Regular training pays off!</p>",
+      "exercisesPoints": "<p>Exercises are divided into <strong>three difficulty levels</strong>: Easy, Medium and Hard. The points you receive depend on both the difficulty of the exercise and your current level:</p><p class=\"mt-2\"><strong>Important:</strong> The higher your level, the more points you get for the same exercise. The system automatically calculates the points based on your current rank and the exercise difficulty.</p><p class=\"mt-2\">You receive both <strong>Season Points</strong> and <strong>XP</strong> in equal amounts.</p>",
+      "milestones": "<p>Some exercises and challenges use a <strong>tiered point system</strong> with milestones. This means: The more often you complete an exercise, the more points you can earn in total!</p><p class=\"mt-3\"><strong>Example: Endless Serve Exercise</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1 bg-indigo-50 p-3 rounded\"><li>1× completed → <strong>3 points</strong></li><li>3× completed → <strong>+5 points</strong> (total 8 points)</li><li>5× completed → <strong>+8 points</strong> (total 16 points)</li></ul><p class=\"mt-3\"><strong>How does it work?</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>The points are <strong>cumulative</strong> – you get all points up to the milestone reached.</li><li>Each milestone can only be reached <strong>once per season</strong>.</li><li>Your coach sees your current progress when awarding you points.</li><li>After the season reset (every 6 weeks) you can reach all milestones again!</li></ul>",
+      "seasonReset": "<p>Every <strong>6 weeks</strong> (42 days) a new season is started. The reset occurs <strong>automatically at midnight</strong>.</p><p class=\"mt-3\"><strong>What is reset?</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Season Points:</strong> Reset to 0</li><li><strong>League placements:</strong> Top 2 of each league advance, bottom 2 are relegated</li><li><strong>Milestone progress:</strong> All milestones can be reached again</li><li><strong>Completion status:</strong> Exercises and challenges can be completed again</li></ul><p class=\"mt-3\"><strong>What is retained?</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Singles Elo:</strong> Your singles skill rating remains permanent</li><li><strong>Doubles Elo:</strong> Your doubles skill rating remains permanent</li><li><strong>XP (Experience Points):</strong> Your effort is never reset</li><li><strong>Rank:</strong> Your rank (Recruit, Bronze, Silver...) is permanent</li><li><strong>Basic completions:</strong> The 5 basic exercises remain completed</li></ul><p class=\"mt-3\"><strong>Tip:</strong> On the dashboard you see a countdown to the next season reset. Use the time to quickly collect points and climb your league!</p>",
+      "ranksLeaderboard": "<p>Your rank (e.g. Recruit, Bronze, Silver) is <strong>permanent</strong> and is never reset. To advance in rank, you must reach certain milestones in <strong>Elo (Skill)</strong> and <strong>XP (Effort)</strong>.</p><p class=\"mt-2\"><strong>The ranks and their requirements:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>Recruit (Start):</strong> 0-49 XP, 1200 Elo, 0 basics<br/><em>You start here with 1200 Elo and 0 XP.</em></li><li><strong>Bronze:</strong> 50+ XP, 850+ Elo, 5 basics<br/><em>Learn the basics first before you're allowed to play matches!</em></li><li><strong>Silver:</strong> 200+ XP, 900+ Elo</li><li><strong>Gold:</strong> 500+ XP, 1000+ Elo</li><li><strong>Platinum:</strong> 1000+ XP, 1100+ Elo</li><li><strong>Champion:</strong> 1800+ XP, 1300+ Elo<br/><em>The elite - only the best make it here!</em></li></ul><p class=\"mt-2\"><strong>Important:</strong> You must always fulfill <strong>both</strong> requirements (Elo AND XP) for the next rank. For Bronze you must additionally complete 5 basic exercises.</p><p class=\"mt-2\"><strong>The Leaderboard is divided into several tabs:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Effort (XP):</strong> Shows the leaderboard based on experience points.</li><li><strong>Season (Points):</strong> Shows the current season leaderboard.</li><li><strong>Skill (Elo):</strong> Shows the leaderboard based on singles Elo points.</li><li><strong>Ranks (Level):</strong> Shows all players grouped by their current rank (e.g. all in Bronze, all in Silver).</li><li><strong>Doubles (Teams):</strong> Shows the doubles leaderboard with the best team combinations based on doubles Elo.</li></ul><p class=\"mt-2 text-sm italic text-gray-600\">You can configure which leaderboards you want to see in the Leaderboard tab.</p>"
+    }
+  },
+  "coachPage": {
+    "title": "Coach Dashboard",
+    "welcomeBack": "Welcome back!",
+    "switchToPlayer": "Switch to Player View",
+    "settings": "Settings",
+    "logout": "Logout",
+    "loading": "Loading...",
+    "tabs": {
+      "overview": "Overview",
+      "attendance": "Attendance",
+      "exercises": "Exercises",
+      "challenges": "Challenges",
+      "matches": "Matches",
+      "players": "Players"
+    },
+    "clubInfo": {
+      "noClub": "You are not assigned to a club",
+      "club": "Club"
+    },
+    "overview": {
+      "title": "Overview",
+      "statistics": "Statistics"
+    },
+    "attendance": {
+      "title": "Attendance",
+      "markPresent": "Mark present",
+      "selectTraining": "Select training",
+      "selectPlayers": "Select players"
+    },
+    "exercises": {
+      "title": "Exercises",
+      "create": "Create exercise",
+      "manage": "Manage exercises",
+      "assign": "Assign exercise"
+    },
+    "challenges": {
+      "title": "Challenges",
+      "create": "Create challenge",
+      "manage": "Manage challenges"
+    },
+    "matches": {
+      "title": "Matches",
+      "pending": "Pending",
+      "approve": "Approve",
+      "reject": "Reject"
+    },
+    "players": {
+      "title": "Players",
+      "list": "Player list",
+      "statistics": "Statistics",
+      "manage": "Manage"
+    }
   }
 }
