@@ -445,6 +445,59 @@ export async function handlePlayerListActions(e, supabase, currentUserData = nul
         }
         return;
     }
+
+    // Handle kick from club button (head_coach only)
+    if (button.classList.contains('kick-from-club-btn')) {
+        if (confirm(`Möchten Sie "${playerName}" wirklich aus dem Verein werfen?\n\nDer Spieler wird aus dem Verein entfernt und erhält eine Benachrichtigung.`)) {
+            try {
+                // Get club name for notification
+                const { data: clubData } = await supabase
+                    .from('clubs')
+                    .select('name')
+                    .eq('id', currentUserData?.clubId)
+                    .single();
+                const clubName = clubData?.name || 'dem Verein';
+
+                // Use RPC function to kick player from club (bypasses RLS)
+                const { data, error } = await supabase.rpc('kick_player_from_club', {
+                    p_player_id: playerId,
+                    p_head_coach_id: currentUserData?.id
+                });
+
+                if (error) throw error;
+
+                // Send notification to kicked player
+                await supabase
+                    .from('notifications')
+                    .insert({
+                        user_id: playerId,
+                        type: 'club_kicked',
+                        title: 'Aus dem Verein entfernt',
+                        message: `Du wurdest von ${currentUserData?.firstName || ''} ${currentUserData?.lastName || ''} aus ${clubName} entfernt.`,
+                        data: {
+                            club_name: clubName,
+                            kicked_by: currentUserData?.id,
+                            kicked_by_name: `${currentUserData?.firstName || ''} ${currentUserData?.lastName || ''}`.trim()
+                        },
+                        is_read: false
+                    });
+
+                // Log audit event
+                await logAuditEvent(supabase, 'user_kicked_from_club', currentUserData?.id, playerId, 'user', currentUserData?.clubId, null, {
+                    player_name: playerName,
+                    club_name: clubName,
+                    kicked_by: currentUserData?.firstName + ' ' + currentUserData?.lastName
+                });
+
+                alert(`${playerName} wurde aus dem Verein entfernt.`);
+                closePlayerDetailPanels();
+            } catch (error) {
+                console.error('Fehler beim Entfernen aus dem Verein:', error);
+                alert('Fehler: Der Spieler konnte nicht aus dem Verein entfernt werden. ' + (error.message || ''));
+            }
+        }
+        return;
+    }
 }
 
 /**
@@ -645,6 +698,11 @@ export function loadPlayerList(clubId, supabase, setUnsubscribe, currentUserData
                                 // Coach-Rechte entziehen - nur für Coaches
                                 if (player.role === 'coach') {
                                     actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="demote-player-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-orange-600 hover:bg-orange-100 hover:text-orange-900"><i class="fas fa-user-minus w-5 mr-2"></i> Coach-Rechte entziehen</button>`;
+                                }
+
+                                // Aus dem Verein werfen - für alle Online-Spieler und Coaches (nicht für head_coach oder sich selbst)
+                                if (!player.isOffline && player.role !== 'head_coach' && player.id !== currentUserData?.id) {
+                                    actionsHtml += `<button data-id="${player.id}" data-name="${player.firstName} ${player.lastName}" class="kick-from-club-btn block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-100 hover:text-red-900"><i class="fas fa-door-open w-5 mr-2"></i> Aus dem Verein werfen</button>`;
                                 }
 
                                 // Spieler löschen - nur für Offline-Spieler

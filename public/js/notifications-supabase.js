@@ -929,6 +929,7 @@ function getNotificationIcon(type) {
         'club_join_rejected': '<i class="fas fa-building text-red-500 text-lg"></i>',
         'club_leave_approved': '<i class="fas fa-door-open text-green-500 text-lg"></i>',
         'club_leave_rejected': '<i class="fas fa-door-open text-red-500 text-lg"></i>',
+        'club_kicked': '<i class="fas fa-user-slash text-red-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;
