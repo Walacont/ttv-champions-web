@@ -1124,7 +1124,7 @@ async function loadProfilePointsHistory() {
         const { data: history } = await supabase
             .from('points_history')
             .select('*')
-            .eq('player_id', profileId)
+            .eq('user_id', profileId)
             .order('created_at', { ascending: false })
             .limit(10);
 
@@ -1134,20 +1134,24 @@ async function loadProfilePointsHistory() {
         }
 
         container.innerHTML = history.map(entry => {
-            const date = new Date(entry.created_at).toLocaleDateString('de-DE');
-            const isPositive = entry.points_change >= 0;
-            const icon = entry.source_type === 'match' ? '🏓' :
-                        entry.source_type === 'exercise' ? '📚' :
-                        entry.source_type === 'challenge' ? '🏆' : '⭐';
+            const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE');
+            const pointsValue = entry.points || entry.points_change || 0;
+            const isPositive = pointsValue >= 0;
+            // Derive icon from reason text
+            const reason = entry.reason || entry.description || '';
+            const icon = reason.toLowerCase().includes('match') || reason.toLowerCase().includes('spiel') ? '🏓' :
+                        reason.toLowerCase().includes('übung') || reason.toLowerCase().includes('exercise') ? '📚' :
+                        reason.toLowerCase().includes('challenge') || reason.toLowerCase().includes('herausforderung') ? '🏆' :
+                        reason.toLowerCase().includes('training') ? '💪' : '⭐';
             return `
                 <li class="flex justify-between items-center py-2 border-b border-gray-100">
                     <div class="flex items-center gap-2">
                         <span>${icon}</span>
-                        <span class="text-gray-700">${escapeHtml(entry.description || entry.source_type)}</span>
+                        <span class="text-gray-700">${escapeHtml(reason || 'Punkte')}</span>
                     </div>
                     <div class="text-right">
                         <span class="${isPositive ? 'text-green-600' : 'text-red-600'} font-semibold">
-                            ${isPositive ? '+' : ''}${entry.points_change}
+                            ${isPositive ? '+' : ''}${pointsValue}
                         </span>
                         <span class="text-xs text-gray-400 ml-2">${date}</span>
                     </div>
