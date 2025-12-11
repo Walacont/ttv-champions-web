@@ -53,6 +53,9 @@ let currentAgeGroupFilter = 'all';
 // Cache for test club filtering
 let testClubIdsCache = null;
 
+// Cache for following IDs (for leaderboard filtering)
+let followingIdsCache = null;
+
 /**
  * Load test club IDs for filtering (with caching)
  */
@@ -73,6 +76,28 @@ async function loadTestClubIds() {
     }
 
     return testClubIdsCache;
+}
+
+/**
+ * Load following IDs for leaderboard filtering (with caching)
+ */
+async function loadFollowingIds() {
+    if (followingIdsCache !== null) return followingIdsCache;
+
+    try {
+        const { data: following } = await supabase
+            .from('friendships')
+            .select('addressee_id')
+            .eq('requester_id', currentUser.id)
+            .eq('status', 'accepted');
+
+        followingIdsCache = (following || []).map(f => f.addressee_id);
+    } catch (error) {
+        console.error('Error loading following IDs:', error);
+        followingIdsCache = [];
+    }
+
+    return followingIdsCache;
 }
 
 /**
@@ -549,7 +574,7 @@ function setupFilters() {
         // Note: Subgroups are loaded by populatePlayerSubgroupFilter() in initializeDashboard()
         // Do NOT call loadSubgroupsForFilter here - it causes duplicates
 
-        subgroupFilter.addEventListener('change', () => {
+        subgroupFilter.addEventListener('change', async () => {
             currentSubgroupFilter = subgroupFilter.value;
 
             // Update leaderboard scope based on filter selection
@@ -558,6 +583,11 @@ function setupFilters() {
             } else if (currentSubgroupFilter === 'club') {
                 // Club filter - use club scope (only for users with club)
                 currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
+            } else if (currentSubgroupFilter === 'following') {
+                // Following filter - use global scope to search across all players
+                currentLeaderboardScope = 'global';
+                // Pre-load following IDs
+                await loadFollowingIds();
             } else {
                 // For age groups and subgroups - use global if user has no club
                 // This allows users without clubs to filter by age across all players
@@ -948,6 +978,7 @@ async function loadLeaderboards() {
                     </label>
                     <select id="player-subgroup-filter" class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
                         <option value="club">🏠 Mein Verein</option>
+                        <option value="following">👥 Abonniert</option>
                         <option value="global">🌍 Global</option>
                     </select>
                 </div>
@@ -1168,7 +1199,21 @@ function renderRanksList() {
     const container = document.getElementById('ranks-list');
     if (!container) return;
 
-    const players = leaderboardCache[currentLeaderboardScope] || leaderboardCache.global || [];
+    let players = leaderboardCache[currentLeaderboardScope] || leaderboardCache.global || [];
+
+    // Apply following filter if selected
+    if (currentSubgroupFilter === 'following') {
+        if (followingIdsCache && followingIdsCache.length > 0) {
+            players = players.filter(p => followingIdsCache.includes(p.id));
+        } else {
+            players = [];
+        }
+    }
+
+    // Apply gender filter
+    if (currentGenderFilter !== 'all') {
+        players = players.filter(p => p.gender === currentGenderFilter);
+    }
 
     if (players.length === 0) {
         container.innerHTML = '<p class="text-center text-gray-500 py-8">Keine Spieler gefunden</p>';
@@ -1321,6 +1366,14 @@ function renderLeaderboardList() {
         // Apply custom subgroup filter
         const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
         players = players.filter(p => p.subgroup_ids && p.subgroup_ids.includes(subgroupId));
+    } else if (currentSubgroupFilter === 'following') {
+        // Apply following filter - only show players the user follows
+        if (followingIdsCache && followingIdsCache.length > 0) {
+            players = players.filter(p => followingIdsCache.includes(p.id));
+        } else {
+            // No following users - show empty
+            players = [];
+        }
     } else if (currentSubgroupFilter && ageGroupIds.includes(currentSubgroupFilter)) {
         // Apply age group filter from Ansicht dropdown
         players = players.filter(p => matchesAgeGroup(p.birthdate, currentSubgroupFilter));

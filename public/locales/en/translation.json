@@ -327,6 +327,7 @@
       "filter": {
         "view": "View",
         "myClub": "My Club",
+        "following": "Following",
         "global": "Global",
         "gender": "Gender",
         "all": "All",

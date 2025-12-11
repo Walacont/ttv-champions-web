@@ -327,6 +327,7 @@
       "filter": {
         "view": "Ansicht",
         "myClub": "Mein Verein",
+        "following": "Abonniert",
         "global": "Global",
         "gender": "Geschlecht",
         "all": "Alle",
