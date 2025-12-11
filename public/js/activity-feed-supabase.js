@@ -277,27 +277,14 @@ async function getUserIdsForFilter() {
     }
 
     if (currentFilter === 'following') {
-        // Get club members + followed users
-        let clubMemberIds = [];
-        if (currentUserData.club_id) {
-            const { data: clubMembers } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('club_id', currentUserData.club_id)
-                .neq('id', currentUser.id);
-
-            clubMemberIds = (clubMembers || []).map(m => m.id);
-        }
-
+        // Only get followed users (not club members)
         const { data: following } = await supabase
             .from('friendships')
             .select('addressee_id')
             .eq('requester_id', currentUser.id)
             .eq('status', 'accepted');
 
-        const followingIds = (following || []).map(f => f.addressee_id);
-
-        return [...new Set([...clubMemberIds, ...followingIds])];
+        return (following || []).map(f => f.addressee_id);
     }
 
     if (currentFilter.startsWith('club-')) {
@@ -323,7 +310,7 @@ function getEmptyMessage() {
         return 'Du hast noch keine Spiele gespielt';
     }
     if (currentFilter === 'following') {
-        return 'Folge anderen Spielern oder tritt einem Verein bei';
+        return 'Folge anderen Spielern um ihre Aktivitäten zu sehen';
     }
     return 'Keine Aktivitäten in diesem Verein';
 }
