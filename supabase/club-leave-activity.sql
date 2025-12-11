@@ -127,20 +127,17 @@ CREATE POLICY "Users can view activity events based on type and privacy"
 -- ============================================
 
 -- Update the club join/leave trigger function to handle both cases
+-- Note: Removed dependency on 'ranks' table as it may not exist
 CREATE OR REPLACE FUNCTION create_club_join_event()
 RETURNS TRIGGER AS $$
 DECLARE
     v_club_name TEXT;
-    v_rank_name TEXT;
     v_old_club_name TEXT;
 BEGIN
     -- Handle CLUB JOIN: club_id changed from NULL to a value, or changed to a different club
     IF (OLD.club_id IS DISTINCT FROM NEW.club_id) AND NEW.club_id IS NOT NULL THEN
         -- Get club name
         SELECT name INTO v_club_name FROM clubs WHERE id = NEW.club_id;
-
-        -- Get current rank name
-        SELECT name INTO v_rank_name FROM ranks WHERE id = NEW.rank_id;
 
         -- Insert club join activity event
         INSERT INTO activity_events (user_id, club_id, event_type, event_data)
@@ -151,8 +148,7 @@ BEGIN
             jsonb_build_object(
                 'club_name', COALESCE(v_club_name, 'Unbekannt'),
                 'display_name', COALESCE(NEW.display_name, NEW.first_name, 'Spieler'),
-                'avatar_url', NEW.avatar_url,
-                'rank_name', COALESCE(v_rank_name, 'Rekrut')
+                'avatar_url', NEW.avatar_url
             )
         );
     END IF;
