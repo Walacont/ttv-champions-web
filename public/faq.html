@@ -82,13 +82,14 @@
         <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-3xl">
             <header class="flex justify-between items-start mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900">FAQ & Regeln</h1>
-                    <p class="text-gray-600">Alles, was du über SC Champions wissen musst.</p>
+                    <h1 class="text-3xl font-bold text-gray-900" data-i18n="faq.title">FAQ & Regeln</h1>
+                    <p class="text-gray-600" data-i18n="faq.subtitle">Alles, was du über SC Champions wissen musst.</p>
                 </div>
                 <a
                     href="/dashboard.html"
                     id="back-link"
                     class="text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap pt-1"
+                    data-i18n="faq.backToDashboard"
                 >
                     &larr; Zurück zum Dashboard
                 </a>
@@ -96,11 +97,11 @@
 
             <div class="bg-white p-6 rounded-xl shadow-md space-y-6">
                 <div>
-                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Das Punktesystem</h2>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2" data-i18n="faq.sections.pointSystem">Das Punktesystem</h2>
                     <div class="space-y-4">
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.eloVsXp"
                                     >Was ist der Unterschied zwischen Elo, XP und
                                     Saison-Punkten?</span
                                 >
@@ -153,7 +154,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.qttrConversion"
                                     >Wie werden QTTR-Punkte in Elo umgerechnet?</span
                                 >
                                 <svg
@@ -199,7 +200,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.singlesPoints"
                                     >Wie funktionieren die Punkte bei Einzel-Matches?</span
                                 >
                                 <svg
@@ -251,7 +252,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Wie funktioniert das Handicap-System?</span>
+                                <span class="font-medium" data-i18n="faq.questions.handicapSystem">Wie funktioniert das Handicap-System?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -318,7 +319,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Wie funktionieren Doppel-Matches?</span>
+                                <span class="font-medium" data-i18n="faq.questions.doublesMatches">Wie funktionieren Doppel-Matches?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -419,7 +420,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Kann ich auch Punkte verlieren?</span>
+                                <span class="font-medium" data-i18n="faq.questions.losePoints">Kann ich auch Punkte verlieren?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -479,11 +480,11 @@
                 </div>
 
                 <div>
-                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Spielmechaniken</h2>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2" data-i18n="faq.sections.gameMechanics">Spielmechaniken</h2>
                     <div class="space-y-4">
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.attendancePoints"
                                     >Wie funktioniert das Anwesenheits-Punktesystem?</span
                                 >
                                 <svg
@@ -573,7 +574,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.exercisesPoints"
                                     >Wie funktionieren Übungen und Punkte?</span
                                 >
                                 <svg
@@ -697,7 +698,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.milestones"
                                     >Was sind Meilenstein-Übungen und -Challenges?</span
                                 >
                                 <svg
@@ -811,7 +812,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Wie funktioniert der Saison-Reset?</span>
+                                <span class="font-medium" data-i18n="faq.questions.seasonReset">Wie funktioniert der Saison-Reset?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -886,7 +887,7 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.ranksLeaderboard"
                                     >Wie funktionieren die Ränge und das Leaderboard?</span
                                 >
                                 <svg
@@ -982,6 +983,19 @@
                 </div>
             </div>
         </div>
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Firebase: <script type="module" src="/js/faq.js"></script> -->

@@ -761,5 +761,80 @@
     "emailPlaceholder": "Deine E-Mail-Adresse",
     "sendNewLink": "Neuen Link senden",
     "toHomepage": "Zur Startseite"
+  },
+  "faq": {
+    "title": "FAQ & Regeln",
+    "subtitle": "Alles, was du über SC Champions wissen musst.",
+    "backToDashboard": "Zurück zum Dashboard",
+    "sections": {
+      "pointSystem": "Das Punktesystem",
+      "gameMechanics": "Spielmechaniken"
+    },
+    "questions": {
+      "eloVsXp": "Was ist der Unterschied zwischen Elo, XP und Saison-Punkten?",
+      "qttrConversion": "Wie werden QTTR-Punkte in Elo umgerechnet?",
+      "singlesPoints": "Wie funktionieren die Punkte bei Einzel-Matches?",
+      "handicapSystem": "Wie funktioniert das Handicap-System?",
+      "doublesMatches": "Wie funktionieren Doppel-Matches?",
+      "losePoints": "Kann ich auch Punkte verlieren?",
+      "attendancePoints": "Wie funktioniert das Anwesenheits-Punktesystem?",
+      "exercisesPoints": "Wie funktionieren Übungen und Punkte?",
+      "milestones": "Was sind Meilenstein-Übungen und -Challenges?",
+      "seasonReset": "Wie funktioniert der Saison-Reset?",
+      "ranksLeaderboard": "Wie funktionieren die Ränge und das Leaderboard?"
+    }
+  },
+  "coachPage": {
+    "title": "Coach Dashboard",
+    "welcomeBack": "Willkommen zurück!",
+    "switchToPlayer": "Zur Spieler-Ansicht",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "loading": "Lade...",
+    "tabs": {
+      "overview": "Übersicht",
+      "attendance": "Anwesenheit",
+      "exercises": "Übungen",
+      "challenges": "Challenges",
+      "matches": "Wettkämpfe",
+      "players": "Spieler"
+    },
+    "clubInfo": {
+      "noClub": "Du bist keinem Verein zugeordnet",
+      "club": "Verein"
+    },
+    "overview": {
+      "title": "Übersicht",
+      "statistics": "Statistiken"
+    },
+    "attendance": {
+      "title": "Anwesenheit",
+      "markPresent": "Anwesend markieren",
+      "selectTraining": "Training auswählen",
+      "selectPlayers": "Spieler auswählen"
+    },
+    "exercises": {
+      "title": "Übungen",
+      "create": "Übung erstellen",
+      "manage": "Übungen verwalten",
+      "assign": "Übung zuweisen"
+    },
+    "challenges": {
+      "title": "Challenges",
+      "create": "Challenge erstellen",
+      "manage": "Challenges verwalten"
+    },
+    "matches": {
+      "title": "Wettkämpfe",
+      "pending": "Ausstehend",
+      "approve": "Genehmigen",
+      "reject": "Ablehnen"
+    },
+    "players": {
+      "title": "Spieler",
+      "list": "Spielerliste",
+      "statistics": "Statistiken",
+      "manage": "Verwalten"
+    }
   }
 }

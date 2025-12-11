@@ -761,5 +761,80 @@
     "emailPlaceholder": "Your email address",
     "sendNewLink": "Send new link",
     "toHomepage": "Go to homepage"
+  },
+  "faq": {
+    "title": "FAQ & Rules",
+    "subtitle": "Everything you need to know about SC Champions.",
+    "backToDashboard": "Back to Dashboard",
+    "sections": {
+      "pointSystem": "The Point System",
+      "gameMechanics": "Game Mechanics"
+    },
+    "questions": {
+      "eloVsXp": "What is the difference between Elo, XP and Season Points?",
+      "qttrConversion": "How are QTTR points converted to Elo?",
+      "singlesPoints": "How do points work in singles matches?",
+      "handicapSystem": "How does the handicap system work?",
+      "doublesMatches": "How do doubles matches work?",
+      "losePoints": "Can I lose points?",
+      "attendancePoints": "How does the attendance point system work?",
+      "exercisesPoints": "How do exercises and points work?",
+      "milestones": "What are milestone exercises and challenges?",
+      "seasonReset": "How does the season reset work?",
+      "ranksLeaderboard": "How do ranks and the leaderboard work?"
+    }
+  },
+  "coachPage": {
+    "title": "Coach Dashboard",
+    "welcomeBack": "Welcome back!",
+    "switchToPlayer": "Switch to Player View",
+    "settings": "Settings",
+    "logout": "Logout",
+    "loading": "Loading...",
+    "tabs": {
+      "overview": "Overview",
+      "attendance": "Attendance",
+      "exercises": "Exercises",
+      "challenges": "Challenges",
+      "matches": "Matches",
+      "players": "Players"
+    },
+    "clubInfo": {
+      "noClub": "You are not assigned to a club",
+      "club": "Club"
+    },
+    "overview": {
+      "title": "Overview",
+      "statistics": "Statistics"
+    },
+    "attendance": {
+      "title": "Attendance",
+      "markPresent": "Mark present",
+      "selectTraining": "Select training",
+      "selectPlayers": "Select players"
+    },
+    "exercises": {
+      "title": "Exercises",
+      "create": "Create exercise",
+      "manage": "Manage exercises",
+      "assign": "Assign exercise"
+    },
+    "challenges": {
+      "title": "Challenges",
+      "create": "Create challenge",
+      "manage": "Manage challenges"
+    },
+    "matches": {
+      "title": "Matches",
+      "pending": "Pending",
+      "approve": "Approve",
+      "reject": "Reject"
+    },
+    "players": {
+      "title": "Players",
+      "list": "Player list",
+      "statistics": "Statistics",
+      "manage": "Manage"
+    }
   }
 }
