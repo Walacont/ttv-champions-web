@@ -1,6 +1,22 @@
 -- Activity Events Table
 -- Stores non-match activities like club joins, rank ups, achievements, etc.
 -- This complements the existing match-based activity feed
+--
+-- VISIBILITY RULES:
+-- ==================
+-- club_join events:
+--   - Only visible to club members
+--   - Respects privacy: if user has searchable='none', no one sees the event
+--
+-- rank_up events:
+--   - Visibility depends on privacy_settings.searchable:
+--     * 'global' (default): visible to club members AND followers
+--     * 'club_only': only visible to club members
+--     * 'friends_only': only visible to followers
+--     * 'none': invisible to everyone (except the user themselves)
+--
+-- milestone/achievement events:
+--   - Same visibility rules as rank_up events
 
 CREATE TABLE IF NOT EXISTS activity_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,17 +39,101 @@ CREATE INDEX IF NOT EXISTS idx_activity_events_type ON activity_events(event_typ
 -- Enable RLS
 ALTER TABLE activity_events ENABLE ROW LEVEL SECURITY;
 
--- Policies: Users can read events from their club or from users they follow
-CREATE POLICY "Users can view activity events from their club"
+-- Policies: Granular visibility based on event type and privacy settings
+CREATE POLICY "Users can view activity events based on type and privacy"
     ON activity_events FOR SELECT
     USING (
-        club_id IN (
-            SELECT club_id FROM profiles WHERE id = auth.uid()
-        )
-        OR user_id = auth.uid()
-        OR user_id IN (
-            SELECT addressee_id FROM friendships
-            WHERE requester_id = auth.uid() AND status = 'accepted'
+        -- User can always see their own events
+        user_id = auth.uid()
+        OR
+        -- Check privacy settings and event type
+        EXISTS (
+            SELECT 1 FROM profiles p
+            WHERE p.id = activity_events.user_id
+            -- User must not be invisible (searchable = 'none')
+            AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none'
+            AND (
+                -- club_join events: Only visible to club members
+                (
+                    activity_events.event_type = 'club_join'
+                    AND activity_events.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                )
+                OR
+                -- rank_up events: Visible based on privacy settings
+                (
+                    activity_events.event_type = 'rank_up'
+                    AND (
+                        -- If searchable = 'global': visible to club members and followers
+                        (
+                            COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
+                            AND (
+                                -- Club members can see it
+                                p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                                OR
+                                -- Followers can see it
+                                EXISTS (
+                                    SELECT 1 FROM friendships
+                                    WHERE requester_id = auth.uid()
+                                    AND addressee_id = activity_events.user_id
+                                    AND status = 'accepted'
+                                )
+                            )
+                        )
+                        OR
+                        -- If searchable = 'club_only': only club members can see it
+                        (
+                            p.privacy_settings->>'searchable' = 'club_only'
+                            AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                        )
+                        OR
+                        -- If searchable = 'friends_only': only followers can see it
+                        (
+                            p.privacy_settings->>'searchable' = 'friends_only'
+                            AND EXISTS (
+                                SELECT 1 FROM friendships
+                                WHERE requester_id = auth.uid()
+                                AND addressee_id = activity_events.user_id
+                                AND status = 'accepted'
+                            )
+                        )
+                    )
+                )
+                OR
+                -- milestone and achievement events: same as rank_up
+                (
+                    activity_events.event_type IN ('milestone', 'achievement')
+                    AND (
+                        (
+                            COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
+                            AND (
+                                p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                                OR
+                                EXISTS (
+                                    SELECT 1 FROM friendships
+                                    WHERE requester_id = auth.uid()
+                                    AND addressee_id = activity_events.user_id
+                                    AND status = 'accepted'
+                                )
+                            )
+                        )
+                        OR
+                        (
+                            p.privacy_settings->>'searchable' = 'club_only'
+                            AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
+                        )
+                        OR
+                        (
+                            p.privacy_settings->>'searchable' = 'friends_only'
+                            AND EXISTS (
+                                SELECT 1 FROM friendships
+                                WHERE requester_id = auth.uid()
+                                AND addressee_id = activity_events.user_id
+                                AND status = 'accepted'
+                            )
+                        )
+                    )
+                )
+            )
         )
     );
 
