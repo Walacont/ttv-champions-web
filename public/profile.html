@@ -54,6 +54,15 @@
             .stat-card:hover {
                 transform: translateY(-2px);
             }
+            /* Ensure scrolling works */
+            html, body {
+                overflow-y: auto;
+                min-height: 100%;
+            }
+            #main-content {
+                overflow-y: auto;
+                padding-bottom: env(safe-area-inset-bottom, 20px);
+            }
         </style>
     </head>
     <body class="bg-gray-100 text-gray-800">
@@ -148,14 +157,14 @@
 
                         <!-- Follower Stats -->
                         <div class="flex justify-center gap-8 mt-4 pt-4 border-t">
-                            <div class="text-center">
+                            <a id="following-link" href="#" class="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition cursor-pointer">
                                 <span id="following-count" class="text-xl font-bold text-gray-900">0</span>
                                 <p class="text-sm text-gray-500">Gefolgt</p>
-                            </div>
-                            <div class="text-center">
+                            </a>
+                            <a id="followers-link" href="#" class="text-center hover:bg-gray-50 px-4 py-2 rounded-lg transition cursor-pointer">
                                 <span id="followers-count" class="text-xl font-bold text-gray-900">0</span>
                                 <p class="text-sm text-gray-500">Abonnenten</p>
-                            </div>
+                            </a>
                         </div>
                     </div>
 
