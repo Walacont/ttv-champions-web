@@ -373,10 +373,21 @@ async function fetchActivities(userIds) {
 
     if (doublesError) console.warn('Error fetching doubles:', doublesError);
 
-    // Combine and normalize matches
+    // Load activity events (club joins, rank ups, etc.)
+    const { data: activityEvents, error: eventsError } = await supabase
+        .from('activity_events')
+        .select('*')
+        .in('user_id', userIds)
+        .order('created_at', { ascending: false })
+        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+
+    if (eventsError) console.warn('Error fetching activity events:', eventsError);
+
+    // Combine and normalize all activities
     const allActivities = [
-        ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
-        ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
+        ...(singlesMatches || []).map(m => ({ ...m, activityType: 'singles' })),
+        ...(doublesMatches || []).map(m => ({ ...m, activityType: 'doubles' })),
+        ...(activityEvents || []).map(e => ({ ...e, activityType: e.event_type }))
     ];
 
     // Sort by date descending
@@ -389,18 +400,19 @@ async function fetchActivities(userIds) {
         return [];
     }
 
-    // Collect all player IDs
+    // Collect all player IDs from matches (not from events, those have embedded data)
     const playerIds = new Set();
     activities.forEach(m => {
-        if (m.matchType === 'singles') {
+        if (m.activityType === 'singles') {
             playerIds.add(m.player_a_id);
             playerIds.add(m.player_b_id);
-        } else {
+        } else if (m.activityType === 'doubles') {
             playerIds.add(m.team_a_player1_id);
             playerIds.add(m.team_a_player2_id);
             playerIds.add(m.team_b_player1_id);
             playerIds.add(m.team_b_player2_id);
         }
+        // For events (club_join, rank_up), user data is in event_data
     });
 
     // Get player profiles
@@ -476,11 +488,16 @@ async function loadMoreActivities() {
  * Render a single activity card
  */
 function renderActivityCard(activity) {
-    if (activity.matchType === 'doubles') {
+    if (activity.activityType === 'doubles') {
         return renderDoublesActivityCard(activity, activity.profileMap, activity.followingIds);
-    } else {
+    } else if (activity.activityType === 'singles') {
         return renderSinglesActivityCard(activity, activity.profileMap, activity.followingIds);
+    } else if (activity.activityType === 'club_join') {
+        return renderClubJoinCard(activity);
+    } else if (activity.activityType === 'rank_up') {
+        return renderRankUpCard(activity);
     }
+    return ''; // Unknown activity type
 }
 
 /**
@@ -882,4 +899,125 @@ function getDisplayName(profile) {
     }
     if (profile.first_name) return profile.first_name;
     return 'Spieler';
+}
+
+/**
+ * Render a club join activity card
+ */
+function renderClubJoinCard(activity) {
+    const eventData = activity.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const clubName = eventData.club_name || 'Unbekannt';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const rankName = eventData.rank_name || 'Rekrut';
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-blue-100">
+            <div class="flex items-start gap-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-blue-400"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fas fa-building text-blue-600"></i>
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        <span class="text-gray-600 text-sm">ist dem Verein</span>
+                        <span class="font-semibold text-blue-700">${clubName}</span>
+                        <span class="text-gray-600 text-sm">beigetreten</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            ${rankName}
+                        </span>
+                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    <div class="mt-2 text-sm text-gray-600">
+                        <i class="fas fa-handshake text-blue-500 mr-1"></i>
+                        Willkommen im Team!
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a rank up activity card
+ */
+function renderRankUpCard(activity) {
+    const eventData = activity.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const rankName = eventData.rank_name || 'Unbekannt';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const eloRating = eventData.elo_rating || 0;
+    const xp = eventData.xp || 0;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    // Get rank color based on rank name
+    const rankColors = {
+        'Rekrut': 'gray',
+        'Bronze': 'amber',
+        'Silber': 'gray',
+        'Gold': 'yellow',
+        'Platin': 'cyan',
+        'Champion': 'purple'
+    };
+    const colorScheme = rankColors[rankName] || 'indigo';
+
+    return `
+        <div class="bg-gradient-to-r from-${colorScheme}-50 to-${colorScheme}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colorScheme}-200">
+            <div class="flex items-start gap-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-${colorScheme}-400"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="absolute -bottom-1 -right-1 bg-${colorScheme}-500 rounded-full p-1">
+                        <i class="fas fa-arrow-up text-white text-xs"></i>
+                    </div>
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fas fa-trophy text-${colorScheme}-600"></i>
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        <span class="text-gray-600 text-sm">erreichte</span>
+                        <span class="font-bold text-${colorScheme}-700">${rankName}</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-${colorScheme}-200 text-${colorScheme}-800">
+                            <i class="fas fa-star mr-1"></i>${rankName}
+                        </span>
+                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    <div class="mt-2 flex items-center gap-4 text-sm text-gray-600">
+                        <span><i class="fas fa-chart-line text-${colorScheme}-500 mr-1"></i>${Math.round(eloRating)} Elo</span>
+                        <span><i class="fas fa-star text-${colorScheme}-500 mr-1"></i>${xp} XP</span>
+                    </div>
+
+                    <div class="mt-2 text-sm text-gray-600 italic">
+                        <i class="fas fa-fire text-orange-500 mr-1"></i>
+                        Glückwunsch zum Rangaufstieg!
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }

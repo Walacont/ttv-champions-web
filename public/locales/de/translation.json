@@ -216,6 +216,17 @@
         "all": "Alle Aktivitäten",
         "following": "Abonniert",
         "myActivities": "Meine Aktivitäten"
+      },
+      "events": {
+        "clubJoin": {
+          "joined": "ist dem Verein",
+          "beigetreten": "beigetreten",
+          "welcome": "Willkommen im Team!"
+        },
+        "rankUp": {
+          "achieved": "erreichte",
+          "congratulations": "Glückwunsch zum Rangaufstieg!"
+        }
       }
     },
     "training": {
