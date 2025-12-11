@@ -111,6 +111,7 @@ function updateTabUI() {
 
 /**
  * Load connections based on current tab
+ * Uses RPC functions to respect privacy settings
  */
 async function loadConnections() {
     const container = document.getElementById('connections-list');
@@ -130,28 +131,35 @@ async function loadConnections() {
     try {
         const supabase = getSupabase();
         let users = [];
+        let accessDenied = false;
+        let privacyMessage = '';
+
+        // Use RPC functions to respect privacy settings
+        const viewerId = currentUser?.id || null;
 
         if (currentTab === 'following') {
-            // Get users that this profile follows (requester_id = profileUserId)
-            const { data: friendships, error } = await supabase
-                .from('friendships')
-                .select(`
-                    id,
-                    addressee_id,
-                    addressee:profiles!friendships_addressee_id_fkey(
-                        id, first_name, last_name, avatar_url, club_id,
-                        clubs(name)
-                    )
-                `)
-                .eq('requester_id', profileUserId)
-                .eq('status', 'accepted');
+            // Get users that this profile follows
+            const { data, error } = await supabase.rpc('get_user_following', {
+                p_profile_id: profileUserId,
+                p_viewer_id: viewerId
+            });
 
-            if (error) throw error;
-
-            users = (friendships || []).map(f => ({
-                ...f.addressee,
-                friendshipId: f.id
-            }));
+            if (error) {
+                console.error('[Connections] RPC error:', error);
+                // Fallback to empty if RPC doesn't exist yet
+                if (error.code === '42883') {
+                    // Function doesn't exist, show access denied
+                    accessDenied = true;
+                    privacyMessage = 'Verbindungsliste nicht verfügbar';
+                } else {
+                    throw error;
+                }
+            } else if (data?.access_denied) {
+                accessDenied = true;
+                privacyMessage = data.message;
+            } else if (data?.success) {
+                users = data.following || [];
+            }
 
             // Update header
             if (isOwnProfile) {
@@ -163,26 +171,26 @@ async function loadConnections() {
             }
 
         } else {
-            // Get users that follow this profile (addressee_id = profileUserId)
-            const { data: friendships, error } = await supabase
-                .from('friendships')
-                .select(`
-                    id,
-                    requester_id,
-                    requester:profiles!friendships_requester_id_fkey(
-                        id, first_name, last_name, avatar_url, club_id,
-                        clubs(name)
-                    )
-                `)
-                .eq('addressee_id', profileUserId)
-                .eq('status', 'accepted');
+            // Get users that follow this profile
+            const { data, error } = await supabase.rpc('get_user_followers', {
+                p_profile_id: profileUserId,
+                p_viewer_id: viewerId
+            });
 
-            if (error) throw error;
-
-            users = (friendships || []).map(f => ({
-                ...f.requester,
-                friendshipId: f.id
-            }));
+            if (error) {
+                console.error('[Connections] RPC error:', error);
+                if (error.code === '42883') {
+                    accessDenied = true;
+                    privacyMessage = 'Verbindungsliste nicht verfügbar';
+                } else {
+                    throw error;
+                }
+            } else if (data?.access_denied) {
+                accessDenied = true;
+                privacyMessage = data.message;
+            } else if (data?.success) {
+                users = data.followers || [];
+            }
 
             // Update header
             if (isOwnProfile) {
@@ -192,6 +200,18 @@ async function loadConnections() {
                 sectionHeader.textContent = `Abonnenten von ${profileUserName || 'diesem Nutzer'}`;
                 emptyMessage.textContent = `${profileUserName || 'Dieser Nutzer'} hat noch keine Abonnenten`;
             }
+        }
+
+        // Handle access denied
+        if (accessDenied) {
+            container.innerHTML = `
+                <div class="p-8 text-center">
+                    <i class="fas fa-lock text-4xl text-gray-300 mb-4"></i>
+                    <p class="text-gray-600 font-medium">${escapeHtml(privacyMessage)}</p>
+                    ${!currentUser ? '<p class="text-sm text-gray-400 mt-2">Melde dich an, um mehr zu sehen</p>' : ''}
+                </div>
+            `;
+            return;
         }
 
         if (users.length === 0) {
@@ -240,7 +260,8 @@ function renderUsers(users, followStatuses) {
     const html = users.map(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unbekannt';
         const avatar = user.avatar_url || DEFAULT_AVATAR;
-        const clubName = user.clubs?.name || '';
+        // Support both RPC format (club_name) and direct query format (clubs.name)
+        const clubName = user.club_name || user.clubs?.name || '';
         const isMe = currentUser && user.id === currentUser.id;
         const followStatus = followStatuses[user.id]; // 'accepted', 'pending', or undefined
 
