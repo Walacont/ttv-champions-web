@@ -461,7 +461,7 @@
                                 id="activity-filter-btn"
                                 class="flex items-center justify-between w-full max-w-xs bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-left shadow-sm hover:bg-gray-50 transition"
                             >
-                                <span id="activity-filter-label" class="font-medium text-gray-800">Abonniert</span>
+                                <span id="activity-filter-label" class="font-medium text-gray-800">Alle Aktivitäten</span>
                                 <i class="fas fa-chevron-down text-gray-400 ml-2"></i>
                             </button>
                             <div
@@ -470,10 +470,17 @@
                             >
                                 <button
                                     class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
+                                    data-filter="all"
+                                >
+                                    <span>Alle Aktivitäten</span>
+                                    <i class="fas fa-check text-indigo-600 filter-check"></i>
+                                </button>
+                                <button
+                                    class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
                                     data-filter="following"
                                 >
                                     <span>Abonniert</span>
-                                    <i class="fas fa-check text-indigo-600 filter-check"></i>
+                                    <i class="fas fa-check text-indigo-600 filter-check hidden"></i>
                                 </button>
                                 <button
                                     class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"

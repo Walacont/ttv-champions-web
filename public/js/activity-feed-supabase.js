@@ -20,7 +20,7 @@ let hasMoreActivities = true;
 let infiniteScrollObserver = null;
 let followingIdsCache = null;
 let followedClubsCache = null;
-let currentFilter = 'following'; // 'following', 'my-activities', or club id
+let currentFilter = 'all'; // 'all', 'following', 'my-activities', or club id
 const ACTIVITIES_PER_PAGE = 8;
 
 /**
@@ -35,7 +35,7 @@ export function initActivityFeedModule(user, userData) {
     hasMoreActivities = true;
     followingIdsCache = null;
     followedClubsCache = null;
-    currentFilter = 'following';
+    currentFilter = 'all';
 
     // Setup global toggle like function
     window.toggleActivityLike = toggleActivityLike;
@@ -287,6 +287,32 @@ async function getUserIdsForFilter() {
         return (following || []).map(f => f.addressee_id);
     }
 
+    if (currentFilter === 'all') {
+        // Combine: own activities + followed users + club members
+        const userIds = new Set([currentUser.id]);
+
+        // Get followed users
+        const { data: following } = await supabase
+            .from('friendships')
+            .select('addressee_id')
+            .eq('requester_id', currentUser.id)
+            .eq('status', 'accepted');
+
+        (following || []).forEach(f => userIds.add(f.addressee_id));
+
+        // Get club members if user is in a club
+        if (currentUserData.club_id) {
+            const { data: clubMembers } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('club_id', currentUserData.club_id);
+
+            (clubMembers || []).forEach(m => userIds.add(m.id));
+        }
+
+        return [...userIds];
+    }
+
     if (currentFilter.startsWith('club-')) {
         // Filter by specific club
         const clubId = currentFilter.replace('club-', '');
@@ -311,6 +337,9 @@ function getEmptyMessage() {
     }
     if (currentFilter === 'following') {
         return 'Folge anderen Spielern um ihre Aktivitäten zu sehen';
+    }
+    if (currentFilter === 'all') {
+        return 'Noch keine Aktivitäten vorhanden';
     }
     return 'Keine Aktivitäten in diesem Verein';
 }
