@@ -118,6 +118,78 @@ async function refreshNotificationModal(userId) {
 }
 
 /**
+ * Check and mark match request notifications as read if the match is already confirmed
+ * @param {string} userId - Current user's ID
+ * @param {Array} notifications - Array of notifications to check
+ * @returns {Array} - Updated notifications array with is_read updated for confirmed matches
+ */
+async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
+    const db = getSupabase();
+    if (!db || !notifications || notifications.length === 0) return notifications;
+
+    // Find all unread match_request notifications
+    const unreadMatchRequestNotifs = notifications.filter(n =>
+        n.type === 'match_request' && !n.is_read
+    );
+
+    if (unreadMatchRequestNotifs.length === 0) return notifications;
+
+    // Get all request IDs from these notifications
+    const requestIds = unreadMatchRequestNotifs
+        .map(n => n.data?.request_id)
+        .filter(id => id);
+
+    if (requestIds.length === 0) return notifications;
+
+    try {
+        // Check status of these match requests
+        const { data: matchRequests } = await db
+            .from('match_requests')
+            .select('id, status')
+            .in('id', requestIds);
+
+        // Create a map of request statuses
+        const requestStatusMap = {};
+        (matchRequests || []).forEach(mr => {
+            requestStatusMap[mr.id] = mr.status;
+        });
+
+        // Find notifications that should be marked as read (approved, rejected, or deleted)
+        const notificationsToMarkRead = [];
+        for (const notif of unreadMatchRequestNotifs) {
+            const requestId = notif.data?.request_id;
+            if (!requestId) continue;
+
+            const status = requestStatusMap[requestId];
+            // If request doesn't exist (deleted) or is approved/rejected, mark notification as read
+            if (!status || status === 'approved' || status === 'rejected') {
+                notificationsToMarkRead.push(notif.id);
+            }
+        }
+
+        // Mark these notifications as read in the database
+        if (notificationsToMarkRead.length > 0) {
+            await db
+                .from('notifications')
+                .update({ is_read: true })
+                .in('id', notificationsToMarkRead);
+
+            // Update the notifications array to reflect the change
+            return notifications.map(n => {
+                if (notificationsToMarkRead.includes(n.id)) {
+                    return { ...n, is_read: true };
+                }
+                return n;
+            });
+        }
+    } catch (error) {
+        console.error('Error checking confirmed match requests:', error);
+    }
+
+    return notifications;
+}
+
+/**
  * Update the notification badge count
  */
 async function updateNotificationBadge(userId) {
@@ -188,7 +260,7 @@ async function showNotificationModal(userId) {
     if (!db) return;
 
     // Fetch recent notifications
-    const { data: notifications, error } = await db
+    const { data: rawNotifications, error } = await db
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
@@ -200,6 +272,12 @@ async function showNotificationModal(userId) {
         notificationModalOpen = false;
         return;
     }
+
+    // Check and mark confirmed match request notifications as read
+    const notifications = await checkAndMarkConfirmedMatchRequests(userId, rawNotifications);
+
+    // Update badge count if any notifications were marked as read
+    updateNotificationBadge(userId);
 
     // Create modal
     const modal = document.createElement('div');
@@ -752,15 +830,26 @@ function renderFollowRequestActions(notification) {
         `;
     }
 
-    // Handle match requests - show hint to go to Wettkampf tab
-    if (isMatchRequest(notification.type) && !notification.is_read) {
-        return `
-            <div class="match-request-hint mt-2">
-                <span class="text-xs text-indigo-600 font-medium">
-                    <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zum Wettkampf-Tab zu gelangen
-                </span>
-            </div>
-        `;
+    // Handle match requests - show hint to go to Wettkampf tab or status if already handled
+    if (isMatchRequest(notification.type)) {
+        if (!notification.is_read) {
+            return `
+                <div class="match-request-hint mt-2">
+                    <span class="text-xs text-indigo-600 font-medium">
+                        <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zum Wettkampf-Tab zu gelangen
+                    </span>
+                </div>
+            `;
+        } else {
+            // Match request has already been handled (confirmed/rejected/withdrawn)
+            return `
+                <div class="match-request-status mt-2">
+                    <span class="text-xs text-gray-500">
+                        <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
+                    </span>
+                </div>
+            `;
+        }
     }
 
     return '';
