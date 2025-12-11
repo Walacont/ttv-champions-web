@@ -1135,25 +1135,37 @@ async function loadProfilePointsHistory() {
 
         container.innerHTML = history.map(entry => {
             const date = new Date(entry.created_at || entry.timestamp).toLocaleDateString('de-DE');
-            const pointsValue = entry.points || entry.points_change || 0;
-            const isPositive = pointsValue >= 0;
-            // Derive icon from reason text
-            const reason = entry.reason || entry.description || '';
-            const icon = reason.toLowerCase().includes('match') || reason.toLowerCase().includes('spiel') ? '🏓' :
-                        reason.toLowerCase().includes('übung') || reason.toLowerCase().includes('exercise') ? '📚' :
-                        reason.toLowerCase().includes('challenge') || reason.toLowerCase().includes('herausforderung') ? '🏆' :
-                        reason.toLowerCase().includes('training') ? '💪' : '⭐';
+            const reason = entry.reason || entry.description || 'Punkte';
+
+            // Get point values
+            const points = entry.points || 0;
+            const xp = entry.xp !== undefined ? entry.xp : points;
+            const elo = entry.elo_change || 0;
+
+            // Helper function for color classes
+            const getColorClass = (value) => {
+                if (value > 0) return 'text-green-600';
+                if (value < 0) return 'text-red-600';
+                return 'text-gray-500';
+            };
+
+            // Helper function for sign
+            const getSign = (value) => {
+                if (value > 0) return '+';
+                if (value < 0) return '';
+                return '±';
+            };
+
             return `
-                <li class="flex justify-between items-center py-2 border-b border-gray-100">
-                    <div class="flex items-center gap-2">
-                        <span>${icon}</span>
-                        <span class="text-gray-700">${escapeHtml(reason || 'Punkte')}</span>
-                    </div>
-                    <div class="text-right">
-                        <span class="${isPositive ? 'text-green-600' : 'text-red-600'} font-semibold">
-                            ${isPositive ? '+' : ''}${pointsValue}
-                        </span>
+                <li class="flex justify-between items-center py-3 border-b border-gray-100">
+                    <div class="flex-1 min-w-0">
+                        <span class="text-gray-700 text-sm">${escapeHtml(reason)}</span>
                         <span class="text-xs text-gray-400 ml-2">${date}</span>
+                    </div>
+                    <div class="flex gap-3 text-sm font-semibold flex-shrink-0">
+                        <span class="${getColorClass(elo)}" title="Elo">${getSign(elo)}${elo}</span>
+                        <span class="${getColorClass(xp)}" title="XP">${getSign(xp)}${xp}</span>
+                        <span class="${getColorClass(points)}" title="Saison">${getSign(points)}${points}</span>
                     </div>
                 </li>
             `;
