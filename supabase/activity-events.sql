@@ -2,6 +2,10 @@
 -- Stores non-match activities like club joins, rank ups, achievements, etc.
 -- This complements the existing match-based activity feed
 --
+-- IMPORTANT: Ranks are NOT stored in the database!
+-- Ranks are calculated dynamically from: elo_rating + xp + grundlagen_completed
+-- The calculate_rank() function mirrors the JavaScript logic in ranks.js
+--
 -- VISIBILITY RULES:
 -- ==================
 -- club_join events:
@@ -146,6 +150,44 @@ CREATE POLICY "System can insert activity events"
 ALTER PUBLICATION supabase_realtime ADD TABLE activity_events;
 
 -- ============================================
+-- HELPER FUNCTION: Calculate rank from stats
+-- ============================================
+
+-- SQL function to mirror the JavaScript calculateRank logic
+CREATE OR REPLACE FUNCTION calculate_rank(p_elo INTEGER, p_xp INTEGER, p_grundlagen INTEGER)
+RETURNS TEXT AS $$
+BEGIN
+    -- Champion: 1600 Elo, 1800 XP
+    IF p_elo >= 1600 AND p_xp >= 1800 THEN
+        RETURN 'Champion';
+    END IF;
+
+    -- Platin: 1400 Elo, 1000 XP
+    IF p_elo >= 1400 AND p_xp >= 1000 THEN
+        RETURN 'Platin';
+    END IF;
+
+    -- Gold: 1200 Elo, 500 XP
+    IF p_elo >= 1200 AND p_xp >= 500 THEN
+        RETURN 'Gold';
+    END IF;
+
+    -- Silber: 1000 Elo, 200 XP
+    IF p_elo >= 1000 AND p_xp >= 200 THEN
+        RETURN 'Silber';
+    END IF;
+
+    -- Bronze: 850 Elo, 50 XP, 5 Grundlagen
+    IF p_elo >= 850 AND p_xp >= 50 AND p_grundlagen >= 5 THEN
+        RETURN 'Bronze';
+    END IF;
+
+    -- Rekrut (default)
+    RETURN 'Rekrut';
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- ============================================
 -- TRIGGER: Track club joins
 -- ============================================
 
@@ -161,8 +203,12 @@ BEGIN
         -- Get club name
         SELECT name INTO v_club_name FROM clubs WHERE id = NEW.club_id;
 
-        -- Get current rank name
-        SELECT name INTO v_rank_name FROM ranks WHERE id = NEW.rank_id;
+        -- Calculate current rank
+        v_rank_name := calculate_rank(
+            COALESCE(NEW.elo_rating, 800),
+            COALESCE(NEW.xp, 0),
+            COALESCE(NEW.grundlagen_completed, 0)
+        );
 
         -- Insert activity event
         INSERT INTO activity_events (user_id, club_id, event_type, event_data)
@@ -174,7 +220,7 @@ BEGIN
                 'club_name', COALESCE(v_club_name, 'Unbekannt'),
                 'display_name', COALESCE(NEW.display_name, NEW.first_name, 'Spieler'),
                 'avatar_url', NEW.avatar_url,
-                'rank_name', COALESCE(v_rank_name, 'Rekrut')
+                'rank_name', v_rank_name
             )
         );
     END IF;
@@ -196,35 +242,61 @@ CREATE TRIGGER trigger_club_join_event
 -- TRIGGER: Track rank ups
 -- ============================================
 
+-- Helper function to get rank order (for comparison)
+CREATE OR REPLACE FUNCTION get_rank_order(p_rank_name TEXT)
+RETURNS INTEGER AS $$
+BEGIN
+    RETURN CASE p_rank_name
+        WHEN 'Rekrut' THEN 0
+        WHEN 'Bronze' THEN 1
+        WHEN 'Silber' THEN 2
+        WHEN 'Gold' THEN 3
+        WHEN 'Platin' THEN 4
+        WHEN 'Champion' THEN 5
+        ELSE 0
+    END;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
 -- Function to create rank up events
 CREATE OR REPLACE FUNCTION create_rank_up_event()
 RETURNS TRIGGER AS $$
 DECLARE
+    v_old_rank TEXT;
+    v_new_rank TEXT;
     v_old_rank_order INT;
     v_new_rank_order INT;
-    v_new_rank_name TEXT;
-    v_club_id UUID;
 BEGIN
-    -- Only trigger if rank actually increased (not decreased or stayed same)
-    IF OLD.rank_id IS DISTINCT FROM NEW.rank_id THEN
-        -- Get rank orders to determine if it's a rank UP (not down)
-        SELECT "order" INTO v_old_rank_order FROM ranks WHERE id = OLD.rank_id;
-        SELECT "order", name INTO v_new_rank_order, v_new_rank_name FROM ranks WHERE id = NEW.rank_id;
+    -- Calculate old and new ranks from stats
+    v_old_rank := calculate_rank(
+        COALESCE(OLD.elo_rating, 800),
+        COALESCE(OLD.xp, 0),
+        COALESCE(OLD.grundlagen_completed, 0)
+    );
 
-        -- Only create event if rank increased
-        IF v_new_rank_order > COALESCE(v_old_rank_order, 0) THEN
-            -- Get user's club_id
-            v_club_id := NEW.club_id;
+    v_new_rank := calculate_rank(
+        COALESCE(NEW.elo_rating, 800),
+        COALESCE(NEW.xp, 0),
+        COALESCE(NEW.grundlagen_completed, 0)
+    );
 
+    -- Only create event if rank actually increased
+    IF v_old_rank != v_new_rank THEN
+        v_old_rank_order := get_rank_order(v_old_rank);
+        v_new_rank_order := get_rank_order(v_new_rank);
+
+        -- Only create event if rank order increased (rank up, not down)
+        IF v_new_rank_order > v_old_rank_order THEN
             -- Insert activity event
             INSERT INTO activity_events (user_id, club_id, event_type, event_data)
             VALUES (
                 NEW.id,
-                v_club_id,
+                NEW.club_id,
                 'rank_up',
                 jsonb_build_object(
-                    'rank_name', COALESCE(v_new_rank_name, 'Unbekannt'),
-                    'old_rank_order', COALESCE(v_old_rank_order, 0),
+                    'rank_name', v_new_rank,
+                    'old_rank_name', v_old_rank,
+                    'old_rank_order', v_old_rank_order,
                     'new_rank_order', v_new_rank_order,
                     'display_name', COALESCE(NEW.display_name, NEW.first_name, 'Spieler'),
                     'avatar_url', NEW.avatar_url,
@@ -242,9 +314,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Drop existing trigger if it exists
 DROP TRIGGER IF EXISTS trigger_rank_up_event ON profiles;
 
--- Create trigger
+-- Create trigger - fires when elo_rating, xp, or grundlagen_completed changes
 CREATE TRIGGER trigger_rank_up_event
-    AFTER UPDATE OF rank_id ON profiles
+    AFTER UPDATE OF elo_rating, xp, grundlagen_completed ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION create_rank_up_event();
 
