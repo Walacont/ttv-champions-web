@@ -1,0 +1,368 @@
+{
+  "common": {
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "continue": "Continue",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "viewMore": "View more",
+    "viewLess": "View less"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Sign Out",
+    "login": "Sign In"
+  },
+  "index": {
+    "title": "SC Champions - Digital Sports Training & Competition System",
+    "description": "SC Champions is the modern gamification system for table tennis clubs. Manage training, matches and Elo rankings digitally.",
+    "hero": {
+      "title": "Turn your training into a game.",
+      "subtitle": "Welcome to SC Champions – the gamification platform that takes your club's sports training to the next level.",
+      "cta": "Learn more",
+      "notice": "Notice: SC Champions is currently a research project as part of a bachelor's thesis and is in the testing phase."
+    },
+    "features": {
+      "title": "Training. Reimagined.",
+      "gamification": {
+        "title": "Gamification System",
+        "description": "Earn XP, level up and unlock new achievements."
+      },
+      "matches": {
+        "title": "Match Tracking",
+        "description": "Record games, calculate Elo ratings and track your progress."
+      },
+      "training": {
+        "title": "Training Planning",
+        "description": "Plan your training, set goals and track your improvement."
+      },
+      "leaderboard": {
+        "title": "Leaderboards",
+        "description": "Compare yourself with other players and climb the rankings."
+      },
+      "community": {
+        "title": "Community",
+        "description": "Connect with other players and challenge them."
+      },
+      "stats": {
+        "title": "Statistics",
+        "description": "Analyze your performance with detailed statistics and charts."
+      }
+    },
+    "cta": {
+      "ready": "Ready to get started?",
+      "getStarted": "Get Started"
+    }
+  },
+  "auth": {
+    "login": "Sign In",
+    "loginTitle": "Sign in to SC Champions",
+    "register": "Sign Up",
+    "registerTitle": "Create Account",
+    "logout": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "rememberMe": "Remember me",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "signInNow": "Sign in now",
+    "signUpNow": "Sign up now",
+    "emailPlaceholder": "your@email.com",
+    "passwordPlaceholder": "Your password",
+    "loginError": "Login error",
+    "registerError": "Registration error",
+    "passwordMismatch": "Passwords don't match",
+    "weakPassword": "Password is too weak",
+    "emailInUse": "Email already in use",
+    "invalidEmail": "Invalid email address",
+    "userNotFound": "User not found",
+    "wrongPassword": "Wrong password",
+    "emailSent": "Email sent",
+    "resetEmailSent": "Password reset email sent"
+  },
+  "register": {
+    "title": "Create Account",
+    "subtitle": "Start your journey with SC Champions",
+    "welcome": "Welcome to SC Champions!",
+    "twoOptions": "You have two options to register:",
+    "withoutCode": "Register without code",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "email": "Email Address",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "invitationCode": "Invitation Code (optional)",
+    "terms": "I accept the",
+    "termsLink": "Terms of Service",
+    "and": "and",
+    "privacyPolicy": "Privacy Policy",
+    "createAccount": "Create Account",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign In"
+  },
+  "onboarding": {
+    "welcome": "Welcome to SC Champions!",
+    "letsGetStarted": "Let's get started",
+    "step": "Step",
+    "of": "of",
+    "profile": {
+      "title": "Complete your profile",
+      "description": "Tell us a bit about yourself",
+      "birthdate": "Date of Birth",
+      "gender": "Gender",
+      "male": "Male",
+      "female": "Female",
+      "other": "Other",
+      "preferNotToSay": "Prefer not to say"
+    },
+    "club": {
+      "title": "Join a Club",
+      "description": "Find your club and become part of the community",
+      "search": "Search for club...",
+      "noClub": "No club? Continue without club",
+      "join": "Join",
+      "joinRequest": "Send join request",
+      "requestSent": "Request sent"
+    },
+    "tutorial": {
+      "title": "Quick Introduction",
+      "description": "Learn about the key features",
+      "skip": "Skip tutorial",
+      "start": "Start tutorial"
+    },
+    "finish": {
+      "title": "All set!",
+      "description": "You can now use SC Champions",
+      "goToDashboard": "Go to Dashboard"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "welcomeBack": "Welcome back",
+    "stats": {
+      "title": "Your Statistics",
+      "matches": "Matches",
+      "wins": "Wins",
+      "losses": "Losses",
+      "winRate": "Win Rate",
+      "elo": "Elo Rating",
+      "xp": "Experience Points",
+      "rank": "Rank",
+      "level": "Level"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "recordMatch": "Record Match",
+      "viewMatches": "View Matches",
+      "viewProfile": "View Profile",
+      "viewLeaderboard": "View Leaderboard"
+    },
+    "recentMatches": {
+      "title": "Recent Matches",
+      "viewAll": "View All",
+      "noMatches": "No matches yet",
+      "won": "Won",
+      "lost": "Lost",
+      "vs": "vs"
+    },
+    "activityFeed": {
+      "title": "Activity",
+      "noActivity": "No activity yet"
+    },
+    "training": {
+      "title": "Training",
+      "nextSession": "Next Training Session",
+      "noSessions": "No upcoming training sessions"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile",
+    "publicProfile": "Public Profile",
+    "stats": "Statistics",
+    "matches": "Matches",
+    "achievements": "Achievements",
+    "friends": "Friends",
+    "info": {
+      "memberSince": "Member since",
+      "club": "Club",
+      "noClub": "No club",
+      "role": "Role",
+      "level": "Level",
+      "xp": "XP"
+    },
+    "roles": {
+      "player": "Player",
+      "coach": "Coach",
+      "admin": "Administrator",
+      "headCoach": "Head Coach"
+    }
+  },
+  "matches": {
+    "title": "Matches",
+    "recordMatch": "Record Match",
+    "matchHistory": "Match History",
+    "doubles": "Doubles",
+    "singles": "Singles",
+    "selectOpponent": "Select Opponent",
+    "selectPartner": "Select Partner",
+    "yourScore": "Your Score",
+    "opponentScore": "Opponent Score",
+    "sets": "Sets",
+    "winner": "Winner",
+    "loser": "Loser",
+    "result": "Result",
+    "date": "Date",
+    "opponent": "Opponent",
+    "partner": "Partner",
+    "eloChange": "Elo Change",
+    "noMatches": "No matches yet",
+    "recordSuccess": "Match recorded successfully",
+    "recordError": "Error recording match"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": {
+      "title": "Edit Profile",
+      "subtitle": "Name, Email, Password, Photo",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email",
+      "password": "Password",
+      "photo": "Profile Picture",
+      "updateName": "Update Name",
+      "updateEmail": "Update Email",
+      "updatePassword": "Update Password",
+      "uploadPhoto": "Upload Photo",
+      "changePhoto": "Change Photo",
+      "removePhoto": "Remove Photo",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmNewPassword": "Confirm New Password"
+    },
+    "privacy": {
+      "title": "Privacy",
+      "subtitle": "Visibility and Data Protection",
+      "profileVisibility": "Profile Visibility",
+      "showInLeaderboard": "Show in Leaderboard",
+      "allowFriendRequests": "Allow Friend Requests",
+      "showMatchHistory": "Show Match History",
+      "showStats": "Show Statistics",
+      "public": "Public",
+      "friendsOnly": "Friends Only",
+      "private": "Private",
+      "clubOnly": "Club Members Only"
+    },
+    "club": {
+      "title": "Club Management",
+      "subtitle": "Join or leave a club",
+      "currentClub": "Current Club",
+      "noClub": "No club",
+      "joinClub": "Join Club",
+      "leaveClub": "Leave Club",
+      "leaveConfirm": "Do you really want to leave the club?",
+      "searchClubs": "Search for clubs..."
+    },
+    "support": {
+      "title": "Support",
+      "subtitle": "Help, Tutorials and FAQs",
+      "faq": "Frequently Asked Questions",
+      "tutorial": "View Tutorial",
+      "contactSupport": "Contact Support",
+      "reportBug": "Report Bug",
+      "feedback": "Give Feedback"
+    },
+    "legal": {
+      "title": "Legal Information",
+      "subtitle": "Data export, Delete account",
+      "termsOfService": "Terms of Service",
+      "privacyPolicy": "Privacy Policy",
+      "imprint": "Imprint",
+      "exportData": "Export Data",
+      "deleteAccount": "Delete Account",
+      "deleteConfirm": "Do you really want to delete your account? This action cannot be undone."
+    },
+    "language": {
+      "title": "Language",
+      "subtitle": "Change app language",
+      "select": "Select Language",
+      "german": "Deutsch",
+      "english": "English",
+      "changed": "Language has been changed"
+    },
+    "logout": "Sign Out"
+  },
+  "coach": {
+    "title": "Coach Area",
+    "dashboard": "Coach Dashboard",
+    "players": "Players",
+    "training": "Training",
+    "attendance": "Attendance",
+    "statistics": "Statistics",
+    "schedule": "Training Schedule",
+    "manageExercises": "Manage Exercises",
+    "viewPlayerStats": "View Player Statistics"
+  },
+  "admin": {
+    "title": "Administrator Area",
+    "dashboard": "Admin Dashboard",
+    "users": "Users",
+    "clubs": "Clubs",
+    "settings": "System Settings",
+    "statistics": "System Statistics",
+    "invitationCodes": "Invitation Codes",
+    "logs": "System Logs"
+  },
+  "errors": {
+    "404": "Page not found",
+    "403": "Access denied",
+    "500": "Server error",
+    "networkError": "Network error",
+    "unknownError": "An unknown error occurred",
+    "tryAgain": "Try again",
+    "goHome": "Go to Home"
+  },
+  "validation": {
+    "required": "This field is required",
+    "emailInvalid": "Invalid email address",
+    "passwordTooShort": "Password must be at least {{min}} characters long",
+    "passwordMismatch": "Passwords don't match",
+    "invalidDate": "Invalid date",
+    "invalidNumber": "Invalid number",
+    "minLength": "Minimum {{min}} characters required",
+    "maxLength": "Maximum {{max}} characters allowed"
+  },
+  "time": {
+    "now": "Now",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "daysAgo": "{{count}} day ago",
+    "daysAgo_plural": "{{count}} days ago",
+    "hoursAgo": "{{count}} hour ago",
+    "hoursAgo_plural": "{{count}} hours ago",
+    "minutesAgo": "{{count}} minute ago",
+    "minutesAgo_plural": "{{count}} minutes ago",
+    "secondsAgo": "{{count}} second ago",
+    "secondsAgo_plural": "{{count}} seconds ago"
+  }
+}
