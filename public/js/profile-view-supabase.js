@@ -148,6 +148,7 @@ async function loadProfile() {
                 highest_elo,
                 points,
                 xp,
+                grundlagen_completed,
                 club_id,
                 privacy_settings,
                 clubs (
