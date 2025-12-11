@@ -204,9 +204,10 @@ export async function loadActivityFeed() {
     const container = document.getElementById('activity-feed');
     if (!container) return;
 
-    // Reset state for fresh load
+    // Reset state for fresh load - prevent race conditions
     activityOffset = 0;
-    hasMoreActivities = true;
+    hasMoreActivities = false;  // Disable infinite scroll during load
+    followingIdsCache = null;   // Clear old cache
 
     // Show loading
     container.innerHTML = `
@@ -438,7 +439,7 @@ async function fetchActivities(userIds) {
  * Load more activities (infinite scroll)
  */
 async function loadMoreActivities() {
-    if (isLoadingMore || !hasMoreActivities) return;
+    if (isLoadingMore || !hasMoreActivities || !followingIdsCache) return;
 
     isLoadingMore = true;
     const loader = document.getElementById('activity-feed-loader');
