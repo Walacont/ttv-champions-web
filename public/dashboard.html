@@ -422,6 +422,17 @@
                 <div id="tab-content-overview" class="tab-content">
                     <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
+                        <!-- Create Post Button -->
+                        <div class="mb-4">
+                            <button
+                                id="create-post-btn"
+                                class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                            >
+                                <i class="fas fa-plus-circle text-xl"></i>
+                                <span>Beitrag oder Umfrage erstellen</span>
+                            </button>
+                        </div>
+
                         <!-- Filter Dropdown -->
                         <div class="mb-4 relative">
                             <button
@@ -1288,6 +1299,228 @@
             </div>
         </div>
 
+        <!-- Create Post/Poll Modal -->
+        <div
+            id="create-post-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-start py-8"
+        >
+            <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-xl bg-white my-auto">
+                <!-- Close button -->
+                <button
+                    id="close-create-post-modal"
+                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+                >
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                <!-- Modal Header -->
+                <div class="mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">
+                        <i class="fas fa-edit text-indigo-600 mr-2"></i>Neuer Beitrag
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">Teile etwas mit deiner Community</p>
+                </div>
+
+                <!-- Post Type Toggle -->
+                <div class="mb-6">
+                    <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
+                        <button
+                            type="button"
+                            id="post-type-text"
+                            class="post-type-toggle active px-6 py-2 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white"
+                        >
+                            <i class="fas fa-align-left mr-2"></i>Beitrag
+                        </button>
+                        <button
+                            type="button"
+                            id="post-type-poll"
+                            class="post-type-toggle px-6 py-2 rounded-md text-sm font-medium transition-all text-gray-600"
+                        >
+                            <i class="fas fa-poll mr-2"></i>Umfrage
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Text Post Form -->
+                <form id="text-post-form" class="space-y-4">
+                    <!-- Post Content -->
+                    <div>
+                        <label for="post-content" class="block text-sm font-medium text-gray-700 mb-2">
+                            Was möchtest du teilen?
+                        </label>
+                        <textarea
+                            id="post-content"
+                            rows="4"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                            placeholder="Schreibe etwas..."
+                        ></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Max. 5000 Zeichen</p>
+                    </div>
+
+                    <!-- Image Upload (optional) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-image mr-1"></i>Bild hinzufügen (optional)
+                        </label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-400 transition cursor-pointer">
+                            <input type="file" id="post-image-input" class="hidden" accept="image/*" />
+                            <label for="post-image-input" class="cursor-pointer">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-600">Klicke oder ziehe ein Bild hierher</p>
+                                <p class="text-xs text-gray-500 mt-1">PNG, JPG, GIF bis 5MB</p>
+                            </label>
+                            <div id="post-image-preview" class="mt-4 hidden">
+                                <img id="post-image-preview-img" src="" alt="Preview" class="max-h-48 mx-auto rounded-lg" />
+                                <button
+                                    type="button"
+                                    id="remove-post-image"
+                                    class="mt-2 text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                    <i class="fas fa-times mr-1"></i>Bild entfernen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visibility Settings -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            <i class="fas fa-eye mr-1"></i>Sichtbarkeit
+                        </label>
+                        <select
+                            id="post-visibility"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="club">Nur mein Verein</option>
+                            <option value="followers">Meine Follower</option>
+                            <option value="public" selected>Öffentlich (alle)</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            id="cancel-post-btn"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+                        >
+                            Abbrechen
+                        </button>
+                        <button
+                            type="submit"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-md"
+                        >
+                            <i class="fas fa-paper-plane mr-2"></i>Veröffentlichen
+                        </button>
+                    </div>
+
+                    <!-- Feedback -->
+                    <div id="post-form-feedback" class="hidden"></div>
+                </form>
+
+                <!-- Poll Form -->
+                <form id="poll-form" class="space-y-4 hidden">
+                    <!-- Poll Question -->
+                    <div>
+                        <label for="poll-question" class="block text-sm font-medium text-gray-700 mb-2">
+                            Deine Frage
+                        </label>
+                        <input
+                            type="text"
+                            id="poll-question"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="z.B. Was ist eure Lieblingsübung?"
+                        />
+                    </div>
+
+                    <!-- Poll Options -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Antwortmöglichkeiten
+                        </label>
+                        <div id="poll-options-container" class="space-y-2">
+                            <div class="poll-option-item flex gap-2">
+                                <input
+                                    type="text"
+                                    class="poll-option-input flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Option 1"
+                                />
+                            </div>
+                            <div class="poll-option-item flex gap-2">
+                                <input
+                                    type="text"
+                                    class="poll-option-input flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Option 2"
+                                />
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            id="add-poll-option"
+                            class="mt-2 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                        >
+                            <i class="fas fa-plus-circle mr-1"></i>Option hinzufügen
+                        </button>
+                        <p class="text-xs text-gray-500 mt-2">Max. 10 Optionen</p>
+                    </div>
+
+                    <!-- Poll Duration -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label for="poll-duration" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-clock mr-1"></i>Dauer der Umfrage
+                        </label>
+                        <select
+                            id="poll-duration"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="1">1 Tag</option>
+                            <option value="3">3 Tage</option>
+                            <option value="7" selected>7 Tage</option>
+                            <option value="14">14 Tage</option>
+                            <option value="30">30 Tage</option>
+                        </select>
+                    </div>
+
+                    <!-- Poll Visibility -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            <i class="fas fa-eye mr-1"></i>Sichtbarkeit
+                        </label>
+                        <select
+                            id="poll-visibility"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="club">Nur mein Verein</option>
+                            <option value="followers">Meine Follower</option>
+                            <option value="public" selected>Öffentlich (alle)</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            id="cancel-poll-btn"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+                        >
+                            Abbrechen
+                        </button>
+                        <button
+                            type="submit"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-md"
+                        >
+                            <i class="fas fa-poll mr-2"></i>Umfrage erstellen
+                        </button>
+                    </div>
+
+                    <!-- Feedback -->
+                    <div id="poll-form-feedback" class="hidden"></div>
+                </form>
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer class="mt-12 pb-6 px-4">
             <div class="max-w-4xl mx-auto">
@@ -1347,5 +1580,6 @@
         <script type="module" src="/js/spa-enhancer.js"></script>
         <!-- Supabase Version - keine Firebase-Abhängigkeiten -->
         <script type="module" src="/js/dashboard-supabase.js"></script>
+        <script type="module" src="/js/posts-manager-supabase.js"></script>
     </body>
 </html>

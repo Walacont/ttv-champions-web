@@ -383,11 +383,35 @@ async function fetchActivities(userIds) {
 
     if (eventsError) console.warn('Error fetching activity events:', eventsError);
 
+    // Load community posts
+    const { data: communityPosts, error: postsError } = await supabase
+        .from('community_posts')
+        .select('*')
+        .is('deleted_at', null)
+        .in('user_id', userIds)
+        .order('created_at', { ascending: false })
+        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+
+    if (postsError) console.warn('Error fetching community posts:', postsError);
+
+    // Load community polls
+    const { data: communityPolls, error: pollsError } = await supabase
+        .from('community_polls')
+        .select('*')
+        .is('deleted_at', null)
+        .in('user_id', userIds)
+        .order('created_at', { ascending: false })
+        .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE - 1);
+
+    if (pollsError) console.warn('Error fetching community polls:', pollsError);
+
     // Combine and normalize all activities
     const allActivities = [
         ...(singlesMatches || []).map(m => ({ ...m, activityType: 'singles' })),
         ...(doublesMatches || []).map(m => ({ ...m, activityType: 'doubles' })),
-        ...(activityEvents || []).map(e => ({ ...e, activityType: e.event_type }))
+        ...(activityEvents || []).map(e => ({ ...e, activityType: e.event_type })),
+        ...(communityPosts || []).map(p => ({ ...p, activityType: 'post' })),
+        ...(communityPolls || []).map(p => ({ ...p, activityType: 'poll' }))
     ];
 
     // Sort by date descending
@@ -498,6 +522,10 @@ function renderActivityCard(activity) {
         return renderClubLeaveCard(activity);
     } else if (activity.activityType === 'rank_up') {
         return renderRankUpCard(activity);
+    } else if (activity.activityType === 'post') {
+        return renderPostCard(activity, activity.profileMap);
+    } else if (activity.activityType === 'poll') {
+        return renderPollCard(activity, activity.profileMap);
     }
     return ''; // Unknown activity type
 }
@@ -1060,6 +1088,168 @@ function renderRankUpCard(activity) {
                         <i class="fas fa-fire text-orange-500 mr-1"></i>
                         Glückwunsch zum Rangaufstieg!
                     </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a community post card
+ */
+function renderPostCard(activity, profileMap) {
+    const profile = profileMap.get(activity.user_id);
+    const displayName = getDisplayName(profile);
+    const avatarUrl = profile?.avatar_url || DEFAULT_AVATAR;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    const hasImage = activity.image_url;
+    const likesCount = activity.likes_count || 0;
+    const commentsCount = activity.comments_count || 0;
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition border border-gray-100">
+            <!-- Post Header -->
+            <div class="flex items-start gap-3 mb-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        <span class="text-gray-400">•</span>
+                        <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
+                        <span>${activity.visibility === 'public' ? 'Öffentlich' : activity.visibility === 'club' ? 'Verein' : 'Follower'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Post Content -->
+            <div class="mb-3">
+                <p class="text-gray-800 whitespace-pre-wrap break-words">${activity.content}</p>
+            </div>
+
+            ${hasImage ? `
+            <!-- Post Image -->
+            <div class="mb-3">
+                <img src="${activity.image_url}" alt="Post image"
+                     class="w-full rounded-lg max-h-96 object-cover cursor-pointer hover:opacity-90 transition"
+                     onclick="window.open('${activity.image_url}', '_blank')">
+            </div>
+            ` : ''}
+
+            <!-- Post Actions -->
+            <div class="flex items-center gap-6 pt-3 border-t border-gray-100">
+                <button class="flex items-center gap-2 text-gray-600 hover:text-red-500 transition">
+                    <i class="far fa-heart"></i>
+                    <span class="text-sm">${likesCount}</span>
+                </button>
+                <button class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition">
+                    <i class="far fa-comment"></i>
+                    <span class="text-sm">${commentsCount}</span>
+                </button>
+                <button class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition ml-auto">
+                    <i class="fas fa-share"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a community poll card
+ */
+function renderPollCard(activity, profileMap) {
+    const profile = profileMap.get(activity.user_id);
+    const displayName = getDisplayName(profile);
+    const avatarUrl = profile?.avatar_url || DEFAULT_AVATAR;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    const endsAt = new Date(activity.ends_at);
+    const isActive = endsAt > new Date();
+    const totalVotes = activity.total_votes || 0;
+
+    const options = activity.options || [];
+
+    // Calculate percentages
+    const optionsWithPercent = options.map(opt => ({
+        ...opt,
+        percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0
+    }));
+
+    return `
+        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-purple-100">
+            <!-- Poll Header -->
+            <div class="flex items-start gap-3 mb-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-purple-300"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-poll text-purple-600"></i>
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        <span class="text-gray-400">•</span>
+                        <span class="text-xs text-gray-500">${dateStr}, ${timeStr}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
+                        <span>${activity.visibility === 'public' ? 'Öffentlich' : activity.visibility === 'club' ? 'Verein' : 'Follower'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Poll Question -->
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">${activity.question}</h3>
+            </div>
+
+            <!-- Poll Options -->
+            <div class="space-y-2 mb-3">
+                ${optionsWithPercent.map((option, index) => `
+                    <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} bg-white rounded-lg p-3 border border-purple-200 transition"
+                         onclick="${isActive ? `votePoll('${activity.id}', '${option.id}')` : ''}"
+                    >
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-medium text-gray-800">${option.text}</span>
+                            <span class="text-sm font-semibold text-purple-600">${option.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
+                                 style="width: ${option.percentage}%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">${option.votes || 0} Stimmen</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- Poll Footer -->
+            <div class="flex items-center justify-between text-xs text-gray-600 pt-3 border-t border-purple-100">
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-users"></i>
+                    <span>${totalVotes} ${totalVotes === 1 ? 'Stimme' : 'Stimmen'}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <i class="fas fa-clock"></i>
+                    <span>${isActive ? `Endet ${formatRelativeDate(endsAt)}` : 'Beendet'}</span>
                 </div>
             </div>
         </div>
