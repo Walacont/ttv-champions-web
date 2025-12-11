@@ -127,6 +127,7 @@ function getAvailableLanguages() {
 /**
  * Translate all elements with data-i18n attribute
  * Usage: <h1 data-i18n="settings.title"></h1>
+ * For HTML content: <div data-i18n-html="faq.answers.eloVsXp"></div>
  */
 function translatePage() {
     const elements = document.querySelectorAll('[data-i18n]');
@@ -141,6 +142,14 @@ function translatePage() {
         } else {
             element.textContent = translation;
         }
+    });
+
+    // Handle HTML content translations
+    const htmlElements = document.querySelectorAll('[data-i18n-html]');
+    htmlElements.forEach((element) => {
+        const key = element.getAttribute('data-i18n-html');
+        const translation = t(key);
+        element.innerHTML = translation;
     });
 
     // Handle placeholder translations
