@@ -21,9 +21,9 @@ const pollForm = document.getElementById('poll-form');
 // Text post elements
 const postContentTextarea = document.getElementById('post-content');
 const postImageInput = document.getElementById('post-image-input');
-const postImagePreview = document.getElementById('post-image-preview');
-const postImagePreviewImg = document.getElementById('post-image-preview-img');
-const removePostImageBtn = document.getElementById('remove-post-image');
+const postImagesPreview = document.getElementById('post-images-preview');
+const postImagesPreviewGrid = document.getElementById('post-images-preview-grid');
+const clearPostImagesBtn = document.getElementById('clear-post-images');
 const postVisibilitySelect = document.getElementById('post-visibility');
 const cancelPostBtn = document.getElementById('cancel-post-btn');
 const postFormFeedback = document.getElementById('post-form-feedback');
@@ -37,7 +37,7 @@ const pollVisibilitySelect = document.getElementById('poll-visibility');
 const cancelPollBtn = document.getElementById('cancel-poll-btn');
 const pollFormFeedback = document.getElementById('poll-form-feedback');
 
-let selectedImageFile = null;
+let selectedImageFiles = [];
 
 // ============================================
 // INITIALIZATION
@@ -64,8 +64,8 @@ export function initPostsManager() {
     postTypePollBtn?.addEventListener('click', () => switchPostType('poll'));
 
     // Image upload
-    postImageInput?.addEventListener('change', handleImageSelect);
-    removePostImageBtn?.addEventListener('click', removeImage);
+    postImageInput?.addEventListener('change', handleImagesSelect);
+    clearPostImagesBtn?.addEventListener('click', clearImages);
 
     // Poll option management
     addPollOptionBtn?.addEventListener('click', addPollOption);
@@ -95,7 +95,7 @@ function resetForms() {
     // Reset text post form
     postContentTextarea.value = '';
     postVisibilitySelect.value = 'public';
-    removeImage();
+    clearImages();
     postFormFeedback.innerHTML = '';
     postFormFeedback.classList.add('hidden');
 
@@ -156,39 +156,87 @@ function switchPostType(type) {
 // IMAGE HANDLING
 // ============================================
 
-function handleImageSelect(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+function handleImagesSelect(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-        showFeedback(postFormFeedback, 'error', 'Bild ist zu groß. Max. 5MB erlaubt.');
+    // Check total limit (max 10 images)
+    if (selectedImageFiles.length + files.length > 10) {
+        showFeedback(postFormFeedback, 'error', 'Maximal 10 Bilder erlaubt.');
         return;
     }
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        showFeedback(postFormFeedback, 'error', 'Nur Bilder sind erlaubt.');
-        return;
+    // Validate each file
+    for (const file of files) {
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            showFeedback(postFormFeedback, 'error', `${file.name} ist zu groß. Max. 5MB erlaubt.`);
+            continue;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showFeedback(postFormFeedback, 'error', `${file.name} ist kein Bild.`);
+            continue;
+        }
+
+        selectedImageFiles.push(file);
     }
 
-    selectedImageFile = file;
+    // Update preview
+    updateImagePreviews();
 
-    // Show preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        postImagePreviewImg.src = e.target.result;
-        postImagePreview.classList.remove('hidden');
-    };
-    reader.readAsDataURL(file);
-}
-
-function removeImage() {
-    selectedImageFile = null;
+    // Clear input to allow selecting same files again
     postImageInput.value = '';
-    postImagePreview.classList.add('hidden');
-    postImagePreviewImg.src = '';
 }
+
+function updateImagePreviews() {
+    if (selectedImageFiles.length === 0) {
+        postImagesPreview.classList.add('hidden');
+        postImagesPreviewGrid.innerHTML = '';
+        return;
+    }
+
+    postImagesPreview.classList.remove('hidden');
+    postImagesPreviewGrid.innerHTML = '';
+
+    selectedImageFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const div = document.createElement('div');
+            div.className = 'relative group';
+            div.innerHTML = `
+                <img src="${e.target.result}" alt="Preview ${index + 1}"
+                     class="w-full h-24 object-cover rounded-lg border-2 border-gray-200">
+                <button type="button"
+                        class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                        onclick="window.removeImageAtIndex(${index})">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+                <div class="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-0.5 rounded">
+                    ${index + 1}/${selectedImageFiles.length}
+                </div>
+            `;
+            postImagesPreviewGrid.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function removeImageAtIndex(index) {
+    selectedImageFiles.splice(index, 1);
+    updateImagePreviews();
+}
+
+function clearImages() {
+    selectedImageFiles = [];
+    postImageInput.value = '';
+    postImagesPreview.classList.add('hidden');
+    postImagesPreviewGrid.innerHTML = '';
+}
+
+// Make removeImageAtIndex available globally for onclick
+window.removeImageAtIndex = removeImageAtIndex;
 
 // ============================================
 // POLL OPTIONS MANAGEMENT
@@ -274,29 +322,36 @@ async function handleTextPostSubmit(e) {
             .eq('id', user.id)
             .single();
 
-        let imageUrl = null;
+        let imageUrls = [];
 
-        // Upload image if selected
-        if (selectedImageFile) {
-            const fileExt = selectedImageFile.name.split('.').pop();
-            const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        // Upload images if selected
+        if (selectedImageFiles.length > 0) {
+            showFeedback(postFormFeedback, 'loading', `Lade ${selectedImageFiles.length} Bild(er) hoch...`);
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('post-images')
-                .upload(fileName, selectedImageFile);
+            for (let i = 0; i < selectedImageFiles.length; i++) {
+                const file = selectedImageFiles[i];
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${user.id}/${Date.now()}_${i}.${fileExt}`;
 
-            if (uploadError) {
-                console.error('Error uploading image:', uploadError);
-                showFeedback(postFormFeedback, 'error', 'Fehler beim Hochladen des Bildes.');
-                return;
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('post-images')
+                    .upload(fileName, file);
+
+                if (uploadError) {
+                    console.error('Error uploading image:', uploadError);
+                    showFeedback(postFormFeedback, 'error', `Fehler beim Hochladen von Bild ${i + 1}.`);
+                    return;
+                }
+
+                // Get public URL
+                const { data: { publicUrl } } = supabase.storage
+                    .from('post-images')
+                    .getPublicUrl(fileName);
+
+                imageUrls.push(publicUrl);
             }
 
-            // Get public URL
-            const { data: { publicUrl } } = supabase.storage
-                .from('post-images')
-                .getPublicUrl(fileName);
-
-            imageUrl = publicUrl;
+            showFeedback(postFormFeedback, 'loading', 'Erstelle Beitrag...');
         }
 
         // Create post
@@ -306,7 +361,7 @@ async function handleTextPostSubmit(e) {
                 user_id: user.id,
                 club_id: profile?.club_id || null,
                 content: content,
-                image_url: imageUrl,
+                image_urls: imageUrls,
                 visibility: visibility
             })
             .select()

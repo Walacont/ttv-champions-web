@@ -1109,9 +1109,14 @@ function renderPostCard(activity, profileMap) {
     const dateStr = formatRelativeDate(eventDate);
     const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    const hasImage = activity.image_url;
+    // Support both old single image and new multiple images
+    const imageUrls = activity.image_urls || (activity.image_url ? [activity.image_url] : []);
+    const hasImages = imageUrls.length > 0;
     const likesCount = activity.likes_count || 0;
     const commentsCount = activity.comments_count || 0;
+
+    const postId = activity.id;
+    const carouselId = `carousel-${postId}`;
 
     return `
         <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition border border-gray-100">
@@ -1143,13 +1148,43 @@ function renderPostCard(activity, profileMap) {
                 <p class="text-gray-800 whitespace-pre-wrap break-words">${activity.content}</p>
             </div>
 
-            ${hasImage ? `
-            <!-- Post Image -->
-            <div class="mb-3 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center" style="max-height: 600px;">
-                <img src="${activity.image_url}" alt="Post image"
-                     class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
-                     style="max-height: 600px;"
-                     onclick="window.open('${activity.image_url}', '_blank')">
+            ${hasImages ? `
+            <!-- Post Images Carousel -->
+            <div class="mb-3 relative">
+                <div id="${carouselId}" class="bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center relative" style="max-height: 600px;">
+                    <div class="carousel-container relative w-full" style="max-height: 600px;">
+                        <div class="carousel-track flex transition-transform duration-300" data-current-index="0">
+                            ${imageUrls.map((url, index) => `
+                                <div class="carousel-slide flex-shrink-0 w-full flex items-center justify-center">
+                                    <img src="${url}" alt="Post image ${index + 1}"
+                                         class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
+                                         style="max-height: 600px;"
+                                         onclick="window.open('${url}', '_blank')">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    ${imageUrls.length > 1 ? `
+                    <!-- Navigation Arrows -->
+                    <button class="carousel-prev absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition"
+                            onclick="carouselPrev('${carouselId}')">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="carousel-next absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition"
+                            onclick="carouselNext('${carouselId}')">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+
+                    <!-- Dot Indicators -->
+                    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+                        ${imageUrls.map((_, index) => `
+                            <button class="carousel-dot w-2 h-2 rounded-full transition ${index === 0 ? 'bg-white' : 'bg-white bg-opacity-50'}"
+                                    onclick="carouselGoTo('${carouselId}', ${index})"></button>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                </div>
             </div>
             ` : ''}
 
@@ -1259,3 +1294,128 @@ function renderPollCard(activity, profileMap) {
         </div>
     `;
 }
+
+// ============================================
+// CAROUSEL FUNCTIONS
+// ============================================
+
+/**
+ * Navigate carousel to previous image
+ */
+window.carouselPrev = function(carouselId) {
+    const carousel = document.getElementById(carouselId);
+    if (!carousel) return;
+
+    const track = carousel.querySelector('.carousel-track');
+    const currentIndex = parseInt(track.dataset.currentIndex);
+    const slides = track.querySelectorAll('.carousel-slide');
+    const totalSlides = slides.length;
+
+    if (totalSlides <= 1) return;
+
+    const newIndex = currentIndex === 0 ? totalSlides - 1 : currentIndex - 1;
+    updateCarousel(carousel, newIndex);
+};
+
+/**
+ * Navigate carousel to next image
+ */
+window.carouselNext = function(carouselId) {
+    const carousel = document.getElementById(carouselId);
+    if (!carousel) return;
+
+    const track = carousel.querySelector('.carousel-track');
+    const currentIndex = parseInt(track.dataset.currentIndex);
+    const slides = track.querySelectorAll('.carousel-slide');
+    const totalSlides = slides.length;
+
+    if (totalSlides <= 1) return;
+
+    const newIndex = currentIndex === totalSlides - 1 ? 0 : currentIndex + 1;
+    updateCarousel(carousel, newIndex);
+};
+
+/**
+ * Navigate carousel to specific index
+ */
+window.carouselGoTo = function(carouselId, index) {
+    const carousel = document.getElementById(carouselId);
+    if (!carousel) return;
+
+    updateCarousel(carousel, index);
+};
+
+/**
+ * Update carousel position and indicators
+ */
+function updateCarousel(carousel, newIndex) {
+    const track = carousel.querySelector('.carousel-track');
+    const slides = track.querySelectorAll('.carousel-slide');
+    const dots = carousel.querySelectorAll('.carousel-dot');
+
+    if (!track || slides.length === 0) return;
+
+    // Update track position
+    track.style.transform = `translateX(-${newIndex * 100}%)`;
+    track.dataset.currentIndex = newIndex;
+
+    // Update dots
+    dots.forEach((dot, index) => {
+        if (index === newIndex) {
+            dot.classList.remove('bg-opacity-50');
+            dot.classList.add('bg-white');
+        } else {
+            dot.classList.add('bg-opacity-50');
+            dot.classList.remove('bg-white');
+        }
+    });
+}
+
+/**
+ * Initialize swipe gestures for all carousels
+ */
+function initCarouselSwipe() {
+    document.addEventListener('DOMContentLoaded', () => {
+        // Add touch event listeners to all carousel containers
+        const observer = new MutationObserver(() => {
+            document.querySelectorAll('[id^="carousel-"]').forEach(carousel => {
+                if (carousel.dataset.swipeInit) return;
+                carousel.dataset.swipeInit = 'true';
+
+                let touchStartX = 0;
+                let touchEndX = 0;
+                let touchStartY = 0;
+                let touchEndY = 0;
+
+                carousel.addEventListener('touchstart', (e) => {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                }, { passive: true });
+
+                carousel.addEventListener('touchend', (e) => {
+                    touchEndX = e.changedTouches[0].screenX;
+                    touchEndY = e.changedTouches[0].screenY;
+
+                    const deltaX = touchEndX - touchStartX;
+                    const deltaY = touchEndY - touchStartY;
+
+                    // Only trigger if horizontal swipe is dominant
+                    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                        if (deltaX > 0) {
+                            // Swipe right - previous
+                            window.carouselPrev(carousel.id);
+                        } else {
+                            // Swipe left - next
+                            window.carouselNext(carousel.id);
+                        }
+                    }
+                }, { passive: true });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+}
+
+// Initialize swipe functionality
+initCarouselSwipe();
