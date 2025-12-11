@@ -10,6 +10,10 @@ const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/200
 // Module state
 let currentUser = null;
 let currentUserData = null;
+let allLoadedMatches = [];
+let displayedMatchCount = 3;
+let profileMapCache = {};
+const MATCHES_PER_PAGE = 3;
 
 /**
  * Initialize the module with user data
@@ -17,14 +21,20 @@ let currentUserData = null;
 export function initMatchHistoryModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
+    allLoadedMatches = [];
+    displayedMatchCount = MATCHES_PER_PAGE;
+    profileMapCache = {};
 }
 
 /**
- * Load match history (singles + doubles)
+ * Load match history (singles + doubles) with pagination
  */
 export async function loadMatchHistory() {
     const container = document.getElementById('match-history-list');
     if (!container) return;
+
+    // Reset pagination on fresh load
+    displayedMatchCount = MATCHES_PER_PAGE;
 
     try {
         // Fetch singles matches
@@ -33,7 +43,7 @@ export async function loadMatchHistory() {
             .select('*')
             .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
         if (singlesError) throw singlesError;
 
@@ -43,30 +53,27 @@ export async function loadMatchHistory() {
             .select('*')
             .or(`team_a_player1_id.eq.${currentUser.id},team_a_player2_id.eq.${currentUser.id},team_b_player1_id.eq.${currentUser.id},team_b_player2_id.eq.${currentUser.id}`)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(50);
 
         if (doublesError) console.warn('Error fetching doubles:', doublesError);
 
         // Combine and normalize matches
-        const allMatches = [
+        allLoadedMatches = [
             ...(singlesMatches || []).map(m => ({ ...m, matchType: 'singles' })),
             ...(doublesMatches || []).map(m => ({ ...m, matchType: 'doubles' }))
         ];
 
         // Sort by date descending
-        allMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        allLoadedMatches.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        // Take top 10
-        const matches = allMatches.slice(0, 10);
-
-        if (matches.length === 0) {
+        if (allLoadedMatches.length === 0) {
             container.innerHTML = '<p class="text-gray-400 text-center py-4 text-sm">Noch keine Wettkämpfe gespielt</p>';
             return;
         }
 
         // Collect all player IDs
         const playerIds = new Set();
-        matches.forEach(m => {
+        allLoadedMatches.forEach(m => {
             if (m.matchType === 'singles') {
                 playerIds.add(m.player_a_id);
                 playerIds.add(m.player_b_id);
@@ -96,32 +103,65 @@ export async function loadMatchHistory() {
             rankMap[p.id] = index + 1;
         });
 
-        const profileMap = {};
+        profileMapCache = {};
         (profiles || []).forEach(p => {
-            profileMap[p.id] = {
+            profileMapCache[p.id] = {
                 ...p,
                 rank: rankMap[p.id] || '-'
             };
         });
 
-        // Render matches
-        container.innerHTML = matches.map(match => {
-            if (match.matchType === 'doubles') {
-                return renderDoublesMatchCard(match, profileMap);
-            } else {
-                return renderSinglesMatchCard(match, profileMap);
-            }
-        }).join('');
-
-        // Store matches for details modal
-        const singlesMatchesForModal = matches.filter(m => m.matchType !== 'doubles');
-        const doublesMatchesForModal = matches.filter(m => m.matchType === 'doubles');
-        window.matchHistoryData = { matches: singlesMatchesForModal, doublesMatches: doublesMatchesForModal, profileMap };
+        // Render initial matches
+        renderMatchHistory(container);
 
     } catch (error) {
         console.error('Error loading match history:', error);
         container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
     }
+}
+
+/**
+ * Render match history with current pagination
+ */
+function renderMatchHistory(container) {
+    const matchesToShow = allLoadedMatches.slice(0, displayedMatchCount);
+    const hasMore = allLoadedMatches.length > displayedMatchCount;
+
+    // Render matches
+    let html = matchesToShow.map(match => {
+        if (match.matchType === 'doubles') {
+            return renderDoublesMatchCard(match, profileMapCache);
+        } else {
+            return renderSinglesMatchCard(match, profileMapCache);
+        }
+    }).join('');
+
+    // Add "Load More" button if there are more matches
+    if (hasMore) {
+        const remaining = allLoadedMatches.length - displayedMatchCount;
+        html += `
+            <button id="load-more-matches"
+                    class="w-full py-3 text-indigo-600 hover:text-indigo-800 font-medium text-sm border border-indigo-200 rounded-lg hover:bg-indigo-50 transition">
+                Mehr anzeigen (${remaining} weitere)
+            </button>
+        `;
+    }
+
+    container.innerHTML = html;
+
+    // Add click handler for load more button
+    const loadMoreBtn = document.getElementById('load-more-matches');
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => {
+            displayedMatchCount += MATCHES_PER_PAGE;
+            renderMatchHistory(container);
+        });
+    }
+
+    // Store matches for details modal
+    const singlesMatchesForModal = allLoadedMatches.filter(m => m.matchType !== 'doubles');
+    const doublesMatchesForModal = allLoadedMatches.filter(m => m.matchType === 'doubles');
+    window.matchHistoryData = { matches: singlesMatchesForModal, doublesMatches: doublesMatchesForModal, profileMap: profileMapCache };
 }
 
 /**
@@ -156,8 +196,7 @@ function renderSinglesMatchCard(match, profileMap) {
         return isCurrentUserA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
     }).join(', ');
 
-    const eloChange = isWinner ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
-    const pointsAwarded = isWinner ? (match.season_points_awarded || 0) : 0;
+    const eloChange = isWinner ? (match.winner_elo_change || match.elo_change || 0) : (match.loser_elo_change || match.elo_change || 0);
 
     const matchDate = new Date(match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
@@ -166,17 +205,11 @@ function renderSinglesMatchCard(match, profileMap) {
     const myAvatar = currentPlayer.avatar_url || DEFAULT_AVATAR;
     const oppAvatar = opponent.avatar_url || DEFAULT_AVATAR;
 
-    let statsHtml = '';
-    if (isWinner) {
-        const displayElo = Math.abs(eloChange);
-        statsHtml = `<span class="text-green-600 font-medium">+${displayElo} Elo</span>`;
-        if (pointsAwarded > 0) {
-            statsHtml += `<span class="text-green-600 font-medium ml-2">+${pointsAwarded} Pkt</span>`;
-        }
-    } else {
-        const displayElo = Math.abs(eloChange);
-        statsHtml = `<span class="text-red-600 font-medium">-${displayElo} Elo</span>`;
-    }
+    // Only show Elo change on card (season points shown in details)
+    const displayElo = Math.abs(eloChange);
+    const statsHtml = isWinner
+        ? `<span class="text-green-600 font-medium">+${displayElo} Elo</span>`
+        : `<span class="text-red-600 font-medium">-${displayElo} Elo</span>`;
 
     const handicapBadge = match.handicap_used
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
@@ -282,9 +315,14 @@ function renderDoublesMatchCard(match, profileMap) {
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
         : '';
 
-    let statsHtml = isWinner
-        ? '<span class="text-green-600 font-medium">Doppel-Sieg</span>'
-        : '<span class="text-red-600 font-medium">Doppel-Niederlage</span>';
+    // Get Elo change for my team
+    const myTeamEloChange = isTeamA ? (match.team_a_elo_change || 0) : (match.team_b_elo_change || 0);
+    const displayElo = Math.abs(myTeamEloChange);
+
+    // Show Elo change (positive for winner, negative for loser)
+    const statsHtml = isWinner
+        ? `<span class="text-green-600 font-medium">+${displayElo} Doppel-Elo</span>`
+        : `<span class="text-red-600 font-medium">-${displayElo} Doppel-Elo</span>`;
 
     return `
         <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
