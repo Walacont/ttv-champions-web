@@ -216,6 +216,16 @@
         "all": "All Activities",
         "following": "Following",
         "myActivities": "My Activities"
+      },
+      "events": {
+        "clubJoin": {
+          "joined": "joined the club",
+          "welcome": "Welcome to the team!"
+        },
+        "rankUp": {
+          "achieved": "achieved",
+          "congratulations": "Congratulations on your rank up!"
+        }
       }
     },
     "training": {
