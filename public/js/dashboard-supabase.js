@@ -555,9 +555,13 @@ function setupFilters() {
             // Update leaderboard scope based on filter selection
             if (currentSubgroupFilter === 'global') {
                 currentLeaderboardScope = 'global';
+            } else if (currentSubgroupFilter === 'club') {
+                // Club filter - use club scope (only for users with club)
+                currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             } else {
-                // For 'club', age groups, and subgroups - use club data
-                currentLeaderboardScope = 'club';
+                // For age groups and subgroups - use global if user has no club
+                // This allows users without clubs to filter by age across all players
+                currentLeaderboardScope = currentUserData?.club_id ? 'club' : 'global';
             }
             updateLeaderboardScope();
 
