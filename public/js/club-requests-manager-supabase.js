@@ -424,6 +424,8 @@ async function approveClubRequest(requestId) {
             await notifyPlayer(requestData.player_id, 'club_join_approved',
                 'Beitrittsanfrage genehmigt',
                 'Deine Beitrittsanfrage wurde genehmigt. Willkommen im Verein!');
+            // Mark coach notifications as read
+            await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
         }
 
         // Manually reload the requests list
@@ -479,6 +481,8 @@ async function rejectClubRequest(requestId) {
             await notifyPlayer(requestData.player_id, 'club_join_rejected',
                 'Beitrittsanfrage abgelehnt',
                 'Deine Beitrittsanfrage wurde leider abgelehnt.');
+            // Mark coach notifications as read
+            await markCoachNotificationsAsRead(requestData.player_id, 'club_join_request');
         }
 
         // Manually reload the requests list
@@ -515,6 +519,27 @@ async function notifyPlayer(playerId, type, title, message) {
         }
     } catch (error) {
         console.error('Error notifying player:', error);
+    }
+}
+
+// Helper function to mark coach notifications as read when request is processed
+async function markCoachNotificationsAsRead(playerId, notificationType) {
+    try {
+        // Find and mark all notifications for this request type and player as read
+        const { error } = await supabaseClient
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('type', notificationType)
+            .eq('is_read', false)
+            .contains('data', { player_id: playerId });
+
+        if (error) {
+            console.error('Error marking coach notifications as read:', error);
+        } else {
+            console.log(`[ClubRequests] Marked ${notificationType} notifications for player ${playerId} as read`);
+        }
+    } catch (error) {
+        console.error('Error marking coach notifications as read:', error);
     }
 }
 
@@ -568,6 +593,8 @@ async function approveLeaveRequest(requestId, isCoach = false, playerName = 'Spi
             await notifyPlayer(requestData.player_id, 'club_leave_approved',
                 'Austrittsanfrage genehmigt',
                 'Deine Austrittsanfrage wurde genehmigt. Du hast den Verein verlassen.');
+            // Mark coach notifications as read
+            await markCoachNotificationsAsRead(requestData.player_id, 'club_leave_request');
         }
 
         // Manually reload the requests list
@@ -628,6 +655,8 @@ async function rejectLeaveRequest(requestId) {
             await notifyPlayer(requestData.player_id, 'club_leave_rejected',
                 'Austrittsanfrage abgelehnt',
                 'Deine Austrittsanfrage wurde abgelehnt. Du bleibst Mitglied im Verein.');
+            // Mark coach notifications as read
+            await markCoachNotificationsAsRead(requestData.player_id, 'club_leave_request');
         }
 
         // Manually reload the requests list

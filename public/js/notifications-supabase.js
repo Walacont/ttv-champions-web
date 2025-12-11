@@ -190,6 +190,112 @@ async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
 }
 
 /**
+ * Check and mark club request notifications as read if the request is already handled
+ * @param {string} userId - Current user's ID
+ * @param {Array} notifications - Array of notifications to check
+ * @returns {Array} - Updated notifications array with is_read updated for handled requests
+ */
+async function checkAndMarkConfirmedClubRequests(userId, notifications) {
+    const db = getSupabase();
+    if (!db || !notifications || notifications.length === 0) return notifications;
+
+    // Find all unread club_join_request and club_leave_request notifications
+    const unreadClubRequestNotifs = notifications.filter(n =>
+        (n.type === 'club_join_request' || n.type === 'club_leave_request') && !n.is_read
+    );
+
+    if (unreadClubRequestNotifs.length === 0) return notifications;
+
+    // Separate join and leave requests
+    const joinNotifs = unreadClubRequestNotifs.filter(n => n.type === 'club_join_request');
+    const leaveNotifs = unreadClubRequestNotifs.filter(n => n.type === 'club_leave_request');
+
+    const notificationsToMarkRead = [];
+
+    try {
+        // Check join requests by player_id
+        if (joinNotifs.length > 0) {
+            const playerIds = joinNotifs
+                .map(n => n.data?.player_id)
+                .filter(id => id);
+
+            if (playerIds.length > 0) {
+                const { data: clubRequests } = await db
+                    .from('club_requests')
+                    .select('player_id, status')
+                    .in('player_id', playerIds);
+
+                const requestStatusMap = {};
+                (clubRequests || []).forEach(r => {
+                    requestStatusMap[r.player_id] = r.status;
+                });
+
+                for (const notif of joinNotifs) {
+                    const playerId = notif.data?.player_id;
+                    if (!playerId) continue;
+
+                    const status = requestStatusMap[playerId];
+                    // If request doesn't exist or is approved/rejected, mark as read
+                    if (!status || status === 'approved' || status === 'rejected') {
+                        notificationsToMarkRead.push(notif.id);
+                    }
+                }
+            }
+        }
+
+        // Check leave requests by player_id
+        if (leaveNotifs.length > 0) {
+            const playerIds = leaveNotifs
+                .map(n => n.data?.player_id)
+                .filter(id => id);
+
+            if (playerIds.length > 0) {
+                const { data: leaveRequests } = await db
+                    .from('leave_club_requests')
+                    .select('player_id, status')
+                    .in('player_id', playerIds);
+
+                const requestStatusMap = {};
+                (leaveRequests || []).forEach(r => {
+                    requestStatusMap[r.player_id] = r.status;
+                });
+
+                for (const notif of leaveNotifs) {
+                    const playerId = notif.data?.player_id;
+                    if (!playerId) continue;
+
+                    const status = requestStatusMap[playerId];
+                    // If request doesn't exist or is approved/rejected, mark as read
+                    if (!status || status === 'approved' || status === 'rejected') {
+                        notificationsToMarkRead.push(notif.id);
+                    }
+                }
+            }
+        }
+
+        // Mark these notifications as read in the database
+        if (notificationsToMarkRead.length > 0) {
+            await db
+                .from('notifications')
+                .update({ is_read: true })
+                .in('id', notificationsToMarkRead);
+
+            // Update the notifications array to reflect the change
+            return notifications.map(n => {
+                if (notificationsToMarkRead.includes(n.id)) {
+                    return { ...n, is_read: true };
+                }
+                return n;
+            });
+        }
+    } catch (error) {
+        console.error('Error checking confirmed club requests:', error);
+    }
+
+    return notifications;
+}
+
+/**
  * Update the notification badge count
  */
 async function updateNotificationBadge(userId) {
@@ -274,7 +380,10 @@ async function showNotificationModal(userId) {
     }
 
     // Check and mark confirmed match request notifications as read
-    const notifications = await checkAndMarkConfirmedMatchRequests(userId, rawNotifications);
+    let notifications = await checkAndMarkConfirmedMatchRequests(userId, rawNotifications);
+
+    // Check and mark confirmed club request notifications as read
+    notifications = await checkAndMarkConfirmedClubRequests(userId, notifications);
 
     // Update badge count if any notifications were marked as read
     updateNotificationBadge(userId);
@@ -360,6 +469,14 @@ async function showNotificationModal(userId) {
             // For match requests: navigate to Wettkampf tab without marking as read
             // User should accept/decline there, which will handle the notification
             if (isMatchRequest(notification.type)) {
+                handleNotificationClick(notification);
+                closeModal();
+                return;
+            }
+
+            // For club requests (coaches): navigate to Verein tab without marking as read
+            // Coach should accept/decline there, which will handle the notification
+            if (isClubRequest(notification.type)) {
                 handleNotificationClick(notification);
                 closeModal();
                 return;
@@ -761,7 +878,32 @@ function handleNotificationClick(notification) {
             communityTab.click();
         }
     }
-    // Add more navigation handlers for other notification types here
+
+    // Club request notifications (for coaches) - navigate to coach dashboard / Verein tab
+    if (type === 'club_join_request' || type === 'club_leave_request') {
+        // Try to click the Verein tab (coach dashboard)
+        const vereinTab = document.querySelector('[data-tab="club"]') ||
+                          document.querySelector('[data-tab="verein"]') ||
+                          document.querySelector('button[onclick*="club"]');
+        if (vereinTab) {
+            vereinTab.click();
+            // Scroll to club requests section after tab switch
+            setTimeout(() => {
+                const requestsSection = type === 'club_join_request'
+                    ? document.getElementById('club-join-requests-list')
+                    : document.getElementById('leave-requests-list');
+                if (requestsSection) {
+                    requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+            return;
+        }
+        // If we're not on dashboard, navigate there
+        if (!window.location.pathname.includes('dashboard')) {
+            window.location.href = '/dashboard.html#club-requests';
+        }
+        return;
+    }
 }
 
 /**
@@ -781,6 +923,12 @@ function getNotificationIcon(type) {
         'follow_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'follow_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'follow_request_declined': '<i class="fas fa-user-times text-red-500 text-lg"></i>',
+        'club_join_request': '<i class="fas fa-building text-blue-500 text-lg"></i>',
+        'club_leave_request': '<i class="fas fa-door-open text-orange-500 text-lg"></i>',
+        'club_join_approved': '<i class="fas fa-building text-green-500 text-lg"></i>',
+        'club_join_rejected': '<i class="fas fa-building text-red-500 text-lg"></i>',
+        'club_leave_approved': '<i class="fas fa-door-open text-green-500 text-lg"></i>',
+        'club_leave_rejected': '<i class="fas fa-door-open text-red-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;
@@ -801,10 +949,17 @@ function isMatchRequest(type) {
 }
 
 /**
- * Check if notification is actionable (follow or match request)
+ * Check if notification type is an actionable club request (for coaches)
+ */
+function isClubRequest(type) {
+    return type === 'club_join_request' || type === 'club_leave_request';
+}
+
+/**
+ * Check if notification is actionable (follow, match, or club request)
  */
 function isActionableRequest(type) {
-    return isFollowRequest(type) || isMatchRequest(type);
+    return isFollowRequest(type) || isMatchRequest(type) || isClubRequest(type);
 }
 
 /**
@@ -844,6 +999,28 @@ function renderFollowRequestActions(notification) {
             // Match request has already been handled (confirmed/rejected/withdrawn)
             return `
                 <div class="match-request-status mt-2">
+                    <span class="text-xs text-gray-500">
+                        <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
+                    </span>
+                </div>
+            `;
+        }
+    }
+
+    // Handle club requests (for coaches) - show hint to go to coach dashboard
+    if (isClubRequest(notification.type)) {
+        if (!notification.is_read) {
+            const isJoinRequest = notification.type === 'club_join_request';
+            return `
+                <div class="club-request-hint mt-2">
+                    <span class="text-xs text-blue-600 font-medium">
+                        <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zur ${isJoinRequest ? 'Beitritts' : 'Austritts'}anfragen-Verwaltung zu gelangen
+                    </span>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="club-request-status mt-2">
                     <span class="text-xs text-gray-500">
                         <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
                     </span>
