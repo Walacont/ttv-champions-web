@@ -268,9 +268,46 @@
       "showMatchHistory": "Spielhistorie anzeigen",
       "showStats": "Statistiken anzeigen",
       "public": "Öffentlich",
-      "friendsOnly": "Nur Freunde",
+      "friendsOnly": "Nur Abonnenten",
       "private": "Privat",
-      "clubOnly": "Nur Vereinsmitglieder"
+      "clubOnly": "Nur Vereinsmitglieder",
+      "options": {
+        "global": "Global sichtbar",
+        "clubOnly": "Nur Vereinsmitglieder",
+        "followersOnly": "Nur Abonnenten",
+        "none": "Unsichtbar"
+      },
+      "profile": {
+        "title": "Profil",
+        "description": "Bestimme, wer dein Profil sehen kann.",
+        "globalDesc": "Alle können dein Profil sehen",
+        "clubDesc": "Nur Vereinsmitglieder können dein Profil sehen",
+        "followersDesc": "Nur deine Abonnenten können dein Profil sehen"
+      },
+      "search": {
+        "title": "Spielersuche",
+        "description": "Bestimme, wer dich bei der Spielersuche und für Wettkämpfe finden kann.",
+        "globalDesc": "Alle Spieler können dich finden",
+        "clubDesc": "Nur Spieler aus deinem Verein",
+        "followersDesc": "Nur deine Abonnenten können dich finden",
+        "noneDesc": "Niemand kann dich finden"
+      },
+      "leaderboard": {
+        "title": "Rangliste Optionen",
+        "description": "Bestimme, wer deine Position in Ranglisten sehen kann.",
+        "globalDesc": "Alle können deine Ranglisten-Position sehen",
+        "clubDesc": "Nur Vereinsmitglieder sehen deine Position",
+        "followersDesc": "Nur Abonnenten sehen deine Position",
+        "noneDesc": "Du erscheinst nicht in Ranglisten"
+      },
+      "matches": {
+        "title": "Aktivitäten",
+        "description": "Bestimme, wer deine Spiele und Match-Historie sehen kann.",
+        "globalDesc": "Alle können deine Spiele sehen",
+        "clubDesc": "Nur Vereinsmitglieder sehen deine Spiele",
+        "followersDesc": "Nur Abonnenten sehen deine Spiele",
+        "noneDesc": "Niemand kann deine Spiele sehen"
+      }
     },
     "club": {
       "title": "Vereinsverwaltung",

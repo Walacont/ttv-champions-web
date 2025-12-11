@@ -268,9 +268,46 @@
       "showMatchHistory": "Show Match History",
       "showStats": "Show Statistics",
       "public": "Public",
-      "friendsOnly": "Friends Only",
+      "friendsOnly": "Followers Only",
       "private": "Private",
-      "clubOnly": "Club Members Only"
+      "clubOnly": "Club Members Only",
+      "options": {
+        "global": "Globally Visible",
+        "clubOnly": "Club Members Only",
+        "followersOnly": "Followers Only",
+        "none": "Hidden"
+      },
+      "profile": {
+        "title": "Profile",
+        "description": "Determine who can see your profile.",
+        "globalDesc": "Everyone can see your profile",
+        "clubDesc": "Only club members can see your profile",
+        "followersDesc": "Only your followers can see your profile"
+      },
+      "search": {
+        "title": "Player Search",
+        "description": "Determine who can find you in player search and for competitions.",
+        "globalDesc": "All players can find you",
+        "clubDesc": "Only players from your club",
+        "followersDesc": "Only your followers can find you",
+        "noneDesc": "Nobody can find you"
+      },
+      "leaderboard": {
+        "title": "Leaderboard Options",
+        "description": "Determine who can see your position in leaderboards.",
+        "globalDesc": "Everyone can see your leaderboard position",
+        "clubDesc": "Only club members see your position",
+        "followersDesc": "Only followers see your position",
+        "noneDesc": "You don't appear in leaderboards"
+      },
+      "matches": {
+        "title": "Activities",
+        "description": "Determine who can see your games and match history.",
+        "globalDesc": "Everyone can see your games",
+        "clubDesc": "Only club members see your games",
+        "followersDesc": "Only followers see your games",
+        "noneDesc": "Nobody can see your games"
+      }
     },
     "club": {
       "title": "Club Management",
