@@ -46,8 +46,8 @@ export function initActivityFeedModule(user, userData) {
     // Setup filter dropdown
     setupFilterDropdown();
 
-    // Load followed clubs for filter
-    loadFollowedClubs();
+    // Load user's club for filter
+    loadUserClub();
 }
 
 /**
@@ -109,51 +109,38 @@ function selectFilter(filter, label) {
 }
 
 /**
- * Load clubs the user follows (for filter options)
+ * Load user's own club (for filter options)
+ * Only shows the club the user is a member of
  */
-async function loadFollowedClubs() {
+async function loadUserClub() {
     try {
-        // Get users the current user follows
-        const { data: following } = await supabase
-            .from('friendships')
-            .select('addressee_id')
-            .eq('requester_id', currentUser.id)
-            .eq('status', 'accepted');
-
-        const followingIds = (following || []).map(f => f.addressee_id);
-
-        if (followingIds.length === 0) {
+        // Check if user is in a club
+        if (!currentUserData.club_id) {
             followedClubsCache = [];
+            renderClubFilters();
             return;
         }
 
-        // Get unique clubs from followed users
-        const { data: profiles } = await supabase
-            .from('profiles')
-            .select('club_id')
-            .in('id', followingIds)
-            .not('club_id', 'is', null);
-
-        const clubIds = [...new Set((profiles || []).map(p => p.club_id).filter(Boolean))];
-
-        if (clubIds.length === 0) {
-            followedClubsCache = [];
-            return;
-        }
-
-        // Get club details
-        const { data: clubs } = await supabase
+        // Get the user's club details
+        const { data: club, error } = await supabase
             .from('clubs')
             .select('id, name')
-            .in('id', clubIds);
+            .eq('id', currentUserData.club_id)
+            .single();
 
-        followedClubsCache = clubs || [];
+        if (error || !club) {
+            followedClubsCache = [];
+            renderClubFilters();
+            return;
+        }
+
+        followedClubsCache = [club];
 
         // Render club filter options
         renderClubFilters();
 
     } catch (error) {
-        console.error('[ActivityFeed] Error loading followed clubs:', error);
+        console.error('[ActivityFeed] Error loading user club:', error);
         followedClubsCache = [];
     }
 }
