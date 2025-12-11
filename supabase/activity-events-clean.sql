@@ -275,10 +275,16 @@ CREATE TRIGGER trigger_rank_up_event
     EXECUTE FUNCTION create_rank_up_event();
 
 -- ============================================
--- STEP 7: Enable realtime
+-- STEP 7: Realtime (NOT needed for activity feed)
 -- ============================================
 
-ALTER PUBLICATION supabase_realtime ADD TABLE activity_events;
+-- Note: Realtime is NOT enabled for activity_events because:
+-- - Activity feed uses pull-to-refresh on mobile (manual refresh)
+-- - Saves database resources and performance
+-- - Users pull down to refresh, standard mobile UX
+
+-- If you want realtime updates anyway, uncomment this line:
+-- ALTER PUBLICATION supabase_realtime ADD TABLE activity_events;
 
 -- ============================================
 -- Done! Activity events system is now active.

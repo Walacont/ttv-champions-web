@@ -247,5 +247,15 @@ CREATE TRIGGER trigger_rank_up_event
     EXECUTE FUNCTION create_rank_up_event();
 
 -- ============================================
+-- OPTIONAL: Remove from realtime (if desired)
+-- ============================================
+
+-- Uncomment this line if you want to remove realtime updates for activity_events:
+-- ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS activity_events;
+
+-- Note: Activity feed uses pull-to-refresh on mobile, realtime is not needed.
+-- Users manually refresh by pulling down on the feed.
+
+-- ============================================
 -- Done! Triggers updated successfully.
 -- ============================================
