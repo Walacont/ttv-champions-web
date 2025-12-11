@@ -486,44 +486,26 @@ clubSearchBtn?.addEventListener('click', async () => {
 
 /**
  * Notify all coaches in a club about a join/leave request
+ * Uses RPC function to bypass RLS (players without a club can't read coach profiles directly)
  */
 async function notifyClubCoaches(clubId, type, playerName) {
     try {
-        const { data: coaches, error: coachError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('club_id', clubId)
-            .in('role', ['coach', 'head_coach']);
+        const { data, error } = await supabase.rpc('notify_club_coaches', {
+            p_club_id: clubId,
+            p_request_type: type,
+            p_player_name: playerName,
+            p_player_id: currentUser.id
+        });
 
-        if (coachError) {
-            console.error('Error finding coaches:', coachError);
+        if (error) {
+            console.error('Error notifying coaches via RPC:', error);
             return;
         }
 
-        if (!coaches || coaches.length === 0) {
-            console.log('[Settings] No coaches found in club to notify');
-            return;
-        }
-
-        const notifications = coaches.map(coach => ({
-            user_id: coach.id,
-            type: type === 'join' ? 'club_join_request' : 'club_leave_request',
-            title: type === 'join' ? 'Neue Beitrittsanfrage' : 'Neue Austrittsanfrage',
-            message: type === 'join'
-                ? `${playerName} möchte dem Verein beitreten.`
-                : `${playerName} möchte den Verein verlassen.`,
-            data: { player_name: playerName, player_id: currentUser.id },
-            is_read: false
-        }));
-
-        const { error: notifyError } = await supabase
-            .from('notifications')
-            .insert(notifications);
-
-        if (notifyError) {
-            console.error('Error creating coach notifications:', notifyError);
+        if (data?.success) {
+            console.log(`[Settings] Notified ${data.coaches_notified} coach(es) about ${type} request`);
         } else {
-            console.log(`[Settings] Notified ${coaches.length} coach(es) about ${type} request`);
+            console.error('Error from notify_club_coaches RPC:', data?.error);
         }
     } catch (error) {
         console.error('Error notifying coaches:', error);

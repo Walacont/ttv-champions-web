@@ -879,25 +879,43 @@ function handleNotificationClick(notification) {
         }
     }
 
-    // Club request notifications (for coaches) - navigate to coach dashboard / Verein tab
+    // Club request notifications (for coaches) - navigate to correct tab
     if (type === 'club_join_request' || type === 'club_leave_request') {
-        // Try to click the Verein tab (coach dashboard)
-        const vereinTab = document.querySelector('[data-tab="club"]') ||
-                          document.querySelector('[data-tab="verein"]') ||
-                          document.querySelector('button[onclick*="club"]');
-        if (vereinTab) {
-            vereinTab.click();
-            // Scroll to club requests section after tab switch
-            setTimeout(() => {
-                const requestsSection = type === 'club_join_request'
-                    ? document.getElementById('club-join-requests-list')
-                    : document.getElementById('leave-requests-list');
-                if (requestsSection) {
-                    requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 100);
-            return;
+        // Join requests are in "club" tab, Leave requests are in "statistics" tab
+        const isLeaveRequest = type === 'club_leave_request';
+
+        if (isLeaveRequest) {
+            // Navigate to Statistics tab for leave requests
+            const statisticsTab = document.querySelector('[data-tab="statistics"]');
+            if (statisticsTab) {
+                statisticsTab.click();
+                // Scroll to leave requests section after tab switch
+                setTimeout(() => {
+                    const requestsSection = document.getElementById('leave-requests-list');
+                    if (requestsSection) {
+                        requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+                return;
+            }
+        } else {
+            // Navigate to Club/Verein tab for join requests
+            const vereinTab = document.querySelector('[data-tab="club"]') ||
+                              document.querySelector('[data-tab="verein"]') ||
+                              document.querySelector('button[onclick*="club"]');
+            if (vereinTab) {
+                vereinTab.click();
+                // Scroll to club requests section after tab switch
+                setTimeout(() => {
+                    const requestsSection = document.getElementById('club-join-requests-list');
+                    if (requestsSection) {
+                        requestsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+                return;
+            }
         }
+
         // If we're not on dashboard, navigate there
         if (!window.location.pathname.includes('dashboard')) {
             window.location.href = '/dashboard.html#club-requests';
