@@ -753,12 +753,15 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
         }
 
         // Always refresh the lists for Player A (who withdrew)
-        if (typeof window.loadMatchRequests === 'function') {
-            window.loadMatchRequests();
-        }
-        if (typeof window.loadPendingRequests === 'function') {
-            window.loadPendingRequests();
-        }
+        // Use setTimeout to ensure DOM is ready and functions are available
+        setTimeout(() => {
+            if (typeof window.loadMatchRequests === 'function') {
+                window.loadMatchRequests();
+            }
+            if (typeof window.loadPendingRequests === 'function') {
+                window.loadPendingRequests();
+            }
+        }, 100);
 
         if (callbacks.onSuccess) {
             callbacks.onSuccess();

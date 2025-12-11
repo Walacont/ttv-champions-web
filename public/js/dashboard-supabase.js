@@ -2964,7 +2964,10 @@ window.deleteDoublesMatchRequest = async (requestId) => {
             .eq('id', requestId);
 
         if (error) throw error;
+
+        // Refresh lists immediately for Player A
         loadMatchRequests();
+        loadPendingRequests();
     } catch (error) {
         console.error('Error deleting doubles match request:', error);
         alert('Fehler beim Löschen der Doppel-Anfrage');
