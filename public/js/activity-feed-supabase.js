@@ -435,6 +435,9 @@ async function fetchActivities(userIds) {
             playerIds.add(m.team_a_player2_id);
             playerIds.add(m.team_b_player1_id);
             playerIds.add(m.team_b_player2_id);
+        } else if (m.activityType === 'post' || m.activityType === 'poll') {
+            // Posts and polls need user profile data
+            playerIds.add(m.user_id);
         }
         // For events (club_join, rank_up), user data is in event_data
     });
@@ -1098,7 +1101,7 @@ function renderRankUpCard(activity) {
  * Render a community post card
  */
 function renderPostCard(activity, profileMap) {
-    const profile = profileMap.get(activity.user_id);
+    const profile = profileMap[activity.user_id];
     const displayName = getDisplayName(profile);
     const avatarUrl = profile?.avatar_url || DEFAULT_AVATAR;
 
@@ -1171,7 +1174,7 @@ function renderPostCard(activity, profileMap) {
  * Render a community poll card
  */
 function renderPollCard(activity, profileMap) {
-    const profile = profileMap.get(activity.user_id);
+    const profile = profileMap[activity.user_id];
     const displayName = getDisplayName(profile);
     const avatarUrl = profile?.avatar_url || DEFAULT_AVATAR;
 
