@@ -521,10 +521,13 @@ function getNotificationIcon(type) {
         'match_request': '<i class="fas fa-table-tennis-paddle-ball text-indigo-500 text-lg"></i>',
         'match_approved': '<i class="fas fa-check-circle text-green-500 text-lg"></i>',
         'challenge_completed': '<i class="fas fa-trophy text-yellow-500 text-lg"></i>',
-        'follow_request': '<i class="fas fa-user-plus text-blue-500 text-lg"></i>',
-        'friend_request': '<i class="fas fa-user-plus text-blue-500 text-lg"></i>',
+        'follow_request': '<i class="fas fa-user-plus text-orange-500 text-lg"></i>',
+        'friend_request': '<i class="fas fa-user-plus text-orange-500 text-lg"></i>',
+        'new_follower': '<i class="fas fa-user-plus text-indigo-500 text-lg"></i>',
         'friend_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
+        'follow_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'follow_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
+        'follow_request_declined': '<i class="fas fa-user-times text-red-500 text-lg"></i>',
         'default': '<i class="fas fa-bell text-gray-500 text-lg"></i>'
     };
     return icons[type] || icons.default;

@@ -401,5 +401,42 @@
     "minutesAgo_plural": "vor {{count}} Minuten",
     "secondsAgo": "vor {{count}} Sekunde",
     "secondsAgo_plural": "vor {{count}} Sekunden"
+  },
+  "follow": {
+    "follow": "Folgen",
+    "following": "Gefolgt",
+    "requested": "Angefragt",
+    "unfollow": "Entfolgen",
+    "cancelRequest": "Anfrage zurückziehen",
+    "followers": "Abonnenten",
+    "followersCount": "{{count}} Abonnent",
+    "followersCount_plural": "{{count}} Abonnenten",
+    "noFollowers": "Noch keine Abonnenten",
+    "request": {
+      "sent": "Anfrage gesendet",
+      "cancelled": "Anfrage zurückgezogen",
+      "accepted": "Anfrage angenommen",
+      "declined": "Anfrage abgelehnt"
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "noNotifications": "Keine Benachrichtigungen",
+    "markAllRead": "Alle gelesen",
+    "deleteRead": "Gelesene löschen",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "types": {
+      "newFollower": "Neuer Abonnent",
+      "followRequest": "Neue Abonnement-Anfrage",
+      "followRequestAccepted": "Anfrage angenommen",
+      "followRequestDeclined": "Anfrage abgelehnt"
+    },
+    "messages": {
+      "newFollower": "{{name}} folgt dir jetzt",
+      "followRequest": "{{name}} möchte dir folgen",
+      "followRequestAccepted": "{{name}} hat deine Anfrage angenommen",
+      "followRequestDeclined": "{{name}} hat deine Anfrage abgelehnt"
+    }
   }
 }
