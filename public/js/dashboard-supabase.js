@@ -2281,6 +2281,27 @@ function setupRealtimeSubscriptions() {
 
     realtimeSubscriptions.push(matchRequestSubB);
 
+    // Subscribe to ALL match_requests DELETE events (without filter)
+    // Row-level filters don't work for DELETE events in Supabase
+    // so we listen to all deletes and refresh the lists
+    const matchRequestDeleteSub = supabase
+        .channel('match_request_deletes')
+        .on('postgres_changes', {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'match_requests'
+        }, (payload) => {
+            console.log('[Realtime] Match request deleted:', payload.old);
+            // Refresh lists - the deleted request might have involved current user
+            loadMatchRequests();
+            loadPendingRequests();
+        })
+        .subscribe((status) => {
+            console.log('[Realtime] Match request DELETE subscription status:', status);
+        });
+
+    realtimeSubscriptions.push(matchRequestDeleteSub);
+
     // Subscribe to doubles match requests - all events for any request
     // Since we filter client-side anyway, subscribe to all changes
     const doublesRequestSub = supabase
@@ -2950,8 +2971,9 @@ window.deleteDoublesMatchRequest = async (requestId) => {
     }
 };
 
-// Expose loadMatchRequests for cross-module access (e.g., doubles form)
+// Expose loadMatchRequests and loadPendingRequests for cross-module access
 window.loadMatchRequests = loadMatchRequests;
+window.loadPendingRequests = loadPendingRequests;
 
 /**
  * Create actual match from approved request

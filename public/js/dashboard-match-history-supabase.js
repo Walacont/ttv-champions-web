@@ -752,6 +752,14 @@ export async function deleteMatchRequest(requestId, callbacks = {}) {
             }
         }
 
+        // Always refresh the lists for Player A (who withdrew)
+        if (typeof window.loadMatchRequests === 'function') {
+            window.loadMatchRequests();
+        }
+        if (typeof window.loadPendingRequests === 'function') {
+            window.loadPendingRequests();
+        }
+
         if (callbacks.onSuccess) {
             callbacks.onSuccess();
         }
