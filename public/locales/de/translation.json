@@ -660,5 +660,106 @@
       "followRequestAccepted": "{{name}} hat deine Anfrage angenommen",
       "followRequestDeclined": "{{name}} hat deine Anfrage abgelehnt"
     }
+  },
+  "settingsClub": {
+    "title": "Vereinsverwaltung",
+    "searchClub": "Verein suchen",
+    "enterClubName": "Vereinsname eingeben",
+    "enterClubNamePlaceholder": "Vereinsname eingeben...",
+    "joinRequestInfo": "Nach dem Senden einer Beitrittsanfrage muss ein Coach deines Wunschvereins diese genehmigen.",
+    "leaveClub": "Verein verlassen",
+    "sendLeaveRequest": "Austrittsanfrage senden",
+    "leaveRequestInfo": "Nach dem Senden einer Austrittsanfrage muss ein Coach deines Vereins diese genehmigen."
+  },
+  "settingsLegal": {
+    "title": "Rechtsinformationen",
+    "dataExport": {
+      "title": "Datenexport",
+      "description": "Lade alle deine gespeicherten Daten als JSON-Datei herunter. Dies umfasst dein Profil, Match-Historie, Trainings-Teilnahmen und Statistiken.",
+      "button": "Daten herunterladen"
+    },
+    "deleteAccount": {
+      "title": "Account löschen",
+      "warningTitle": "⚠️ Was passiert bei der Account-Löschung:",
+      "warning1": "Dein Account wird deaktiviert - Login nicht mehr möglich",
+      "warning2": "Persönliche Daten werden gelöscht (Name, Email, Geburtsdatum, Profilbild)",
+      "warning3": "Dein Name wird durch \"Gelöschter Nutzer\" ersetzt",
+      "warning4": "Match-Historie bleibt erhalten (anonymisiert)",
+      "warning5": "Ranglisten-Einträge bleiben als \"Gelöschter Nutzer\"",
+      "warning6": "Diese Aktion kann nicht rückgängig gemacht werden!",
+      "recommendation": "Empfehlung: Lade zuerst deine Daten herunter (siehe oben).",
+      "button": "Account unwiderruflich löschen"
+    }
+  },
+  "settingsProfile": {
+    "title": "Profil bearbeiten",
+    "profilePicture": "Profilbild",
+    "changePhoto": "Bild ändern",
+    "name": "Name",
+    "saveName": "Namen speichern",
+    "email": {
+      "title": "Email-Adresse",
+      "current": "Aktuelle Email:",
+      "new": "Neue Email-Adresse",
+      "newPlaceholder": "neue-email@beispiel.de",
+      "currentPassword": "Aktuelles Passwort (zur Bestätigung)",
+      "passwordReason": "Aus Sicherheitsgründen musst du dein Passwort eingeben",
+      "changeButton": "Email-Adresse ändern"
+    },
+    "personalData": {
+      "title": "Persönliche Daten",
+      "pleaseSelect": "Bitte wählen",
+      "preferNotToSay": "Keine Angabe",
+      "saveButton": "Persönliche Daten speichern"
+    },
+    "password": {
+      "title": "Passwort ändern",
+      "current": "Aktuelles Passwort",
+      "new": "Neues Passwort",
+      "minChars": "Mindestens 8 Zeichen",
+      "confirm": "Neues Passwort bestätigen",
+      "changeButton": "Passwort ändern"
+    }
+  },
+  "settingsSupport": {
+    "title": "Support",
+    "pending": "Ausstehend",
+    "startTutorial": "Tutorial starten",
+    "tutorialTip": "Tipp: Das Tutorial kann jederzeit abgebrochen werden. Du kannst es später hier wiederholen.",
+    "coachTutorial": {
+      "title": "Coach Tutorial",
+      "description": "Lerne alle wichtigen Funktionen für Coaches kennen: Spielerverwaltung, Wettkämpfe, Challenges, Ranglisten und mehr."
+    },
+    "playerTutorial": {
+      "title": "Spieler Tutorial",
+      "description": "Lerne alle wichtigen Funktionen kennen: Ansichten wechseln, Ranglisten nutzen, Wettkämpfe anfragen, Dashboard anpassen und mehr."
+    },
+    "faq": {
+      "title": "FAQ & Regeln",
+      "description": "Häufig gestellte Fragen und Spielregeln",
+      "openButton": "FAQ öffnen"
+    }
+  },
+  "resetPassword": {
+    "setNewPassword": "Neues Passwort setzen",
+    "enterNewPassword": "Gib dein neues Passwort ein.",
+    "newPassword": "Neues Passwort",
+    "minChars": "Mindestens 6 Zeichen",
+    "confirmPassword": "Passwort bestätigen",
+    "repeatPassword": "Passwort wiederholen",
+    "savePassword": "Passwort speichern",
+    "success": {
+      "title": "Passwort geändert!",
+      "description": "Dein Passwort wurde erfolgreich geändert. Du kannst dich jetzt mit deinem neuen Passwort anmelden."
+    },
+    "toLogin": "Zur Anmeldung",
+    "error": {
+      "title": "Link ungültig",
+      "description": "Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen."
+    },
+    "requestNewLink": "Neuen Link anfordern:",
+    "emailPlaceholder": "Deine E-Mail-Adresse",
+    "sendNewLink": "Neuen Link senden",
+    "toHomepage": "Zur Startseite"
   }
 }

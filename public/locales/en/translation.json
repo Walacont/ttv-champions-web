@@ -660,5 +660,106 @@
       "followRequestAccepted": "{{name}} accepted your request",
       "followRequestDeclined": "{{name}} declined your request"
     }
+  },
+  "settingsClub": {
+    "title": "Club Management",
+    "searchClub": "Search Club",
+    "enterClubName": "Enter club name",
+    "enterClubNamePlaceholder": "Enter club name...",
+    "joinRequestInfo": "After sending a join request, a coach from your desired club must approve it.",
+    "leaveClub": "Leave Club",
+    "sendLeaveRequest": "Send leave request",
+    "leaveRequestInfo": "After sending a leave request, a coach from your club must approve it."
+  },
+  "settingsLegal": {
+    "title": "Legal Information",
+    "dataExport": {
+      "title": "Data Export",
+      "description": "Download all your stored data as a JSON file. This includes your profile, match history, training attendance and statistics.",
+      "button": "Download data"
+    },
+    "deleteAccount": {
+      "title": "Delete Account",
+      "warningTitle": "⚠️ What happens when you delete your account:",
+      "warning1": "Your account will be deactivated - login no longer possible",
+      "warning2": "Personal data will be deleted (name, email, date of birth, profile picture)",
+      "warning3": "Your name will be replaced with \"Deleted User\"",
+      "warning4": "Match history will be preserved (anonymized)",
+      "warning5": "Leaderboard entries will remain as \"Deleted User\"",
+      "warning6": "This action cannot be undone!",
+      "recommendation": "Recommendation: Download your data first (see above).",
+      "button": "Delete account permanently"
+    }
+  },
+  "settingsProfile": {
+    "title": "Edit Profile",
+    "profilePicture": "Profile Picture",
+    "changePhoto": "Change photo",
+    "name": "Name",
+    "saveName": "Save name",
+    "email": {
+      "title": "Email Address",
+      "current": "Current email:",
+      "new": "New email address",
+      "newPlaceholder": "new-email@example.com",
+      "currentPassword": "Current password (for confirmation)",
+      "passwordReason": "For security reasons, you must enter your password",
+      "changeButton": "Change email address"
+    },
+    "personalData": {
+      "title": "Personal Data",
+      "pleaseSelect": "Please select",
+      "preferNotToSay": "Prefer not to say",
+      "saveButton": "Save personal data"
+    },
+    "password": {
+      "title": "Change Password",
+      "current": "Current password",
+      "new": "New password",
+      "minChars": "At least 8 characters",
+      "confirm": "Confirm new password",
+      "changeButton": "Change password"
+    }
+  },
+  "settingsSupport": {
+    "title": "Support",
+    "pending": "Pending",
+    "startTutorial": "Start tutorial",
+    "tutorialTip": "Tip: The tutorial can be cancelled at any time. You can repeat it here later.",
+    "coachTutorial": {
+      "title": "Coach Tutorial",
+      "description": "Learn all the important features for coaches: player management, competitions, challenges, leaderboards and more."
+    },
+    "playerTutorial": {
+      "title": "Player Tutorial",
+      "description": "Learn all the important features: switch views, use leaderboards, request competitions, customize dashboard and more."
+    },
+    "faq": {
+      "title": "FAQ & Rules",
+      "description": "Frequently asked questions and game rules",
+      "openButton": "Open FAQ"
+    }
+  },
+  "resetPassword": {
+    "setNewPassword": "Set New Password",
+    "enterNewPassword": "Enter your new password.",
+    "newPassword": "New password",
+    "minChars": "At least 6 characters",
+    "confirmPassword": "Confirm password",
+    "repeatPassword": "Repeat password",
+    "savePassword": "Save password",
+    "success": {
+      "title": "Password changed!",
+      "description": "Your password has been successfully changed. You can now sign in with your new password."
+    },
+    "toLogin": "Go to login",
+    "error": {
+      "title": "Invalid link",
+      "description": "This password reset link is invalid or has expired."
+    },
+    "requestNewLink": "Request new link:",
+    "emailPlaceholder": "Your email address",
+    "sendNewLink": "Send new link",
+    "toHomepage": "Go to homepage"
   }
 }

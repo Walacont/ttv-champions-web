@@ -81,15 +81,15 @@
                     class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4"
                 >
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Zurück
+                    <span data-i18n="common.back">Zurück</span>
                 </a>
-                <h1 class="text-3xl font-bold text-gray-900 text-center">Profil bearbeiten</h1>
+                <h1 class="text-3xl font-bold text-gray-900 text-center" data-i18n="settingsProfile.title">Profil bearbeiten</h1>
             </div>
 
             <div class="space-y-6">
                 <!-- Profilbild -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Profilbild</h2>
+                    <h2 class="text-xl font-semibold mb-4" data-i18n="settingsProfile.profilePicture">Profilbild</h2>
                     <div class="flex items-center space-x-6">
                         <img
                             id="profile-image-preview"
@@ -102,7 +102,7 @@
                                 for="photo-upload"
                                 class="cursor-pointer text-center bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                             >
-                                <span>Bild ändern</span>
+                                <span data-i18n="settingsProfile.changePhoto">Bild ändern</span>
                                 <input
                                     id="photo-upload"
                                     name="photo-upload"
@@ -116,6 +116,7 @@
                                 id="save-photo-button"
                                 class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-opacity opacity-0 disabled:opacity-50"
                                 disabled
+                                data-i18n="common.save"
                             >
                                 Speichern
                             </button>
@@ -126,10 +127,10 @@
 
                 <!-- Name -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Name</h2>
+                    <h2 class="text-xl font-semibold mb-4" data-i18n="settingsProfile.name">Name</h2>
                     <form id="update-name-form" class="space-y-4">
                         <div>
-                            <label for="firstName" class="block text-sm font-medium text-gray-700"
+                            <label for="firstName" class="block text-sm font-medium text-gray-700" data-i18n="onboarding.firstName"
                                 >Vorname</label
                             >
                             <input
@@ -140,7 +141,7 @@
                             />
                         </div>
                         <div>
-                            <label for="lastName" class="block text-sm font-medium text-gray-700"
+                            <label for="lastName" class="block text-sm font-medium text-gray-700" data-i18n="onboarding.lastName"
                                 >Nachname</label
                             >
                             <input
@@ -153,6 +154,7 @@
                         <button
                             type="submit"
                             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                            data-i18n="settingsProfile.saveName"
                         >
                             Namen speichern
                         </button>
@@ -162,11 +164,11 @@
 
                 <!-- Email-Adresse -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Email-Adresse</h2>
+                    <h2 class="text-xl font-semibold mb-4" data-i18n="settingsProfile.email.title">Email-Adresse</h2>
                     <div class="space-y-4">
                         <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-600 mb-1">Aktuelle Email:</p>
-                            <p id="current-email" class="font-semibold text-gray-900">lädt...</p>
+                            <p class="text-sm text-gray-600 mb-1" data-i18n="settingsProfile.email.current">Aktuelle Email:</p>
+                            <p id="current-email" class="font-semibold text-gray-900" data-i18n="common.loading">lädt...</p>
                             <div id="email-verification-status" class="mt-2"></div>
                         </div>
 
@@ -175,6 +177,7 @@
                                 <label
                                     for="new-email"
                                     class="block text-sm font-medium text-gray-700"
+                                    data-i18n="settingsProfile.email.new"
                                     >Neue Email-Adresse</label
                                 >
                                 <input
@@ -183,12 +186,14 @@
                                     required
                                     class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     placeholder="neue-email@beispiel.de"
+                                    data-i18n-placeholder="settingsProfile.email.newPlaceholder"
                                 />
                             </div>
                             <div>
                                 <label
                                     for="current-password"
                                     class="block text-sm font-medium text-gray-700"
+                                    data-i18n="settingsProfile.email.currentPassword"
                                     >Aktuelles Passwort (zur Bestätigung)</label
                                 >
                                 <input
@@ -198,13 +203,14 @@
                                     class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     placeholder="••••••••"
                                 />
-                                <p class="mt-1 text-sm text-gray-500">
+                                <p class="mt-1 text-sm text-gray-500" data-i18n="settingsProfile.email.passwordReason">
                                     Aus Sicherheitsgründen musst du dein Passwort eingeben
                                 </p>
                             </div>
                             <button
                                 type="submit"
                                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                                data-i18n="settingsProfile.email.changeButton"
                             >
                                 Email-Adresse ändern
                             </button>
@@ -215,25 +221,25 @@
 
                 <!-- Geschlecht & Geburtsdatum -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Persönliche Daten</h2>
+                    <h2 class="text-xl font-semibold mb-4" data-i18n="settingsProfile.personalData.title">Persönliche Daten</h2>
                     <form id="update-personal-data-form" class="space-y-4">
                         <div>
-                            <label for="gender" class="block text-sm font-medium text-gray-700"
+                            <label for="gender" class="block text-sm font-medium text-gray-700" data-i18n="onboarding.gender"
                                 >Geschlecht</label
                             >
                             <select
                                 id="gender"
                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                             >
-                                <option value="">Bitte wählen</option>
-                                <option value="male">Männlich</option>
-                                <option value="female">Weiblich</option>
-                                <option value="diverse">Divers</option>
-                                <option value="prefer_not_to_say">Keine Angabe</option>
+                                <option value="" data-i18n="settingsProfile.personalData.pleaseSelect">Bitte wählen</option>
+                                <option value="male" data-i18n="onboarding.male">Männlich</option>
+                                <option value="female" data-i18n="onboarding.female">Weiblich</option>
+                                <option value="diverse" data-i18n="onboarding.diverse">Divers</option>
+                                <option value="prefer_not_to_say" data-i18n="settingsProfile.personalData.preferNotToSay">Keine Angabe</option>
                             </select>
                         </div>
                         <div>
-                            <label for="birthdate" class="block text-sm font-medium text-gray-700"
+                            <label for="birthdate" class="block text-sm font-medium text-gray-700" data-i18n="onboarding.birthdate"
                                 >Geburtsdatum</label
                             >
                             <input
@@ -245,6 +251,7 @@
                         <button
                             type="submit"
                             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                            data-i18n="settingsProfile.personalData.saveButton"
                         >
                             Persönliche Daten speichern
                         </button>
@@ -254,12 +261,13 @@
 
                 <!-- Passwort ändern -->
                 <div class="bg-white p-6 rounded-xl shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Passwort ändern</h2>
+                    <h2 class="text-xl font-semibold mb-4" data-i18n="settingsProfile.password.title">Passwort ändern</h2>
                     <form id="update-password-form" class="space-y-4">
                         <div>
                             <label
                                 for="old-password"
                                 class="block text-sm font-medium text-gray-700"
+                                data-i18n="settingsProfile.password.current"
                                 >Aktuelles Passwort</label
                             >
                             <input
@@ -274,6 +282,7 @@
                             <label
                                 for="new-password"
                                 class="block text-sm font-medium text-gray-700"
+                                data-i18n="settingsProfile.password.new"
                                 >Neues Passwort</label
                             >
                             <input
@@ -284,12 +293,13 @@
                                 class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="••••••••"
                             />
-                            <p class="mt-1 text-sm text-gray-500">Mindestens 8 Zeichen</p>
+                            <p class="mt-1 text-sm text-gray-500" data-i18n="settingsProfile.password.minChars">Mindestens 8 Zeichen</p>
                         </div>
                         <div>
                             <label
                                 for="confirm-password"
                                 class="block text-sm font-medium text-gray-700"
+                                data-i18n="settingsProfile.password.confirm"
                                 >Neues Passwort bestätigen</label
                             >
                             <input
@@ -304,6 +314,7 @@
                         <button
                             type="submit"
                             class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
+                            data-i18n="settingsProfile.password.changeButton"
                         >
                             Passwort ändern
                         </button>
