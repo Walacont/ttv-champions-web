@@ -3316,22 +3316,18 @@ async function populatePlayerSubgroupFilter(userData) {
     // Save current selection
     const currentSelection = dropdown.value;
 
-    // If user has no club, show only Global option
-    if (!hasClub) {
-        dropdown.innerHTML = '';
-        dropdown.appendChild(createOption('global', '🌍 Global'));
-        dropdown.value = 'global';
-        return;
-    }
-
     // Start building dropdown options
     dropdown.innerHTML = '';
 
-    // Add club and global options first
-    dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
+    // Add club option only if user has a club
+    if (hasClub) {
+        dropdown.appendChild(createOption('club', '🏠 Mein Verein'));
+    }
+
+    // Global option always available
     dropdown.appendChild(createOption('global', '🌍 Global'));
 
-    // Add Youth Age Groups
+    // Add Youth Age Groups (always show for all users)
     const youthGroup = document.createElement('optgroup');
     youthGroup.label = '⚽ Jugend (nach Alter)';
     AGE_GROUPS.youth.forEach(group => {
@@ -3340,7 +3336,7 @@ async function populatePlayerSubgroupFilter(userData) {
     });
     dropdown.appendChild(youthGroup);
 
-    // Add Adults Age Group
+    // Add Adults Age Group (always show for all users)
     const adultsGroup = document.createElement('optgroup');
     adultsGroup.label = '👥 Erwachsene';
     AGE_GROUPS.adults.forEach(group => {
@@ -3349,7 +3345,7 @@ async function populatePlayerSubgroupFilter(userData) {
     });
     dropdown.appendChild(adultsGroup);
 
-    // Add Senior Age Groups
+    // Add Senior Age Groups (always show for all users)
     const seniorGroup = document.createElement('optgroup');
     seniorGroup.label = '🎖️ Senioren (nach Alter)';
     AGE_GROUPS.seniors.forEach(group => {
@@ -3358,8 +3354,8 @@ async function populatePlayerSubgroupFilter(userData) {
     });
     dropdown.appendChild(seniorGroup);
 
-    // Load and add custom subgroups if user has any
-    if (subgroupIDs.length > 0) {
+    // Load and add custom subgroups if user has any (only for users with club)
+    if (hasClub && subgroupIDs.length > 0) {
         try {
             const { data: subgroups, error } = await supabase
                 .from('subgroups')
@@ -3387,7 +3383,8 @@ async function populatePlayerSubgroupFilter(userData) {
     if (validValues.includes(currentSelection)) {
         dropdown.value = currentSelection;
     } else {
-        dropdown.value = 'club';
+        // Default: club if available, otherwise global
+        dropdown.value = hasClub ? 'club' : 'global';
     }
 }
 
