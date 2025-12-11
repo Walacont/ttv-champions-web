@@ -360,6 +360,10 @@ async function initializeDashboard() {
         }
     });
 
+    // Setup collapsible sections (match suggestions and leaderboard preferences toggles)
+    setupMatchSuggestions();
+    setupLeaderboardPreferences();
+
     // Initialize widget system (customizable dashboard)
     initializeWidgetSystem(supabase, currentUser.id, currentUserData);
 
