@@ -46,7 +46,7 @@ let currentUserData = null;
 let currentClubData = null;
 let currentSportContext = null; // Multi-sport: stores sportId, clubId, role for active sport
 let realtimeSubscriptions = [];
-let currentSubgroupFilter = 'club';
+let currentSubgroupFilter = 'global'; // Will be set properly in populatePlayerSubgroupFilter
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
 
@@ -287,7 +287,6 @@ async function initializeDashboard() {
     setupProfileLink();
     setupCoachIndicator();
     setupSearchButton();
-    setupFilters();
     setupModalHandlers();
 
     // Initialize leaderboard preferences (must be after tabs are set up)
@@ -304,7 +303,8 @@ async function initializeDashboard() {
     updateStatsDisplay();
     updateRankDisplay();
     loadRivalData();
-    loadLeaderboards();
+    await loadLeaderboards();
+    setupFilters(); // Setup filters after leaderboard HTML is rendered
     loadPointsHistory();
     loadChallenges();
     loadExercises();
@@ -940,13 +940,28 @@ async function loadLeaderboards() {
                 </div>
             </div>
 
-            <!-- Club/Global Toggle -->
-            ${currentUserData.club_id ? `
-            <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-100 mb-4">
-                <button id="lb-scope-club" class="lb-scope-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors">Mein Verein</button>
-                <button id="lb-scope-global" class="lb-scope-btn flex-1 py-2 px-4 text-sm font-semibold rounded-md transition-colors">Global</button>
+            <!-- Filter Row -->
+            <div id="player-subgroup-filter-container" class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <label for="player-subgroup-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        👥 Ansicht:
+                    </label>
+                    <select id="player-subgroup-filter" class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
+                        <option value="club">🏠 Mein Verein</option>
+                        <option value="global">🌍 Global</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2 flex-1 sm:flex-none">
+                    <label for="player-gender-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        ⚧ Geschlecht:
+                    </label>
+                    <select id="player-gender-filter" class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white">
+                        <option value="all">Alle</option>
+                        <option value="male">Jungen/Herren</option>
+                        <option value="female">Mädchen/Damen</option>
+                    </select>
+                </div>
             </div>
-            ` : ''}
 
             <!-- Effort/Fleiß Content -->
             <div id="content-effort" class="leaderboard-tab-content mt-4 space-y-2 hidden">
@@ -3389,6 +3404,19 @@ async function populatePlayerSubgroupFilter(userData) {
     } else {
         // Default: club if available, otherwise global
         dropdown.value = hasClub ? 'club' : 'global';
+    }
+
+    // Sync currentSubgroupFilter with dropdown value
+    currentSubgroupFilter = dropdown.value;
+
+    // Also sync leaderboard scope
+    if (currentSubgroupFilter === 'global') {
+        currentLeaderboardScope = 'global';
+    } else if (currentSubgroupFilter === 'club') {
+        currentLeaderboardScope = hasClub ? 'club' : 'global';
+    } else {
+        // Age groups and subgroups - use global if no club
+        currentLeaderboardScope = hasClub ? 'club' : 'global';
     }
 }
 

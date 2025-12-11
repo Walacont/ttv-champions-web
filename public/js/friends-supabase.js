@@ -194,7 +194,7 @@ function renderSearchResults(players) {
     const resultsContainer = document.getElementById('player-search-results');
 
     const cardsHtml = players.map(player => {
-        const photoUrl = player.avatar_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (player.first_name?.[0] || '?');
+        const photoUrl = player.avatar_url || player.photo_url || 'https://placehold.co/64x64/e2e8f0/64748b?text=' + (player.first_name?.[0] || '?');
         const fullName = `${player.first_name || ''} ${player.last_name || ''}`.trim();
         const clubName = player.club_name || 'Kein Verein';
         const elo = player.elo_rating || 800;
