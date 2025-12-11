@@ -2423,14 +2423,17 @@ function showNewRequestNotification() {
         setTimeout(() => requestsSection.classList.remove('animate-pulse'), 2000);
     }
 
-    // Browser notification if permitted
+    // Browser notification only if already permitted
+    // Note: requestPermission() can only be called from user gesture (click/tap)
     if (Notification.permission === 'granted') {
-        new Notification('Neue Spielanfrage!', {
-            body: 'Du hast eine neue Wettkampfanfrage erhalten.',
-            icon: '/img/logo.png'
-        });
-    } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission();
+        try {
+            new Notification('Neue Spielanfrage!', {
+                body: 'Du hast eine neue Wettkampfanfrage erhalten.',
+                icon: '/img/logo.png'
+            });
+        } catch (e) {
+            console.warn('Could not show notification:', e);
+        }
     }
 
     // Toast notification
