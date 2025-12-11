@@ -4,12 +4,16 @@
 -- Returns the followers or following list for a user,
 -- respecting their privacy settings.
 --
--- Privacy rules:
+-- Privacy rules (based on profile_visibility):
 -- - 'global': Everyone can see the connections list
 -- - 'club_only': Only club members can see it
--- - 'friends_only' / 'followers_only': Only followers can see it
+-- - 'followers_only': Only followers can see it
 -- - 'none': No one can see it (except the user themselves)
 -- - Own profile: Always visible
+
+-- Drop existing functions first
+DROP FUNCTION IF EXISTS get_user_followers(UUID, UUID);
+DROP FUNCTION IF EXISTS get_user_following(UUID, UUID);
 
 -- Function to get followers of a user
 CREATE OR REPLACE FUNCTION get_user_followers(
@@ -30,27 +34,32 @@ DECLARE
     v_followers JSONB;
 BEGIN
     -- Own profile - always allowed
-    IF p_profile_id = p_viewer_id THEN
+    IF p_profile_id = p_viewer_id AND p_viewer_id IS NOT NULL THEN
         v_can_view := true;
     ELSE
         -- Get profile's privacy settings and club
+        -- Check both profile_visibility and searchable for compatibility
         SELECT
-            COALESCE(privacy_settings->>'searchable', 'global'),
+            COALESCE(
+                privacy_settings->>'profile_visibility',
+                privacy_settings->>'searchable',
+                'global'
+            ),
             club_id
         INTO v_privacy_setting, v_profile_club_id
         FROM profiles
         WHERE id = p_profile_id;
 
         -- Check based on privacy setting
-        IF v_privacy_setting = 'global' THEN
+        IF v_privacy_setting = 'global' OR v_privacy_setting = 'true' THEN
             v_can_view := true;
-        ELSIF v_privacy_setting = 'club_only' THEN
+        ELSIF v_privacy_setting = 'club_only' AND p_viewer_id IS NOT NULL THEN
             -- Check if viewer is in same club
             SELECT club_id INTO v_viewer_club_id
             FROM profiles WHERE id = p_viewer_id;
 
             v_can_view := (v_profile_club_id IS NOT NULL AND v_profile_club_id = v_viewer_club_id);
-        ELSIF v_privacy_setting IN ('friends_only', 'followers_only') THEN
+        ELSIF v_privacy_setting IN ('friends_only', 'followers_only') AND p_viewer_id IS NOT NULL THEN
             -- Check if viewer follows the profile
             SELECT EXISTS (
                 SELECT 1 FROM friendships
@@ -61,7 +70,7 @@ BEGIN
 
             v_can_view := v_is_following;
         END IF;
-        -- 'none' = v_can_view stays false
+        -- 'none' or no viewer = v_can_view stays false
     END IF;
 
     IF NOT v_can_view THEN
@@ -80,7 +89,7 @@ BEGIN
     END IF;
 
     -- Get followers (people who follow this profile)
-    SELECT jsonb_agg(
+    SELECT COALESCE(jsonb_agg(
         jsonb_build_object(
             'id', p.id,
             'first_name', p.first_name,
@@ -89,7 +98,7 @@ BEGIN
             'club_id', p.club_id,
             'club_name', c.name
         )
-    )
+    ), '[]'::jsonb)
     INTO v_followers
     FROM friendships f
     JOIN profiles p ON p.id = f.requester_id
@@ -100,7 +109,7 @@ BEGIN
     RETURN jsonb_build_object(
         'success', true,
         'access_denied', false,
-        'followers', COALESCE(v_followers, '[]'::jsonb)
+        'followers', v_followers
     );
 END;
 $$;
@@ -124,27 +133,31 @@ DECLARE
     v_following JSONB;
 BEGIN
     -- Own profile - always allowed
-    IF p_profile_id = p_viewer_id THEN
+    IF p_profile_id = p_viewer_id AND p_viewer_id IS NOT NULL THEN
         v_can_view := true;
     ELSE
         -- Get profile's privacy settings and club
         SELECT
-            COALESCE(privacy_settings->>'searchable', 'global'),
+            COALESCE(
+                privacy_settings->>'profile_visibility',
+                privacy_settings->>'searchable',
+                'global'
+            ),
             club_id
         INTO v_privacy_setting, v_profile_club_id
         FROM profiles
         WHERE id = p_profile_id;
 
         -- Check based on privacy setting
-        IF v_privacy_setting = 'global' THEN
+        IF v_privacy_setting = 'global' OR v_privacy_setting = 'true' THEN
             v_can_view := true;
-        ELSIF v_privacy_setting = 'club_only' THEN
+        ELSIF v_privacy_setting = 'club_only' AND p_viewer_id IS NOT NULL THEN
             -- Check if viewer is in same club
             SELECT club_id INTO v_viewer_club_id
             FROM profiles WHERE id = p_viewer_id;
 
             v_can_view := (v_profile_club_id IS NOT NULL AND v_profile_club_id = v_viewer_club_id);
-        ELSIF v_privacy_setting IN ('friends_only', 'followers_only') THEN
+        ELSIF v_privacy_setting IN ('friends_only', 'followers_only') AND p_viewer_id IS NOT NULL THEN
             -- Check if viewer follows the profile
             SELECT EXISTS (
                 SELECT 1 FROM friendships
@@ -173,7 +186,7 @@ BEGIN
     END IF;
 
     -- Get following (people this profile follows)
-    SELECT jsonb_agg(
+    SELECT COALESCE(jsonb_agg(
         jsonb_build_object(
             'id', p.id,
             'first_name', p.first_name,
@@ -182,7 +195,7 @@ BEGIN
             'club_id', p.club_id,
             'club_name', c.name
         )
-    )
+    ), '[]'::jsonb)
     INTO v_following
     FROM friendships f
     JOIN profiles p ON p.id = f.addressee_id
@@ -193,7 +206,7 @@ BEGIN
     RETURN jsonb_build_object(
         'success', true,
         'access_denied', false,
-        'following', COALESCE(v_following, '[]'::jsonb)
+        'following', v_following
     );
 END;
 $$;
