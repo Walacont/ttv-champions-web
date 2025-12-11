@@ -1145,9 +1145,10 @@ function renderPostCard(activity, profileMap) {
 
             ${hasImage ? `
             <!-- Post Image -->
-            <div class="mb-3">
+            <div class="mb-3 bg-gray-50 rounded-lg overflow-hidden flex items-center justify-center" style="max-height: 600px;">
                 <img src="${activity.image_url}" alt="Post image"
-                     class="w-full rounded-lg max-h-96 object-cover cursor-pointer hover:opacity-90 transition"
+                     class="w-full h-auto object-contain cursor-pointer hover:opacity-95 transition"
+                     style="max-height: 600px;"
                      onclick="window.open('${activity.image_url}', '_blank')">
             </div>
             ` : ''}
