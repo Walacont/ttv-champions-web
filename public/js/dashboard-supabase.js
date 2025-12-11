@@ -1201,12 +1201,13 @@ function renderRanksList() {
 
     let players = leaderboardCache[currentLeaderboardScope] || leaderboardCache.global || [];
 
-    // Apply following filter if selected
+    // Apply following filter if selected (includes current user)
     if (currentSubgroupFilter === 'following') {
         if (followingIdsCache && followingIdsCache.length > 0) {
-            players = players.filter(p => followingIdsCache.includes(p.id));
+            players = players.filter(p => followingIdsCache.includes(p.id) || p.id === currentUser.id);
         } else {
-            players = [];
+            // No following users - show only current user
+            players = players.filter(p => p.id === currentUser.id);
         }
     }
 
@@ -1367,12 +1368,12 @@ function renderLeaderboardList() {
         const subgroupId = currentSubgroupFilter.replace('subgroup:', '');
         players = players.filter(p => p.subgroup_ids && p.subgroup_ids.includes(subgroupId));
     } else if (currentSubgroupFilter === 'following') {
-        // Apply following filter - only show players the user follows
+        // Apply following filter - show players the user follows AND the user themselves
         if (followingIdsCache && followingIdsCache.length > 0) {
-            players = players.filter(p => followingIdsCache.includes(p.id));
+            players = players.filter(p => followingIdsCache.includes(p.id) || p.id === currentUser.id);
         } else {
-            // No following users - show empty
-            players = [];
+            // No following users - show only current user
+            players = players.filter(p => p.id === currentUser.id);
         }
     } else if (currentSubgroupFilter && ageGroupIds.includes(currentSubgroupFilter)) {
         // Apply age group filter from Ansicht dropdown
