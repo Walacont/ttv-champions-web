@@ -1162,10 +1162,19 @@ async function loadProfilePointsHistory() {
                         <span class="text-gray-700 text-sm">${escapeHtml(reason)}</span>
                         <span class="text-xs text-gray-400 ml-2">${date}</span>
                     </div>
-                    <div class="flex gap-3 text-sm font-semibold flex-shrink-0">
-                        <span class="${getColorClass(elo)}" title="Elo">${getSign(elo)}${elo}</span>
-                        <span class="${getColorClass(xp)}" title="XP">${getSign(xp)}${xp}</span>
-                        <span class="${getColorClass(points)}" title="Saison">${getSign(points)}${points}</span>
+                    <div class="flex gap-2 text-xs flex-shrink-0">
+                        <div class="text-center min-w-[40px]">
+                            <div class="text-gray-400 text-[10px] leading-tight">Elo</div>
+                            <div class="${getColorClass(elo)} font-semibold">${getSign(elo)}${elo}</div>
+                        </div>
+                        <div class="text-center min-w-[40px]">
+                            <div class="text-gray-400 text-[10px] leading-tight">XP</div>
+                            <div class="${getColorClass(xp)} font-semibold">${getSign(xp)}${xp}</div>
+                        </div>
+                        <div class="text-center min-w-[40px]">
+                            <div class="text-gray-400 text-[10px] leading-tight">Saison</div>
+                            <div class="${getColorClass(points)} font-semibold">${getSign(points)}${points}</div>
+                        </div>
                     </div>
                 </li>
             `;
