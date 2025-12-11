@@ -637,7 +637,7 @@ function handleNotificationClick(notification) {
 
     const type = notification.type;
 
-    // Match request notifications - navigate to Wettkampf tab
+    // Match request notifications - navigate to Wettkampf tab and scroll to pending requests
     if (type === 'match_request') {
         // Try to click the Wettkampf tab
         const wettkampfTab = document.querySelector('[data-tab="matches"]') ||
@@ -645,11 +645,18 @@ function handleNotificationClick(notification) {
                             document.querySelector('button[onclick*="matches"]');
         if (wettkampfTab) {
             wettkampfTab.click();
+            // Scroll to pending requests section after tab switch
+            setTimeout(() => {
+                const pendingSection = document.getElementById('pending-requests-section');
+                if (pendingSection) {
+                    pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
             return;
         }
-        // If we're not on dashboard, navigate there
+        // If we're not on dashboard, navigate there with hash
         if (!window.location.pathname.includes('dashboard')) {
-            window.location.href = '/dashboard.html#matches';
+            window.location.href = '/dashboard.html#pending-requests-section';
         }
         return;
     }
