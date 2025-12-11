@@ -101,6 +101,9 @@
   "register": {
     "title": "Create Account",
     "subtitle": "Start your journey with SC Champions",
+    "welcome": "Welcome to SC Champions!",
+    "twoOptions": "You have two options to register:",
+    "withoutCode": "Register without code",
     "firstName": "First Name",
     "lastName": "Last Name",
     "email": "Email Address",

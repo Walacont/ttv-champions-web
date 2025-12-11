@@ -101,6 +101,9 @@
   "register": {
     "title": "Konto erstellen",
     "subtitle": "Starte deine Reise mit SC Champions",
+    "welcome": "Willkommen bei SC Champions!",
+    "twoOptions": "Du hast zwei Möglichkeiten, dich zu registrieren:",
+    "withoutCode": "Ohne Code registrieren",
     "firstName": "Vorname",
     "lastName": "Nachname",
     "email": "E-Mail-Adresse",
