@@ -5,6 +5,7 @@ import { getSupabase } from './supabase-init.js';
 
 let notificationSubscription = null;
 let matchRequestSubscription = null;
+let doublesMatchRequestSubscription = null;
 let notificationModalOpen = false;
 
 /**
@@ -74,6 +75,43 @@ export async function initNotifications(userId) {
                 }
             })
             .subscribe();
+
+        // Subscribe to doubles_match_requests changes
+        doublesMatchRequestSubscription = db
+            .channel(`doubles-requests-${userId}`)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'doubles_match_requests'
+            }, async (payload) => {
+                // Check if current user is involved in this request
+                const record = payload.new || payload.old;
+                if (!record) return;
+
+                const teamA = record.team_a || {};
+                const teamB = record.team_b || {};
+                const isInvolved = teamA.player1_id === userId || teamA.player2_id === userId ||
+                                  teamB.player1_id === userId || teamB.player2_id === userId;
+
+                if (!isInvolved) return;
+
+                // Handle deletion - remove corresponding notification
+                if (payload.eventType === 'DELETE' && payload.old?.id) {
+                    await removeDoublesRequestNotification(userId, payload.old.id);
+                }
+
+                // Refresh notifications
+                updateNotificationBadge(userId);
+                if (notificationModalOpen) {
+                    refreshNotificationModal(userId);
+                }
+
+                // Refresh doubles requests list if available
+                if (typeof window.loadDoublesMatchRequests === 'function') {
+                    window.loadDoublesMatchRequests();
+                }
+            })
+            .subscribe();
     } catch (e) {
         console.warn('Could not load notifications:', e);
     }
@@ -101,6 +139,31 @@ async function removeMatchRequestNotification(userId, requestId) {
         }
     } catch (error) {
         console.error('Error removing match request notification:', error);
+    }
+}
+
+/**
+ * Remove notification for a withdrawn doubles match request
+ */
+async function removeDoublesRequestNotification(userId, requestId) {
+    const db = getSupabase();
+    if (!db) return;
+
+    try {
+        // Find and delete notifications with this request_id
+        const { data: notifications } = await db
+            .from('notifications')
+            .select('id, data')
+            .eq('user_id', userId)
+            .eq('type', 'doubles_match_request');
+
+        for (const notif of (notifications || [])) {
+            if (notif.data?.request_id === requestId) {
+                await db.from('notifications').delete().eq('id', notif.id);
+            }
+        }
+    } catch (error) {
+        console.error('Error removing doubles request notification:', error);
     }
 }
 
@@ -639,6 +702,67 @@ async function showNotificationModal(userId) {
         }
     });
 
+    // Accept doubles match request
+    modal.addEventListener('click', async (e) => {
+        const acceptBtn = e.target.closest('.accept-doubles-btn');
+        if (acceptBtn) {
+            e.stopPropagation();
+            const requestId = acceptBtn.dataset.requestId;
+            const notificationId = acceptBtn.dataset.notificationId;
+            const item = acceptBtn.closest('.notification-item');
+
+            // Disable buttons while processing
+            const actionsDiv = item.querySelector('.doubles-request-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
+            }
+
+            const success = await handleAcceptDoublesMatch(requestId, notificationId, userId);
+            if (success) {
+                // Update UI to show accepted
+                item.classList.remove('bg-blue-50');
+                item.classList.add('bg-white');
+                item.dataset.read = 'true';
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-green-600"><i class="fas fa-check mr-1"></i>Bestätigt</span>';
+                }
+                updateNotificationBadge(userId);
+            } else {
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                }
+            }
+        }
+    });
+
+    // Decline doubles match request
+    modal.addEventListener('click', async (e) => {
+        const declineBtn = e.target.closest('.decline-doubles-btn');
+        if (declineBtn) {
+            e.stopPropagation();
+            const requestId = declineBtn.dataset.requestId;
+            const notificationId = declineBtn.dataset.notificationId;
+            const item = declineBtn.closest('.notification-item');
+
+            // Disable buttons while processing
+            const actionsDiv = item.querySelector('.doubles-request-actions');
+            if (actionsDiv) {
+                actionsDiv.innerHTML = '<span class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Wird verarbeitet...</span>';
+            }
+
+            const success = await handleDeclineDoublesMatch(requestId, notificationId, userId);
+            if (success) {
+                item.remove();
+                updateNotificationBadge(userId);
+                checkEmptyNotifications(modal);
+            } else {
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                }
+            }
+        }
+    });
+
     // Mark all as read
     document.getElementById('mark-all-read')?.addEventListener('click', async () => {
         await markAllNotificationsAsRead(userId);
@@ -856,6 +980,39 @@ function handleNotificationClick(notification) {
         return;
     }
 
+    // Doubles match request notifications - navigate to Wettkampf tab, Doppel section
+    if (type === 'doubles_match_request') {
+        // Try to click the Wettkampf tab
+        const wettkampfTab = document.querySelector('[data-tab="matches"]') ||
+                            document.querySelector('[data-tab="wettkampf"]') ||
+                            document.querySelector('button[onclick*="matches"]');
+        if (wettkampfTab) {
+            wettkampfTab.click();
+            // Wait for tab to switch, then click doubles sub-tab
+            setTimeout(() => {
+                const doublesSubTab = document.querySelector('[data-subtab="doubles"]') ||
+                                     document.getElementById('subtab-doubles');
+                if (doublesSubTab) {
+                    doublesSubTab.click();
+                }
+                // Scroll to pending requests section after tab switch
+                setTimeout(() => {
+                    const pendingSection = document.getElementById('doubles-pending-requests') ||
+                                          document.getElementById('pending-requests-section');
+                    if (pendingSection) {
+                        pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+            }, 100);
+            return;
+        }
+        // If we're not on dashboard, navigate there with hash
+        if (!window.location.pathname.includes('dashboard')) {
+            window.location.href = '/dashboard.html#doubles-pending-requests';
+        }
+        return;
+    }
+
     // Follow request notifications - navigate to profile or community
     if (type === 'follow_request' || type === 'friend_request') {
         const requesterId = notification.data?.requester_id;
@@ -933,16 +1090,19 @@ function getNotificationIcon(type) {
         'points_deducted': '<i class="fas fa-minus-circle text-red-500 text-lg"></i>',
         'match_request': '<i class="fas fa-table-tennis-paddle-ball text-indigo-500 text-lg"></i>',
         'match_approved': '<i class="fas fa-check-circle text-green-500 text-lg"></i>',
+        'doubles_match_request': '<i class="fas fa-people-group text-purple-500 text-lg"></i>',
+        'doubles_match_rejected': '<i class="fas fa-people-group text-red-500 text-lg"></i>',
+        'doubles_match_confirmed': '<i class="fas fa-people-group text-green-500 text-lg"></i>',
         'challenge_completed': '<i class="fas fa-trophy text-yellow-500 text-lg"></i>',
-        'follow_request': '<i class="fas fa-user-plus text-orange-500 text-lg"></i>',
-        'friend_request': '<i class="fas fa-user-plus text-orange-500 text-lg"></i>',
+        'follow_request': '<i class="fas fa-user-plus text-indigo-500 text-lg"></i>',
+        'friend_request': '<i class="fas fa-user-plus text-indigo-500 text-lg"></i>',
         'new_follower': '<i class="fas fa-user-plus text-indigo-500 text-lg"></i>',
         'friend_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'follow_request_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'follow_accepted': '<i class="fas fa-user-check text-green-500 text-lg"></i>',
         'follow_request_declined': '<i class="fas fa-user-times text-red-500 text-lg"></i>',
         'club_join_request': '<i class="fas fa-building text-blue-500 text-lg"></i>',
-        'club_leave_request': '<i class="fas fa-door-open text-orange-500 text-lg"></i>',
+        'club_leave_request': '<i class="fas fa-door-open text-indigo-500 text-lg"></i>',
         'club_join_approved': '<i class="fas fa-building text-green-500 text-lg"></i>',
         'club_join_rejected': '<i class="fas fa-building text-red-500 text-lg"></i>',
         'club_leave_approved': '<i class="fas fa-door-open text-green-500 text-lg"></i>',
@@ -961,10 +1121,17 @@ function isFollowRequest(type) {
 }
 
 /**
- * Check if notification type is an actionable match request
+ * Check if notification type is an actionable match request (singles)
  */
 function isMatchRequest(type) {
     return type === 'match_request';
+}
+
+/**
+ * Check if notification type is a doubles match request
+ */
+function isDoublesMatchRequest(type) {
+    return type === 'doubles_match_request';
 }
 
 /**
@@ -975,10 +1142,10 @@ function isClubRequest(type) {
 }
 
 /**
- * Check if notification is actionable (follow, match, or club request)
+ * Check if notification is actionable (follow, match, doubles, or club request)
  */
 function isActionableRequest(type) {
-    return isFollowRequest(type) || isMatchRequest(type) || isClubRequest(type);
+    return isFollowRequest(type) || isMatchRequest(type) || isDoublesMatchRequest(type) || isClubRequest(type);
 }
 
 /**
@@ -1040,6 +1207,41 @@ function renderFollowRequestActions(notification) {
         } else {
             return `
                 <div class="club-request-status mt-2">
+                    <span class="text-xs text-gray-500">
+                        <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
+                    </span>
+                </div>
+            `;
+        }
+    }
+
+    // Handle doubles match requests - show accept/reject buttons
+    if (isDoublesMatchRequest(notification.type)) {
+        const requestId = notification.data?.request_id;
+        if (!notification.is_read && requestId) {
+            return `
+                <div class="doubles-request-actions flex gap-2 mt-2">
+                    <button class="accept-doubles-btn bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium px-3 py-1.5 rounded-full transition"
+                            data-request-id="${requestId}" data-notification-id="${notification.id}">
+                        <i class="fas fa-check mr-1"></i>Bestätigen
+                    </button>
+                    <button class="decline-doubles-btn bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full transition"
+                            data-request-id="${requestId}" data-notification-id="${notification.id}">
+                        <i class="fas fa-times mr-1"></i>Ablehnen
+                    </button>
+                </div>
+            `;
+        } else if (!requestId) {
+            return `
+                <div class="doubles-request-hint mt-2">
+                    <span class="text-xs text-purple-600 font-medium">
+                        <i class="fas fa-arrow-right mr-1"></i>Tippe hier um zum Doppel-Tab zu gelangen
+                    </span>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="doubles-request-status mt-2">
                     <span class="text-xs text-gray-500">
                         <i class="fas fa-check-circle mr-1"></i>Bereits bearbeitet
                     </span>
@@ -1309,6 +1511,70 @@ async function handleDeclineMatch(requestId, requesterId, notificationId, userId
         return true;
     } catch (error) {
         console.error('Error declining match request:', error);
+        return false;
+    }
+}
+
+/**
+ * Handle accept doubles match request from notification
+ */
+async function handleAcceptDoublesMatch(requestId, notificationId, userId) {
+    const db = getSupabase();
+    if (!db) return false;
+
+    try {
+        // Import confirmDoublesMatchRequest function dynamically
+        const { confirmDoublesMatchRequest } = await import('./doubles-matches-supabase.js');
+
+        // Call the confirm function
+        const result = await confirmDoublesMatchRequest(requestId, userId, db);
+
+        if (!result.success) {
+            console.error('Failed to confirm doubles match:', result.error);
+            return false;
+        }
+
+        // Mark notification as read
+        await markNotificationAsRead(notificationId);
+
+        return true;
+    } catch (error) {
+        console.error('Error accepting doubles match request:', error);
+        return false;
+    }
+}
+
+/**
+ * Handle decline doubles match request from notification
+ */
+async function handleDeclineDoublesMatch(requestId, notificationId, userId) {
+    const db = getSupabase();
+    if (!db) return false;
+
+    try {
+        // Get current user data for the reject function
+        const { data: currentUserProfile } = await db
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .eq('id', userId)
+            .single();
+
+        // Import rejectDoublesMatchRequest function dynamically
+        const { rejectDoublesMatchRequest } = await import('./doubles-matches-supabase.js');
+
+        // Call the reject function
+        await rejectDoublesMatchRequest(requestId, 'Vom Spieler abgelehnt', db, {
+            id: userId,
+            first_name: currentUserProfile?.first_name,
+            last_name: currentUserProfile?.last_name
+        });
+
+        // Delete the notification
+        await deleteNotification(notificationId);
+
+        return true;
+    } catch (error) {
+        console.error('Error declining doubles match request:', error);
         return false;
     }
 }
