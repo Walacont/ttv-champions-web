@@ -1617,11 +1617,33 @@
                     handleBottomTabClick('overview', 'Start');
                 }, 50);
 
-                // Force bottom nav to be fixed at viewport bottom (Safari iOS fix)
+                // Force bottom nav to be a direct child of body and properly positioned
+                // This fixes issues with transform/will-change on parent elements breaking fixed positioning
                 var bottomNav = document.getElementById('bottom-nav');
                 if (bottomNav) {
-                    // Apply inline styles to override any CSS issues
-                    bottomNav.style.cssText = 'position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; background: white; border-top: 1px solid #e5e7eb;';
+                    // Remove from current position and append to end of body
+                    document.body.appendChild(bottomNav);
+                    // Force fixed positioning with inline styles
+                    bottomNav.style.position = 'fixed';
+                    bottomNav.style.bottom = '0';
+                    bottomNav.style.left = '0';
+                    bottomNav.style.right = '0';
+                    bottomNav.style.zIndex = '99999';
+                    bottomNav.style.background = 'white';
+                    bottomNav.style.borderTop = '1px solid #e5e7eb';
+                }
+
+                // Same for top nav - move to beginning of body
+                var topNav = document.getElementById('top-nav');
+                if (topNav) {
+                    document.body.insertBefore(topNav, document.body.firstChild);
+                    topNav.style.position = 'fixed';
+                    topNav.style.top = '0';
+                    topNav.style.left = '0';
+                    topNav.style.right = '0';
+                    topNav.style.zIndex = '99999';
+                    topNav.style.background = 'white';
+                    topNav.style.borderBottom = '1px solid #e5e7eb';
                 }
             });
         </script>
