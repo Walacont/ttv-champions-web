@@ -275,7 +275,7 @@ function renderUsers(users, followStatuses) {
                 `;
             } else if (followStatus === 'pending') {
                 buttonHtml = `
-                    <span class="text-orange-500 font-medium py-2 px-4 rounded-full text-sm border border-orange-500">
+                    <span class="text-indigo-500 font-medium py-2 px-4 rounded-full text-sm border border-indigo-500">
                         Angefragt
                     </span>
                 `;
@@ -283,7 +283,7 @@ function renderUsers(users, followStatuses) {
                 buttonHtml = `
                     <button
                         onclick="followUser('${user.id}')"
-                        class="text-orange-500 hover:text-white hover:bg-orange-500 font-medium py-2 px-4 rounded-full text-sm transition border border-orange-500"
+                        class="text-indigo-500 hover:text-white hover:bg-indigo-500 font-medium py-2 px-4 rounded-full text-sm transition border border-indigo-500"
                     >
                         Folgen
                     </button>
