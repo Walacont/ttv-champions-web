@@ -121,7 +121,7 @@ function getCurrentLanguage() {
  * @returns {string[]}
  */
 function getAvailableLanguages() {
-    return ['de', 'en'];
+    return ['de', 'en', 'zh'];
 }
 
 /**
