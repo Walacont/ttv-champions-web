@@ -22,9 +22,10 @@ export async function showHeadToHeadModal(supabase, currentUserId, opponentId) {
     // Create modal container
     const modal = document.createElement('div');
     modal.id = 'head-to-head-modal';
-    modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4';
+    modal.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4';
+    modal.style.cssText = 'z-index: 100001;'; // Higher than header (9999) and bottom nav (99999)
     modal.innerHTML = `
-        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full overflow-y-auto" style="max-height: calc(100vh - 140px); margin-top: 60px; margin-bottom: 80px;">
             <div class="p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-bold text-gray-900">Head-to-Head</h2>
