@@ -1616,6 +1616,13 @@
                 setTimeout(function() {
                     handleBottomTabClick('overview', 'Start');
                 }, 50);
+
+                // Force bottom nav to be fixed at viewport bottom (Safari iOS fix)
+                var bottomNav = document.getElementById('bottom-nav');
+                if (bottomNav) {
+                    // Apply inline styles to override any CSS issues
+                    bottomNav.style.cssText = 'position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; background: white; border-top: 1px solid #e5e7eb;';
+                }
             });
         </script>
 
