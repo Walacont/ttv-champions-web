@@ -264,7 +264,7 @@ function renderSinglesMatchCard(match, profileMap) {
 }
 
 /**
- * Render a doubles match card
+ * Render a doubles match card (mobile-optimized vertical layout)
  */
 function renderDoublesMatchCard(match, profileMap) {
     const isTeamA = match.team_a_player1_id === currentUser.id || match.team_a_player2_id === currentUser.id;
@@ -291,12 +291,6 @@ function renderDoublesMatchCard(match, profileMap) {
 
     const mySetWins = isTeamA ? teamASetWins : teamBSetWins;
     const oppSetWins = isTeamA ? teamBSetWins : teamASetWins;
-
-    const setScoresDisplay = sets.map(set => {
-        const scoreA = set.teamA ?? set.playerA ?? 0;
-        const scoreB = set.teamB ?? set.playerB ?? 0;
-        return isTeamA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
-    }).join(', ');
 
     const matchDate = new Date(match.created_at);
     const dateDisplay = formatRelativeDate(matchDate);
@@ -326,53 +320,51 @@ function renderDoublesMatchCard(match, profileMap) {
 
     return `
         <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
+            <!-- Header -->
             <div class="flex justify-between items-center mb-3">
                 <div class="flex items-center gap-2">
                     <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">Doppel</span>
                     <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
                 </div>
-                <span class="px-3 py-1 rounded-full text-sm font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                     ${isWinner ? 'Sieg' : 'Niederlage'}
                 </span>
             </div>
 
-            <div class="flex items-center justify-between mb-3">
-                <!-- My Team -->
-                <div class="flex items-center">
-                    <div class="flex -space-x-2">
-                        <img src="${myAvatar}" alt="Du"
-                            class="w-10 h-10 rounded-full object-cover border-2 ${isWinner ? 'border-green-500' : 'border-red-500'} z-10"
-                            onerror="this.src='${DEFAULT_AVATAR}'">
-                        <img src="${partnerAvatar}" alt="${partnerName}"
-                            class="w-10 h-10 rounded-full object-cover border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}"
-                            onerror="this.src='${DEFAULT_AVATAR}'">
-                    </div>
-                    <div class="ml-3">
-                        <p class="font-semibold text-sm">Du & ${partnerName}</p>
-                    </div>
-                </div>
+            <!-- Score and Teams - mobile optimized -->
+            <div class="flex flex-col items-center mb-3">
+                <!-- Score -->
+                <p class="text-3xl font-bold mb-2">${mySetWins} : ${oppSetWins}</p>
 
-                <!-- Score (set scores shown in details) -->
-                <div class="text-center px-2">
-                    <p class="text-2xl font-bold">${mySetWins} : ${oppSetWins}</p>
-                </div>
-
-                <!-- Opponent Team -->
-                <div class="flex items-center">
-                    <div class="mr-3 text-right">
-                        <p class="font-semibold text-sm">${opp1Name} & ${opp2Name}</p>
+                <!-- Teams wrap on small screens -->
+                <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
+                    <div class="flex items-center">
+                        <div class="flex -space-x-1">
+                            <img src="${myAvatar}" alt="Du"
+                                class="w-5 h-5 rounded-full object-cover border ${isWinner ? 'border-green-500' : 'border-red-500'}"
+                                onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${partnerAvatar}" alt="${partnerName}"
+                                class="w-5 h-5 rounded-full object-cover border ${isWinner ? 'border-green-500' : 'border-red-500'}"
+                                onerror="this.src='${DEFAULT_AVATAR}'">
+                        </div>
+                        <span class="ml-1">Du & ${partnerName}</span>
                     </div>
-                    <div class="flex -space-x-2">
-                        <img src="${opp1Avatar}" alt="${opp1Name}"
-                            class="w-10 h-10 rounded-full object-cover border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'} z-10"
-                            onerror="this.src='${DEFAULT_AVATAR}'">
-                        <img src="${opp2Avatar}" alt="${opp2Name}"
-                            class="w-10 h-10 rounded-full object-cover border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}"
-                            onerror="this.src='${DEFAULT_AVATAR}'">
+                    <span class="text-gray-400">vs</span>
+                    <div class="flex items-center">
+                        <div class="flex -space-x-1">
+                            <img src="${opp1Avatar}" alt="${opp1Name}"
+                                class="w-5 h-5 rounded-full object-cover border ${!isWinner ? 'border-green-500' : 'border-red-500'}"
+                                onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${opp2Avatar}" alt="${opp2Name}"
+                                class="w-5 h-5 rounded-full object-cover border ${!isWinner ? 'border-green-500' : 'border-red-500'}"
+                                onerror="this.src='${DEFAULT_AVATAR}'">
+                        </div>
+                        <span class="ml-1">${opp1Name} & ${opp2Name}</span>
                     </div>
                 </div>
             </div>
 
+            <!-- Footer -->
             <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                 <div class="flex items-center">
                     ${statsHtml}${handicapBadge}
