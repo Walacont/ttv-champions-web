@@ -292,54 +292,54 @@
             </div>
         </div>
 
-        <div id="main-content" class="container mx-auto px-4 sm:px-6 md:px-8 max-w-7xl pt-14">
-            <!-- Fixed Top Bar (like Instagram) -->
-            <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
-                <div class="flex justify-between items-center h-12 px-4 max-w-7xl mx-auto">
-                    <!-- Left: Search Icon (opens Community) -->
-                    <button
-                        id="open-community-btn"
-                        class="text-gray-600 hover:text-indigo-600 transition-colors p-1"
-                        title="Community suchen"
-                    >
-                        <i class="fas fa-search text-lg"></i>
-                    </button>
+        <!-- Fixed Top Bar (like Instagram) - Outside main-content for proper fixed positioning -->
+        <header id="top-nav" class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
+            <div class="flex justify-between items-center h-12 px-4 max-w-7xl mx-auto">
+                <!-- Left: Search Icon (opens Community) -->
+                <button
+                    id="open-community-btn"
+                    class="text-gray-600 hover:text-indigo-600 transition-colors p-1"
+                    title="Community suchen"
+                >
+                    <i class="fas fa-search text-lg"></i>
+                </button>
 
-                    <!-- Center: Profile Photo and Title -->
-                    <div class="flex items-center gap-2">
-                        <a id="header-profile-link" href="#" class="flex-shrink-0">
-                            <img id="header-profile-pic" src="" alt="Profilbild"
-                                 class="h-8 w-8 rounded-full object-cover border border-gray-200 hover:border-indigo-400 transition cursor-pointer">
-                        </a>
-                        <h1 id="header-title" class="text-base font-semibold text-gray-900">Start</h1>
-                        <p id="header-club-info" class="hidden">
-                            <span id="header-club-name"></span>
-                        </p>
-                    </div>
-
-                    <!-- Right: Notifications & Settings -->
-                    <div class="flex items-center space-x-1">
-                        <!-- Notification Bell -->
-                        <button
-                            id="desktop-notifications-btn"
-                            class="relative text-gray-600 hover:text-gray-800 transition-colors p-1"
-                            title="Benachrichtigungen"
-                        >
-                            <i class="far fa-bell text-lg"></i>
-                            <span id="desktop-notifications-badge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
-                        </button>
-                        <!-- Settings -->
-                        <a
-                            href="/settings.html"
-                            class="text-gray-600 hover:text-gray-800 transition-colors p-1"
-                            title="Einstellungen"
-                        >
-                            <i class="fas fa-cog text-lg"></i>
-                        </a>
-                    </div>
+                <!-- Center: Profile Photo and Title -->
+                <div class="flex items-center gap-2">
+                    <a id="header-profile-link" href="#" class="flex-shrink-0">
+                        <img id="header-profile-pic" src="" alt="Profilbild"
+                             class="h-8 w-8 rounded-full object-cover border border-gray-200 hover:border-indigo-400 transition cursor-pointer">
+                    </a>
+                    <h1 id="header-title" class="text-base font-semibold text-gray-900">Start</h1>
+                    <p id="header-club-info" class="hidden">
+                        <span id="header-club-name"></span>
+                    </p>
                 </div>
-            </header>
 
+                <!-- Right: Notifications & Settings -->
+                <div class="flex items-center space-x-1">
+                    <!-- Notification Bell -->
+                    <button
+                        id="desktop-notifications-btn"
+                        class="relative text-gray-600 hover:text-gray-800 transition-colors p-1"
+                        title="Benachrichtigungen"
+                    >
+                        <i class="far fa-bell text-lg"></i>
+                        <span id="desktop-notifications-badge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
+                    </button>
+                    <!-- Settings -->
+                    <a
+                        href="/settings.html"
+                        class="text-gray-600 hover:text-gray-800 transition-colors p-1"
+                        title="Einstellungen"
+                    >
+                        <i class="fas fa-cog text-lg"></i>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <div id="main-content" class="container mx-auto px-4 sm:px-6 md:px-8 max-w-7xl pt-14">
             <div class="mb-4">
                 <div id="coach-player-indicator" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
                     <div class="flex items-center gap-2 text-purple-700">
