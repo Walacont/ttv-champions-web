@@ -212,15 +212,34 @@
       "title": "Activity",
       "noActivity": "No activity yet",
       "loading": "Loading activities...",
+      "emptyMyActivities": "You haven't played any matches yet",
+      "emptyFollowing": "Follow other players to see their activities",
+      "emptyAll": "No activities yet",
+      "emptyClub": "No activities in this club",
+      "defeated": "defeated",
+      "defeatedPlural": "defeated",
+      "set": "Set",
+      "vote": "vote",
+      "votes": "votes",
+      "endsAt": "Ends",
+      "ended": "Ended",
       "filter": {
         "all": "All Activities",
         "following": "Following",
         "myActivities": "My Activities"
       },
+      "visibility": {
+        "public": "Public",
+        "club": "Club",
+        "followers": "Followers"
+      },
       "events": {
         "clubJoin": {
           "joined": "joined the club",
           "welcome": "Welcome to the team!"
+        },
+        "clubLeave": {
+          "left": "left the club"
         },
         "rankUp": {
           "achieved": "achieved",
@@ -563,6 +582,7 @@
       "select": "Select Language",
       "german": "Deutsch",
       "english": "English",
+      "chinese": "简体中文",
       "changed": "Language has been changed"
     },
     "logout": "Sign Out"
@@ -659,6 +679,12 @@
     "deleteRead": "Delete read",
     "accept": "Accept",
     "decline": "Decline",
+    "accepted": "Accepted",
+    "error": "Error - please try again",
+    "matchApproved": "Match confirmed",
+    "matchApprovedMessage": "{{name}} accepted your match request.",
+    "matchRejected": "Match request declined",
+    "matchRejectedMessage": "{{name}} declined your match request.",
     "types": {
       "newFollower": "New follower",
       "followRequest": "New follow request",
