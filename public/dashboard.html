@@ -1542,6 +1542,7 @@
                     class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
                     data-tab="overview"
                     data-title="Start"
+                    onclick="handleBottomTabClick('overview', 'Start')"
                 >
                     <i class="fas fa-home text-xl"></i>
                     <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.start">Start</span>
@@ -1550,6 +1551,7 @@
                     class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
                     data-tab="leaderboard"
                     data-title="Ranglisten"
+                    onclick="handleBottomTabClick('leaderboard', 'Ranglisten')"
                 >
                     <i class="fas fa-trophy text-xl"></i>
                     <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.leaderboard">Rang</span>
@@ -1558,6 +1560,7 @@
                     class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
                     data-tab="matches"
                     data-title="Wettkampf"
+                    onclick="handleBottomTabClick('matches', 'Wettkampf')"
                 >
                     <i class="fas fa-table-tennis-paddle-ball text-xl"></i>
                     <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.competition">Match</span>
@@ -1566,12 +1569,57 @@
                     class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
                     data-tab="exercises"
                     data-title="Übungskatalog"
+                    onclick="handleBottomTabClick('exercises', 'Übungen')"
                 >
                     <i class="fas fa-dumbbell text-xl"></i>
                     <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.exercises">Übungen</span>
                 </button>
             </div>
         </nav>
+
+        <!-- Global tab handler for Safari compatibility (must be non-module, loaded first) -->
+        <script>
+            // Global function for bottom tab navigation - works in all browsers including Safari
+            function handleBottomTabClick(tabId, tabTitle) {
+                console.log('[TABS] handleBottomTabClick called:', tabId, tabTitle);
+
+                // Update active states on ALL tab buttons
+                var allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
+                for (var i = 0; i < allTabButtons.length; i++) {
+                    var btn = allTabButtons[i];
+                    btn.classList.remove('tab-active', 'text-indigo-600');
+                    btn.classList.add('text-gray-400');
+                    if (btn.getAttribute('data-tab') === tabId) {
+                        btn.classList.add('tab-active', 'text-indigo-600');
+                        btn.classList.remove('text-gray-400');
+                    }
+                }
+
+                // Update header title
+                var headerTitle = document.getElementById('header-title');
+                if (headerTitle) {
+                    headerTitle.textContent = tabTitle;
+                }
+
+                // Show/hide tab contents
+                var tabContents = document.querySelectorAll('.tab-content');
+                for (var j = 0; j < tabContents.length; j++) {
+                    var content = tabContents[j];
+                    content.classList.add('hidden');
+                    if (content.id === 'tab-content-' + tabId) {
+                        content.classList.remove('hidden');
+                    }
+                }
+            }
+
+            // Initialize first tab on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                // Small delay to ensure everything is loaded
+                setTimeout(function() {
+                    handleBottomTabClick('overview', 'Start');
+                }, 50);
+            });
+        </script>
 
         <script type="module">
             // Initialize i18n
