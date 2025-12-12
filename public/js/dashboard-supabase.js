@@ -392,12 +392,6 @@ async function initializeDashboard() {
         }
     }
 
-    // Show coach switch button only if user is coach or head_coach AND has a club
-    if (isCoachInActiveSport && effectiveClub) {
-        const switchBtn = document.getElementById('switch-to-coach-btn');
-        if (switchBtn) switchBtn.classList.remove('hidden');
-    }
-
     // Show no-club info if needed (reuses effectiveClub from above)
     if (!effectiveClub) {
         const noClubBox = document.getElementById('no-club-info-box');
