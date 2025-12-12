@@ -16,6 +16,7 @@ import { createTennisScoreInput, createBadmintonScoreInput } from './player-matc
 import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
+import { initI18n, translatePage } from './i18n.js';
 
 // Extracted modules for better maintainability
 import {
@@ -407,6 +408,14 @@ async function initializeDashboard() {
 
     // Setup realtime subscriptions
     setupRealtimeSubscriptions();
+
+    // Translate page after all content is loaded
+    // This ensures dynamically added elements with data-i18n are translated
+    // Wait for i18n to be initialized first
+    setTimeout(async () => {
+        await initI18n();
+        translatePage();
+    }, 100);
 }
 
 // --- Setup Header ---
