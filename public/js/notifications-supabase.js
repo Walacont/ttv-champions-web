@@ -980,7 +980,7 @@ function handleNotificationClick(notification) {
         return;
     }
 
-    // Doubles match request notifications - navigate to Wettkampf tab, Doppel section
+    // Doubles match request notifications - navigate to Wettkampf tab, pending requests section
     if (type === 'doubles_match_request') {
         // Try to click the Wettkampf tab
         const wettkampfTab = document.querySelector('[data-tab="matches"]') ||
@@ -988,27 +988,18 @@ function handleNotificationClick(notification) {
                             document.querySelector('button[onclick*="matches"]');
         if (wettkampfTab) {
             wettkampfTab.click();
-            // Wait for tab to switch, then click doubles sub-tab
+            // Scroll to pending requests section after tab switch
             setTimeout(() => {
-                const doublesSubTab = document.querySelector('[data-subtab="doubles"]') ||
-                                     document.getElementById('subtab-doubles');
-                if (doublesSubTab) {
-                    doublesSubTab.click();
+                const pendingSection = document.getElementById('pending-requests-section');
+                if (pendingSection) {
+                    pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
-                // Scroll to pending requests section after tab switch
-                setTimeout(() => {
-                    const pendingSection = document.getElementById('doubles-pending-requests') ||
-                                          document.getElementById('pending-requests-section');
-                    if (pendingSection) {
-                        pendingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
-                }, 100);
-            }, 100);
+            }, 150);
             return;
         }
         // If we're not on dashboard, navigate there with hash
         if (!window.location.pathname.includes('dashboard')) {
-            window.location.href = '/dashboard.html#doubles-pending-requests';
+            window.location.href = '/dashboard.html#pending-requests-section';
         }
         return;
     }
