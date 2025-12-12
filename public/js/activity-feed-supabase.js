@@ -50,11 +50,19 @@ export function initActivityFeedModule(user, userData) {
     // Load user's club for filter
     loadUserClub();
 
+    // Remove any existing language change listener to avoid duplicates
+    if (window.activityFeedLanguageListener) {
+        window.removeEventListener('languageChanged', window.activityFeedLanguageListener);
+    }
+
     // Listen for language changes and reload activity feed
-    window.addEventListener('languageChanged', () => {
+    window.activityFeedLanguageListener = async () => {
+        // Small delay to ensure i18next has loaded the new language
+        await new Promise(resolve => setTimeout(resolve, 100));
         // Reload the activity feed to update translations
         loadActivityFeed();
-    });
+    };
+    window.addEventListener('languageChanged', window.activityFeedLanguageListener);
 }
 
 /**
@@ -734,7 +742,7 @@ function renderLikeButton(matchId, matchType) {
             data-like-btn="${key}"
             onclick="event.stopPropagation(); toggleActivityLike('${matchId}', '${matchType}')"
             class="flex items-center gap-1 ${colorClass} transition-colors"
-            title="Kudos geben"
+            title="${t('dashboard.activityFeed.giveKudos')}"
         >
             <i class="${iconClass} fa-thumbs-up"></i>
             <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>

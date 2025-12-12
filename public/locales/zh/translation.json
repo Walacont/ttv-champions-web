@@ -245,7 +245,8 @@
           "achieved": "达到了",
           "congratulations": "恭喜你升级！"
         }
-      }
+      },
+      "giveKudos": "点赞"
     },
     "training": {
       "title": "训练",
@@ -609,8 +610,8 @@
     "logs": "系统日志"
   },
   "errors": {
-    "404": "页面未找到",
     "403": "访问被拒绝",
+    "404": "页面未找到",
     "500": "服务器错误",
     "networkError": "网络错误",
     "unknownError": "发生未知错误",

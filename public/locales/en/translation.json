@@ -245,7 +245,8 @@
           "achieved": "achieved",
           "congratulations": "Congratulations on your rank up!"
         }
-      }
+      },
+      "giveKudos": "Give kudos"
     },
     "training": {
       "title": "Training",
@@ -609,8 +610,8 @@
     "logs": "System Logs"
   },
   "errors": {
-    "404": "Page not found",
     "403": "Access denied",
+    "404": "Page not found",
     "500": "Server error",
     "networkError": "Network error",
     "unknownError": "An unknown error occurred",

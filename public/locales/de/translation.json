@@ -245,7 +245,8 @@
           "achieved": "erreichte",
           "congratulations": "Glückwunsch zum Rangaufstieg!"
         }
-      }
+      },
+      "giveKudos": "Kudos geben"
     },
     "training": {
       "title": "Training",
@@ -609,8 +610,8 @@
     "logs": "Systemprotokolle"
   },
   "errors": {
-    "404": "Seite nicht gefunden",
     "403": "Zugriff verweigert",
+    "404": "Seite nicht gefunden",
     "500": "Serverfehler",
     "networkError": "Netzwerkfehler",
     "unknownError": "Ein unbekannter Fehler ist aufgetreten",
