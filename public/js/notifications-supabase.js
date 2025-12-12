@@ -253,6 +253,94 @@ async function checkAndMarkConfirmedMatchRequests(userId, notifications) {
 }
 
 /**
+ * Check and mark doubles match request notifications as read if the request is already handled
+ * @param {string} userId - Current user's ID
+ * @param {Array} notifications - Array of notifications to check
+ * @returns {Array} - Updated notifications array with is_read updated for handled requests
+ */
+async function checkAndMarkConfirmedDoublesMatchRequests(userId, notifications) {
+    const db = getSupabase();
+    if (!db || !notifications || notifications.length === 0) return notifications;
+
+    // Find all unread doubles_match_request notifications
+    const unreadDoublesRequestNotifs = notifications.filter(n =>
+        n.type === 'doubles_match_request' && !n.is_read
+    );
+
+    if (unreadDoublesRequestNotifs.length === 0) return notifications;
+
+    // Get all request IDs from these notifications
+    const requestIds = unreadDoublesRequestNotifs
+        .map(n => n.data?.request_id)
+        .filter(id => id);
+
+    if (requestIds.length === 0) return notifications;
+
+    try {
+        // Check status of these doubles match requests
+        const { data: doublesRequests } = await db
+            .from('doubles_match_requests')
+            .select('id, status')
+            .in('id', requestIds);
+
+        // Create a map of request statuses
+        const requestStatusMap = {};
+        (doublesRequests || []).forEach(mr => {
+            requestStatusMap[mr.id] = mr.status;
+        });
+
+        // Find notifications that should be marked as read (approved, rejected, processed, or deleted)
+        const notificationsToMarkRead = [];
+        const notificationsToDelete = [];
+
+        for (const notif of unreadDoublesRequestNotifs) {
+            const requestId = notif.data?.request_id;
+            if (!requestId) continue;
+
+            const status = requestStatusMap[requestId];
+            // If request doesn't exist (deleted) or is not pending anymore, mark notification as handled
+            if (!status) {
+                // Request was deleted - delete notification too
+                notificationsToDelete.push(notif.id);
+            } else if (status === 'approved' || status === 'rejected' || status === 'processed') {
+                // Request was already handled - mark as read
+                notificationsToMarkRead.push(notif.id);
+            }
+        }
+
+        // Delete notifications for deleted requests
+        if (notificationsToDelete.length > 0) {
+            await db
+                .from('notifications')
+                .delete()
+                .in('id', notificationsToDelete);
+        }
+
+        // Mark these notifications as read in the database
+        if (notificationsToMarkRead.length > 0) {
+            await db
+                .from('notifications')
+                .update({ is_read: true })
+                .in('id', notificationsToMarkRead);
+        }
+
+        // Update the notifications array to reflect the changes
+        return notifications
+            .filter(n => !notificationsToDelete.includes(n.id))
+            .map(n => {
+                if (notificationsToMarkRead.includes(n.id)) {
+                    return { ...n, is_read: true };
+                }
+                return n;
+            });
+    } catch (error) {
+        console.error('Error checking confirmed doubles match requests:', error);
+    }
+
+    return notifications;
+}
+
+/**
  * Check and mark club request notifications as read if the request is already handled
  * @param {string} userId - Current user's ID
  * @param {Array} notifications - Array of notifications to check
@@ -444,6 +532,9 @@ async function showNotificationModal(userId) {
 
     // Check and mark confirmed match request notifications as read
     let notifications = await checkAndMarkConfirmedMatchRequests(userId, rawNotifications);
+
+    // Check and mark confirmed doubles match request notifications as read
+    notifications = await checkAndMarkConfirmedDoublesMatchRequests(userId, notifications);
 
     // Check and mark confirmed club request notifications as read
     notifications = await checkAndMarkConfirmedClubRequests(userId, notifications);
