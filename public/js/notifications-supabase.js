@@ -113,6 +113,13 @@ export async function initNotifications(userId) {
                 }
             })
             .subscribe();
+
+        // Listen for language changes and refresh notifications if modal is open
+        window.addEventListener('languageChanged', () => {
+            if (notificationModalOpen) {
+                refreshNotificationModal(userId);
+            }
+        });
     } catch (e) {
         console.warn('Could not load notifications:', e);
     }

@@ -49,6 +49,12 @@ export function initActivityFeedModule(user, userData) {
 
     // Load user's club for filter
     loadUserClub();
+
+    // Listen for language changes and reload activity feed
+    window.addEventListener('languageChanged', () => {
+        // Reload the activity feed to update translations
+        loadActivityFeed();
+    });
 }
 
 /**
