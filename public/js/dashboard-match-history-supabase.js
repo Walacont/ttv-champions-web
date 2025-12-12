@@ -235,9 +235,9 @@ function renderSinglesMatchCard(match, profileMap) {
                     </div>
                 </div>
 
-                <div class="text-center px-4">
+                <!-- Score (set scores shown in details) -->
+                <div class="text-center px-2">
                     <p class="text-2xl font-bold">${mySetWins} : ${oppSetWins}</p>
-                    <p class="text-xs text-gray-500">${setScoresDisplay}</p>
                 </div>
 
                 <div class="flex items-center">
@@ -352,10 +352,9 @@ function renderDoublesMatchCard(match, profileMap) {
                     </div>
                 </div>
 
-                <!-- Score -->
-                <div class="text-center px-4">
+                <!-- Score (set scores shown in details) -->
+                <div class="text-center px-2">
                     <p class="text-2xl font-bold">${mySetWins} : ${oppSetWins}</p>
-                    <p class="text-xs text-gray-500">${setScoresDisplay}</p>
                 </div>
 
                 <!-- Opponent Team -->

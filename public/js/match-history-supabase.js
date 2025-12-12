@@ -606,7 +606,7 @@ function renderMatchHistory(container, matches, userData) {
           <div class="flex items-center gap-4 text-sm">
             <div class="flex items-center gap-2">
               <span class="text-gray-600">Sätze:</span>
-              <span class="font-mono font-medium text-gray-800">${setsDisplay}</span>
+              <span class="font-mono font-medium text-gray-800">${formatSetRatio(match.sets, isPlayerA)}</span>
             </div>
           </div>
         </div>
@@ -615,7 +615,6 @@ function renderMatchHistory(container, matches, userData) {
           <div class="${eloChangeClass} text-lg">
             ${eloChangeDisplay}
           </div>
-          ${match.pointsGained > 0 ? `<div class="text-xs text-gray-600 mt-1">+${match.pointsGained} Punkte</div>` : ''}
         </div>
       </div>
     `;
@@ -625,7 +624,36 @@ function renderMatchHistory(container, matches, userData) {
 }
 
 /**
- * Format sets for display
+ * Format set ratio for display (e.g., "2:1" for 2 sets won, 1 lost)
+ * @param {Array} sets - Array of set objects with playerA/playerB or teamA/teamB scores
+ * @param {boolean} isPlayerA - Whether current user is playerA (for singles) or teamA (for doubles)
+ * @returns {string} Formatted set ratio string
+ */
+function formatSetRatio(sets, isPlayerA) {
+    if (!sets || sets.length === 0) return 'N/A';
+
+    let myWins = 0;
+    let oppWins = 0;
+
+    sets.forEach(set => {
+        let myScore, oppScore;
+        // Check if it's a doubles match (has teamA/teamB) or singles (has playerA/playerB)
+        if (set.teamA !== undefined && set.teamB !== undefined) {
+            myScore = isPlayerA ? set.teamA : set.teamB;
+            oppScore = isPlayerA ? set.teamB : set.teamA;
+        } else {
+            myScore = isPlayerA ? set.playerA : set.playerB;
+            oppScore = isPlayerA ? set.playerB : set.playerA;
+        }
+        if (myScore > oppScore) myWins++;
+        else if (oppScore > myScore) oppWins++;
+    });
+
+    return `${myWins}:${oppWins}`;
+}
+
+/**
+ * Format sets for display (individual set scores - used in details view)
  * @param {Array} sets - Array of set objects with playerA/playerB or teamA/teamB scores
  * @param {boolean} isPlayerA - Whether current user is playerA (for singles) or teamA (for doubles)
  * @returns {string} Formatted sets string
