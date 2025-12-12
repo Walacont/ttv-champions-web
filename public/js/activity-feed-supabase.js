@@ -6,6 +6,7 @@
 
 import { getSupabase } from './supabase-init.js';
 import { formatRelativeDate } from './dashboard-match-history-supabase.js';
+import { t } from './i18n.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -213,7 +214,7 @@ export async function loadActivityFeed() {
     container.innerHTML = `
         <div class="p-6 text-center text-gray-400">
             <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-            <p class="text-sm">Lade Aktivitäten...</p>
+            <p class="text-sm">${t('dashboard.activityFeed.loading')}</p>
         </div>
     `;
 
@@ -225,7 +226,7 @@ export async function loadActivityFeed() {
             container.innerHTML = `
                 <div class="bg-white rounded-xl shadow-sm p-8 text-center">
                     <i class="fas fa-users text-4xl text-gray-300 mb-3"></i>
-                    <p class="text-gray-500 font-medium">Noch keine Aktivitäten</p>
+                    <p class="text-gray-500 font-medium">${t('dashboard.activityFeed.noActivity')}</p>
                     <p class="text-gray-400 text-sm mt-1">${getEmptyMessage()}</p>
                 </div>
             `;
@@ -243,7 +244,7 @@ export async function loadActivityFeed() {
             container.innerHTML = `
                 <div class="bg-white rounded-xl shadow-sm p-8 text-center">
                     <i class="fas fa-table-tennis-paddle-ball text-4xl text-gray-300 mb-3"></i>
-                    <p class="text-gray-500 font-medium">Noch keine Aktivitäten</p>
+                    <p class="text-gray-500 font-medium">${t('dashboard.activityFeed.noActivity')}</p>
                     <p class="text-gray-400 text-sm mt-1">${getEmptyMessage()}</p>
                 </div>
             `;
@@ -338,15 +339,15 @@ async function getUserIdsForFilter() {
  */
 function getEmptyMessage() {
     if (currentFilter === 'my-activities') {
-        return 'Du hast noch keine Spiele gespielt';
+        return t('dashboard.activityFeed.emptyMyActivities');
     }
     if (currentFilter === 'following') {
-        return 'Folge anderen Spielern um ihre Aktivitäten zu sehen';
+        return t('dashboard.activityFeed.emptyFollowing');
     }
     if (currentFilter === 'all') {
-        return 'Noch keine Aktivitäten vorhanden';
+        return t('dashboard.activityFeed.emptyAll');
     }
-    return 'Keine Aktivitäten in diesem Verein';
+    return t('dashboard.activityFeed.emptyClub');
 }
 
 /**
@@ -804,7 +805,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                         <a href="/profile.html?id=${match.winner_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${winnerName}
                         </a>
-                        <span class="text-gray-500 text-sm">besiegte</span>
+                        <span class="text-gray-500 text-sm">${t('dashboard.activityFeed.defeated')}</span>
                         <a href="/profile.html?id=${loserId}" class="font-medium text-gray-700 hover:text-indigo-600 transition">
                             ${loserName}
                         </a>
@@ -824,7 +825,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                             const scoreB = set.playerB ?? set.teamB ?? 0;
                             const winnerScore = match.winner_id === match.player_a_id ? scoreA : scoreB;
                             const loserScore = match.winner_id === match.player_a_id ? scoreB : scoreA;
-                            return `<span class="mr-2">Satz ${idx + 1}: ${winnerScore}-${loserScore}</span>`;
+                            return `<span class="mr-2">${t('dashboard.activityFeed.set')} ${idx + 1}: ${winnerScore}-${loserScore}</span>`;
                         }).join('')}
                     </div>
 
@@ -896,7 +897,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-semibold text-gray-900">${winnerNames}</span>
-                        <span class="text-gray-500 text-sm">besiegten</span>
+                        <span class="text-gray-500 text-sm">${t('dashboard.activityFeed.defeatedPlural')}</span>
                         <span class="font-medium text-gray-700">${loserNames}</span>
                     </div>
 
@@ -967,9 +968,8 @@ function renderClubJoinCard(activity) {
                         <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
-                        <span class="text-gray-600 text-sm">ist dem Verein</span>
+                        <span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubJoin.joined')}</span>
                         <span class="font-semibold text-blue-700">${clubName}</span>
-                        <span class="text-gray-600 text-sm">beigetreten</span>
                     </div>
 
                     <div class="flex items-center gap-3 mt-1">
@@ -981,7 +981,7 @@ function renderClubJoinCard(activity) {
 
                     <div class="mt-2 text-sm text-gray-600">
                         <i class="fas fa-handshake text-blue-500 mr-1"></i>
-                        Willkommen im Team!
+                        ${t('dashboard.activityFeed.events.clubJoin.welcome')}
                     </div>
                 </div>
             </div>
@@ -1017,9 +1017,8 @@ function renderClubLeaveCard(activity) {
                         <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
-                        <span class="text-gray-600 text-sm">hat den Verein</span>
+                        <span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubLeave.left')}</span>
                         <span class="font-semibold text-gray-700">${clubName}</span>
-                        <span class="text-gray-600 text-sm">verlassen</span>
                     </div>
 
                     <div class="flex items-center gap-3 mt-1">
@@ -1075,7 +1074,7 @@ function renderRankUpCard(activity) {
                         <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
-                        <span class="text-gray-600 text-sm">erreichte</span>
+                        <span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.rankUp.achieved')}</span>
                         <span class="font-bold text-${colorScheme}-700">${rankName}</span>
                     </div>
 
@@ -1093,7 +1092,7 @@ function renderRankUpCard(activity) {
 
                     <div class="mt-2 text-sm text-gray-600 italic">
                         <i class="fas fa-fire text-orange-500 mr-1"></i>
-                        Glückwunsch zum Rangaufstieg!
+                        ${t('dashboard.activityFeed.events.rankUp.congratulations')}
                     </div>
                 </div>
             </div>
@@ -1142,7 +1141,7 @@ function renderPostCard(activity, profileMap) {
                     </div>
                     <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                         <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
-                        <span>${activity.visibility === 'public' ? 'Öffentlich' : activity.visibility === 'club' ? 'Verein' : 'Follower'}</span>
+                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
             </div>
@@ -1255,7 +1254,7 @@ function renderPollCard(activity, profileMap) {
                     </div>
                     <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
                         <i class="fas fa-${activity.visibility === 'public' ? 'globe' : activity.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
-                        <span>${activity.visibility === 'public' ? 'Öffentlich' : activity.visibility === 'club' ? 'Verein' : 'Follower'}</span>
+                        <span>${activity.visibility === 'public' ? t('dashboard.activityFeed.visibility.public') : activity.visibility === 'club' ? t('dashboard.activityFeed.visibility.club') : t('dashboard.activityFeed.visibility.followers')}</span>
                     </div>
                 </div>
             </div>
@@ -1279,7 +1278,7 @@ function renderPollCard(activity, profileMap) {
                             <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
                                  style="width: ${option.percentage}%"></div>
                         </div>
-                        <div class="text-xs text-gray-500 mt-1">${option.votes || 0} Stimmen</div>
+                        <div class="text-xs text-gray-500 mt-1">${option.votes || 0} ${t('dashboard.activityFeed.votes')}</div>
                     </div>
                 `).join('')}
             </div>
@@ -1288,11 +1287,11 @@ function renderPollCard(activity, profileMap) {
             <div class="flex items-center justify-between text-xs text-gray-600 pt-3 border-t border-purple-100">
                 <div class="flex items-center gap-1">
                     <i class="fas fa-users"></i>
-                    <span>${totalVotes} ${totalVotes === 1 ? 'Stimme' : 'Stimmen'}</span>
+                    <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
                 </div>
                 <div class="flex items-center gap-1">
                     <i class="fas fa-clock"></i>
-                    <span>${isActive ? `Endet ${formatRelativeDate(endsAt)}` : 'Beendet'}</span>
+                    <span>${isActive ? `${t('dashboard.activityFeed.endsAt')} ${formatRelativeDate(endsAt)}` : t('dashboard.activityFeed.ended')}</span>
                 </div>
             </div>
         </div>

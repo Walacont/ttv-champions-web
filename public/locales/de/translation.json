@@ -212,16 +212,34 @@
       "title": "Aktivitäten",
       "noActivity": "Noch keine Aktivitäten",
       "loading": "Lade Aktivitäten...",
+      "emptyMyActivities": "Du hast noch keine Spiele gespielt",
+      "emptyFollowing": "Folge anderen Spielern um ihre Aktivitäten zu sehen",
+      "emptyAll": "Noch keine Aktivitäten vorhanden",
+      "emptyClub": "Keine Aktivitäten in diesem Verein",
+      "defeated": "besiegte",
+      "defeatedPlural": "besiegten",
+      "set": "Satz",
+      "vote": "Stimme",
+      "votes": "Stimmen",
+      "endsAt": "Endet",
+      "ended": "Beendet",
       "filter": {
         "all": "Alle Aktivitäten",
         "following": "Abonniert",
         "myActivities": "Meine Aktivitäten"
       },
+      "visibility": {
+        "public": "Öffentlich",
+        "club": "Verein",
+        "followers": "Follower"
+      },
       "events": {
         "clubJoin": {
-          "joined": "ist dem Verein",
-          "beigetreten": "beigetreten",
+          "joined": "ist dem Verein beigetreten",
           "welcome": "Willkommen im Team!"
+        },
+        "clubLeave": {
+          "left": "hat den Verein verlassen"
         },
         "rankUp": {
           "achieved": "erreichte",
@@ -661,6 +679,12 @@
     "deleteRead": "Gelesene löschen",
     "accept": "Annehmen",
     "decline": "Ablehnen",
+    "accepted": "Bestätigt",
+    "error": "Fehler - bitte erneut versuchen",
+    "matchApproved": "Spiel bestätigt",
+    "matchApprovedMessage": "{{name}} hat deine Spielanfrage angenommen.",
+    "matchRejected": "Spielanfrage abgelehnt",
+    "matchRejectedMessage": "{{name}} hat deine Spielanfrage abgelehnt.",
     "types": {
       "newFollower": "Neuer Abonnent",
       "followRequest": "Neue Abonnement-Anfrage",

@@ -212,15 +212,34 @@
       "title": "动态",
       "noActivity": "暂无动态",
       "loading": "加载动态中...",
+      "emptyMyActivities": "您还没有进行任何比赛",
+      "emptyFollowing": "关注其他选手以查看他们的动态",
+      "emptyAll": "暂无动态",
+      "emptyClub": "该俱乐部暂无动态",
+      "defeated": "击败了",
+      "defeatedPlural": "击败了",
+      "set": "局",
+      "vote": "票",
+      "votes": "票",
+      "endsAt": "结束于",
+      "ended": "已结束",
       "filter": {
         "all": "全部动态",
         "following": "关注",
         "myActivities": "我的动态"
       },
+      "visibility": {
+        "public": "公开",
+        "club": "俱乐部",
+        "followers": "粉丝"
+      },
       "events": {
         "clubJoin": {
           "joined": "加入了俱乐部",
           "welcome": "欢迎加入团队！"
+        },
+        "clubLeave": {
+          "left": "离开了俱乐部"
         },
         "rankUp": {
           "achieved": "达到了",
@@ -660,6 +679,12 @@
     "deleteRead": "删除已读",
     "accept": "接受",
     "decline": "拒绝",
+    "accepted": "已确认",
+    "error": "错误 - 请重试",
+    "matchApproved": "比赛已确认",
+    "matchApprovedMessage": "{{name}} 接受了您的比赛请求。",
+    "matchRejected": "比赛请求被拒绝",
+    "matchRejectedMessage": "{{name}} 拒绝了您的比赛请求。",
     "types": {
       "newFollower": "新粉丝",
       "followRequest": "新关注请求",

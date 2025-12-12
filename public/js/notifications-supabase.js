@@ -2,6 +2,7 @@
 // Handles in-app notifications for points, matches, etc.
 
 import { getSupabase } from './supabase-init.js';
+import { t } from './i18n.js';
 
 let notificationSubscription = null;
 let matchRequestSubscription = null;
@@ -605,7 +606,7 @@ async function showNotificationModal(userId) {
                 updateNotificationBadge(userId);
             } else {
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-red-500">${t('notifications.error')}</span>`;
                 }
             }
         }
@@ -633,7 +634,7 @@ async function showNotificationModal(userId) {
                 checkEmptyNotifications(modal);
             } else {
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-red-500">${t('notifications.error')}</span>`;
                 }
             }
         }
@@ -667,7 +668,7 @@ async function showNotificationModal(userId) {
                 updateNotificationBadge(userId);
             } else {
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-red-500">${t('notifications.error')}</span>`;
                 }
             }
         }
@@ -696,7 +697,7 @@ async function showNotificationModal(userId) {
                 checkEmptyNotifications(modal);
             } else {
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-red-500">${t('notifications.error')}</span>`;
                 }
             }
         }
@@ -724,12 +725,12 @@ async function showNotificationModal(userId) {
                 item.classList.add('bg-white');
                 item.dataset.read = 'true';
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-green-600"><i class="fas fa-check mr-1"></i>Bestätigt</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-green-600"><i class="fas fa-check mr-1"></i>${t('notifications.accepted')}</span>`;
                 }
                 updateNotificationBadge(userId);
             } else {
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-red-500">${t('notifications.error')}</span>`;
                 }
             }
         }
@@ -757,7 +758,7 @@ async function showNotificationModal(userId) {
                 checkEmptyNotifications(modal);
             } else {
                 if (actionsDiv) {
-                    actionsDiv.innerHTML = '<span class="text-sm text-red-500">Fehler - bitte erneut versuchen</span>';
+                    actionsDiv.innerHTML = `<span class="text-sm text-red-500">${t('notifications.error')}</span>`;
                 }
             }
         }
@@ -881,8 +882,8 @@ export async function createNotification(userId, type, title, message, data = {}
  * Create a follow request notification
  */
 export async function createFollowRequestNotification(toUserId, fromUserId, fromUserName) {
-    const title = 'Neue Follow-Anfrage';
-    const message = `${fromUserName} möchte dir folgen`;
+    const title = t('notifications.types.followRequest');
+    const message = t('notifications.messages.followRequest', { name: fromUserName });
 
     await createNotification(toUserId, 'follow_request', title, message, {
         requester_id: fromUserId,
@@ -894,8 +895,8 @@ export async function createFollowRequestNotification(toUserId, fromUserId, from
  * Create a follow accepted notification
  */
 export async function createFollowAcceptedNotification(toUserId, accepterId, accepterName) {
-    const title = 'Follow-Anfrage angenommen';
-    const message = `${accepterName} folgt dir jetzt`;
+    const title = t('notifications.types.followRequestAccepted');
+    const message = t('notifications.messages.followRequestAccepted', { name: accepterName });
 
     await createNotification(toUserId, 'follow_accepted', title, message, {
         accepter_id: accepterId,
@@ -1412,8 +1413,8 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
         await createNotification(
             matchRequest.player_a_id,
             'match_approved',
-            'Spiel bestätigt',
-            `${currentUserName} hat deine Spielanfrage angenommen.`
+            t('notifications.matchApproved'),
+            t('notifications.matchApprovedMessage', { name: currentUserName })
         );
 
         // Refresh match requests if function exists
@@ -1490,8 +1491,8 @@ async function handleDeclineMatch(requestId, requesterId, notificationId, userId
         await createNotification(
             matchRequest.player_a_id,
             'match_rejected',
-            'Spielanfrage abgelehnt',
-            `${currentUserName} hat deine Spielanfrage abgelehnt.`
+            t('notifications.matchRejected'),
+            t('notifications.matchRejectedMessage', { name: currentUserName })
         );
 
         // Refresh match requests if function exists
