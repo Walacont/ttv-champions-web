@@ -411,11 +411,9 @@ async function initializeDashboard() {
 
     // Translate page after all content is loaded
     // This ensures dynamically added elements with data-i18n are translated
-    // Wait for i18n to be initialized first
-    setTimeout(async () => {
-        await initI18n();
-        translatePage();
-    }, 100);
+    // Note: i18n is initialized by dashboard.html's inline script
+    // translatePage() will safely skip if not ready yet
+    translatePage();
 }
 
 // --- Setup Header ---

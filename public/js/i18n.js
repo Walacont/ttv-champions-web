@@ -130,17 +130,26 @@ function getAvailableLanguages() {
  * For HTML content: <div data-i18n-html="faq.answers.eloVsXp"></div>
  */
 function translatePage() {
+    // Don't translate if i18n isn't initialized yet - keep fallback text
+    if (!i18nInitialized) {
+        console.warn('translatePage called before i18n initialized, skipping');
+        return;
+    }
+
     const elements = document.querySelectorAll('[data-i18n]');
     elements.forEach((element) => {
         const key = element.getAttribute('data-i18n');
         const translation = t(key);
 
-        // Check if element has data-i18n-attr for attribute translation
-        const attr = element.getAttribute('data-i18n-attr');
-        if (attr) {
-            element.setAttribute(attr, translation);
-        } else {
-            element.textContent = translation;
+        // Only update if we got a real translation (not the key itself)
+        if (translation && translation !== key) {
+            // Check if element has data-i18n-attr for attribute translation
+            const attr = element.getAttribute('data-i18n-attr');
+            if (attr) {
+                element.setAttribute(attr, translation);
+            } else {
+                element.textContent = translation;
+            }
         }
     });
 
@@ -149,14 +158,21 @@ function translatePage() {
     htmlElements.forEach((element) => {
         const key = element.getAttribute('data-i18n-html');
         const translation = t(key);
-        element.innerHTML = translation;
+        // Only update if we got a real translation
+        if (translation && translation !== key) {
+            element.innerHTML = translation;
+        }
     });
 
     // Handle placeholder translations
     const placeholderElements = document.querySelectorAll('[data-i18n-placeholder]');
     placeholderElements.forEach((element) => {
         const key = element.getAttribute('data-i18n-placeholder');
-        element.placeholder = t(key);
+        const translation = t(key);
+        // Only update if we got a real translation
+        if (translation && translation !== key) {
+            element.placeholder = translation;
+        }
     });
 }
 
