@@ -580,11 +580,13 @@ async function renderFollowButton() {
 
     const supabase = getSupabase();
 
-    // Check current friendship status
+    // Check current friendship status - ONE WAY only
+    // Only check if current user is following the profile (requester = current user)
     const { data: friendship } = await supabase
         .from('friendships')
         .select('id, status, requester_id')
-        .or(`and(requester_id.eq.${currentUser.id},addressee_id.eq.${profileId}),and(requester_id.eq.${profileId},addressee_id.eq.${currentUser.id})`)
+        .eq('requester_id', currentUser.id)
+        .eq('addressee_id', profileId)
         .maybeSingle();
 
     if (friendship) {
