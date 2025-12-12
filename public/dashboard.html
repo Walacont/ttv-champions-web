@@ -80,9 +80,9 @@
                 -webkit-user-select: none;
             }
 
-            /* Active state for bottom nav */
+            /* Active state for bottom nav (dark like Instagram) */
             .bottom-tab-button.tab-active {
-                color: #4f46e5 !important;
+                color: #111827 !important; /* gray-900 */
             }
             .modal {
                 transition: opacity 0.25s ease;
@@ -292,65 +292,55 @@
             </div>
         </div>
 
-        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
-            <header class="mb-6">
-                <!-- Mobile-First Top Bar (like Strava) -->
-                <div class="flex justify-between items-center mb-4 bg-white rounded-xl shadow-sm p-3 sm:p-4">
+        <div id="main-content" class="container mx-auto px-4 sm:px-6 md:px-8 max-w-7xl pt-14">
+            <!-- Fixed Top Bar (like Instagram) -->
+            <header class="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50">
+                <div class="flex justify-between items-center h-12 px-4 max-w-7xl mx-auto">
                     <!-- Left: Search Icon (opens Community) -->
                     <button
                         id="open-community-btn"
-                        class="text-gray-500 hover:text-indigo-600 transition-colors p-2"
+                        class="text-gray-600 hover:text-indigo-600 transition-colors p-1"
                         title="Community suchen"
                     >
-                        <i class="fas fa-search text-xl"></i>
+                        <i class="fas fa-search text-lg"></i>
                     </button>
 
-                    <!-- Center: Profile Photo (clickable) and Title -->
-                    <div class="flex items-center gap-3 flex-1 justify-center">
+                    <!-- Center: Profile Photo and Title -->
+                    <div class="flex items-center gap-2">
                         <a id="header-profile-link" href="#" class="flex-shrink-0">
                             <img id="header-profile-pic" src="" alt="Profilbild"
-                                 class="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover border-2 border-indigo-200 shadow-sm hover:border-indigo-400 transition cursor-pointer">
+                                 class="h-8 w-8 rounded-full object-cover border border-gray-200 hover:border-indigo-400 transition cursor-pointer">
                         </a>
-                        <div class="text-center sm:text-left">
-                            <h1 id="header-title" class="text-lg sm:text-xl font-bold text-gray-900">Start</h1>
-                            <p id="header-club-info" class="text-xs text-gray-500 hidden sm:block">
-                                <i class="fas fa-building mr-1"></i><span id="header-club-name">Lade...</span>
-                            </p>
-                        </div>
+                        <h1 id="header-title" class="text-base font-semibold text-gray-900">Start</h1>
+                        <p id="header-club-info" class="hidden">
+                            <span id="header-club-name"></span>
+                        </p>
                     </div>
 
-                    <!-- Right: Chat & Settings Icons -->
-                    <div class="flex items-center space-x-2 sm:space-x-3">
+                    <!-- Right: Notifications & Settings -->
+                    <div class="flex items-center space-x-1">
                         <!-- Notification Bell -->
                         <button
                             id="desktop-notifications-btn"
-                            class="relative text-gray-500 hover:text-gray-800 transition-colors p-2"
+                            class="relative text-gray-600 hover:text-gray-800 transition-colors p-1"
                             title="Benachrichtigungen"
                         >
-                            <i class="far fa-bell text-xl"></i>
-                            <span id="desktop-notifications-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                        </button>
-                        <!-- Chat Placeholder -->
-                        <button
-                            id="open-chat-btn"
-                            class="text-gray-400 hover:text-gray-500 transition-colors p-2 cursor-not-allowed"
-                            title="Chat (kommt bald)"
-                            disabled
-                        >
-                            <i class="far fa-comment-dots text-xl"></i>
+                            <i class="far fa-bell text-lg"></i>
+                            <span id="desktop-notifications-badge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
                         </button>
                         <!-- Settings -->
                         <a
                             href="/settings.html"
-                            class="text-gray-500 hover:text-gray-800 transition-colors p-2"
+                            class="text-gray-600 hover:text-gray-800 transition-colors p-1"
                             title="Einstellungen"
                         >
-                            <i class="fas fa-cog text-xl"></i>
+                            <i class="fas fa-cog text-lg"></i>
                         </a>
                     </div>
                 </div>
+            </header>
 
-                <!-- Coach Indicator (only visible for coaches in player dashboard) -->
+            <div class="mb-4">
                 <div id="coach-player-indicator" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
                     <div class="flex items-center gap-2 text-purple-700">
                         <i class="fas fa-info-circle"></i>
@@ -389,7 +379,7 @@
                 </div>
             </div>
 
-            <main class="pb-20">
+            <main class="pb-16">
                 <div id="tab-content-overview" class="tab-content">
                     <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
@@ -1496,7 +1486,7 @@
         </div>
 
         <!-- Footer -->
-        <footer class="mt-12 pb-20 px-4">
+        <footer class="mt-12 pb-16 px-4">
             <div class="max-w-4xl mx-auto">
                 <!-- Bug Report Notice -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -1535,44 +1525,40 @@
             </div>
         </footer>
 
-        <!-- Bottom Navigation Bar (Mobile-First, like Instagram) -->
+        <!-- Bottom Navigation Bar (like Instagram) -->
         <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-bottom">
-            <div class="flex justify-around items-center h-14 max-w-lg mx-auto">
+            <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
                 <button
-                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
                     data-tab="overview"
                     data-title="Start"
                     onclick="handleBottomTabClick('overview', 'Start')"
                 >
-                    <i class="fas fa-home text-xl"></i>
-                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.start">Start</span>
+                    <i class="fas fa-home text-2xl"></i>
                 </button>
                 <button
-                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
                     data-tab="leaderboard"
                     data-title="Ranglisten"
                     onclick="handleBottomTabClick('leaderboard', 'Ranglisten')"
                 >
-                    <i class="fas fa-trophy text-xl"></i>
-                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.leaderboard">Rang</span>
+                    <i class="fas fa-trophy text-2xl"></i>
                 </button>
                 <button
-                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
                     data-tab="matches"
                     data-title="Wettkampf"
                     onclick="handleBottomTabClick('matches', 'Wettkampf')"
                 >
-                    <i class="fas fa-table-tennis-paddle-ball text-xl"></i>
-                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.competition">Match</span>
+                    <i class="fas fa-table-tennis-paddle-ball text-2xl"></i>
                 </button>
                 <button
-                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
                     data-tab="exercises"
-                    data-title="Übungskatalog"
+                    data-title="Übungen"
                     onclick="handleBottomTabClick('exercises', 'Übungen')"
                 >
-                    <i class="fas fa-dumbbell text-xl"></i>
-                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.exercises">Übungen</span>
+                    <i class="fas fa-dumbbell text-2xl"></i>
                 </button>
             </div>
         </nav>
@@ -1587,10 +1573,10 @@
                 var allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
                 for (var i = 0; i < allTabButtons.length; i++) {
                     var btn = allTabButtons[i];
-                    btn.classList.remove('tab-active', 'text-indigo-600');
+                    btn.classList.remove('tab-active');
                     btn.classList.add('text-gray-400');
                     if (btn.getAttribute('data-tab') === tabId) {
-                        btn.classList.add('tab-active', 'text-indigo-600');
+                        btn.classList.add('tab-active');
                         btn.classList.remove('text-gray-400');
                     }
                 }
