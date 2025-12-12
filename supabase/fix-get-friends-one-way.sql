@@ -4,6 +4,9 @@
 -- NOT users who follow the current user
 -- ============================================
 
+-- Drop existing function first to avoid type conflicts
+DROP FUNCTION IF EXISTS get_friends(uuid);
+
 -- Replace the get_friends function to only show people you follow
 CREATE OR REPLACE FUNCTION get_friends(current_user_id UUID)
 RETURNS TABLE (
