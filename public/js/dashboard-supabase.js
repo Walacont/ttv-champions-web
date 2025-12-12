@@ -470,17 +470,37 @@ function setupTabs() {
         }
     };
 
-    // Use event delegation on bottom nav for better mobile support
+    // Handler function for tab clicks
+    const handleTabClick = (e) => {
+        // Find the button that was clicked (could be the icon or span inside)
+        const button = e.target.closest('.bottom-tab-button');
+        if (button) {
+            e.preventDefault();
+            const tabId = button.dataset.tab;
+            const tabTitle = button.dataset.title || 'Dashboard';
+            switchToTab(tabId, tabTitle);
+        }
+    };
+
+    // Use event delegation on bottom nav for mobile support
     if (bottomNav) {
-        bottomNav.addEventListener('click', (e) => {
-            // Find the button that was clicked (could be the icon or span inside)
-            const button = e.target.closest('.bottom-tab-button');
-            if (button) {
+        // Add click event listener
+        bottomNav.addEventListener('click', handleTabClick);
+
+        // Also add direct click handlers to each button for better mobile support
+        bottomNav.querySelectorAll('.bottom-tab-button').forEach(button => {
+            button.style.cursor = 'pointer';
+            button.style.touchAction = 'manipulation';
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 const tabId = button.dataset.tab;
                 const tabTitle = button.dataset.title || 'Dashboard';
                 switchToTab(tabId, tabTitle);
-            }
+            });
         });
+    } else {
+        console.warn('Bottom nav not found!');
     }
 
     // Also add handlers to any inline tab buttons (for backwards compatibility)

@@ -71,6 +71,15 @@
                 padding-bottom: env(safe-area-inset-bottom, 0);
             }
 
+            /* Bottom nav button styles for mobile touch */
+            .bottom-tab-button {
+                cursor: pointer;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
             /* Active state for bottom nav */
             .bottom-tab-button.tab-active {
                 color: #4f46e5 !important;
