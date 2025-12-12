@@ -719,7 +719,8 @@ function loadGlobalDoublesLeaderboard(userData) {
 
     try {
         // Load global doubles leaderboard (null clubId = global)
-        loadDoublesLeaderboard(null, supabase, listEl, [], userData.id, true);
+        // Pass sport filter to only show doubles from current sport
+        loadDoublesLeaderboard(null, supabase, listEl, [], userData.id, true, currentLeaderboardSportId);
     } catch (error) {
         console.error('[Leaderboard] Error loading global doubles leaderboard:', error);
         listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der globalen Doppel-Rangliste.</p>';
@@ -1322,7 +1323,8 @@ function loadDoublesLeaderboardTab(userData) {
     if (!listEl) return;
 
     try {
-        loadDoublesLeaderboard(userData.clubId, supabase, listEl, [], userData.id, false);
+        // Pass sport filter to only show doubles from current sport
+        loadDoublesLeaderboard(userData.clubId, supabase, listEl, [], userData.id, false, currentLeaderboardSportId);
     } catch (error) {
         console.error('[Leaderboard] Error loading doubles leaderboard:', error);
         listEl.innerHTML = '<p class="text-center text-red-500 py-8">Fehler beim Laden der Doppel-Rangliste.</p>';

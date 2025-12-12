@@ -508,8 +508,9 @@ export async function rejectDoublesMatchRequest(requestId, reason, supabase, cur
  * @param {Array} unsubscribes - Array to store unsubscribe functions for cleanup
  * @param {string} currentUserId - Current user's ID (for privacy filtering)
  * @param {boolean} isGlobal - Whether this is the global leaderboard (default: false)
+ * @param {string} sportId - Sport ID to filter by (optional, filters pairings by players' sport)
  */
-export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes, currentUserId, isGlobal = false) {
+export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes, currentUserId, isGlobal = false, sportId = null) {
     if (!container) return;
 
     async function loadData() {
@@ -567,6 +568,17 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                         .eq('id', data.player2_id)
                         .single();
                     player2Data = p2;
+                }
+
+                // Sport filtering: Both players must be in the specified sport
+                if (sportId) {
+                    const player1Sport = player1Data?.active_sport_id;
+                    const player2Sport = player2Data?.active_sport_id;
+
+                    // Skip pairing if either player is not in the specified sport
+                    if (player1Sport !== sportId || player2Sport !== sportId) {
+                        continue;
+                    }
                 }
 
                 // Privacy filtering
