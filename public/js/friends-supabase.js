@@ -215,7 +215,7 @@ function renderSearchResults(players) {
             button = `
                 <button
                     onclick="event.preventDefault(); window.cancelFollowRequest('${player.id}')"
-                    class="text-orange-500 hover:text-orange-700 font-semibold py-2 px-4 rounded-full text-sm transition border border-orange-300 hover:border-orange-500"
+                    class="text-indigo-500 hover:text-indigo-700 font-semibold py-2 px-4 rounded-full text-sm transition border border-indigo-300 hover:border-indigo-500"
                 >
                     <i class="fas fa-clock mr-1"></i>Angefragt
                 </button>
@@ -527,12 +527,12 @@ function renderReceivedRequests(requests) {
         const timeAgo = getTimeAgo(new Date(request.created_at));
 
         return `
-            <div class="flex items-center justify-between p-4 bg-orange-50 rounded-lg border-2 border-orange-200">
+            <div class="flex items-center justify-between p-4 bg-indigo-50 rounded-lg border-2 border-indigo-200">
                 <a href="/profile.html?id=${request.requester_id}" class="flex items-center gap-3 flex-1 cursor-pointer hover:opacity-80 transition">
                     <img
                         src="${photoUrl}"
                         alt="${fullName}"
-                        class="h-12 w-12 rounded-full object-cover border-2 border-orange-300"
+                        class="h-12 w-12 rounded-full object-cover border-2 border-indigo-300"
                     />
                     <div class="flex-1">
                         <h4 class="font-semibold text-gray-800">${fullName}</h4>
