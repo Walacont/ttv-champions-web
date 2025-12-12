@@ -62,8 +62,18 @@
             }
             .tab-active {
                 border-color: #4f46e5; /* indigo-600 */
-                color: #4f46e5;
+                color: #4f46e5 !important;
                 background-color: #eef2ff; /* indigo-50 */
+            }
+
+            /* Bottom navigation safe area for iPhones */
+            .safe-area-bottom {
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+
+            /* Active state for bottom nav */
+            .bottom-tab-button.tab-active {
+                color: #4f46e5 !important;
             }
             .modal {
                 transition: opacity 0.25s ease;
@@ -370,46 +380,7 @@
                 </div>
             </div>
 
-            <div class="mb-4 border-b border-gray-200">
-                <nav id="main-nav" class="-mb-px flex justify-between sm:justify-start sm:space-x-4 overflow-x-auto">
-                    <button
-                        class="tab-button whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 min-w-[60px] sm:min-w-0"
-                        data-tab="overview"
-                        data-title="Start"
-                    >
-                        <i class="fas fa-home text-base sm:text-xs"></i>
-                        <span data-i18n="dashboard.tabs.start">Start</span>
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 min-w-[60px] sm:min-w-0"
-                        data-tab="leaderboard"
-                        data-title="Ranglisten"
-                    >
-                        <i class="fas fa-trophy text-base sm:text-xs"></i>
-                        <span data-i18n="dashboard.tabs.leaderboard">Rang</span>
-                    </button>
-
-                    <button
-                        class="tab-button whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 min-w-[60px] sm:min-w-0"
-                        data-tab="matches"
-                        data-title="Wettkampf"
-                    >
-                        <i class="fas fa-table-tennis-paddle-ball text-base sm:text-xs"></i>
-                        <span data-i18n="dashboard.tabs.competition">Match</span>
-                    </button>
-
-                    <button
-                        class="tab-button whitespace-nowrap py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 min-w-[60px] sm:min-w-0"
-                        data-tab="exercises"
-                        data-title="Übungskatalog"
-                    >
-                        <i class="fas fa-dumbbell text-base sm:text-xs"></i>
-                        <span data-i18n="dashboard.tabs.exercises">Übungen</span>
-                    </button>
-                </nav>
-            </div>
-
-            <main>
+            <main class="pb-20">
                 <div id="tab-content-overview" class="tab-content">
                     <!-- Activity Feed - Full width, infinite scroll -->
                     <div class="max-w-2xl mx-auto">
@@ -1516,7 +1487,7 @@
         </div>
 
         <!-- Footer -->
-        <footer class="mt-12 pb-6 px-4">
+        <footer class="mt-12 pb-20 px-4">
             <div class="max-w-4xl mx-auto">
                 <!-- Bug Report Notice -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
@@ -1554,6 +1525,44 @@
                 </div>
             </div>
         </footer>
+
+        <!-- Bottom Navigation Bar (Mobile-First, like Instagram) -->
+        <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 safe-area-bottom">
+            <div class="flex justify-around items-center h-14 max-w-lg mx-auto">
+                <button
+                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    data-tab="overview"
+                    data-title="Start"
+                >
+                    <i class="fas fa-home text-xl"></i>
+                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.start">Start</span>
+                </button>
+                <button
+                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    data-tab="leaderboard"
+                    data-title="Ranglisten"
+                >
+                    <i class="fas fa-trophy text-xl"></i>
+                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.leaderboard">Rang</span>
+                </button>
+                <button
+                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    data-tab="matches"
+                    data-title="Wettkampf"
+                >
+                    <i class="fas fa-table-tennis-paddle-ball text-xl"></i>
+                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.competition">Match</span>
+                </button>
+                <button
+                    class="bottom-tab-button flex flex-col items-center justify-center flex-1 h-full text-gray-400 hover:text-indigo-600 transition-colors"
+                    data-tab="exercises"
+                    data-title="Übungskatalog"
+                >
+                    <i class="fas fa-dumbbell text-xl"></i>
+                    <span class="text-[10px] mt-0.5" data-i18n="dashboard.tabs.exercises">Übungen</span>
+                </button>
+            </div>
+        </nav>
 
         <script type="module">
             // Initialize i18n

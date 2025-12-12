@@ -433,46 +433,62 @@ function setupHeader() {
 
 // --- Setup Tabs ---
 function setupTabs() {
-    const tabButtons = document.querySelectorAll('.tab-button');
+    // Select both inline tabs (if any) and bottom navigation tabs
+    const allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
     const headerTitle = document.getElementById('header-title');
 
-    tabButtons.forEach(button => {
+    // Helper function to switch tabs
+    const switchToTab = async (tabId, tabTitle) => {
+        // Update active states on ALL tab buttons (keeps inline and bottom nav in sync)
+        allTabButtons.forEach(btn => {
+            btn.classList.remove('tab-active', 'text-indigo-600');
+            btn.classList.add('text-gray-400');
+            if (btn.dataset.tab === tabId) {
+                btn.classList.add('tab-active', 'text-indigo-600');
+                btn.classList.remove('text-gray-400');
+            }
+        });
+
+        // Update header title dynamically
+        if (headerTitle) {
+            headerTitle.textContent = tabTitle;
+        }
+
+        // Show/hide tab contents
+        tabContents.forEach(content => {
+            content.classList.add('hidden');
+            if (content.id === `tab-content-${tabId}`) {
+                content.classList.remove('hidden');
+            }
+        });
+
+        // Initialize Community tab when activated
+        if (tabId === 'community') {
+            try {
+                await initFriends();
+                await initCommunity();
+            } catch (error) {
+                console.error('Error initializing community modules:', error);
+            }
+        }
+    };
+
+    // Add click handlers to all tab buttons
+    allTabButtons.forEach(button => {
         button.addEventListener('click', async () => {
             const tabId = button.dataset.tab;
             const tabTitle = button.dataset.title || button.textContent.trim();
-
-            // Update active states
-            tabButtons.forEach(btn => btn.classList.remove('tab-active'));
-            button.classList.add('tab-active');
-
-            // Update header title dynamically
-            if (headerTitle) {
-                headerTitle.textContent = tabTitle;
-            }
-
-            tabContents.forEach(content => {
-                content.classList.add('hidden');
-                if (content.id === `tab-content-${tabId}`) {
-                    content.classList.remove('hidden');
-                }
-            });
-
-            // Initialize Community tab when activated
-            if (tabId === 'community') {
-                try {
-                    await initFriends();
-                    await initCommunity();
-                } catch (error) {
-                    console.error('Error initializing community modules:', error);
-                }
-            }
+            await switchToTab(tabId, tabTitle);
         });
     });
 
-    // Activate first tab
-    if (tabButtons.length > 0) {
-        tabButtons[0].click();
+    // Activate first tab (use bottom nav buttons as primary)
+    const bottomTabButtons = document.querySelectorAll('.bottom-tab-button');
+    if (bottomTabButtons.length > 0) {
+        bottomTabButtons[0].click();
+    } else if (allTabButtons.length > 0) {
+        allTabButtons[0].click();
     }
 }
 
