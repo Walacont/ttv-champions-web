@@ -77,23 +77,26 @@ function setupEventListeners() {
     const openCommunityBtn = document.getElementById('open-community-btn');
     if (openCommunityBtn) {
         openCommunityBtn.addEventListener('click', () => {
-            // Find and click the community tab button or switch to community tab
-            const communityContent = document.getElementById('tab-content-community');
-            if (communityContent) {
-                // Hide all tab contents
-                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-                // Show community content
-                communityContent.classList.remove('hidden');
-                // Update tab button states (remove active from all)
-                document.querySelectorAll('.tab-button').forEach(btn => {
-                    btn.classList.remove('tab-active', 'border-indigo-600', 'text-indigo-600');
-                    btn.classList.add('border-transparent', 'text-gray-500');
-                });
+            // Show the community fullscreen overlay
+            const communityFullscreen = document.getElementById('community-fullscreen');
+            if (communityFullscreen) {
+                communityFullscreen.classList.remove('hidden');
                 // Focus search input
                 const searchInput = document.getElementById('player-search-input');
                 if (searchInput) {
                     setTimeout(() => searchInput.focus(), 100);
                 }
+            }
+        });
+    }
+
+    // Close Community button (back arrow in community fullscreen)
+    const closeCommunityBtn = document.getElementById('close-community-btn');
+    if (closeCommunityBtn) {
+        closeCommunityBtn.addEventListener('click', () => {
+            const communityFullscreen = document.getElementById('community-fullscreen');
+            if (communityFullscreen) {
+                communityFullscreen.classList.add('hidden');
             }
         });
     }
