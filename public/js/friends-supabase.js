@@ -652,6 +652,11 @@ function renderFriendsList(friends) {
     const container = document.getElementById('friends-list');
     const countDisplay = document.getElementById('friends-count');
 
+    // Check if container exists (might be on a different page)
+    if (!container) {
+        return;
+    }
+
     if (countDisplay) {
         countDisplay.textContent = `(${friends.length})`;
     }
