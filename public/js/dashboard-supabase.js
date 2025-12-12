@@ -433,14 +433,14 @@ function setupHeader() {
 
 // --- Setup Tabs ---
 function setupTabs() {
-    // Select both inline tabs (if any) and bottom navigation tabs
-    const allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
     const headerTitle = document.getElementById('header-title');
+    const bottomNav = document.getElementById('bottom-nav');
 
     // Helper function to switch tabs
-    const switchToTab = async (tabId, tabTitle) => {
-        // Update active states on ALL tab buttons (keeps inline and bottom nav in sync)
+    const switchToTab = (tabId, tabTitle) => {
+        // Update active states on ALL tab buttons
+        const allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
         allTabButtons.forEach(btn => {
             btn.classList.remove('tab-active', 'text-indigo-600');
             btn.classList.add('text-gray-400');
@@ -465,30 +465,39 @@ function setupTabs() {
 
         // Initialize Community tab when activated
         if (tabId === 'community') {
-            try {
-                await initFriends();
-                await initCommunity();
-            } catch (error) {
-                console.error('Error initializing community modules:', error);
-            }
+            initFriends().catch(err => console.error('Error initializing friends:', err));
+            initCommunity().catch(err => console.error('Error initializing community:', err));
         }
     };
 
-    // Add click handlers to all tab buttons
-    allTabButtons.forEach(button => {
-        button.addEventListener('click', async () => {
+    // Use event delegation on bottom nav for better mobile support
+    if (bottomNav) {
+        bottomNav.addEventListener('click', (e) => {
+            // Find the button that was clicked (could be the icon or span inside)
+            const button = e.target.closest('.bottom-tab-button');
+            if (button) {
+                const tabId = button.dataset.tab;
+                const tabTitle = button.dataset.title || 'Dashboard';
+                switchToTab(tabId, tabTitle);
+            }
+        });
+    }
+
+    // Also add handlers to any inline tab buttons (for backwards compatibility)
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
             const tabId = button.dataset.tab;
             const tabTitle = button.dataset.title || button.textContent.trim();
-            await switchToTab(tabId, tabTitle);
+            switchToTab(tabId, tabTitle);
         });
     });
 
-    // Activate first tab (use bottom nav buttons as primary)
-    const bottomTabButtons = document.querySelectorAll('.bottom-tab-button');
-    if (bottomTabButtons.length > 0) {
-        bottomTabButtons[0].click();
-    } else if (allTabButtons.length > 0) {
-        allTabButtons[0].click();
+    // Activate first tab
+    const firstTab = document.querySelector('.bottom-tab-button') || document.querySelector('.tab-button');
+    if (firstTab) {
+        const tabId = firstTab.dataset.tab;
+        const tabTitle = firstTab.dataset.title || 'Start';
+        switchToTab(tabId, tabTitle);
     }
 }
 
