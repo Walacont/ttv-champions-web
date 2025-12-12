@@ -278,14 +278,18 @@ async function getUserIdsForFilter() {
     }
 
     if (currentFilter === 'following') {
-        // Only get followed users (not club members)
+        // Get followed users + own user
+        const userIds = new Set([currentUser.id]);
+
         const { data: following } = await supabase
             .from('friendships')
             .select('addressee_id')
             .eq('requester_id', currentUser.id)
             .eq('status', 'accepted');
 
-        return (following || []).map(f => f.addressee_id);
+        (following || []).forEach(f => userIds.add(f.addressee_id));
+
+        return [...userIds];
     }
 
     if (currentFilter === 'all') {
