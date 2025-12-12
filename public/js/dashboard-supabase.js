@@ -433,12 +433,23 @@ function setupHeader() {
 
 // --- Setup Tabs ---
 function setupTabs() {
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+        initializeTabSystem();
+    });
+}
+
+function initializeTabSystem() {
     const tabContents = document.querySelectorAll('.tab-content');
     const headerTitle = document.getElementById('header-title');
     const bottomNav = document.getElementById('bottom-nav');
 
-    // Helper function to switch tabs
-    const switchToTab = (tabId, tabTitle) => {
+    console.log('[TABS] Initializing tab system, bottomNav:', bottomNav ? 'found' : 'NOT FOUND');
+
+    // Helper function to switch tabs - make it global so it can be called from anywhere
+    window.switchToTab = (tabId, tabTitle) => {
+        console.log('[TABS] Switching to tab:', tabId);
+
         // Update active states on ALL tab buttons
         const allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
         allTabButtons.forEach(btn => {
@@ -470,37 +481,39 @@ function setupTabs() {
         }
     };
 
-    // Handler function for tab clicks
-    const handleTabClick = (e) => {
-        // Find the button that was clicked (could be the icon or span inside)
-        const button = e.target.closest('.bottom-tab-button');
-        if (button) {
-            e.preventDefault();
-            const tabId = button.dataset.tab;
-            const tabTitle = button.dataset.title || 'Dashboard';
-            switchToTab(tabId, tabTitle);
-        }
-    };
-
-    // Use event delegation on bottom nav for mobile support
+    // Setup bottom navigation
     if (bottomNav) {
-        // Add click event listener
-        bottomNav.addEventListener('click', handleTabClick);
+        const buttons = bottomNav.querySelectorAll('.bottom-tab-button');
+        console.log('[TABS] Found', buttons.length, 'bottom tab buttons');
 
-        // Also add direct click handlers to each button for better mobile support
-        bottomNav.querySelectorAll('.bottom-tab-button').forEach(button => {
-            button.style.cursor = 'pointer';
-            button.style.touchAction = 'manipulation';
-            button.addEventListener('click', (e) => {
+        buttons.forEach(button => {
+            // Remove any existing listeners by cloning
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+
+            // Add click handler
+            newButton.addEventListener('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                const tabId = button.dataset.tab;
-                const tabTitle = button.dataset.title || 'Dashboard';
-                switchToTab(tabId, tabTitle);
+                const tabId = this.dataset.tab;
+                const tabTitle = this.dataset.title || 'Dashboard';
+                console.log('[TABS] Button clicked:', tabId);
+                window.switchToTab(tabId, tabTitle);
             });
         });
+
+        // Activate first tab
+        const firstButton = bottomNav.querySelector('.bottom-tab-button');
+        if (firstButton) {
+            const tabId = firstButton.dataset.tab;
+            const tabTitle = firstButton.dataset.title || 'Start';
+            window.switchToTab(tabId, tabTitle);
+        }
     } else {
-        console.warn('Bottom nav not found!');
+        console.error('[TABS] Bottom nav not found! Retrying in 100ms...');
+        // Retry after a short delay
+        setTimeout(initializeTabSystem, 100);
+        return;
     }
 
     // Also add handlers to any inline tab buttons (for backwards compatibility)
@@ -508,17 +521,9 @@ function setupTabs() {
         button.addEventListener('click', () => {
             const tabId = button.dataset.tab;
             const tabTitle = button.dataset.title || button.textContent.trim();
-            switchToTab(tabId, tabTitle);
+            window.switchToTab(tabId, tabTitle);
         });
     });
-
-    // Activate first tab
-    const firstTab = document.querySelector('.bottom-tab-button') || document.querySelector('.tab-button');
-    if (firstTab) {
-        const tabId = firstTab.dataset.tab;
-        const tabTitle = firstTab.dataset.title || 'Start';
-        switchToTab(tabId, tabTitle);
-    }
 }
 
 // --- Setup Search Button (opens Community fullscreen page) ---
