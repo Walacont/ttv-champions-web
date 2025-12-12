@@ -215,42 +215,51 @@ function renderSinglesMatchCard(match, profileMap) {
         ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
         : '';
 
+    // Truncate opponent name if too long
+    const oppName = opponent.first_name || opponent.display_name || 'Gegner';
+    const oppNameDisplay = oppName.length > 10 ? oppName.substring(0, 10) + '.' : oppName;
+
     return `
         <div class="bg-white rounded-xl shadow-sm border-l-4 ${isWinner ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-4">
+            <!-- Header -->
             <div class="flex justify-between items-center mb-3">
                 <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
-                <span class="px-3 py-1 rounded-full text-sm font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                     ${isWinner ? 'Sieg' : 'Niederlage'}
                 </span>
             </div>
 
-            <div class="flex items-center justify-between mb-3">
+            <!-- Score centered -->
+            <div class="text-center mb-3">
+                <p class="text-3xl font-bold">${mySetWins} : ${oppSetWins}</p>
+            </div>
+
+            <!-- Players -->
+            <div class="flex items-center justify-center gap-4 mb-3">
                 <div class="flex items-center">
                     <img src="${myAvatar}" alt="Du"
-                        class="w-12 h-12 rounded-full object-cover border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}"
+                        class="w-8 h-8 rounded-full object-cover border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}"
                         onerror="this.src='${DEFAULT_AVATAR}'">
-                    <div class="ml-3">
-                        <p class="font-semibold">Du</p>
-                        <p class="text-xs text-gray-500">Rang #${currentPlayer.rank}</p>
+                    <div class="ml-2">
+                        <p class="text-sm font-medium">Du</p>
+                        <p class="text-xs text-gray-400">#${currentPlayer.rank}</p>
                     </div>
                 </div>
 
-                <!-- Score (set scores shown in details) -->
-                <div class="text-center px-2">
-                    <p class="text-2xl font-bold">${mySetWins} : ${oppSetWins}</p>
-                </div>
+                <span class="text-gray-400 text-sm">vs</span>
 
                 <div class="flex items-center">
-                    <div class="mr-3 text-right">
-                        <p class="font-semibold">${opponent.first_name || opponent.display_name || 'Gegner'}</p>
-                        <p class="text-xs text-gray-500">Rang #${opponent.rank}</p>
-                    </div>
                     <img src="${oppAvatar}" alt="Gegner"
-                        class="w-12 h-12 rounded-full object-cover border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}"
+                        class="w-8 h-8 rounded-full object-cover border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}"
                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="ml-2">
+                        <p class="text-sm font-medium">${oppNameDisplay}</p>
+                        <p class="text-xs text-gray-400">#${opponent.rank}</p>
+                    </div>
                 </div>
             </div>
 
+            <!-- Footer -->
             <div class="flex justify-between items-center pt-2 border-t border-gray-100">
                 <div class="flex items-center">
                     ${statsHtml}${handicapBadge}
