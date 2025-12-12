@@ -178,9 +178,9 @@
     "loading": "Lade Daten...",
     "tabs": {
       "start": "Start",
-      "leaderboard": "Ranglisten",
-      "competition": "Wettkampf",
-      "exercises": "Übungskatalog"
+      "leaderboard": "Rang",
+      "competition": "Match",
+      "exercises": "Übungen"
     },
     "stats": {
       "title": "Deine Statistiken",
