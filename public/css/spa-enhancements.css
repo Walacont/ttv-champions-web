@@ -163,8 +163,8 @@
 /* ==================== PAGE TRANSITIONS ==================== */
 
 /* Container for page content */
+/* Note: Removed #main-content from animation as it uses transform which breaks fixed positioning for nav elements */
 #app-content,
-#main-content,
 .page-content {
     animation: fadeIn 0.3s ease-in-out;
 }
@@ -379,10 +379,9 @@ button:active,
 }
 
 /* GPU acceleration for animations */
+/* Note: Removed #main-content from will-change as it breaks fixed positioning for nav elements */
 .toast,
-.spa-loading-bar,
-#app-content,
-#main-content {
+.spa-loading-bar {
     will-change: transform, opacity;
 }
 
