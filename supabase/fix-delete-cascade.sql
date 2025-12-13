@@ -86,17 +86,6 @@ ALTER TABLE seasons ADD CONSTRAINT seasons_created_by_fkey
     FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 
 -- =====================================================
--- HEAD_TO_HEAD_HANDICAPS TABLE
--- =====================================================
-ALTER TABLE head_to_head_handicaps DROP CONSTRAINT IF EXISTS head_to_head_handicaps_player_a_id_fkey;
-ALTER TABLE head_to_head_handicaps ADD CONSTRAINT head_to_head_handicaps_player_a_id_fkey
-    FOREIGN KEY (player_a_id) REFERENCES profiles(id) ON DELETE CASCADE;
-
-ALTER TABLE head_to_head_handicaps DROP CONSTRAINT IF EXISTS head_to_head_handicaps_player_b_id_fkey;
-ALTER TABLE head_to_head_handicaps ADD CONSTRAINT head_to_head_handicaps_player_b_id_fkey
-    FOREIGN KEY (player_b_id) REFERENCES profiles(id) ON DELETE CASCADE;
-
--- =====================================================
 -- Done!
 -- =====================================================
 -- After running this script, you can delete profiles and:
