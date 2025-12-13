@@ -12,6 +12,7 @@ import { calculateDoublesHandicap } from './validation-utils.js';
 let currentMatchType = 'singles'; // 'singles' or 'doubles'
 let doublesSetScoreInput = null;
 let currentUserId = null;
+let currentCoachDoublesHandicapDetails = null; // Stores current handicap suggestion details for coach doubles
 
 // ========================================================================
 // ===== HELPER FUNCTIONS =====
@@ -143,6 +144,9 @@ function clearSinglesSelections() {
  * Clears doubles player selections
  */
 function clearDoublesSelections() {
+    // Clear handicap details
+    currentCoachDoublesHandicapDetails = null;
+
     const selects = [
         'doubles-team-a-player1-select',
         'doubles-team-a-player2-select',
@@ -306,6 +310,13 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
     feedbackEl.className = 'mt-3 text-sm font-medium text-center text-gray-600';
 
     try {
+        // Build handicap object if handicap is used
+        const handicapData = handicapUsed && currentCoachDoublesHandicapDetails ? {
+            team: currentCoachDoublesHandicapDetails.team,
+            team_name: currentCoachDoublesHandicapDetails.team_name,
+            points: currentCoachDoublesHandicapDetails.points
+        } : null;
+
         const matchData = {
             teamA_player1Id: teamAPlayer1Id,
             teamA_player2Id: teamAPlayer2Id,
@@ -314,6 +325,7 @@ export async function handleDoublesMatchSave(e, supabase, currentUserData) {
             winningTeam: winningTeam,
             sets: doublesSets,
             handicapUsed: handicapUsed,
+            handicap: handicapData,
             matchMode: matchMode,
         };
 
@@ -466,6 +478,15 @@ export function setupDoublesHandicap(clubPlayers) {
                 ? `Team A (${p1FirstName} & ${p2FirstName})`
                 : `Team B (${p3FirstName} & ${p4FirstName})`;
 
+            // Store handicap details for later use when saving match
+            currentCoachDoublesHandicapDetails = {
+                team: handicapResult.team,
+                team_name: weakerTeamName,
+                points: handicapResult.points,
+                average_elo_a: handicapResult.averageEloA,
+                average_elo_b: handicapResult.averageEloB
+            };
+
             handicapText.textContent = `${weakerTeamName} startet mit ${handicapResult.points} Punkt${handicapResult.points !== 1 ? 'en' : ''} Vorsprung (Ø ${handicapResult.averageEloA} vs ${handicapResult.averageEloB} Elo)`;
             handicapSuggestion.classList.remove('hidden');
             handicapToggleContainer.classList.remove('hidden');
@@ -476,6 +497,7 @@ export function setupDoublesHandicap(clubPlayers) {
             }
         } else {
             // No handicap needed
+            currentCoachDoublesHandicapDetails = null;
             if (handicapSuggestion) handicapSuggestion.classList.add('hidden');
             if (handicapToggleContainer) handicapToggleContainer.classList.add('hidden');
         }

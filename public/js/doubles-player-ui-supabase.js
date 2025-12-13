@@ -22,6 +22,7 @@ function hasNoClub(clubId) {
 
 let currentPlayerMatchType = 'singles'; // 'singles' or 'doubles'
 let supabaseClient = null; // Store supabase client for use in handicap calculation
+let currentDoublesHandicapDetails = null; // Stores current handicap suggestion details for doubles
 
 // ========================================================================
 // ===== INITIALIZATION =====
@@ -116,6 +117,9 @@ function clearSinglesSelection() {
  * Clears doubles player selections
  */
 function clearDoublesSelections() {
+    // Clear handicap details
+    currentDoublesHandicapDetails = null;
+
     // Clear search inputs
     const partnerInput = document.getElementById('partner-search-input');
     const opponent1Input = document.getElementById('opponent1-search-input');
@@ -574,12 +578,20 @@ export async function handleDoublesPlayerMatchRequest(e, supabase, currentUserDa
         const userFirstName = currentUserData.firstName || currentUserData.first_name || '';
         const userLastName = currentUserData.lastName || currentUserData.last_name || '';
 
+        // Build handicap object if handicap is used
+        const handicapData = handicapUsed && currentDoublesHandicapDetails ? {
+            team: currentDoublesHandicapDetails.team,
+            team_name: currentDoublesHandicapDetails.team_name,
+            points: currentDoublesHandicapDetails.points
+        } : null;
+
         const requestData = {
             partnerId: partnerId,
             opponent1Id: opponent1Id,
             opponent2Id: opponent2Id,
             sets: doublesSets,
             handicapUsed: handicapUsed,
+            handicap: handicapData,
             matchMode: matchMode,
             playerNames: {
                 player1: `${userFirstName} ${userLastName}`.trim() || 'Unbekannt',
@@ -779,6 +791,15 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
 
             const weakerTeamName = handicapResult.team === 'A' ? teamAName.trim() : teamBName.trim();
 
+            // Store handicap details for later use when saving match
+            currentDoublesHandicapDetails = {
+                team: handicapResult.team,
+                team_name: weakerTeamName,
+                points: handicapResult.points,
+                team_a_elo: teamAElo,
+                team_b_elo: teamBElo
+            };
+
             handicapText.textContent = `${weakerTeamName} startet mit ${handicapResult.points} Punkt${handicapResult.points !== 1 ? 'en' : ''} Vorsprung (${teamAElo} vs ${teamBElo} Elo)`;
             handicapInfo.classList.remove('hidden');
             if (handicapToggleContainer) {
@@ -786,6 +807,7 @@ export function setupDoublesPlayerHandicap(playersData, userData) {
             }
         } else {
             // No handicap needed
+            currentDoublesHandicapDetails = null;
             handicapInfo.classList.add('hidden');
             if (handicapToggleContainer) {
                 handicapToggleContainer.classList.add('hidden');

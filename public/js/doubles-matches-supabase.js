@@ -99,6 +99,7 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
         winningTeam, // "A" or "B"
         sets,
         handicapUsed,
+        handicap,
         matchMode = 'best-of-5',
     } = matchData;
 
@@ -154,6 +155,7 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             losing_pairing_id: winningTeam === 'A' ? teamBPairingId : teamAPairingId,
             sets: sets,
             handicap_used: handicapUsed || false,
+            handicap: handicap || null,
             match_mode: matchMode,
             reported_by: currentUserData.id,
             club_id: matchClubId,
@@ -188,6 +190,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         opponent2Id,
         sets,
         handicapUsed,
+        handicap,
         matchMode = 'best-of-5',
     } = requestData;
 
@@ -288,6 +291,8 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         },
         winning_team: winningTeam,
         sets: sets,
+        handicap_used: handicapUsed || false,
+        handicap: handicap || null,
         initiated_by: initiatorId,
         approvals: {
             [partnerId]: false,
