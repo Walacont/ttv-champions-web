@@ -1114,6 +1114,7 @@ async function handleCoachApproval(requestId, approve, userData) {
                 sets: request.sets,
                 match_mode: request.match_mode,
                 handicap_used: request.handicap_used,
+                handicap: request.handicap,
                 is_cross_club: request.is_cross_club,
                 match_request_id: request.id,
                 created_at: new Date().toISOString()

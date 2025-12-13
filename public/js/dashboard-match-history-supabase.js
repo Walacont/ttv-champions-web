@@ -539,7 +539,7 @@ export function showMatchDetails(matchId, matchType = 'singles') {
                         <span class="text-yellow-800 font-medium">Handicap-Match</span>
                         ${match.handicap ? `
                         <p class="text-sm text-yellow-700 mt-1">
-                            <strong>${match.handicap.player?.name || 'Spieler'}</strong> erhält <strong>${match.handicap.points || 0}</strong> Punkte Vorsprung
+                            <strong>${match.handicap.player_name || match.handicap.player?.name || 'Spieler'}</strong> erhält <strong>${match.handicap.points || 0}</strong> Punkte Vorsprung
                         </p>
                         ` : ''}
                         <p class="text-xs text-yellow-600 mt-1">Feste Elo-Änderung: ±8 Punkte</p>
@@ -712,7 +712,7 @@ function showDoublesMatchDetails(match, profileMap) {
                         <span class="text-yellow-800 font-medium">Handicap-Match</span>
                         ${match.handicap ? `
                         <p class="text-sm text-yellow-700 mt-1">
-                            <strong>${match.handicap.player?.name || match.handicap.team?.name || 'Team'}</strong> erhält <strong>${match.handicap.points || 0}</strong> Punkte Vorsprung
+                            <strong>${match.handicap.team_name || match.handicap.player_name || match.handicap.team?.name || 'Team'}</strong> erhält <strong>${match.handicap.points || 0}</strong> Punkte Vorsprung
                         </p>
                         ` : ''}
                         <p class="text-xs text-yellow-600 mt-1">Feste Elo-Änderung: ±8 Punkte</p>

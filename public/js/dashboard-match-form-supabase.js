@@ -16,6 +16,7 @@ let currentUser = null;
 let currentUserData = null;
 let currentSportContext = null;
 let testClubIdsCache = null;
+let currentHandicapDetails = null; // Stores current handicap suggestion details
 
 /**
  * Initialize the module with user data
@@ -517,6 +518,7 @@ function selectOpponent(optionElement) {
  */
 export function clearOpponentSelection() {
     selectedOpponent = null;
+    currentHandicapDetails = null;
     document.getElementById('selected-opponent-id').value = '';
     document.getElementById('selected-opponent-elo').value = '';
     document.getElementById('opponent-search-input').value = '';
@@ -606,21 +608,46 @@ async function checkHandicap() {
         console.log('[Handicap] H2H check failed:', e);
     }
 
-    // Display suggestions
+    // Display suggestions and store details
     if (handicapSuggestions.length > 0) {
         const h2hSuggestion = handicapSuggestions.find(s => s.type === 'h2h');
         const eloSuggestion = handicapSuggestions.find(s => s.type === 'elo');
 
         let displayText = '';
+        let selectedSuggestion = null;
+
         if (h2hSuggestion) {
             displayText = h2hSuggestion.text;
+            selectedSuggestion = h2hSuggestion;
         } else if (eloSuggestion) {
             displayText = eloSuggestion.text;
+            selectedSuggestion = eloSuggestion;
+        }
+
+        // Store handicap details for later use when saving match
+        if (selectedSuggestion) {
+            const myElo = currentUserData.elo_rating || 1000;
+            const opponentElo = selectedOpponent.elo;
+            const iAmStronger = myElo > opponentElo;
+
+            // The weaker player gets the handicap points
+            const weakerPlayerId = iAmStronger ? selectedOpponent.id : currentUser.id;
+            const weakerPlayerName = iAmStronger ? selectedOpponent.name :
+                `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim();
+
+            currentHandicapDetails = {
+                player_id: weakerPlayerId,
+                player_name: weakerPlayerName,
+                points: selectedSuggestion.value,
+                type: selectedSuggestion.type,
+                elo_diff: diff
+            };
         }
 
         handicapText.innerHTML = displayText.replace(/\n/g, '<br>');
         handicapInfo.classList.remove('hidden');
     } else {
+        currentHandicapDetails = null;
         handicapInfo.classList.add('hidden');
     }
 }
@@ -661,6 +688,13 @@ async function submitMatchRequest(callbacks = {}) {
     const isCrossClub = myClubId !== opponentClubId && myClubId && opponentClubId;
 
     try {
+        // Build handicap object if handicap is used
+        const handicapData = handicapUsed && currentHandicapDetails ? {
+            player_id: currentHandicapDetails.player_id,
+            player_name: currentHandicapDetails.player_name,
+            points: currentHandicapDetails.points
+        } : null;
+
         const { data: insertedRequest, error } = await supabase
             .from('match_requests')
             .insert({
@@ -671,6 +705,7 @@ async function submitMatchRequest(callbacks = {}) {
                 sets: sets,
                 match_mode: matchMode,
                 handicap_used: handicapUsed,
+                handicap: handicapData,
                 winner_id: winnerId,
                 loser_id: loserId,
                 status: 'pending_player',

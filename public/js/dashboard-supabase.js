@@ -3123,6 +3123,7 @@ async function createMatchFromRequest(request) {
             loser_id: request.loser_id,
             sets: request.sets,
             handicap_used: request.handicap_used || false,
+            handicap: request.handicap || null,
             match_mode: request.match_mode || 'best-of-5'
         };
 
