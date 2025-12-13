@@ -11,7 +11,8 @@ const supabase = getSupabase();
 let currentUser = null;
 let currentMatchId = null;
 let currentMatchType = null;
-let matchMediaFunctionsAvailable = null; // null = not checked, true/false = result
+let matchMediaAvailable = null; // null = not checked, true/false = result
+let availabilityCheckPromise = null;
 
 // File constraints
 const MAX_PHOTOS = 5;
@@ -218,28 +219,46 @@ function handleFileSelection(e) {
  * Open media upload modal
  */
 export async function openMediaUpload(matchId, matchType) {
-    currentMatchId = matchId;
-    currentMatchType = matchType;
-
-    // Check if user can upload
-    const { data: canUpload } = await supabase.rpc('can_upload_match_media', {
-        p_match_id: matchId,
-        p_match_type: matchType
-    });
-
-    if (!canUpload) {
-        alert(t('dashboard.matchMedia.errors.notParticipant'));
+    // Check if feature is available
+    const isAvailable = await checkMatchMediaAvailable();
+    if (!isAvailable) {
+        alert('Match-Media Funktion ist noch nicht eingerichtet.');
         return;
     }
 
-    // Check current media count
-    const { data: existingMedia } = await supabase.rpc('get_match_media', {
-        p_match_id: matchId,
-        p_match_type: matchType
-    });
+    currentMatchId = matchId;
+    currentMatchType = matchType;
 
-    if (existingMedia && existingMedia.length >= MAX_PHOTOS) {
-        alert(t('dashboard.matchMedia.errors.maxReached'));
+    try {
+        // Check if user can upload
+        const { data: canUpload, error: canUploadError } = await supabase.rpc('can_upload_match_media', {
+            p_match_id: String(matchId),
+            p_match_type: matchType
+        });
+
+        if (canUploadError) {
+            matchMediaAvailable = false;
+            alert('Match-Media Funktion ist noch nicht vollständig eingerichtet.');
+            return;
+        }
+
+        if (!canUpload) {
+            alert(t('dashboard.matchMedia.errors.notParticipant'));
+            return;
+        }
+
+        // Check current media count
+        const { data: existingMedia } = await supabase.rpc('get_match_media', {
+            p_match_id: String(matchId),
+            p_match_type: matchType
+        });
+
+        if (existingMedia && existingMedia.length >= MAX_PHOTOS) {
+            alert(t('dashboard.matchMedia.errors.maxReached'));
+            return;
+        }
+    } catch {
+        matchMediaAvailable = false;
         return;
     }
 
@@ -352,36 +371,49 @@ export async function uploadMedia() {
 }
 
 /**
- * Check if match media SQL functions are available
+ * Check if match media feature is available (table + functions exist)
  */
-async function checkMatchMediaFunctions() {
-    if (matchMediaFunctionsAvailable !== null) {
-        return matchMediaFunctionsAvailable;
+async function checkMatchMediaAvailable() {
+    if (matchMediaAvailable !== null) {
+        return matchMediaAvailable;
     }
 
-    try {
-        // Try a simple call to check if function exists
-        const { error } = await supabase.rpc('get_match_media', {
-            p_match_id: 'test',
-            p_match_type: 'singles'
-        });
-
-        // 404 = function doesn't exist, 400 might mean bad params but function exists
-        // We'll consider it unavailable if we get any error for now
-        matchMediaFunctionsAvailable = !error;
-        return matchMediaFunctionsAvailable;
-    } catch {
-        matchMediaFunctionsAvailable = false;
-        return false;
+    // Use a single promise to avoid multiple concurrent checks
+    if (availabilityCheckPromise) {
+        return availabilityCheckPromise;
     }
+
+    availabilityCheckPromise = (async () => {
+        try {
+            // Check if table exists
+            const { error: tableError } = await supabase
+                .from('match_media')
+                .select('id')
+                .limit(1);
+
+            if (tableError) {
+                matchMediaAvailable = false;
+                return false;
+            }
+
+            matchMediaAvailable = true;
+            return true;
+        } catch {
+            matchMediaAvailable = false;
+            return false;
+        }
+    })();
+
+    return availabilityCheckPromise;
 }
 
 /**
  * Load and display media for a match
  */
 export async function loadMatchMedia(matchId, matchType) {
-    // Skip if functions not available
-    if (matchMediaFunctionsAvailable === false) {
+    // Check availability first (only makes 1 request ever)
+    const isAvailable = await checkMatchMediaAvailable();
+    if (!isAvailable) {
         return [];
     }
 
@@ -392,18 +424,15 @@ export async function loadMatchMedia(matchId, matchType) {
         });
 
         if (error) {
-            // Mark as unavailable if function doesn't exist
-            if (error.code === 'PGRST202' || error.message?.includes('not found')) {
-                matchMediaFunctionsAvailable = false;
-            }
+            // Mark as unavailable if function has issues
+            matchMediaAvailable = false;
             return [];
         }
 
-        matchMediaFunctionsAvailable = true;
         return data || [];
 
-    } catch (error) {
-        // Silently fail - functions not set up yet
+    } catch {
+        matchMediaAvailable = false;
         return [];
     }
 }
