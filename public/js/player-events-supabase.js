@@ -273,17 +273,17 @@ async function respondToEvent(invitationId, status, reason = null) {
     try {
         const updateData = {
             status,
-            responded_at: new Date().toISOString()
+            response_at: new Date().toISOString()
         };
 
-        if (reason) {
-            updateData.rejection_reason = reason;
-        }
+        // Note: rejection_reason column needs to be added to the table if you want to use it
+        // ALTER TABLE event_invitations ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
 
         const { error } = await supabase
             .from('event_invitations')
             .update(updateData)
-            .eq('id', invitationId);
+            .eq('id', invitationId)
+            .eq('user_id', currentUserId);
 
         if (error) throw error;
 
