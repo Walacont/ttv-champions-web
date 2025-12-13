@@ -100,22 +100,39 @@ export function openEventDayModal(dateString, sessionsOnDay = []) {
     const listEl = document.getElementById('event-day-list');
 
     if (sessionsOnDay.length > 0) {
-        listEl.innerHTML = sessionsOnDay.map(session => {
-            const subgroupColor = session.subgroupColor || '#6366f1';
-            const subgroupName = session.subgroupName || 'Training';
-            return `
-                <div class="p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-4"
-                     onclick="window.openAttendanceForSession && window.openAttendanceForSession('${session.id}', '${dateString}')">
-                    <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
-                    <div class="flex-1">
-                        <p class="font-semibold text-gray-900">${session.startTime} - ${session.endTime}</p>
-                        <p class="text-sm text-gray-500">${subgroupName}</p>
+        listEl.innerHTML = sessionsOnDay.map(item => {
+            const subgroupColor = item.subgroupColor || '#6366f1';
+
+            if (item.type === 'event') {
+                // Event item
+                return `
+                    <div class="p-4 rounded-xl border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all cursor-pointer flex items-center gap-4"
+                         onclick="window.openEventDetails && window.openEventDetails('${item.id}')">
+                        <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-900">${item.title}</p>
+                            <p class="text-sm text-gray-500">${item.startTime || ''}${item.endTime ? ' - ' + item.endTime : ''}${item.location ? ' • ' + item.location : ''}</p>
+                        </div>
+                        <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Event</span>
                     </div>
-                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </div>
-            `;
+                `;
+            } else {
+                // Training session
+                const subgroupName = item.subgroupName || 'Training';
+                return `
+                    <div class="p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-4"
+                         onclick="window.openAttendanceForSession && window.openAttendanceForSession('${item.id}', '${dateString}')">
+                        <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-900">${item.startTime} - ${item.endTime}</p>
+                            <p class="text-sm text-gray-500">${subgroupName}</p>
+                        </div>
+                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                `;
+            }
         }).join('');
     } else {
         listEl.innerHTML = `
@@ -469,17 +486,22 @@ async function submitEvent() {
         if (invError) throw invError;
 
         // Create notifications for invited members (if sending now)
+        // Note: This is optional and won't block event creation if it fails
         if (sendInvitation === 'now') {
-            const notifications = currentEventData.selectedMembers.map(userId => ({
-                user_id: userId,
-                type: 'event_invitation',
-                message: `Du wurdest zu "${title}" eingeladen`,
-                data: { event_id: event.id },
-                is_read: false,
-                created_at: new Date().toISOString()
-            }));
+            try {
+                const notifications = currentEventData.selectedMembers.map(userId => ({
+                    user_id: userId,
+                    type: 'event_invitation',
+                    message: `Du wurdest zu "${title}" eingeladen`,
+                    data: { event_id: event.id },
+                    is_read: false,
+                    created_at: new Date().toISOString()
+                }));
 
-            await supabase.from('notifications').insert(notifications);
+                await supabase.from('notifications').insert(notifications);
+            } catch (notifError) {
+                console.warn('[Events] Could not create notifications:', notifError);
+            }
         }
 
         // Success
@@ -562,6 +584,57 @@ function closeAllModals() {
         document.getElementById(id)?.classList.add('hidden');
     });
 }
+
+/**
+ * Open event details (for viewing an existing event)
+ * @param {string} eventId - The event ID
+ */
+window.openEventDetails = async function(eventId) {
+    try {
+        // Load event details
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+
+        if (eventError) throw eventError;
+
+        // Load invitation counts
+        const { data: invitations, error: invError } = await supabase
+            .from('event_invitations')
+            .select('status')
+            .eq('event_id', eventId);
+
+        const accepted = (invitations || []).filter(i => i.status === 'accepted').length;
+        const declined = (invitations || []).filter(i => i.status === 'declined').length;
+        const pending = (invitations || []).filter(i => i.status === 'pending').length;
+
+        // Format date
+        const eventDate = new Date(event.start_date);
+        const formattedDate = eventDate.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        // Show details in alert for now (can be improved with a proper modal later)
+        alert(`${event.title}\n\n` +
+            `Datum: ${formattedDate}\n` +
+            `Zeit: ${event.start_time || '-'}${event.end_time ? ' - ' + event.end_time : ''}\n` +
+            `Ort: ${event.location || '-'}\n\n` +
+            `Zusagen: ${accepted}\n` +
+            `Absagen: ${declined}\n` +
+            `Ausstehend: ${pending}\n\n` +
+            (event.description ? `Beschreibung:\n${event.description}` : '')
+        );
+
+    } catch (error) {
+        console.error('[Events] Error loading event details:', error);
+        alert('Fehler beim Laden der Event-Details');
+    }
+};
 
 // Export functions for global access
 export { closeAllModals };
