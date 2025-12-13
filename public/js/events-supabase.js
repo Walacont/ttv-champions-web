@@ -577,6 +577,7 @@ function closeAllModals() {
 
 /**
  * Open event details (for viewing an existing event)
+ * Shows attendance tracking for coaches if event is today or past
  * @param {string} eventId - The event ID
  */
 window.openEventDetails = async function(eventId) {
@@ -590,18 +591,39 @@ window.openEventDetails = async function(eventId) {
 
         if (eventError) throw eventError;
 
-        // Load invitation counts
+        // Load invitations with user details
         const { data: invitations, error: invError } = await supabase
             .from('event_invitations')
-            .select('status')
+            .select(`
+                id,
+                user_id,
+                status,
+                response_at,
+                profiles:user_id (
+                    id,
+                    first_name,
+                    last_name
+                )
+            `)
             .eq('event_id', eventId);
 
-        const accepted = (invitations || []).filter(i => i.status === 'accepted').length;
-        const declined = (invitations || []).filter(i => i.status === 'declined').length;
-        const pending = (invitations || []).filter(i => i.status === 'pending').length;
+        if (invError) console.warn('[Events] Could not load invitations:', invError);
+
+        const accepted = (invitations || []).filter(i => i.status === 'accepted');
+        const declined = (invitations || []).filter(i => i.status === 'rejected' || i.status === 'declined');
+        const pending = (invitations || []).filter(i => i.status === 'pending');
+
+        // Check if event is today or in past
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const eventDate = new Date(event.start_date);
+        eventDate.setHours(0, 0, 0, 0);
+        const isPastOrToday = eventDate <= today;
+
+        // Check if current user is coach/head_coach
+        const isCoach = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach');
 
         // Format date
-        const eventDate = new Date(event.start_date);
         const formattedDate = eventDate.toLocaleDateString('de-DE', {
             weekday: 'long',
             day: 'numeric',
@@ -609,20 +631,232 @@ window.openEventDetails = async function(eventId) {
             year: 'numeric'
         });
 
-        // Show details in alert for now (can be improved with a proper modal later)
-        alert(`${event.title}\n\n` +
-            `Datum: ${formattedDate}\n` +
-            `Zeit: ${event.start_time || '-'}${event.end_time ? ' - ' + event.end_time : ''}\n` +
-            `Ort: ${event.location || '-'}\n\n` +
-            `Zusagen: ${accepted}\n` +
-            `Absagen: ${declined}\n` +
-            `Ausstehend: ${pending}\n\n` +
-            (event.description ? `Beschreibung:\n${event.description}` : '')
-        );
+        // Load existing attendance if any
+        let attendanceData = null;
+        if (isPastOrToday) {
+            const { data: attendance } = await supabase
+                .from('event_attendance')
+                .select('*')
+                .eq('event_id', eventId)
+                .single();
+            attendanceData = attendance;
+        }
+
+        // Create and show modal
+        const existingModal = document.getElementById('event-details-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'event-details-modal';
+        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100001] p-4';
+
+        const presentIds = attendanceData?.present_user_ids || [];
+
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <!-- Header -->
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">${event.title}</h2>
+                            <p class="text-gray-500 mt-1">${formattedDate}</p>
+                        </div>
+                        <button onclick="document.getElementById('event-details-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 overflow-y-auto flex-1">
+                    <!-- Event Info -->
+                    <div class="space-y-3 mb-6">
+                        <div class="flex items-center gap-3 text-gray-600">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>${event.start_time || '-'}${event.end_time ? ' - ' + event.end_time : ''}</span>
+                        </div>
+                        ${event.location ? `
+                        <div class="flex items-center gap-3 text-gray-600">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            <span>${event.location}</span>
+                        </div>
+                        ` : ''}
+                        ${event.description ? `
+                        <p class="text-gray-600 mt-3">${event.description}</p>
+                        ` : ''}
+                    </div>
+
+                    <!-- Attendance Status Summary -->
+                    <div class="flex gap-4 mb-6">
+                        <div class="flex-1 bg-green-50 rounded-xl p-4 text-center">
+                            <p class="text-2xl font-bold text-green-600">${accepted.length}</p>
+                            <p class="text-sm text-green-700">Zusagen</p>
+                        </div>
+                        <div class="flex-1 bg-red-50 rounded-xl p-4 text-center">
+                            <p class="text-2xl font-bold text-red-600">${declined.length}</p>
+                            <p class="text-sm text-red-700">Absagen</p>
+                        </div>
+                        <div class="flex-1 bg-gray-50 rounded-xl p-4 text-center">
+                            <p class="text-2xl font-bold text-gray-600">${pending.length}</p>
+                            <p class="text-sm text-gray-700">Ausstehend</p>
+                        </div>
+                    </div>
+
+                    ${isPastOrToday && isCoach ? `
+                    <!-- Attendance Tracking for Coaches -->
+                    <div class="border-t pt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                            </svg>
+                            Anwesenheit erfassen
+                        </h3>
+                        <p class="text-sm text-gray-500 mb-4">Markiere die Teilnehmer, die anwesend waren:</p>
+
+                        <div class="space-y-2 max-h-64 overflow-y-auto" id="event-attendance-list">
+                            ${(invitations || []).map(inv => {
+                                const name = inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt';
+                                const isPresent = presentIds.includes(inv.user_id);
+                                const statusBadge = inv.status === 'accepted'
+                                    ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Zugesagt</span>'
+                                    : inv.status === 'rejected' || inv.status === 'declined'
+                                    ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Abgesagt</span>'
+                                    : '<span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">Ausstehend</span>';
+                                return `
+                                    <label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
+                                        <input type="checkbox"
+                                               class="event-attendance-checkbox w-5 h-5 text-indigo-600 rounded"
+                                               data-user-id="${inv.user_id}"
+                                               ${isPresent ? 'checked' : ''}>
+                                        <span class="flex-1 font-medium text-gray-900">${name}</span>
+                                        ${statusBadge}
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <button
+                            onclick="window.saveEventAttendance('${eventId}')"
+                            class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-colors">
+                            Anwesenheit speichern
+                        </button>
+                    </div>
+                    ` : ''}
+
+                    ${!isPastOrToday ? `
+                    <!-- Future event - show participant list -->
+                    <div class="border-t pt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Teilnehmer</h3>
+                        ${accepted.length > 0 ? `
+                        <div class="mb-4">
+                            <p class="text-sm font-medium text-green-700 mb-2">Zugesagt (${accepted.length})</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${accepted.map(inv => `
+                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                                        ${inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt'}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${declined.length > 0 ? `
+                        <div class="mb-4">
+                            <p class="text-sm font-medium text-red-700 mb-2">Abgesagt (${declined.length})</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${declined.map(inv => `
+                                    <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
+                                        ${inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt'}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${pending.length > 0 ? `
+                        <div>
+                            <p class="text-sm font-medium text-gray-700 mb-2">Ausstehend (${pending.length})</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${pending.map(inv => `
+                                    <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+                                        ${inv.profiles ? `${inv.profiles.first_name} ${inv.profiles.last_name}` : 'Unbekannt'}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
 
     } catch (error) {
         console.error('[Events] Error loading event details:', error);
         alert('Fehler beim Laden der Event-Details');
+    }
+};
+
+/**
+ * Save event attendance
+ * @param {string} eventId - Event ID
+ */
+window.saveEventAttendance = async function(eventId) {
+    try {
+        const checkboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
+        const presentUserIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
+
+        // Check if attendance record exists
+        const { data: existing } = await supabase
+            .from('event_attendance')
+            .select('id')
+            .eq('event_id', eventId)
+            .single();
+
+        if (existing) {
+            // Update existing record
+            const { error } = await supabase
+                .from('event_attendance')
+                .update({
+                    present_user_ids: presentUserIds,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id);
+
+            if (error) throw error;
+        } else {
+            // Create new record
+            const { error } = await supabase
+                .from('event_attendance')
+                .insert({
+                    event_id: eventId,
+                    present_user_ids: presentUserIds,
+                    created_at: new Date().toISOString()
+                });
+
+            if (error) throw error;
+        }
+
+        alert('Anwesenheit gespeichert!');
+        document.getElementById('event-details-modal')?.remove();
+
+    } catch (error) {
+        console.error('[Events] Error saving attendance:', error);
+        alert('Fehler beim Speichern: ' + error.message);
     }
 };
 
