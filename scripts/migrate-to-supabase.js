@@ -235,9 +235,14 @@ async function migrateUsers(clubIdMap) {
         const mappedClubId = getMappedId(data.clubId, 'clubs');
 
         // Build display name from firstName + lastName, or use displayName/name as fallback
+        // Build names properly
+        const firstName = data.firstName || null;
+        const lastName = data.lastName || null;
+
+        // Build display name: prefer displayName/name, fallback to firstName + lastName
         let displayName = data.displayName || data.name;
-        if (!displayName && (data.firstName || data.lastName)) {
-            displayName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+        if (!displayName && (firstName || lastName)) {
+            displayName = `${firstName || ''} ${lastName || ''}`.trim();
         }
         if (!displayName) {
             displayName = 'Unknown Player';
@@ -246,6 +251,8 @@ async function migrateUsers(clubIdMap) {
         profiles.push({
             id: newUserId,
             email: data.email || null,
+            first_name: firstName,
+            last_name: lastName,
             display_name: displayName,
             avatar_url: data.avatarUrl || data.photoURL || null,
             role: data.role || 'player',
@@ -360,6 +367,12 @@ async function migrateMatches(clubIdMap, userIdMap) {
             player_b_elo_before: data.playerBEloBefore || null,
             player_a_elo_after: data.playerAEloAfter || null,
             player_b_elo_after: data.playerBEloAfter || null,
+            winner_elo_change: data.winnerEloChange || null,
+            loser_elo_change: data.loserEloChange || null,
+            season_points_awarded: data.seasonPointsAwarded || 0,
+            match_mode: data.matchMode || null,
+            handicap_used: data.handicapUsed || false,
+            handicap: data.handicap || null,
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
             created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
@@ -531,17 +544,21 @@ async function migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap) {
         const data = doc.data();
         const newId = getOrCreateUUID(doc.id, 'trainingSessions');
 
+        const createdAt = convertTimestamp(data.createdAt) || new Date().toISOString();
+
         sessions.push({
             id: newId,
             club_id: getMappedId(data.clubId, 'clubs'),
             subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
+            sport_id: getMappedId(data.sportId, 'sports') || null,
             title: data.title || null,
             date: convertDate(data.date) || new Date().toISOString().split('T')[0],
             start_time: data.startTime || null,
             end_time: data.endTime || null,
             notes: data.notes || null,
             created_by: getMappedId(data.createdBy, 'users'),
-            created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
+            created_at: createdAt,
+            updated_at: convertTimestamp(data.updatedAt) || createdAt
         });
     }
 
@@ -617,6 +634,12 @@ async function migrateDoublesMatches(clubIdMap, userIdMap) {
             team_a_sets_won: data.teamASetsWon || 0,
             team_b_sets_won: data.teamBSetsWon || 0,
             is_cross_club: data.isCrossClub || false,
+            match_mode: data.matchMode || null,
+            handicap_used: data.handicapUsed || false,
+            handicap: data.handicap || null,
+            winner_elo_change: data.winnerEloChange || null,
+            loser_elo_change: data.loserEloChange || null,
+            season_points_awarded: data.seasonPointsAwarded || 0,
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
             created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
