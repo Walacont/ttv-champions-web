@@ -68,13 +68,6 @@ ALTER TABLE xp_history ADD CONSTRAINT xp_history_awarded_by_fkey
     FOREIGN KEY (awarded_by) REFERENCES profiles(id) ON DELETE SET NULL;
 
 -- =====================================================
--- ACHIEVEMENTS TABLE
--- =====================================================
-ALTER TABLE achievements DROP CONSTRAINT IF EXISTS achievements_awarded_by_fkey;
-ALTER TABLE achievements ADD CONSTRAINT achievements_awarded_by_fkey
-    FOREIGN KEY (awarded_by) REFERENCES profiles(id) ON DELETE SET NULL;
-
--- =====================================================
 -- INVITATION_CODES TABLE
 -- =====================================================
 ALTER TABLE invitation_codes DROP CONSTRAINT IF EXISTS invitation_codes_player_id_fkey;
