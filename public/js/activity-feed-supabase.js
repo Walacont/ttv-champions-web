@@ -38,6 +38,46 @@ window.updateCarouselCounter = function(carousel, matchType, matchId, totalItems
 };
 
 /**
+ * Delete match media (photo/video)
+ */
+window.deleteMatchMedia = async function(mediaId, filePath, matchId, matchType) {
+    if (!confirm('Möchtest du dieses Foto/Video wirklich löschen?')) {
+        return;
+    }
+
+    try {
+        // Delete from database
+        const { error: dbError } = await supabase
+            .from('match_media')
+            .delete()
+            .eq('id', mediaId);
+
+        if (dbError) {
+            console.error('Error deleting media from database:', dbError);
+            alert('Fehler beim Löschen');
+            return;
+        }
+
+        // Delete from storage
+        const { error: storageError } = await supabase.storage
+            .from('match-media')
+            .remove([filePath]);
+
+        if (storageError) {
+            console.error('Error deleting file from storage:', storageError);
+            // Continue anyway - file might already be deleted
+        }
+
+        // Refresh the media for this match
+        await injectMatchMedia(matchId, matchType);
+
+    } catch (error) {
+        console.error('Error deleting media:', error);
+        alert('Fehler beim Löschen');
+    }
+};
+
+/**
  * Initialize the activity feed module
  */
 export function initActivityFeedModule(user, userData) {
@@ -873,21 +913,33 @@ async function injectMatchMedia(matchId, matchType) {
                 .from('match-media')
                 .getPublicUrl(item.file_path);
 
+            // Delete button for participants
+            const deleteButton = isParticipant ? `
+                <button
+                    onclick="event.stopPropagation(); deleteMatchMedia('${item.id}', '${item.file_path}', '${matchId}', '${matchType}')"
+                    class="absolute top-2 right-2 w-8 h-8 bg-black/60 hover:bg-red-600 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    title="Löschen"
+                >
+                    <i class="fas fa-trash text-sm"></i>
+                </button>
+            ` : '';
+
             if (item.file_type === 'video') {
                 // Video item with play button overlay, plays inline on click
                 carouselItems += `
-                    <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start">
+                    <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
                         <div class="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
+                            ${deleteButton}
                             <video
                                 id="video-${matchId}-${index}"
                                 class="w-full h-full object-contain"
                                 playsinline
                                 preload="metadata"
-                                onclick="this.paused ? this.play() : this.pause(); this.nextElementSibling.style.display = this.paused ? 'flex' : 'none';"
+                                onclick="this.paused ? this.play() : this.pause(); this.parentElement.querySelector('.play-overlay').style.display = this.paused ? 'flex' : 'none';"
                             >
                                 <source src="${publicUrl}" type="${item.mime_type || 'video/mp4'}">
                             </video>
-                            <div class="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onclick="this.previousElementSibling.play(); this.style.display='none';">
+                            <div class="play-overlay absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onclick="event.stopPropagation(); const v = this.previousElementSibling; v.play(); this.style.display='none';">
                                 <div class="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
                                     <i class="fas fa-play text-gray-800 text-xl ml-1"></i>
                                 </div>
@@ -901,8 +953,9 @@ async function injectMatchMedia(matchId, matchType) {
             } else {
                 // Photo item - clickable to open gallery
                 carouselItems += `
-                    <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start">
+                    <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start group">
                         <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', ${index})">
+                            ${deleteButton}
                             <img src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover">
                         </div>
                     </div>
@@ -983,33 +1036,57 @@ async function checkMatchMediaAvailability() {
 
 /**
  * Check if current user is a participant in the match
+ * Works with or without the RPC function - falls back to direct table query
  */
 async function checkIfParticipant(matchId, matchType) {
-    // Skip if we already know functions aren't available
-    if (matchMediaFunctionsChecked && !matchMediaFunctionsAvailable) {
-        return false;
-    }
+    if (!currentUser?.id) return false;
 
     try {
-        const { data, error } = await supabase.rpc('can_upload_match_media', {
-            p_match_id: String(matchId),
-            p_match_type: matchType
-        });
+        // Try RPC first if available
+        if (!matchMediaFunctionsChecked || matchMediaFunctionsAvailable) {
+            const { data, error } = await supabase.rpc('can_upload_match_media', {
+                p_match_id: String(matchId),
+                p_match_type: matchType
+            });
 
-        if (error) {
-            // Mark as unavailable - function doesn't exist yet
-            matchMediaFunctionsChecked = true;
-            matchMediaFunctionsAvailable = false;
-            return false;
+            if (!error) {
+                matchMediaFunctionsChecked = true;
+                matchMediaFunctionsAvailable = true;
+                return data === true;
+            }
         }
 
-        matchMediaFunctionsChecked = true;
-        matchMediaFunctionsAvailable = true;
-        return data === true;
+        // Fallback: Check directly against match tables
+        if (matchType === 'singles') {
+            const { data: match } = await supabase
+                .from('matches')
+                .select('player_a_id, player_b_id')
+                .eq('id', matchId)
+                .single();
+
+            if (match) {
+                return match.player_a_id === currentUser.id || match.player_b_id === currentUser.id;
+            }
+        } else if (matchType === 'doubles') {
+            const { data: match } = await supabase
+                .from('doubles_matches')
+                .select('team_a_player1_id, team_a_player2_id, team_b_player1_id, team_b_player2_id')
+                .eq('id', matchId)
+                .single();
+
+            if (match) {
+                return [
+                    match.team_a_player1_id,
+                    match.team_a_player2_id,
+                    match.team_b_player1_id,
+                    match.team_b_player2_id
+                ].includes(currentUser.id);
+            }
+        }
+
+        return false;
     } catch (error) {
-        // Silently fail - functions not set up yet
-        matchMediaFunctionsChecked = true;
-        matchMediaFunctionsAvailable = false;
+        console.error('Error checking participant status:', error);
         return false;
     }
 }
