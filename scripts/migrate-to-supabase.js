@@ -686,7 +686,7 @@ async function migrateUserSubcollections(userIdMap) {
         const userId = getMappedId(userDoc.id, 'users');
         if (!userId) continue;
 
-        // Points History
+        // Points History - delete existing first to avoid duplicates on re-run
         const pointsSnapshot = await firestore.collection('users').doc(userDoc.id).collection('pointsHistory').get();
         const pointsHistory = pointsSnapshot.docs.map(doc => ({
             user_id: userId,
@@ -697,12 +697,14 @@ async function migrateUserSubcollections(userIdMap) {
         }));
 
         if (pointsHistory.length > 0) {
+            // Delete existing records for this user first to avoid duplicates
+            await supabase.from('points_history').delete().eq('user_id', userId);
             const { error } = await supabase.from('points_history').insert(pointsHistory);
             if (error) log(`Points history error for ${userDoc.id}: ${error.message}`, 'warn');
             else totalPoints += pointsHistory.length;
         }
 
-        // XP History
+        // XP History - delete existing first to avoid duplicates on re-run
         const xpSnapshot = await firestore.collection('users').doc(userDoc.id).collection('xpHistory').get();
         const xpHistory = xpSnapshot.docs.map(doc => ({
             user_id: userId,
@@ -714,6 +716,8 @@ async function migrateUserSubcollections(userIdMap) {
         }));
 
         if (xpHistory.length > 0) {
+            // Delete existing records for this user first to avoid duplicates
+            await supabase.from('xp_history').delete().eq('user_id', userId);
             const { error } = await supabase.from('xp_history').insert(xpHistory);
             if (error) log(`XP history error for ${userDoc.id}: ${error.message}`, 'warn');
             else totalXp += xpHistory.length;
