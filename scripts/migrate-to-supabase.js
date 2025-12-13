@@ -248,6 +248,13 @@ async function migrateUsers(clubIdMap) {
             displayName = 'Unknown Player';
         }
 
+        // Berechne neuen Elo basierend auf qttr und highestElo
+        // Formel: highestElo - qttr + 800, mindestens 800
+        // QTTR-Punkte gibt es nicht mehr, alle starten jetzt mit 800 als Basis
+        const qttr = data.qttrPoints || 800;
+        const highestElo = data.highestElo || data.eloRating || 800;
+        const calculatedElo = Math.max(800, highestElo - qttr + 800);
+
         profiles.push({
             id: newUserId,
             email: data.email || null,
@@ -259,9 +266,9 @@ async function migrateUsers(clubIdMap) {
             club_id: mappedClubId,
             xp: data.xp || 0,
             points: data.points || 0,
-            elo_rating: data.eloRating || data.elo || 1000,
-            highest_elo: data.highestElo || data.eloRating || 1000,
-            qttr_points: data.qttrPoints || null,
+            elo_rating: calculatedElo,
+            highest_elo: calculatedElo,
+            qttr_points: null, // QTTR-Punkte werden nicht mehr verwendet
             grundlagen_completed: data.grundlagenCompleted || 0,
             is_offline: data.isOffline || false,
             onboarding_complete: data.onboardingComplete || false,
