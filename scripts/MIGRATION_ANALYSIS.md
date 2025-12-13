@@ -245,11 +245,14 @@ match.handicap = data.handicap || null;
 - XP History
 - Config
 
-### ⚠️ Benötigt Fixes:
-1. **Schema erweitern** für `matches` und `doubles_matches`
-2. **Profiles Migration** - `first_name`, `last_name`, `display_name` korrekt mappen
-3. **Matches Migration** - neue Felder hinzufügen
-4. **Doubles Matches Migration** - neue Felder hinzufügen
+### ✅ Fixes angewendet (2025-12-13):
+1. ✅ **Profiles Migration** - `first_name`, `last_name` werden jetzt separat gespeichert
+2. ✅ **Matches Migration** - alle 6 fehlenden Felder hinzugefügt (winner_elo_change, loser_elo_change, season_points_awarded, match_mode, handicap_used, handicap)
+3. ✅ **Doubles Matches Migration** - alle 6 fehlenden Felder hinzugefügt
+4. ✅ **Training Sessions Migration** - sport_id und updated_at hinzugefügt
+
+### ⚠️ Noch zu tun:
+1. **Schema erweitern** - SQL-Skript `supabase/fix-matches-schema.sql` auf Datenbank anwenden
 
 ### ❓ Zu klären:
 - Gibt es in Firebase noch weitere Collections die nicht im Skript sind?
