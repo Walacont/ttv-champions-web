@@ -78,6 +78,10 @@ ALTER TABLE invitation_codes DROP CONSTRAINT IF EXISTS invitation_codes_used_by_
 ALTER TABLE invitation_codes ADD CONSTRAINT invitation_codes_used_by_fkey
     FOREIGN KEY (used_by) REFERENCES profiles(id) ON DELETE SET NULL;
 
+ALTER TABLE invitation_codes DROP CONSTRAINT IF EXISTS invitation_codes_created_by_fkey;
+ALTER TABLE invitation_codes ADD CONSTRAINT invitation_codes_created_by_fkey
+    FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
+
 -- =====================================================
 -- SEASONS TABLE
 -- =====================================================
