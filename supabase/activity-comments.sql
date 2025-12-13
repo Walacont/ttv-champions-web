@@ -47,6 +47,13 @@ CREATE POLICY "activity_comments_update" ON activity_comments
 CREATE POLICY "activity_comments_delete" ON activity_comments
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Drop existing functions and triggers if they exist (for re-running)
+DROP TRIGGER IF EXISTS activity_comments_updated_at ON activity_comments;
+DROP FUNCTION IF EXISTS update_activity_comment_updated_at();
+DROP FUNCTION IF EXISTS get_activity_comments(UUID, TEXT, INT, INT);
+DROP FUNCTION IF EXISTS add_activity_comment(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS delete_activity_comment(UUID);
+
 -- Trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_activity_comment_updated_at()
 RETURNS TRIGGER AS $$

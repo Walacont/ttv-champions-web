@@ -75,6 +75,11 @@ CREATE POLICY "match_media_insert" ON match_media
 CREATE POLICY "match_media_delete" ON match_media
     FOR DELETE USING (auth.uid() = uploaded_by);
 
+-- Drop existing functions if they exist (for re-running)
+DROP FUNCTION IF EXISTS get_match_media(UUID, TEXT);
+DROP FUNCTION IF EXISTS can_upload_match_media(UUID, TEXT);
+DROP FUNCTION IF EXISTS delete_match_media(UUID, TEXT);
+
 -- Function to get media for a match
 CREATE OR REPLACE FUNCTION get_match_media(
     p_match_id UUID,

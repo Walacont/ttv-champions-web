@@ -79,6 +79,10 @@ CREATE POLICY "activity_likes_insert" ON activity_likes
 CREATE POLICY "activity_likes_delete" ON activity_likes
     FOR DELETE USING (auth.uid() = user_id);
 
+-- Drop existing functions if they exist (for re-running)
+DROP FUNCTION IF EXISTS toggle_activity_like(UUID, TEXT);
+DROP FUNCTION IF EXISTS get_activity_likes_batch(UUID[], TEXT[]);
+
 -- Updated function to toggle like on any activity
 CREATE OR REPLACE FUNCTION toggle_activity_like(
     p_activity_id UUID,
