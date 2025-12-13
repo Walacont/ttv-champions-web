@@ -1069,7 +1069,7 @@ function renderEventExercises() {
 }
 
 /**
- * Open create exercise modal (quick add)
+ * Open create exercise modal (full version like exercises tab)
  */
 window.openCreateExerciseModal = function() {
     const existingModal = document.getElementById('create-exercise-modal');
@@ -1080,25 +1080,133 @@ window.openCreateExerciseModal = function() {
     modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
 
     modal.innerHTML = `
-        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Neue Übung erstellen</h3>
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">Neue Übung erstellen</h3>
+                <button onclick="document.getElementById('create-exercise-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
 
-            <div class="space-y-4">
+            <div class="p-4 overflow-y-auto flex-1 space-y-4">
+                <!-- Titel -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Name der Übung</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
                     <input type="text" id="new-exercise-name" placeholder="z.B. Aufschlag-Training"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required>
                 </div>
 
+                <!-- Beschreibung -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                    <textarea id="new-exercise-description" rows="3" placeholder="Beschreibe die Übung..."
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <!-- Beschreibung als Tabelle -->
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="new-exercise-use-table" class="w-4 h-4 text-indigo-600 rounded">
+                        <span class="text-sm text-gray-700">Als Tabelle eingeben</span>
+                    </label>
+                    <div id="new-exercise-table-container" class="hidden mt-2">
+                        <div class="border rounded-lg overflow-hidden">
+                            <table class="w-full text-sm" id="new-exercise-table">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left font-medium">Spalte 1</th>
+                                        <th class="px-3 py-2 text-left font-medium">Spalte 2</th>
+                                        <th class="w-10"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="new-exercise-table-body">
+                                    <tr>
+                                        <td class="px-1 py-1"><input type="text" class="w-full px-2 py-1 border rounded" placeholder="Wert"></td>
+                                        <td class="px-1 py-1"><input type="text" class="w-full px-2 py-1 border rounded" placeholder="Wert"></td>
+                                        <td class="px-1 py-1"><button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700">✕</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" onclick="window.addExerciseTableRow()" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800">+ Zeile hinzufügen</button>
+                    </div>
+                </div>
+
+                <!-- Level -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Level *</label>
+                    <select id="new-exercise-level" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required>
+                        <option value="">Level wählen...</option>
+                        <option value="grundlagen">🎖️ Grundlagen (Rekruten)</option>
+                        <option value="standard">🥉 Standard (ab Bronze)</option>
+                        <option value="fortgeschritten">🥇 Fortgeschritten (ab Gold)</option>
+                    </select>
+                </div>
+
+                <!-- Schwierigkeit -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Schwierigkeit *</label>
+                    <select id="new-exercise-difficulty" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" required>
+                        <option value="">Schwierigkeit wählen...</option>
+                        <option value="easy">⭐ Einfach</option>
+                        <option value="normal">⭐⭐ Normal</option>
+                        <option value="hard">⭐⭐⭐ Schwer</option>
+                    </select>
+                </div>
+
+                <!-- Punkte (auto-berechnet) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Punkte</label>
-                    <input type="number" id="new-exercise-points" value="3" min="0"
+                    <input type="number" id="new-exercise-points" value="3" min="0" readonly
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed">
+                    <p class="text-xs text-gray-500 mt-1">Automatisch basierend auf Level + Schwierigkeit</p>
+                </div>
+
+                <!-- Tags -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                    <input type="text" id="new-exercise-tags" placeholder="z.B. Aufschlag, Beinarbeit, Koordination"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    <p class="text-xs text-gray-500 mt-1">Kommagetrennt eingeben</p>
+                </div>
+
+                <!-- Bild -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Bild (optional)</label>
+                    <input type="file" id="new-exercise-image" accept="image/*"
+                           class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    <p class="text-xs text-gray-500 mt-1">JPG, PNG, GIF, WebP - max. 5MB</p>
+                    <div id="new-exercise-image-preview" class="mt-2 hidden">
+                        <img id="new-exercise-image-preview-img" class="max-h-32 rounded-lg" src="" alt="Vorschau">
+                    </div>
+                </div>
+
+                <!-- Sichtbarkeit -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sichtbarkeit</label>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="new-exercise-visibility" value="global" checked class="sr-only peer">
+                            <div class="text-center px-3 py-2 border-2 border-gray-300 rounded-lg peer-checked:border-indigo-600 peer-checked:bg-indigo-50 hover:bg-gray-50">
+                                <span class="block text-lg">🌍</span>
+                                <span class="text-xs font-medium">Global</span>
+                            </div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="new-exercise-visibility" value="club" class="sr-only peer">
+                            <div class="text-center px-3 py-2 border-2 border-gray-300 rounded-lg peer-checked:border-indigo-600 peer-checked:bg-indigo-50 hover:bg-gray-50">
+                                <span class="block text-lg">🏠</span>
+                                <span class="text-xs font-medium">Nur Verein</span>
+                            </div>
+                        </label>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex gap-3 mt-6">
-                <button onclick="window.saveNewExercise()"
+            <div class="p-4 border-t bg-gray-50 flex gap-3">
+                <button onclick="window.saveNewExerciseFull()"
                         class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">
                     Erstellen & Hinzufügen
                 </button>
@@ -1111,30 +1219,165 @@ window.openCreateExerciseModal = function() {
     `;
 
     document.body.appendChild(modal);
+
+    // Setup event listeners
+    setupNewExerciseModalListeners();
 };
 
 /**
- * Save new exercise to database and add to current event
+ * Setup listeners for the new exercise modal
  */
-window.saveNewExercise = async function() {
-    const name = document.getElementById('new-exercise-name')?.value?.trim();
-    const points = parseInt(document.getElementById('new-exercise-points')?.value) || 0;
+function setupNewExerciseModalListeners() {
+    // Table toggle
+    const tableCheckbox = document.getElementById('new-exercise-use-table');
+    const tableContainer = document.getElementById('new-exercise-table-container');
+    tableCheckbox?.addEventListener('change', () => {
+        tableContainer.classList.toggle('hidden', !tableCheckbox.checked);
+    });
 
+    // Auto-calculate points based on level and difficulty
+    const levelSelect = document.getElementById('new-exercise-level');
+    const difficultySelect = document.getElementById('new-exercise-difficulty');
+    const pointsInput = document.getElementById('new-exercise-points');
+
+    const calculatePoints = () => {
+        const levelPoints = { 'grundlagen': 1, 'standard': 2, 'fortgeschritten': 3 };
+        const difficultyPoints = { 'easy': 1, 'normal': 2, 'hard': 3 };
+
+        const level = levelSelect?.value || '';
+        const difficulty = difficultySelect?.value || '';
+
+        if (level && difficulty) {
+            const points = (levelPoints[level] || 1) + (difficultyPoints[difficulty] || 1);
+            if (pointsInput) pointsInput.value = points;
+        }
+    };
+
+    levelSelect?.addEventListener('change', calculatePoints);
+    difficultySelect?.addEventListener('change', calculatePoints);
+
+    // Image preview
+    const imageInput = document.getElementById('new-exercise-image');
+    imageInput?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById('new-exercise-image-preview');
+                const img = document.getElementById('new-exercise-image-preview-img');
+                if (preview && img) {
+                    img.src = e.target.result;
+                    preview.classList.remove('hidden');
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+/**
+ * Add row to exercise table
+ */
+window.addExerciseTableRow = function() {
+    const tbody = document.getElementById('new-exercise-table-body');
+    if (!tbody) return;
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td class="px-1 py-1"><input type="text" class="w-full px-2 py-1 border rounded" placeholder="Wert"></td>
+        <td class="px-1 py-1"><input type="text" class="w-full px-2 py-1 border rounded" placeholder="Wert"></td>
+        <td class="px-1 py-1"><button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700">✕</button></td>
+    `;
+    tbody.appendChild(row);
+};
+
+/**
+ * Save new exercise with all fields
+ */
+window.saveNewExerciseFull = async function() {
+    const name = document.getElementById('new-exercise-name')?.value?.trim();
+    const description = document.getElementById('new-exercise-description')?.value?.trim();
+    const level = document.getElementById('new-exercise-level')?.value;
+    const difficulty = document.getElementById('new-exercise-difficulty')?.value;
+    const points = parseInt(document.getElementById('new-exercise-points')?.value) || 3;
+    const tags = document.getElementById('new-exercise-tags')?.value?.trim();
+    const imageFile = document.getElementById('new-exercise-image')?.files[0];
+    const visibility = document.querySelector('input[name="new-exercise-visibility"]:checked')?.value || 'global';
+    const useTable = document.getElementById('new-exercise-use-table')?.checked;
+
+    // Validation
     if (!name) {
-        alert('Bitte gib einen Namen ein');
+        alert('Bitte gib einen Titel ein');
+        return;
+    }
+    if (!level) {
+        alert('Bitte wähle ein Level');
+        return;
+    }
+    if (!difficulty) {
+        alert('Bitte wähle eine Schwierigkeit');
         return;
     }
 
     try {
+        // Get table data if enabled
+        let tableData = null;
+        if (useTable) {
+            const rows = document.querySelectorAll('#new-exercise-table-body tr');
+            tableData = [];
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                if (inputs.length >= 2) {
+                    tableData.push([inputs[0].value, inputs[1].value]);
+                }
+            });
+        }
+
+        // Prepare description (either text or table JSON)
+        let finalDescription = description || '';
+        if (useTable && tableData && tableData.length > 0) {
+            finalDescription = JSON.stringify({ type: 'table', data: tableData });
+        }
+
+        // Upload image if provided
+        let imageUrl = null;
+        if (imageFile) {
+            const fileName = `exercises/${Date.now()}_${imageFile.name}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('exercise-images')
+                .upload(fileName, imageFile);
+
+            if (uploadError) {
+                console.warn('[Events] Image upload failed:', uploadError);
+            } else {
+                const { data: urlData } = supabase.storage
+                    .from('exercise-images')
+                    .getPublicUrl(fileName);
+                imageUrl = urlData?.publicUrl;
+            }
+        }
+
+        // Parse tags
+        const tagsArray = tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [];
+
         // Save to database
+        const exerciseData = {
+            name,
+            description: finalDescription,
+            level,
+            difficulty,
+            points,
+            tags: tagsArray,
+            image_url: imageUrl,
+            visibility,
+            club_id: visibility === 'club' ? currentUserData.clubId : null,
+            created_by: currentUserData.id,
+            created_at: new Date().toISOString()
+        };
+
         const { data: newExercise, error } = await supabase
             .from('exercises')
-            .insert({
-                name,
-                points,
-                club_id: currentUserData.clubId,
-                created_by: currentUserData.id
-            })
+            .insert(exerciseData)
             .select()
             .single();
 
@@ -1155,6 +1398,8 @@ window.saveNewExercise = async function() {
         document.getElementById('exercise-selector-modal')?.remove();
 
         renderEventExercises();
+
+        alert('Übung erstellt und hinzugefügt!');
 
     } catch (error) {
         console.error('[Events] Error creating exercise:', error);
