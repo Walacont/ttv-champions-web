@@ -381,15 +381,15 @@ function formatRelativeDate(date) {
 }
 
 /**
- * Render recent activity (matches, posts, polls, events) - Like activity feed on dashboard
+ * Render recent activity (matches and posts only) - Like activity feed on dashboard
  */
 async function renderRecentActivity(profile) {
     const supabase = getSupabase();
     const ACTIVITY_LIMIT = 10;
 
     try {
-        // Fetch all activity types for this user
-        const [singlesRes, doublesRes, postsRes, pollsRes, eventsRes] = await Promise.all([
+        // Fetch activity types for this user (matches and posts only)
+        const [singlesRes, doublesRes, postsRes] = await Promise.all([
             // Singles matches
             supabase
                 .from('matches')
@@ -413,23 +413,6 @@ async function renderRecentActivity(profile) {
                 .eq('user_id', profileId)
                 .is('deleted_at', null)
                 .order('created_at', { ascending: false })
-                .limit(ACTIVITY_LIMIT),
-
-            // Community polls
-            supabase
-                .from('community_polls')
-                .select('*')
-                .eq('user_id', profileId)
-                .is('deleted_at', null)
-                .order('created_at', { ascending: false })
-                .limit(ACTIVITY_LIMIT),
-
-            // Activity events (rank ups, club joins, etc.)
-            supabase
-                .from('activity_events')
-                .select('*')
-                .eq('user_id', profileId)
-                .order('created_at', { ascending: false })
                 .limit(ACTIVITY_LIMIT)
         ]);
 
@@ -437,9 +420,7 @@ async function renderRecentActivity(profile) {
         const allActivities = [
             ...(singlesRes.data || []).map(m => ({ ...m, activityType: 'singles' })),
             ...(doublesRes.data || []).map(m => ({ ...m, activityType: 'doubles' })),
-            ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' })),
-            ...(pollsRes.data || []).map(p => ({ ...p, activityType: 'poll' })),
-            ...(eventsRes.data || []).map(e => ({ ...e, activityType: e.event_type }))
+            ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' }))
         ];
 
         // Sort by created_at descending
@@ -463,7 +444,7 @@ async function renderRecentActivity(profile) {
                 playerIds.add(activity.team_a_player2_id);
                 playerIds.add(activity.team_b_player1_id);
                 playerIds.add(activity.team_b_player2_id);
-            } else if (activity.activityType === 'post' || activity.activityType === 'poll') {
+            } else if (activity.activityType === 'post') {
                 playerIds.add(activity.user_id);
             }
         });
@@ -504,14 +485,6 @@ function renderProfileActivityCard(activity, profileMap) {
             return renderProfileDoublesCard(activity, profileMap);
         case 'post':
             return renderProfilePostCard(activity, profileMap);
-        case 'poll':
-            return renderProfilePollCard(activity, profileMap);
-        case 'club_join':
-            return renderProfileClubJoinCard(activity);
-        case 'club_leave':
-            return renderProfileClubLeaveCard(activity);
-        case 'rank_up':
-            return renderProfileRankUpCard(activity);
         default:
             return '';
     }
@@ -755,167 +728,6 @@ function renderProfilePostCard(post, profileMap) {
             <div class="flex items-center gap-4 pt-3 border-t border-gray-100 text-sm text-gray-500">
                 <span><i class="far fa-thumbs-up mr-1"></i>${post.likes_count || 0}</span>
                 <span><i class="far fa-comment mr-1"></i>${post.comments_count || 0}</span>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render community poll card for profile
- */
-function renderProfilePollCard(poll, profileMap) {
-    const profile = profileMap[poll.user_id] || {};
-    const displayName = getProfileDisplayName(profile);
-    const avatarUrl = profile.avatar_url || DEFAULT_AVATAR;
-
-    const pollDate = new Date(poll.created_at);
-    const dateDisplay = formatRelativeDate(pollDate);
-    const timeDisplay = pollDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    const endsAt = new Date(poll.ends_at);
-    const isActive = endsAt > new Date();
-    const totalVotes = poll.total_votes || 0;
-    const options = poll.options || [];
-
-    const optionsWithPercent = options.map(opt => ({
-        ...opt,
-        percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0
-    }));
-
-    return `
-        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-purple-100">
-            <div class="flex items-start gap-3 mb-3">
-                <img src="${avatarUrl}" alt="${displayName}"
-                     class="w-10 h-10 rounded-full object-cover border-2 border-purple-300"
-                     onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-poll text-purple-600"></i>
-                        <span class="font-semibold text-gray-900">${displayName}</span>
-                        <span class="text-gray-400">•</span>
-                        <span class="text-xs text-gray-500">${dateDisplay}, ${timeDisplay}</span>
-                    </div>
-                </div>
-            </div>
-
-            <h3 class="text-base font-semibold text-gray-900 mb-3">${escapeHtml(poll.question)}</h3>
-
-            <div class="space-y-2 mb-3">
-                ${optionsWithPercent.map(option => `
-                    <div class="bg-white rounded-lg p-2 border border-purple-200">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="font-medium text-sm text-gray-800">${escapeHtml(option.text)}</span>
-                            <span class="text-xs font-semibold text-purple-600">${option.percentage}%</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-1.5">
-                            <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full" style="width: ${option.percentage}%"></div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-
-            <div class="flex items-center justify-between text-xs text-gray-600 pt-2 border-t border-purple-100">
-                <span><i class="fas fa-users mr-1"></i>${totalVotes} Stimmen</span>
-                <span><i class="fas fa-clock mr-1"></i>${isActive ? 'Läuft' : 'Beendet'}</span>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render club join event card for profile
- */
-function renderProfileClubJoinCard(event) {
-    const eventData = event.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const clubName = eventData.club_name || 'Unbekannt';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
-
-    const eventDate = new Date(event.created_at);
-    const dateDisplay = formatRelativeDate(eventDate);
-    const timeDisplay = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    return `
-        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-blue-100">
-            <div class="flex items-start gap-3">
-                <img src="${avatarUrl}" alt="${displayName}"
-                     class="w-10 h-10 rounded-full object-cover border-2 border-blue-400"
-                     onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <i class="fas fa-building text-blue-600"></i>
-                        <span class="font-semibold text-gray-900">${displayName}</span>
-                        <span class="text-gray-600 text-sm">ist beigetreten</span>
-                        <span class="font-semibold text-blue-700">${clubName}</span>
-                    </div>
-                    <span class="text-xs text-gray-400">${dateDisplay}, ${timeDisplay}</span>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render club leave event card for profile
- */
-function renderProfileClubLeaveCard(event) {
-    const eventData = event.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const clubName = eventData.club_name || 'Unbekannt';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
-
-    const eventDate = new Date(event.created_at);
-    const dateDisplay = formatRelativeDate(eventDate);
-    const timeDisplay = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    return `
-        <div class="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-gray-200">
-            <div class="flex items-start gap-3">
-                <img src="${avatarUrl}" alt="${displayName}"
-                     class="w-10 h-10 rounded-full object-cover border-2 border-gray-400"
-                     onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <i class="fas fa-door-open text-gray-500"></i>
-                        <span class="font-semibold text-gray-900">${displayName}</span>
-                        <span class="text-gray-600 text-sm">hat verlassen</span>
-                        <span class="font-semibold text-gray-700">${clubName}</span>
-                    </div>
-                    <span class="text-xs text-gray-400">${dateDisplay}, ${timeDisplay}</span>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render rank up event card for profile
- */
-function renderProfileRankUpCard(event) {
-    const eventData = event.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const rankName = eventData.rank_name || 'Unbekannt';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
-
-    const eventDate = new Date(event.created_at);
-    const dateDisplay = formatRelativeDate(eventDate);
-    const timeDisplay = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    return `
-        <div class="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-yellow-100">
-            <div class="flex items-start gap-3">
-                <img src="${avatarUrl}" alt="${displayName}"
-                     class="w-10 h-10 rounded-full object-cover border-2 border-yellow-400"
-                     onerror="this.src='${DEFAULT_AVATAR}'">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <i class="fas fa-trophy text-yellow-600"></i>
-                        <span class="font-semibold text-gray-900">${displayName}</span>
-                        <span class="text-gray-600 text-sm">hat Rang erreicht:</span>
-                        <span class="font-bold text-yellow-700">${rankName}</span>
-                    </div>
-                    <span class="text-xs text-gray-400">${dateDisplay}, ${timeDisplay}</span>
-                </div>
             </div>
         </div>
     `;
