@@ -26,12 +26,40 @@ let currentFilter = 'all'; // 'all', 'following', 'my-activities', or club id
 const ACTIVITIES_PER_PAGE = 8;
 
 /**
+ * Update carousel counter on scroll
+ */
+window.updateCarouselCounter = function(carousel, matchType, matchId, totalItems) {
+    const counter = document.getElementById(`counter-${matchType}-${matchId}`);
+    if (!counter || totalItems <= 1) return;
+
+    const itemWidth = carousel.scrollWidth / totalItems;
+    const currentIndex = Math.round(carousel.scrollLeft / itemWidth) + 1;
+    counter.textContent = `${currentIndex}/${totalItems}`;
+};
+
+/**
  * Initialize the activity feed module
  */
 export function initActivityFeedModule(user, userData) {
     currentUser = user;
     currentUserData = userData;
     activityOffset = 0;
+
+    // Inject CSS for hidden scrollbar
+    if (!document.getElementById('activity-feed-styles')) {
+        const style = document.createElement('style');
+        style.id = 'activity-feed-styles';
+        style.textContent = `
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+        `;
+        document.head.appendChild(style);
+    }
     likesDataCache = {};
     isLoadingMore = false;
     hasMoreActivities = true;
@@ -807,7 +835,7 @@ function renderMatchMediaPlaceholder(matchId, matchType) {
 }
 
 /**
- * Load and inject match media into the DOM
+ * Load and inject match media into the DOM - Strava style horizontal carousel
  */
 async function injectMatchMedia(matchId, matchType) {
     const container = document.getElementById(`media-${matchType}-${matchId}`);
@@ -817,28 +845,28 @@ async function injectMatchMedia(matchId, matchType) {
         const media = await loadMatchMedia(matchId, matchType);
 
         if (!media || media.length === 0) {
-            // Check if user is a participant (can upload)
+            // No media - show nothing or upload button for participants
             const isParticipant = await checkIfParticipant(matchId, matchType);
-
             if (isParticipant) {
                 container.innerHTML = `
-                    <button
-                        onclick="openMediaUpload('${matchId}', '${matchType}')"
-                        class="text-sm text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
-                    >
-                        <i class="fas fa-camera"></i>
-                        <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
-                    </button>
+                    <div class="px-4 py-2">
+                        <button
+                            onclick="openMediaUpload('${matchId}', '${matchType}')"
+                            class="text-sm text-gray-500 hover:text-indigo-600 transition flex items-center gap-1"
+                        >
+                            <i class="fas fa-camera"></i>
+                            Foto/Video hinzufügen
+                        </button>
+                    </div>
                 `;
             }
             return;
         }
 
-        // Render media - inline like Instagram
         const isParticipant = await checkIfParticipant(matchId, matchType);
 
-        // Build media items HTML
-        let mediaHTML = '';
+        // Build horizontal carousel items
+        let carouselItems = '';
 
         media.forEach((item, index) => {
             const { data: { publicUrl } } = supabase.storage
@@ -846,53 +874,69 @@ async function injectMatchMedia(matchId, matchType) {
                 .getPublicUrl(item.file_path);
 
             if (item.file_type === 'video') {
-                // Videos play inline like Instagram
-                mediaHTML += `
-                    <div class="relative rounded-lg overflow-hidden bg-black ${index > 0 ? 'mt-2' : ''}">
-                        <video
-                            controls
-                            playsinline
-                            preload="metadata"
-                            class="w-full max-h-[400px] object-contain"
-                            poster=""
-                        >
-                            <source src="${publicUrl}" type="${item.mime_type || 'video/mp4'}">
-                            Dein Browser unterstützt keine Videos.
-                        </video>
+                // Video item with play button overlay, plays inline on click
+                carouselItems += `
+                    <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start">
+                        <div class="relative bg-black rounded-lg overflow-hidden aspect-[4/3]">
+                            <video
+                                id="video-${matchId}-${index}"
+                                class="w-full h-full object-contain"
+                                playsinline
+                                preload="metadata"
+                                onclick="this.paused ? this.play() : this.pause(); this.nextElementSibling.style.display = this.paused ? 'flex' : 'none';"
+                            >
+                                <source src="${publicUrl}" type="${item.mime_type || 'video/mp4'}">
+                            </video>
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onclick="this.previousElementSibling.play(); this.style.display='none';">
+                                <div class="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
+                                    <i class="fas fa-play text-gray-800 text-xl ml-1"></i>
+                                </div>
+                            </div>
+                            <div class="absolute bottom-2 left-2 px-2 py-1 bg-black/70 rounded text-white text-xs">
+                                <i class="fas fa-video mr-1"></i>Video
+                            </div>
+                        </div>
                     </div>
                 `;
             } else {
-                // Photos can be clicked to view larger
-                mediaHTML += `
-                    <div class="relative rounded-lg overflow-hidden cursor-pointer ${index > 0 ? 'mt-2' : ''}" onclick="openMediaGallery('${matchId}', '${matchType}', ${index})">
-                        <img src="${publicUrl}" alt="Match Foto" class="w-full max-h-[400px] object-contain bg-gray-100">
+                // Photo item - clickable to open gallery
+                carouselItems += `
+                    <div class="flex-shrink-0 ${media.length === 1 ? 'w-full' : 'w-[85%] max-w-[400px]'} snap-start">
+                        <div class="relative bg-gray-100 rounded-lg overflow-hidden aspect-[4/3] cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', ${index})">
+                            <img src="${publicUrl}" alt="Match Foto" class="w-full h-full object-cover">
+                        </div>
                     </div>
                 `;
             }
         });
 
-        container.innerHTML = `
-            <div class="space-y-2">
-                ${mediaHTML}
+        // Counter indicator for multiple items
+        const counterHTML = media.length > 1 ? `
+            <div class="absolute top-3 right-3 px-2 py-1 bg-black/70 rounded-full text-white text-xs font-medium">
+                1/${media.length}
+            </div>
+        ` : '';
 
-                <!-- Action Buttons -->
-                <div class="flex items-center gap-3 text-sm mt-2">
-                    ${media.length > 1 ? `
-                        <span class="text-gray-500">
-                            <i class="fas fa-images mr-1"></i>
-                            ${media.length} Medien
-                        </span>
-                    ` : ''}
-                    ${isParticipant && media.length < 5 ? `
-                        <button
-                            onclick="openMediaUpload('${matchId}', '${matchType}')"
-                            class="text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
-                        >
-                            <i class="fas fa-plus"></i>
-                            <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
-                        </button>
-                    ` : ''}
+        container.innerHTML = `
+            <div class="relative">
+                <!-- Horizontal Scroll Container -->
+                <div class="flex gap-2 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-2 ${media.length === 1 ? '' : 'px-4'}"
+                     id="carousel-${matchType}-${matchId}"
+                     onscroll="updateCarouselCounter(this, '${matchType}', '${matchId}', ${media.length})">
+                    ${carouselItems}
                 </div>
+
+                ${counterHTML ? `<div id="counter-${matchType}-${matchId}" class="absolute top-3 right-3 px-2 py-1 bg-black/70 rounded-full text-white text-xs font-medium">1/${media.length}</div>` : ''}
+
+                ${isParticipant && media.length < 5 ? `
+                    <button
+                        onclick="openMediaUpload('${matchId}', '${matchType}')"
+                        class="absolute bottom-4 right-4 w-8 h-8 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center text-gray-700 hover:text-indigo-600 transition"
+                        title="Mehr hinzufügen"
+                    >
+                        <i class="fas fa-plus text-sm"></i>
+                    </button>
+                ` : ''}
             </div>
         `;
 
@@ -971,7 +1015,7 @@ async function checkIfParticipant(matchId, matchType) {
 }
 
 /**
- * Render a singles match activity card
+ * Render a singles match activity card - Strava style
  */
 function renderSinglesActivityCard(match, profileMap, followingIds) {
     const playerA = profileMap[match.player_a_id] || {};
@@ -1009,79 +1053,145 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
-    // Determine context
-    const isFollowingWinner = followingIds.includes(match.winner_id);
-    const isFollowingLoser = followingIds.includes(match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id);
-    const inSameClub = winnerProfile.club_id === currentUserData.club_id || loserProfile.club_id === currentUserData.club_id;
-
-    let contextIcon = '';
-    if (currentFilter !== 'my-activities') {
-        if (isFollowingWinner || isFollowingLoser) {
-            contextIcon = '<i class="fas fa-user-check text-indigo-400 text-xs" title="Gefolgt"></i>';
-        } else if (inSameClub) {
-            contextIcon = '<i class="fas fa-building text-gray-400 text-xs" title="Verein"></i>';
-        }
-    }
-
     const loserId = match.winner_id === match.player_a_id ? match.player_b_id : match.player_a_id;
 
+    // Elo changes
+    const winnerEloChange = Math.abs(match.winner_elo_change || 0);
+    const loserEloChange = Math.abs(match.loser_elo_change || 0);
+
+    // Mode labels
+    const modeLabels = {
+        'single-set': '1 Satz',
+        'best-of-3': 'Best of 3',
+        'best-of-5': 'Best of 5',
+        'best-of-7': 'Best of 7',
+        'pro-set': 'Pro-Set',
+        'timed': 'Zeit',
+        'fast4': 'Fast4'
+    };
+    const modeDisplay = modeLabels[match.match_mode] || match.match_mode || '';
+
+    // Store match data for details modal
+    storeMatchForDetails(match, 'singles', profileMap);
+
     return `
-        <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
-            <div class="flex items-start gap-3">
-                <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0">
-                    <img src="${winnerAvatar}" alt="${winnerName}"
-                         class="w-12 h-12 rounded-full object-cover border-2 border-green-400"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
-                </a>
-
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <a href="/profile.html?id=${match.winner_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
-                            ${winnerName}
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition">
+            <!-- Header: Avatar, Name, Time, Menu -->
+            <div class="p-4 pb-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <a href="/profile.html?id=${match.winner_id}" class="flex-shrink-0">
+                            <img src="${winnerAvatar}" alt="${winnerName}"
+                                 class="w-10 h-10 rounded-full object-cover"
+                                 onerror="this.src='${DEFAULT_AVATAR}'">
                         </a>
-                        <span class="text-gray-500 text-sm">${t('dashboard.activityFeed.defeated')}</span>
-                        <a href="/profile.html?id=${loserId}" class="font-medium text-gray-700 hover:text-indigo-600 transition">
-                            ${loserName}
-                        </a>
+                        <div>
+                            <a href="/profile.html?id=${match.winner_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition text-sm">
+                                ${winnerName}
+                            </a>
+                            <p class="text-xs text-gray-500">${dateStr} um ${timeStr}</p>
+                        </div>
                     </div>
+                    <button onclick="showMatchDetails('${match.id}', 'singles')" class="text-gray-400 hover:text-gray-600 p-1">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
 
-                    <div class="flex items-center gap-3 mt-1">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                            ${setScore}
-                        </span>
-                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
-                        ${contextIcon}
-                    </div>
+            <!-- Match Title - Clickable -->
+            <div class="px-4 pb-3 cursor-pointer" onclick="showMatchDetails('${match.id}', 'singles')">
+                <h3 class="font-bold text-gray-900 text-lg">
+                    ${winnerName} vs ${loserName}
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">
+                    <span class="font-semibold text-green-600">${winnerName}</span> gewinnt ${setScore}
+                    ${match.handicap_used ? '<span class="ml-2 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">Handicap</span>' : ''}
+                </p>
+            </div>
 
-                    <div class="mt-2 text-xs text-gray-500">
+            <!-- Stats Row -->
+            <div class="px-4 pb-3 flex items-center gap-6">
+                <div>
+                    <p class="text-xs text-gray-500">Ergebnis</p>
+                    <p class="font-bold text-gray-900">${setScore}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Sätze</p>
+                    <p class="font-semibold text-gray-700 text-sm">
                         ${sets.map((set, idx) => {
                             const scoreA = set.playerA ?? set.teamA ?? 0;
                             const scoreB = set.playerB ?? set.teamB ?? 0;
                             const winnerScore = match.winner_id === match.player_a_id ? scoreA : scoreB;
                             const loserScore = match.winner_id === match.player_a_id ? scoreB : scoreA;
-                            return `<span class="mr-2">${t('dashboard.activityFeed.set')} ${idx + 1}: ${winnerScore}-${loserScore}</span>`;
-                        }).join('')}
-                    </div>
-
-                    <div class="mt-3 flex items-center gap-4">
-                        ${renderLikeButton(match.id, 'singles')}
-                    </div>
-
-                    ${renderMatchMediaPlaceholder(match.id, 'singles')}
+                            return `${winnerScore}-${loserScore}`;
+                        }).join(', ')}
+                    </p>
                 </div>
+                ${modeDisplay ? `
+                <div>
+                    <p class="text-xs text-gray-500">Modus</p>
+                    <p class="font-semibold text-gray-700 text-sm">${modeDisplay}</p>
+                </div>
+                ` : ''}
+            </div>
 
-                <a href="/profile.html?id=${loserId}" class="flex-shrink-0">
-                    <img src="${loserAvatar}" alt="${loserName}"
-                         class="w-10 h-10 rounded-full object-cover border-2 border-red-300 opacity-75"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
-                </a>
+            <!-- Media Carousel -->
+            ${renderMatchMediaPlaceholder(match.id, 'singles')}
+
+            <!-- Elo Changes -->
+            <div class="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center gap-4 text-sm">
+                <div class="flex items-center gap-1">
+                    <img src="${winnerAvatar}" class="w-5 h-5 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <span class="text-green-600 font-medium">+${winnerEloChange}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <img src="${loserAvatar}" class="w-5 h-5 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <span class="text-red-600 font-medium">-${loserEloChange}</span>
+                </div>
+            </div>
+
+            <!-- Actions: Like, Details -->
+            <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    ${renderLikeButton(match.id, 'singles')}
+                </div>
+                <button onclick="showMatchDetails('${match.id}', 'singles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
+                    <i class="fas fa-chart-bar"></i>
+                    Details
+                </button>
             </div>
         </div>
     `;
 }
 
 /**
- * Render a doubles match activity card
+ * Store match data for details modal access
+ */
+function storeMatchForDetails(match, matchType, profileMap) {
+    if (!window.matchHistoryData) {
+        window.matchHistoryData = { matches: [], doublesMatches: [], profileMap: {} };
+    }
+
+    if (matchType === 'singles') {
+        const existing = window.matchHistoryData.matches.find(m => m.id === match.id);
+        if (!existing) {
+            window.matchHistoryData.matches.push(match);
+        }
+    } else {
+        const existing = window.matchHistoryData.doublesMatches.find(m => m.id === match.id);
+        if (!existing) {
+            window.matchHistoryData.doublesMatches.push(match);
+        }
+    }
+
+    // Merge profile maps
+    Object.assign(window.matchHistoryData.profileMap, profileMap);
+}
+
+/**
+ * Render a doubles match activity card - Strava style
  */
 function renderDoublesActivityCard(match, profileMap, followingIds) {
     const teamAPlayer1 = profileMap[match.team_a_player1_id] || {};
@@ -1118,47 +1228,119 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
     const dateStr = formatRelativeDate(matchDate);
     const timeStr = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
+    // Mode labels
+    const modeLabels = {
+        'single-set': '1 Satz',
+        'best-of-3': 'Best of 3',
+        'best-of-5': 'Best of 5',
+        'best-of-7': 'Best of 7',
+        'pro-set': 'Pro-Set',
+        'timed': 'Zeit',
+        'fast4': 'Fast4'
+    };
+    const modeDisplay = modeLabels[match.match_mode] || match.match_mode || '';
+
+    // Store match data for details modal
+    storeMatchForDetails(match, 'doubles', profileMap);
+
     return `
-        <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition">
-            <div class="flex items-start gap-3">
-                <div class="flex-shrink-0 flex -space-x-2">
-                    <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
-                         class="w-10 h-10 rounded-full object-cover border-2 border-green-400"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
-                    <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
-                         class="w-10 h-10 rounded-full object-cover border-2 border-green-400"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
-                </div>
-
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-semibold text-gray-900">${winnerNames}</span>
-                        <span class="text-gray-500 text-sm">${t('dashboard.activityFeed.defeatedPlural')}</span>
-                        <span class="font-medium text-gray-700">${loserNames}</span>
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition">
+            <!-- Header: Team Avatars, Time, Menu -->
+            <div class="p-4 pb-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex -space-x-2">
+                            <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
+                                 class="w-9 h-9 rounded-full object-cover border-2 border-white"
+                                 onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
+                                 class="w-9 h-9 rounded-full object-cover border-2 border-white"
+                                 onerror="this.src='${DEFAULT_AVATAR}'">
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-900 text-sm">${winnerNames}</p>
+                            <p class="text-xs text-gray-500">${dateStr} um ${timeStr}</p>
+                        </div>
                     </div>
-
-                    <div class="flex items-center gap-3 mt-1">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
-                            <i class="fas fa-users mr-1"></i>${setScore}
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                            <i class="fas fa-users mr-1"></i>Doppel
                         </span>
-                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                        <button onclick="showMatchDetails('${match.id}', 'doubles')" class="text-gray-400 hover:text-gray-600 p-1">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                            </svg>
+                        </button>
                     </div>
+                </div>
+            </div>
 
-                    <div class="mt-3 flex items-center gap-4">
-                        ${renderLikeButton(match.id, 'doubles')}
+            <!-- Match Title - Clickable -->
+            <div class="px-4 pb-3 cursor-pointer" onclick="showMatchDetails('${match.id}', 'doubles')">
+                <h3 class="font-bold text-gray-900 text-lg">
+                    Doppel: ${winnerNames} vs ${loserNames}
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">
+                    <span class="font-semibold text-green-600">${winnerNames}</span> gewinnen ${setScore}
+                </p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="px-4 pb-3 flex items-center gap-6">
+                <div>
+                    <p class="text-xs text-gray-500">Ergebnis</p>
+                    <p class="font-bold text-gray-900">${setScore}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Sätze</p>
+                    <p class="font-semibold text-gray-700 text-sm">
+                        ${sets.map((set) => {
+                            const scoreA = set.teamA ?? set.playerA ?? 0;
+                            const scoreB = set.teamB ?? set.playerB ?? 0;
+                            const winnerScore = isTeamAWinner ? scoreA : scoreB;
+                            const loserScore = isTeamAWinner ? scoreB : scoreA;
+                            return `${winnerScore}-${loserScore}`;
+                        }).join(', ')}
+                    </p>
+                </div>
+                ${modeDisplay ? `
+                <div>
+                    <p class="text-xs text-gray-500">Modus</p>
+                    <p class="font-semibold text-gray-700 text-sm">${modeDisplay}</p>
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Media Carousel -->
+            ${renderMatchMediaPlaceholder(match.id, 'doubles')}
+
+            <!-- Teams Summary -->
+            <div class="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                    <div class="flex -space-x-1">
+                        <img src="${winnerTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img src="${winnerTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white" onerror="this.src='${DEFAULT_AVATAR}'">
                     </div>
-
-                    ${renderMatchMediaPlaceholder(match.id, 'doubles')}
+                    <span class="text-green-600 font-medium">Gewinner</span>
                 </div>
-
-                <div class="flex-shrink-0 flex -space-x-2">
-                    <img src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" alt=""
-                         class="w-8 h-8 rounded-full object-cover border-2 border-red-300 opacity-75"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
-                    <img src="${loserTeam[1]?.avatar_url || DEFAULT_AVATAR}" alt=""
-                         class="w-8 h-8 rounded-full object-cover border-2 border-red-300 opacity-75"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex items-center gap-2">
+                    <span class="text-red-600 font-medium">Verlierer</span>
+                    <div class="flex -space-x-1">
+                        <img src="${loserTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img src="${loserTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-5 h-5 rounded-full border border-white opacity-75" onerror="this.src='${DEFAULT_AVATAR}'">
+                    </div>
                 </div>
+            </div>
+
+            <!-- Actions: Like, Details -->
+            <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    ${renderLikeButton(match.id, 'doubles')}
+                </div>
+                <button onclick="showMatchDetails('${match.id}', 'doubles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
+                    <i class="fas fa-chart-bar"></i>
+                    Details
+                </button>
             </div>
         </div>
     `;
