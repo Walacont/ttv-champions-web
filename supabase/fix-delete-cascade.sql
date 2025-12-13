@@ -38,10 +38,6 @@ ALTER TABLE match_requests DROP CONSTRAINT IF EXISTS match_requests_loser_id_fke
 ALTER TABLE match_requests ADD CONSTRAINT match_requests_loser_id_fkey
     FOREIGN KEY (loser_id) REFERENCES profiles(id) ON DELETE SET NULL;
 
-ALTER TABLE match_requests DROP CONSTRAINT IF EXISTS match_requests_reviewed_by_fkey;
-ALTER TABLE match_requests ADD CONSTRAINT match_requests_reviewed_by_fkey
-    FOREIGN KEY (reviewed_by) REFERENCES profiles(id) ON DELETE SET NULL;
-
 -- =====================================================
 -- DOUBLES_MATCHES TABLE
 -- =====================================================
