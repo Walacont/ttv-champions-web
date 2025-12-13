@@ -216,7 +216,17 @@ function setupInfiniteScroll() {
 /**
  * Load match media for all match activities
  */
-function loadMatchMediaForActivities(activities) {
+async function loadMatchMediaForActivities(activities) {
+    // Check once if functions are available before making any calls
+    if (!matchMediaFunctionsChecked) {
+        await checkMatchMediaAvailability();
+    }
+
+    // Skip if functions aren't available
+    if (!matchMediaFunctionsAvailable) {
+        return;
+    }
+
     activities.forEach(activity => {
         if (activity.activityType === 'singles' || activity.matchType === 'singles') {
             injectMatchMedia(activity.id, 'singles');
@@ -882,6 +892,29 @@ async function injectMatchMedia(matchId, matchType) {
 // Cache for match media function availability
 let matchMediaFunctionsChecked = false;
 let matchMediaFunctionsAvailable = false;
+
+/**
+ * Check if match media SQL functions are available (one-time check)
+ */
+async function checkMatchMediaAvailability() {
+    if (matchMediaFunctionsChecked) return matchMediaFunctionsAvailable;
+
+    try {
+        // Check if the table exists by trying to select from it
+        const { error } = await supabase
+            .from('match_media')
+            .select('id')
+            .limit(1);
+
+        matchMediaFunctionsChecked = true;
+        matchMediaFunctionsAvailable = !error;
+        return matchMediaFunctionsAvailable;
+    } catch {
+        matchMediaFunctionsChecked = true;
+        matchMediaFunctionsAvailable = false;
+        return false;
+    }
+}
 
 /**
  * Check if current user is a participant in the match
