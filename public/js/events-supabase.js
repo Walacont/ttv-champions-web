@@ -79,9 +79,9 @@ function setupEventListeners() {
 /**
  * Open the day modal when clicking on a calendar day
  * @param {string} dateString - Date in YYYY-MM-DD format
- * @param {Array} sessionsOnDay - Training sessions on this day
+ * @param {Array} eventsOnDay - Events on this day
  */
-export function openEventDayModal(dateString, sessionsOnDay = []) {
+export function openEventDayModal(dateString, eventsOnDay = []) {
     currentEventData.selectedDate = dateString;
 
     // Format date for display
@@ -99,40 +99,30 @@ export function openEventDayModal(dateString, sessionsOnDay = []) {
     // Populate events list
     const listEl = document.getElementById('event-day-list');
 
-    if (sessionsOnDay.length > 0) {
-        listEl.innerHTML = sessionsOnDay.map(item => {
-            const subgroupColor = item.subgroupColor || '#6366f1';
+    if (eventsOnDay.length > 0) {
+        listEl.innerHTML = eventsOnDay.map(event => {
+            const subgroupColor = event.subgroupColor || '#6366f1';
+            const subgroupText = event.subgroupNames && event.subgroupNames.length > 0
+                ? event.subgroupNames.join(', ')
+                : (event.targetType === 'club' ? 'Gesamter Verein' : '');
 
-            if (item.type === 'event') {
-                // Event item
-                return `
-                    <div class="p-4 rounded-xl border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all cursor-pointer flex items-center gap-4"
-                         onclick="window.openEventDetails && window.openEventDetails('${item.id}')">
-                        <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
-                        <div class="flex-1">
-                            <p class="font-semibold text-gray-900">${item.title}</p>
-                            <p class="text-sm text-gray-500">${item.startTime || ''}${item.endTime ? ' - ' + item.endTime : ''}${item.location ? ' • ' + item.location : ''}</p>
-                        </div>
-                        <span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Event</span>
+            return `
+                <div class="p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-4"
+                     onclick="window.openEventDetails && window.openEventDetails('${event.id}')">
+                    <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-900">${event.title}</p>
+                        <p class="text-sm text-gray-500">
+                            ${event.startTime || ''}${event.endTime ? ' - ' + event.endTime : ''}
+                            ${event.location ? ' • ' + event.location : ''}
+                        </p>
+                        ${subgroupText ? `<p class="text-xs text-gray-400 mt-1">${subgroupText}</p>` : ''}
                     </div>
-                `;
-            } else {
-                // Training session
-                const subgroupName = item.subgroupName || 'Training';
-                return `
-                    <div class="p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-4"
-                         onclick="window.openAttendanceForSession && window.openAttendanceForSession('${item.id}', '${dateString}')">
-                        <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
-                        <div class="flex-1">
-                            <p class="font-semibold text-gray-900">${item.startTime} - ${item.endTime}</p>
-                            <p class="text-sm text-gray-500">${subgroupName}</p>
-                        </div>
-                        <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                    </div>
-                `;
-            }
+                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </div>
+            `;
         }).join('');
     } else {
         listEl.innerHTML = `

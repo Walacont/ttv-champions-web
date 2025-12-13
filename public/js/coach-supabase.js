@@ -764,84 +764,54 @@ async function initializeCoachPage(userData) {
             const dateString = dayCell.dataset.date;
             if (!dateString) return;
 
-            // Load sessions AND events for this day
+            // Load events for this day
             try {
-                // Load training sessions
-                const { data: sessions, error: sessionsError } = await supabase
-                    .from('training_sessions')
-                    .select('id, start_time, end_time, subgroup_id')
-                    .eq('club_id', userData.clubId)
-                    .eq('date', dateString)
-                    .eq('cancelled', false)
-                    .order('start_time');
-
-                if (sessionsError) throw sessionsError;
-
-                // Load events
                 const { data: events, error: eventsError } = await supabase
                     .from('events')
-                    .select('id, title, start_time, end_time, location')
+                    .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids')
                     .eq('club_id', userData.clubId)
                     .eq('start_date', dateString)
                     .eq('cancelled', false)
                     .order('start_time');
 
-                if (eventsError) {
-                    console.warn('[Coach] Could not load events:', eventsError);
-                }
+                if (eventsError) throw eventsError;
 
-                // Get subgroup info for sessions
-                const sessionsWithInfo = await Promise.all((sessions || []).map(async (session) => {
-                    let subgroupName = 'Training';
-                    let subgroupColor = '#6366f1';
+                // Get subgroup info for events with subgroup targets
+                const eventsWithInfo = await Promise.all((events || []).map(async (event) => {
+                    let subgroupNames = [];
+                    let subgroupColor = '#6366f1'; // Default indigo for club-wide
 
-                    if (session.subgroup_id) {
-                        const { data: subgroup } = await supabase
+                    if (event.target_type === 'subgroups' && event.target_subgroup_ids && event.target_subgroup_ids.length > 0) {
+                        // Load subgroup info for color and names
+                        const { data: subgroups } = await supabase
                             .from('subgroups')
-                            .select('name, color')
-                            .eq('id', session.subgroup_id)
-                            .single();
+                            .select('id, name, color')
+                            .in('id', event.target_subgroup_ids);
 
-                        if (subgroup) {
-                            subgroupName = subgroup.name;
-                            subgroupColor = subgroup.color || '#6366f1';
+                        if (subgroups && subgroups.length > 0) {
+                            subgroupNames = subgroups.map(s => s.name);
+                            subgroupColor = subgroups[0].color || '#6366f1';
                         }
                     }
 
                     return {
-                        id: session.id,
-                        type: 'training',
-                        startTime: session.start_time,
-                        endTime: session.end_time,
-                        subgroupId: session.subgroup_id,
-                        subgroupName,
+                        id: event.id,
+                        title: event.title,
+                        startTime: event.start_time,
+                        endTime: event.end_time,
+                        location: event.location,
+                        targetType: event.target_type,
+                        subgroupNames,
                         subgroupColor
                     };
                 }));
 
-                // Format events
-                const eventsWithInfo = (events || []).map(event => ({
-                    id: event.id,
-                    type: 'event',
-                    title: event.title,
-                    startTime: event.start_time,
-                    endTime: event.end_time,
-                    location: event.location,
-                    subgroupName: 'Veranstaltung',
-                    subgroupColor: '#10b981' // Green for events
-                }));
-
-                // Combine and sort by start time
-                const allItems = [...sessionsWithInfo, ...eventsWithInfo].sort((a, b) =>
-                    (a.startTime || '').localeCompare(b.startTime || '')
-                );
-
-                // Open the new event day modal
-                openEventDayModal(dateString, allItems);
+                // Open the event day modal
+                openEventDayModal(dateString, eventsWithInfo);
 
             } catch (error) {
-                console.error('[Coach] Error loading sessions for day:', error);
-                alert('Fehler beim Laden der Termine. Bitte versuche es erneut.');
+                console.error('[Coach] Error loading events for day:', error);
+                alert('Fehler beim Laden der Veranstaltungen. Bitte versuche es erneut.');
             }
         });
 

@@ -16,7 +16,6 @@ const supabase = getSupabase();
 
 // Module state
 let monthlyAttendance = new Map();
-let monthlySessions = new Map();
 let monthlyEvents = new Map();
 let subgroupsMap = new Map();
 let currentSubgroupFilter = 'all';
@@ -110,46 +109,31 @@ export async function renderCalendar(date, currentUserData) {
 
         dayCell.dataset.date = dateString;
 
-        // Check for sessions and events on this day
-        const sessionsOnDay = monthlySessions.get(dateString) || [];
+        // Check for events on this day
         const eventsOnDay = monthlyEvents.get(dateString) || [];
-        const hasItems = sessionsOnDay.length > 0 || eventsOnDay.length > 0;
 
-        if (hasItems) {
+        if (eventsOnDay.length > 0) {
             dayCell.classList.add('border-indigo-300');
 
             const dotsContainer = document.createElement('div');
             dotsContainer.className = 'flex gap-1 justify-center mt-1 flex-wrap';
 
-            // Add training session dots (with subgroup colors)
-            const sessionsToShow = Math.min(sessionsOnDay.length, 3);
-            for (let i = 0; i < sessionsToShow; i++) {
-                const session = sessionsOnDay[i];
-                const subgroup = subgroupsMap.get(session.subgroupId);
-                const color = subgroup ? subgroup.color : '#6366f1';
+            // Add event dots with subgroup colors
+            const eventsToShow = Math.min(eventsOnDay.length, 4);
+            for (let i = 0; i < eventsToShow; i++) {
+                const event = eventsOnDay[i];
+                // Use first subgroup color, or default indigo for club-wide events
+                const color = event.subgroupColor || '#6366f1';
 
                 const dot = document.createElement('div');
                 dot.className = 'w-2 h-2 rounded-full';
                 dot.style.backgroundColor = color;
-                dot.title = subgroup ? subgroup.name : 'Training';
-                dotsContainer.appendChild(dot);
-            }
-
-            // Add event dots (green)
-            const eventsToShow = Math.min(eventsOnDay.length, 2);
-            for (let i = 0; i < eventsToShow; i++) {
-                const event = eventsOnDay[i];
-                const dot = document.createElement('div');
-                dot.className = 'w-2 h-2 rounded-full';
-                dot.style.backgroundColor = '#10b981'; // Green for events
                 dot.title = event.title;
                 dotsContainer.appendChild(dot);
             }
 
-            // Show + if there are more items
-            const totalItems = sessionsOnDay.length + eventsOnDay.length;
-            const shownItems = sessionsToShow + eventsToShow;
-            if (totalItems > shownItems) {
+            // Show + if there are more events
+            if (eventsOnDay.length > 4) {
                 const moreDot = document.createElement('div');
                 moreDot.className = 'text-xs text-indigo-600 font-bold';
                 moreDot.textContent = '+';
@@ -166,11 +150,10 @@ export async function renderCalendar(date, currentUserData) {
 }
 
 /**
- * Fetches attendance data and training sessions for a specific month
+ * Fetches attendance data and events for a specific month
  */
 export async function fetchMonthlyAttendance(year, month, currentUserData) {
     monthlyAttendance.clear();
-    monthlySessions.clear();
     monthlyEvents.clear();
 
     // Check for valid clubId before querying
@@ -215,48 +198,48 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
         throw error;
     }
 
-    // Fetch training sessions for the month (filtered by sport if available)
+    // Fetch events for the month
     try {
-        let sessionsQuery = supabase
-            .from('training_sessions')
-            .select('*')
+        const { data: events, error: eventsError } = await supabase
+            .from('events')
+            .select('id, title, start_date, start_time, target_type, target_subgroup_ids')
             .eq('club_id', effectiveClubId)
-            .gte('date', startDate)
-            .lte('date', endDate)
+            .gte('start_date', startDate)
+            .lte('start_date', endDate)
             .eq('cancelled', false);
 
-        // Filter by sport if available
-        if (activeSportId) {
-            sessionsQuery = sessionsQuery.or(`sport_id.eq.${activeSportId},sport_id.is.null`);
+        if (eventsError) {
+            console.warn('[fetchMonthlyAttendance] Could not load events:', eventsError);
+        } else {
+            (events || []).forEach(e => {
+                const dateKey = e.start_date;
+
+                // Determine color based on target subgroups
+                let subgroupColor = '#6366f1'; // Default indigo for club-wide events
+                if (e.target_type === 'subgroups' && e.target_subgroup_ids && e.target_subgroup_ids.length > 0) {
+                    // Use the color of the first target subgroup
+                    const firstSubgroup = subgroupsMap.get(e.target_subgroup_ids[0]);
+                    if (firstSubgroup) {
+                        subgroupColor = firstSubgroup.color;
+                    }
+                }
+
+                if (!monthlyEvents.has(dateKey)) {
+                    monthlyEvents.set(dateKey, []);
+                }
+                monthlyEvents.get(dateKey).push({
+                    id: e.id,
+                    title: e.title,
+                    startTime: e.start_time,
+                    targetType: e.target_type,
+                    targetSubgroupIds: e.target_subgroup_ids,
+                    subgroupColor
+                });
+            });
         }
-
-        if (currentSubgroupFilter !== 'all') {
-            sessionsQuery = sessionsQuery.eq('subgroup_id', currentSubgroupFilter);
-        }
-
-        const { data: sessions, error: sessError } = await sessionsQuery;
-
-        if (sessError) throw sessError;
-
-        (sessions || []).forEach(s => {
-            const session = {
-                id: s.id,
-                date: s.date,
-                startTime: s.start_time,
-                endTime: s.end_time,
-                subgroupId: s.subgroup_id,
-                clubId: s.club_id
-            };
-            const dateKey = s.date;
-
-            if (!monthlySessions.has(dateKey)) {
-                monthlySessions.set(dateKey, []);
-            }
-            monthlySessions.get(dateKey).push(session);
-        });
     } catch (error) {
-        console.error('[fetchMonthlyAttendance] Error loading training sessions:', error);
-        throw error;
+        console.warn('[fetchMonthlyAttendance] Error loading events:', error);
+        // Don't throw - events loading shouldn't break the page
     }
 
     // Fetch attendance records
@@ -298,36 +281,6 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
     } catch (error) {
         console.error('[fetchMonthlyAttendance] Error loading attendance records:', error);
         throw error;
-    }
-
-    // Fetch events for the month
-    try {
-        const { data: events, error: eventsError } = await supabase
-            .from('events')
-            .select('id, title, start_date, start_time')
-            .eq('club_id', effectiveClubId)
-            .gte('start_date', startDate)
-            .lte('start_date', endDate)
-            .eq('cancelled', false);
-
-        if (eventsError) {
-            console.warn('[fetchMonthlyAttendance] Could not load events:', eventsError);
-        } else {
-            (events || []).forEach(e => {
-                const dateKey = e.start_date;
-                if (!monthlyEvents.has(dateKey)) {
-                    monthlyEvents.set(dateKey, []);
-                }
-                monthlyEvents.get(dateKey).push({
-                    id: e.id,
-                    title: e.title,
-                    startTime: e.start_time
-                });
-            });
-        }
-    } catch (error) {
-        console.warn('[fetchMonthlyAttendance] Error loading events:', error);
-        // Don't throw - events are optional
     }
 }
 
