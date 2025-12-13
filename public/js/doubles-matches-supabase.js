@@ -252,6 +252,11 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
     const setsWonByInitiatorTeam = sets.filter(s => s.teamA > s.teamB && s.teamA >= 11).length;
     const setsWonByOpponentTeam = sets.filter(s => s.teamB > s.teamA && s.teamB >= 11).length;
 
+    // Check that no team has MORE than setsToWin (match should end when someone wins)
+    if (setsWonByInitiatorTeam > setsToWin || setsWonByOpponentTeam > setsToWin) {
+        throw new Error(`Ungültiges Ergebnis: Bei diesem Modus kann kein Team mehr als ${setsToWin} Sätze gewinnen.`);
+    }
+
     let winningTeam;
     if (setsWonByInitiatorTeam >= setsToWin) {
         winningTeam = 'A'; // Initiator's team won

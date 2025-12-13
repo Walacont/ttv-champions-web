@@ -970,6 +970,11 @@ export function createSetScoreInput(container, existingSets = [], mode = 'best-o
             return { valid: false, error: `Ein Spieler muss ${setsToWin} Sätze gewinnen.` };
         }
 
+        // Check that no player has MORE than setsToWin (match should end when someone wins)
+        if (playerAWins > setsToWin || playerBWins > setsToWin) {
+            return { valid: false, error: `Ungültiges Ergebnis: Bei diesem Modus kann niemand mehr als ${setsToWin} Sätze gewinnen.` };
+        }
+
         return { valid: true, winnerId: playerAWins >= setsToWin ? 'A' : 'B', playerAWins, playerBWins };
     }
 
