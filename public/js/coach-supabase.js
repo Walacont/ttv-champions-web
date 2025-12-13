@@ -48,6 +48,7 @@ import {
     exportAttendanceSummary,
 } from './attendance-export-supabase.js';
 import { initClubRequestsManager } from './club-requests-manager-supabase.js';
+import { initEventsModule, openEventDayModal } from './events-supabase.js';
 import {
     handleCreateChallenge,
     loadActiveChallenges,
@@ -364,6 +365,10 @@ async function initializeCoachPage(userData) {
     // Initialize Club Requests Manager
     await initClubRequestsManager(userData, supabase);
     console.log('[Coach] Club requests manager initialized');
+
+    // Initialize Events Module
+    initEventsModule(userData);
+    console.log('[Coach] Events module initialized');
 
     // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
@@ -755,18 +760,84 @@ async function initializeCoachPage(userData) {
     document.getElementById('export-attendance-summary-btn').addEventListener('click', async () => {
         await exportAttendanceSummary(supabase, userData.clubId, currentCalendarDate, currentSubgroupFilter);
     });
+    // Calendar day click - opens the new event day modal
     document
         .getElementById('calendar-grid')
-        .addEventListener('click', e =>
-            handleCalendarDayClick(
-                e,
-                clubPlayers,
-                updateAttendanceCount,
-                () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter),
-                supabase,
-                userData.clubId
-            )
+        .addEventListener('click', async (e) => {
+            const dayCell = e.target.closest('.calendar-day');
+            if (!dayCell || dayCell.classList.contains('disabled')) return;
+
+            const dateString = dayCell.dataset.date;
+            if (!dateString) return;
+
+            // Load sessions for this day
+            try {
+                const { data: sessions, error } = await supabase
+                    .from('training_sessions')
+                    .select('id, start_time, end_time, subgroup_id')
+                    .eq('club_id', userData.clubId)
+                    .eq('date', dateString)
+                    .eq('cancelled', false)
+                    .order('start_time');
+
+                if (error) throw error;
+
+                // Get subgroup info for sessions
+                const sessionsWithInfo = await Promise.all((sessions || []).map(async (session) => {
+                    let subgroupName = 'Training';
+                    let subgroupColor = '#6366f1';
+
+                    if (session.subgroup_id) {
+                        const { data: subgroup } = await supabase
+                            .from('subgroups')
+                            .select('name, color')
+                            .eq('id', session.subgroup_id)
+                            .single();
+
+                        if (subgroup) {
+                            subgroupName = subgroup.name;
+                            subgroupColor = subgroup.color || '#6366f1';
+                        }
+                    }
+
+                    return {
+                        id: session.id,
+                        startTime: session.start_time,
+                        endTime: session.end_time,
+                        subgroupId: session.subgroup_id,
+                        subgroupName,
+                        subgroupColor
+                    };
+                }));
+
+                // Open the new event day modal
+                openEventDayModal(dateString, sessionsWithInfo);
+
+            } catch (error) {
+                console.error('[Coach] Error loading sessions for day:', error);
+                // Fallback to old behavior
+                handleCalendarDayClick(
+                    e,
+                    clubPlayers,
+                    updateAttendanceCount,
+                    () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter),
+                    supabase,
+                    userData.clubId
+                );
+            }
+        });
+
+    // Make openAttendanceForSession available globally for the event day modal
+    window.openAttendanceForSession = async (sessionId, dateString) => {
+        openAttendanceModalForSession(
+            sessionId,
+            dateString,
+            clubPlayers,
+            updateAttendanceCount,
+            () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter),
+            userData.clubId
         );
+    };
 
     // Event delegation for attendance checkboxes - listen on the container
     document.getElementById('attendance-player-list').addEventListener('change', e => {
