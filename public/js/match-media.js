@@ -356,6 +356,14 @@ export async function uploadMedia() {
         // Close modal and reload activity feed
         closeMediaUpload();
 
+        // Reset availability cache so media will be loaded
+        matchMediaAvailable = true;
+
+        // Also reset the cache in activity-feed if it exists
+        if (window.resetMatchMediaCache) {
+            window.resetMatchMediaCache();
+        }
+
         // Refresh the activity feed to show new media
         if (window.loadActivityFeed) {
             await window.loadActivityFeed();
@@ -418,21 +426,23 @@ export async function loadMatchMedia(matchId, matchType) {
     }
 
     try {
-        const { data, error } = await supabase.rpc('get_match_media', {
-            p_match_id: String(matchId),
-            p_match_type: matchType
-        });
+        // Query table directly instead of using RPC
+        const { data, error } = await supabase
+            .from('match_media')
+            .select('id, match_id, match_type, uploaded_by, file_type, file_path, file_size, mime_type, created_at')
+            .eq('match_id', String(matchId))
+            .eq('match_type', matchType)
+            .order('created_at', { ascending: false });
 
         if (error) {
-            // Mark as unavailable if function has issues
-            matchMediaAvailable = false;
+            console.error('Error loading match media:', error);
             return [];
         }
 
         return data || [];
 
-    } catch {
-        matchMediaAvailable = false;
+    } catch (err) {
+        console.error('Error loading match media:', err);
         return [];
     }
 }

@@ -894,6 +894,15 @@ let matchMediaFunctionsChecked = false;
 let matchMediaFunctionsAvailable = false;
 
 /**
+ * Reset match media cache (called after successful upload)
+ */
+function resetMatchMediaCache() {
+    matchMediaFunctionsChecked = false;
+    matchMediaFunctionsAvailable = false;
+}
+window.resetMatchMediaCache = resetMatchMediaCache;
+
+/**
  * Check if match media SQL functions are available (one-time check)
  */
 async function checkMatchMediaAvailability() {
