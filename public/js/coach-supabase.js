@@ -476,7 +476,7 @@ async function initializeCoachPage(userData) {
     loadCoachMatchRequests(userData, supabase);
     loadCoachProcessedRequests(userData, supabase);
 
-    calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
 
     // Listen for training cancellation events to reload calendar
     window.addEventListener('trainingCancelled', () => {
@@ -484,7 +484,7 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
     // Listen for training creation events to reload calendar
@@ -493,7 +493,7 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
     // Listen for player subgroup changes to reload clubPlayers and refresh filtered views
@@ -619,7 +619,7 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
     // Form Submissions
@@ -645,7 +645,7 @@ async function initializeCoachPage(userData) {
         .getElementById('attendance-form')
         .addEventListener('submit', e =>
             handleAttendanceSave(e, supabase, userData, clubPlayers, currentCalendarDate, date =>
-                renderCalendar(date, supabase, userData)
+                renderCalendar(date, userData)
             )
         );
     document
@@ -743,14 +743,14 @@ async function initializeCoachPage(userData) {
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
     document.getElementById('next-month-btn').addEventListener('click', () => {
         currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
         if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
             calendarUnsubscribe();
         }
-        calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+        calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
     });
 
     // Export buttons for attendance
@@ -1145,7 +1145,7 @@ function handleSubgroupFilterChange(userData) {
     if (calendarUnsubscribe && typeof calendarUnsubscribe === 'function') {
         calendarUnsubscribe();
     }
-    calendarUnsubscribe = renderCalendar(currentCalendarDate, supabase, userData);
+    calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
 
     // Reload leaderboards
     loadLeaderboard(userData, supabase, []);
