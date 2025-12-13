@@ -1,8 +1,8 @@
 // i18n Module - Internationalization for SC Champions
 // Uses i18next for translations
 
-import i18next from 'https://cdn.jsdelivr.net/npm/i18next@23.7.6/+esm';
-import HttpBackend from 'https://cdn.jsdelivr.net/npm/i18next-http-backend@2.4.2/+esm';
+import i18next from 'https://cdn.jsdelivr.net/npm/i18next@23.16.4/+esm';
+import HttpBackend from 'https://cdn.jsdelivr.net/npm/i18next-http-backend@2.6.2/+esm';
 
 let i18nInitialized = false;
 const DEFAULT_LANGUAGE = 'de';
