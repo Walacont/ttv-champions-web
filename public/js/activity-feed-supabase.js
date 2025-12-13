@@ -560,11 +560,16 @@ async function loadLikesForActivities(activities) {
 
     try {
         const activityIds = activities.map(a => a.id);
-        const matchTypes = activities.map(a => a.matchType);
+        const activityTypes = activities.map(a => {
+            // Convert match types to activity types for new schema
+            if (a.matchType === 'singles') return 'singles_match';
+            if (a.matchType === 'doubles') return 'doubles_match';
+            return a.activityType || a.matchType;
+        });
 
         const { data, error } = await supabase.rpc('get_activity_likes_batch', {
             p_activity_ids: activityIds,
-            p_match_types: matchTypes
+            p_activity_types: activityTypes
         });
 
         if (error) {
@@ -574,7 +579,7 @@ async function loadLikesForActivities(activities) {
         }
 
         (data || []).forEach(like => {
-            const key = `${like.match_id}_${like.match_type}`;
+            const key = `${like.activity_type}-${like.activity_id}`;
             likesDataCache[key] = {
                 likeCount: like.like_count || 0,
                 isLiked: like.is_liked_by_me || false,
@@ -593,20 +598,25 @@ async function loadLikesForActivities(activities) {
  */
 async function loadLikesFallback(activities) {
     for (const activity of activities) {
-        const key = `${activity.id}_${activity.matchType}`;
+        // Convert match types to activity types for new schema
+        let activityType = activity.activityType || activity.matchType;
+        if (activityType === 'singles') activityType = 'singles_match';
+        if (activityType === 'doubles') activityType = 'doubles_match';
+
+        const key = `${activityType}-${activity.id}`;
 
         try {
             const { count } = await supabase
                 .from('activity_likes')
                 .select('id', { count: 'exact', head: true })
-                .eq('match_id', activity.id)
-                .eq('match_type', activity.matchType);
+                .eq('activity_id', activity.id)
+                .eq('activity_type', activityType);
 
             const { data: userLike } = await supabase
                 .from('activity_likes')
                 .select('id')
-                .eq('match_id', activity.id)
-                .eq('match_type', activity.matchType)
+                .eq('activity_id', activity.id)
+                .eq('activity_type', activityType)
                 .eq('user_id', currentUser.id)
                 .maybeSingle();
 
@@ -624,8 +634,12 @@ async function loadLikesFallback(activities) {
 /**
  * Toggle like on an activity
  */
-async function toggleActivityLike(matchId, matchType) {
-    const key = `${matchId}_${matchType}`;
+async function toggleActivityLike(activityId, activityType) {
+    // Convert legacy match types to new schema
+    if (activityType === 'singles') activityType = 'singles_match';
+    if (activityType === 'doubles') activityType = 'doubles_match';
+
+    const key = `${activityType}-${activityId}`;
     const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
     const countEl = document.querySelector(`[data-like-count="${key}"]`);
 
@@ -640,13 +654,13 @@ async function toggleActivityLike(matchId, matchType) {
 
     try {
         const { data, error } = await supabase.rpc('toggle_activity_like', {
-            p_match_id: matchId,
-            p_match_type: matchType
+            p_activity_id: activityId,
+            p_activity_type: activityType
         });
 
         if (error) {
             console.warn('[ActivityFeed] Toggle RPC not available:', error.message);
-            await toggleLikeFallback(matchId, matchType, newIsLiked, key);
+            await toggleLikeFallback(activityId, activityType, newIsLiked, key);
         } else if (data) {
             likesDataCache[key] = {
                 ...currentData,
@@ -666,22 +680,22 @@ async function toggleActivityLike(matchId, matchType) {
 /**
  * Fallback method to toggle like directly
  */
-async function toggleLikeFallback(matchId, matchType, shouldLike, key) {
+async function toggleLikeFallback(activityId, activityType, shouldLike, key) {
     try {
         if (shouldLike) {
             await supabase
                 .from('activity_likes')
                 .insert({
-                    match_id: matchId,
-                    match_type: matchType,
+                    activity_id: activityId,
+                    activity_type: activityType,
                     user_id: currentUser.id
                 });
         } else {
             await supabase
                 .from('activity_likes')
                 .delete()
-                .eq('match_id', matchId)
-                .eq('match_type', matchType)
+                .eq('activity_id', activityId)
+                .eq('activity_type', activityType)
                 .eq('user_id', currentUser.id);
         }
     } catch (e) {
@@ -721,7 +735,9 @@ function updateLikeUI(likeBtn, countEl, isLiked, count) {
  * Get like data for a specific activity
  */
 function getLikeData(matchId, matchType) {
-    const key = `${matchId}_${matchType}`;
+    // Convert match type to activity type for new schema
+    const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
+    const key = `${activityType}-${matchId}`;
     return likesDataCache[key] || { likeCount: 0, isLiked: false, recentLikers: [] };
 }
 
@@ -729,7 +745,9 @@ function getLikeData(matchId, matchType) {
  * Render the like button HTML
  */
 function renderLikeButton(matchId, matchType) {
-    const key = `${matchId}_${matchType}`;
+    // Convert match type to activity type for new schema
+    const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
+    const key = `${activityType}-${matchId}`;
     const likeData = getLikeData(matchId, matchType);
     const isLiked = likeData.isLiked;
     const count = likeData.likeCount;
