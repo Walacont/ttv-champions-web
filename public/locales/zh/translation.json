@@ -246,7 +246,9 @@
           "congratulations": "恭喜你升级！"
         }
       },
-      "giveKudos": "点赞"
+      "giveKudos": "点赞",
+      "like": "赞",
+      "likes": "赞"
     },
     "training": {
       "title": "训练",

@@ -1,7 +1,7 @@
 /**
  * Activity Feed Module - Supabase Version
  * Shows recent matches from club members and followed users
- * Includes Strava-style like/kudos functionality, infinite scroll, and filters
+ * Includes like functionality, infinite scroll, and filters
  */
 
 import { getSupabase } from './supabase-init.js';

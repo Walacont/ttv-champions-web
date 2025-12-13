@@ -246,7 +246,9 @@
           "congratulations": "Congratulations on your rank up!"
         }
       },
-      "giveKudos": "Give kudos"
+      "giveKudos": "Like",
+      "like": "Like",
+      "likes": "Likes"
     },
     "training": {
       "title": "Training",
