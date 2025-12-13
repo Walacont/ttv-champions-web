@@ -7,6 +7,7 @@
 import { getSupabase } from './supabase-init.js';
 import { formatRelativeDate } from './dashboard-match-history-supabase.js';
 import { t } from './i18n.js';
+import { loadMatchMedia } from './match-media.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -213,6 +214,19 @@ function setupInfiniteScroll() {
 }
 
 /**
+ * Load match media for all match activities
+ */
+function loadMatchMediaForActivities(activities) {
+    activities.forEach(activity => {
+        if (activity.activityType === 'singles' || activity.matchType === 'singles') {
+            injectMatchMedia(activity.id, 'singles');
+        } else if (activity.activityType === 'doubles' || activity.matchType === 'doubles') {
+            injectMatchMedia(activity.id, 'doubles');
+        }
+    });
+}
+
+/**
  * Load activity feed based on current filter
  */
 export async function loadActivityFeed() {
@@ -268,6 +282,9 @@ export async function loadActivityFeed() {
 
         // Render initial activities
         container.innerHTML = activities.map(activity => renderActivityCard(activity)).join('');
+
+        // Load match media for all rendered matches
+        loadMatchMediaForActivities(activities);
 
         // Update offset for next load
         activityOffset += activities.length;
@@ -517,6 +534,9 @@ async function loadMoreActivities() {
         if (container) {
             const newHtml = activities.map(activity => renderActivityCard(activity)).join('');
             container.insertAdjacentHTML('beforeend', newHtml);
+
+            // Load match media for newly rendered matches
+            loadMatchMediaForActivities(activities);
         }
 
         activityOffset += activities.length;
@@ -769,6 +789,113 @@ function renderLikeButton(matchId, matchType) {
 }
 
 /**
+ * Render match media section placeholder
+ * Will be populated asynchronously
+ */
+function renderMatchMediaPlaceholder(matchId, matchType) {
+    return `<div id="media-${matchType}-${matchId}" class="mt-3" data-match-id="${matchId}" data-match-type="${matchType}"></div>`;
+}
+
+/**
+ * Load and inject match media into the DOM
+ */
+async function injectMatchMedia(matchId, matchType) {
+    const container = document.getElementById(`media-${matchType}-${matchId}`);
+    if (!container) return;
+
+    try {
+        const media = await loadMatchMedia(matchId, matchType);
+
+        if (!media || media.length === 0) {
+            // Check if user is a participant (can upload)
+            const isParticipant = await checkIfParticipant(matchId, matchType);
+
+            if (isParticipant) {
+                container.innerHTML = `
+                    <button
+                        onclick="openMediaUpload('${matchId}', '${matchType}')"
+                        class="text-sm text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
+                    >
+                        <i class="fas fa-camera"></i>
+                        <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
+                    </button>
+                `;
+            }
+            return;
+        }
+
+        // Render media gallery
+        const { data: { publicUrl } } = supabase.storage
+            .from('match-media')
+            .getPublicUrl(media[0].file_path);
+
+        const isParticipant = await checkIfParticipant(matchId, matchType);
+
+        container.innerHTML = `
+            <div class="space-y-2">
+                <!-- Media Preview -->
+                <div class="relative group cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', 0)">
+                    ${media[0].file_type === 'photo' ? `
+                        <img src="${publicUrl}" alt="Match media" class="w-full h-48 object-cover rounded-lg">
+                    ` : `
+                        <video class="w-full h-48 object-cover rounded-lg">
+                            <source src="${publicUrl}" type="${media[0].mime_type}">
+                        </video>
+                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg">
+                            <i class="fas fa-play-circle text-white text-4xl"></i>
+                        </div>
+                    `}
+                    ${media.length > 1 ? `
+                        <div class="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full">
+                            +${media.length - 1} ${media.length === 2 ? t('dashboard.matchMedia.viewMedia') : t('dashboard.matchMedia.viewMedia')}
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-3 text-sm">
+                    <button
+                        onclick="openMediaGallery('${matchId}', '${matchType}', 0)"
+                        class="text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
+                    >
+                        <i class="fas fa-images"></i>
+                        <span>${media.length} ${media.length === 1 ? 'Foto/Video' : 'Fotos/Videos'}</span>
+                    </button>
+                    ${isParticipant && media.length < 5 ? `
+                        <button
+                            onclick="openMediaUpload('${matchId}', '${matchType}')"
+                            class="text-gray-600 hover:text-gray-700 transition flex items-center gap-1"
+                        >
+                            <i class="fas fa-plus"></i>
+                            <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Error loading match media:', error);
+    }
+}
+
+/**
+ * Check if current user is a participant in the match
+ */
+async function checkIfParticipant(matchId, matchType) {
+    try {
+        const { data } = await supabase.rpc('can_upload_match_media', {
+            p_match_id: matchId,
+            p_match_type: matchType
+        });
+        return data === true;
+    } catch (error) {
+        console.error('Error checking participant status:', error);
+        return false;
+    }
+}
+
+/**
  * Render a singles match activity card
  */
 function renderSinglesActivityCard(match, profileMap, followingIds) {
@@ -864,6 +991,8 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                     <div class="mt-3 flex items-center gap-4">
                         ${renderLikeButton(match.id, 'singles')}
                     </div>
+
+                    ${renderMatchMediaPlaceholder(match.id, 'singles')}
                 </div>
 
                 <a href="/profile.html?id=${loserId}" class="flex-shrink-0">
@@ -943,6 +1072,8 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                     <div class="mt-3 flex items-center gap-4">
                         ${renderLikeButton(match.id, 'doubles')}
                     </div>
+
+                    ${renderMatchMediaPlaceholder(match.id, 'doubles')}
                 </div>
 
                 <div class="flex-shrink-0 flex -space-x-2">

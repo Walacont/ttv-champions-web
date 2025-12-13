@@ -254,6 +254,26 @@
         "post": "发布",
         "empty": "还没有评论。成为第一个！",
         "deleteConfirm": "你真的要删除这条评论吗？"
+      },
+      "matchMedia": {
+        "uploadTitle": "上传照片/视频",
+        "upload": "上传",
+        "uploading": "上传中...",
+        "gallery": "比赛媒体",
+        "selectFiles": "选择文件",
+        "infoTitle": "注意",
+        "infoText": "请仅上传简短的精彩片段（最多30-60秒），而非整场比赛！",
+        "limits": "最多5个文件 | 照片：最大10MB | 视频：最大50MB",
+        "deleteConfirm": "你真的要删除这个文件吗？",
+        "addMedia": "添加照片/视频",
+        "viewMedia": "查看媒体",
+        "errors": {
+          "invalidType": "不支持的文件类型",
+          "photoTooLarge": "照片太大（最大10MB）",
+          "videoTooLarge": "视频太大（最大50MB）",
+          "maxReached": "已达到5个文件的上限",
+          "notParticipant": "只有这场比赛的选手可以上传媒体"
+        }
       }
     },
     "training": {

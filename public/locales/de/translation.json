@@ -254,6 +254,26 @@
         "post": "Posten",
         "empty": "Noch keine Kommentare. Sei der Erste!",
         "deleteConfirm": "Möchtest du diesen Kommentar wirklich löschen?"
+      },
+      "matchMedia": {
+        "uploadTitle": "Fotos/Videos hochladen",
+        "upload": "Hochladen",
+        "uploading": "Wird hochgeladen...",
+        "gallery": "Match Medien",
+        "selectFiles": "Dateien auswählen",
+        "infoTitle": "Hinweis",
+        "infoText": "Bitte nur kurze Highlights hochladen (max. 30-60 Sekunden), nicht das gesamte Match!",
+        "limits": "Maximal 5 Dateien | Fotos: max. 10MB | Videos: max. 50MB",
+        "deleteConfirm": "Möchtest du diese Datei wirklich löschen?",
+        "addMedia": "Fotos/Videos hinzufügen",
+        "viewMedia": "Medien ansehen",
+        "errors": {
+          "invalidType": "Dateityp wird nicht unterstützt",
+          "photoTooLarge": "Foto ist zu groß (max. 10MB)",
+          "videoTooLarge": "Video ist zu groß (max. 50MB)",
+          "maxReached": "Maximale Anzahl von 5 Dateien erreicht",
+          "notParticipant": "Nur Spieler dieses Matches können Medien hochladen"
+        }
       }
     },
     "training": {
