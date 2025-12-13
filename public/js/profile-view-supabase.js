@@ -381,140 +381,557 @@ function formatRelativeDate(date) {
 }
 
 /**
- * Render recent activity (last 5 matches) - Card design like Wettkampf-Historie
+ * Render recent activity (matches, posts, polls, events) - Like activity feed on dashboard
  */
 async function renderRecentActivity(profile) {
     const supabase = getSupabase();
+    const ACTIVITY_LIMIT = 10;
 
-    const { data: matches, error } = await supabase
-        .from('matches')
-        .select(`
-            id,
-            winner_id,
-            player_a_id,
-            player_b_id,
-            sets,
-            played_at,
-            created_at,
-            winner_elo_change,
-            loser_elo_change,
-            season_points_awarded,
-            match_mode,
-            handicap_used,
-            player_a:profiles!matches_player_a_id_fkey(id, first_name, last_name, avatar_url, elo_rating),
-            player_b:profiles!matches_player_b_id_fkey(id, first_name, last_name, avatar_url, elo_rating)
-        `)
-        .or(`player_a_id.eq.${profileId},player_b_id.eq.${profileId}`)
-        .order('created_at', { ascending: false })
-        .limit(5);
+    try {
+        // Fetch all activity types for this user
+        const [singlesRes, doublesRes, postsRes, pollsRes, eventsRes] = await Promise.all([
+            // Singles matches
+            supabase
+                .from('matches')
+                .select('*')
+                .or(`player_a_id.eq.${profileId},player_b_id.eq.${profileId}`)
+                .order('created_at', { ascending: false })
+                .limit(ACTIVITY_LIMIT),
 
-    if (error || !matches || matches.length === 0) {
-        return;
-    }
+            // Doubles matches
+            supabase
+                .from('doubles_matches')
+                .select('*')
+                .or(`team_a_player1_id.eq.${profileId},team_a_player2_id.eq.${profileId},team_b_player1_id.eq.${profileId},team_b_player2_id.eq.${profileId}`)
+                .order('created_at', { ascending: false })
+                .limit(ACTIVITY_LIMIT),
 
-    const activitySection = document.getElementById('activity-section');
-    activitySection.classList.remove('hidden');
+            // Community posts
+            supabase
+                .from('community_posts')
+                .select('*')
+                .eq('user_id', profileId)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false })
+                .limit(ACTIVITY_LIMIT),
 
-    const container = document.getElementById('recent-matches');
-    container.innerHTML = matches.map(match => {
-        const isPlayerA = match.player_a_id === profileId;
-        const playerA = match.player_a || {};
-        const playerB = match.player_b || {};
-        const won = match.winner_id === profileId;
+            // Community polls
+            supabase
+                .from('community_polls')
+                .select('*')
+                .eq('user_id', profileId)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false })
+                .limit(ACTIVITY_LIMIT),
 
-        const profilePlayer = isPlayerA ? playerA : playerB;
-        const opponent = isPlayerA ? playerB : playerA;
-        const opponentName = `${opponent?.first_name || ''} ${opponent?.last_name || ''}`.trim() || 'Unbekannt';
-        const profilePlayerName = `${profilePlayer?.first_name || ''} ${profilePlayer?.last_name || ''}`.trim() || 'Spieler';
+            // Activity events (rank ups, club joins, etc.)
+            supabase
+                .from('activity_events')
+                .select('*')
+                .eq('user_id', profileId)
+                .order('created_at', { ascending: false })
+                .limit(ACTIVITY_LIMIT)
+        ]);
 
-        const profileAvatar = profilePlayer?.avatar_url || DEFAULT_AVATAR;
-        const oppAvatar = opponent?.avatar_url || DEFAULT_AVATAR;
+        // Combine all activities
+        const allActivities = [
+            ...(singlesRes.data || []).map(m => ({ ...m, activityType: 'singles' })),
+            ...(doublesRes.data || []).map(m => ({ ...m, activityType: 'doubles' })),
+            ...(postsRes.data || []).map(p => ({ ...p, activityType: 'post' })),
+            ...(pollsRes.data || []).map(p => ({ ...p, activityType: 'poll' })),
+            ...(eventsRes.data || []).map(e => ({ ...e, activityType: e.event_type }))
+        ];
 
-        // Calculate set wins from sets array
-        let playerASetWins = 0;
-        let playerBSetWins = 0;
-        const sets = match.sets || [];
-        sets.forEach(set => {
-            const scoreA = set.playerA ?? set.teamA ?? 0;
-            const scoreB = set.playerB ?? set.teamB ?? 0;
-            if (scoreA > scoreB) playerASetWins++;
-            else if (scoreB > scoreA) playerBSetWins++;
-        });
+        // Sort by created_at descending
+        allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-        const mySetWins = isPlayerA ? playerASetWins : playerBSetWins;
-        const oppSetWins = isPlayerA ? playerBSetWins : playerASetWins;
+        // Take top activities
+        const activities = allActivities.slice(0, ACTIVITY_LIMIT);
 
-        const setScoresDisplay = sets.map(set => {
-            const scoreA = set.playerA ?? set.teamA ?? 0;
-            const scoreB = set.playerB ?? set.teamB ?? 0;
-            return isPlayerA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
-        }).join(', ');
-
-        const eloChange = won ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
-        const pointsAwarded = won ? (match.season_points_awarded || 0) : 0;
-
-        const matchDate = new Date(match.created_at || match.played_at);
-        const dateDisplay = formatRelativeDate(matchDate);
-        const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-        let statsHtml = '';
-        if (won) {
-            const displayElo = Math.abs(eloChange);
-            statsHtml = `<span class="text-green-600 font-medium text-sm">+${displayElo} Elo</span>`;
-            if (pointsAwarded > 0) {
-                statsHtml += `<span class="text-green-600 font-medium text-sm ml-2">+${pointsAwarded} Pkt</span>`;
-            }
-        } else {
-            const displayElo = Math.abs(eloChange);
-            statsHtml = `<span class="text-red-600 font-medium text-sm">-${displayElo} Elo</span>`;
+        if (activities.length === 0) {
+            return;
         }
 
-        const handicapBadge = match.handicap_used
-            ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
-            : '';
+        // Collect player IDs for profile lookup
+        const playerIds = new Set();
+        activities.forEach(activity => {
+            if (activity.activityType === 'singles') {
+                playerIds.add(activity.player_a_id);
+                playerIds.add(activity.player_b_id);
+            } else if (activity.activityType === 'doubles') {
+                playerIds.add(activity.team_a_player1_id);
+                playerIds.add(activity.team_a_player2_id);
+                playerIds.add(activity.team_b_player1_id);
+                playerIds.add(activity.team_b_player2_id);
+            } else if (activity.activityType === 'post' || activity.activityType === 'poll') {
+                playerIds.add(activity.user_id);
+            }
+        });
 
-        return `
-            <div class="bg-white rounded-xl shadow-sm border-l-4 ${won ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-3">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-medium ${won ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                        ${won ? 'Sieg' : 'Niederlage'}
-                    </span>
+        // Fetch profiles
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, avatar_url, display_name, elo_rating')
+            .in('id', [...playerIds].filter(Boolean));
+
+        const profileMap = {};
+        (profiles || []).forEach(p => {
+            profileMap[p.id] = p;
+        });
+
+        // Show activity section
+        const activitySection = document.getElementById('activity-section');
+        activitySection.classList.remove('hidden');
+
+        const container = document.getElementById('recent-matches');
+        container.innerHTML = activities.map(activity => {
+            return renderProfileActivityCard(activity, profileMap);
+        }).join('');
+
+    } catch (error) {
+        console.error('[ProfileView] Error loading activities:', error);
+    }
+}
+
+/**
+ * Render a single activity card for profile view
+ */
+function renderProfileActivityCard(activity, profileMap) {
+    switch (activity.activityType) {
+        case 'singles':
+            return renderProfileSinglesCard(activity, profileMap);
+        case 'doubles':
+            return renderProfileDoublesCard(activity, profileMap);
+        case 'post':
+            return renderProfilePostCard(activity, profileMap);
+        case 'poll':
+            return renderProfilePollCard(activity, profileMap);
+        case 'club_join':
+            return renderProfileClubJoinCard(activity);
+        case 'club_leave':
+            return renderProfileClubLeaveCard(activity);
+        case 'rank_up':
+            return renderProfileRankUpCard(activity);
+        default:
+            return '';
+    }
+}
+
+/**
+ * Render singles match card for profile
+ */
+function renderProfileSinglesCard(match, profileMap) {
+    const playerA = profileMap[match.player_a_id] || {};
+    const playerB = profileMap[match.player_b_id] || {};
+
+    const isPlayerA = match.player_a_id === profileId;
+    const won = match.winner_id === profileId;
+
+    const profilePlayer = isPlayerA ? playerA : playerB;
+    const opponent = isPlayerA ? playerB : playerA;
+
+    const opponentName = getProfileDisplayName(opponent);
+    const profilePlayerName = getProfileDisplayName(profilePlayer);
+
+    const profileAvatar = profilePlayer?.avatar_url || DEFAULT_AVATAR;
+    const oppAvatar = opponent?.avatar_url || DEFAULT_AVATAR;
+
+    // Calculate set wins
+    let playerASetWins = 0;
+    let playerBSetWins = 0;
+    const sets = match.sets || [];
+    sets.forEach(set => {
+        const scoreA = set.playerA ?? set.teamA ?? 0;
+        const scoreB = set.playerB ?? set.teamB ?? 0;
+        if (scoreA > scoreB) playerASetWins++;
+        else if (scoreB > scoreA) playerBSetWins++;
+    });
+
+    const mySetWins = isPlayerA ? playerASetWins : playerBSetWins;
+    const oppSetWins = isPlayerA ? playerBSetWins : playerASetWins;
+
+    const setScoresDisplay = sets.map(set => {
+        const scoreA = set.playerA ?? set.teamA ?? 0;
+        const scoreB = set.playerB ?? set.teamB ?? 0;
+        return isPlayerA ? `${scoreA}-${scoreB}` : `${scoreB}-${scoreA}`;
+    }).join(', ');
+
+    const eloChange = won ? (match.winner_elo_change || 0) : (match.loser_elo_change || 0);
+    const pointsAwarded = won ? (match.season_points_awarded || 0) : 0;
+
+    const matchDate = new Date(match.created_at || match.played_at);
+    const dateDisplay = formatRelativeDate(matchDate);
+    const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    let statsHtml = '';
+    if (won) {
+        const displayElo = Math.abs(eloChange);
+        statsHtml = `<span class="text-green-600 font-medium text-sm">+${displayElo} Elo</span>`;
+        if (pointsAwarded > 0) {
+            statsHtml += `<span class="text-green-600 font-medium text-sm ml-2">+${pointsAwarded} Pkt</span>`;
+        }
+    } else {
+        const displayElo = Math.abs(eloChange);
+        statsHtml = `<span class="text-red-600 font-medium text-sm">-${displayElo} Elo</span>`;
+    }
+
+    const handicapBadge = match.handicap_used
+        ? '<span class="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">Handicap</span>'
+        : '';
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border-l-4 ${won ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-3 hover:shadow-md transition">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium ${won ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                    ${won ? 'Sieg' : 'Niederlage'}
+                </span>
+            </div>
+
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                    <img src="${escapeHtml(profileAvatar)}" alt="${escapeHtml(profilePlayerName)}"
+                        class="w-10 h-10 rounded-full object-cover border-2 ${won ? 'border-green-500' : 'border-red-500'}"
+                        onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="ml-2">
+                        <p class="font-semibold text-sm">${escapeHtml(profilePlayerName.split(' ')[0])}</p>
+                    </div>
                 </div>
 
-                <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center">
-                        <img src="${escapeHtml(profileAvatar)}" alt="${escapeHtml(profilePlayerName)}"
-                            class="w-10 h-10 rounded-full object-cover border-2 ${won ? 'border-green-500' : 'border-red-500'}"
-                            onerror="this.src='${DEFAULT_AVATAR}'">
-                        <div class="ml-2">
-                            <p class="font-semibold text-sm">${escapeHtml(profilePlayerName.split(' ')[0])}</p>
-                        </div>
-                    </div>
+                <div class="text-center px-3">
+                    <p class="text-xl font-bold">${mySetWins} : ${oppSetWins}</p>
+                    ${setScoresDisplay ? `<p class="text-xs text-gray-500">${setScoresDisplay}</p>` : ''}
+                </div>
 
-                    <div class="text-center px-3">
-                        <p class="text-xl font-bold">${mySetWins} : ${oppSetWins}</p>
-                        ${setScoresDisplay ? `<p class="text-xs text-gray-500">${setScoresDisplay}</p>` : ''}
+                <div class="flex items-center">
+                    <div class="mr-2 text-right">
+                        <p class="font-semibold text-sm">${escapeHtml(opponentName.split(' ')[0])}</p>
                     </div>
-
-                    <div class="flex items-center">
-                        <div class="mr-2 text-right">
-                            <p class="font-semibold text-sm">${escapeHtml(opponentName.split(' ')[0])}</p>
-                        </div>
+                    <a href="/profile.html?id=${opponent.id}">
                         <img src="${escapeHtml(oppAvatar)}" alt="${escapeHtml(opponentName)}"
-                            class="w-10 h-10 rounded-full object-cover border-2 ${!won ? 'border-green-500' : 'border-red-500'}"
+                            class="w-10 h-10 rounded-full object-cover border-2 ${!won ? 'border-green-500' : 'border-red-500'} hover:opacity-80 transition"
                             onerror="this.src='${DEFAULT_AVATAR}'">
+                    </a>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                <div class="flex items-center">
+                    ${statsHtml}${handicapBadge}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render doubles match card for profile
+ */
+function renderProfileDoublesCard(match, profileMap) {
+    const teamAPlayer1 = profileMap[match.team_a_player1_id] || {};
+    const teamAPlayer2 = profileMap[match.team_a_player2_id] || {};
+    const teamBPlayer1 = profileMap[match.team_b_player1_id] || {};
+    const teamBPlayer2 = profileMap[match.team_b_player2_id] || {};
+
+    const isTeamAWinner = match.winner_team === 'A';
+    const isInTeamA = match.team_a_player1_id === profileId || match.team_a_player2_id === profileId;
+    const won = (isTeamAWinner && isInTeamA) || (!isTeamAWinner && !isInTeamA);
+
+    const myTeam = isInTeamA ? [teamAPlayer1, teamAPlayer2] : [teamBPlayer1, teamBPlayer2];
+    const oppTeam = isInTeamA ? [teamBPlayer1, teamBPlayer2] : [teamAPlayer1, teamAPlayer2];
+
+    const myTeamNames = myTeam.map(p => getProfileDisplayName(p)).join(' & ');
+    const oppTeamNames = oppTeam.map(p => getProfileDisplayName(p)).join(' & ');
+
+    // Calculate set wins
+    let teamASetWins = 0;
+    let teamBSetWins = 0;
+    const sets = match.sets || [];
+    sets.forEach(set => {
+        const scoreA = set.teamA ?? set.playerA ?? 0;
+        const scoreB = set.teamB ?? set.playerB ?? 0;
+        if (scoreA > scoreB) teamASetWins++;
+        else if (scoreB > scoreA) teamBSetWins++;
+    });
+
+    const mySetWins = isInTeamA ? teamASetWins : teamBSetWins;
+    const oppSetWins = isInTeamA ? teamBSetWins : teamASetWins;
+
+    const matchDate = new Date(match.created_at);
+    const dateDisplay = formatRelativeDate(matchDate);
+    const timeDisplay = matchDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border-l-4 ${won ? 'border-l-green-500' : 'border-l-red-500'} p-4 mb-3 hover:shadow-md transition">
+            <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                        <i class="fas fa-users mr-1"></i>Doppel
+                    </span>
+                    <span class="text-sm text-gray-500">${dateDisplay}, ${timeDisplay}</span>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-medium ${won ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                    ${won ? 'Sieg' : 'Niederlage'}
+                </span>
+            </div>
+
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <div class="flex -space-x-2">
+                        <img src="${myTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img src="${myTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                    </div>
+                    <div>
+                        <p class="font-semibold text-sm">${escapeHtml(myTeamNames)}</p>
                     </div>
                 </div>
 
-                <div class="flex justify-between items-center pt-2 border-t border-gray-100">
-                    <div class="flex items-center">
-                        ${statsHtml}${handicapBadge}
+                <div class="text-center px-3">
+                    <p class="text-xl font-bold">${mySetWins} : ${oppSetWins}</p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <div class="text-right">
+                        <p class="font-semibold text-sm">${escapeHtml(oppTeamNames)}</p>
+                    </div>
+                    <div class="flex -space-x-2">
+                        <img src="${oppTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${!won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        <img src="${oppTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${!won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
                     </div>
                 </div>
             </div>
-        `;
-    }).join('');
+        </div>
+    `;
+}
+
+/**
+ * Render community post card for profile
+ */
+function renderProfilePostCard(post, profileMap) {
+    const profile = profileMap[post.user_id] || {};
+    const displayName = getProfileDisplayName(profile);
+    const avatarUrl = profile.avatar_url || DEFAULT_AVATAR;
+
+    const postDate = new Date(post.created_at);
+    const dateDisplay = formatRelativeDate(postDate);
+    const timeDisplay = postDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    const imageUrls = post.image_urls || (post.image_url ? [post.image_url] : []);
+    const hasImages = imageUrls.length > 0;
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-gray-100">
+            <div class="flex items-start gap-3 mb-3">
+                <img src="${avatarUrl}" alt="${displayName}"
+                     class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-gray-900">${displayName}</span>
+                        <span class="text-gray-400">•</span>
+                        <span class="text-xs text-gray-500">${dateDisplay}, ${timeDisplay}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                        <i class="fas fa-${post.visibility === 'public' ? 'globe' : post.visibility === 'club' ? 'building' : 'user-friends'} text-xs"></i>
+                        <span>${post.visibility === 'public' ? 'Öffentlich' : post.visibility === 'club' ? 'Verein' : 'Follower'}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <p class="text-gray-800 whitespace-pre-wrap break-words">${escapeHtml(post.content)}</p>
+            </div>
+
+            ${hasImages ? `
+            <div class="mb-3 grid ${imageUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-2">
+                ${imageUrls.map(url => `
+                    <img src="${url}" alt="Post Bild"
+                         class="w-full h-auto rounded-lg object-cover cursor-pointer hover:opacity-95 transition"
+                         onclick="window.open('${url}', '_blank')">
+                `).join('')}
+            </div>
+            ` : ''}
+
+            <div class="flex items-center gap-4 pt-3 border-t border-gray-100 text-sm text-gray-500">
+                <span><i class="far fa-thumbs-up mr-1"></i>${post.likes_count || 0}</span>
+                <span><i class="far fa-comment mr-1"></i>${post.comments_count || 0}</span>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render community poll card for profile
+ */
+function renderProfilePollCard(poll, profileMap) {
+    const profile = profileMap[poll.user_id] || {};
+    const displayName = getProfileDisplayName(profile);
+    const avatarUrl = profile.avatar_url || DEFAULT_AVATAR;
+
+    const pollDate = new Date(poll.created_at);
+    const dateDisplay = formatRelativeDate(pollDate);
+    const timeDisplay = pollDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    const endsAt = new Date(poll.ends_at);
+    const isActive = endsAt > new Date();
+    const totalVotes = poll.total_votes || 0;
+    const options = poll.options || [];
+
+    const optionsWithPercent = options.map(opt => ({
+        ...opt,
+        percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0
+    }));
+
+    return `
+        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-purple-100">
+            <div class="flex items-start gap-3 mb-3">
+                <img src="${avatarUrl}" alt="${displayName}"
+                     class="w-10 h-10 rounded-full object-cover border-2 border-purple-300"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-poll text-purple-600"></i>
+                        <span class="font-semibold text-gray-900">${displayName}</span>
+                        <span class="text-gray-400">•</span>
+                        <span class="text-xs text-gray-500">${dateDisplay}, ${timeDisplay}</span>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-base font-semibold text-gray-900 mb-3">${escapeHtml(poll.question)}</h3>
+
+            <div class="space-y-2 mb-3">
+                ${optionsWithPercent.map(option => `
+                    <div class="bg-white rounded-lg p-2 border border-purple-200">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-medium text-sm text-gray-800">${escapeHtml(option.text)}</span>
+                            <span class="text-xs font-semibold text-purple-600">${option.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full" style="width: ${option.percentage}%"></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="flex items-center justify-between text-xs text-gray-600 pt-2 border-t border-purple-100">
+                <span><i class="fas fa-users mr-1"></i>${totalVotes} Stimmen</span>
+                <span><i class="fas fa-clock mr-1"></i>${isActive ? 'Läuft' : 'Beendet'}</span>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render club join event card for profile
+ */
+function renderProfileClubJoinCard(event) {
+    const eventData = event.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const clubName = eventData.club_name || 'Unbekannt';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+
+    const eventDate = new Date(event.created_at);
+    const dateDisplay = formatRelativeDate(eventDate);
+    const timeDisplay = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-blue-100">
+            <div class="flex items-start gap-3">
+                <img src="${avatarUrl}" alt="${displayName}"
+                     class="w-10 h-10 rounded-full object-cover border-2 border-blue-400"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fas fa-building text-blue-600"></i>
+                        <span class="font-semibold text-gray-900">${displayName}</span>
+                        <span class="text-gray-600 text-sm">ist beigetreten</span>
+                        <span class="font-semibold text-blue-700">${clubName}</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${dateDisplay}, ${timeDisplay}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render club leave event card for profile
+ */
+function renderProfileClubLeaveCard(event) {
+    const eventData = event.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const clubName = eventData.club_name || 'Unbekannt';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+
+    const eventDate = new Date(event.created_at);
+    const dateDisplay = formatRelativeDate(eventDate);
+    const timeDisplay = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+        <div class="bg-gradient-to-r from-gray-50 to-slate-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-gray-200">
+            <div class="flex items-start gap-3">
+                <img src="${avatarUrl}" alt="${displayName}"
+                     class="w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fas fa-door-open text-gray-500"></i>
+                        <span class="font-semibold text-gray-900">${displayName}</span>
+                        <span class="text-gray-600 text-sm">hat verlassen</span>
+                        <span class="font-semibold text-gray-700">${clubName}</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${dateDisplay}, ${timeDisplay}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render rank up event card for profile
+ */
+function renderProfileRankUpCard(event) {
+    const eventData = event.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const rankName = eventData.rank_name || 'Unbekannt';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+
+    const eventDate = new Date(event.created_at);
+    const dateDisplay = formatRelativeDate(eventDate);
+    const timeDisplay = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+        <div class="bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl shadow-sm p-4 mb-3 hover:shadow-md transition border border-yellow-100">
+            <div class="flex items-start gap-3">
+                <img src="${avatarUrl}" alt="${displayName}"
+                     class="w-10 h-10 rounded-full object-cover border-2 border-yellow-400"
+                     onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <i class="fas fa-trophy text-yellow-600"></i>
+                        <span class="font-semibold text-gray-900">${displayName}</span>
+                        <span class="text-gray-600 text-sm">hat Rang erreicht:</span>
+                        <span class="font-bold text-yellow-700">${rankName}</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${dateDisplay}, ${timeDisplay}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Get display name for a player profile
+ */
+function getProfileDisplayName(profile) {
+    if (!profile) return 'Unbekannt';
+    if (profile.display_name) return profile.display_name;
+    if (profile.first_name && profile.last_name) {
+        return `${profile.first_name} ${profile.last_name}`;
+    }
+    if (profile.first_name) return profile.first_name;
+    return 'Spieler';
 }
 
 /**
