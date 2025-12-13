@@ -875,22 +875,43 @@ async function injectMatchMedia(matchId, matchType) {
         `;
 
     } catch (error) {
-        console.error('Error loading match media:', error);
+        // Silently fail - match media functions may not be set up yet
     }
 }
+
+// Cache for match media function availability
+let matchMediaFunctionsChecked = false;
+let matchMediaFunctionsAvailable = false;
 
 /**
  * Check if current user is a participant in the match
  */
 async function checkIfParticipant(matchId, matchType) {
+    // Skip if we already know functions aren't available
+    if (matchMediaFunctionsChecked && !matchMediaFunctionsAvailable) {
+        return false;
+    }
+
     try {
-        const { data } = await supabase.rpc('can_upload_match_media', {
-            p_match_id: matchId,
+        const { data, error } = await supabase.rpc('can_upload_match_media', {
+            p_match_id: String(matchId),
             p_match_type: matchType
         });
+
+        if (error) {
+            // Mark as unavailable - function doesn't exist yet
+            matchMediaFunctionsChecked = true;
+            matchMediaFunctionsAvailable = false;
+            return false;
+        }
+
+        matchMediaFunctionsChecked = true;
+        matchMediaFunctionsAvailable = true;
         return data === true;
     } catch (error) {
-        console.error('Error checking participant status:', error);
+        // Silently fail - functions not set up yet
+        matchMediaFunctionsChecked = true;
+        matchMediaFunctionsAvailable = false;
         return false;
     }
 }

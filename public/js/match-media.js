@@ -11,6 +11,7 @@ const supabase = getSupabase();
 let currentUser = null;
 let currentMatchId = null;
 let currentMatchType = null;
+let matchMediaFunctionsAvailable = null; // null = not checked, true/false = result
 
 // File constraints
 const MAX_PHOTOS = 5;
@@ -351,20 +352,58 @@ export async function uploadMedia() {
 }
 
 /**
+ * Check if match media SQL functions are available
+ */
+async function checkMatchMediaFunctions() {
+    if (matchMediaFunctionsAvailable !== null) {
+        return matchMediaFunctionsAvailable;
+    }
+
+    try {
+        // Try a simple call to check if function exists
+        const { error } = await supabase.rpc('get_match_media', {
+            p_match_id: 'test',
+            p_match_type: 'singles'
+        });
+
+        // 404 = function doesn't exist, 400 might mean bad params but function exists
+        // We'll consider it unavailable if we get any error for now
+        matchMediaFunctionsAvailable = !error;
+        return matchMediaFunctionsAvailable;
+    } catch {
+        matchMediaFunctionsAvailable = false;
+        return false;
+    }
+}
+
+/**
  * Load and display media for a match
  */
 export async function loadMatchMedia(matchId, matchType) {
+    // Skip if functions not available
+    if (matchMediaFunctionsAvailable === false) {
+        return [];
+    }
+
     try {
         const { data, error } = await supabase.rpc('get_match_media', {
-            p_match_id: matchId,
+            p_match_id: String(matchId),
             p_match_type: matchType
         });
 
-        if (error) throw error;
+        if (error) {
+            // Mark as unavailable if function doesn't exist
+            if (error.code === 'PGRST202' || error.message?.includes('not found')) {
+                matchMediaFunctionsAvailable = false;
+            }
+            return [];
+        }
+
+        matchMediaFunctionsAvailable = true;
         return data || [];
 
     } catch (error) {
-        console.error('Error loading match media:', error);
+        // Silently fail - functions not set up yet
         return [];
     }
 }
