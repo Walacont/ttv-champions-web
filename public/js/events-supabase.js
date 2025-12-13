@@ -98,10 +98,8 @@ export function openEventDayModal(dateString, sessionsOnDay = []) {
 
     // Populate events list
     const listEl = document.getElementById('event-day-list');
-    const emptyEl = document.getElementById('event-day-empty');
 
     if (sessionsOnDay.length > 0) {
-        emptyEl?.classList.add('hidden');
         listEl.innerHTML = sessionsOnDay.map(session => {
             const subgroupColor = session.subgroupColor || '#6366f1';
             const subgroupName = session.subgroupName || 'Training';
@@ -120,9 +118,11 @@ export function openEventDayModal(dateString, sessionsOnDay = []) {
             `;
         }).join('');
     } else {
-        emptyEl?.classList.remove('hidden');
-        listEl.innerHTML = '';
-        listEl.appendChild(emptyEl);
+        listEl.innerHTML = `
+            <p class="text-gray-500 text-center py-4">
+                Keine Veranstaltungen an diesem Tag
+            </p>
+        `;
     }
 
     showModal('event-day-modal');
