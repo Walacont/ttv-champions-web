@@ -1,37 +1,62 @@
 -- Extended Activity Likes Table
 -- Migration to support likes on ALL activity types (matches, posts, polls, events)
 
--- First, rename the old table to preserve existing data
-ALTER TABLE IF EXISTS activity_likes RENAME TO activity_likes_old;
+-- Drop existing policies first (if re-running)
+DROP POLICY IF EXISTS "activity_likes_select" ON activity_likes;
+DROP POLICY IF EXISTS "activity_likes_insert" ON activity_likes;
+DROP POLICY IF EXISTS "activity_likes_delete" ON activity_likes;
 
--- Create new extended activity_likes table
+-- Check if we need to migrate from old structure
+DO $$
+BEGIN
+    -- If activity_likes doesn't exist or has the old structure (match_id column), migrate
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'activity_likes' AND column_name = 'activity_id'
+    ) THEN
+        -- Rename old table if it exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'activity_likes') THEN
+            ALTER TABLE activity_likes RENAME TO activity_likes_old;
+        END IF;
+
+        -- Create new table
+        CREATE TABLE activity_likes (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            activity_id UUID NOT NULL,
+            activity_type TEXT NOT NULL CHECK (activity_type IN ('singles_match', 'doubles_match', 'post', 'poll', 'event')),
+            user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            UNIQUE(activity_id, activity_type, user_id)
+        );
+
+        -- Migrate data if old table exists
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'activity_likes_old') THEN
+            INSERT INTO activity_likes (id, activity_id, activity_type, user_id, created_at)
+            SELECT
+                id,
+                match_id,
+                CASE
+                    WHEN match_type = 'singles' THEN 'singles_match'
+                    WHEN match_type = 'doubles' THEN 'doubles_match'
+                END,
+                user_id,
+                created_at
+            FROM activity_likes_old;
+
+            DROP TABLE activity_likes_old;
+        END IF;
+    END IF;
+END $$;
+
+-- Ensure table exists with correct structure (safe to run multiple times)
 CREATE TABLE IF NOT EXISTS activity_likes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     activity_id UUID NOT NULL,
     activity_type TEXT NOT NULL CHECK (activity_type IN ('singles_match', 'doubles_match', 'post', 'poll', 'event')),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-
-    -- Ensure a user can only like an activity once
     UNIQUE(activity_id, activity_type, user_id)
 );
-
--- Migrate existing match likes from old table
-INSERT INTO activity_likes (id, activity_id, activity_type, user_id, created_at)
-SELECT
-    id,
-    match_id,
-    CASE
-        WHEN match_type = 'singles' THEN 'singles_match'
-        WHEN match_type = 'doubles' THEN 'doubles_match'
-    END,
-    user_id,
-    created_at
-FROM activity_likes_old
-WHERE EXISTS (SELECT 1 FROM activity_likes_old);
-
--- Drop old table after migration
-DROP TABLE IF EXISTS activity_likes_old;
 
 -- Create indexes for efficient querying
 CREATE INDEX IF NOT EXISTS idx_activity_likes_activity ON activity_likes(activity_id, activity_type);
@@ -40,11 +65,6 @@ CREATE INDEX IF NOT EXISTS idx_activity_likes_created ON activity_likes(created_
 
 -- Enable RLS
 ALTER TABLE activity_likes ENABLE ROW LEVEL SECURITY;
-
--- Drop old policies if they exist
-DROP POLICY IF EXISTS "activity_likes_select" ON activity_likes;
-DROP POLICY IF EXISTS "activity_likes_insert" ON activity_likes;
-DROP POLICY IF EXISTS "activity_likes_delete" ON activity_likes;
 
 -- RLS Policies
 -- Users can view all likes (for like counts)

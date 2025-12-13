@@ -1,6 +1,12 @@
 -- Activity Comments Table
 -- Stores comments on all activity types (matches, posts, polls, events)
 
+-- Drop existing policies first (if re-running)
+DROP POLICY IF EXISTS "activity_comments_select" ON activity_comments;
+DROP POLICY IF EXISTS "activity_comments_insert" ON activity_comments;
+DROP POLICY IF EXISTS "activity_comments_update" ON activity_comments;
+DROP POLICY IF EXISTS "activity_comments_delete" ON activity_comments;
+
 CREATE TABLE IF NOT EXISTS activity_comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     activity_id UUID NOT NULL,
