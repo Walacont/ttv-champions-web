@@ -474,9 +474,9 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     const modalHtml = `
         <div id="match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
             <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <div class="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center z-10 rounded-t-2xl">
                     <h3 class="text-lg font-bold">Match Details</h3>
-                    <button onclick="document.getElementById('match-details-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                    <button onclick="document.getElementById('match-details-modal').remove()" class="text-gray-400 hover:text-gray-600 p-1">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -640,12 +640,12 @@ function showDoublesMatchDetails(match, profileMap) {
     const modalHtml = `
         <div id="match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
             <div class="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                <div class="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center z-10 rounded-t-2xl">
                     <div class="flex items-center gap-2">
                         <h3 class="text-lg font-bold">Match Details</h3>
                         <span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">Doppel</span>
                     </div>
-                    <button onclick="document.getElementById('match-details-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                    <button onclick="document.getElementById('match-details-modal').remove()" class="text-gray-400 hover:text-gray-600 p-1">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
