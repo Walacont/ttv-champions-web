@@ -235,26 +235,40 @@ async function migrateUsers(clubIdMap) {
         const mappedClubId = getMappedId(data.clubId, 'clubs');
 
         // Build display name from firstName + lastName, or use displayName/name as fallback
+        // Build names properly
+        const firstName = data.firstName || null;
+        const lastName = data.lastName || null;
+
+        // Build display name: prefer displayName/name, fallback to firstName + lastName
         let displayName = data.displayName || data.name;
-        if (!displayName && (data.firstName || data.lastName)) {
-            displayName = `${data.firstName || ''} ${data.lastName || ''}`.trim();
+        if (!displayName && (firstName || lastName)) {
+            displayName = `${firstName || ''} ${lastName || ''}`.trim();
         }
         if (!displayName) {
             displayName = 'Unknown Player';
         }
 
+        // Berechne neuen Elo basierend auf qttr und highestElo
+        // Formel: highestElo - qttr + 800, mindestens 800
+        // QTTR-Punkte gibt es nicht mehr, alle starten jetzt mit 800 als Basis
+        const qttr = data.qttrPoints || 800;
+        const highestElo = data.highestElo || data.eloRating || 800;
+        const calculatedElo = Math.max(800, highestElo - qttr + 800);
+
         profiles.push({
             id: newUserId,
             email: data.email || null,
+            first_name: firstName,
+            last_name: lastName,
             display_name: displayName,
             avatar_url: data.avatarUrl || data.photoURL || null,
             role: data.role || 'player',
             club_id: mappedClubId,
             xp: data.xp || 0,
             points: data.points || 0,
-            elo_rating: data.eloRating || data.elo || 1000,
-            highest_elo: data.highestElo || data.eloRating || 1000,
-            qttr_points: data.qttrPoints || null,
+            elo_rating: calculatedElo,
+            highest_elo: calculatedElo,
+            qttr_points: null, // QTTR-Punkte werden nicht mehr verwendet
             grundlagen_completed: data.grundlagenCompleted || 0,
             is_offline: data.isOffline || false,
             onboarding_complete: data.onboardingComplete || false,
@@ -286,7 +300,7 @@ async function migrateUsers(clubIdMap) {
     return idMappings.users;
 }
 
-async function migrateSubgroups(clubIdMap) {
+async function migrateSubgroups(clubIdMap, sportId) {
     log('Migrating subgroups...', 'progress');
 
     const snapshot = await firestore.collection('subgroups').get();
@@ -301,6 +315,7 @@ async function migrateSubgroups(clubIdMap) {
         const subgroup = {
             id: newId,
             club_id: mappedClubId,
+            sport_id: sportId,
             name: data.name || 'Unknown Subgroup',
             description: data.description || null,
             color: data.color || null,
@@ -322,7 +337,7 @@ async function migrateSubgroups(clubIdMap) {
     return idMappings.subgroups;
 }
 
-async function migrateMatches(clubIdMap, userIdMap) {
+async function migrateMatches(clubIdMap, userIdMap, sportId) {
     log('Migrating matches...', 'progress');
 
     const snapshot = await firestore.collection('matches').get();
@@ -348,6 +363,7 @@ async function migrateMatches(clubIdMap, userIdMap) {
         const match = {
             id: newId,
             club_id: clubId,
+            sport_id: sportId,
             player_a_id: playerAId,
             player_b_id: playerBId,
             winner_id: getMappedId(data.winnerId, 'users'),
@@ -360,6 +376,12 @@ async function migrateMatches(clubIdMap, userIdMap) {
             player_b_elo_before: data.playerBEloBefore || null,
             player_a_elo_after: data.playerAEloAfter || null,
             player_b_elo_after: data.playerBEloAfter || null,
+            winner_elo_change: data.winnerEloChange || null,
+            loser_elo_change: data.loserEloChange || null,
+            season_points_awarded: data.seasonPointsAwarded || 0,
+            match_mode: data.matchMode || null,
+            handicap_used: data.handicapUsed || false,
+            handicap: data.handicap || null,
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
             created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
@@ -422,7 +444,7 @@ async function migrateAttendance(clubIdMap, userIdMap, subgroupIdMap) {
     log(`Migrated ${successCount} attendance (${errorCount} errors, ${skippedCount} skipped)`, successCount > 0 ? 'success' : 'warn');
 }
 
-async function migrateChallenges(clubIdMap, userIdMap, subgroupIdMap) {
+async function migrateChallenges(clubIdMap, userIdMap, subgroupIdMap, sportId) {
     log('Migrating challenges...', 'progress');
 
     const snapshot = await firestore.collection('challenges').get();
@@ -436,6 +458,7 @@ async function migrateChallenges(clubIdMap, userIdMap, subgroupIdMap) {
             id: newId,
             club_id: getMappedId(data.clubId, 'clubs'),
             subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
+            sport_id: sportId,
             title: data.title || 'Challenge',
             description: data.description || null,
             xp_reward: data.xpReward || 10,
@@ -480,7 +503,7 @@ function convertDifficulty(diff) {
     return mapping[diff.toLowerCase()] || 1;
 }
 
-async function migrateExercises(userIdMap, clubIdMap) {
+async function migrateExercises(userIdMap, clubIdMap, sportId) {
     log('Migrating exercises...', 'progress');
 
     const snapshot = await firestore.collection('exercises').get();
@@ -492,6 +515,7 @@ async function migrateExercises(userIdMap, clubIdMap) {
 
         exercises.push({
             id: newId,
+            sport_id: sportId,
             name: data.name || 'Exercise',
             description: data.description || null,
             category: data.category || null,
@@ -521,7 +545,7 @@ async function migrateExercises(userIdMap, clubIdMap) {
     }
 }
 
-async function migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap) {
+async function migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap, sportId) {
     log('Migrating training sessions...', 'progress');
 
     const snapshot = await firestore.collection('trainingSessions').get();
@@ -531,17 +555,21 @@ async function migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap) {
         const data = doc.data();
         const newId = getOrCreateUUID(doc.id, 'trainingSessions');
 
+        const createdAt = convertTimestamp(data.createdAt) || new Date().toISOString();
+
         sessions.push({
             id: newId,
             club_id: getMappedId(data.clubId, 'clubs'),
             subgroup_id: getMappedId(data.subgroupId, 'subgroups'),
+            sport_id: data.sportId ? getMappedId(data.sportId, 'sports') : sportId,
             title: data.title || null,
             date: convertDate(data.date) || new Date().toISOString().split('T')[0],
             start_time: data.startTime || null,
             end_time: data.endTime || null,
             notes: data.notes || null,
             created_by: getMappedId(data.createdBy, 'users'),
-            created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
+            created_at: createdAt,
+            updated_at: convertTimestamp(data.updatedAt) || createdAt
         });
     }
 
@@ -595,7 +623,7 @@ async function migrateInvitationCodes(clubIdMap, userIdMap, subgroupIdMap) {
     }
 }
 
-async function migrateDoublesMatches(clubIdMap, userIdMap) {
+async function migrateDoublesMatches(clubIdMap, userIdMap, sportId) {
     log('Migrating doubles matches...', 'progress');
 
     const snapshot = await firestore.collection('doublesMatches').get();
@@ -608,6 +636,7 @@ async function migrateDoublesMatches(clubIdMap, userIdMap) {
         matches.push({
             id: newId,
             club_id: getMappedId(data.clubId, 'clubs'),
+            sport_id: sportId,
             team_a_player1_id: getMappedId(data.teamA?.player1Id, 'users'),
             team_a_player2_id: getMappedId(data.teamA?.player2Id, 'users'),
             team_b_player1_id: getMappedId(data.teamB?.player1Id, 'users'),
@@ -617,6 +646,12 @@ async function migrateDoublesMatches(clubIdMap, userIdMap) {
             team_a_sets_won: data.teamASetsWon || 0,
             team_b_sets_won: data.teamBSetsWon || 0,
             is_cross_club: data.isCrossClub || false,
+            match_mode: data.matchMode || null,
+            handicap_used: data.handicapUsed || false,
+            handicap: data.handicap || null,
+            winner_elo_change: data.winnerEloChange || null,
+            loser_elo_change: data.loserEloChange || null,
+            season_points_awarded: data.seasonPointsAwarded || 0,
             played_at: convertTimestamp(data.playedAt || data.createdAt) || new Date().toISOString(),
             created_by: getMappedId(data.createdBy, 'users'),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
@@ -782,38 +817,67 @@ async function migrateDoublesPairings(clubIdMap, userIdMap) {
 // MAIN MIGRATION
 // ============================================
 
+/**
+ * Get the UUID for table tennis sport from Supabase
+ */
+async function getTableTennisSportId() {
+    log('Fetching table tennis sport ID...', 'progress');
+
+    const { data, error } = await supabase
+        .from('sports')
+        .select('id')
+        .eq('name', 'table_tennis')
+        .single();
+
+    if (error) {
+        log(`Error fetching table tennis sport: ${error.message}`, 'error');
+        throw error;
+    }
+
+    if (!data) {
+        log('Table tennis sport not found in database!', 'error');
+        throw new Error('Table tennis sport not found');
+    }
+
+    log(`Table tennis sport ID: ${data.id}`, 'success');
+    return data.id;
+}
+
 async function runMigration() {
     console.log('\n========================================');
     console.log('  Firebase → Supabase Migration');
     console.log('========================================\n');
 
     try {
+        // Step 0: Get table tennis sport ID (all migrated data is for table tennis)
+        const tableTennisSportId = await getTableTennisSportId();
+
         // Step 1: Migrate clubs first (no dependencies)
         const clubIdMap = await migrateClubs();
 
         // Step 2: Migrate subgroups (depends on clubs)
-        const subgroupIdMap = await migrateSubgroups(clubIdMap);
+        const subgroupIdMap = await migrateSubgroups(clubIdMap, tableTennisSportId);
 
         // Step 3: Migrate users (depends on clubs)
         const userIdMap = await migrateUsers(clubIdMap);
 
         // Step 4: Migrate exercises (depends on users, clubs)
-        await migrateExercises(userIdMap, clubIdMap);
+        await migrateExercises(userIdMap, clubIdMap, tableTennisSportId);
 
         // Step 5: Migrate matches (depends on clubs, users)
-        await migrateMatches(clubIdMap, userIdMap);
+        await migrateMatches(clubIdMap, userIdMap, tableTennisSportId);
 
         // Step 6: Migrate doubles matches
-        await migrateDoublesMatches(clubIdMap, userIdMap);
+        await migrateDoublesMatches(clubIdMap, userIdMap, tableTennisSportId);
 
         // Step 7: Migrate attendance (depends on clubs, users, subgroups)
         await migrateAttendance(clubIdMap, userIdMap, subgroupIdMap);
 
         // Step 8: Migrate training sessions
-        await migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap);
+        await migrateTrainingSessions(clubIdMap, userIdMap, subgroupIdMap, tableTennisSportId);
 
         // Step 9: Migrate challenges
-        await migrateChallenges(clubIdMap, userIdMap, subgroupIdMap);
+        await migrateChallenges(clubIdMap, userIdMap, subgroupIdMap, tableTennisSportId);
 
         // Step 10: Migrate invitation codes
         await migrateInvitationCodes(clubIdMap, userIdMap, subgroupIdMap);
