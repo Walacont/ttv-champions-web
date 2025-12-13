@@ -17,6 +17,8 @@ import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
 import { initPlayerEvents } from './player-events-supabase.js';
+import { initComments } from './activity-comments.js';
+import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
 
 // Extracted modules for better maintainability
@@ -350,6 +352,12 @@ async function initializeDashboard() {
 
     // Initialize player events module
     initPlayerEvents(currentUser.id);
+
+    // Initialize comments module
+    initComments(currentUserData);
+
+    // Initialize match media module
+    initMatchMedia(currentUserData);
 
     // Load match history (after module initialization)
     loadMatchHistory();

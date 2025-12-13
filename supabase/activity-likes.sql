@@ -1,5 +1,5 @@
 -- Activity Likes Table
--- Stores likes/kudos for match activities (Strava-style)
+-- Stores likes for match activities
 
 CREATE TABLE IF NOT EXISTS activity_likes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

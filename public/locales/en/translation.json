@@ -245,6 +245,35 @@
           "achieved": "achieved",
           "congratulations": "Congratulations on your rank up!"
         }
+      },
+      "giveKudos": "Like",
+      "like": "Like",
+      "likes": "Likes",
+      "comments": {
+        "title": "Comments",
+        "post": "Post",
+        "empty": "No comments yet. Be the first!",
+        "deleteConfirm": "Do you really want to delete this comment?"
+      },
+      "matchMedia": {
+        "uploadTitle": "Upload Photos/Videos",
+        "upload": "Upload",
+        "uploading": "Uploading...",
+        "gallery": "Match Media",
+        "selectFiles": "Select files",
+        "infoTitle": "Notice",
+        "infoText": "Please only upload short highlights (max. 30-60 seconds), not the entire match!",
+        "limits": "Maximum 5 files | Photos: max. 10MB | Videos: max. 50MB",
+        "deleteConfirm": "Do you really want to delete this file?",
+        "addMedia": "Add Photos/Videos",
+        "viewMedia": "View Media",
+        "errors": {
+          "invalidType": "File type not supported",
+          "photoTooLarge": "Photo is too large (max. 10MB)",
+          "videoTooLarge": "Video is too large (max. 50MB)",
+          "maxReached": "Maximum of 5 files reached",
+          "notParticipant": "Only players of this match can upload media"
+        }
       }
     },
     "training": {
@@ -609,8 +638,8 @@
     "logs": "System Logs"
   },
   "errors": {
-    "404": "Page not found",
     "403": "Access denied",
+    "404": "Page not found",
     "500": "Server error",
     "networkError": "Network error",
     "unknownError": "An unknown error occurred",

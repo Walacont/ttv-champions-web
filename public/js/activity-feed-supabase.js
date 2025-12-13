@@ -1,12 +1,13 @@
 /**
  * Activity Feed Module - Supabase Version
  * Shows recent matches from club members and followed users
- * Includes Strava-style like/kudos functionality, infinite scroll, and filters
+ * Includes like functionality, infinite scroll, and filters
  */
 
 import { getSupabase } from './supabase-init.js';
 import { formatRelativeDate } from './dashboard-match-history-supabase.js';
 import { t } from './i18n.js';
+import { loadMatchMedia } from './match-media.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -49,6 +50,20 @@ export function initActivityFeedModule(user, userData) {
 
     // Load user's club for filter
     loadUserClub();
+
+    // Remove any existing language change listener to avoid duplicates
+    if (window.activityFeedLanguageListener) {
+        window.removeEventListener('languageChanged', window.activityFeedLanguageListener);
+    }
+
+    // Listen for language changes and reload activity feed
+    window.activityFeedLanguageListener = async () => {
+        // Small delay to ensure i18next has loaded the new language
+        await new Promise(resolve => setTimeout(resolve, 100));
+        // Reload the activity feed to update translations
+        loadActivityFeed();
+    };
+    window.addEventListener('languageChanged', window.activityFeedLanguageListener);
 }
 
 /**
@@ -199,6 +214,19 @@ function setupInfiniteScroll() {
 }
 
 /**
+ * Load match media for all match activities
+ */
+function loadMatchMediaForActivities(activities) {
+    activities.forEach(activity => {
+        if (activity.activityType === 'singles' || activity.matchType === 'singles') {
+            injectMatchMedia(activity.id, 'singles');
+        } else if (activity.activityType === 'doubles' || activity.matchType === 'doubles') {
+            injectMatchMedia(activity.id, 'doubles');
+        }
+    });
+}
+
+/**
  * Load activity feed based on current filter
  */
 export async function loadActivityFeed() {
@@ -254,6 +282,9 @@ export async function loadActivityFeed() {
 
         // Render initial activities
         container.innerHTML = activities.map(activity => renderActivityCard(activity)).join('');
+
+        // Load match media for all rendered matches
+        loadMatchMediaForActivities(activities);
 
         // Update offset for next load
         activityOffset += activities.length;
@@ -503,6 +534,9 @@ async function loadMoreActivities() {
         if (container) {
             const newHtml = activities.map(activity => renderActivityCard(activity)).join('');
             container.insertAdjacentHTML('beforeend', newHtml);
+
+            // Load match media for newly rendered matches
+            loadMatchMediaForActivities(activities);
         }
 
         activityOffset += activities.length;
@@ -546,11 +580,16 @@ async function loadLikesForActivities(activities) {
 
     try {
         const activityIds = activities.map(a => a.id);
-        const matchTypes = activities.map(a => a.matchType);
+        const activityTypes = activities.map(a => {
+            // Convert match types to activity types for new schema
+            if (a.matchType === 'singles') return 'singles_match';
+            if (a.matchType === 'doubles') return 'doubles_match';
+            return a.activityType || a.matchType;
+        });
 
         const { data, error } = await supabase.rpc('get_activity_likes_batch', {
             p_activity_ids: activityIds,
-            p_match_types: matchTypes
+            p_activity_types: activityTypes
         });
 
         if (error) {
@@ -560,7 +599,7 @@ async function loadLikesForActivities(activities) {
         }
 
         (data || []).forEach(like => {
-            const key = `${like.match_id}_${like.match_type}`;
+            const key = `${like.activity_type}-${like.activity_id}`;
             likesDataCache[key] = {
                 likeCount: like.like_count || 0,
                 isLiked: like.is_liked_by_me || false,
@@ -579,20 +618,25 @@ async function loadLikesForActivities(activities) {
  */
 async function loadLikesFallback(activities) {
     for (const activity of activities) {
-        const key = `${activity.id}_${activity.matchType}`;
+        // Convert match types to activity types for new schema
+        let activityType = activity.activityType || activity.matchType;
+        if (activityType === 'singles') activityType = 'singles_match';
+        if (activityType === 'doubles') activityType = 'doubles_match';
+
+        const key = `${activityType}-${activity.id}`;
 
         try {
             const { count } = await supabase
                 .from('activity_likes')
                 .select('id', { count: 'exact', head: true })
-                .eq('match_id', activity.id)
-                .eq('match_type', activity.matchType);
+                .eq('activity_id', activity.id)
+                .eq('activity_type', activityType);
 
             const { data: userLike } = await supabase
                 .from('activity_likes')
                 .select('id')
-                .eq('match_id', activity.id)
-                .eq('match_type', activity.matchType)
+                .eq('activity_id', activity.id)
+                .eq('activity_type', activityType)
                 .eq('user_id', currentUser.id)
                 .maybeSingle();
 
@@ -610,8 +654,12 @@ async function loadLikesFallback(activities) {
 /**
  * Toggle like on an activity
  */
-async function toggleActivityLike(matchId, matchType) {
-    const key = `${matchId}_${matchType}`;
+async function toggleActivityLike(activityId, activityType) {
+    // Convert legacy match types to new schema
+    if (activityType === 'singles') activityType = 'singles_match';
+    if (activityType === 'doubles') activityType = 'doubles_match';
+
+    const key = `${activityType}-${activityId}`;
     const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
     const countEl = document.querySelector(`[data-like-count="${key}"]`);
 
@@ -626,13 +674,13 @@ async function toggleActivityLike(matchId, matchType) {
 
     try {
         const { data, error } = await supabase.rpc('toggle_activity_like', {
-            p_match_id: matchId,
-            p_match_type: matchType
+            p_activity_id: activityId,
+            p_activity_type: activityType
         });
 
         if (error) {
             console.warn('[ActivityFeed] Toggle RPC not available:', error.message);
-            await toggleLikeFallback(matchId, matchType, newIsLiked, key);
+            await toggleLikeFallback(activityId, activityType, newIsLiked, key);
         } else if (data) {
             likesDataCache[key] = {
                 ...currentData,
@@ -652,22 +700,22 @@ async function toggleActivityLike(matchId, matchType) {
 /**
  * Fallback method to toggle like directly
  */
-async function toggleLikeFallback(matchId, matchType, shouldLike, key) {
+async function toggleLikeFallback(activityId, activityType, shouldLike, key) {
     try {
         if (shouldLike) {
             await supabase
                 .from('activity_likes')
                 .insert({
-                    match_id: matchId,
-                    match_type: matchType,
+                    activity_id: activityId,
+                    activity_type: activityType,
                     user_id: currentUser.id
                 });
         } else {
             await supabase
                 .from('activity_likes')
                 .delete()
-                .eq('match_id', matchId)
-                .eq('match_type', matchType)
+                .eq('activity_id', activityId)
+                .eq('activity_type', activityType)
                 .eq('user_id', currentUser.id);
         }
     } catch (e) {
@@ -707,7 +755,9 @@ function updateLikeUI(likeBtn, countEl, isLiked, count) {
  * Get like data for a specific activity
  */
 function getLikeData(matchId, matchType) {
-    const key = `${matchId}_${matchType}`;
+    // Convert match type to activity type for new schema
+    const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
+    const key = `${activityType}-${matchId}`;
     return likesDataCache[key] || { likeCount: 0, isLiked: false, recentLikers: [] };
 }
 
@@ -715,7 +765,9 @@ function getLikeData(matchId, matchType) {
  * Render the like button HTML
  */
 function renderLikeButton(matchId, matchType) {
-    const key = `${matchId}_${matchType}`;
+    // Convert match type to activity type for new schema
+    const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
+    const key = `${activityType}-${matchId}`;
     const likeData = getLikeData(matchId, matchType);
     const isLiked = likeData.isLiked;
     const count = likeData.likeCount;
@@ -728,12 +780,119 @@ function renderLikeButton(matchId, matchType) {
             data-like-btn="${key}"
             onclick="event.stopPropagation(); toggleActivityLike('${matchId}', '${matchType}')"
             class="flex items-center gap-1 ${colorClass} transition-colors"
-            title="Kudos geben"
+            title="${t('dashboard.activityFeed.giveKudos')}"
         >
             <i class="${iconClass} fa-thumbs-up"></i>
             <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>
         </button>
     `;
+}
+
+/**
+ * Render match media section placeholder
+ * Will be populated asynchronously
+ */
+function renderMatchMediaPlaceholder(matchId, matchType) {
+    return `<div id="media-${matchType}-${matchId}" class="mt-3" data-match-id="${matchId}" data-match-type="${matchType}"></div>`;
+}
+
+/**
+ * Load and inject match media into the DOM
+ */
+async function injectMatchMedia(matchId, matchType) {
+    const container = document.getElementById(`media-${matchType}-${matchId}`);
+    if (!container) return;
+
+    try {
+        const media = await loadMatchMedia(matchId, matchType);
+
+        if (!media || media.length === 0) {
+            // Check if user is a participant (can upload)
+            const isParticipant = await checkIfParticipant(matchId, matchType);
+
+            if (isParticipant) {
+                container.innerHTML = `
+                    <button
+                        onclick="openMediaUpload('${matchId}', '${matchType}')"
+                        class="text-sm text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
+                    >
+                        <i class="fas fa-camera"></i>
+                        <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
+                    </button>
+                `;
+            }
+            return;
+        }
+
+        // Render media gallery
+        const { data: { publicUrl } } = supabase.storage
+            .from('match-media')
+            .getPublicUrl(media[0].file_path);
+
+        const isParticipant = await checkIfParticipant(matchId, matchType);
+
+        container.innerHTML = `
+            <div class="space-y-2">
+                <!-- Media Preview -->
+                <div class="relative group cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', 0)">
+                    ${media[0].file_type === 'photo' ? `
+                        <img src="${publicUrl}" alt="Match media" class="w-full h-48 object-cover rounded-lg">
+                    ` : `
+                        <video class="w-full h-48 object-cover rounded-lg">
+                            <source src="${publicUrl}" type="${media[0].mime_type}">
+                        </video>
+                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg">
+                            <i class="fas fa-play-circle text-white text-4xl"></i>
+                        </div>
+                    `}
+                    ${media.length > 1 ? `
+                        <div class="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full">
+                            +${media.length - 1} ${media.length === 2 ? t('dashboard.matchMedia.viewMedia') : t('dashboard.matchMedia.viewMedia')}
+                        </div>
+                    ` : ''}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-3 text-sm">
+                    <button
+                        onclick="openMediaGallery('${matchId}', '${matchType}', 0)"
+                        class="text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
+                    >
+                        <i class="fas fa-images"></i>
+                        <span>${media.length} ${media.length === 1 ? 'Foto/Video' : 'Fotos/Videos'}</span>
+                    </button>
+                    ${isParticipant && media.length < 5 ? `
+                        <button
+                            onclick="openMediaUpload('${matchId}', '${matchType}')"
+                            class="text-gray-600 hover:text-gray-700 transition flex items-center gap-1"
+                        >
+                            <i class="fas fa-plus"></i>
+                            <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Error loading match media:', error);
+    }
+}
+
+/**
+ * Check if current user is a participant in the match
+ */
+async function checkIfParticipant(matchId, matchType) {
+    try {
+        const { data } = await supabase.rpc('can_upload_match_media', {
+            p_match_id: matchId,
+            p_match_type: matchType
+        });
+        return data === true;
+    } catch (error) {
+        console.error('Error checking participant status:', error);
+        return false;
+    }
 }
 
 /**
@@ -832,6 +991,8 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                     <div class="mt-3 flex items-center gap-4">
                         ${renderLikeButton(match.id, 'singles')}
                     </div>
+
+                    ${renderMatchMediaPlaceholder(match.id, 'singles')}
                 </div>
 
                 <a href="/profile.html?id=${loserId}" class="flex-shrink-0">
@@ -911,6 +1072,8 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                     <div class="mt-3 flex items-center gap-4">
                         ${renderLikeButton(match.id, 'doubles')}
                     </div>
+
+                    ${renderMatchMediaPlaceholder(match.id, 'doubles')}
                 </div>
 
                 <div class="flex-shrink-0 flex -space-x-2">
@@ -983,6 +1146,26 @@ function renderClubJoinCard(activity) {
                         <i class="fas fa-handshake text-blue-500 mr-1"></i>
                         ${t('dashboard.activityFeed.events.clubJoin.welcome')}
                     </div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-blue-100">
+                        <button
+                            onclick="toggleActivityLike('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                            data-like-btn="event-${activity.id}"
+                            title="${t('dashboard.activityFeed.giveKudos')}"
+                        >
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
+                        </button>
+                        <button
+                            onclick="openComments('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1023,6 +1206,26 @@ function renderClubLeaveCard(activity) {
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-gray-200">
+                        <button
+                            onclick="toggleActivityLike('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                            data-like-btn="event-${activity.id}"
+                            title="${t('dashboard.activityFeed.giveKudos')}"
+                        >
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
+                        </button>
+                        <button
+                            onclick="openComments('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1093,6 +1296,26 @@ function renderRankUpCard(activity) {
                     <div class="mt-2 text-sm text-gray-600 italic">
                         <i class="fas fa-fire text-orange-500 mr-1"></i>
                         ${t('dashboard.activityFeed.events.rankUp.congratulations')}
+                    </div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-${colorScheme}-200">
+                        <button
+                            onclick="toggleActivityLike('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                            data-like-btn="event-${activity.id}"
+                            title="${t('dashboard.activityFeed.giveKudos')}"
+                        >
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
+                        </button>
+                        <button
+                            onclick="openComments('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1193,16 +1416,21 @@ function renderPostCard(activity, profileMap) {
 
             <!-- Post Actions -->
             <div class="flex items-center gap-6 pt-3 border-t border-gray-100">
-                <button class="flex items-center gap-2 text-gray-600 hover:text-red-500 transition">
-                    <i class="far fa-heart"></i>
-                    <span class="text-sm">${likesCount}</span>
+                <button
+                    onclick="toggleActivityLike('${postId}', 'post')"
+                    class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                    data-like-btn="post-${postId}"
+                    title="${t('dashboard.activityFeed.giveKudos')}"
+                >
+                    <i class="far fa-thumbs-up"></i>
+                    <span class="text-sm" data-like-count="post-${postId}">${likesCount}</span>
                 </button>
-                <button class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition">
+                <button
+                    onclick="openComments('${postId}', 'post')"
+                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                >
                     <i class="far fa-comment"></i>
-                    <span class="text-sm">${commentsCount}</span>
-                </button>
-                <button class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition ml-auto">
-                    <i class="fas fa-share"></i>
+                    <span class="text-sm" data-comment-count="post-${postId}">${commentsCount}</span>
                 </button>
             </div>
         </div>
@@ -1284,14 +1512,36 @@ function renderPollCard(activity, profileMap) {
             </div>
 
             <!-- Poll Footer -->
-            <div class="flex items-center justify-between text-xs text-gray-600 pt-3 border-t border-purple-100">
-                <div class="flex items-center gap-1">
-                    <i class="fas fa-users"></i>
-                    <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
+            <div class="flex flex-col gap-2 pt-3 border-t border-purple-100">
+                <div class="flex items-center justify-between text-xs text-gray-600">
+                    <div class="flex items-center gap-1">
+                        <i class="fas fa-users"></i>
+                        <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <i class="fas fa-clock"></i>
+                        <span>${isActive ? `${t('dashboard.activityFeed.endsAt')} ${formatRelativeDate(endsAt)}` : t('dashboard.activityFeed.ended')}</span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-1">
-                    <i class="fas fa-clock"></i>
-                    <span>${isActive ? `${t('dashboard.activityFeed.endsAt')} ${formatRelativeDate(endsAt)}` : t('dashboard.activityFeed.ended')}</span>
+
+                <!-- Poll Actions -->
+                <div class="flex items-center gap-6">
+                    <button
+                        onclick="toggleActivityLike('${activity.id}', 'poll')"
+                        class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                        data-like-btn="poll-${activity.id}"
+                        title="${t('dashboard.activityFeed.giveKudos')}"
+                    >
+                        <i class="far fa-thumbs-up"></i>
+                        <span class="text-sm" data-like-count="poll-${activity.id}">${activity.likes_count || 0}</span>
+                    </button>
+                    <button
+                        onclick="openComments('${activity.id}', 'poll')"
+                        class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                    >
+                        <i class="far fa-comment"></i>
+                        <span class="text-sm" data-comment-count="poll-${activity.id}">${activity.comments_count || 0}</span>
+                    </button>
                 </div>
             </div>
         </div>

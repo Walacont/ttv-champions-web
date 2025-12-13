@@ -113,6 +113,21 @@ export async function initNotifications(userId) {
                 }
             })
             .subscribe();
+
+        // Remove any existing language change listener to avoid duplicates
+        if (window.notificationsLanguageListener) {
+            window.removeEventListener('languageChanged', window.notificationsLanguageListener);
+        }
+
+        // Listen for language changes and refresh notifications if modal is open
+        window.notificationsLanguageListener = async () => {
+            // Small delay to ensure i18next has loaded the new language
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (notificationModalOpen) {
+                refreshNotificationModal(userId);
+            }
+        };
+        window.addEventListener('languageChanged', window.notificationsLanguageListener);
     } catch (e) {
         console.warn('Could not load notifications:', e);
     }
