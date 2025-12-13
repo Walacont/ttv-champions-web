@@ -346,6 +346,9 @@ CREATE TABLE doubles_match_requests (
 
     sets JSONB,
     winning_team TEXT CHECK (winning_team IN ('A', 'B')),
+    match_mode TEXT DEFAULT 'best-of-5',
+    handicap_used BOOLEAN DEFAULT false,
+    handicap JSONB,
 
     status doubles_request_status DEFAULT 'pending_opponent',
     approvals JSONB DEFAULT '{}',

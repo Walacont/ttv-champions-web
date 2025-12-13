@@ -298,6 +298,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         sets: sets,
         handicap_used: handicapUsed || false,
         handicap: handicap || null,
+        match_mode: matchMode,
         initiated_by: initiatorId,
         approvals: {
             [partnerId]: false,

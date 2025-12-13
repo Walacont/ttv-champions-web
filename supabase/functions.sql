@@ -608,7 +608,7 @@ BEGIN
             club_id, winning_team,
             team_a_player1_id, team_a_player2_id, team_a_pairing_id,
             team_b_player1_id, team_b_player2_id, team_b_pairing_id,
-            sets, is_cross_club, created_at
+            sets, match_mode, handicap_used, handicap, is_cross_club, created_at
         ) VALUES (
             NEW.club_id, NEW.winning_team,
             (NEW.team_a->>'player1_id')::UUID,
@@ -617,7 +617,7 @@ BEGIN
             (NEW.team_b->>'player1_id')::UUID,
             (NEW.team_b->>'player2_id')::UUID,
             NEW.team_b->>'pairing_id',
-            NEW.sets, NEW.is_cross_club, NOW()
+            NEW.sets, COALESCE(NEW.match_mode, 'best-of-5'), COALESCE(NEW.handicap_used, false), NEW.handicap, NEW.is_cross_club, NOW()
         );
 
         -- Delete the request

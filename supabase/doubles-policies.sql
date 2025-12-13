@@ -305,6 +305,9 @@ BEGIN
             team_b_player2_id,
             winning_team,
             sets,
+            match_mode,
+            handicap_used,
+            handicap,
             is_cross_club,
             created_by
         ) VALUES (
@@ -315,6 +318,9 @@ BEGIN
             (NEW.team_b->>'player2_id')::UUID,
             NEW.winning_team,
             NEW.sets,
+            COALESCE(NEW.match_mode, 'best-of-5'),
+            COALESCE(NEW.handicap_used, false),
+            NEW.handicap,
             NEW.is_cross_club,
             NEW.initiated_by
         );
