@@ -748,11 +748,11 @@ async function awardAttendancePoints(
     let reason = `Training am ${formattedDate} - ${subgroupName}`;
 
     if (newStreak >= 5) {
-        pointsToAdd = 6;
-        reason = `Training am ${formattedDate} - ${subgroupName} (${newStreak}x Streak!)`;
+        pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+        reason = `Training am ${formattedDate} - ${subgroupName} (🔥 ${newStreak}x Streak!)`;
     } else if (newStreak >= 3) {
-        pointsToAdd = 5;
-        reason = `Training am ${formattedDate} - ${subgroupName} (${newStreak}x Streak)`;
+        pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+        reason = `Training am ${formattedDate} - ${subgroupName} (⚡ ${newStreak}x Streak)`;
     }
 
     if (alreadyAttendedToday) {
