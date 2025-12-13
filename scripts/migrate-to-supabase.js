@@ -628,19 +628,33 @@ async function migrateDoublesMatches(clubIdMap, userIdMap, sportId) {
 
     const snapshot = await firestore.collection('doublesMatches').get();
     const matches = [];
+    let skippedCount = 0;
 
     for (const doc of snapshot.docs) {
         const data = doc.data();
         const newId = getOrCreateUUID(doc.id, 'doublesMatches');
 
+        // Get mapped player IDs
+        const teamAPlayer1Id = getMappedId(data.teamA?.player1Id, 'users');
+        const teamAPlayer2Id = getMappedId(data.teamA?.player2Id, 'users');
+        const teamBPlayer1Id = getMappedId(data.teamB?.player1Id, 'users');
+        const teamBPlayer2Id = getMappedId(data.teamB?.player2Id, 'users');
+
+        // Skip if any player ID is missing
+        if (!teamAPlayer1Id || !teamAPlayer2Id || !teamBPlayer1Id || !teamBPlayer2Id) {
+            log(`  Skipping doubles match ${doc.id}: missing player ID(s)`, 'warn');
+            skippedCount++;
+            continue;
+        }
+
         matches.push({
             id: newId,
             club_id: getMappedId(data.clubId, 'clubs'),
             sport_id: sportId,
-            team_a_player1_id: getMappedId(data.teamA?.player1Id, 'users'),
-            team_a_player2_id: getMappedId(data.teamA?.player2Id, 'users'),
-            team_b_player1_id: getMappedId(data.teamB?.player1Id, 'users'),
-            team_b_player2_id: getMappedId(data.teamB?.player2Id, 'users'),
+            team_a_player1_id: teamAPlayer1Id,
+            team_a_player2_id: teamAPlayer2Id,
+            team_b_player1_id: teamBPlayer1Id,
+            team_b_player2_id: teamBPlayer2Id,
             winning_team: data.winningTeam || null,
             sets: data.sets || null,
             team_a_sets_won: data.teamASetsWon || 0,
@@ -659,7 +673,7 @@ async function migrateDoublesMatches(clubIdMap, userIdMap, sportId) {
     }
 
     if (matches.length === 0) {
-        log('No doubles matches found', 'warn');
+        log(`No valid doubles matches found (${skippedCount} skipped)`, 'warn');
         return;
     }
 
@@ -667,7 +681,7 @@ async function migrateDoublesMatches(clubIdMap, userIdMap, sportId) {
     if (error) {
         log(`Error migrating doubles matches: ${error.message}`, 'error');
     } else {
-        log(`Migrated ${matches.length} doubles matches`, 'success');
+        log(`Migrated ${matches.length} doubles matches${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}`, 'success');
     }
 }
 
