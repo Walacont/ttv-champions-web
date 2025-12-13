@@ -70,8 +70,10 @@ CREATE TABLE profiles (
     email TEXT,
     first_name TEXT,
     last_name TEXT,
+    display_name TEXT,
     birthdate TEXT,  -- Firebase speichert als String "2001-12-09"
     gender TEXT,
+    age_group TEXT,
     avatar_url TEXT,  -- Firebase: photoURL
     role user_role DEFAULT 'player',
     club_id UUID REFERENCES clubs(id) ON DELETE SET NULL,
@@ -81,6 +83,8 @@ CREATE TABLE profiles (
     points INTEGER DEFAULT 0,
     elo_rating INTEGER DEFAULT 800,
     highest_elo INTEGER DEFAULT 800,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
     league TEXT,  -- "Diamond", "Gold", etc.
 
     -- Doubles Stats
