@@ -248,7 +248,13 @@
       },
       "giveKudos": "点赞",
       "like": "赞",
-      "likes": "赞"
+      "likes": "赞",
+      "comments": {
+        "title": "评论",
+        "post": "发布",
+        "empty": "还没有评论。成为第一个！",
+        "deleteConfirm": "你真的要删除这条评论吗？"
+      }
     },
     "training": {
       "title": "训练",

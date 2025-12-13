@@ -16,6 +16,7 @@ import { createTennisScoreInput, createBadmintonScoreInput } from './player-matc
 import { initFriends } from './friends-supabase.js';
 import { initCommunity } from './community-supabase.js';
 import { initActivityFeedModule, loadActivityFeed } from './activity-feed-supabase.js';
+import { initComments } from './activity-comments.js';
 import { initI18n, translatePage } from './i18n.js';
 
 // Extracted modules for better maintainability
@@ -346,6 +347,9 @@ async function initializeDashboard() {
 
     // Initialize activity feed module
     initActivityFeedModule(currentUser, currentUserData);
+
+    // Initialize comments module
+    initComments(currentUserData);
 
     // Load match history (after module initialization)
     loadMatchHistory();

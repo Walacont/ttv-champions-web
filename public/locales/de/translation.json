@@ -248,7 +248,13 @@
       },
       "giveKudos": "Liken",
       "like": "Like",
-      "likes": "Likes"
+      "likes": "Likes",
+      "comments": {
+        "title": "Kommentare",
+        "post": "Posten",
+        "empty": "Noch keine Kommentare. Sei der Erste!",
+        "deleteConfirm": "Möchtest du diesen Kommentar wirklich löschen?"
+      }
     },
     "training": {
       "title": "Training",
