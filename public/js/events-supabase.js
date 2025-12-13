@@ -21,6 +21,10 @@ let clubSubgroups = [];
 let clubMembers = [];
 let currentUserData = null;
 
+// Exercise tracking state for event attendance
+let eventExercises = [];
+let allExercises = []; // Cache of all available exercises
+
 /**
  * Initialize events module
  * @param {Object} userData - Current user data
@@ -633,6 +637,7 @@ window.openEventDetails = async function(eventId) {
 
         // Load existing attendance if any
         let attendanceData = null;
+        eventExercises = []; // Reset exercises
         if (isPastOrToday) {
             const { data: attendance } = await supabase
                 .from('event_attendance')
@@ -640,6 +645,11 @@ window.openEventDetails = async function(eventId) {
                 .eq('event_id', eventId)
                 .single();
             attendanceData = attendance;
+
+            // Load existing exercises from attendance
+            if (attendance?.completed_exercises) {
+                eventExercises = attendance.completed_exercises;
+            }
         }
 
         // Create and show modal
@@ -651,6 +661,22 @@ window.openEventDetails = async function(eventId) {
         modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100001] p-4';
 
         const presentIds = attendanceData?.present_user_ids || [];
+        const existingExercisesHtml = eventExercises.length > 0
+            ? eventExercises.map((ex, index) => `
+                <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <div class="flex-1">
+                        <p class="font-medium text-gray-900">${ex.name}</p>
+                        <p class="text-sm text-indigo-600">+${ex.points || 0} Punkte</p>
+                    </div>
+                    <button onclick="window.removeEventExercise(${index})"
+                            class="text-red-500 hover:text-red-700 p-1">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('')
+            : '<p class="text-gray-400 text-sm text-center py-2">Keine Übungen hinzugefügt</p>';
 
         modal.innerHTML = `
             <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -742,12 +768,37 @@ window.openEventDetails = async function(eventId) {
                             }).join('')}
                         </div>
 
+                    </div>
+
+                    <!-- Exercise Tracking for Coaches -->
+                    <div class="border-t pt-6 mt-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                            <svg class="w-5 h-5 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            Übungen
+                        </h3>
+                        <p class="text-sm text-gray-500 mb-4">Welche Übungen wurden durchgeführt?</p>
+
+                        <div id="event-exercises-list" class="space-y-2 mb-4">
+                            ${existingExercisesHtml}
+                        </div>
+
                         <button
-                            onclick="window.saveEventAttendance('${eventId}')"
-                            class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-colors">
-                            Anwesenheit speichern
+                            onclick="window.openEventExerciseSelector('${eventId}')"
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Übung hinzufügen
                         </button>
                     </div>
+
+                    <button
+                        onclick="window.saveEventAttendance('${eventId}')"
+                        class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors">
+                        Alles speichern
+                    </button>
                     ` : ''}
 
                     ${!isPastOrToday ? `
@@ -812,13 +863,20 @@ window.openEventDetails = async function(eventId) {
 };
 
 /**
- * Save event attendance
+ * Save event attendance and exercises
  * @param {string} eventId - Event ID
  */
 window.saveEventAttendance = async function(eventId) {
     try {
         const checkboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
         const presentUserIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
+
+        // Prepare exercise data
+        const exerciseData = eventExercises.map(ex => ({
+            id: ex.id,
+            name: ex.name,
+            points: ex.points || 0
+        }));
 
         // Check if attendance record exists
         const { data: existing } = await supabase
@@ -833,6 +891,7 @@ window.saveEventAttendance = async function(eventId) {
                 .from('event_attendance')
                 .update({
                     present_user_ids: presentUserIds,
+                    completed_exercises: exerciseData,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', existing.id);
@@ -845,18 +904,261 @@ window.saveEventAttendance = async function(eventId) {
                 .insert({
                     event_id: eventId,
                     present_user_ids: presentUserIds,
+                    completed_exercises: exerciseData,
                     created_at: new Date().toISOString()
                 });
 
             if (error) throw error;
         }
 
-        alert('Anwesenheit gespeichert!');
+        alert('Gespeichert!');
         document.getElementById('event-details-modal')?.remove();
+        eventExercises = []; // Reset
 
     } catch (error) {
         console.error('[Events] Error saving attendance:', error);
         alert('Fehler beim Speichern: ' + error.message);
+    }
+};
+
+/**
+ * Open exercise selector modal
+ * @param {string} eventId - Event ID
+ */
+window.openEventExerciseSelector = async function(eventId) {
+    try {
+        // Load exercises if not cached
+        if (allExercises.length === 0) {
+            const { data: exercises, error } = await supabase
+                .from('exercises')
+                .select('*')
+                .eq('club_id', currentUserData.clubId)
+                .order('name');
+
+            if (error) throw error;
+            allExercises = exercises || [];
+        }
+
+        // Create exercise selector modal
+        const existingSelector = document.getElementById('exercise-selector-modal');
+        if (existingSelector) existingSelector.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'exercise-selector-modal';
+        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100002] p-4';
+
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900">Übung hinzufügen</h3>
+                    <button onclick="document.getElementById('exercise-selector-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="p-4 border-b">
+                    <input type="text" id="exercise-search" placeholder="Übung suchen..."
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                           oninput="window.filterExercises(this.value)">
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div id="exercise-selector-list" class="space-y-2">
+                        ${allExercises.length > 0 ? allExercises.map(ex => `
+                            <button onclick="window.addEventExercise('${ex.id}', '${ex.name.replace(/'/g, "\\'")}', ${ex.points || 0})"
+                                    class="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-indigo-50 hover:border-indigo-300 transition-colors">
+                                <p class="font-medium text-gray-900">${ex.name}</p>
+                                <p class="text-sm text-gray-500">+${ex.points || 0} Punkte</p>
+                            </button>
+                        `).join('') : '<p class="text-gray-500 text-center py-4">Keine Übungen vorhanden</p>'}
+                    </div>
+                </div>
+
+                <div class="p-4 border-t bg-gray-50">
+                    <button onclick="window.openCreateExerciseModal()"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors">
+                        + Neue Übung erstellen
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+    } catch (error) {
+        console.error('[Events] Error opening exercise selector:', error);
+        alert('Fehler beim Laden der Übungen');
+    }
+};
+
+/**
+ * Filter exercises in selector
+ * @param {string} query - Search query
+ */
+window.filterExercises = function(query) {
+    const listEl = document.getElementById('exercise-selector-list');
+    if (!listEl) return;
+
+    const filtered = allExercises.filter(ex =>
+        ex.name.toLowerCase().includes(query.toLowerCase())
+    );
+
+    listEl.innerHTML = filtered.length > 0 ? filtered.map(ex => `
+        <button onclick="window.addEventExercise('${ex.id}', '${ex.name.replace(/'/g, "\\'")}', ${ex.points || 0})"
+                class="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-indigo-50 hover:border-indigo-300 transition-colors">
+            <p class="font-medium text-gray-900">${ex.name}</p>
+            <p class="text-sm text-gray-500">+${ex.points || 0} Punkte</p>
+        </button>
+    `).join('') : '<p class="text-gray-500 text-center py-4">Keine Übungen gefunden</p>';
+};
+
+/**
+ * Add exercise to event
+ * @param {string} id - Exercise ID
+ * @param {string} name - Exercise name
+ * @param {number} points - Exercise points
+ */
+window.addEventExercise = function(id, name, points) {
+    eventExercises.push({ id, name, points });
+    document.getElementById('exercise-selector-modal')?.remove();
+    renderEventExercises();
+};
+
+/**
+ * Remove exercise from event
+ * @param {number} index - Index in eventExercises array
+ */
+window.removeEventExercise = function(index) {
+    eventExercises.splice(index, 1);
+    renderEventExercises();
+};
+
+/**
+ * Render event exercises list
+ */
+function renderEventExercises() {
+    const listEl = document.getElementById('event-exercises-list');
+    if (!listEl) return;
+
+    if (eventExercises.length === 0) {
+        listEl.innerHTML = '<p class="text-gray-400 text-sm text-center py-2">Keine Übungen hinzugefügt</p>';
+        return;
+    }
+
+    listEl.innerHTML = eventExercises.map((ex, index) => `
+        <div class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <div class="flex-1">
+                <p class="font-medium text-gray-900">${ex.name}</p>
+                <p class="text-sm text-indigo-600">+${ex.points} Punkte</p>
+            </div>
+            <button onclick="window.removeEventExercise(${index})"
+                    class="text-red-500 hover:text-red-700 p-1">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+/**
+ * Open create exercise modal (quick add)
+ */
+window.openCreateExerciseModal = function() {
+    const existingModal = document.getElementById('create-exercise-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'create-exercise-modal';
+    modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Neue Übung erstellen</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name der Übung</label>
+                    <input type="text" id="new-exercise-name" placeholder="z.B. Aufschlag-Training"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Punkte</label>
+                    <input type="number" id="new-exercise-points" value="3" min="0"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="window.saveNewExercise()"
+                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">
+                    Erstellen & Hinzufügen
+                </button>
+                <button onclick="document.getElementById('create-exercise-modal').remove()"
+                        class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2.5 rounded-lg">
+                    Abbrechen
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+};
+
+/**
+ * Save new exercise to database and add to current event
+ */
+window.saveNewExercise = async function() {
+    const name = document.getElementById('new-exercise-name')?.value?.trim();
+    const points = parseInt(document.getElementById('new-exercise-points')?.value) || 0;
+
+    if (!name) {
+        alert('Bitte gib einen Namen ein');
+        return;
+    }
+
+    try {
+        // Save to database
+        const { data: newExercise, error } = await supabase
+            .from('exercises')
+            .insert({
+                name,
+                points,
+                club_id: currentUserData.clubId,
+                created_by: currentUserData.id
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Add to cache
+        allExercises.push(newExercise);
+
+        // Add to current event
+        eventExercises.push({
+            id: newExercise.id,
+            name: newExercise.name,
+            points: newExercise.points
+        });
+
+        // Close modals
+        document.getElementById('create-exercise-modal')?.remove();
+        document.getElementById('exercise-selector-modal')?.remove();
+
+        renderEventExercises();
+
+    } catch (error) {
+        console.error('[Events] Error creating exercise:', error);
+        alert('Fehler beim Erstellen: ' + error.message);
     }
 };
 
