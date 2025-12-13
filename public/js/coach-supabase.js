@@ -35,7 +35,6 @@ import {
 import {
     renderCalendar,
     fetchMonthlyAttendance,
-    handleCalendarDayClick,
     handleAttendanceSave,
     loadPlayersForAttendance,
     updateAttendanceCount,
@@ -140,9 +139,7 @@ import {
     openSendInvitationModal,
 } from './player-invitation-management-supabase.js';
 import {
-    initializeSpontaneousSessions,
     loadRecurringTemplates,
-    openSessionSelectionModal,
 } from './training-schedule-ui-supabase.js';
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
@@ -396,9 +393,6 @@ async function initializeCoachPage(userData) {
 
     // Initialize Player Invitation Management (pass supabase instead of auth/functions)
     initPlayerInvitationManagement(supabase, null, null, userData.clubId, userData.id, userData.activeSportId);
-
-    // Initialize Spontaneous Sessions (for creating trainings from calendar)
-    initializeSpontaneousSessions(userData, supabase);
 
     // Initialize Training Completion (for intelligent points distribution)
     initializeTrainingCompletion(supabase, userData);
@@ -847,15 +841,7 @@ async function initializeCoachPage(userData) {
 
             } catch (error) {
                 console.error('[Coach] Error loading sessions for day:', error);
-                // Fallback to old behavior
-                handleCalendarDayClick(
-                    e,
-                    clubPlayers,
-                    updateAttendanceCount,
-                    () => updatePairingsButtonState(clubPlayers, currentSubgroupFilter),
-                    supabase,
-                    userData.clubId
-                );
+                alert('Fehler beim Laden der Termine. Bitte versuche es erneut.');
             }
         });
 

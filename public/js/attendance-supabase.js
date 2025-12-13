@@ -17,6 +17,7 @@ const supabase = getSupabase();
 // Module state
 let monthlyAttendance = new Map();
 let monthlySessions = new Map();
+let monthlyEvents = new Map();
 let subgroupsMap = new Map();
 let currentSubgroupFilter = 'all';
 let isRenderingAttendance = false;
@@ -109,17 +110,20 @@ export async function renderCalendar(date, currentUserData) {
 
         dayCell.dataset.date = dateString;
 
-        // Check for sessions on this day
+        // Check for sessions and events on this day
         const sessionsOnDay = monthlySessions.get(dateString) || [];
+        const eventsOnDay = monthlyEvents.get(dateString) || [];
+        const hasItems = sessionsOnDay.length > 0 || eventsOnDay.length > 0;
 
-        if (sessionsOnDay.length > 0) {
+        if (hasItems) {
             dayCell.classList.add('border-indigo-300');
 
             const dotsContainer = document.createElement('div');
-            dotsContainer.className = 'flex gap-1 justify-center mt-1';
+            dotsContainer.className = 'flex gap-1 justify-center mt-1 flex-wrap';
 
-            const dotsToShow = Math.min(sessionsOnDay.length, 3);
-            for (let i = 0; i < dotsToShow; i++) {
+            // Add training session dots (with subgroup colors)
+            const sessionsToShow = Math.min(sessionsOnDay.length, 3);
+            for (let i = 0; i < sessionsToShow; i++) {
                 const session = sessionsOnDay[i];
                 const subgroup = subgroupsMap.get(session.subgroupId);
                 const color = subgroup ? subgroup.color : '#6366f1';
@@ -127,10 +131,25 @@ export async function renderCalendar(date, currentUserData) {
                 const dot = document.createElement('div');
                 dot.className = 'w-2 h-2 rounded-full';
                 dot.style.backgroundColor = color;
+                dot.title = subgroup ? subgroup.name : 'Training';
                 dotsContainer.appendChild(dot);
             }
 
-            if (sessionsOnDay.length > 3) {
+            // Add event dots (green)
+            const eventsToShow = Math.min(eventsOnDay.length, 2);
+            for (let i = 0; i < eventsToShow; i++) {
+                const event = eventsOnDay[i];
+                const dot = document.createElement('div');
+                dot.className = 'w-2 h-2 rounded-full';
+                dot.style.backgroundColor = '#10b981'; // Green for events
+                dot.title = event.title;
+                dotsContainer.appendChild(dot);
+            }
+
+            // Show + if there are more items
+            const totalItems = sessionsOnDay.length + eventsOnDay.length;
+            const shownItems = sessionsToShow + eventsToShow;
+            if (totalItems > shownItems) {
                 const moreDot = document.createElement('div');
                 moreDot.className = 'text-xs text-indigo-600 font-bold';
                 moreDot.textContent = '+';
@@ -152,6 +171,7 @@ export async function renderCalendar(date, currentUserData) {
 export async function fetchMonthlyAttendance(year, month, currentUserData) {
     monthlyAttendance.clear();
     monthlySessions.clear();
+    monthlyEvents.clear();
 
     // Check for valid clubId before querying
     if (!currentUserData?.clubId) {
@@ -278,6 +298,36 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
     } catch (error) {
         console.error('[fetchMonthlyAttendance] Error loading attendance records:', error);
         throw error;
+    }
+
+    // Fetch events for the month
+    try {
+        const { data: events, error: eventsError } = await supabase
+            .from('events')
+            .select('id, title, start_date, start_time')
+            .eq('club_id', effectiveClubId)
+            .gte('start_date', startDate)
+            .lte('start_date', endDate)
+            .eq('cancelled', false);
+
+        if (eventsError) {
+            console.warn('[fetchMonthlyAttendance] Could not load events:', eventsError);
+        } else {
+            (events || []).forEach(e => {
+                const dateKey = e.start_date;
+                if (!monthlyEvents.has(dateKey)) {
+                    monthlyEvents.set(dateKey, []);
+                }
+                monthlyEvents.get(dateKey).push({
+                    id: e.id,
+                    title: e.title,
+                    startTime: e.start_time
+                });
+            });
+        }
+    } catch (error) {
+        console.warn('[fetchMonthlyAttendance] Error loading events:', error);
+        // Don't throw - events are optional
     }
 }
 
