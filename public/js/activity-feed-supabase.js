@@ -1188,23 +1188,11 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                 </p>
             </div>
 
-            <!-- Stats Row -->
+            <!-- Stats Row - simplified, details in modal -->
             <div class="px-4 pb-3 flex items-center gap-6">
                 <div>
                     <p class="text-xs text-gray-500">Ergebnis</p>
                     <p class="font-bold text-gray-900">${setScore}</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500">Sätze</p>
-                    <p class="font-semibold text-gray-700 text-sm">
-                        ${sets.map((set, idx) => {
-                            const scoreA = set.playerA ?? set.teamA ?? 0;
-                            const scoreB = set.playerB ?? set.teamB ?? 0;
-                            const winnerScore = match.winner_id === match.player_a_id ? scoreA : scoreB;
-                            const loserScore = match.winner_id === match.player_a_id ? scoreB : scoreA;
-                            return `${winnerScore}-${loserScore}`;
-                        }).join(', ')}
-                    </p>
                 </div>
                 ${modeDisplay ? `
                 <div>
@@ -1362,23 +1350,11 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                 </p>
             </div>
 
-            <!-- Stats Row -->
+            <!-- Stats Row - simplified, details in modal -->
             <div class="px-4 pb-3 flex items-center gap-6">
                 <div>
                     <p class="text-xs text-gray-500">Ergebnis</p>
                     <p class="font-bold text-gray-900">${setScore}</p>
-                </div>
-                <div>
-                    <p class="text-xs text-gray-500">Sätze</p>
-                    <p class="font-semibold text-gray-700 text-sm">
-                        ${sets.map((set) => {
-                            const scoreA = set.teamA ?? set.playerA ?? 0;
-                            const scoreB = set.teamB ?? set.playerB ?? 0;
-                            const winnerScore = isTeamAWinner ? scoreA : scoreB;
-                            const loserScore = isTeamAWinner ? scoreB : scoreA;
-                            return `${winnerScore}-${loserScore}`;
-                        }).join(', ')}
-                    </p>
                 </div>
                 ${modeDisplay ? `
                 <div>
