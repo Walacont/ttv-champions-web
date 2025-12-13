@@ -937,7 +937,7 @@ async function injectMatchMedia(matchId, matchType) {
                                 preload="metadata"
                                 onclick="this.paused ? this.play() : this.pause(); this.parentElement.querySelector('.play-overlay').style.display = this.paused ? 'flex' : 'none';"
                             >
-                                <source src="${publicUrl}" type="${item.mime_type || 'video/mp4'}">
+                                <source src="${publicUrl}#t=0.5" type="${item.mime_type || 'video/mp4'}">
                             </video>
                             <div class="play-overlay absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer" onclick="event.stopPropagation(); const v = this.previousElementSibling; v.play(); this.style.display='none';">
                                 <div class="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
