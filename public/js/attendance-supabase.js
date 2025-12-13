@@ -799,6 +799,32 @@ async function awardAttendancePoints(
         created_at: new Date().toISOString(),
         source: 'System (Anwesenheit)',
     });
+
+    // Send notification to player
+    let notificationTitle = 'Anwesenheit eingetragen';
+    let notificationMessage = `Du hast +${pointsToAdd} Punkte für das Training am ${formattedDate} erhalten.`;
+
+    if (newStreak >= 5) {
+        notificationTitle = '🔥 Super-Streak!';
+        notificationMessage = `${newStreak}x in Folge beim Training! +${pointsToAdd} Punkte (${subgroupName})`;
+    } else if (newStreak >= 3) {
+        notificationTitle = '⚡ Streak-Bonus!';
+        notificationMessage = `${newStreak}x in Folge beim Training! +${pointsToAdd} Punkte (${subgroupName})`;
+    }
+
+    await supabase.from('notifications').insert({
+        user_id: playerId,
+        type: 'attendance',
+        title: notificationTitle,
+        message: notificationMessage,
+        data: {
+            points: pointsToAdd,
+            streak: newStreak,
+            date,
+            subgroup_id: subgroupId,
+            subgroup_name: subgroupName
+        }
+    });
 }
 
 /**
