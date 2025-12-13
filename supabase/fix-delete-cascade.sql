@@ -61,13 +61,6 @@ ALTER TABLE training_sessions ADD CONSTRAINT training_sessions_created_by_fkey
     FOREIGN KEY (created_by) REFERENCES profiles(id) ON DELETE SET NULL;
 
 -- =====================================================
--- POINTS_HISTORY TABLE
--- =====================================================
-ALTER TABLE points_history DROP CONSTRAINT IF EXISTS points_history_awarded_by_fkey;
-ALTER TABLE points_history ADD CONSTRAINT points_history_awarded_by_fkey
-    FOREIGN KEY (awarded_by) REFERENCES profiles(id) ON DELETE SET NULL;
-
--- =====================================================
 -- XP_HISTORY TABLE
 -- =====================================================
 ALTER TABLE xp_history DROP CONSTRAINT IF EXISTS xp_history_awarded_by_fkey;
