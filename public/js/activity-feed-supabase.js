@@ -997,6 +997,26 @@ function renderClubJoinCard(activity) {
                         <i class="fas fa-handshake text-blue-500 mr-1"></i>
                         ${t('dashboard.activityFeed.events.clubJoin.welcome')}
                     </div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-blue-100">
+                        <button
+                            onclick="toggleActivityLike('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                            data-like-btn="event-${activity.id}"
+                            title="${t('dashboard.activityFeed.giveKudos')}"
+                        >
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
+                        </button>
+                        <button
+                            onclick="openComments('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1037,6 +1057,26 @@ function renderClubLeaveCard(activity) {
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-gray-200">
+                        <button
+                            onclick="toggleActivityLike('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                            data-like-btn="event-${activity.id}"
+                            title="${t('dashboard.activityFeed.giveKudos')}"
+                        >
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
+                        </button>
+                        <button
+                            onclick="openComments('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1107,6 +1147,26 @@ function renderRankUpCard(activity) {
                     <div class="mt-2 text-sm text-gray-600 italic">
                         <i class="fas fa-fire text-orange-500 mr-1"></i>
                         ${t('dashboard.activityFeed.events.rankUp.congratulations')}
+                    </div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-${colorScheme}-200">
+                        <button
+                            onclick="toggleActivityLike('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                            data-like-btn="event-${activity.id}"
+                            title="${t('dashboard.activityFeed.giveKudos')}"
+                        >
+                            <i class="far fa-thumbs-up"></i>
+                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
+                        </button>
+                        <button
+                            onclick="openComments('${activity.id}', 'event')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1207,16 +1267,21 @@ function renderPostCard(activity, profileMap) {
 
             <!-- Post Actions -->
             <div class="flex items-center gap-6 pt-3 border-t border-gray-100">
-                <button class="flex items-center gap-2 text-gray-600 hover:text-red-500 transition">
-                    <i class="far fa-heart"></i>
-                    <span class="text-sm">${likesCount}</span>
+                <button
+                    onclick="toggleActivityLike('${postId}', 'post')"
+                    class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                    data-like-btn="post-${postId}"
+                    title="${t('dashboard.activityFeed.giveKudos')}"
+                >
+                    <i class="far fa-thumbs-up"></i>
+                    <span class="text-sm" data-like-count="post-${postId}">${likesCount}</span>
                 </button>
-                <button class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition">
+                <button
+                    onclick="openComments('${postId}', 'post')"
+                    class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                >
                     <i class="far fa-comment"></i>
-                    <span class="text-sm">${commentsCount}</span>
-                </button>
-                <button class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition ml-auto">
-                    <i class="fas fa-share"></i>
+                    <span class="text-sm" data-comment-count="post-${postId}">${commentsCount}</span>
                 </button>
             </div>
         </div>
@@ -1298,14 +1363,36 @@ function renderPollCard(activity, profileMap) {
             </div>
 
             <!-- Poll Footer -->
-            <div class="flex items-center justify-between text-xs text-gray-600 pt-3 border-t border-purple-100">
-                <div class="flex items-center gap-1">
-                    <i class="fas fa-users"></i>
-                    <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
+            <div class="flex flex-col gap-2 pt-3 border-t border-purple-100">
+                <div class="flex items-center justify-between text-xs text-gray-600">
+                    <div class="flex items-center gap-1">
+                        <i class="fas fa-users"></i>
+                        <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <i class="fas fa-clock"></i>
+                        <span>${isActive ? `${t('dashboard.activityFeed.endsAt')} ${formatRelativeDate(endsAt)}` : t('dashboard.activityFeed.ended')}</span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-1">
-                    <i class="fas fa-clock"></i>
-                    <span>${isActive ? `${t('dashboard.activityFeed.endsAt')} ${formatRelativeDate(endsAt)}` : t('dashboard.activityFeed.ended')}</span>
+
+                <!-- Poll Actions -->
+                <div class="flex items-center gap-6">
+                    <button
+                        onclick="toggleActivityLike('${activity.id}', 'poll')"
+                        class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                        data-like-btn="poll-${activity.id}"
+                        title="${t('dashboard.activityFeed.giveKudos')}"
+                    >
+                        <i class="far fa-thumbs-up"></i>
+                        <span class="text-sm" data-like-count="poll-${activity.id}">${activity.likes_count || 0}</span>
+                    </button>
+                    <button
+                        onclick="openComments('${activity.id}', 'poll')"
+                        class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                    >
+                        <i class="far fa-comment"></i>
+                        <span class="text-sm" data-comment-count="poll-${activity.id}">${activity.comments_count || 0}</span>
+                    </button>
                 </div>
             </div>
         </div>
