@@ -576,6 +576,7 @@ async function checkHandicap() {
     }
 
     // H2H-based handicap
+    let h2hStreakWinnerId = null;
     try {
         const { data: h2hData, error } = await supabase
             .rpc('get_h2h_handicap', {
@@ -588,6 +589,7 @@ async function checkHandicap() {
 
             if (h2h.suggested_handicap > 0 && h2h.streak_winner_id) {
                 const wins = h2h.consecutive_wins;
+                h2hStreakWinnerId = h2h.streak_winner_id;
 
                 if (h2h.streak_winner_id === selectedOpponent.id) {
                     handicapSuggestions.push({
@@ -599,7 +601,7 @@ async function checkHandicap() {
                     handicapSuggestions.push({
                         type: 'h2h',
                         value: h2h.suggested_handicap,
-                        text: `Du hast ${wins}x in Folge gegen ${selectedOpponent.name} gewonnen. ${selectedOpponent.name} startest mit +${h2h.suggested_handicap} ${unitText}`
+                        text: `Du hast ${wins}x in Folge gegen ${selectedOpponent.name} gewonnen. ${selectedOpponent.name} startet mit +${h2h.suggested_handicap} ${unitText}`
                     });
                 }
             }
@@ -626,18 +628,32 @@ async function checkHandicap() {
 
         // Store handicap details for later use when saving match
         if (selectedSuggestion) {
-            const myElo = currentUserData.elo_rating || 1000;
-            const opponentElo = selectedOpponent.elo;
-            const iAmStronger = myElo > opponentElo;
+            let handicapPlayerId, handicapPlayerName;
 
-            // The weaker player gets the handicap points
-            const weakerPlayerId = iAmStronger ? selectedOpponent.id : currentUser.id;
-            const weakerPlayerName = iAmStronger ? selectedOpponent.name :
-                `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim();
+            if (selectedSuggestion.type === 'h2h' && h2hStreakWinnerId) {
+                // For H2H: the player who LOST the streak gets the handicap
+                if (h2hStreakWinnerId === selectedOpponent.id) {
+                    // Opponent won streak, so current user gets handicap
+                    handicapPlayerId = currentUser.id;
+                    handicapPlayerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim();
+                } else {
+                    // Current user won streak, so opponent gets handicap
+                    handicapPlayerId = selectedOpponent.id;
+                    handicapPlayerName = selectedOpponent.name;
+                }
+            } else {
+                // For Elo-based: weaker player (lower Elo) gets handicap
+                const myElo = currentUserData.elo_rating || 1000;
+                const opponentElo = selectedOpponent.elo;
+                const iAmStronger = myElo > opponentElo;
+                handicapPlayerId = iAmStronger ? selectedOpponent.id : currentUser.id;
+                handicapPlayerName = iAmStronger ? selectedOpponent.name :
+                    `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim();
+            }
 
             currentHandicapDetails = {
-                player_id: weakerPlayerId,
-                player_name: weakerPlayerName,
+                player_id: handicapPlayerId,
+                player_name: handicapPlayerName,
                 points: selectedSuggestion.value,
                 type: selectedSuggestion.type,
                 elo_diff: diff

@@ -1184,7 +1184,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                 </h3>
                 <p class="text-sm text-gray-600 mt-1">
                     <span class="font-semibold text-green-600">${winnerName}</span> gewinnt ${setScore}
-                    ${match.handicap_used ? '<span class="ml-2 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">Handicap</span>' : ''}
+                    ${match.handicap_used ? `<span class="ml-2 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">Handicap${match.handicap?.points ? ` +${match.handicap.points}` : ''}</span>` : ''}
                 </p>
             </div>
 
@@ -1347,6 +1347,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                 </h3>
                 <p class="text-sm text-gray-600 mt-1">
                     <span class="font-semibold text-green-600">${winnerNames}</span> gewinnen ${setScore}
+                    ${match.handicap_used ? `<span class="ml-2 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded">Handicap${match.handicap?.points ? ` +${match.handicap.points}` : ''}</span>` : ''}
                 </p>
             </div>
 
