@@ -834,47 +834,59 @@ async function injectMatchMedia(matchId, matchType) {
             return;
         }
 
-        // Render media gallery
-        const { data: { publicUrl } } = supabase.storage
-            .from('match-media')
-            .getPublicUrl(media[0].file_path);
-
+        // Render media - inline like Instagram
         const isParticipant = await checkIfParticipant(matchId, matchType);
+
+        // Build media items HTML
+        let mediaHTML = '';
+
+        media.forEach((item, index) => {
+            const { data: { publicUrl } } = supabase.storage
+                .from('match-media')
+                .getPublicUrl(item.file_path);
+
+            if (item.file_type === 'video') {
+                // Videos play inline like Instagram
+                mediaHTML += `
+                    <div class="relative rounded-lg overflow-hidden bg-black ${index > 0 ? 'mt-2' : ''}">
+                        <video
+                            controls
+                            playsinline
+                            preload="metadata"
+                            class="w-full max-h-[400px] object-contain"
+                            poster=""
+                        >
+                            <source src="${publicUrl}" type="${item.mime_type || 'video/mp4'}">
+                            Dein Browser unterstützt keine Videos.
+                        </video>
+                    </div>
+                `;
+            } else {
+                // Photos can be clicked to view larger
+                mediaHTML += `
+                    <div class="relative rounded-lg overflow-hidden cursor-pointer ${index > 0 ? 'mt-2' : ''}" onclick="openMediaGallery('${matchId}', '${matchType}', ${index})">
+                        <img src="${publicUrl}" alt="Match Foto" class="w-full max-h-[400px] object-contain bg-gray-100">
+                    </div>
+                `;
+            }
+        });
 
         container.innerHTML = `
             <div class="space-y-2">
-                <!-- Media Preview -->
-                <div class="relative group cursor-pointer" onclick="openMediaGallery('${matchId}', '${matchType}', 0)">
-                    ${media[0].file_type === 'photo' ? `
-                        <img src="${publicUrl}" alt="Match media" class="w-full h-48 object-cover rounded-lg">
-                    ` : `
-                        <video class="w-full h-48 object-cover rounded-lg">
-                            <source src="${publicUrl}" type="${media[0].mime_type}">
-                        </video>
-                        <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg">
-                            <i class="fas fa-play-circle text-white text-4xl"></i>
-                        </div>
-                    `}
-                    ${media.length > 1 ? `
-                        <div class="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full">
-                            +${media.length - 1} ${media.length === 2 ? t('dashboard.matchMedia.viewMedia') : t('dashboard.matchMedia.viewMedia')}
-                        </div>
-                    ` : ''}
-                </div>
+                ${mediaHTML}
 
                 <!-- Action Buttons -->
-                <div class="flex items-center gap-3 text-sm">
-                    <button
-                        onclick="openMediaGallery('${matchId}', '${matchType}', 0)"
-                        class="text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
-                    >
-                        <i class="fas fa-images"></i>
-                        <span>${media.length} ${media.length === 1 ? 'Foto/Video' : 'Fotos/Videos'}</span>
-                    </button>
+                <div class="flex items-center gap-3 text-sm mt-2">
+                    ${media.length > 1 ? `
+                        <span class="text-gray-500">
+                            <i class="fas fa-images mr-1"></i>
+                            ${media.length} Medien
+                        </span>
+                    ` : ''}
                     ${isParticipant && media.length < 5 ? `
                         <button
                             onclick="openMediaUpload('${matchId}', '${matchType}')"
-                            class="text-gray-600 hover:text-gray-700 transition flex items-center gap-1"
+                            class="text-indigo-600 hover:text-indigo-700 transition flex items-center gap-1"
                         >
                             <i class="fas fa-plus"></i>
                             <span data-i18n="dashboard.matchMedia.addMedia">${t('dashboard.matchMedia.addMedia')}</span>
