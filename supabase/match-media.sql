@@ -2,11 +2,6 @@
 -- Stores photos and videos for matches (singles and doubles)
 -- Files are stored in Supabase Storage, this table stores metadata
 
--- Drop existing policies first (if re-running)
-DROP POLICY IF EXISTS "match_media_select" ON match_media;
-DROP POLICY IF EXISTS "match_media_insert" ON match_media;
-DROP POLICY IF EXISTS "match_media_delete" ON match_media;
-
 CREATE TABLE IF NOT EXISTS match_media (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id UUID NOT NULL,
@@ -35,6 +30,11 @@ CREATE INDEX IF NOT EXISTS idx_match_media_created ON match_media(created_at DES
 
 -- Enable RLS
 ALTER TABLE match_media ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies (if re-running after table exists)
+DROP POLICY IF EXISTS "match_media_select" ON match_media;
+DROP POLICY IF EXISTS "match_media_insert" ON match_media;
+DROP POLICY IF EXISTS "match_media_delete" ON match_media;
 
 -- RLS Policies
 

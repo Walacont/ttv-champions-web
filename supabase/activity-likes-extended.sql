@@ -1,11 +1,6 @@
 -- Extended Activity Likes Table
 -- Migration to support likes on ALL activity types (matches, posts, polls, events)
 
--- Drop existing policies first (if re-running)
-DROP POLICY IF EXISTS "activity_likes_select" ON activity_likes;
-DROP POLICY IF EXISTS "activity_likes_insert" ON activity_likes;
-DROP POLICY IF EXISTS "activity_likes_delete" ON activity_likes;
-
 -- Check if we need to migrate from old structure
 DO $$
 BEGIN
@@ -65,6 +60,11 @@ CREATE INDEX IF NOT EXISTS idx_activity_likes_created ON activity_likes(created_
 
 -- Enable RLS
 ALTER TABLE activity_likes ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies (if re-running after table exists)
+DROP POLICY IF EXISTS "activity_likes_select" ON activity_likes;
+DROP POLICY IF EXISTS "activity_likes_insert" ON activity_likes;
+DROP POLICY IF EXISTS "activity_likes_delete" ON activity_likes;
 
 -- RLS Policies
 -- Users can view all likes (for like counts)
