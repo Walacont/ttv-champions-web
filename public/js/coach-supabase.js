@@ -81,8 +81,6 @@ import {
     handleMatchSave,
     updateMatchUI,
     populateMatchDropdowns,
-    loadCoachMatchRequests,
-    loadCoachProcessedRequests,
     initializeCoachSetScoreInput,
     loadSavedPairings,
     initializeHandicapToggle,
@@ -464,11 +462,6 @@ async function initializeCoachPage(userData) {
 
     loadLeaderboard(userData, supabase, []);
     loadGlobalLeaderboard(userData, supabase, []);
-
-    // Load coach match requests (singles and doubles)
-    // Load combined match requests (singles + doubles)
-    loadCoachMatchRequests(userData, supabase);
-    loadCoachProcessedRequests(userData, supabase);
 
     calendarUnsubscribe = renderCalendar(currentCalendarDate, userData);
 

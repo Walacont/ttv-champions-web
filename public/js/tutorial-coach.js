@@ -66,7 +66,7 @@ export const coachTutorialSteps = [
         element: '[data-tab="statistics"]',
         title: 'Statistik-Übersicht',
         description:
-            'Hier findest du alle wichtigen Statistiken deines Teams. Besonders wichtig: Hier siehst du eingehende Anfragen von Spielern, die Wettkämpfe melden möchten.',
+            'Hier findest du alle wichtigen Statistiken deines Teams wie Trainings-Analysen und Leaderboards.',
         category: 'Grundlagen',
         position: 'bottom',
         action: async () => {
@@ -74,20 +74,7 @@ export const coachTutorialSteps = [
         },
     },
 
-    // 3. Anfragen-Bereich
-    {
-        element: '#coach-pending-requests-list',
-        title: 'Anfragen verwalten',
-        description:
-            'In diesem Bereich werden alle Wettkampf-Anfragen von Spielern angezeigt, die auf deine Genehmigung warten. Du kannst diese annehmen oder ablehnen.',
-        category: 'Grundlagen',
-        position: 'auto',
-        action: async () => {
-            await switchToTab('statistics');
-        },
-    },
-
-    // 4. Spieler verwalten Button
+    // 3. Spieler verwalten Button
     {
         element: '#open-player-modal-button',
         title: 'Spieler verwalten',
