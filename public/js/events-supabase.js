@@ -564,4 +564,4 @@ function closeAllModals() {
 }
 
 // Export functions for global access
-export { openEventDayModal, closeAllModals };
+export { closeAllModals };
