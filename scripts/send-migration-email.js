@@ -34,7 +34,7 @@ const REPLY_TO = 'support@sc-champions.de'; // Your support email
 const APP_URL = 'https://sc-champions.de';
 
 // Test configuration
-const TEST_EMAIL = 'your-test-email@example.com'; // Change this for testing
+const TEST_EMAIL = 'walacon@aol.com'; // Change this for testing
 
 // ============================================
 // Initialize clients
