@@ -410,6 +410,11 @@ export async function confirmDoublesMatchRequest(requestId, playerId, supabase) 
 
     console.log('Doubles match request confirmed and auto-approved by opponent:', playerId);
 
+    // Dispatch event to notify other components (dashboard, etc.) to refresh
+    window.dispatchEvent(new CustomEvent('matchRequestUpdated', {
+        detail: { type: 'doubles', action: 'approved', requestId }
+    }));
+
     // Notify all 4 players that the match is approved (using JSONB structure)
     const teamA = request.team_a || {};
     const allPlayerIds = [

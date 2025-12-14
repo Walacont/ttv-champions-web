@@ -1523,7 +1523,12 @@ async function handleAcceptMatch(requestId, requesterId, notificationId, userId)
             t('notifications.matchApprovedMessage', { name: currentUserName })
         );
 
-        // Refresh match requests if function exists
+        // Dispatch event to notify other components (dashboard, etc.) to refresh
+        window.dispatchEvent(new CustomEvent('matchRequestUpdated', {
+            detail: { type: 'singles', action: 'approved', requestId: matchRequest.id }
+        }));
+
+        // Refresh match requests if function exists (legacy support)
         if (typeof window.loadMatchRequests === 'function') {
             window.loadMatchRequests();
         }

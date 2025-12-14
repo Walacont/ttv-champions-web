@@ -2289,6 +2289,13 @@ async function updateSeasonCountdown() {
 function setupRealtimeSubscriptions() {
     console.log('[Realtime] Setting up realtime subscriptions...');
 
+    // Listen for custom matchRequestUpdated events (from notifications, etc.)
+    window.addEventListener('matchRequestUpdated', (event) => {
+        console.log('[Realtime] matchRequestUpdated event received:', event.detail);
+        loadMatchRequests();
+        loadPendingRequests();
+    });
+
     // Subscribe to profile changes for current user
     const profileSub = supabase
         .channel('profile_changes')
