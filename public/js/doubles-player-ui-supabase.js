@@ -204,9 +204,13 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     };
                 })
                 .filter(p => {
-                    // Filter: not self, match-ready (offline players are allowed)
+                    // Filter: not self
                     const isSelf = p.id === userData.id;
-                    if (isSelf || !p.isMatchReady) return false;
+                    if (isSelf) return false;
+
+                    // Offline players are always allowed in doubles (they bypass match-ready check)
+                    // Online players must be match-ready
+                    if (!p.isOffline && !p.isMatchReady) return false;
 
                     // Sport filter: same sport OR offline player (offline players can play any sport)
                     if (userSportId && !p.isOffline) {

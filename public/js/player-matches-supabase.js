@@ -144,9 +144,10 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
 
     try {
         // Search by display_name, first_name, or last_name
+        // Include is_offline to filter out offline players (singles only allows online players)
         const { data: players, error } = await supabase
             .from('profiles')
-            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, privacy_settings')
+            .select('id, display_name, first_name, last_name, avatar_url, elo_rating, privacy_settings, is_offline')
             .eq('club_id', currentUserData.club_id)
             .neq('id', currentUser.id)
             .or(`display_name.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
@@ -159,12 +160,16 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
             return;
         }
 
-        // Filter players based on privacy settings
+        // Filter players based on privacy settings and offline status
         // Note: showInLeaderboards only affects leaderboard visibility, not opponent search
         // Opponent search uses the 'searchable' setting:
         // - 'global': anyone can find them
         // - 'club_only': only club members can find them (already the case here since we search within club)
+        // Singles matches do NOT allow offline players (they can only play doubles)
         const filteredPlayers = players.filter(player => {
+            // Exclude offline players from singles opponent search
+            if (player.is_offline === true) return false;
+
             const privacySettings = player.privacy_settings || {};
             const searchable = privacySettings.searchable || 'global';
 
