@@ -102,6 +102,11 @@ async function loadSports(preAssignedSportId = null) {
                 option.textContent = sport.display_name || sport.name;
                 sportSelect.appendChild(option);
             });
+
+            // Auto-select first sport if only one exists
+            if (sports.length === 1) {
+                sportSelect.value = sports[0].id;
+            }
         }
 
         return sports || [];
