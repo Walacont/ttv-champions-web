@@ -679,7 +679,8 @@ async function loadLikesForActivities(activities) {
             // Convert match types to activity types for new schema
             if (a.matchType === 'singles') return 'singles_match';
             if (a.matchType === 'doubles') return 'doubles_match';
-            return a.activityType || a.matchType;
+            // For other types, use activityType directly
+            return a.activityType || a.matchType || 'post';
         });
 
         const { data, error } = await supabase.rpc('get_activity_likes_batch', {
@@ -700,6 +701,22 @@ async function loadLikesForActivities(activities) {
                 isLiked: like.is_liked_by_me || false,
                 recentLikers: like.recent_likers || []
             };
+
+            // Update UI immediately
+            const countEl = document.querySelector(`[data-like-count="${key}"]`);
+            const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
+            if (countEl) {
+                countEl.textContent = like.like_count > 0 ? like.like_count : '';
+            }
+            if (likeBtn && like.is_liked_by_me) {
+                const icon = likeBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                }
+                likeBtn.classList.remove('text-gray-400');
+                likeBtn.classList.add('text-orange-500');
+            }
         });
 
     } catch (error) {
@@ -740,6 +757,22 @@ async function loadLikesFallback(activities) {
                 isLiked: !!userLike,
                 recentLikers: []
             };
+
+            // Update UI immediately
+            const countEl = document.querySelector(`[data-like-count="${key}"]`);
+            const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
+            if (countEl) {
+                countEl.textContent = count > 0 ? count : '';
+            }
+            if (likeBtn && userLike) {
+                const icon = likeBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                }
+                likeBtn.classList.remove('text-gray-400');
+                likeBtn.classList.add('text-orange-500');
+            }
         } catch (e) {
             likesDataCache[key] = { likeCount: 0, isLiked: false, recentLikers: [] };
         }
@@ -774,6 +807,20 @@ async function toggleActivityLike(activityId, activityType) {
         });
 
         if (error) {
+            // Check if user tried to like their own activity
+            if (error.message && error.message.includes('cannot like your own activity')) {
+                // Revert UI changes
+                updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+                likesDataCache[key] = currentData;
+                // Show user-friendly message
+                const activityName = activityType === 'singles_match' ? 'dein Spiel' :
+                                   activityType === 'doubles_match' ? 'dein Doppel' :
+                                   activityType === 'post' ? 'deinen Beitrag' :
+                                   activityType === 'poll' ? 'deine Umfrage' :
+                                   'deine Aktivität';
+                alert(`Du kannst ${activityName} nicht selbst liken.`);
+                return;
+            }
             console.warn('[ActivityFeed] Toggle RPC not available:', error.message);
             await toggleLikeFallback(activityId, activityType, newIsLiked, key);
         } else if (data) {
@@ -787,8 +834,20 @@ async function toggleActivityLike(activityId, activityType) {
 
     } catch (error) {
         console.error('[ActivityFeed] Error toggling like:', error);
-        updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
-        likesDataCache[key] = currentData;
+        // Check if it's the "own activity" error
+        if (error.message && error.message.includes('cannot like your own activity')) {
+            updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+            likesDataCache[key] = currentData;
+            const activityName = activityType === 'singles_match' ? 'dein Spiel' :
+                               activityType === 'doubles_match' ? 'dein Doppel' :
+                               activityType === 'post' ? 'deinen Beitrag' :
+                               activityType === 'poll' ? 'deine Umfrage' :
+                               'deine Aktivität';
+            alert(`Du kannst ${activityName} nicht selbst liken.`);
+        } else {
+            updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+            likesDataCache[key] = currentData;
+        }
     }
 }
 
