@@ -52,7 +52,7 @@ SELECT
     elo_rating as current_elo
 FROM profiles
 WHERE birthdate IS NOT NULL
-  AND birthdate ~ '^\d{4}-\d{2}-\d{2}$'
+  AND birthdate::TEXT ~ '^\d{4}-\d{2}-\d{2}$'
   AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, birthdate::DATE)) >= 18
 ORDER BY display_name;
 
@@ -61,7 +61,7 @@ UPDATE profiles
 SET elo_rating = 1000,
     highest_elo = GREATEST(highest_elo, 1000)
 WHERE birthdate IS NOT NULL
-  AND birthdate ~ '^\d{4}-\d{2}-\d{2}$'
+  AND birthdate::TEXT ~ '^\d{4}-\d{2}-\d{2}$'
   AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, birthdate::DATE)) >= 18;
 
 -- =============================================================================
@@ -73,7 +73,7 @@ UPDATE profiles
 SET elo_rating = 800,
     highest_elo = GREATEST(highest_elo, 800)
 WHERE birthdate IS NOT NULL
-  AND birthdate ~ '^\d{4}-\d{2}-\d{2}$'
+  AND birthdate::TEXT ~ '^\d{4}-\d{2}-\d{2}$'
   AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, birthdate::DATE)) < 18;
 */
 
