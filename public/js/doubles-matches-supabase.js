@@ -581,14 +581,20 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     player2Data = p2;
                 }
 
-                // Sport filtering: Both players must be in the specified sport
+                // Sport filtering: The pairing must be for the specified sport
+                // Use the pairing's sport_id, not the players' current active_sport_id
                 if (sportId) {
-                    const player1Sport = player1Data?.active_sport_id;
-                    const player2Sport = player2Data?.active_sport_id;
-
-                    // Skip pairing if either player is not in the specified sport
-                    if (player1Sport !== sportId || player2Sport !== sportId) {
-                        continue;
+                    // Check if the pairing has a sport_id stored
+                    if (data.sport_id && data.sport_id !== sportId) {
+                        continue; // Skip pairing - it's for a different sport
+                    }
+                    // Fallback: if no sport_id on pairing, check if both players are currently in the sport
+                    if (!data.sport_id) {
+                        const player1Sport = player1Data?.active_sport_id;
+                        const player2Sport = player2Data?.active_sport_id;
+                        if (player1Sport !== sportId || player2Sport !== sportId) {
+                            continue;
+                        }
                     }
                 }
 
@@ -631,12 +637,10 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                 let clubDisplay = 'Kein Verein';
                 let clubType = 'none';
 
-                const p1ClubId = data.player1_club_id_at_match !== undefined
-                    ? data.player1_club_id_at_match
-                    : player1Data?.club_id;
-                const p2ClubId = data.player2_club_id_at_match !== undefined
-                    ? data.player2_club_id_at_match
-                    : player2Data?.club_id;
+                // Use nullish coalescing (??) to handle both null and undefined
+                // Prefer stored club_id_at_match, fallback to player's current club_id
+                const p1ClubId = data.player1_club_id_at_match ?? player1Data?.club_id;
+                const p2ClubId = data.player2_club_id_at_match ?? player2Data?.club_id;
 
                 if (p1ClubId && p2ClubId && p1ClubId === p2ClubId) {
                     clubType = 'same';
