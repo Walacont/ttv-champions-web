@@ -1454,7 +1454,7 @@ function renderClubJoinCard(activity) {
                         <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
-                        <span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubJoin.joined')}</span>
+                        <span class="text-gray-600 text-sm">ist dem Verein beigetreten</span>
                         <span class="font-semibold text-blue-700">${clubName}</span>
                     </div>
 
@@ -1467,7 +1467,7 @@ function renderClubJoinCard(activity) {
 
                     <div class="mt-2 text-sm text-gray-600">
                         <i class="fas fa-handshake text-blue-500 mr-1"></i>
-                        ${t('dashboard.activityFeed.events.clubJoin.welcome')}
+                        Willkommen im Team!
                     </div>
 
                     <!-- Event Actions -->
@@ -1476,7 +1476,7 @@ function renderClubJoinCard(activity) {
                             onclick="toggleActivityLike('${activity.id}', 'event')"
                             class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
                             data-like-btn="event-${activity.id}"
-                            title="${t('dashboard.activityFeed.giveKudos')}"
+                            title="Liken"
                         >
                             <i class="far fa-thumbs-up"></i>
                             <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
@@ -1523,7 +1523,7 @@ function renderClubLeaveCard(activity) {
                         <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
-                        <span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubLeave.left')}</span>
+                        <span class="text-gray-600 text-sm">hat den Verein verlassen</span>
                         <span class="font-semibold text-gray-700">${clubName}</span>
                     </div>
 
@@ -1537,7 +1537,7 @@ function renderClubLeaveCard(activity) {
                             onclick="toggleActivityLike('${activity.id}', 'event')"
                             class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
                             data-like-btn="event-${activity.id}"
-                            title="${t('dashboard.activityFeed.giveKudos')}"
+                            title="Liken"
                         >
                             <i class="far fa-thumbs-up"></i>
                             <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
@@ -1600,7 +1600,7 @@ function renderRankUpCard(activity) {
                         <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
                             ${displayName}
                         </a>
-                        <span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.rankUp.achieved')}</span>
+                        <span class="text-gray-600 text-sm">erreichte</span>
                         <span class="font-bold text-${colorScheme}-700">${rankName}</span>
                     </div>
 
@@ -1618,7 +1618,7 @@ function renderRankUpCard(activity) {
 
                     <div class="mt-2 text-sm text-gray-600 italic">
                         <i class="fas fa-fire text-orange-500 mr-1"></i>
-                        ${t('dashboard.activityFeed.events.rankUp.congratulations')}
+                        Glückwunsch zum Rangaufstieg!
                     </div>
 
                     <!-- Event Actions -->
@@ -1627,7 +1627,7 @@ function renderRankUpCard(activity) {
                             onclick="toggleActivityLike('${activity.id}', 'event')"
                             class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
                             data-like-btn="event-${activity.id}"
-                            title="${t('dashboard.activityFeed.giveKudos')}"
+                            title="Liken"
                         >
                             <i class="far fa-thumbs-up"></i>
                             <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
