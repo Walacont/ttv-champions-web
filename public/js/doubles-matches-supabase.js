@@ -162,6 +162,7 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             is_cross_club: matchClubId === null,
             processed: false,
             source: 'coach',
+            sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
         }])
         .select()
         .single();
@@ -308,6 +309,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         status: 'pending_opponent',
         club_id: matchClubId,
         is_cross_club: matchClubId === null,
+        sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
     };
 
     console.log('Creating doubles match request:', {
