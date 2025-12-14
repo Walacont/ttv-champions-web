@@ -141,6 +141,8 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
     const teamBPairingId = createPairingId(teamB_player1Id, teamB_player2Id);
 
     // Create match document
+    // Note: winning_pairing_id, losing_pairing_id, and source columns don't exist in table
+    // The trigger will calculate pairing info from team data
     const { data: doublesMatch, error: insertError } = await supabase
         .from('doubles_matches')
         .insert([{
@@ -151,17 +153,14 @@ export async function saveDoublesMatch(matchData, supabase, currentUserData) {
             team_b_player2_id: teamB_player2Id,
             team_b_pairing_id: teamBPairingId,
             winning_team: winningTeam,
-            winning_pairing_id: winningTeam === 'A' ? teamAPairingId : teamBPairingId,
-            losing_pairing_id: winningTeam === 'A' ? teamBPairingId : teamAPairingId,
             sets: sets,
             handicap_used: handicapUsed || false,
             handicap: handicap || null,
             match_mode: matchMode,
-            reported_by: currentUserData.id,
+            created_by: currentUserData.id,
             club_id: matchClubId,
             is_cross_club: matchClubId === null,
             processed: false,
-            source: 'coach',
             sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
         }])
         .select()

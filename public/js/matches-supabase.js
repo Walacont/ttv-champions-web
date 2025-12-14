@@ -700,15 +700,27 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         return;
     }
 
-    // Get set scores from input
-    const setScoreInput = document.getElementById('set-score-input');
-    const setsA = parseInt(setScoreInput?.dataset.setsA || '0');
-    const setsB = parseInt(setScoreInput?.dataset.setsB || '0');
-
-    if (setsA === 0 && setsB === 0) {
-        if (feedbackEl) feedbackEl.textContent = 'Bitte Satzergebnis eingeben.';
+    // Use coachSetScoreInput for validation and getting sets
+    if (!coachSetScoreInput) {
+        if (feedbackEl) feedbackEl.textContent = 'Fehler: Set-Score-Input nicht initialisiert.';
         return;
     }
+
+    const validation = coachSetScoreInput.validate();
+    if (!validation.valid) {
+        if (feedbackEl) feedbackEl.textContent = validation.error || 'Bitte Satzergebnis eingeben.';
+        return;
+    }
+
+    const sets = coachSetScoreInput.getSets();
+
+    // Calculate sets won
+    let setsA = 0;
+    let setsB = 0;
+    sets.forEach(set => {
+        if (set.playerA > set.playerB) setsA++;
+        else if (set.playerB > set.playerA) setsB++;
+    });
 
     const winnerId = setsA > setsB ? playerAId : playerBId;
     const playerA = clubPlayers.find(p => p.id === playerAId);
@@ -721,6 +733,12 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Speichere...';
+
+    // Get match mode and handicap settings
+    const matchModeSelect = document.getElementById('coach-match-mode-select');
+    const matchMode = matchModeSelect?.value || 'best-of-5';
+    const handicapToggle = document.getElementById('handicap-toggle');
+    const handicapUsed = handicapToggle?.checked || false;
 
     try {
         const supabase = getSupabase();
@@ -735,10 +753,12 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
                 loser_id: winnerId === playerAId ? playerBId : playerAId,
                 player_a_sets_won: setsA,
                 player_b_sets_won: setsB,
+                sets: sets,
                 club_id: currentUserData.clubId || currentUserData.club_id,
                 created_by: currentUserData.id,
                 sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
-                match_mode: 'best-of-5',
+                match_mode: matchMode,
+                handicap_used: handicapUsed,
                 played_at: new Date().toISOString()
             })
             .select()
@@ -755,9 +775,8 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
         // Reset form
         document.getElementById('player-a-select').value = '';
         document.getElementById('player-b-select').value = '';
-        if (setScoreInput) {
-            setScoreInput.dataset.setsA = '0';
-            setScoreInput.dataset.setsB = '0';
+        if (coachSetScoreInput && typeof coachSetScoreInput.reset === 'function') {
+            coachSetScoreInput.reset();
         }
 
     } catch (error) {
