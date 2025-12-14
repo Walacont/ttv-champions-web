@@ -2949,7 +2949,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
         // Accepted - get the match request details
         const { data: request, error: fetchError } = await supabase
             .from('match_requests')
-            .select('*, sports(display_name)')
+            .select('*')
             .eq('id', requestId)
             .single();
 
