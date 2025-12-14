@@ -42,7 +42,7 @@
         />
         <meta
             name="keywords"
-            content="Tischtennis, TTV, Training, Elo-System, Gamification, Verein, Wettkampf, Ranking, QTTR"
+            content="Tischtennis, TTV, Training, Elo-System, Gamification, Verein, Wettkampf, Ranking"
         />
         <meta name="author" content="SC Champions" />
         <link rel="canonical" href="https://sc-champions.de/" />
@@ -249,7 +249,7 @@
                         <details class="group bg-white p-6 rounded-lg shadow-sm mt-4">
                             <summary class="flex justify-between items-center cursor-pointer">
                                 <span class="font-medium text-lg text-gray-900"
-                                    >Wie werden QTTR-Punkte in Elo umgerechnet?</span
+                                    >Wie funktioniert das Elo-System?</span
                                 >
                                 <i
                                     class="fas fa-chevron-down transform transition-transform group-open:rotate-180"
@@ -257,22 +257,20 @@
                             </summary>
                             <div class="mt-4 text-gray-700 space-y-2">
                                 <p>
-                                    Wenn ein Coach einen erfahrenen Offline-Spieler erstellt und
-                                    dessen <strong>QTTR-Punkte</strong> eingibt, wird die Start-Elo
-                                    automatisch berechnet.
+                                    Das Elo-System berechnet deine Spielstärke basierend auf deinen
+                                    Wettkampfergebnissen. Je mehr Spiele du machst, desto stabiler
+                                    wird dein Rating.
                                 </p>
-                                <p class="font-medium">Formel: Elo = QTTR × 0,9 (mindestens 800)</p>
-                                <p class="text-sm">Beispiele:</p>
+                                <p class="font-medium">Dein persönlicher Faktor (A-Faktor):</p>
                                 <ul class="list-disc list-inside text-sm space-y-1">
-                                    <li>QTTR 1000 → Elo 900</li>
-                                    <li>QTTR 1200 → Elo 1080</li>
-                                    <li>QTTR 1500 → Elo 1350</li>
-                                    <li>QTTR 2000 → Elo 1800</li>
+                                    <li><strong>Spiele 1-10:</strong> Faktor 32 (schnelles Einpendeln)</li>
+                                    <li><strong>Spiele 11-20:</strong> Faktor 24 (Stabilisierung)</li>
+                                    <li><strong>Ab Spiel 21:</strong> Faktor 16 (stabile Rangliste)</li>
+                                    <li><strong>Jugend (U21):</strong> Faktor 20 (dauerhaft erhöht)</li>
                                 </ul>
                                 <p class="text-sm text-gray-600 mt-2">
-                                    Diese konservative Umrechnung (90%) stellt sicher, dass sich
-                                    neue Spieler erst im System beweisen müssen, bevor sie ihr
-                                    volles Niveau erreichen.
+                                    Neue Spieler starten bei 800 Elo. Der höhere Faktor am Anfang
+                                    sorgt dafür, dass du schnell auf dein echtes Niveau kommst.
                                 </p>
                             </div>
                         </details>

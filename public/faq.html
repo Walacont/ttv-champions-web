@@ -25,11 +25,11 @@
         />
         <meta
             name="description"
-            content="Alle Regeln und FAQ zu SC Champions: Elo-System, XP, Saison-Punkte, QTTR-Umrechnung, Ränge, Doppel-Matches und Wettkampf-Matches. Verstehe das Punktesystem und steige in den Rängen auf."
+            content="Alle Regeln und FAQ zu SC Champions: Elo-System mit A-Faktor, XP, Saison-Punkte, Handicap-System, Ränge, Doppel-Matches und Wettkampf-Matches. Verstehe das Punktesystem und steige in den Rängen auf."
         />
         <meta
             name="keywords"
-            content="SC Champions FAQ, Tischtennis Regeln, Elo-System, QTTR Umrechnung, XP Punkte, Ränge, Doppel-Matches, Wettkampf, Gamification"
+            content="SC Champions FAQ, Tischtennis Regeln, Elo-System, A-Faktor, XP Punkte, Ränge, Doppel-Matches, Wettkampf, Gamification, Handicap"
         />
         <meta name="author" content="SC Champions" />
         <link rel="canonical" href="https://sc-champions.de/faq.html" />
@@ -43,7 +43,7 @@
         />
         <meta
             property="og:description"
-            content="Alle Regeln zu SC Champions: Elo-System, XP, QTTR-Umrechnung, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
+            content="Alle Regeln zu SC Champions: Elo-System mit A-Faktor, XP, Handicap-System, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
         />
         <meta property="og:locale" content="de_DE" />
 
@@ -56,7 +56,7 @@
         />
         <meta
             property="twitter:description"
-            content="Alle Regeln zu SC Champions: Elo-System, XP, QTTR-Umrechnung, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
+            content="Alle Regeln zu SC Champions: Elo-System mit A-Faktor, XP, Handicap-System, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
         />
 
         <script src="https://cdn.tailwindcss.com"></script>
@@ -124,8 +124,8 @@
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium" data-i18n="faq.questions.qttrConversion"
-                                    >Wie werden QTTR-Punkte in Elo umgerechnet?</span
+                                <span class="font-medium"
+                                    >Wie funktioniert das Elo-System?</span
                                 >
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
@@ -141,7 +141,17 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.qttrConversion"></div>
+                            <div class="mt-2 text-gray-700">
+                                <p>Das Elo-System berechnet deine Spielstärke basierend auf deinen Wettkampfergebnissen. Je mehr Spiele du machst, desto stabiler wird dein Rating.</p>
+                                <p class="font-medium mt-2">Dein persönlicher Faktor (A-Faktor):</p>
+                                <ul class="list-disc list-inside mt-1 space-y-1">
+                                    <li><strong>Spiele 1-10:</strong> Faktor 32 (schnelles Einpendeln)</li>
+                                    <li><strong>Spiele 11-20:</strong> Faktor 24 (Stabilisierung)</li>
+                                    <li><strong>Ab Spiel 21:</strong> Faktor 16 (stabile Rangliste)</li>
+                                    <li><strong>Jugend (U21):</strong> Faktor 20 (dauerhaft erhöht)</li>
+                                </ul>
+                                <p class="mt-2 text-sm text-gray-600">Neue Spieler starten bei 800 Elo. Das Minimum liegt bei 400 Elo.</p>
+                            </div>
                         </details>
 
                         <details class="group">
