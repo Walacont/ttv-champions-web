@@ -44,7 +44,14 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend client - initialized lazily to allow dry-run without API key
+let resend = null;
+function getResendClient() {
+    if (!resend) {
+        resend = new Resend(process.env.RESEND_API_KEY);
+    }
+    return resend;
+}
 
 // ============================================
 // Email Template
@@ -229,7 +236,7 @@ async function fetchUsers() {
 async function sendEmail(user) {
     const firstName = user.first_name || user.display_name?.split(' ')[0] || null;
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResendClient().emails.send({
         from: FROM_EMAIL,
         to: user.email,
         reply_to: REPLY_TO,
