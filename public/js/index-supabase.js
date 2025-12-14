@@ -120,6 +120,19 @@ onAuthStateChange(async (event, session) => {
             if (profile) {
                 console.log('[INDEX-SUPABASE] User profile:', { role: profile.role, onboarding: profile.onboarding_complete });
 
+                // Auto-fix coach/head_coach defaults if not set
+                if ((profile.role === 'coach' || profile.role === 'head_coach') &&
+                    (profile.grundlagen_completed < 5 || !profile.is_match_ready)) {
+                    console.log('[INDEX-SUPABASE] Fixing coach defaults: grundlagen_completed=5, is_match_ready=true');
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            grundlagen_completed: 5,
+                            is_match_ready: true
+                        })
+                        .eq('id', session.user.id);
+                }
+
                 // Check onboarding
                 if (!profile.onboarding_complete) {
                     console.log('[INDEX-SUPABASE] Redirecting to onboarding');
