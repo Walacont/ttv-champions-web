@@ -72,16 +72,6 @@ UPDATE matches SET club_id = m.keep_id
 FROM club_mapping m
 WHERE matches.club_id = m.duplicate_id;
 
--- matches.player1_club_id_at_match
-UPDATE matches SET player1_club_id_at_match = m.keep_id
-FROM club_mapping m
-WHERE matches.player1_club_id_at_match = m.duplicate_id;
-
--- matches.player2_club_id_at_match
-UPDATE matches SET player2_club_id_at_match = m.keep_id
-FROM club_mapping m
-WHERE matches.player2_club_id_at_match = m.duplicate_id;
-
 -- doubles_matches.club_id
 UPDATE doubles_matches SET club_id = m.keep_id
 FROM club_mapping m
