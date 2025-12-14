@@ -107,11 +107,6 @@ UPDATE exercises SET record_holder_club_id = m.keep_id
 FROM club_mapping m
 WHERE exercises.record_holder_club_id = m.duplicate_id;
 
--- points_history.club_id
-UPDATE points_history SET club_id = m.keep_id
-FROM club_mapping m
-WHERE points_history.club_id = m.duplicate_id;
-
 -- activity_events.club_id
 UPDATE activity_events SET club_id = m.keep_id
 FROM club_mapping m
