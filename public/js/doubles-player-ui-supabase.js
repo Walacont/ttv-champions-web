@@ -208,10 +208,9 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     };
                 })
                 .filter(p => {
-                    // Filter: not self, match-ready, and online (can accept requests)
+                    // Filter: not self, match-ready (offline players are allowed)
                     const isSelf = p.id === userData.id;
-                    const isOffline = p.isOffline === true;
-                    if (isSelf || !p.isMatchReady || isOffline) return false;
+                    if (isSelf || !p.isMatchReady) return false;
 
                     // Test club filtering
                     if (!isCurrentUserFromTestClub && p.clubId) {
