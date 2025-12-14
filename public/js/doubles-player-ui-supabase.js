@@ -175,18 +175,13 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
             const currentUserClub = userClubId ? clubsMap.get(userClubId) : null;
             const isCurrentUserFromTestClub = currentUserClub && currentUserClub.is_test_club;
 
-            // Load players and coaches - filter by same sport (explicitly exclude admins)
+            // Load players and coaches - explicitly exclude admins
+            // Don't filter by sport in query - we'll do it in JS to allow offline players
             let query = supabase
                 .from('profiles')
                 .select('*')
                 .in('role', ['player', 'coach', 'head_coach'])
                 .neq('role', 'admin'); // Extra safety: explicitly exclude admins
-
-            // Filter by same sport if user has a sport set
-            // BUT allow offline players even without matching sport_id
-            if (userSportId) {
-                query = query.or(`active_sport_id.eq.${userSportId},is_offline.eq.true`);
-            }
 
             const { data: usersData, error } = await query;
 
@@ -212,6 +207,11 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                     // Filter: not self, match-ready (offline players are allowed)
                     const isSelf = p.id === userData.id;
                     if (isSelf || !p.isMatchReady) return false;
+
+                    // Sport filter: same sport OR offline player (offline players can play any sport)
+                    if (userSportId && !p.isOffline) {
+                        if (p.activeSportId !== userSportId) return false;
+                    }
 
                     // Test club filtering
                     if (!isCurrentUserFromTestClub && p.clubId) {
