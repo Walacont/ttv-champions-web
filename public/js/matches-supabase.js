@@ -801,7 +801,9 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
 
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady || p.is_match_ready;
-        return isMatchReady === true;
+        const isOffline = p.isOffline || p.is_offline;
+        // Singles: exclude offline players (they can only play doubles)
+        return isMatchReady === true && !isOffline;
     });
 
     const lockedPlayers = clubPlayers.filter(p => {

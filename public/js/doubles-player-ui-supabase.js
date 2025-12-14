@@ -183,8 +183,9 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                 .neq('role', 'admin'); // Extra safety: explicitly exclude admins
 
             // Filter by same sport if user has a sport set
+            // BUT allow offline players even without matching sport_id
             if (userSportId) {
-                query = query.eq('active_sport_id', userSportId);
+                query = query.or(`active_sport_id.eq.${userSportId},is_offline.eq.true`);
             }
 
             const { data: usersData, error } = await query;
