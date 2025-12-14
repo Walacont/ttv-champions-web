@@ -6,10 +6,11 @@
 -- =============================================================================
 
 -- =============================================================================
--- 0. DISABLE TRIGGERS TEMPORARILY
+-- 0. DISABLE USER TRIGGERS TEMPORARILY
 -- =============================================================================
--- Disable the club_join event trigger to prevent errors during update
-ALTER TABLE profiles DISABLE TRIGGER ALL;
+-- Disable specific user-defined triggers to prevent errors during update
+ALTER TABLE profiles DISABLE TRIGGER trigger_club_join_event;
+ALTER TABLE profiles DISABLE TRIGGER trigger_rank_up_event;
 
 -- First, show duplicates
 SELECT MIN(name) as name, COUNT(*) as count, MIN(created_at) as oldest, MAX(created_at) as newest
@@ -185,7 +186,8 @@ WHERE id IN (SELECT duplicate_id FROM club_mapping);
 -- =============================================================================
 -- 4. RE-ENABLE TRIGGERS
 -- =============================================================================
-ALTER TABLE profiles ENABLE TRIGGER ALL;
+ALTER TABLE profiles ENABLE TRIGGER trigger_club_join_event;
+ALTER TABLE profiles ENABLE TRIGGER trigger_rank_up_event;
 
 -- =============================================================================
 -- 5. SHOW RESULTS
