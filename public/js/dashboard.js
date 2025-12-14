@@ -57,7 +57,7 @@ import { loadMatchSuggestions } from './match-suggestions.js';
 import { loadMatchHistory } from './match-history.js';
 import { initializeLeaderboardPreferences, applyPreferences } from './leaderboard-preferences.js';
 import { initializeWidgetSystem } from './dashboard-widgets.js';
-import TutorialManager from './tutorial.js';
+import TutorialManager from './tutorial-supabase.js';
 import { playerTutorialSteps } from './tutorial-player.js';
 
 const app = initializeApp(firebaseConfig);
@@ -268,6 +268,8 @@ async function checkAndStartTutorial(userData) {
                 tutorialKey: 'player',
                 autoScroll: true,
                 scrollOffset: 100,
+                supabaseClient: supabase,
+                userId: userData.id,
             });
             tutorial.start();
         }, 1000);
@@ -277,11 +279,17 @@ async function checkAndStartTutorial(userData) {
 /**
  * Global function to start player tutorial (callable from settings)
  */
-window.startPlayerTutorial = function () {
+window.startPlayerTutorial = async function () {
+    // Get current user ID
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+
     const tutorial = new TutorialManager(playerTutorialSteps, {
         tutorialKey: 'player',
         autoScroll: true,
         scrollOffset: 100,
+        supabaseClient: supabase,
+        userId: userId,
     });
     tutorial.start();
 };

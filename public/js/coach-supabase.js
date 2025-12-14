@@ -988,6 +988,8 @@ async function checkAndStartTutorial(userData) {
                 tutorialKey: 'coach',
                 autoScroll: true,
                 scrollOffset: 100,
+                supabaseClient: supabase,
+                userId: userData.id,
                 onComplete: () => {
                     console.log('Coach Tutorial abgeschlossen!');
                 },
@@ -1236,11 +1238,17 @@ document.getElementById('close-reactivate-modal')?.addEventListener('click', () 
 /**
  * Global function to manually start the coach tutorial (called from settings)
  */
-window.startCoachTutorial = function () {
+window.startCoachTutorial = async function () {
+    // Get current user ID
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+
     const tutorial = new TutorialManager(coachTutorialSteps, {
         tutorialKey: 'coach',
         autoScroll: true,
         scrollOffset: 100,
+        supabaseClient: supabase,
+        userId: userId,
         onComplete: () => {
             console.log('Coach Tutorial abgeschlossen!');
         },
