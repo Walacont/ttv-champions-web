@@ -5,6 +5,12 @@
 -- It keeps the OLDEST club (original) and updates all references to point to it.
 -- =============================================================================
 
+-- =============================================================================
+-- 0. DISABLE TRIGGERS TEMPORARILY
+-- =============================================================================
+-- Disable the club_join event trigger to prevent errors during update
+ALTER TABLE profiles DISABLE TRIGGER ALL;
+
 -- First, show duplicates
 SELECT MIN(name) as name, COUNT(*) as count, MIN(created_at) as oldest, MAX(created_at) as newest
 FROM clubs
@@ -177,7 +183,12 @@ DELETE FROM clubs
 WHERE id IN (SELECT duplicate_id FROM club_mapping);
 
 -- =============================================================================
--- 4. SHOW RESULTS
+-- 4. RE-ENABLE TRIGGERS
+-- =============================================================================
+ALTER TABLE profiles ENABLE TRIGGER ALL;
+
+-- =============================================================================
+-- 5. SHOW RESULTS
 -- =============================================================================
 SELECT 'Clubs after cleanup' as status, COUNT(*) as count FROM clubs;
 
