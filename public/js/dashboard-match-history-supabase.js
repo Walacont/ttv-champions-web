@@ -423,24 +423,44 @@ export function showMatchDetails(matchId, matchType = 'singles') {
 
     const playerA = profileMap[match.player_a_id] || {};
     const playerB = profileMap[match.player_b_id] || {};
-    const isCurrentUserA = match.player_a_id === currentUser.id;
-    const isWinner = match.winner_id === currentUser.id;
 
-    const currentPlayer = isCurrentUserA ? playerA : playerB;
-    const opponent = isCurrentUserA ? playerB : playerA;
+    // Check if current user is a participant
+    const isParticipant = currentUser && (match.player_a_id === currentUser.id || match.player_b_id === currentUser.id);
+    const isCurrentUserA = match.player_a_id === currentUser?.id;
+    const isWinner = isParticipant && match.winner_id === currentUser.id;
 
-    // Set details
+    // Determine left/right players based on whether user is participant
+    let leftPlayer, rightPlayer, leftIsWinner, leftName, rightName;
+    if (isParticipant) {
+        // Show from user's perspective: "Du" on the left
+        leftPlayer = isCurrentUserA ? playerA : playerB;
+        rightPlayer = isCurrentUserA ? playerB : playerA;
+        leftIsWinner = isWinner;
+        leftName = 'Du';
+        rightName = rightPlayer.first_name || rightPlayer.display_name || 'Gegner';
+    } else {
+        // Show objectively: winner on the left
+        const winnerIsA = match.winner_id === match.player_a_id;
+        leftPlayer = winnerIsA ? playerA : playerB;
+        rightPlayer = winnerIsA ? playerB : playerA;
+        leftIsWinner = true; // winner is always on left for non-participants
+        leftName = leftPlayer.first_name || leftPlayer.display_name || 'Spieler 1';
+        rightName = rightPlayer.first_name || rightPlayer.display_name || 'Spieler 2';
+    }
+
+    // Set details - scores from the left player's perspective
     const sets = match.sets || [];
+    const leftIsPlayerA = isParticipant ? isCurrentUserA : (match.winner_id === match.player_a_id);
     let setsHtml = sets.map((set, i) => {
         const scoreA = set.playerA ?? set.teamA ?? 0;
         const scoreB = set.playerB ?? set.teamB ?? 0;
-        const myScore = isCurrentUserA ? scoreA : scoreB;
-        const oppScore = isCurrentUserA ? scoreB : scoreA;
-        const wonSet = myScore > oppScore;
+        const leftScore = leftIsPlayerA ? scoreA : scoreB;
+        const rightScore = leftIsPlayerA ? scoreB : scoreA;
+        const leftWonSet = leftScore > rightScore;
         return `
             <div class="flex justify-between items-center py-2 ${i < sets.length - 1 ? 'border-b border-gray-100' : ''}">
                 <span class="text-gray-600">Satz ${i + 1}</span>
-                <span class="font-semibold ${wonSet ? 'text-green-600' : 'text-red-600'}">${myScore} : ${oppScore}</span>
+                <span class="font-semibold ${leftWonSet ? 'text-green-600' : 'text-red-600'}">${leftScore} : ${rightScore}</span>
             </div>
         `;
     }).join('');
@@ -458,8 +478,8 @@ export function showMatchDetails(matchId, matchType = 'singles') {
 
     const winnerEloChange = Math.abs(match.winner_elo_change || 0);
     const loserEloChange = -Math.abs(match.loser_elo_change || 0);
-    const myEloChange = isWinner ? winnerEloChange : loserEloChange;
-    const oppEloChange = isWinner ? loserEloChange : winnerEloChange;
+    const leftEloChange = leftIsWinner ? winnerEloChange : loserEloChange;
+    const rightEloChange = leftIsWinner ? loserEloChange : winnerEloChange;
 
     const matchDate = new Date(match.created_at);
     const dateStr = matchDate.toLocaleDateString('de-DE', {
@@ -470,6 +490,18 @@ export function showMatchDetails(matchId, matchType = 'singles') {
         hour: '2-digit',
         minute: '2-digit'
     });
+
+    // Result badge text
+    let resultBadge = '';
+    if (isParticipant) {
+        resultBadge = `<span class="px-4 py-2 rounded-full text-lg font-bold ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+            ${isWinner ? 'Sieg' : 'Niederlage'}
+        </span>`;
+    } else {
+        resultBadge = `<span class="px-4 py-2 rounded-full text-lg font-bold bg-green-100 text-green-700">
+            ${leftName} gewinnt
+        </span>`;
+    }
 
     const modalHtml = `
         <div id="match-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onclick="if(event.target === this) this.remove()">
@@ -485,22 +517,20 @@ export function showMatchDetails(matchId, matchType = 'singles') {
 
                 <div class="p-4">
                     <div class="text-center mb-4">
-                        <span class="px-4 py-2 rounded-full text-lg font-bold ${isWinner ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                            ${isWinner ? 'Sieg' : 'Niederlage'}
-                        </span>
+                        ${resultBadge}
                     </div>
 
                     <div class="flex items-center justify-between mb-6">
                         <div class="text-center">
-                            <img src="${currentPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
-                            <p class="font-semibold mt-2">Du</p>
-                            <p class="text-xs text-gray-500">${currentPlayer.elo_rating || 800} Elo</p>
+                            <img src="${leftPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${leftIsWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <p class="font-semibold mt-2">${leftName}</p>
+                            <p class="text-xs text-gray-500">${leftPlayer.elo_rating || 800} Elo</p>
                         </div>
                         <div class="text-2xl font-bold text-gray-400">VS</div>
                         <div class="text-center">
-                            <img src="${opponent.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${!isWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
-                            <p class="font-semibold mt-2">${opponent.first_name || opponent.display_name || 'Gegner'}</p>
-                            <p class="text-xs text-gray-500">${opponent.elo_rating || 800} Elo</p>
+                            <img src="${rightPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${!leftIsWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <p class="font-semibold mt-2">${rightName}</p>
+                            <p class="text-xs text-gray-500">${rightPlayer.elo_rating || 800} Elo</p>
                         </div>
                     </div>
 
@@ -511,15 +541,15 @@ export function showMatchDetails(matchId, matchType = 'singles') {
 
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <div class="bg-gray-50 rounded-lg p-3 text-center">
-                            <p class="text-xs text-gray-500">Deine Elo-Änderung</p>
-                            <p class="text-lg font-bold ${myEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                ${myEloChange >= 0 ? '+' : ''}${myEloChange}
+                            <p class="text-xs text-gray-500">${isParticipant ? 'Deine' : leftName + 's'} Elo-Änderung</p>
+                            <p class="text-lg font-bold ${leftEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${leftEloChange >= 0 ? '+' : ''}${leftEloChange}
                             </p>
                         </div>
                         <div class="bg-gray-50 rounded-lg p-3 text-center">
-                            <p class="text-xs text-gray-500">Gegner Elo-Änderung</p>
-                            <p class="text-lg font-bold ${oppEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
-                                ${oppEloChange >= 0 ? '+' : ''}${oppEloChange}
+                            <p class="text-xs text-gray-500">${isParticipant ? 'Gegner' : rightName + 's'} Elo-Änderung</p>
+                            <p class="text-lg font-bold ${rightEloChange >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                ${rightEloChange >= 0 ? '+' : ''}${rightEloChange}
                             </p>
                         </div>
                         ${isWinner && match.season_points_awarded ? `

@@ -660,30 +660,34 @@ export function loadDoublesLeaderboard(clubId, supabase, container, unsubscribes
                     }
                 }
 
+                // Build names from profile data (not from doubles_pairings table) to ensure photos match names
+                const player1FullName = player1Deleted
+                    ? (player1Data?.display_name || 'Gelöschter Nutzer')
+                    : `${player1Data?.first_name || ''} ${player1Data?.last_name || ''}`.trim() || data.player1_name || 'Unbekannt';
+                const player2FullName = player2Deleted
+                    ? (player2Data?.display_name || 'Gelöschter Nutzer')
+                    : `${player2Data?.first_name || ''} ${player2Data?.last_name || ''}`.trim() || data.player2_name || 'Unbekannt';
+
                 pairings.push({
                     id: data.id,
                     player1Id: data.player1_id,
                     player2Id: data.player2_id,
-                    player1Name: player1Deleted
-                        ? (player1Data?.display_name || 'Gelöschter Nutzer')
-                        : (data.player1_name || 'Unbekannt'),
-                    player2Name: player2Deleted
-                        ? (player2Data?.display_name || 'Gelöschter Nutzer')
-                        : (data.player2_name || 'Unbekannt'),
+                    player1Name: player1FullName,
+                    player2Name: player2FullName,
                     player1PhotoURL: player1Data?.avatar_url || null,
                     player2PhotoURL: player2Data?.avatar_url || null,
                     player1FirstName: player1Deleted
                         ? (player1Data?.display_name?.substring(0, 2) || 'GN')
-                        : (player1Data?.first_name || data.player1_name?.split(' ')[0] || 'U'),
+                        : (player1Data?.first_name || 'U'),
                     player1LastName: player1Deleted
                         ? ''
-                        : (player1Data?.last_name || data.player1_name?.split(' ')[1] || 'N'),
+                        : (player1Data?.last_name || 'N'),
                     player2FirstName: player2Deleted
                         ? (player2Data?.display_name?.substring(0, 2) || 'GN')
-                        : (player2Data?.first_name || data.player2_name?.split(' ')[0] || 'U'),
+                        : (player2Data?.first_name || 'U'),
                     player2LastName: player2Deleted
                         ? ''
-                        : (player2Data?.last_name || data.player2_name?.split(' ')[1] || 'N'),
+                        : (player2Data?.last_name || 'N'),
                     clubDisplay: clubDisplay,
                     clubType: clubType,
                     matchesWon: data.matches_won || 0,
