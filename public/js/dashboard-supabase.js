@@ -1242,6 +1242,7 @@ async function loadDoublesLeaderboardTab() {
         // Table exists, use the imported function
         const clubId = currentUserData.club_id;
         const isGlobal = currentLeaderboardScope === 'global' || !clubId;
+        const sportId = currentSportContext?.sportId || currentUserData.active_sport_id;
 
         loadDoublesLeaderboard(
             isGlobal ? null : clubId,
@@ -1249,7 +1250,8 @@ async function loadDoublesLeaderboardTab() {
             container,
             realtimeSubscriptions,
             currentUser.id,
-            isGlobal
+            isGlobal,
+            sportId
         );
     } catch (err) {
         console.error('Error loading doubles leaderboard:', err);
