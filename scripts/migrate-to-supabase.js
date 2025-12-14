@@ -811,7 +811,7 @@ async function migrateDoublesPairings(clubIdMap, userIdMap) {
             matches_won: data.matchesWon || 0,
             matches_lost: data.matchesLost || 0,
             win_rate: data.winRate || 0.0,
-            current_elo_rating: data.currentEloRating || 1000,
+            current_elo_rating: data.currentEloRating || 800,
             last_played: convertTimestamp(data.lastPlayed),
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });

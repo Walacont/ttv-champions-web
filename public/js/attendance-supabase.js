@@ -933,7 +933,7 @@ export async function loadPlayersForAttendance(clubId, supabaseOrCallback, callb
                 isMatchReady: p.is_match_ready,
                 role: p.role,
                 grundlagenCompleted: p.grundlagen_completed || 0,
-                eloRating: p.elo_rating || 1000,
+                eloRating: p.elo_rating || 800,
                 birthdate: p.birthdate,
                 gender: p.gender,
                 doublesEloRating: p.doubles_elo_rating || 800,

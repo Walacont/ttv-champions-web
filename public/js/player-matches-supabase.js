@@ -181,13 +181,13 @@ async function searchOpponents(query, resultsContainer, currentUser, currentUser
             <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
                  data-id="${player.id}"
                  data-name="${player.display_name}"
-                 data-elo="${player.elo_rating || 1000}">
+                 data-elo="${player.elo_rating || 800}">
                 <img src="${player.avatar_url || DEFAULT_AVATAR}"
                      class="w-10 h-10 rounded-full object-cover"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div class="flex-1">
                     <p class="font-medium">${player.display_name || `${player.first_name} ${player.last_name}`}</p>
-                    <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
+                    <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 800}</p>
                 </div>
                 <i class="fas fa-chevron-right text-gray-400"></i>
             </div>
@@ -260,7 +260,7 @@ function checkHandicap(currentUserData) {
 
     if (!handicapInfo || !selectedOpponent) return;
 
-    const myElo = currentUserData.elo_rating || 1000;
+    const myElo = currentUserData.elo_rating || 800;
     const opponentElo = selectedOpponent.elo;
     const diff = Math.abs(myElo - opponentElo);
 
@@ -1450,7 +1450,7 @@ export async function loadMatchSuggestions(currentUser, currentUserData) {
                     <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-8 h-8 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
                     <div>
                         <p class="font-medium text-sm">${player.display_name}</p>
-                        <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
+                        <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 800}</p>
                     </div>
                 </div>
                 <span class="text-xs ${player.playedRecently ? 'text-gray-400' : 'text-green-600 font-medium'}">

@@ -462,13 +462,13 @@ async function searchOpponents(query, resultsContainer) {
             <div class="opponent-option flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer rounded-lg border border-gray-200 mb-2"
                  data-id="${player.id}"
                  data-name="${playerName}"
-                 data-elo="${player.elo_rating || 1000}">
+                 data-elo="${player.elo_rating || 800}">
                 <img src="${player.avatar_url || DEFAULT_AVATAR}"
                      class="w-10 h-10 rounded-full object-cover"
                      onerror="this.src='${DEFAULT_AVATAR}'">
                 <div class="flex-1">
                     <p class="font-medium">${playerName}</p>
-                    <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 1000}</p>
+                    <p class="text-xs text-gray-500">Elo: ${player.elo_rating || 800}</p>
                 </div>
                 ${clubBadge}
                 <i class="fas fa-chevron-right text-gray-400"></i>
@@ -538,7 +538,7 @@ async function checkHandicap() {
 
     if (!handicapInfo || !selectedOpponent) return;
 
-    const myElo = currentUserData.elo_rating || 1000;
+    const myElo = currentUserData.elo_rating || 800;
     const opponentElo = selectedOpponent.elo;
     const diff = Math.abs(myElo - opponentElo);
     const iAmStronger = myElo > opponentElo;
@@ -643,7 +643,7 @@ async function checkHandicap() {
                 }
             } else {
                 // For Elo-based: weaker player (lower Elo) gets handicap
-                const myElo = currentUserData.elo_rating || 1000;
+                const myElo = currentUserData.elo_rating || 800;
                 const opponentElo = selectedOpponent.elo;
                 const iAmStronger = myElo > opponentElo;
                 handicapPlayerId = iAmStronger ? selectedOpponent.id : currentUser.id;

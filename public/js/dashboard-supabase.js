@@ -3570,7 +3570,7 @@ async function loadMatchSuggestions() {
                         <img src="${player.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full object-cover" onerror="this.src='${DEFAULT_AVATAR}'">
                         <div>
                             <p class="font-medium text-sm">${player.display_name || player.first_name}</p>
-                            <p class="text-xs text-gray-500">${player.elo_rating || 1000} Elo ${player.eloDiff > 0 ? `(${myElo > player.elo_rating ? '+' : ''}${myElo - (player.elo_rating || 1000)})` : ''}</p>
+                            <p class="text-xs text-gray-500">${player.elo_rating || 800} Elo ${player.eloDiff > 0 ? `(${myElo > player.elo_rating ? '+' : ''}${myElo - (player.elo_rating || 800)})` : ''}</p>
                             ${handicapHtml}
                         </div>
                     </div>
