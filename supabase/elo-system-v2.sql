@@ -292,7 +292,8 @@ BEGIN
     END IF;
 
     -- Get sport key (default to table-tennis)
-    SELECT COALESCE(s.key, 'table-tennis') INTO v_sport_key
+    -- Note: Using s.name instead of s.key (sports table has 'name' column)
+    SELECT COALESCE(s.name, 'table-tennis') INTO v_sport_key
     FROM sports s WHERE s.id = NEW.sport_id;
     v_sport_key := COALESCE(v_sport_key, 'table-tennis');
 
