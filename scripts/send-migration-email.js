@@ -125,10 +125,21 @@ function generateEmailHtml(firstName) {
 
                             <div style="background-color: #ecfdf5; border-radius: 8px; padding: 16px 20px; margin: 24px 0;">
                                 <p style="margin: 0; color: #065f46; font-size: 15px;">
-                                    <strong>✅ Gute Nachricht:</strong> Deine Daten (Punkte, Elo, Matches, Ränge)
+                                    <strong>✅ Gute Nachricht:</strong> Deine Daten (Punkte, Matches, Ränge)
                                     sind vollständig erhalten geblieben!
                                 </p>
                             </div>
+
+                            <h3 style="margin: 30px 0 15px 0; color: #1f2937; font-size: 18px;">
+                                🆕 Was ist neu?
+                            </h3>
+
+                            <ul style="margin: 0 0 20px 0; padding-left: 20px; color: #4b5563; font-size: 15px; line-height: 1.8;">
+                                <li><strong>Neues Elo-System:</strong> Erwachsene (Ü18) starten jetzt mit 1000 Elo, Jugendliche mit 800 Elo</li>
+                                <li><strong>A-Faktor:</strong> Neue Spieler haben einen höheren Multiplikator für schnelleres Einpendeln</li>
+                                <li><strong>Faires Handicap:</strong> Bei großen Elo-Unterschieden gibt es automatische Handicap-Vorschläge</li>
+                                <li><strong>Verbessertes Head-to-Head:</strong> Das Handicap wird jetzt graduell angepasst</li>
+                            </ul>
 
                             <p style="margin: 30px 0 0 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
                                 Bei Fragen kannst du auf diese E-Mail antworten.
@@ -178,6 +189,12 @@ So geht's:
 4. Du erhältst einen Link zum Zurücksetzen
 
 Gute Nachricht: Deine Daten (Punkte, Elo, Matches, Ränge) sind vollständig erhalten geblieben!
+
+WAS IST NEU?
+- Neues Elo-System: Erwachsene (Ü18) starten jetzt mit 1000 Elo, Jugendliche mit 800 Elo
+- A-Faktor: Neue Spieler haben einen höheren Multiplikator für schnelleres Einpendeln
+- Faires Handicap: Bei großen Elo-Unterschieden gibt es automatische Handicap-Vorschläge
+- Verbessertes Head-to-Head: Das Handicap wird jetzt graduell angepasst
 
 Bei Fragen kannst du auf diese E-Mail antworten.
 
