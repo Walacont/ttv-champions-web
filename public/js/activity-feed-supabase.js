@@ -1276,7 +1276,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
     const teamBPlayer1 = profileMap[match.team_b_player1_id] || {};
     const teamBPlayer2 = profileMap[match.team_b_player2_id] || {};
 
-    const isTeamAWinner = match.winner_team === 'A';
+    const isTeamAWinner = match.winning_team === 'A';
     const winnerTeam = isTeamAWinner ? [teamAPlayer1, teamAPlayer2] : [teamBPlayer1, teamBPlayer2];
     const loserTeam = isTeamAWinner ? [teamBPlayer1, teamBPlayer2] : [teamAPlayer1, teamAPlayer2];
 

@@ -606,7 +606,7 @@ function renderProfileDoublesCard(match, profileMap) {
     const teamBPlayer1 = profileMap[match.team_b_player1_id] || {};
     const teamBPlayer2 = profileMap[match.team_b_player2_id] || {};
 
-    const isTeamAWinner = match.winner_team === 'A';
+    const isTeamAWinner = match.winning_team === 'A';
     const isInTeamA = match.team_a_player1_id === profileId || match.team_a_player2_id === profileId;
     const won = (isTeamAWinner && isInTeamA) || (!isTeamAWinner && !isInTeamA);
 
