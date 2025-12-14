@@ -395,9 +395,12 @@ export async function saveMatchResult(matchData, currentUserData) {
                 sets: sets,
                 player_a_sets_won: playerASetsWon,
                 player_b_sets_won: playerBSetsWon,
-                club_id: currentUserData.clubId,
+                club_id: currentUserData.clubId || currentUserData.club_id,
                 created_by: currentUserData.id,
-                played_at: new Date().toISOString()
+                played_at: new Date().toISOString(),
+                sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
+                handicap_used: handicapUsed || false,
+                match_mode: matchMode || 'best-of-5'
             })
             .select()
             .single();
@@ -722,35 +725,26 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     try {
         const supabase = getSupabase();
 
-        // Save match result
+        // Save match result - ELO trigger handles calculation automatically
         const { data: match, error: matchError } = await supabase
             .from('matches')
             .insert({
                 player_a_id: playerAId,
                 player_b_id: playerBId,
                 winner_id: winnerId,
-                sets_a: setsA,
-                sets_b: setsB,
-                club_id: currentUserData.clubId,
-                recorded_by: currentUserData.id,
-                match_type: 'singles',
-                status: 'completed'
+                loser_id: winnerId === playerAId ? playerBId : playerAId,
+                player_a_sets_won: setsA,
+                player_b_sets_won: setsB,
+                club_id: currentUserData.clubId || currentUserData.club_id,
+                created_by: currentUserData.id,
+                sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
+                match_mode: 'best-of-5',
+                played_at: new Date().toISOString()
             })
             .select()
             .single();
 
         if (matchError) throw matchError;
-
-        // Call RPC to process match result and update Elo
-        const { error: rpcError } = await supabase.rpc('process_match_result', {
-            p_match_id: match.id,
-            p_winner_id: winnerId,
-            p_loser_id: winnerId === playerAId ? playerBId : playerAId
-        });
-
-        if (rpcError) {
-            console.error('Error processing match result:', rpcError);
-        }
 
         if (feedbackEl) {
             feedbackEl.textContent = 'Match erfolgreich gespeichert!';
