@@ -467,6 +467,10 @@ async function fetchActivities(userIds) {
         return [];
     }
 
+    console.log('[ActivityFeed] Fetching activities for filter:', currentFilter);
+    console.log('[ActivityFeed] UserIds count:', userIds.length);
+    console.log('[ActivityFeed] UserIds includes currentUser:', userIds.includes(currentUser.id));
+
     // Load recent singles matches
     const { data: singlesMatches, error: singlesError } = await supabase
         .from('matches')
@@ -476,6 +480,7 @@ async function fetchActivities(userIds) {
         .range(activityOffset, activityOffset + ACTIVITIES_PER_PAGE * 2 - 1);
 
     if (singlesError) throw singlesError;
+    console.log('[ActivityFeed] Singles matches found:', singlesMatches?.length || 0);
 
     // Load recent doubles matches
     const { data: doublesMatches, error: doublesError } = await supabase
@@ -530,6 +535,13 @@ async function fetchActivities(userIds) {
 
     // Sort by date descending
     allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    console.log('[ActivityFeed] Total activities after combine:', allActivities.length);
+    console.log('[ActivityFeed] First 3 activities:', allActivities.slice(0, 3).map(a => ({
+        type: a.activityType,
+        created_at: a.created_at,
+        id: a.id
+    })));
 
     // Take page size
     const activities = allActivities.slice(0, ACTIVITIES_PER_PAGE);
