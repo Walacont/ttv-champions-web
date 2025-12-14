@@ -225,6 +225,11 @@ export async function initializeDoublesPlayerSearch(supabase, userData) {
                         }
                     }
 
+                    // Offline players in the same club are always visible (bypass privacy check)
+                    if (p.isOffline && userClubId && p.clubId === userClubId) {
+                        return true;
+                    }
+
                     // Privacy check
                     if (hasNoClub(userClubId) && hasNoClub(p.clubId)) {
                         return true;
