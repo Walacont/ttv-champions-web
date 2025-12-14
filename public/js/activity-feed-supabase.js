@@ -8,6 +8,7 @@ import { getSupabase } from './supabase-init.js';
 import { formatRelativeDate } from './dashboard-match-history-supabase.js';
 import { t } from './i18n.js';
 import { loadMatchMedia } from './match-media.js';
+import { initComments, openComments } from './activity-comments.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -109,6 +110,10 @@ export function initActivityFeedModule(user, userData) {
 
     // Setup global toggle like function
     window.toggleActivityLike = toggleActivityLike;
+
+    // Initialize comments module and make openComments globally available
+    initComments(userData);
+    window.openComments = openComments;
 
     // Setup infinite scroll
     setupInfiniteScroll();
@@ -1229,10 +1234,18 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                 </div>
             </div>
 
-            <!-- Actions: Like, Details -->
+            <!-- Actions: Like, Comment, Details -->
             <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                 <div class="flex items-center gap-4">
                     ${renderLikeButton(match.id, 'singles')}
+                    <button
+                        onclick="openComments('${match.id}', 'singles_match')"
+                        class="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                        title="Kommentieren"
+                    >
+                        <i class="far fa-comment"></i>
+                        <span data-comment-count="singles_match-${match.id}" class="text-xs font-medium"></span>
+                    </button>
                 </div>
                 <button onclick="showMatchDetails('${match.id}', 'singles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
                     <i class="fas fa-chart-bar"></i>
@@ -1398,10 +1411,18 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                 </div>
             </div>
 
-            <!-- Actions: Like, Details -->
+            <!-- Actions: Like, Comment, Details -->
             <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                 <div class="flex items-center gap-4">
                     ${renderLikeButton(match.id, 'doubles')}
+                    <button
+                        onclick="openComments('${match.id}', 'doubles_match')"
+                        class="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                        title="Kommentieren"
+                    >
+                        <i class="far fa-comment"></i>
+                        <span data-comment-count="doubles_match-${match.id}" class="text-xs font-medium"></span>
+                    </button>
                 </div>
                 <button onclick="showMatchDetails('${match.id}', 'doubles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
                     <i class="fas fa-chart-bar"></i>
