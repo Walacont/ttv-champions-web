@@ -6,11 +6,11 @@
 -- =============================================================================
 
 -- First, show duplicates
-SELECT name, COUNT(*) as count, MIN(created_at) as oldest, MAX(created_at) as newest
+SELECT MIN(name) as name, COUNT(*) as count, MIN(created_at) as oldest, MAX(created_at) as newest
 FROM clubs
 GROUP BY LOWER(name)
 HAVING COUNT(*) > 1
-ORDER BY name;
+ORDER BY MIN(name);
 
 -- =============================================================================
 -- 1. CREATE MAPPING TABLE: duplicate_id -> keep_id
