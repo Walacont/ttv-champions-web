@@ -273,6 +273,8 @@ async function migrateUsers(clubIdMap) {
             is_offline: data.isOffline || false,
             onboarding_complete: data.onboardingComplete || false,
             privacy_settings: data.privacySettings || { searchable: true, showElo: true },
+            gender: data.gender || null,
+            birthdate: data.birthdate || null,
             created_at: convertTimestamp(data.createdAt) || new Date().toISOString()
         });
     }
