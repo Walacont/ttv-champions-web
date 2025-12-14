@@ -481,6 +481,14 @@ export function showMatchDetails(matchId, matchType = 'singles') {
     const leftEloChange = leftIsWinner ? winnerEloChange : loserEloChange;
     const rightEloChange = leftIsWinner ? loserEloChange : winnerEloChange;
 
+    // Get ELO at time of match (before the match was played)
+    const leftEloAtMatch = leftIsPlayerA
+        ? (match.player_a_elo_before || leftPlayer.elo_rating || 800)
+        : (match.player_b_elo_before || rightPlayer.elo_rating || 800);
+    const rightEloAtMatch = leftIsPlayerA
+        ? (match.player_b_elo_before || rightPlayer.elo_rating || 800)
+        : (match.player_a_elo_before || leftPlayer.elo_rating || 800);
+
     const matchDate = new Date(match.created_at);
     const dateStr = matchDate.toLocaleDateString('de-DE', {
         weekday: 'long',
@@ -524,13 +532,13 @@ export function showMatchDetails(matchId, matchType = 'singles') {
                         <div class="text-center">
                             <img src="${leftPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${leftIsWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
                             <p class="font-semibold mt-2">${leftName}</p>
-                            <p class="text-xs text-gray-500">${leftPlayer.elo_rating || 800} Elo</p>
+                            <p class="text-xs text-gray-500">${leftEloAtMatch} Elo</p>
                         </div>
                         <div class="text-2xl font-bold text-gray-400">VS</div>
                         <div class="text-center">
                             <img src="${rightPlayer.avatar_url || DEFAULT_AVATAR}" class="w-16 h-16 rounded-full mx-auto border-2 ${!leftIsWinner ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
                             <p class="font-semibold mt-2">${rightName}</p>
-                            <p class="text-xs text-gray-500">${rightPlayer.elo_rating || 800} Elo</p>
+                            <p class="text-xs text-gray-500">${rightEloAtMatch} Elo</p>
                         </div>
                     </div>
 
