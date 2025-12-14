@@ -276,6 +276,16 @@ onboardingForm?.addEventListener('submit', async e => {
             throw new Error('Bitte wähle eine Sportart aus.');
         }
 
+        // Default privacy settings - all global so users are findable immediately
+        const defaultPrivacySettings = {
+            profile_visibility: 'global',
+            searchable: 'global',
+            leaderboard_visibility: 'global',
+            matches_visibility: 'global',
+            showElo: true,
+            showInLeaderboards: true
+        };
+
         const dataToUpdate = {
             first_name: document.getElementById('firstName')?.value || '',
             last_name: document.getElementById('lastName')?.value || '',
@@ -284,6 +294,7 @@ onboardingForm?.addEventListener('submit', async e => {
             gender: document.getElementById('gender')?.value || null,
             avatar_url: photoURL,
             active_sport_id: selectedSportId,
+            privacy_settings: defaultPrivacySettings,
             onboarding_complete: true,
             is_offline: false,
             updated_at: new Date().toISOString()
