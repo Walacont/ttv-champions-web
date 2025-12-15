@@ -271,6 +271,34 @@ function setupEventCardListeners() {
  */
 async function respondToEvent(invitationId, status, reason = null) {
     try {
+        // First get the invitation details including event info
+        const { data: invitation, error: invError } = await supabase
+            .from('event_invitations')
+            .select(`
+                id,
+                event_id,
+                events (
+                    id,
+                    title,
+                    start_date,
+                    organizer_id,
+                    club_id
+                )
+            `)
+            .eq('id', invitationId)
+            .single();
+
+        if (invError) throw invError;
+
+        // Get current user name for notification
+        const { data: currentUser } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', currentUserId)
+            .single();
+
+        const userName = currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : 'Ein Spieler';
+
         const updateData = {
             status,
             response_at: new Date().toISOString()
@@ -286,6 +314,82 @@ async function respondToEvent(invitationId, status, reason = null) {
             .eq('user_id', currentUserId);
 
         if (error) throw error;
+
+        // Send notification to event organizer
+        if (invitation.events?.organizer_id && invitation.events.organizer_id !== currentUserId) {
+            const event = invitation.events;
+            const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short'
+            });
+
+            const notificationType = status === 'accepted' ? 'event_response_accepted' : 'event_response_rejected';
+            const notificationTitle = status === 'accepted' ? 'Zusage erhalten' : 'Absage erhalten';
+            const notificationMessage = status === 'accepted'
+                ? `${userName} hat für "${event.title}" am ${formattedDate} zugesagt`
+                : `${userName} hat für "${event.title}" am ${formattedDate} abgesagt${reason ? `: ${reason}` : ''}`;
+
+            await supabase.from('notifications').insert({
+                user_id: invitation.events.organizer_id,
+                type: notificationType,
+                title: notificationTitle,
+                message: notificationMessage,
+                data: {
+                    event_id: event.id,
+                    event_title: event.title,
+                    event_date: event.start_date,
+                    responder_id: currentUserId,
+                    responder_name: userName,
+                    response_status: status,
+                    rejection_reason: reason
+                },
+                is_read: false,
+                created_at: new Date().toISOString()
+            });
+        }
+
+        // Also notify all coaches/head_coaches of the club if organizer is not a coach
+        // This ensures coaches always see responses
+        if (invitation.events?.club_id) {
+            const { data: coaches } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('club_id', invitation.events.club_id)
+                .in('role', ['coach', 'head_coach'])
+                .neq('id', currentUserId)
+                .neq('id', invitation.events.organizer_id || '');
+
+            if (coaches && coaches.length > 0) {
+                const event = invitation.events;
+                const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short'
+                });
+
+                const coachNotifications = coaches.map(coach => ({
+                    user_id: coach.id,
+                    type: status === 'accepted' ? 'event_response_accepted' : 'event_response_rejected',
+                    title: status === 'accepted' ? 'Zusage erhalten' : 'Absage erhalten',
+                    message: status === 'accepted'
+                        ? `${userName} hat für "${event.title}" am ${formattedDate} zugesagt`
+                        : `${userName} hat für "${event.title}" am ${formattedDate} abgesagt`,
+                    data: {
+                        event_id: event.id,
+                        event_title: event.title,
+                        event_date: event.start_date,
+                        responder_id: currentUserId,
+                        responder_name: userName,
+                        response_status: status
+                    },
+                    is_read: false,
+                    created_at: new Date().toISOString()
+                }));
+
+                await supabase.from('notifications').insert(coachNotifications);
+            }
+        }
 
         // Reload events
         await loadUpcomingEvents();

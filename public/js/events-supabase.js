@@ -2257,5 +2257,183 @@ window.executeEditEvent = async function(eventId, isRecurring) {
     }
 };
 
+/**
+ * Load and render upcoming events with response status for coaches
+ * @param {string} containerId - Container element ID to render into
+ * @param {Object} userData - Current user data
+ */
+export async function loadUpcomingEventsForCoach(containerId, userData) {
+    const container = document.getElementById(containerId);
+    if (!container || !userData?.clubId) return;
+
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 14);
+        const endDate = nextWeek.toISOString().split('T')[0];
+
+        // Load upcoming events
+        const { data: events, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('club_id', userData.clubId)
+            .gte('start_date', today)
+            .lte('start_date', endDate)
+            .eq('cancelled', false)
+            .order('start_date', { ascending: true })
+            .limit(5);
+
+        if (error) throw error;
+
+        if (!events || events.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Anstehende Veranstaltungen
+                    </h3>
+                    <p class="text-gray-500 text-center py-4">Keine anstehenden Veranstaltungen in den nächsten 2 Wochen</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Load response counts for each event
+        const eventIds = events.map(e => e.id);
+        const { data: allInvitations } = await supabase
+            .from('event_invitations')
+            .select('event_id, status, user_id, profiles:user_id(first_name, last_name)')
+            .in('event_id', eventIds);
+
+        // Group invitations by event
+        const invitationsByEvent = {};
+        (allInvitations || []).forEach(inv => {
+            if (!invitationsByEvent[inv.event_id]) {
+                invitationsByEvent[inv.event_id] = { accepted: [], rejected: [], pending: [] };
+            }
+            const statusGroup = inv.status === 'accepted' ? 'accepted'
+                : (inv.status === 'rejected' || inv.status === 'declined') ? 'rejected'
+                : 'pending';
+            invitationsByEvent[inv.event_id][statusGroup].push(inv);
+        });
+
+        // Render events
+        container.innerHTML = `
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    Anstehende Veranstaltungen
+                </h3>
+                <div class="space-y-4">
+                    ${events.map(event => {
+                        const responses = invitationsByEvent[event.id] || { accepted: [], rejected: [], pending: [] };
+                        const dateObj = new Date(event.start_date + 'T12:00:00');
+                        const formattedDate = dateObj.toLocaleDateString('de-DE', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short'
+                        });
+                        const isToday = event.start_date === today;
+
+                        return `
+                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="window.openEventDetails('${event.id}')">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <h4 class="font-semibold text-gray-900">${event.title}</h4>
+                                            ${isToday ? '<span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">Heute</span>' : ''}
+                                            ${event.repeat_type ? '<span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">Wiederkehrend</span>' : ''}
+                                        </div>
+                                        <p class="text-sm text-gray-500 mt-1">
+                                            ${formattedDate}${event.start_time ? ` um ${event.start_time.slice(0, 5)} Uhr` : ''}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Response Summary -->
+                                <div class="flex gap-4 mt-3 text-sm">
+                                    <div class="flex items-center gap-1 text-green-600">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        <span class="font-medium">${responses.accepted.length}</span>
+                                        <span class="text-gray-500">Zusagen</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-red-600">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                        <span class="font-medium">${responses.rejected.length}</span>
+                                        <span class="text-gray-500">Absagen</span>
+                                    </div>
+                                    <div class="flex items-center gap-1 text-gray-500">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <span class="font-medium">${responses.pending.length}</span>
+                                        <span class="text-gray-500">Ausstehend</span>
+                                    </div>
+                                </div>
+
+                                <!-- Accepted Names (collapsed by default, expandable) -->
+                                ${responses.accepted.length > 0 ? `
+                                <div class="mt-3 pt-3 border-t">
+                                    <button class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')">
+                                        <svg class="w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                        Zusagen anzeigen
+                                    </button>
+                                    <div class="hidden mt-2 flex flex-wrap gap-1">
+                                        ${responses.accepted.map(inv => `
+                                            <span class="px-2 py-0.5 bg-green-50 text-green-700 text-xs rounded-full">
+                                                ${inv.profiles?.first_name || ''} ${inv.profiles?.last_name || ''}
+                                            </span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+
+        // Set up real-time subscription for responses
+        const channel = supabase
+            .channel('coach_event_responses')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'event_invitations'
+                },
+                () => {
+                    // Reload when any invitation changes
+                    loadUpcomingEventsForCoach(containerId, userData);
+                }
+            )
+            .subscribe();
+
+        // Store unsubscribe
+        if (!window.coachEventUnsubscribes) window.coachEventUnsubscribes = [];
+        window.coachEventUnsubscribes.push(() => supabase.removeChannel(channel));
+
+    } catch (error) {
+        console.error('[Events] Error loading upcoming events for coach:', error);
+        container.innerHTML = `
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <p class="text-red-500">Fehler beim Laden der Veranstaltungen</p>
+            </div>
+        `;
+    }
+}
+
 // Export functions for global access
 export { closeAllModals };

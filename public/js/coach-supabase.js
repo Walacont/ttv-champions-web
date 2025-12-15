@@ -47,7 +47,7 @@ import {
     exportAttendanceSummary,
 } from './attendance-export-supabase.js';
 import { initClubRequestsManager } from './club-requests-manager-supabase.js';
-import { initEventsModule, openEventDayModal } from './events-supabase.js';
+import { initEventsModule, openEventDayModal, loadUpcomingEventsForCoach } from './events-supabase.js';
 import {
     handleCreateChallenge,
     loadActiveChallenges,
@@ -364,6 +364,10 @@ async function initializeCoachPage(userData) {
     // Initialize Events Module
     initEventsModule(userData);
     console.log('[Coach] Events module initialized');
+
+    // Load Upcoming Events with Response Status for Coach Dashboard
+    loadUpcomingEventsForCoach('coach-upcoming-events', userData);
+    console.log('[Coach] Upcoming events widget loaded');
 
     // Render leaderboard HTML
     renderLeaderboardHTML('tab-content-dashboard', {
