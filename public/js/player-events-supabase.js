@@ -10,6 +10,126 @@ const supabase = getSupabase();
 let currentUserId = null;
 
 /**
+ * Generate upcoming occurrence dates for a recurring event (for a single user)
+ * @param {string} startDate - Event start date (YYYY-MM-DD)
+ * @param {string} repeatType - 'daily', 'weekly', 'biweekly', 'monthly'
+ * @param {string|null} repeatEndDate - Optional end date for recurring
+ * @param {Array} excludedDates - Array of excluded date strings
+ * @param {number} weeksAhead - How many weeks ahead to generate occurrences
+ * @returns {Array} Array of date strings (YYYY-MM-DD)
+ */
+function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, excludedDates = [], weeksAhead = 4) {
+    const occurrences = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const eventStart = new Date(startDate + 'T12:00:00');
+    const endDate = repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null;
+
+    const windowEnd = new Date(today);
+    windowEnd.setDate(windowEnd.getDate() + (weeksAhead * 7));
+
+    let currentDate = new Date(eventStart);
+    if (currentDate < today) {
+        while (currentDate < today) {
+            switch (repeatType) {
+                case 'daily':
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    break;
+                case 'weekly':
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    break;
+                case 'biweekly':
+                    currentDate.setDate(currentDate.getDate() + 14);
+                    break;
+                case 'monthly':
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                    break;
+            }
+        }
+    }
+
+    let maxIterations = 100;
+    while (currentDate <= windowEnd && maxIterations > 0) {
+        if (endDate && currentDate > endDate) break;
+
+        const dateStr = currentDate.toISOString().split('T')[0];
+        if (!excludedDates.includes(dateStr)) {
+            occurrences.push(dateStr);
+        }
+
+        switch (repeatType) {
+            case 'daily':
+                currentDate.setDate(currentDate.getDate() + 1);
+                break;
+            case 'weekly':
+                currentDate.setDate(currentDate.getDate() + 7);
+                break;
+            case 'biweekly':
+                currentDate.setDate(currentDate.getDate() + 14);
+                break;
+            case 'monthly':
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                break;
+        }
+        maxIterations--;
+    }
+
+    return occurrences;
+}
+
+/**
+ * Ensure invitations exist for upcoming occurrences of a recurring event (for a single user)
+ * @param {string} eventId - Event ID
+ * @param {Object} event - Event data
+ * @param {string} userId - User ID
+ */
+async function ensureRecurringInvitationsForPlayer(eventId, event, userId) {
+    if (!event.repeat_type || event.event_type !== 'recurring') return;
+
+    // Get existing invitations for this user/event
+    const { data: existingInvitations } = await supabase
+        .from('event_invitations')
+        .select('occurrence_date')
+        .eq('event_id', eventId)
+        .eq('user_id', userId);
+
+    const existingDates = new Set((existingInvitations || []).map(inv => inv.occurrence_date));
+
+    // Generate upcoming occurrences
+    const upcomingOccurrences = generateUpcomingOccurrences(
+        event.start_date,
+        event.repeat_type,
+        event.repeat_end_date,
+        event.excluded_dates || [],
+        4
+    );
+
+    // Find missing invitations
+    const newInvitations = [];
+    upcomingOccurrences.forEach(occurrenceDate => {
+        if (!existingDates.has(occurrenceDate)) {
+            newInvitations.push({
+                event_id: eventId,
+                user_id: userId,
+                occurrence_date: occurrenceDate,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            });
+        }
+    });
+
+    // Insert new invitations
+    if (newInvitations.length > 0) {
+        try {
+            await supabase.from('event_invitations').insert(newInvitations);
+        } catch (err) {
+            console.warn('[PlayerEvents] Error creating recurring invitations:', err);
+        }
+    }
+}
+
+/**
  * Initialize player events module
  * @param {string} userId - Current user ID
  */
@@ -37,13 +157,14 @@ async function loadUpcomingEvents() {
         const today = new Date().toISOString().split('T')[0];
 
         // Get event invitations for current user
-        // Note: Don't filter by events.start_date in the query as nested filters may not work correctly
+        // Now includes occurrence_date for per-occurrence tracking
         const { data: invitations, error } = await supabase
             .from('event_invitations')
             .select(`
                 id,
                 status,
                 event_id,
+                occurrence_date,
                 events (
                     id,
                     title,
@@ -57,7 +178,10 @@ async function loadUpcomingEvents() {
                     response_deadline,
                     repeat_type,
                     repeat_end_date,
-                    excluded_dates
+                    excluded_dates,
+                    invitation_lead_time_value,
+                    invitation_lead_time_unit,
+                    event_type
                 )
             `)
             .eq('user_id', currentUserId);
@@ -68,42 +192,67 @@ async function loadUpcomingEvents() {
             return;
         }
 
-        // Filter out null events and past events client-side
-        let validInvitations = (invitations || []).filter(inv => {
-            if (!inv.events) return false;
-            // Include if event is today or in the future
-            return inv.events.start_date >= today;
-        });
-
-        // Also check for recurring events that might have future occurrences
-        const recurringInvitations = (invitations || []).filter(inv => {
-            if (!inv.events) return false;
-            if (!inv.events.repeat_type || inv.events.repeat_type === 'none') return false;
-            // Check if recurring event has a repeat_end_date in the future
-            if (inv.events.repeat_end_date && inv.events.repeat_end_date >= today) return true;
-            // Or if it has no end date (repeats forever)
-            if (!inv.events.repeat_end_date && inv.events.start_date) return true;
-            return false;
-        });
-
-        // Add recurring events that have future occurrences but start_date is in the past
-        recurringInvitations.forEach(inv => {
-            if (!validInvitations.find(v => v.id === inv.id)) {
-                // This is a recurring event with past start_date but future occurrences
-                // Find the next occurrence
-                const nextDate = getNextOccurrence(inv.events, today);
-                if (nextDate) {
-                    // Create a copy with the next occurrence date for display
-                    const invCopy = { ...inv, events: { ...inv.events, displayDate: nextDate } };
-                    validInvitations.push(invCopy);
+        // Check for recurring events that need new invitations created
+        // Group invitations by event
+        const eventGroups = {};
+        (invitations || []).forEach(inv => {
+            if (inv.events && inv.events.repeat_type && inv.events.event_type === 'recurring') {
+                if (!eventGroups[inv.event_id]) {
+                    eventGroups[inv.event_id] = {
+                        event: inv.events,
+                        invitations: []
+                    };
                 }
+                eventGroups[inv.event_id].invitations.push(inv);
             }
         });
 
-        // Sort by date
+        // Create missing invitations for upcoming occurrences
+        for (const eventId of Object.keys(eventGroups)) {
+            const group = eventGroups[eventId];
+            await ensureRecurringInvitationsForPlayer(eventId, group.event, currentUserId);
+        }
+
+        // Reload invitations after ensuring recurring ones exist
+        const { data: updatedInvitations, error: reloadError } = await supabase
+            .from('event_invitations')
+            .select(`
+                id,
+                status,
+                event_id,
+                occurrence_date,
+                events (
+                    id,
+                    title,
+                    description,
+                    start_date,
+                    start_time,
+                    end_time,
+                    location,
+                    organizer_id,
+                    max_participants,
+                    response_deadline,
+                    repeat_type,
+                    repeat_end_date,
+                    excluded_dates,
+                    event_type
+                )
+            `)
+            .eq('user_id', currentUserId);
+
+        // Filter out null events and past occurrences client-side
+        // Use occurrence_date if available, otherwise fall back to start_date
+        let validInvitations = (updatedInvitations || []).filter(inv => {
+            if (!inv.events) return false;
+            const displayDate = inv.occurrence_date || inv.events.start_date;
+            // Include if occurrence is today or in the future
+            return displayDate >= today;
+        });
+
+        // Sort by occurrence date
         validInvitations.sort((a, b) => {
-            const dateA = a.events.displayDate || a.events.start_date;
-            const dateB = b.events.displayDate || b.events.start_date;
+            const dateA = a.occurrence_date || a.events.start_date;
+            const dateB = b.occurrence_date || b.events.start_date;
             return dateA.localeCompare(dateB);
         });
 
@@ -118,21 +267,29 @@ async function loadUpcomingEvents() {
         // Show section
         section.classList.remove('hidden');
 
-        // Get accepted count for each event
+        // Get accepted count for each event/occurrence combination
+        // Now we count per occurrence_date, not just per event
         const eventIds = validInvitations.map(inv => inv.events.id);
+        const occurrenceDates = validInvitations.map(inv => inv.occurrence_date).filter(Boolean);
+
         const { data: acceptedCounts } = await supabase
             .from('event_invitations')
-            .select('event_id')
+            .select('event_id, occurrence_date')
             .in('event_id', eventIds)
             .eq('status', 'accepted');
 
+        // Create a map with key = "eventId-occurrenceDate"
         const countMap = {};
         (acceptedCounts || []).forEach(item => {
-            countMap[item.event_id] = (countMap[item.event_id] || 0) + 1;
+            const key = `${item.event_id}-${item.occurrence_date || 'none'}`;
+            countMap[key] = (countMap[key] || 0) + 1;
         });
 
-        // Render events
-        list.innerHTML = validInvitations.map(inv => renderEventCard(inv, countMap[inv.events.id] || 0)).join('');
+        // Render events with per-occurrence counts
+        list.innerHTML = validInvitations.map(inv => {
+            const key = `${inv.events.id}-${inv.occurrence_date || 'none'}`;
+            return renderEventCard(inv, countMap[key] || 0);
+        }).join('');
 
         // Add event listeners
         setupEventCardListeners();
@@ -199,15 +356,16 @@ function getNextOccurrence(event, afterDate) {
 /**
  * Render a single event card
  * @param {Object} invitation - Event invitation with event data
- * @param {number} acceptedCount - Number of accepted invitations
+ * @param {number} acceptedCount - Number of accepted invitations for this occurrence
  * @returns {string} HTML string
  */
 function renderEventCard(invitation, acceptedCount) {
     const event = invitation.events;
     const status = invitation.status;
 
-    // Use displayDate for recurring events, otherwise use start_date
-    const displayDate = event.displayDate || event.start_date;
+    // Use occurrence_date from invitation (for per-occurrence tracking)
+    // Fall back to displayDate or start_date for backwards compatibility
+    const displayDate = invitation.occurrence_date || event.displayDate || event.start_date;
 
     // Format date
     const [year, month, day] = displayDate.split('-');

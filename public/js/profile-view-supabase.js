@@ -1668,15 +1668,24 @@ async function loadProfileAttendance() {
         }
     }
 
-    // Load user's invitations for events this month
+    // Load user's invitations for events this month (including occurrence_date for per-occurrence tracking)
     const { data: invitations } = await supabase
         .from('event_invitations')
-        .select('event_id, status')
+        .select('id, event_id, status, occurrence_date')
         .eq('user_id', profileId);
 
+    // Create a map with key = "eventId-occurrenceDate" for per-occurrence lookup
     const invitationMap = {};
     (invitations || []).forEach(inv => {
-        invitationMap[inv.event_id] = inv.status;
+        // Support both new (with occurrence_date) and old (without) invitations
+        const key = inv.occurrence_date
+            ? `${inv.event_id}-${inv.occurrence_date}`
+            : inv.event_id;
+        invitationMap[key] = {
+            id: inv.id,
+            status: inv.status,
+            occurrence_date: inv.occurrence_date
+        };
     });
 
     // Group events by date
@@ -1686,7 +1695,19 @@ async function loadProfileAttendance() {
         if (!eventsByDate[dateKey]) {
             eventsByDate[dateKey] = [];
         }
-        event.invitationStatus = invitationMap[event.id] || null;
+
+        // Try to find invitation for this specific occurrence first
+        const occurrenceKey = `${event.id}-${dateKey}`;
+        let invitation = invitationMap[occurrenceKey];
+
+        // Fall back to event-level invitation (for backwards compatibility)
+        if (!invitation) {
+            invitation = invitationMap[event.id];
+        }
+
+        event.invitationStatus = invitation?.status || null;
+        event.invitationId = invitation?.id || null;
+        event.occurrenceDate = dateKey;
         eventsByDate[dateKey].push(event);
     });
 
@@ -1898,12 +1919,47 @@ window.showDayEvents = function(dateStr) {
             invitationSendAt = sendDateTime;
         }
 
+        // Determine response buttons based on invitation status
+        let responseButtonsHtml = '';
+        const hasInvitation = event.invitationId && event.invitationStatus;
+        const canRespond = hasInvitation || (invitationSendAt && invitationSendAt <= now);
+
         if (event.invitationStatus === 'accepted') {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>Zugesagt</span>';
+            if (hasInvitation) {
+                responseButtonsHtml = `
+                    <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'rejected', '${event.occurrenceDate}')"
+                            class="text-xs text-red-600 hover:text-red-800 font-medium">
+                        Doch absagen
+                    </button>
+                `;
+            }
         } else if (event.invitationStatus === 'rejected') {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700"><i class="fas fa-times mr-1"></i>Abgesagt</span>';
+            if (hasInvitation) {
+                responseButtonsHtml = `
+                    <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'accepted', '${event.occurrenceDate}')"
+                            class="text-xs text-green-600 hover:text-green-800 font-medium">
+                        Doch zusagen
+                    </button>
+                `;
+            }
         } else if (event.invitationStatus === 'pending') {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700"><i class="fas fa-clock mr-1"></i>Ausstehend</span>';
+            if (hasInvitation) {
+                responseButtonsHtml = `
+                    <div class="flex gap-2">
+                        <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'accepted', '${event.occurrenceDate}')"
+                                class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors">
+                            Zusagen
+                        </button>
+                        <button onclick="window.respondToEventFromCalendar('${event.invitationId}', 'rejected', '${event.occurrenceDate}')"
+                                class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-medium rounded-lg transition-colors">
+                            Absagen
+                        </button>
+                    </div>
+                `;
+            }
         } else if (invitationSendAt && invitationSendAt > now) {
             // Invitation not yet sent - show when it will be sent
             const sendDateStr = invitationSendAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'short' });
@@ -1927,7 +1983,7 @@ window.showDayEvents = function(dateStr) {
         }
 
         return `
-            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition">
+            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition" id="event-card-${event.id}-${event.occurrenceDate}">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
                         <h4 class="font-semibold text-gray-900">
@@ -1937,8 +1993,9 @@ window.showDayEvents = function(dateStr) {
                         ${event.location ? `<p class="text-sm text-gray-500"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(event.location)}</p>` : ''}
                     </div>
                 </div>
-                <div class="mt-2">
+                <div class="mt-2 flex items-center justify-between">
                     ${statusHtml}
+                    ${responseButtonsHtml}
                 </div>
             </div>
         `;
@@ -1972,6 +2029,88 @@ window.showDayEvents = function(dateStr) {
 
     document.body.appendChild(modal);
 };
+
+/**
+ * Respond to an event invitation from the calendar modal
+ * @param {string} invitationId - Invitation ID
+ * @param {string} status - 'accepted' or 'rejected'
+ * @param {string} occurrenceDate - The occurrence date this response is for
+ */
+window.respondToEventFromCalendar = async function(invitationId, status, occurrenceDate) {
+    try {
+        // Update invitation status
+        const { error } = await supabase
+            .from('event_invitations')
+            .update({
+                status,
+                response_at: new Date().toISOString()
+            })
+            .eq('id', invitationId);
+
+        if (error) throw error;
+
+        // Update the UI immediately
+        // Find and update the event in profileCalendarEvents
+        if (window.profileCalendarEvents && occurrenceDate) {
+            const events = window.profileCalendarEvents[occurrenceDate];
+            if (events) {
+                events.forEach(event => {
+                    if (event.invitationId === invitationId) {
+                        event.invitationStatus = status;
+                    }
+                });
+            }
+        }
+
+        // Refresh the modal to show updated status
+        const modal = document.getElementById('day-events-modal');
+        if (modal) {
+            modal.remove();
+            window.showDayEvents(occurrenceDate);
+        }
+
+        // Show success feedback
+        const statusText = status === 'accepted' ? 'Zugesagt' : 'Abgesagt';
+        showToast(`${statusText} für diesen Termin`, 'success');
+
+    } catch (error) {
+        console.error('[ProfileView] Error responding to event:', error);
+        showToast('Fehler beim Antworten: ' + error.message, 'error');
+    }
+};
+
+/**
+ * Show a simple toast notification
+ */
+function showToast(message, type = 'info') {
+    const existingToast = document.querySelector('.profile-toast');
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `profile-toast fixed bottom-4 right-4 px-4 py-3 rounded-xl shadow-xl z-[100] flex items-center gap-2 text-white transition-opacity duration-300 ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-indigo-600'
+    }`;
+    toast.style.opacity = '0';
+
+    toast.innerHTML = `
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            ${type === 'success'
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>'
+                : type === 'error'
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>'
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'}
+        </svg>
+        <span>${message}</span>
+    `;
+
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => { toast.style.opacity = '1'; });
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 
 /**
  * Calculate rank from XP (simplified version)

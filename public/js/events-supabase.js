@@ -71,6 +71,160 @@ function showToastMessage(message, type = 'info') {
 }
 
 /**
+ * Generate upcoming occurrence dates for a recurring event
+ * Returns dates where invitations should be created (within lead time window)
+ * @param {string} startDate - Event start date (YYYY-MM-DD)
+ * @param {string} repeatType - 'daily', 'weekly', 'biweekly', 'monthly'
+ * @param {string|null} repeatEndDate - Optional end date for recurring
+ * @param {Array} excludedDates - Array of excluded date strings
+ * @param {number|null} leadTimeValue - Lead time value (e.g., 3)
+ * @param {string|null} leadTimeUnit - 'hours', 'days', 'weeks'
+ * @param {number} weeksAhead - How many weeks ahead to generate occurrences
+ * @returns {Array} Array of date strings (YYYY-MM-DD)
+ */
+function generateUpcomingOccurrences(startDate, repeatType, repeatEndDate, excludedDates = [], leadTimeValue = null, leadTimeUnit = null, weeksAhead = 4) {
+    const occurrences = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const eventStart = new Date(startDate + 'T12:00:00');
+    const endDate = repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null;
+
+    // Calculate the window: from today to weeksAhead weeks from now
+    const windowEnd = new Date(today);
+    windowEnd.setDate(windowEnd.getDate() + (weeksAhead * 7));
+
+    // If there's a lead time, we should include occurrences that are within the lead time window
+    // For example, if lead time is 3 days and an event is in 5 days, it should be included
+    // because in 2 days it will be within the 3-day window
+    let windowStart = new Date(today);
+
+    // Start from the event's start date or today, whichever is later
+    let currentDate = new Date(eventStart);
+    if (currentDate < today) {
+        // Find the first occurrence on or after today
+        while (currentDate < today) {
+            switch (repeatType) {
+                case 'daily':
+                    currentDate.setDate(currentDate.getDate() + 1);
+                    break;
+                case 'weekly':
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    break;
+                case 'biweekly':
+                    currentDate.setDate(currentDate.getDate() + 14);
+                    break;
+                case 'monthly':
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                    break;
+            }
+        }
+    }
+
+    // Generate occurrences within the window
+    let maxIterations = 100;
+    while (currentDate <= windowEnd && maxIterations > 0) {
+        // Check if past end date
+        if (endDate && currentDate > endDate) break;
+
+        const dateStr = currentDate.toISOString().split('T')[0];
+
+        // Check if not excluded
+        if (!excludedDates.includes(dateStr)) {
+            occurrences.push(dateStr);
+        }
+
+        // Move to next occurrence
+        switch (repeatType) {
+            case 'daily':
+                currentDate.setDate(currentDate.getDate() + 1);
+                break;
+            case 'weekly':
+                currentDate.setDate(currentDate.getDate() + 7);
+                break;
+            case 'biweekly':
+                currentDate.setDate(currentDate.getDate() + 14);
+                break;
+            case 'monthly':
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                break;
+        }
+
+        maxIterations--;
+    }
+
+    return occurrences;
+}
+
+/**
+ * Check and create missing invitations for recurring events
+ * This should be called periodically or when viewing events
+ * @param {string} eventId - Event ID
+ * @param {Object} event - Event data with repeat settings
+ * @param {Array} existingInvitations - Existing invitations for this event
+ * @returns {Array} New invitations that were created
+ */
+async function ensureRecurringInvitations(eventId, event, existingInvitations) {
+    if (!event.repeat_type || event.event_type !== 'recurring') return [];
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get all unique user IDs from existing invitations
+    const userIds = [...new Set(existingInvitations.map(inv => inv.user_id))];
+    if (userIds.length === 0) return [];
+
+    // Get existing occurrence dates
+    const existingDates = new Set(existingInvitations.map(inv => inv.occurrence_date));
+
+    // Generate upcoming occurrences
+    const upcomingOccurrences = generateUpcomingOccurrences(
+        event.start_date,
+        event.repeat_type,
+        event.repeat_end_date,
+        event.excluded_dates || [],
+        event.invitation_lead_time_value,
+        event.invitation_lead_time_unit,
+        4 // 4 weeks ahead
+    );
+
+    // Find missing invitations
+    const newInvitations = [];
+    upcomingOccurrences.forEach(occurrenceDate => {
+        if (!existingDates.has(occurrenceDate)) {
+            userIds.forEach(userId => {
+                newInvitations.push({
+                    event_id: eventId,
+                    user_id: userId,
+                    occurrence_date: occurrenceDate,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
+            });
+        }
+    });
+
+    // Insert new invitations
+    if (newInvitations.length > 0) {
+        try {
+            const { error } = await supabase
+                .from('event_invitations')
+                .upsert(newInvitations, {
+                    onConflict: 'event_id,user_id,occurrence_date',
+                    ignoreDuplicates: true
+                });
+
+            if (error) {
+                console.warn('[Events] Error creating recurring invitations:', error);
+            }
+        } catch (err) {
+            console.warn('[Events] Error in ensureRecurringInvitations:', err);
+        }
+    }
+
+    return newInvitations;
+}
+
+/**
  * Initialize events module
  * @param {Object} userData - Current user data
  */
@@ -558,18 +712,56 @@ async function submitEvent() {
         if (eventError) throw eventError;
 
         // Create invitations for selected members
-        const invitations = currentEventData.selectedMembers.map(userId => ({
-            event_id: event.id,
-            user_id: userId,
-            status: 'pending',
-            created_at: new Date().toISOString()
-        }));
+        // For recurring events, create invitations for each occurrence within the next 4 weeks
+        // For single events, create one invitation with occurrence_date = start_date
+        const invitations = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-        const { error: invError } = await supabase
-            .from('event_invitations')
-            .insert(invitations);
+        if (currentEventData.eventType === 'recurring' && repeatType) {
+            // Generate occurrences for the next 4 weeks (or until repeat_end_date)
+            const occurrences = generateUpcomingOccurrences(
+                startDate,
+                repeatType,
+                repeatEnd,
+                [],  // no excluded dates yet
+                invitationLeadTimeValue,
+                invitationLeadTimeUnit,
+                4 // weeks to look ahead
+            );
 
-        if (invError) throw invError;
+            // Create invitation for each occurrence and each member
+            occurrences.forEach(occurrenceDate => {
+                currentEventData.selectedMembers.forEach(userId => {
+                    invitations.push({
+                        event_id: event.id,
+                        user_id: userId,
+                        occurrence_date: occurrenceDate,
+                        status: 'pending',
+                        created_at: new Date().toISOString()
+                    });
+                });
+            });
+        } else {
+            // Single event - one invitation per member
+            currentEventData.selectedMembers.forEach(userId => {
+                invitations.push({
+                    event_id: event.id,
+                    user_id: userId,
+                    occurrence_date: startDate,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                });
+            });
+        }
+
+        if (invitations.length > 0) {
+            const { error: invError } = await supabase
+                .from('event_invitations')
+                .insert(invitations);
+
+            if (invError) throw invError;
+        }
 
         // Create notifications for invited members (if sending now)
         // Note: This is optional and won't block event creation if it fails
