@@ -29,6 +29,48 @@ let allExercises = []; // Cache of all available exercises
 const EVENT_ATTENDANCE_POINTS_BASE = 3;
 
 /**
+ * Show a toast notification message
+ * @param {string} message - Message to display
+ * @param {string} type - 'success', 'error', or 'info'
+ */
+function showToastMessage(message, type = 'info') {
+    // Remove any existing toast
+    const existingToast = document.getElementById('event-toast');
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'event-toast';
+
+    const bgColor = type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-indigo-600';
+
+    toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-xl shadow-xl z-[100010] flex items-center gap-3 transition-opacity duration-300`;
+    toast.style.opacity = '0';
+    toast.innerHTML = `
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            ${type === 'success'
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>'
+                : type === 'error'
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>'
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'}
+        </svg>
+        <span>${message}</span>
+    `;
+
+    document.body.appendChild(toast);
+
+    // Fade in
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+    });
+
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+/**
  * Initialize events module
  * @param {Object} userData - Current user data
  */
@@ -122,7 +164,7 @@ export function openEventDayModal(dateString, eventsOnDay = []) {
 
             return `
                 <div class="p-4 rounded-xl border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-pointer flex items-center gap-4"
-                     onclick="window.openEventDetails && window.openEventDetails('${event.id}')">
+                     onclick="window.openEventDetails && window.openEventDetails('${event.id}', '${dateString}')">
                     <div class="w-1 h-12 rounded-full" style="background-color: ${subgroupColor}"></div>
                     <div class="flex-1">
                         <p class="font-semibold text-gray-900">${event.title}</p>
@@ -634,8 +676,9 @@ function closeAllModals() {
  * Open event details (for viewing an existing event)
  * Shows attendance tracking for coaches if event is today or past
  * @param {string} eventId - The event ID
+ * @param {string} occurrenceDate - The specific occurrence date (YYYY-MM-DD) for recurring events
  */
-window.openEventDetails = async function(eventId) {
+window.openEventDetails = async function(eventId, occurrenceDate = null) {
     try {
         // Load event details
         const { data: event, error: eventError } = await supabase
@@ -671,7 +714,9 @@ window.openEventDetails = async function(eventId) {
         // Check if event is today or in past
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const eventDate = new Date(event.start_date);
+        // Use occurrence date if provided (for recurring events), otherwise use start_date
+        const displayDate = occurrenceDate || event.start_date;
+        const eventDate = new Date(displayDate);
         eventDate.setHours(0, 0, 0, 0);
         const isPastOrToday = eventDate <= today;
 
@@ -753,7 +798,7 @@ window.openEventDetails = async function(eventId) {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                 </svg>
                             </button>
-                            <button onclick="window.openDeleteEventModal('${eventId}', ${event.repeat_type ? 'true' : 'false'})" class="text-red-500 hover:text-red-700 p-2" title="Löschen">
+                            <button onclick="window.openDeleteEventModal('${eventId}', ${event.repeat_type ? 'true' : 'false'}, '${displayDate}')" class="text-red-500 hover:text-red-700 p-2" title="Löschen">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                 </svg>
@@ -1779,8 +1824,9 @@ window.saveNewExerciseFull = async function() {
  * Open delete event confirmation modal
  * @param {string} eventId - Event ID
  * @param {boolean} isRecurring - Whether this is a recurring event
+ * @param {string} occurrenceDate - The specific occurrence date (YYYY-MM-DD) for recurring events
  */
-window.openDeleteEventModal = async function(eventId, isRecurring) {
+window.openDeleteEventModal = async function(eventId, isRecurring, occurrenceDate = null) {
     // Load event details
     const { data: event, error } = await supabase
         .from('events')
@@ -1857,7 +1903,7 @@ window.openDeleteEventModal = async function(eventId, isRecurring) {
                         class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
                     Abbrechen
                 </button>
-                <button onclick="window.executeDeleteEvent('${eventId}', ${isRecurring})"
+                <button onclick="window.executeDeleteEvent('${eventId}', ${isRecurring}, '${occurrenceDate || ''}')"
                         class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium">
                     Löschen
                 </button>
@@ -1876,8 +1922,9 @@ window.openDeleteEventModal = async function(eventId, isRecurring) {
  * Execute event deletion
  * @param {string} eventId - Event ID
  * @param {boolean} isRecurring - Whether this is a recurring event
+ * @param {string} occurrenceDate - The specific occurrence date (YYYY-MM-DD) for recurring events
  */
-window.executeDeleteEvent = async function(eventId, isRecurring) {
+window.executeDeleteEvent = async function(eventId, isRecurring, occurrenceDate = '') {
     try {
         const deleteScope = isRecurring
             ? document.querySelector('input[name="delete-scope"]:checked')?.value || 'this'
@@ -1893,6 +1940,9 @@ window.executeDeleteEvent = async function(eventId, isRecurring) {
 
         if (eventError) throw eventError;
 
+        // Use occurrence date if provided, otherwise fall back to start_date
+        const targetDate = occurrenceDate || event.start_date;
+
         // Get all participants to notify
         let participantsToNotify = [];
         if (notifyParticipants) {
@@ -1904,7 +1954,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring) {
         }
 
         // Format date for notification
-        const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+        const formattedDate = new Date(targetDate + 'T12:00:00').toLocaleDateString('de-DE', {
             weekday: 'long',
             day: 'numeric',
             month: 'long'
@@ -1914,9 +1964,9 @@ window.executeDeleteEvent = async function(eventId, isRecurring) {
             // Delete only this event instance
             // For recurring events, we add this date to an exclusions list
             if (isRecurring && event.repeat_type) {
-                // Add exclusion date
+                // Add exclusion date - use the specific occurrence date, not the original start_date
                 const exclusions = event.excluded_dates || [];
-                exclusions.push(event.start_date);
+                exclusions.push(targetDate);
 
                 await supabase
                     .from('events')
@@ -1930,7 +1980,7 @@ window.executeDeleteEvent = async function(eventId, isRecurring) {
             }
         } else if (deleteScope === 'future') {
             // Set repeat_end_date to before this date
-            const previousDay = new Date(event.start_date);
+            const previousDay = new Date(targetDate);
             previousDay.setDate(previousDay.getDate() - 1);
             const newEndDate = previousDay.toISOString().split('T')[0];
 
@@ -1969,14 +2019,24 @@ window.executeDeleteEvent = async function(eventId, isRecurring) {
             await supabase.from('notifications').insert(notifications);
         }
 
-        // Close modals and refresh
+        // Close all related modals
         document.getElementById('delete-event-modal')?.remove();
         document.getElementById('event-details-modal')?.remove();
+        document.getElementById('event-day-modal')?.classList.add('hidden');
 
-        alert('Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : ''));
+        // Show success message (non-blocking toast)
+        const message = 'Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : '');
+        showToastMessage(message, 'success');
 
-        // Trigger calendar refresh by dispatching custom event
-        window.dispatchEvent(new CustomEvent('event-changed', { detail: { type: 'delete', eventId } }));
+        // Trigger calendar refresh by dispatching custom event with occurrence date
+        window.dispatchEvent(new CustomEvent('event-changed', {
+            detail: {
+                type: 'delete',
+                eventId,
+                occurrenceDate: targetDate,
+                deleteScope
+            }
+        }));
 
     } catch (error) {
         console.error('[Events] Error deleting event:', error);
@@ -2387,7 +2447,7 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
                         const isToday = event.start_date === today;
 
                         return `
-                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="window.openEventDetails('${event.id}')">
+                            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="window.openEventDetails('${event.id}', '${event.start_date}')">
                                 <div class="flex items-start justify-between">
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2">
@@ -2452,7 +2512,7 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
         `;
 
         // Set up real-time subscription for responses
-        const channel = supabase
+        const invitationsChannel = supabase
             .channel('coach_event_responses')
             .on(
                 'postgres_changes',
@@ -2468,9 +2528,28 @@ export async function loadUpcomingEventsForCoach(containerId, userData) {
             )
             .subscribe();
 
+        // Set up real-time subscription for events changes (including deletions)
+        const eventsChannel = supabase
+            .channel('coach_events_changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'events',
+                    filter: `club_id=eq.${userData.clubId}`
+                },
+                () => {
+                    // Reload when any event changes (including excluded_dates updates)
+                    loadUpcomingEventsForCoach(containerId, userData);
+                }
+            )
+            .subscribe();
+
         // Store unsubscribe
         if (!window.coachEventUnsubscribes) window.coachEventUnsubscribes = [];
-        window.coachEventUnsubscribes.push(() => supabase.removeChannel(channel));
+        window.coachEventUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
+        window.coachEventUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
 
     } catch (error) {
         console.error('[Events] Error loading upcoming events for coach:', error);
