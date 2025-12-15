@@ -242,11 +242,31 @@ async function loadUpcomingEvents() {
 
         // Filter out null events and past occurrences client-side
         // Use occurrence_date if available, otherwise fall back to start_date
+        const nowTime = new Date();
         let validInvitations = (updatedInvitations || []).filter(inv => {
             if (!inv.events) return false;
             const displayDate = inv.occurrence_date || inv.events.start_date;
-            // Include if occurrence is today or in the future
-            return displayDate >= today;
+
+            // If event is in the future, include it
+            if (displayDate > today) return true;
+
+            // If event is today, check if it hasn't ended yet
+            if (displayDate === today) {
+                // Use end_time if available, otherwise start_time
+                const eventTime = inv.events.end_time || inv.events.start_time;
+                if (eventTime) {
+                    const [hours, minutes] = eventTime.split(':').map(Number);
+                    const eventEndTime = new Date();
+                    eventEndTime.setHours(hours, minutes, 0, 0);
+                    // Include if event hasn't ended yet
+                    return nowTime < eventEndTime;
+                }
+                // If no time info, include today's events
+                return true;
+            }
+
+            // Past dates - exclude
+            return false;
         });
 
         // Sort by occurrence date
@@ -906,13 +926,14 @@ async function showEventDetails(eventId) {
 }
 
 /**
- * Setup real-time subscription for event invitations
+ * Setup real-time subscription for event invitations and events
  */
 function setupEventSubscription() {
     if (!currentUserId) return;
 
-    const channel = supabase
-        .channel(`player_events_${currentUserId}`)
+    // Subscribe to invitation changes for this user
+    const invitationsChannel = supabase
+        .channel(`player_invitations_${currentUserId}`)
         .on(
             'postgres_changes',
             {
@@ -927,9 +948,40 @@ function setupEventSubscription() {
         )
         .subscribe();
 
-    // Store unsubscribe function
+    // Subscribe to events table changes (deletions, updates to excluded_dates)
+    // This ensures deleted events disappear immediately
+    const eventsChannel = supabase
+        .channel(`player_events_updates_${currentUserId}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'events'
+            },
+            (payload) => {
+                console.log('[PlayerEvents] Event updated:', payload);
+                loadUpcomingEvents();
+            }
+        )
+        .on(
+            'postgres_changes',
+            {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'events'
+            },
+            (payload) => {
+                console.log('[PlayerEvents] Event deleted:', payload);
+                loadUpcomingEvents();
+            }
+        )
+        .subscribe();
+
+    // Store unsubscribe functions
     if (!window.playerEventsUnsubscribes) window.playerEventsUnsubscribes = [];
-    window.playerEventsUnsubscribes.push(() => supabase.removeChannel(channel));
+    window.playerEventsUnsubscribes.push(() => supabase.removeChannel(invitationsChannel));
+    window.playerEventsUnsubscribes.push(() => supabase.removeChannel(eventsChannel));
 }
 
 /**

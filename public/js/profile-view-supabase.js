@@ -1569,6 +1569,7 @@ async function loadProfileChallenges() {
 /**
  * Load attendance calendar for own profile (now based on event_attendance)
  * Enhanced to show all club events and make days clickable
+ * Shows: ✓ for all events attended, ◐ for partial, ✗ for none attended
  */
 async function loadProfileAttendance() {
     const container = document.getElementById('profile-attendance-calendar');
@@ -1596,10 +1597,12 @@ async function loadProfileAttendance() {
     console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
     // Query event_attendance where this user was present
+    // We need event_id AND the occurrence_date to track per-occurrence attendance
     const { data: eventAttendance, error: attendanceError } = await supabase
         .from('event_attendance')
         .select(`
             event_id,
+            occurrence_date,
             present_user_ids,
             events (
                 start_date,
@@ -1612,15 +1615,16 @@ async function loadProfileAttendance() {
         console.warn('[ProfileView] Error loading event attendance:', attendanceError);
     }
 
-    // Collect attendance dates
-    const attendanceDates = new Set();
+    // Create a set of attended event-date combinations
+    // Key format: "eventId-date"
+    const attendedEventDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
-            if (ea.events?.start_date) {
-                const eventDate = ea.events.start_date;
-                if (eventDate >= startDateStr && eventDate <= endDateStr) {
-                    attendanceDates.add(eventDate);
-                }
+            // Use occurrence_date if available, otherwise fall back to event's start_date
+            const eventDate = ea.occurrence_date || ea.events?.start_date;
+            if (eventDate && eventDate >= startDateStr && eventDate <= endDateStr) {
+                const key = `${ea.event_id}-${eventDate}`;
+                attendedEventDates.add(key);
             }
         });
     }
@@ -1740,34 +1744,61 @@ async function loadProfileAttendance() {
     // Days of month
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const isPresent = attendanceDates.has(dateStr);
-        const isToday = day === now.getDate();
-        const hasEvents = eventsByDate[dateStr] && eventsByDate[dateStr].length > 0;
-        const eventCount = eventsByDate[dateStr]?.length || 0;
+        const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+        const dayEvents = eventsByDate[dateStr] || [];
+        const hasEvents = dayEvents.length > 0;
+        const eventCount = dayEvents.length;
+        const isPastDay = new Date(dateStr) < new Date(now.toISOString().split('T')[0]);
+
+        // Calculate attendance for this day
+        let attendedCount = 0;
+        if (hasEvents) {
+            dayEvents.forEach(event => {
+                const key = `${event.id}-${dateStr}`;
+                if (attendedEventDates.has(key)) {
+                    attendedCount++;
+                }
+            });
+        }
 
         let dayClass = '';
-        let dotIndicator = '';
+        let statusIcon = '';
 
-        if (isPresent) {
-            dayClass = 'bg-green-500 text-white';
+        // Only show attendance status for past days with events
+        if (isPastDay && hasEvents) {
+            if (attendedCount === eventCount) {
+                // All events attended - green checkmark
+                dayClass = 'bg-green-100 text-green-800';
+                statusIcon = '<i class="fas fa-check text-green-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+            } else if (attendedCount > 0) {
+                // Some events attended - half circle (partial)
+                dayClass = 'bg-yellow-100 text-yellow-800';
+                statusIcon = '<i class="fas fa-adjust text-yellow-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+            } else {
+                // No events attended - red X
+                dayClass = 'bg-red-100 text-red-800';
+                statusIcon = '<i class="fas fa-times text-red-600 text-[8px] absolute top-0.5 right-0.5"></i>';
+            }
         } else if (isToday) {
             dayClass = 'bg-indigo-100 text-indigo-700 font-bold';
         } else {
             dayClass = 'text-gray-600';
         }
 
-        if (hasEvents) {
+        // Dot indicator for future events
+        let dotIndicator = '';
+        if (hasEvents && !isPastDay) {
             dayClass += ' cursor-pointer hover:ring-2 hover:ring-indigo-400 transition';
-            // Add dot indicator for events
-            if (!isPresent) {
-                dotIndicator = `<div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${eventCount > 1 ? 'bg-indigo-500' : 'bg-indigo-300'}"></div>`;
-            }
+            dotIndicator = `<div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${eventCount > 1 ? 'bg-indigo-500' : 'bg-indigo-300'}"></div>`;
+        } else if (hasEvents && isPastDay) {
+            dayClass += ' cursor-pointer hover:ring-2 hover:ring-gray-400 transition';
         }
 
         calendarHtml += `
             <div class="aspect-square flex items-center justify-center rounded relative ${dayClass}"
                  ${hasEvents ? `onclick="showDayEvents('${dateStr}')"` : ''}>
                 ${day}
+                ${statusIcon}
                 ${dotIndicator}
             </div>
         `;
@@ -1775,14 +1806,26 @@ async function loadProfileAttendance() {
 
     calendarHtml += '</div>';
 
-    // Stats
-    const presentDays = attendanceDates.size;
+    // Stats - count total attendances (each event-date counts as one)
+    const totalAttendances = attendedEventDates.size;
     const totalEventsThisMonth = Object.values(eventsByDate).reduce((sum, events) => sum + events.length, 0);
+
+    // Count past events (only count past days)
+    const todayStr = now.toISOString().split('T')[0];
+    let pastEventsCount = 0;
+    Object.keys(eventsByDate).forEach(dateStr => {
+        if (dateStr < todayStr) {
+            pastEventsCount += eventsByDate[dateStr].length;
+        }
+    });
+
+    const attendanceRate = pastEventsCount > 0 ? Math.round((totalAttendances / pastEventsCount) * 100) : 0;
+
     calendarHtml += `
         <div class="mt-4 text-center space-y-1">
             <div>
-                <span class="text-green-600 font-semibold">${presentDays}</span>
-                <span class="text-gray-500 text-sm">Anwesenheiten</span>
+                <span class="text-green-600 font-semibold">${totalAttendances}/${pastEventsCount}</span>
+                <span class="text-gray-500 text-sm">Anwesenheiten (${attendanceRate}%)</span>
             </div>
             <div>
                 <span class="text-indigo-600 font-semibold">${totalEventsThisMonth}</span>
@@ -1793,18 +1836,28 @@ async function loadProfileAttendance() {
 
     // Legend
     calendarHtml += `
-        <div class="mt-3 flex flex-wrap justify-center gap-3 text-xs text-gray-500">
+        <div class="mt-3 flex flex-wrap justify-center gap-2 text-xs text-gray-500">
             <div class="flex items-center gap-1">
-                <div class="w-3 h-3 rounded bg-green-500"></div>
-                <span>Anwesend</span>
+                <div class="w-4 h-4 rounded bg-green-100 flex items-center justify-center">
+                    <i class="fas fa-check text-green-600 text-[7px]"></i>
+                </div>
+                <span>Alle</span>
             </div>
             <div class="flex items-center gap-1">
-                <div class="w-3 h-3 rounded bg-indigo-100"></div>
-                <span>Heute</span>
+                <div class="w-4 h-4 rounded bg-yellow-100 flex items-center justify-center">
+                    <i class="fas fa-adjust text-yellow-600 text-[7px]"></i>
+                </div>
+                <span>Teilweise</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div class="w-4 h-4 rounded bg-red-100 flex items-center justify-center">
+                    <i class="fas fa-times text-red-600 text-[7px]"></i>
+                </div>
+                <span>Keine</span>
             </div>
             <div class="flex items-center gap-1">
                 <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
-                <span>Veranstaltung</span>
+                <span>Geplant</span>
             </div>
         </div>
     `;
