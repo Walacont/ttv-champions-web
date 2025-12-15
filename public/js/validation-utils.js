@@ -119,24 +119,48 @@ export function validateMatch(sets) {
 // ========================================================================
 
 /**
- * Calculates handicap points based on Elo difference
+ * Handicap configuration per sport
+ * - threshold: minimum Elo difference to trigger handicap
+ * - pointsPer: Elo difference required for 1 point/game advantage
+ * - maxPoints: maximum handicap points/games
+ * - unit: 'punkte' or 'games' (for display)
+ */
+const HANDICAP_CONFIG = {
+    'table_tennis': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' },
+    'tischtennis': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' },
+    'badminton': { threshold: 40, pointsPer: 40, maxPoints: 12, unit: 'Punkte' },
+    'padel': { threshold: 150, pointsPer: 150, maxPoints: 3, unit: 'Games' },
+    'tennis': { threshold: 150, pointsPer: 150, maxPoints: 3, unit: 'Games' },
+    // Default fallback
+    'default': { threshold: 40, pointsPer: 40, maxPoints: 7, unit: 'Punkte' }
+};
+
+/**
+ * Calculates handicap points based on Elo difference and sport
  * @param {Object} playerA - Player A object with eloRating
  * @param {Object} playerB - Player B object with eloRating
- * @returns {{player: Object, points: number}|null} Handicap info or null if no handicap
+ * @param {string} sportName - Sport name (table_tennis, tennis, badminton, padel)
+ * @returns {{player: Object, points: number, unit: string}|null} Handicap info or null if no handicap
  */
-export function calculateHandicap(playerA, playerB) {
-    const eloA = playerA.eloRating || 0;
-    const eloB = playerB.eloRating || 0;
+export function calculateHandicap(playerA, playerB, sportName = 'table_tennis') {
+    const eloA = playerA.eloRating || playerA.elo_rating || 0;
+    const eloB = playerB.eloRating || playerB.elo_rating || 0;
     const eloDiff = Math.abs(eloA - eloB);
 
-    if (eloDiff < 25) {
+    // Get sport-specific config or use default
+    const config = HANDICAP_CONFIG[sportName?.toLowerCase()] || HANDICAP_CONFIG['default'];
+
+    // Check if difference meets threshold
+    if (eloDiff < config.threshold) {
         return null;
     }
 
-    let handicapPoints = Math.round(eloDiff / 50);
+    // Calculate handicap points: floor(eloDiff / pointsPer)
+    let handicapPoints = Math.floor(eloDiff / config.pointsPer);
 
-    if (handicapPoints > 10) {
-        handicapPoints = 10;
+    // Apply max cap
+    if (handicapPoints > config.maxPoints) {
+        handicapPoints = config.maxPoints;
     }
 
     if (handicapPoints < 1) {
@@ -147,6 +171,8 @@ export function calculateHandicap(playerA, playerB) {
     return {
         player: weakerPlayer,
         points: handicapPoints,
+        unit: config.unit,
+        eloDiff: eloDiff
     };
 }
 
@@ -154,28 +180,35 @@ export function calculateHandicap(playerA, playerB) {
  * Calculates handicap points for doubles based on average team Elo
  * @param {Object} teamA - Team A with player1 and player2 (both have eloRating)
  * @param {Object} teamB - Team B with player1 and player2 (both have eloRating)
- * @returns {{team: 'A'|'B', averageEloA: number, averageEloB: number, points: number}|null} Handicap info or null
+ * @param {string} sportName - Sport name (table_tennis, tennis, badminton, padel)
+ * @returns {{team: 'A'|'B', averageEloA: number, averageEloB: number, points: number, unit: string}|null} Handicap info or null
  */
-export function calculateDoublesHandicap(teamA, teamB) {
+export function calculateDoublesHandicap(teamA, teamB, sportName = 'table_tennis') {
     // Calculate average Elo for each team
-    const eloA1 = teamA.player1?.eloRating || 0;
-    const eloA2 = teamA.player2?.eloRating || 0;
-    const eloB1 = teamB.player1?.eloRating || 0;
-    const eloB2 = teamB.player2?.eloRating || 0;
+    const eloA1 = teamA.player1?.eloRating || teamA.player1?.elo_rating || 0;
+    const eloA2 = teamA.player2?.eloRating || teamA.player2?.elo_rating || 0;
+    const eloB1 = teamB.player1?.eloRating || teamB.player1?.elo_rating || 0;
+    const eloB2 = teamB.player2?.eloRating || teamB.player2?.elo_rating || 0;
 
     const averageEloA = (eloA1 + eloA2) / 2;
     const averageEloB = (eloB1 + eloB2) / 2;
 
     const eloDiff = Math.abs(averageEloA - averageEloB);
 
-    if (eloDiff < 25) {
+    // Get sport-specific config or use default
+    const config = HANDICAP_CONFIG[sportName?.toLowerCase()] || HANDICAP_CONFIG['default'];
+
+    // Check if difference meets threshold
+    if (eloDiff < config.threshold) {
         return null;
     }
 
-    let handicapPoints = Math.round(eloDiff / 50);
+    // Calculate handicap points: floor(eloDiff / pointsPer)
+    let handicapPoints = Math.floor(eloDiff / config.pointsPer);
 
-    if (handicapPoints > 10) {
-        handicapPoints = 10;
+    // Apply max cap
+    if (handicapPoints > config.maxPoints) {
+        handicapPoints = config.maxPoints;
     }
 
     if (handicapPoints < 1) {
@@ -188,5 +221,7 @@ export function calculateDoublesHandicap(teamA, teamB) {
         averageEloA: Math.round(averageEloA),
         averageEloB: Math.round(averageEloB),
         points: handicapPoints,
+        unit: config.unit,
+        eloDiff: Math.round(eloDiff)
     };
 }

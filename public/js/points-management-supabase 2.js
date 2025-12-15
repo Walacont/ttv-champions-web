@@ -1,0 +1,1223 @@
+// Points Management Module - Supabase Version
+// 1:1 Migration von points-management.js - Firebase → Supabase
+
+import { getSupabase } from './supabase-init.js';
+import { formatDate } from './ui-utils.js';
+
+// Notifications module - loaded dynamically when needed
+let notificationsModule = null;
+let notificationsLoaded = false;
+
+async function getNotificationsModule() {
+    if (notificationsLoaded) return notificationsModule;
+    notificationsLoaded = true;
+    try {
+        notificationsModule = await import('./notifications-supabase.js');
+        return notificationsModule;
+    } catch (e) {
+        console.warn('Notifications module not available:', e);
+        return null;
+    }
+}
+
+/**
+ * Gets the current season key from Supabase config table
+ * @param {Object} supabase - Supabase client instance
+ * @returns {Promise<string>} Season key (e.g., "11-2025")
+ */
+async function getCurrentSeasonKey(supabase) {
+    try {
+        const { data, error } = await supabase
+            .from('config')
+            .select('value')
+            .eq('key', 'seasonReset')
+            .single();
+
+        if (error) throw error;
+
+        if (data && data.value && data.value.lastResetDate) {
+            const lastResetDate = new Date(data.value.lastResetDate);
+            return `${lastResetDate.getMonth() + 1}-${lastResetDate.getFullYear()}`;
+        } else {
+            // Fallback: Use current month/year
+            const now = new Date();
+            return `${now.getMonth() + 1}-${now.getFullYear()}`;
+        }
+    } catch (error) {
+        console.error('Error getting season key:', error);
+        const now = new Date();
+        return `${now.getMonth() + 1}-${now.getFullYear()}`;
+    }
+}
+
+/**
+ * Points Management Module
+ * Handles points awarding, points history display for both players and coaches
+ */
+
+/**
+ * Loads points history for a player (dashboard view)
+ * @param {Object} userData - User data with id
+ * @param {Object} db - Supabase client instance
+ * @param {Array} unsubscribes - Array to store unsubscribe functions
+ */
+export function loadPointsHistory(userData, db, unsubscribes) {
+    const pointsHistoryEl = document.getElementById('points-history');
+    if (!pointsHistoryEl) return;
+
+    // Initial load
+    loadHistory();
+
+    // Real-time subscription
+    const subscription = db
+        .channel('points-history-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'points_history',
+            filter: `user_id=eq.${userData.id}`
+        }, () => {
+            loadHistory();
+        })
+        .subscribe();
+
+    unsubscribes.push(() => subscription.unsubscribe());
+
+    async function loadHistory() {
+        const { data: historyData, error } = await db
+            .from('points_history')
+            .select('*')
+            .eq('user_id', userData.id)
+            .order('timestamp', { ascending: false });
+
+        if (error) {
+            console.error('Error loading points history:', error);
+            pointsHistoryEl.innerHTML = `<li><p class="text-gray-400">Fehler beim Laden der Historie.</p></li>`;
+            return;
+        }
+
+        if (!historyData || historyData.length === 0) {
+            pointsHistoryEl.innerHTML = `<li><p class="text-gray-400">Noch keine Punkte erhalten.</p></li>`;
+            return;
+        }
+
+        pointsHistoryEl.innerHTML = '';
+
+        historyData.forEach(entry => {
+            const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
+            const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
+            const date = formatDate(entry.timestamp) || '...';
+
+            const xpChange = entry.xp !== undefined ? entry.xp : entry.points;
+            const eloChange = entry.elo_change !== undefined ? entry.elo_change : 0;
+
+            let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
+
+            const details = [];
+            if (xpChange !== 0) {
+                const xpSign = xpChange > 0 ? '+' : xpChange < 0 ? '' : '±';
+                const xpClass = xpChange > 0 ? 'text-green-600' : xpChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${xpClass}">${xpSign}${xpChange} XP</span>`);
+            }
+            if (eloChange !== 0) {
+                const eloSign = eloChange > 0 ? '+' : eloChange < 0 ? '' : '±';
+                const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
+            }
+
+            if (details.length > 0) {
+                detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
+            }
+
+            let partnerBadge = '';
+            if (entry.is_active_player) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">💪 Aktiv</span>';
+            } else if (entry.is_partner) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-2">🤝 Partner</span>';
+            }
+
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-start text-sm';
+            li.innerHTML = `
+                <div>
+                    <p class="font-medium">${entry.reason}${partnerBadge}</p>
+                    <p class="text-xs text-gray-500">${date}</p>
+                </div>
+                <div class="text-right">${detailsHTML}</div>
+            `;
+            pointsHistoryEl.appendChild(li);
+        });
+    }
+}
+
+/**
+ * Loads points history for a specific player (coach view)
+ */
+export function loadPointsHistoryForCoach(playerId, db, setUnsubscribe) {
+    const historyListEl = document.getElementById('coach-points-history-list');
+    if (!historyListEl) return;
+
+    if (!playerId) {
+        historyListEl.innerHTML = '<li class="text-center text-gray-500 py-4">Bitte einen Spieler auswählen, um die Historie anzuzeigen.</li>';
+        return;
+    }
+
+    historyListEl.innerHTML = '<li class="text-center text-gray-500 py-4">Lade Historie...</li>';
+
+    // Initial load
+    loadHistory();
+
+    // Real-time subscription
+    const subscription = db
+        .channel(`coach-points-history-${playerId}`)
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'points_history',
+            filter: `user_id=eq.${playerId}`
+        }, () => {
+            loadHistory();
+        })
+        .subscribe();
+
+    setUnsubscribe(() => subscription.unsubscribe());
+
+    async function loadHistory() {
+        const { data: historyData, error } = await db
+            .from('points_history')
+            .select('*')
+            .eq('user_id', playerId)
+            .order('timestamp', { ascending: false });
+
+        if (error || !historyData || historyData.length === 0) {
+            historyListEl.innerHTML = `<li><p class="text-center text-gray-400 py-4">Für diesen Spieler gibt es noch keine Einträge.</p></li>`;
+            return;
+        }
+
+        historyListEl.innerHTML = '';
+
+        historyData.forEach(entry => {
+            const pointsClass = entry.points > 0 ? 'text-green-600' : entry.points < 0 ? 'text-red-600' : 'text-gray-600';
+            const sign = entry.points > 0 ? '+' : entry.points < 0 ? '' : '±';
+            const date = formatDate(entry.timestamp) || '...';
+
+            const xpChange = entry.xp !== undefined ? entry.xp : entry.points;
+            const eloChange = entry.elo_change !== undefined ? entry.elo_change : 0;
+
+            let detailsHTML = `<span class="font-bold ${pointsClass}">${sign}${entry.points} Pkt</span>`;
+
+            const details = [];
+            if (xpChange !== 0) {
+                const xpSign = xpChange > 0 ? '+' : xpChange < 0 ? '' : '±';
+                const xpClass = xpChange > 0 ? 'text-green-600' : xpChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${xpClass}">${xpSign}${xpChange} XP</span>`);
+            }
+            if (eloChange !== 0) {
+                const eloSign = eloChange > 0 ? '+' : eloChange < 0 ? '' : '±';
+                const eloClass = eloChange > 0 ? 'text-blue-600' : eloChange < 0 ? 'text-red-600' : 'text-gray-600';
+                details.push(`<span class="${eloClass}">${eloSign}${eloChange} Elo</span>`);
+            }
+
+            if (details.length > 0) {
+                detailsHTML += `<span class="text-xs text-gray-500 block mt-1">${details.join(' • ')}</span>`;
+            }
+
+            let partnerBadge = '';
+            if (entry.is_active_player) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800 ml-2">💪 Aktiv</span>';
+            } else if (entry.is_partner) {
+                partnerBadge = '<span class="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-2">🤝 Partner</span>';
+            }
+
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-start text-sm bg-gray-50 p-2 rounded-md';
+            li.innerHTML = `
+                <div>
+                    <p class="font-medium">${entry.reason}${partnerBadge}</p>
+                    <p class="text-xs text-gray-500">${date} - ${entry.awarded_by || 'Unbekannt'}</p>
+                </div>
+                <div class="text-right">${detailsHTML}</div>
+            `;
+            historyListEl.appendChild(li);
+        });
+    }
+}
+
+/**
+ * Populates the player filter dropdown for points history
+ */
+export function populateHistoryFilterDropdown(clubPlayers) {
+    const select = document.getElementById('history-player-filter');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Bitte Spieler wählen...</option>';
+    clubPlayers.forEach(player => {
+        const option = document.createElement('option');
+        option.value = player.id;
+        option.textContent = `${player.firstName} ${player.lastName}`;
+        select.appendChild(option);
+    });
+}
+
+/**
+ * Handles points form submission (coach awarding points)
+ */
+export async function handlePointsFormSubmit(e, db, currentUserData, handleReasonChangeCallback) {
+    e.preventDefault();
+    const feedbackEl = document.getElementById('points-feedback');
+    const playerId = document.getElementById('player-select').value;
+    const reasonType = document.getElementById('reason-select').value;
+    feedbackEl.textContent = '';
+
+    if (!playerId || !reasonType) {
+        feedbackEl.textContent = 'Bitte Spieler und Grund auswählen.';
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+        return;
+    }
+
+    let points = 0;
+    let xpChange = 0;
+    let reason = '';
+    let challengeId = null;
+    let exerciseId = null;
+    let challengeSubgroupId = null;
+
+    try {
+        switch (reasonType) {
+            case 'penalty':
+                const severity = document.getElementById('penalty-severity').value;
+                const penaltyReason = document.getElementById('penalty-reason').value;
+                if (!penaltyReason) throw new Error('Bitte einen Grund für die Strafe angeben.');
+
+                const penalties = {
+                    light: { points: -10, xp: -5 },
+                    medium: { points: -20, xp: -10 },
+                    severe: { points: -30, xp: -20 },
+                };
+
+                const penalty = penalties[severity];
+                points = penalty.points;
+                xpChange = penalty.xp;
+                reason = `🚫 Strafe: ${penaltyReason}`;
+                break;
+
+            case 'challenge':
+                const cSelect = document.getElementById('challenge-select');
+                const cOption = cSelect.options[cSelect.selectedIndex];
+                if (!cOption || !cOption.value) throw new Error('Bitte eine Challenge auswählen.');
+
+                const challengeHasMilestones = cOption.dataset.hasMilestones === 'true';
+                if (challengeHasMilestones) {
+                    const milestoneCountInput = document.getElementById('milestone-count-input');
+                    const enteredCount = parseInt(milestoneCountInput?.value);
+
+                    if (!enteredCount || enteredCount <= 0) {
+                        throw new Error('Bitte gib die Anzahl der Wiederholungen ein.');
+                    }
+
+                    const milestones = JSON.parse(cOption.dataset.milestones || '[]');
+                    const achievedMilestones = milestones.filter(m => enteredCount >= m.count);
+
+                    if (achievedMilestones.length === 0) {
+                        throw new Error('Die eingegebene Anzahl erreicht keinen Meilenstein.');
+                    }
+
+                    points = achievedMilestones.reduce((sum, m) => sum + m.points, 0);
+                    xpChange = points;
+                    reason = `Challenge: ${cOption.dataset.title} (${enteredCount}×)`;
+                } else {
+                    points = parseInt(cOption.dataset.points);
+                    xpChange = points;
+                    reason = `Challenge: ${cOption.dataset.title}`;
+                }
+
+                challengeId = cOption.value;
+                challengeSubgroupId = cOption.dataset.subgroupId || 'all';
+                break;
+
+            case 'exercise':
+                const eSelect = document.getElementById('exercise-select');
+                const eOption = eSelect.options[eSelect.selectedIndex];
+                if (!eOption || !eOption.value) throw new Error('Bitte eine Übung auswählen.');
+
+                const exerciseHasMilestones = eOption.dataset.hasMilestones === 'true';
+                if (exerciseHasMilestones) {
+                    const milestoneCountInput = document.getElementById('milestone-count-input');
+                    const enteredCount = parseInt(milestoneCountInput?.value);
+
+                    if (!enteredCount || enteredCount <= 0) {
+                        throw new Error('Bitte gib die Anzahl der Wiederholungen ein.');
+                    }
+
+                    const milestones = JSON.parse(eOption.dataset.milestones || '[]');
+                    const achievedMilestones = milestones.filter(m => enteredCount >= m.count);
+
+                    if (achievedMilestones.length === 0) {
+                        throw new Error('Die eingegebene Anzahl erreicht keinen Meilenstein.');
+                    }
+
+                    points = achievedMilestones.reduce((sum, m) => sum + m.points, 0);
+                    xpChange = points;
+                    reason = `Übung: ${eOption.dataset.title} (${enteredCount}×)`;
+                } else {
+                    points = parseInt(eOption.dataset.points);
+                    xpChange = points;
+                    reason = `Übung: ${eOption.dataset.title}`;
+                }
+
+                exerciseId = eOption.value;
+                break;
+
+            case 'manual':
+                points = parseInt(document.getElementById('manual-points').value);
+                xpChange = points; // XP is always equal to points for manual awards
+                reason = document.getElementById('manual-reason').value;
+                if (!reason || isNaN(points)) throw new Error('Grund und gültige Punkte müssen angegeben werden.');
+                break;
+        }
+
+        // Check for partner system
+        let partnerId = null;
+        let partnerPercentage = 0;
+        let hasPartnerSystem = false;
+
+        if (reasonType === 'exercise' || reasonType === 'challenge') {
+            const selectElement = document.getElementById(`${reasonType}-select`);
+            const selectedOption = selectElement?.options[selectElement.selectedIndex];
+            hasPartnerSystem = selectedOption?.dataset.hasPartnerSystem === 'true';
+
+            if (hasPartnerSystem) {
+                partnerPercentage = parseInt(selectedOption.dataset.partnerPercentage) || 50;
+                partnerId = document.getElementById('partner-select')?.value;
+
+                if (partnerId && partnerId === playerId) {
+                    throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
+                }
+            }
+        } else if (reasonType === 'manual') {
+            const manualToggle = document.getElementById('manual-partner-toggle');
+            hasPartnerSystem = manualToggle?.checked || false;
+
+            if (hasPartnerSystem) {
+                partnerPercentage = parseInt(document.getElementById('manual-partner-percentage')?.value) || 50;
+                partnerId = document.getElementById('manual-partner-select')?.value;
+
+                if (partnerId && partnerId === playerId) {
+                    throw new Error('Der Partner kann nicht der gleiche Spieler sein.');
+                }
+            }
+        }
+
+        // Get player data
+        const { data: playerData, error: playerError } = await db
+            .from('profiles')
+            .select('*')
+            .eq('id', playerId)
+            .single();
+
+        if (playerError || !playerData) {
+            throw new Error('Spieler nicht gefunden.');
+        }
+
+        // Validate challenge subgroup membership
+        if (challengeId && challengeSubgroupId && challengeSubgroupId !== 'all') {
+            const playerSubgroups = playerData.subgroup_ids || [];
+
+            if (!playerSubgroups.includes(challengeSubgroupId)) {
+                const { data: subgroupData } = await db
+                    .from('subgroups')
+                    .select('name')
+                    .eq('id', challengeSubgroupId)
+                    .single();
+
+                const subgroupName = subgroupData?.name || 'dieser Untergruppe';
+                const playerName = `${playerData.first_name} ${playerData.last_name}`;
+                throw new Error(
+                    `${playerName} gehört nicht der Untergruppe an, für die diese Challenge erstellt wurde. ` +
+                    `Bitte füge die Person in die Untergruppe "${subgroupName}" ein, um ihr diese Challenge zuzuweisen.`
+                );
+            }
+        }
+
+        // Check challenge repeatable status
+        if (challengeId) {
+            const { data: challengeData } = await db
+                .from('challenges')
+                .select('*')
+                .eq('id', challengeId)
+                .single();
+
+            if (challengeData) {
+                const isRepeatable = challengeData.is_repeatable !== false;
+                const lastReactivatedAt = challengeData.last_reactivated_at || challengeData.created_at;
+
+                if (!isRepeatable) {
+                    const { data: completedData } = await db
+                        .from('completed_challenges')
+                        .select('*')
+                        .eq('user_id', playerId)
+                        .eq('challenge_id', challengeId)
+                        .single();
+
+                    if (completedData) {
+                        const completedAt = new Date(completedData.completed_at);
+                        const reactivatedAt = new Date(lastReactivatedAt);
+
+                        if (completedAt > reactivatedAt) {
+                            const playerName = `${playerData.first_name} ${playerData.last_name}`;
+                            throw new Error(
+                                `${playerName} hat diese Challenge bereits abgeschlossen. ` +
+                                `Diese Challenge ist nur einmalig einlösbar.`
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        let grundlagenMessage = '';
+        let grundlagenCount = playerData.grundlagen_completed || 0;
+        let isGrundlagenExercise = false;
+
+        // Check for Grundlagen exercise
+        if (exerciseId) {
+            const { data: exerciseData } = await db
+                .from('exercises')
+                .select('category')
+                .eq('id', exerciseId)
+                .single();
+
+            if (exerciseData) {
+                // DB uses 'category' instead of 'tags'
+                const category = exerciseData.category || '';
+                isGrundlagenExercise = category.toLowerCase().includes('grundlage');
+            }
+        } else if (reasonType === 'manual') {
+            const lowerReason = reason.toLowerCase();
+            isGrundlagenExercise = lowerReason.includes('grundlage') || lowerReason.includes('grundlagen');
+        }
+
+        // Calculate actual changes
+        const currentPoints = playerData.points || 0;
+        const currentXP = playerData.xp || 0;
+        const actualPointsChange = Math.max(-currentPoints, points);
+        const actualXPChange = Math.max(-currentXP, xpChange);
+
+        // Update player profile
+        const updateData = {
+            points: currentPoints + actualPointsChange,
+            xp: currentXP + actualXPChange,
+            last_xp_update: new Date().toISOString(),
+        };
+
+        if (isGrundlagenExercise && grundlagenCount < 5) {
+            grundlagenCount++;
+            updateData.grundlagen_completed = grundlagenCount;
+
+            const remaining = 5 - grundlagenCount;
+            if (grundlagenCount >= 5) {
+                updateData.is_match_ready = true;
+                grundlagenMessage = ' 🎉 Grundlagen abgeschlossen - Wettkämpfe freigeschaltet!';
+            } else {
+                grundlagenMessage = ` (${grundlagenCount}/5 Grundlagen - noch ${remaining} bis Wettkämpfe)`;
+            }
+        }
+
+        await db.from('profiles').update(updateData).eq('id', playerId);
+
+        // Add points history entry
+        const historyEntry = {
+            user_id: playerId,
+            points: actualPointsChange,
+            xp: actualXPChange,
+            elo_change: 0,
+            reason,
+            timestamp: new Date().toISOString(),
+            awarded_by: `${currentUserData.firstName} ${currentUserData.lastName}`,
+        };
+
+        // Get current season key
+        const currentSeasonKey = await getCurrentSeasonKey(db);
+
+        // Mark exercise as completed
+        if (exerciseId) {
+            await db.from('completed_exercises').upsert({
+                user_id: playerId,
+                exercise_id: exerciseId,
+                completed_at: new Date().toISOString(),
+                season_key: currentSeasonKey,
+            });
+
+            // Update milestone progress if applicable
+            const eOption = document.getElementById('exercise-select').options[document.getElementById('exercise-select').selectedIndex];
+            if (eOption?.dataset.hasMilestones === 'true') {
+                const milestoneCountInput = document.getElementById('milestone-count-input');
+                const enteredCount = parseInt(milestoneCountInput?.value);
+
+                if (enteredCount) {
+                    await db.from('exercise_milestones').upsert({
+                        user_id: playerId,
+                        exercise_id: exerciseId,
+                        current_count: enteredCount,
+                        last_updated: new Date().toISOString(),
+                        last_season_updated: currentSeasonKey,
+                    });
+
+                    // Update global record holder
+                    const { data: exerciseData } = await db
+                        .from('exercises')
+                        .select('record_count, record_holder_name')
+                        .eq('id', exerciseId)
+                        .single();
+
+                    if (exerciseData && enteredCount > (exerciseData.record_count || 0)) {
+                        const playerName = `${playerData.first_name} ${playerData.last_name}`;
+
+                        let clubName = null;
+                        if (playerData.club_id) {
+                            const { data: clubData } = await db
+                                .from('clubs')
+                                .select('name')
+                                .eq('id', playerData.club_id)
+                                .single();
+                            clubName = clubData?.name;
+                        }
+
+                        await db.from('exercises').update({
+                            record_count: enteredCount,
+                            record_holder_name: playerName,
+                            record_holder_club: clubName,
+                            record_holder_id: playerId,
+                            record_updated_at: new Date().toISOString(),
+                        }).eq('id', exerciseId);
+                    }
+                }
+            }
+        }
+
+        // Mark challenge as completed
+        if (challengeId) {
+            await db.from('completed_challenges').upsert({
+                user_id: playerId,
+                challenge_id: challengeId,
+                completed_at: new Date().toISOString(),
+                season_key: currentSeasonKey,
+            });
+
+            // Update milestone progress if applicable
+            const cOption = document.getElementById('challenge-select').options[document.getElementById('challenge-select').selectedIndex];
+            if (cOption?.dataset.hasMilestones === 'true') {
+                const milestoneCountInput = document.getElementById('milestone-count-input');
+                const enteredCount = parseInt(milestoneCountInput?.value);
+
+                if (enteredCount) {
+                    await db.from('challenge_milestones').upsert({
+                        user_id: playerId,
+                        challenge_id: challengeId,
+                        current_count: enteredCount,
+                        last_updated: new Date().toISOString(),
+                        last_season_updated: currentSeasonKey,
+                    });
+                }
+            }
+        }
+
+        // Handle partner system
+        let partnerName = '';
+        let actualPartnerPointsChange = 0;
+        let actualPartnerXPChange = 0;
+
+        if (hasPartnerSystem && partnerId) {
+            const { data: partnerData } = await db
+                .from('profiles')
+                .select('*')
+                .eq('id', partnerId)
+                .single();
+
+            if (partnerData) {
+                const partnerPoints = Math.round(actualPointsChange * (partnerPercentage / 100));
+                const partnerXP = Math.round(actualXPChange * (partnerPercentage / 100));
+
+                const currentPartnerPoints = partnerData.points || 0;
+                const currentPartnerXP = partnerData.xp || 0;
+
+                actualPartnerPointsChange = Math.max(-currentPartnerPoints, partnerPoints);
+                actualPartnerXPChange = Math.max(-currentPartnerXP, partnerXP);
+                partnerName = `${partnerData.first_name} ${partnerData.last_name}`;
+
+                // Update partner profile
+                await db.from('profiles').update({
+                    points: currentPartnerPoints + actualPartnerPointsChange,
+                    xp: currentPartnerXP + actualPartnerXPChange,
+                    last_xp_update: new Date().toISOString(),
+                }).eq('id', partnerId);
+
+                // Partner points history
+                const activePlayerName = `${playerData.first_name} ${playerData.last_name}`;
+                const partnerReason = `🤝 Partner: ${reason} (mit ${activePlayerName})`;
+
+                await db.from('points_history').insert({
+                    user_id: partnerId,
+                    points: actualPartnerPointsChange,
+                    xp: actualPartnerXPChange,
+                    elo_change: 0,
+                    reason: partnerReason,
+                    timestamp: new Date().toISOString(),
+                    awarded_by: `${currentUserData.firstName} ${currentUserData.lastName}`,
+                    is_partner: true,
+                    partner_id: playerId,
+                });
+
+                // Update active player's history entry with partner info
+                historyEntry.reason = `💪 ${reason} (Partner: ${partnerName})`;
+                historyEntry.is_active_player = true;
+                historyEntry.partner_id = partnerId;
+            }
+        }
+
+        // Insert points history entry
+        await db.from('points_history').insert(historyEntry);
+
+        // Create notification for the player (if notifications are available)
+        const notifMod = await getNotificationsModule();
+        if (notifMod && notifMod.createPointsNotification) {
+            try {
+                await notifMod.createPointsNotification(
+                    playerId,
+                    actualPointsChange,
+                    actualXPChange,
+                    0, // elo change
+                    reason,
+                    `${currentUserData.firstName} ${currentUserData.lastName}`
+                );
+
+                // Also create notification for partner if applicable
+                if (hasPartnerSystem && partnerId && partnerName) {
+                    const partnerReason = `Partner: ${reason} (mit ${playerData.first_name} ${playerData.last_name})`;
+                    await notifMod.createPointsNotification(
+                        partnerId,
+                        actualPartnerPointsChange,
+                        actualPartnerXPChange,
+                        0,
+                        partnerReason,
+                        `${currentUserData.firstName} ${currentUserData.lastName}`
+                    );
+                }
+            } catch (notifError) {
+                console.warn('Could not create notification:', notifError);
+            }
+        }
+
+        // Build feedback message
+        const sign = actualPointsChange >= 0 ? '+' : '';
+        let feedbackText = `Erfolgreich ${sign}${actualPointsChange} Punkte vergeben!`;
+
+        if (actualXPChange !== actualPointsChange) {
+            const xpSign = actualXPChange >= 0 ? '+' : '';
+            feedbackText += ` (${xpSign}${actualXPChange} XP)`;
+        }
+
+        if (hasPartnerSystem && partnerId && partnerName) {
+            const partnerSign = actualPartnerPointsChange >= 0 ? '+' : '';
+            feedbackText += ` | Partner ${partnerName}: ${partnerSign}${actualPartnerPointsChange} Punkte`;
+            if (actualPartnerXPChange !== actualPartnerPointsChange) {
+                const partnerXpSign = actualPartnerXPChange >= 0 ? '+' : '';
+                feedbackText += ` (${partnerXpSign}${actualPartnerXPChange} XP)`;
+            }
+        }
+
+        feedbackText += grundlagenMessage;
+
+        feedbackEl.textContent = feedbackText;
+        feedbackEl.className = actualPointsChange >= 0
+            ? 'mt-3 text-sm font-medium text-center text-green-600'
+            : 'mt-3 text-sm font-medium text-center text-orange-600';
+        e.target.reset();
+
+        // Reset manual partner system
+        const manualToggle = document.getElementById('manual-partner-toggle');
+        const manualContainer = document.getElementById('manual-partner-container');
+        const manualPercentage = document.getElementById('manual-partner-percentage');
+        if (manualToggle) manualToggle.checked = false;
+        if (manualContainer) manualContainer.classList.add('hidden');
+        if (manualPercentage) manualPercentage.value = 50;
+
+        handleReasonChangeCallback();
+    } catch (error) {
+        console.error('Fehler bei der Punktevergabe:', error);
+        feedbackEl.textContent = `Fehler: ${error.message}`;
+        feedbackEl.className = 'mt-3 text-sm font-medium text-center text-red-600';
+    }
+
+    setTimeout(() => {
+        feedbackEl.textContent = '';
+    }, 4000);
+}
+
+/**
+ * Handles reason selection change in points form
+ */
+export function handleReasonChange() {
+    const value = document.getElementById('reason-select').value;
+    const challengeContainer = document.getElementById('challenge-select-container');
+    const exerciseContainer = document.getElementById('exercise-select-container');
+    const penaltyContainer = document.getElementById('penalty-container');
+    const manualContainer = document.getElementById('manual-points-container');
+    const milestoneContainer = document.getElementById('milestone-select-container');
+
+    const challengeSelect = document.getElementById('challenge-select');
+    const exerciseSelect = document.getElementById('exercise-select');
+    const penaltyReason = document.getElementById('penalty-reason');
+
+    if (challengeContainer) challengeContainer.classList.toggle('hidden', value !== 'challenge');
+    if (exerciseContainer) exerciseContainer.classList.toggle('hidden', value !== 'exercise');
+    if (penaltyContainer) penaltyContainer.classList.toggle('hidden', value !== 'penalty');
+    if (manualContainer) manualContainer.classList.toggle('hidden', value !== 'manual');
+    if (milestoneContainer) milestoneContainer.classList.add('hidden');
+
+    if (challengeSelect) {
+        if (value === 'challenge') {
+            challengeSelect.setAttribute('required', 'required');
+        } else {
+            challengeSelect.removeAttribute('required');
+        }
+    }
+
+    if (exerciseSelect) {
+        if (value === 'exercise') {
+            exerciseSelect.setAttribute('required', 'required');
+        } else {
+            exerciseSelect.removeAttribute('required');
+        }
+    }
+
+    if (penaltyReason) {
+        if (value === 'penalty') {
+            penaltyReason.setAttribute('required', 'required');
+        } else {
+            penaltyReason.removeAttribute('required');
+        }
+    }
+}
+
+/**
+ * Sets up milestone selector logic for points awarding
+ */
+export function setupMilestoneSelectors(db) {
+    const exerciseSelect = document.getElementById('exercise-select');
+    const challengeSelect = document.getElementById('challenge-select');
+    const playerSelect = document.getElementById('player-select');
+    const partnerSelect = document.getElementById('partner-select');
+
+    if (exerciseSelect) {
+        exerciseSelect.addEventListener('change', () => {
+            handleExerciseChallengeChange(db, 'exercise');
+        });
+    }
+
+    if (challengeSelect) {
+        challengeSelect.addEventListener('change', () => {
+            handleExerciseChallengeChange(db, 'challenge');
+        });
+    }
+
+    if (playerSelect) {
+        playerSelect.addEventListener('change', () => {
+            const reasonType = document.getElementById('reason-select').value;
+
+            const activePlayerName = document.getElementById('active-player-name');
+            if (activePlayerName) {
+                activePlayerName.textContent = playerSelect.value
+                    ? playerSelect.options[playerSelect.selectedIndex].text
+                    : '-';
+            }
+
+            if (reasonType === 'exercise' || reasonType === 'challenge') {
+                handleExerciseChallengeChange(db, reasonType);
+            }
+        });
+    }
+
+    if (partnerSelect) {
+        partnerSelect.addEventListener('change', () => {
+            const passivePlayerName = document.getElementById('passive-player-name');
+            if (passivePlayerName) {
+                passivePlayerName.textContent = partnerSelect.value
+                    ? partnerSelect.options[partnerSelect.selectedIndex].text
+                    : '-';
+            }
+        });
+    }
+}
+
+/**
+ * Handles exercise/challenge selection change to show milestones if applicable
+ */
+async function handleExerciseChallengeChange(db, type) {
+    const select = document.getElementById(`${type}-select`);
+    const milestoneContainer = document.getElementById('milestone-select-container');
+    const milestoneCountInput = document.getElementById('milestone-count-input');
+    const playerSelect = document.getElementById('player-select');
+
+    if (!select || !milestoneContainer || !milestoneCountInput) return;
+
+    const selectedOption = select.options[select.selectedIndex];
+    const hasMilestones = selectedOption?.dataset.hasMilestones === 'true';
+
+    if (!hasMilestones || !selectedOption.value) {
+        milestoneContainer.classList.add('hidden');
+
+        if (selectedOption.value) {
+            await showCompletionStatus(db, type, selectedOption.value, playerSelect?.value);
+        } else {
+            hideCompletionStatus();
+        }
+    } else {
+        hideCompletionStatus();
+        milestoneContainer.classList.remove('hidden');
+
+        const milestones = JSON.parse(selectedOption.dataset.milestones || '[]');
+        const itemId = selectedOption.value;
+        const playerId = playerSelect?.value;
+
+        let playerProgress = { currentCount: 0 };
+        if (playerId) {
+            const collectionName = type === 'exercise' ? 'exercise_milestones' : 'challenge_milestones';
+            playerProgress = await getMilestoneProgress(db, playerId, collectionName, itemId, type);
+        }
+
+        milestoneCountInput.value = '';
+        milestoneCountInput.dataset.milestones = JSON.stringify(milestones);
+
+        const currentSeasonKey = await getCurrentSeasonKey(db);
+        const progressSeasonKey = playerProgress.lastSeasonUpdated || '';
+        const isCurrentSeason = progressSeasonKey === currentSeasonKey;
+        const currentCount = isCurrentSeason ? playerProgress.currentCount || 0 : 0;
+
+        milestoneCountInput.dataset.currentCount = currentCount;
+
+        await updateMilestoneProgressDisplay(playerProgress, milestones, db);
+        setupMilestoneCountInputListener(milestones, currentCount);
+    }
+
+    // Handle partner system
+    const partnerContainer = document.getElementById('partner-select-container');
+    if (!partnerContainer) return;
+
+    const hasPartnerSystem = selectedOption?.dataset.hasPartnerSystem === 'true';
+    const partnerPercentage = parseInt(selectedOption?.dataset.partnerPercentage) || 50;
+
+    if (!hasPartnerSystem || !selectedOption.value) {
+        partnerContainer.classList.add('hidden');
+        return;
+    }
+
+    partnerContainer.classList.remove('hidden');
+
+    const percentageDisplay = document.getElementById('partner-percentage');
+    if (percentageDisplay) {
+        percentageDisplay.textContent = partnerPercentage;
+    }
+
+    const playerId = playerSelect?.value;
+    const activePlayerName = document.getElementById('active-player-name');
+    if (activePlayerName) {
+        activePlayerName.textContent = playerId
+            ? playerSelect.options[playerSelect.selectedIndex].text
+            : '-';
+    }
+
+    await populatePartnerDropdown(db, playerId);
+}
+
+/**
+ * Gets a player's milestone progress
+ */
+async function getMilestoneProgress(db, playerId, tableName, itemId, type) {
+    try {
+        const idColumn = type === 'exercise' ? 'exercise_id' : 'challenge_id';
+        const { data } = await db
+            .from(tableName)
+            .select('*')
+            .eq('user_id', playerId)
+            .eq(idColumn, itemId)
+            .single();
+
+        if (data) {
+            return {
+                currentCount: data.current_count || 0,
+                completedMilestones: data.completed_milestones || [],
+                lastSeasonUpdated: data.last_season_updated || '',
+            };
+        }
+    } catch (error) {
+        console.error('Error loading milestone progress:', error);
+    }
+
+    return { currentCount: 0, completedMilestones: [], lastSeasonUpdated: '' };
+}
+
+/**
+ * Sets up input listener for milestone count
+ */
+function setupMilestoneCountInputListener(milestones, currentCount) {
+    const milestoneCountInput = document.getElementById('milestone-count-input');
+    const progressText = document.getElementById('milestone-progress-text');
+    const pointsText = document.getElementById('milestone-points-text');
+
+    if (!milestoneCountInput) return;
+
+    const newInput = milestoneCountInput.cloneNode(true);
+    milestoneCountInput.parentNode.replaceChild(newInput, milestoneCountInput);
+
+    newInput.addEventListener('input', () => {
+        const enteredCount = parseInt(newInput.value) || 0;
+
+        if (enteredCount === 0 || !newInput.value) {
+            if (progressText) progressText.textContent = '-';
+            if (pointsText) pointsText.textContent = '0 P.';
+            return;
+        }
+
+        const achievedMilestones = milestones.filter(m => enteredCount >= m.count);
+        let totalPoints = achievedMilestones.reduce((sum, m) => sum + m.points, 0);
+
+        if (achievedMilestones.length > 0) {
+            const milestoneTexts = achievedMilestones.map(m => `${m.count}× (${m.points}P)`).join(', ');
+            if (progressText) {
+                progressText.textContent = `${enteredCount}× → Erreicht: ${milestoneTexts}`;
+            }
+            if (pointsText) {
+                pointsText.textContent = `${totalPoints} P.`;
+            }
+        } else {
+            if (progressText) {
+                progressText.textContent = `${enteredCount}× (kein Meilenstein erreicht)`;
+            }
+            if (pointsText) {
+                pointsText.textContent = '0 P.';
+            }
+        }
+    });
+}
+
+/**
+ * Updates the milestone progress display
+ */
+async function updateMilestoneProgressDisplay(progress, milestones, db) {
+    const progressText = document.getElementById('milestone-progress-text');
+
+    if (progressText) {
+        const currentSeasonKey = await getCurrentSeasonKey(db);
+        const progressSeasonKey = progress.lastSeasonUpdated || '';
+
+        const isCurrentSeason = progressSeasonKey === currentSeasonKey;
+        const currentCount = isCurrentSeason ? progress.currentCount || 0 : 0;
+
+        const nextMilestone = milestones.find(m => m.count > currentCount);
+
+        if (!isCurrentSeason && progress.currentCount > 0) {
+            progressText.textContent = `Fortschritt: 0×`;
+        } else if (nextMilestone) {
+            progressText.textContent = `${currentCount}/${nextMilestone.count} (noch ${nextMilestone.count - currentCount}× bis nächster Meilenstein)`;
+        } else if (currentCount >= milestones[milestones.length - 1]?.count) {
+            progressText.textContent = `${currentCount}× - Alle Meilensteine erreicht! 🎉`;
+        } else {
+            progressText.textContent = `${currentCount}× erreicht`;
+        }
+    }
+}
+
+/**
+ * Populates the partner dropdown
+ */
+async function populatePartnerDropdown(db, activePlayerId) {
+    const partnerSelect = document.getElementById('partner-select');
+    if (!partnerSelect) return;
+
+    partnerSelect.innerHTML = '<option value="">Kein Partner (Spieler trainiert alleine oder mit Trainer)</option>';
+
+    if (!activePlayerId) return;
+
+    try {
+        const { data: activePlayerData } = await db
+            .from('profiles')
+            .select('club_id')
+            .eq('id', activePlayerId)
+            .single();
+
+        if (!activePlayerData) return;
+
+        const clubId = activePlayerData.club_id;
+
+        const { data: playersData } = await db
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .eq('club_id', clubId)
+            .in('role', ['player', 'coach', 'head_coach'])
+            .neq('id', activePlayerId);
+
+        if (playersData) {
+            playersData.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.id;
+                option.textContent = `${player.first_name} ${player.last_name}`;
+                partnerSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error populating partner dropdown:', error);
+    }
+}
+
+/**
+ * Populates the manual partner dropdown
+ */
+async function populateManualPartnerDropdown(db, activePlayerId) {
+    const partnerSelect = document.getElementById('manual-partner-select');
+    if (!partnerSelect) return;
+
+    partnerSelect.innerHTML = '<option value="">Kein Partner (Spieler trainiert alleine oder mit Trainer)</option>';
+
+    if (!activePlayerId) return;
+
+    try {
+        const { data: activePlayerData } = await db
+            .from('profiles')
+            .select('club_id')
+            .eq('id', activePlayerId)
+            .single();
+
+        if (!activePlayerData) return;
+
+        const clubId = activePlayerData.club_id;
+
+        const { data: playersData } = await db
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .eq('club_id', clubId)
+            .in('role', ['player', 'coach', 'head_coach'])
+            .neq('id', activePlayerId);
+
+        if (playersData) {
+            playersData.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.id;
+                option.textContent = `${player.first_name} ${player.last_name}`;
+                partnerSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error populating manual partner dropdown:', error);
+    }
+}
+
+/**
+ * Initialize manual partner system toggle and dropdown
+ */
+export function setupManualPartnerSystem(db) {
+    const toggle = document.getElementById('manual-partner-toggle');
+    const container = document.getElementById('manual-partner-container');
+    const playerSelect = document.getElementById('player-select');
+
+    if (!toggle || !container) return;
+
+    toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+            container.classList.remove('hidden');
+            const playerId = playerSelect?.value;
+            if (playerId) {
+                populateManualPartnerDropdown(db, playerId);
+            }
+        } else {
+            container.classList.add('hidden');
+        }
+    });
+
+    if (playerSelect) {
+        playerSelect.addEventListener('change', () => {
+            if (toggle.checked) {
+                populateManualPartnerDropdown(db, playerSelect.value);
+            }
+        });
+    }
+}
+
+/**
+ * Shows completion status for exercises/challenges without milestones
+ */
+async function showCompletionStatus(db, type, itemId, playerId) {
+    const container = document.getElementById('completion-status-container');
+    const statusText = document.getElementById('completion-status-text');
+
+    if (!container || !statusText) return;
+
+    if (!playerId) {
+        container.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const tableName = type === 'exercise' ? 'completed_exercises' : 'completed_challenges';
+        const idColumn = type === 'exercise' ? 'exercise_id' : 'challenge_id';
+
+        const { data: completionData } = await db
+            .from(tableName)
+            .select('*')
+            .eq('user_id', playerId)
+            .eq(idColumn, itemId)
+            .single();
+
+        const currentSeasonKey = await getCurrentSeasonKey(db);
+
+        if (completionData) {
+            const completedSeasonKey = completionData.season_key || '';
+            const isCurrentSeason = completedSeasonKey === currentSeasonKey;
+
+            if (isCurrentSeason) {
+                const completedDate = formatDate(completionData.completed_at) || '(unbekannt)';
+                statusText.innerHTML = `
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl">✅</span>
+                        <div class="flex-1">
+                            <div class="font-semibold text-blue-900">Abgeschlossen am ${completedDate}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                statusText.innerHTML = `
+                    <div class="flex items-start gap-2">
+                        <span class="text-xl">🆕</span>
+                        <div class="flex-1">
+                            <div class="font-semibold text-blue-900">Wieder verfügbar!</div>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            statusText.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <span class="text-xl">⭕</span>
+                    <div class="flex-1">
+                        <div class="font-semibold text-blue-900">Noch nicht abgeschlossen</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.classList.remove('hidden');
+    } catch (error) {
+        console.error('Error loading completion status:', error);
+        container.classList.add('hidden');
+    }
+}
+
+/**
+ * Hides the completion status container
+ */
+function hideCompletionStatus() {
+    const container = document.getElementById('completion-status-container');
+    if (container) {
+        container.classList.add('hidden');
+    }
+}

@@ -151,6 +151,9 @@ vite.config.ts.timestamp-*serviceAccountKey.json
 serviceAccountKey.json
 serviceAccountKey.json.json
 
+# Archive of old Firebase/vanilla JS files (migrated to Vue 3)
+public-archive/
+
 # macOS system files
 .DS_Store
 .AppleDouble
@@ -174,3 +177,4 @@ serviceAccountKey.json.json
 Network Trash Folder
 Temporary Items
 .apdisk
+scripts/firebase-service-account.json

@@ -89,8 +89,8 @@
             <div class="text-center mb-6">
                 <i class="fas fa-key text-4xl text-indigo-600"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-900 text-center">Willkommen bei SC Champions!</h1>
-            <p class="text-gray-600 mt-4 text-center">
+            <h1 class="text-3xl font-bold text-gray-900 text-center" data-i18n="register.welcome">Willkommen bei SC Champions!</h1>
+            <p class="text-gray-600 mt-4 text-center" data-i18n="register.twoOptions">
                 Du hast zwei Möglichkeiten, dich zu registrieren:
             </p>
 
@@ -98,6 +98,7 @@
                 <button
                     id="register-without-code-btn"
                     class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center"
+                    data-i18n="[prepend]register.withoutCode"
                 >
                     <i class="fas fa-user-plus mr-2"></i>
                     Ohne Code registrieren
@@ -167,8 +168,8 @@
             class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 hidden"
         >
             <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-gray-900">Account erstellen</h1>
-                <p id="form-subtitle" class="text-gray-500 mt-2">
+                <h1 class="text-3xl font-bold text-gray-900" data-i18n="register.title">Account erstellen</h1>
+                <p id="form-subtitle" class="text-gray-500 mt-2" data-i18n="register.subtitle">
                     Schließe deine Registrierung ab.
                 </p>
             </div>
@@ -176,7 +177,7 @@
             <form id="registration-form" class="space-y-4">
                 <div id="name-fields" class="space-y-4 hidden">
                     <div>
-                        <label for="first-name" class="block text-sm font-medium text-gray-700 mb-1"
+                        <label for="first-name" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="register.firstName"
                             >Vorname</label
                         >
                         <input
@@ -186,7 +187,7 @@
                         />
                     </div>
                     <div>
-                        <label for="last-name" class="block text-sm font-medium text-gray-700 mb-1"
+                        <label for="last-name" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="register.lastName"
                             >Nachname</label
                         >
                         <input
@@ -303,7 +304,21 @@
                 <p>&copy; 2025 SC Champions. Alle Rechte vorbehalten.</p>
             </div>
         </footer>
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/register.js"></script>
+        <!-- Firebase: <script type="module" src="/js/register.js"></script> -->
+        <script type="module" src="/js/register-supabase.js"></script>
     </body>
 </html>

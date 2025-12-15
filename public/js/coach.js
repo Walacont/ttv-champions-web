@@ -1,12 +1,12 @@
 // NEU: Zusätzliche Imports für die Emulatoren
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
 import {
-    getAuth,
-    onAuthStateChanged,
-    signOut,
     sendPasswordResetEmail,
     connectAuthEmulator,
+    getAuth,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
+// Supabase Auth imports
+import { getSupabase, onAuthStateChange as supabaseAuthStateChange } from './supabase-init.js';
 import {
     getAnalytics,
     logEvent,
@@ -170,11 +170,12 @@ import TutorialManager from './tutorial.js';
 import { coachTutorialSteps } from './tutorial-coach.js';
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+const auth = getAuth(app); // Kept for emulator connection only
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
+const supabase = getSupabase();
 
 // Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
 if (shouldUseEmulators()) {
@@ -199,47 +200,98 @@ let calendarUnsubscribe = null;
 let descriptionEditor = null;
 
 // --- Main App Initialization ---
-document.addEventListener('DOMContentLoaded', () => {
-    onAuthStateChanged(auth, async user => {
-        const pageLoader = document.getElementById('page-loader');
-        const mainContent = document.getElementById('main-content');
-        const authErrorContainer = document.getElementById('auth-error-container');
-        const authErrorMessage = document.getElementById('auth-error-message');
+document.addEventListener('DOMContentLoaded', async () => {
+    const pageLoader = document.getElementById('page-loader');
+    const mainContent = document.getElementById('main-content');
+    const authErrorContainer = document.getElementById('auth-error-container');
+    const authErrorMessage = document.getElementById('auth-error-message');
 
-        if (user) {
-            try {
-                await user.getIdToken(true);
-                const userDocRef = doc(db, 'users', user.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data();
-                    if (userData.role === 'coach' || userData.role === 'admin') {
-                        currentUserData = { id: user.uid, ...userData };
+    function showAuthError(message) {
+        if (pageLoader) pageLoader.style.display = 'none';
+        if (mainContent) mainContent.style.display = 'none';
+        if (authErrorMessage) authErrorMessage.textContent = message;
+        if (authErrorContainer) authErrorContainer.style.display = 'flex';
+        console.error('Auth-Fehler:', message);
+    }
 
-                        // Check for season reset
-                        await checkAndResetClubSeason(userData.clubId, db);
+    // Check Supabase session first
+    const { data: { session } } = await supabase.auth.getSession();
 
-                        initializeCoachPage(currentUserData);
-                    } else {
-                        showAuthError(`Ihre Rolle ('${userData.role}') ist nicht berechtigt.`);
-                    }
-                } else {
-                    showAuthError('Ihr Benutzerprofil wurde nicht gefunden.');
+    if (session && session.user) {
+        const user = { uid: session.user.id, email: session.user.email };
+
+        try {
+            const userDocRef = doc(db, 'users', user.uid);
+            let userDocSnap = await getDoc(userDocRef);
+
+            // If user doesn't exist in Firestore, sync from Supabase
+            if (!userDocSnap.exists()) {
+                console.log('[COACH] User not in Firestore, syncing from Supabase...');
+
+                const { data: supabaseProfile, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', user.uid)
+                    .single();
+
+                if (profileError || !supabaseProfile) {
+                    showAuthError('Benutzerprofil nicht gefunden.');
+                    return;
                 }
-            } catch (error) {
-                showAuthError(`DB-Fehler: ${error.message}`);
-            }
-        } else {
-            // User logged out - use replace() to prevent back-button access
-            window.location.replace('/index.html');
-        }
 
-        function showAuthError(message) {
-            if (pageLoader) pageLoader.style.display = 'none';
-            if (mainContent) mainContent.style.display = 'none';
-            if (authErrorMessage) authErrorMessage.textContent = message;
-            if (authErrorContainer) authErrorContainer.style.display = 'flex';
-            console.error('Auth-Fehler:', message);
+                // Create Firebase Firestore document
+                const { setDoc } = await import('https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js');
+
+                const firestoreUserData = {
+                    email: supabaseProfile.email || user.email,
+                    firstName: supabaseProfile.first_name || '',
+                    lastName: supabaseProfile.last_name || '',
+                    role: supabaseProfile.role || 'player',
+                    clubId: supabaseProfile.club_id || null,
+                    xp: supabaseProfile.xp || 0,
+                    points: supabaseProfile.points || 0,
+                    eloRating: supabaseProfile.elo_rating || 800,
+                    highestElo: supabaseProfile.highest_elo || 800,
+                    gender: supabaseProfile.gender || null,
+                    birthdate: supabaseProfile.birthdate || null,
+                    photoURL: supabaseProfile.avatar_url || null,
+                    onboardingComplete: true,
+                    isOffline: false,
+                    createdAt: new Date()
+                };
+
+                await setDoc(userDocRef, firestoreUserData);
+                userDocSnap = await getDoc(userDocRef);
+            }
+
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data();
+                if (userData.role === 'coach' || userData.role === 'admin') {
+                    currentUserData = { id: user.uid, ...userData };
+
+                    // Check for season reset
+                    await checkAndResetClubSeason(userData.clubId, db);
+
+                    initializeCoachPage(currentUserData);
+                } else {
+                    showAuthError(`Ihre Rolle ('${userData.role}') ist nicht berechtigt.`);
+                }
+            } else {
+                showAuthError('Ihr Benutzerprofil wurde nicht gefunden.');
+            }
+        } catch (error) {
+            showAuthError(`DB-Fehler: ${error.message}`);
+        }
+    } else {
+        // No session, redirect to login
+        window.location.replace('/index.html');
+    }
+
+    // Listen for auth state changes (logout, etc.)
+    supabaseAuthStateChange((event, session) => {
+        console.log('[COACH] Auth state changed:', event);
+        if (event === 'SIGNED_OUT' || !session) {
+            window.location.replace('/index.html');
         }
     });
 });
@@ -465,7 +517,7 @@ async function initializeCoachPage(userData) {
     // --- Event Listeners ---
     document.getElementById('logout-button').addEventListener('click', async () => {
         try {
-            await signOut(auth);
+            await supabase.auth.signOut();
             // Clear SPA cache to prevent back-button access to authenticated pages
             if (window.spaEnhancer) {
                 window.spaEnhancer.clearCache();
@@ -478,7 +530,7 @@ async function initializeCoachPage(userData) {
     });
     document.getElementById('error-logout-button').addEventListener('click', async () => {
         try {
-            await signOut(auth);
+            await supabase.auth.signOut();
             if (window.spaEnhancer) {
                 window.spaEnhancer.clearCache();
             }

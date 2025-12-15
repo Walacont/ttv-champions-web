@@ -182,14 +182,14 @@
 
                         <!-- Title and Club Info -->
                         <div class="flex-1">
-                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">
+                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900" data-i18n="coachPage.title">
                                 Coach Dashboard
                             </h1>
-                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
+                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600" data-i18n="coachPage.welcomeBack">
                                 Willkommen zurück!
                             </p>
                             <p id="header-club-info" class="text-xs sm:text-sm text-gray-500 mt-1">
-                                <i class="fas fa-building mr-1"></i><span id="header-club-name">Lade...</span>
+                                <i class="fas fa-building mr-1"></i><span id="header-club-name" data-i18n="coachPage.loading">Lade...</span>
                             </p>
                         </div>
                     </div>
@@ -204,6 +204,15 @@
                             <i class="fas fa-table-tennis mr-1"></i>
                             <span class="hidden sm:inline">Spieler</span>
                         </a>
+                        <!-- Notification Bell -->
+                        <button
+                            id="desktop-notifications-btn"
+                            class="relative text-gray-500 hover:text-gray-800 transition-colors"
+                            title="Benachrichtigungen"
+                        >
+                            <i class="far fa-bell text-xl"></i>
+                            <span id="desktop-notifications-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                        </button>
                         <a
                             href="/settings.html"
                             class="text-gray-500 hover:text-gray-800 transition-colors"
@@ -230,12 +239,6 @@
                                 ></path>
                             </svg>
                         </a>
-                        <button
-                            id="logout-button"
-                            class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
-                        >
-                            Logout
-                        </button>
                     </div>
                 </div>
 
@@ -504,6 +507,33 @@
                                         </option>
                                         <option value="best-of-7">Best of 7</option>
                                     </select>
+                                </div>
+
+                                <!-- Tennis/Padel Specific Options (hidden for Table Tennis) -->
+                                <div id="coach-tennis-options-container" class="hidden space-y-3 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <h4 class="text-sm font-semibold text-blue-900 mb-2">
+                                        <i class="fas fa-tennis-ball mr-2"></i>Tennis/Padel Optionen
+                                    </h4>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="coach-golden-point-checkbox"
+                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <label for="coach-golden-point-checkbox" class="text-sm text-gray-700">
+                                            Golden Point (No-Ad bei 40:40)
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="coach-match-tiebreak-checkbox"
+                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <label for="coach-match-tiebreak-checkbox" class="text-sm text-gray-700">
+                                            Match Tie-Break statt 3. Satz (bis 10 Punkte)
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <!-- Singles Players (default) -->
@@ -1840,7 +1870,6 @@
                                         <textarea
                                             id="penalty-reason"
                                             rows="3"
-                                            required
                                             placeholder="z.B. Unsportliches Verhalten, Schläger geworfen"
                                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500"
                                         ></textarea>
@@ -1872,22 +1901,6 @@
                                             placeholder="z.B. Faires Spiel"
                                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                         />
-                                    </div>
-                                    <div>
-                                        <label
-                                            for="manual-xp"
-                                            class="block text-sm font-medium text-gray-700"
-                                            >XP-Änderung (optional)</label
-                                        >
-                                        <input
-                                            type="number"
-                                            id="manual-xp"
-                                            placeholder="Leer lassen = gleich wie Punkte"
-                                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                        />
-                                        <p class="mt-1 text-xs text-gray-500">
-                                            Wenn leer, wird XP = Punkte gesetzt
-                                        </p>
                                     </div>
 
                                     <!-- Manual Partner Selection -->
@@ -2214,8 +2227,21 @@
                 <div id="tab-content-exercises" class="tab-content hidden">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold mb-4">Neue Übung erstellen</h2>
-                            <form id="create-exercise-form" class="space-y-4">
+                            <!-- Toggle Button for Exercise Creation -->
+                            <button
+                                id="toggle-exercise-form"
+                                class="w-full mb-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-md flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <svg id="exercise-form-icon" class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                                <span>Neue Übung erstellen</span>
+                            </button>
+
+                            <!-- Collapsible Form Container -->
+                            <div id="exercise-form-container" class="hidden">
+                                <h2 class="text-xl font-semibold mb-4">Neue Übung erstellen</h2>
+                                <form id="create-exercise-form" class="space-y-4">
                                 <div>
                                     <label
                                         for="exercise-title-form"
@@ -2429,6 +2455,8 @@
                                 id="exercise-feedback"
                                 class="mt-3 text-sm font-medium text-center"
                             ></p>
+                            </div>
+                            <!-- End Collapsible Form Container -->
                         </div>
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
                             <h2 class="text-xl font-semibold mb-4">Globaler Übungskatalog</h2>
@@ -2549,46 +2577,6 @@
                                     <!-- Wird dynamisch von club-requests-manager.js gefüllt -->
                                     <p class="text-gray-500 text-sm text-center py-4">Lade Anfragen...</p>
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Pending Match Requests Section (Singles + Doubles) -->
-                        <div
-                            class="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 p-6 rounded-xl shadow-md"
-                        >
-                            <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-xl font-semibold text-orange-800">
-                                    <i class="fas fa-clock mr-2"></i> Ausstehende Anfragen
-                                </h2>
-                                <span
-                                    id="coach-match-request-badge"
-                                    class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full"
-                                    >0</span
-                                >
-                            </div>
-                            <p class="text-sm text-orange-700 mb-4">
-                                Diese Matches wurden von Spielern gemeldet und warten auf deine
-                                Genehmigung.
-                            </p>
-                            <div id="coach-pending-requests-list" class="space-y-4">
-                                <p class="text-gray-500 text-center py-4">
-                                    Keine ausstehenden Anfragen
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Processed Match Requests Section -->
-                        <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-history mr-2"></i> Eingegangene Anfragen
-                            </h2>
-                            <p class="text-sm text-gray-600 mb-4">
-                                Anfragen, die du bereits genehmigt oder abgelehnt hast.
-                            </p>
-                            <div id="coach-processed-requests-list" class="space-y-4">
-                                <p class="text-gray-500 text-center py-4">
-                                    Keine bearbeiteten Anfragen
-                                </p>
                             </div>
                         </div>
 
@@ -2948,6 +2936,9 @@
                     style="white-space: pre-wrap"
                 ></p>
 
+                <!-- Ablauf/Procedure Section -->
+                <div id="modal-exercise-procedure" class="hidden"></div>
+
                 <!-- Abkürzungen Legende -->
                 <div class="mb-4 border-t border-gray-200 pt-3">
                     <button
@@ -3230,213 +3221,6 @@
                     </div>
                     <p
                         id="recurring-training-feedback"
-                        class="mt-3 text-sm font-medium text-center"
-                    ></p>
-                </form>
-            </div>
-        </div>
-
-        <!-- Modal: Session Selection -->
-        <div
-            id="session-selection-modal"
-            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
-        >
-            <div class="relative mx-auto p-6 border w-full max-w-md shadow-lg rounded-md bg-white">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl leading-6 font-medium text-gray-900">
-                        Trainings am <span id="session-selection-date"></span>
-                    </h3>
-                    <button
-                        id="close-session-selection-modal-button"
-                        class="text-gray-400 hover:text-gray-600"
-                    >
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                            />
-                        </svg>
-                    </button>
-                </div>
-
-                <div id="session-selection-list" class="space-y-3 mb-4">
-                    <!-- Dynamisch gefüllt -->
-                </div>
-
-                <button
-                    id="add-spontaneous-session-button"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center space-x-2"
-                >
-                    <i class="fas fa-plus"></i>
-                    <span>Weiteres Training hinzufügen</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Modal: Spontaneous Training Session -->
-        <div
-            id="spontaneous-session-modal"
-            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
-        >
-            <div
-                class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto"
-            >
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl leading-6 font-medium text-gray-900">
-                        Spontanes Training erstellen
-                    </h3>
-                    <button
-                        id="close-spontaneous-session-modal-button"
-                        class="text-gray-400 hover:text-gray-600"
-                    >
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                            />
-                        </svg>
-                    </button>
-                </div>
-                <form id="spontaneous-session-form" class="space-y-4">
-                    <input type="hidden" id="spontaneous-session-date-input" />
-
-                    <div>
-                        <label
-                            for="spontaneous-session-date-display"
-                            class="block text-sm font-medium text-gray-700"
-                            >Datum</label
-                        >
-                        <input
-                            type="date"
-                            id="spontaneous-session-date-display"
-                            required
-                            class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        />
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label
-                                for="spontaneous-session-start-time"
-                                class="block text-sm font-medium text-gray-700"
-                                >Startzeit</label
-                            >
-                            <input
-                                type="time"
-                                id="spontaneous-session-start-time"
-                                required
-                                class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                            />
-                        </div>
-                        <div>
-                            <label
-                                for="spontaneous-session-end-time"
-                                class="block text-sm font-medium text-gray-700"
-                                >Endzeit</label
-                            >
-                            <input
-                                type="time"
-                                id="spontaneous-session-end-time"
-                                required
-                                class="mt-1 block w-full px-3 py-2 border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label
-                            for="spontaneous-session-subgroup-select"
-                            class="block text-sm font-medium text-gray-700"
-                            >Untergruppe</label
-                        >
-                        <select
-                            id="spontaneous-session-subgroup-select"
-                            required
-                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                            <option value="">Bitte wählen...</option>
-                            <!-- Dynamisch gefüllt -->
-                        </select>
-                    </div>
-
-                    <!-- Optional Exercise Planning Toggle -->
-                    <div class="border-t pt-4">
-                        <button
-                            type="button"
-                            id="toggle-exercise-planning-button"
-                            class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-300 transition"
-                        >
-                            <div class="flex items-center space-x-2">
-                                <i class="fas fa-dumbbell text-gray-600"></i>
-                                <span class="text-sm font-medium text-gray-700"
-                                    >Optional: Übungen planen</span
-                                >
-                            </div>
-                            <i
-                                id="toggle-exercise-planning-icon"
-                                class="fas fa-chevron-down text-gray-400"
-                            ></i>
-                        </button>
-                    </div>
-
-                    <!-- Training Exercises Planning (Hidden by default) -->
-                    <div id="exercise-planning-section" class="border-t pt-4 hidden">
-                        <h4 class="text-md font-medium text-gray-800 mb-3">Geplante Übungen</h4>
-                        <p class="text-xs text-gray-500 mb-3">
-                            Wähle die Übungen, die in diesem Training geplant sind. Diese können
-                            beim Training-Abschluss angepasst werden.
-                        </p>
-
-                        <!-- Selected Exercises List -->
-                        <div
-                            id="selected-exercises-list"
-                            class="space-y-2 mb-3 max-h-48 overflow-y-auto border rounded-md p-2 bg-gray-50"
-                        >
-                            <p class="text-xs text-gray-500 text-center py-2">
-                                Keine Übungen ausgewählt
-                            </p>
-                        </div>
-
-                        <!-- Exercise Selection -->
-                        <div class="space-y-2">
-                            <button
-                                type="button"
-                                id="open-exercise-selection-button"
-                                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-3 rounded-lg text-sm"
-                            >
-                                <i class="fas fa-plus mr-2"></i> Übung hinzufügen
-                            </button>
-                            <button
-                                type="button"
-                                id="create-new-exercise-from-session-button"
-                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm"
-                            >
-                                <i class="fas fa-plus-circle mr-2"></i> Neue Übung erstellen
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="flex space-x-3">
-                        <button
-                            type="submit"
-                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
-                        >
-                            Training erstellen
-                        </button>
-                        <button
-                            type="button"
-                            id="cancel-spontaneous-session-button"
-                            class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg"
-                        >
-                            Abbrechen
-                        </button>
-                    </div>
-                    <p
-                        id="spontaneous-session-feedback"
                         class="mt-3 text-sm font-medium text-center"
                     ></p>
                 </form>
@@ -4269,6 +4053,48 @@
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
+
+                    <!-- Geburtstag -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Geburtstag</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <select
+                                id="offline-birthdate-day"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">Tag</option>
+                            </select>
+                            <select
+                                id="offline-birthdate-month"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">Monat</option>
+                            </select>
+                            <select
+                                id="offline-birthdate-year"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value="">Jahr</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Geschlecht -->
+                    <div>
+                        <label for="offline-gender" class="block text-sm font-medium text-gray-700"
+                            >Geschlecht</label
+                        >
+                        <select
+                            id="offline-gender"
+                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">Bitte wählen...</option>
+                            <option value="male">Männlich</option>
+                            <option value="female">Weiblich</option>
+                            <option value="diverse">Divers</option>
+                        </select>
+                    </div>
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2"
                             >Untergruppen zuweisen</label
@@ -4304,28 +4130,6 @@
                             </div>
                         </div>
 
-                        <!-- QTTR Punkte Eingabe (nur sichtbar wenn wettkampfsbereit) -->
-                        <div id="qttr-input-container" class="mt-4 hidden">
-                            <label
-                                for="qttr-points"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                            >
-                                QTTR-Punkte (optional)
-                            </label>
-                            <input
-                                type="number"
-                                id="qttr-points"
-                                min="800"
-                                max="2500"
-                                step="1"
-                                placeholder="z.B. 1200"
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                            />
-                            <p class="text-xs text-gray-500 mt-1">
-                                <i class="fas fa-info-circle mr-1"></i>Wenn angegeben, wird die
-                                Start-ELO entsprechend angepasst (800-2500)
-                            </p>
-                        </div>
                     </div>
 
                     <div class="border-t border-gray-200 pt-4 mt-4">
@@ -4638,6 +4442,465 @@
             </div>
         </div>
 
+        <!-- ========== EVENT MODALS ========== -->
+
+        <!-- Modal: Event Day Overview -->
+        <div
+            id="event-day-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto border w-full max-w-md shadow-lg rounded-xl bg-white overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-semibold text-white" id="event-day-modal-title">
+                                Veranstaltungen
+                            </h3>
+                            <p class="text-indigo-200 text-sm" id="event-day-modal-date"></p>
+                        </div>
+                        <button id="close-event-day-modal" class="text-white/80 hover:text-white">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <div id="event-day-list" class="space-y-3 mb-6 max-h-64 overflow-y-auto">
+                        <!-- Events werden hier dynamisch eingefügt -->
+                        <p class="text-gray-500 text-center py-4" id="event-day-empty">
+                            Keine Veranstaltungen an diesem Tag
+                        </p>
+                    </div>
+
+                    <!-- Add Event Button -->
+                    <button
+                        id="add-event-btn"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all hover:shadow-xl"
+                    >
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Veranstaltung erstellen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Event Type Selection -->
+        <div
+            id="event-type-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto border w-full max-w-md shadow-lg rounded-xl bg-white overflow-hidden">
+                <!-- Header -->
+                <div class="bg-white px-6 py-4 border-b">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <button id="back-event-type-modal" class="text-indigo-600 hover:text-indigo-800">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+                            <h3 class="text-lg font-semibold text-gray-900">Typ auswählen</h3>
+                        </div>
+                        <button id="close-event-type-modal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6 space-y-4">
+                    <!-- Single Event -->
+                    <button
+                        id="select-single-event"
+                        class="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-start gap-4"
+                    >
+                        <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900">Veranstaltung</h4>
+                            <p class="text-sm text-gray-500">Einmalige Veranstaltung erstellen</p>
+                        </div>
+                    </button>
+
+                    <!-- Recurring Event -->
+                    <button
+                        id="select-recurring-event"
+                        class="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-start gap-4"
+                    >
+                        <div class="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900">Wiederkehrende Veranstaltung</h4>
+                            <p class="text-sm text-gray-500">Wöchentlich oder monatlich wiederholend</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Target Group Selection -->
+        <div
+            id="event-target-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto border w-full max-w-md shadow-lg rounded-xl bg-white overflow-hidden">
+                <!-- Header -->
+                <div class="bg-white px-6 py-4 border-b">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <button id="back-event-target-modal" class="text-indigo-600 hover:text-indigo-800">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+                            <h3 class="text-lg font-semibold text-gray-900">Veranstaltung erstellen</h3>
+                        </div>
+                        <button id="close-event-target-modal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Veranstaltung erstellen in</p>
+
+                    <div class="space-y-3">
+                        <!-- Whole Club -->
+                        <button
+                            id="select-whole-club"
+                            class="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-between"
+                        >
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/>
+                                    </svg>
+                                </div>
+                                <div class="text-left">
+                                    <h4 class="font-semibold text-gray-900">Ganzer Verein</h4>
+                                    <p class="text-sm text-gray-500">Alle Mitglieder einladen</p>
+                                </div>
+                            </div>
+                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+
+                        <!-- Subgroups -->
+                        <button
+                            id="select-subgroups"
+                            class="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-between"
+                        >
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                                    </svg>
+                                </div>
+                                <div class="text-left">
+                                    <h4 class="font-semibold text-gray-900">Untergruppen</h4>
+                                    <p class="text-sm text-gray-500">Bestimmte Gruppen auswählen</p>
+                                </div>
+                            </div>
+                            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Subgroup Selection -->
+        <div
+            id="event-subgroup-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto border w-full max-w-md shadow-lg rounded-xl bg-white overflow-hidden">
+                <!-- Header -->
+                <div class="bg-white px-6 py-4 border-b">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <button id="back-event-subgroup-modal" class="text-indigo-600 hover:text-indigo-800">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+                            <h3 class="text-lg font-semibold text-gray-900">Untergruppen auswählen</h3>
+                        </div>
+                        <button id="close-event-subgroup-modal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <div id="event-subgroup-list" class="space-y-3 max-h-80 overflow-y-auto mb-6">
+                        <!-- Subgroups dynamisch eingefügt -->
+                    </div>
+
+                    <button
+                        id="confirm-subgroups-btn"
+                        disabled
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-xl transition-all"
+                    >
+                        Weiter
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Member Selection -->
+        <div
+            id="event-members-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto border w-full max-w-md shadow-lg rounded-xl bg-white overflow-hidden max-h-[90vh] flex flex-col">
+                <!-- Header -->
+                <div class="bg-white px-6 py-4 border-b flex-shrink-0">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <button id="back-event-members-modal" class="text-indigo-600 hover:text-indigo-800">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+                            <h3 class="text-lg font-semibold text-gray-900">Veranstaltung erstellen</h3>
+                        </div>
+                        <button id="event-members-next-btn" class="text-indigo-600 font-semibold hover:text-indigo-800">
+                            Weiter
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Selected Count -->
+                <div class="bg-gray-100 px-6 py-2 text-sm text-gray-600 flex-shrink-0">
+                    <span id="event-members-count">Keine Empfänger ausgewählt</span>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b flex-shrink-0">
+                    <button id="event-members-tab-members" class="flex-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-gray-50">
+                        Mitglieder
+                    </button>
+                </div>
+
+                <!-- Content -->
+                <div class="p-4 overflow-y-auto flex-1">
+                    <!-- Select All Row -->
+                    <div class="flex justify-between items-center mb-4 pb-3 border-b">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mitglieder (<span id="event-members-total">0</span>)</p>
+                        </div>
+                        <button id="event-select-all-members" class="text-indigo-600 text-sm font-semibold hover:text-indigo-800">
+                            Alle auswählen
+                        </button>
+                    </div>
+
+                    <!-- Member List -->
+                    <div id="event-members-list" class="space-y-2">
+                        <!-- Members dynamisch eingefügt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Event Creation Form -->
+        <div
+            id="event-form-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-center"
+        >
+            <div class="relative mx-auto border w-full max-w-lg shadow-lg rounded-xl bg-white overflow-hidden max-h-[90vh] flex flex-col">
+                <!-- Header -->
+                <div class="bg-white px-6 py-4 border-b flex-shrink-0">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <button id="back-event-form-modal" class="text-indigo-600 hover:text-indigo-800">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+                            <h3 class="text-lg font-semibold text-gray-900">Veranstaltung erstellen</h3>
+                        </div>
+                        <button id="event-form-submit-btn" class="text-indigo-600 font-semibold hover:text-indigo-800">
+                            Senden
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form Content -->
+                <div class="p-6 overflow-y-auto flex-1">
+                    <form id="event-creation-form" class="space-y-6">
+                        <!-- Basic Info -->
+                        <div class="bg-gray-50 rounded-xl p-4 space-y-4">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                <input
+                                    type="text"
+                                    id="event-title"
+                                    placeholder="Titel der Veranstaltung"
+                                    required
+                                    class="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 placeholder-gray-400"
+                                />
+                            </div>
+                            <div class="flex items-start gap-3 border-t pt-4">
+                                <svg class="w-5 h-5 text-gray-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <textarea
+                                    id="event-description"
+                                    placeholder="Beschreibung"
+                                    rows="2"
+                                    class="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 placeholder-gray-400 resize-none"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Date & Time -->
+                        <div class="bg-gray-50 rounded-xl p-4 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span class="text-gray-700">Beginn</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <input type="date" id="event-start-date" required class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                    <input type="time" id="event-start-time" required class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between border-t pt-4">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    <span class="text-gray-700">Treffen</span>
+                                </div>
+                                <input type="time" id="event-meeting-time" class="px-3 py-1 rounded-lg border border-gray-200 text-sm" placeholder="Optional"/>
+                            </div>
+                            <div class="flex items-center justify-between border-t pt-4">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    <span class="text-gray-700">Ende</span>
+                                </div>
+                                <input type="time" id="event-end-time" class="px-3 py-1 rounded-lg border border-gray-200 text-sm" placeholder="Optional"/>
+                            </div>
+                            <div class="flex items-center gap-3 border-t pt-4">
+                                <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                </svg>
+                                <input
+                                    type="text"
+                                    id="event-location"
+                                    placeholder="Ort hinzufügen"
+                                    class="flex-1 bg-transparent border-none focus:ring-0 text-gray-900 placeholder-gray-400"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Recurring Settings (hidden by default) -->
+                        <div id="event-recurring-settings" class="bg-purple-50 rounded-xl p-4 space-y-4 hidden">
+                            <h4 class="font-semibold text-purple-900 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Wiederholung
+                            </h4>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">Wiederholen</span>
+                                <select id="event-repeat-type" class="px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                    <option value="weekly">Wöchentlich</option>
+                                    <option value="biweekly">Alle 2 Wochen</option>
+                                    <option value="monthly">Monatlich</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-between border-t pt-4">
+                                <span class="text-gray-700">Wiederholung stoppen</span>
+                                <input type="date" id="event-repeat-end" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                            </div>
+                        </div>
+
+                        <!-- More Settings -->
+                        <div class="bg-gray-50 rounded-xl p-4 space-y-4">
+                            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mehr Einstellungen</h4>
+
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-700">Max. Teilnehmer</span>
+                                <input type="number" id="event-max-participants" min="1" placeholder="Keine" class="w-24 px-3 py-1 rounded-lg border border-gray-200 text-sm text-right"/>
+                            </div>
+                            <div class="flex items-center justify-between border-t pt-4">
+                                <span class="text-gray-700">Antwort-Deadline</span>
+                                <input type="datetime-local" id="event-response-deadline" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                            </div>
+                            <div class="flex items-center justify-between border-t pt-4">
+                                <span class="text-gray-700">Einladung verschicken</span>
+                                <select id="event-send-invitation" class="px-3 py-1 rounded-lg border border-gray-200 text-sm">
+                                    <option value="now">Sofort</option>
+                                    <option value="scheduled">Geplant</option>
+                                </select>
+                            </div>
+                            <div id="event-scheduled-send" class="hidden border-t pt-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Senden am</span>
+                                    <input type="datetime-local" id="event-send-at" class="px-3 py-1 rounded-lg border border-gray-200 text-sm"/>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between border-t pt-4">
+                                <span class="text-gray-700">Kommentare</span>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="event-comments-enabled" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Optional: Plan Exercises -->
+                        <div class="bg-indigo-50 rounded-xl p-4">
+                            <button type="button" id="event-plan-exercises-btn" class="w-full flex items-center justify-between text-indigo-700 font-medium">
+                                <div class="flex items-center gap-3">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                                    </svg>
+                                    <span>Übungen planen (optional)</span>
+                                </div>
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== END EVENT MODALS ========== -->
+
         <!-- Footer -->
         <footer class="mt-12 pb-6 px-4">
             <div class="max-w-4xl mx-auto">
@@ -4682,6 +4945,45 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/coach.js"></script>
+
+        <!-- Exercise Form Toggle Script -->
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const toggleBtn = document.getElementById('toggle-exercise-form');
+                const formContainer = document.getElementById('exercise-form-container');
+                const formIcon = document.getElementById('exercise-form-icon');
+
+                if (toggleBtn && formContainer && formIcon) {
+                    toggleBtn.addEventListener('click', function() {
+                        const isHidden = formContainer.classList.contains('hidden');
+
+                        if (isHidden) {
+                            formContainer.classList.remove('hidden');
+                            formIcon.style.transform = 'rotate(180deg)';
+                        } else {
+                            formContainer.classList.add('hidden');
+                            formIcon.style.transform = 'rotate(0deg)';
+                        }
+                    });
+                }
+            });
+        </script>
+
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
+
+        <!-- Firebase: <script type="module" src="/js/coach.js"></script> -->
+        <script type="module" src="/js/coach-supabase.js"></script>
     </body>
 </html>

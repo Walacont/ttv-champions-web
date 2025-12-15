@@ -1,7 +1,7 @@
 // TTV Champions Service Worker
-const CACHE_NAME = 'ttv-champions-v1';
-const STATIC_CACHE = 'ttv-static-v1';
-const DYNAMIC_CACHE = 'ttv-dynamic-v1';
+const CACHE_NAME = 'ttv-champions-v2';
+const STATIC_CACHE = 'ttv-static-v2';
+const DYNAMIC_CACHE = 'ttv-dynamic-v2';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -38,7 +38,7 @@ const STATIC_ASSETS = [
     '/manifest.json'
 ];
 
-// URLs that should always go to network (Firebase, APIs)
+// URLs that should always go to network (Firebase, Supabase, APIs)
 const NETWORK_ONLY = [
     'firestore.googleapis.com',
     'firebase.googleapis.com',
@@ -47,7 +47,11 @@ const NETWORK_ONLY = [
     'cloudfunctions.net',
     'googleapis.com/storage',
     'google-analytics.com',
-    'googletagmanager.com'
+    'googletagmanager.com',
+    // Supabase URLs - MUST bypass cache for real-time data!
+    'supabase.co',
+    'supabase.com',
+    'supabase.in'
 ];
 
 // Install event - cache static assets

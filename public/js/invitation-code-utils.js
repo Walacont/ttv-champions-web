@@ -76,7 +76,7 @@ export function getExpirationDate() {
 
 /**
  * Prüft ob ein Code abgelaufen ist
- * @param {Date|string} expiresAt - Ablaufdatum (Firestore Timestamp oder Date)
+ * @param {Date|string|Object} expiresAt - Ablaufdatum (Date, ISO string, oder Timestamp mit toDate())
  * @returns {boolean} true wenn abgelaufen
  */
 export function isCodeExpired(expiresAt) {
