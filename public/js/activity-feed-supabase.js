@@ -772,6 +772,27 @@ async function fetchActivities(userIds) {
         profileMap[p.id] = p;
     });
 
+    // Load user's poll votes for the polls in this batch
+    const pollActivities = activities.filter(a => a.activityType === 'poll');
+    if (pollActivities.length > 0 && currentUser) {
+        const pollIds = pollActivities.map(p => p.id);
+        const { data: userVotes } = await supabase
+            .from('poll_votes')
+            .select('poll_id, option_id')
+            .in('poll_id', pollIds)
+            .eq('user_id', currentUser.id);
+
+        // Attach user vote to each poll
+        const voteMap = {};
+        (userVotes || []).forEach(v => {
+            voteMap[v.poll_id] = v.option_id;
+        });
+
+        pollActivities.forEach(poll => {
+            poll.userVotedOptionId = voteMap[poll.id] || null;
+        });
+    }
+
     // Load likes data
     await loadLikesForActivities(activities);
 
@@ -2061,13 +2082,15 @@ function renderPollCard(activity, profileMap) {
     const endsAt = new Date(activity.ends_at);
     const isActive = endsAt > new Date();
     const totalVotes = activity.total_votes || 0;
+    const userVotedOptionId = activity.userVotedOptionId;
 
     const options = activity.options || [];
 
-    // Calculate percentages
+    // Calculate percentages and mark user's vote
     const optionsWithPercent = options.map(opt => ({
         ...opt,
-        percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0
+        percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
+        isUserVote: opt.id === userVotedOptionId
     }));
 
     return `
@@ -2099,16 +2122,20 @@ function renderPollCard(activity, profileMap) {
             <!-- Poll Question -->
             <div class="mb-4">
                 <h3 class="text-lg font-semibold text-gray-900">${activity.question}</h3>
+                ${userVotedOptionId ? '<p class="text-xs text-purple-600 mt-1"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
             </div>
 
             <!-- Poll Options -->
             <div class="space-y-2 mb-3">
                 ${optionsWithPercent.map((option, index) => `
-                    <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} bg-white rounded-lg p-3 border border-purple-200 transition"
+                    <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} ${option.isUserVote ? 'ring-2 ring-purple-500 bg-purple-50' : 'bg-white'} rounded-lg p-3 border border-purple-200 transition"
                          onclick="${isActive ? `votePoll('${activity.id}', '${option.id}')` : ''}"
                     >
                         <div class="flex items-center justify-between mb-1">
-                            <span class="font-medium text-gray-800">${option.text}</span>
+                            <span class="font-medium text-gray-800 flex items-center gap-2">
+                                ${option.text}
+                                ${option.isUserVote ? '<i class="fas fa-check-circle text-purple-600"></i>' : ''}
+                            </span>
                             <span class="text-sm font-semibold text-purple-600">${option.percentage}%</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -2198,6 +2225,194 @@ window.carouselGoTo = function(carouselId, index) {
 
     updateCarousel(carousel, index);
 };
+
+/**
+ * Vote on a poll
+ * @param {string} pollId - Poll ID
+ * @param {string} optionId - Selected option ID
+ */
+window.votePoll = async function(pollId, optionId) {
+    if (!currentUser) {
+        alert('Bitte melde dich an, um abzustimmen.');
+        return;
+    }
+
+    try {
+        // Check if poll is still active
+        const { data: poll, error: pollError } = await supabase
+            .from('community_polls')
+            .select('ends_at, options, total_votes, user_id')
+            .eq('id', pollId)
+            .single();
+
+        if (pollError) throw pollError;
+
+        if (new Date(poll.ends_at) <= new Date()) {
+            alert('Diese Umfrage ist bereits beendet.');
+            return;
+        }
+
+        // Check if user already voted
+        const { data: existingVote } = await supabase
+            .from('poll_votes')
+            .select('id, option_id')
+            .eq('poll_id', pollId)
+            .eq('user_id', currentUser.id)
+            .single();
+
+        if (existingVote) {
+            if (existingVote.option_id === optionId) {
+                // User clicked same option - maybe show that they already voted
+                alert('Du hast bereits für diese Option gestimmt.');
+                return;
+            }
+
+            // User wants to change vote - update it
+            const oldOptionId = existingVote.option_id;
+
+            // Update vote
+            const { error: updateError } = await supabase
+                .from('poll_votes')
+                .update({ option_id: optionId })
+                .eq('id', existingVote.id);
+
+            if (updateError) throw updateError;
+
+            // Update poll options (decrement old, increment new)
+            const newOptions = poll.options.map(opt => {
+                if (opt.id === oldOptionId) {
+                    return { ...opt, votes: Math.max(0, (opt.votes || 0) - 1) };
+                } else if (opt.id === optionId) {
+                    return { ...opt, votes: (opt.votes || 0) + 1 };
+                }
+                return opt;
+            });
+
+            await supabase
+                .from('community_polls')
+                .update({ options: newOptions })
+                .eq('id', pollId);
+
+        } else {
+            // New vote
+            const { error: voteError } = await supabase
+                .from('poll_votes')
+                .insert({
+                    poll_id: pollId,
+                    user_id: currentUser.id,
+                    option_id: optionId
+                });
+
+            if (voteError) {
+                if (voteError.code === '23505') {
+                    // Unique constraint violation - user already voted
+                    alert('Du hast bereits abgestimmt.');
+                    return;
+                }
+                throw voteError;
+            }
+
+            // Update poll options and total votes
+            const newOptions = poll.options.map(opt => {
+                if (opt.id === optionId) {
+                    return { ...opt, votes: (opt.votes || 0) + 1 };
+                }
+                return opt;
+            });
+
+            await supabase
+                .from('community_polls')
+                .update({
+                    options: newOptions,
+                    total_votes: (poll.total_votes || 0) + 1
+                })
+                .eq('id', pollId);
+        }
+
+        // Refresh the activity feed to show updated poll
+        // Find the poll card and update it
+        await refreshPollCard(pollId);
+
+    } catch (error) {
+        console.error('[ActivityFeed] Error voting on poll:', error);
+        alert('Fehler beim Abstimmen: ' + error.message);
+    }
+};
+
+/**
+ * Refresh a single poll card after voting
+ */
+async function refreshPollCard(pollId) {
+    try {
+        // Reload poll data
+        const { data: poll, error } = await supabase
+            .from('community_polls')
+            .select('*')
+            .eq('id', pollId)
+            .single();
+
+        if (error) throw error;
+
+        // Get user's vote
+        const { data: userVote } = await supabase
+            .from('poll_votes')
+            .select('option_id')
+            .eq('poll_id', pollId)
+            .eq('user_id', currentUser.id)
+            .single();
+
+        const totalVotes = poll.total_votes || 0;
+        const options = poll.options || [];
+
+        // Calculate percentages
+        const optionsWithPercent = options.map(opt => ({
+            ...opt,
+            percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
+            isUserVote: userVote?.option_id === opt.id
+        }));
+
+        const endsAt = new Date(poll.ends_at);
+        const isActive = endsAt > new Date();
+
+        // Find and update the poll options in DOM
+        const pollCard = document.querySelector(`[onclick*="votePoll('${pollId}'"]`)?.closest('.bg-gradient-to-r');
+        if (pollCard) {
+            const optionsContainer = pollCard.querySelector('.space-y-2.mb-3');
+            if (optionsContainer) {
+                optionsContainer.innerHTML = optionsWithPercent.map(option => `
+                    <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} ${option.isUserVote ? 'ring-2 ring-purple-500' : ''} bg-white rounded-lg p-3 border border-purple-200 transition"
+                         onclick="${isActive ? `votePoll('${pollId}', '${option.id}')` : ''}"
+                    >
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-medium text-gray-800 flex items-center gap-2">
+                                ${option.text}
+                                ${option.isUserVote ? '<i class="fas fa-check-circle text-purple-600"></i>' : ''}
+                            </span>
+                            <span class="text-sm font-semibold text-purple-600">${option.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                            <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
+                                 style="width: ${option.percentage}%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">${option.votes || 0} ${t('dashboard.activityFeed.votes')}</div>
+                    </div>
+                `).join('');
+            }
+
+            // Update total votes display
+            const votesDisplay = pollCard.querySelector('.fa-users')?.parentElement;
+            if (votesDisplay) {
+                votesDisplay.innerHTML = `
+                    <i class="fas fa-users"></i>
+                    <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
+                `;
+            }
+        }
+
+    } catch (error) {
+        console.error('[ActivityFeed] Error refreshing poll card:', error);
+    }
+}
 
 /**
  * Update carousel position and indicators
