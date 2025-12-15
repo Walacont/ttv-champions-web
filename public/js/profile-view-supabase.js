@@ -1568,6 +1568,7 @@ async function loadProfileChallenges() {
 
 /**
  * Load attendance calendar for own profile (now based on event_attendance)
+ * Enhanced to show all club events and make days clickable
  */
 async function loadProfileAttendance() {
     const container = document.getElementById('profile-attendance-calendar');
@@ -1584,9 +1585,17 @@ async function loadProfileAttendance() {
     const startDateStr = firstDay.toISOString().split('T')[0];
     const endDateStr = lastDay.toISOString().split('T')[0];
 
+    // Get user's club_id
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('club_id')
+        .eq('id', profileId)
+        .single();
+
+    const clubId = profile?.club_id;
+
     // Query event_attendance where this user was present
-    // event_attendance has present_user_ids array and links to events via event_id
-    const { data: eventAttendance, error } = await supabase
+    const { data: eventAttendance, error: attendanceError } = await supabase
         .from('event_attendance')
         .select(`
             event_id,
@@ -1598,11 +1607,11 @@ async function loadProfileAttendance() {
         `)
         .contains('present_user_ids', [profileId]);
 
-    if (error) {
-        console.warn('[ProfileView] Error loading event attendance:', error);
+    if (attendanceError) {
+        console.warn('[ProfileView] Error loading event attendance:', attendanceError);
     }
 
-    // Filter to events in current month and collect dates
+    // Collect attendance dates
     const attendanceDates = new Set();
     if (eventAttendance) {
         eventAttendance.forEach(ea => {
@@ -1615,7 +1624,73 @@ async function loadProfileAttendance() {
         });
     }
 
-    // Build simple calendar grid
+    // Load all club events for this month (including recurring)
+    let allEventsForMonth = [];
+    if (clubId) {
+        const { data: clubEvents, error: eventsError } = await supabase
+            .from('events')
+            .select(`
+                id,
+                title,
+                description,
+                start_date,
+                start_time,
+                end_time,
+                location,
+                repeat_type,
+                repeat_end_date,
+                excluded_dates,
+                invitation_send_at,
+                organizer_id
+            `)
+            .eq('club_id', clubId)
+            .is('deleted_at', null);
+
+        if (eventsError) {
+            console.warn('[ProfileView] Error loading club events:', eventsError);
+        }
+
+        // Process events including recurring ones
+        if (clubEvents) {
+            clubEvents.forEach(event => {
+                const eventDates = getEventDatesInRange(event, startDateStr, endDateStr);
+                eventDates.forEach(dateStr => {
+                    allEventsForMonth.push({
+                        ...event,
+                        displayDate: dateStr
+                    });
+                });
+            });
+        }
+    }
+
+    // Load user's invitations for events this month
+    const { data: invitations } = await supabase
+        .from('event_invitations')
+        .select('event_id, status')
+        .eq('user_id', profileId);
+
+    const invitationMap = {};
+    (invitations || []).forEach(inv => {
+        invitationMap[inv.event_id] = inv.status;
+    });
+
+    // Group events by date
+    const eventsByDate = {};
+    allEventsForMonth.forEach(event => {
+        const dateKey = event.displayDate;
+        if (!eventsByDate[dateKey]) {
+            eventsByDate[dateKey] = [];
+        }
+        event.invitationStatus = invitationMap[event.id] || null;
+        eventsByDate[dateKey].push(event);
+    });
+
+    // Store events data globally for click handler
+    window.profileCalendarEvents = eventsByDate;
+    window.profileCalendarMonth = { year, month };
+
+    // Build calendar grid
     const monthName = now.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
     const daysInMonth = lastDay.getDate();
     const startDayOfWeek = (firstDay.getDay() + 6) % 7; // Monday = 0
@@ -1642,16 +1717,33 @@ async function loadProfileAttendance() {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isPresent = attendanceDates.has(dateStr);
         const isToday = day === now.getDate();
+        const hasEvents = eventsByDate[dateStr] && eventsByDate[dateStr].length > 0;
+        const eventCount = eventsByDate[dateStr]?.length || 0;
 
-        const dayClass = isPresent
-            ? 'bg-green-500 text-white'
-            : isToday
-                ? 'bg-indigo-100 text-indigo-700 font-bold'
-                : 'text-gray-600';
+        let dayClass = '';
+        let dotIndicator = '';
+
+        if (isPresent) {
+            dayClass = 'bg-green-500 text-white';
+        } else if (isToday) {
+            dayClass = 'bg-indigo-100 text-indigo-700 font-bold';
+        } else {
+            dayClass = 'text-gray-600';
+        }
+
+        if (hasEvents) {
+            dayClass += ' cursor-pointer hover:ring-2 hover:ring-indigo-400 transition';
+            // Add dot indicator for events
+            if (!isPresent) {
+                dotIndicator = `<div class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${eventCount > 1 ? 'bg-indigo-500' : 'bg-indigo-300'}"></div>`;
+            }
+        }
 
         calendarHtml += `
-            <div class="aspect-square flex items-center justify-center rounded ${dayClass}">
+            <div class="aspect-square flex items-center justify-center rounded relative ${dayClass}"
+                 ${hasEvents ? `onclick="showDayEvents('${dateStr}')"` : ''}>
                 ${day}
+                ${dotIndicator}
             </div>
         `;
     }
@@ -1660,15 +1752,193 @@ async function loadProfileAttendance() {
 
     // Stats
     const presentDays = attendanceDates.size;
+    const totalEventsThisMonth = Object.values(eventsByDate).reduce((sum, events) => sum + events.length, 0);
     calendarHtml += `
-        <div class="mt-4 text-center">
-            <span class="text-green-600 font-semibold">${presentDays}</span>
-            <span class="text-gray-500 text-sm">Veranstaltungen diesen Monat</span>
+        <div class="mt-4 text-center space-y-1">
+            <div>
+                <span class="text-green-600 font-semibold">${presentDays}</span>
+                <span class="text-gray-500 text-sm">Anwesenheiten</span>
+            </div>
+            <div>
+                <span class="text-indigo-600 font-semibold">${totalEventsThisMonth}</span>
+                <span class="text-gray-500 text-sm">Veranstaltungen diesen Monat</span>
+            </div>
+        </div>
+    `;
+
+    // Legend
+    calendarHtml += `
+        <div class="mt-3 flex flex-wrap justify-center gap-3 text-xs text-gray-500">
+            <div class="flex items-center gap-1">
+                <div class="w-3 h-3 rounded bg-green-500"></div>
+                <span>Anwesend</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div class="w-3 h-3 rounded bg-indigo-100"></div>
+                <span>Heute</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <div class="w-1.5 h-1.5 rounded-full bg-indigo-400"></div>
+                <span>Veranstaltung</span>
+            </div>
         </div>
     `;
 
     container.innerHTML = calendarHtml;
 }
+
+/**
+ * Get all dates an event occurs on within a date range (handles recurring events)
+ */
+function getEventDatesInRange(event, startDate, endDate) {
+    const dates = [];
+    const eventStart = event.start_date;
+    const repeatType = event.repeat_type;
+    const repeatEnd = event.repeat_end_date;
+    const excludedDates = event.excluded_dates || [];
+
+    if (!repeatType || repeatType === 'none') {
+        // Single event - check if it falls in range
+        if (eventStart >= startDate && eventStart <= endDate) {
+            dates.push(eventStart);
+        }
+        return dates;
+    }
+
+    // Recurring event - generate all occurrences in range
+    let currentDate = new Date(eventStart + 'T12:00:00');
+    const endDateObj = new Date(endDate + 'T12:00:00');
+    const startDateObj = new Date(startDate + 'T12:00:00');
+    const repeatEndObj = repeatEnd ? new Date(repeatEnd + 'T12:00:00') : null;
+    let maxIterations = 100;
+
+    while (currentDate <= endDateObj && maxIterations > 0) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+
+        // Check if within range and not excluded
+        if (currentDate >= startDateObj && !excludedDates.includes(dateStr)) {
+            if (!repeatEndObj || currentDate <= repeatEndObj) {
+                dates.push(dateStr);
+            }
+        }
+
+        // Move to next occurrence
+        switch (repeatType) {
+            case 'daily':
+                currentDate.setDate(currentDate.getDate() + 1);
+                break;
+            case 'weekly':
+                currentDate.setDate(currentDate.getDate() + 7);
+                break;
+            case 'biweekly':
+                currentDate.setDate(currentDate.getDate() + 14);
+                break;
+            case 'monthly':
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                break;
+            default:
+                maxIterations = 0; // Exit loop
+        }
+
+        maxIterations--;
+    }
+
+    return dates;
+}
+
+/**
+ * Show events for a specific day in a modal/popover
+ */
+window.showDayEvents = function(dateStr) {
+    const events = window.profileCalendarEvents?.[dateStr] || [];
+    if (events.length === 0) return;
+
+    const dateObj = new Date(dateStr + 'T12:00:00');
+    const formattedDate = dateObj.toLocaleDateString('de-DE', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+
+    // Build events list HTML
+    const eventsHtml = events.map(event => {
+        const timeDisplay = event.start_time
+            ? `${event.start_time.slice(0, 5)}${event.end_time ? ' - ' + event.end_time.slice(0, 5) : ''}`
+            : '';
+
+        // Determine status
+        let statusHtml = '';
+        const now = new Date();
+        const invitationSendAt = event.invitation_send_at ? new Date(event.invitation_send_at) : null;
+
+        if (event.invitationStatus === 'accepted') {
+            statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>Zugesagt</span>';
+        } else if (event.invitationStatus === 'rejected') {
+            statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700"><i class="fas fa-times mr-1"></i>Abgesagt</span>';
+        } else if (event.invitationStatus === 'pending') {
+            statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700"><i class="fas fa-clock mr-1"></i>Ausstehend</span>';
+        } else if (invitationSendAt && invitationSendAt > now) {
+            // Invitation not yet sent
+            const sendDateStr = invitationSendAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'short' });
+            const sendTimeStr = invitationSendAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            statusHtml = `<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600"><i class="fas fa-paper-plane mr-1"></i>Einladung: ${sendDateStr}, ${sendTimeStr}</span>`;
+        } else {
+            // No invitation yet (possibly hasn't been sent or event is public)
+            statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500"><i class="fas fa-question mr-1"></i>Keine Einladung</span>';
+        }
+
+        // Recurring indicator
+        const recurringHtml = event.repeat_type && event.repeat_type !== 'none'
+            ? '<i class="fas fa-redo text-xs text-indigo-500 ml-1" title="Wiederkehrend"></i>'
+            : '';
+
+        return `
+            <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900">
+                            ${escapeHtml(event.title)}${recurringHtml}
+                        </h4>
+                        ${timeDisplay ? `<p class="text-sm text-gray-500 mt-1"><i class="far fa-clock mr-1"></i>${timeDisplay}</p>` : ''}
+                        ${event.location ? `<p class="text-sm text-gray-500"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(event.location)}</p>` : ''}
+                    </div>
+                </div>
+                <div class="mt-2">
+                    ${statusHtml}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Create modal
+    const existingModal = document.getElementById('day-events-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'day-events-modal';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+    modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+    modal.innerHTML = `
+        <div class="bg-gray-50 rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden">
+            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-semibold">${formattedDate}</h3>
+                    <button onclick="document.getElementById('day-events-modal').remove()" class="text-white/80 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-white/80 mt-1">${events.length} Veranstaltung${events.length !== 1 ? 'en' : ''}</p>
+            </div>
+            <div class="p-4 space-y-3 overflow-y-auto max-h-[60vh]">
+                ${eventsHtml}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+};
 
 /**
  * Calculate rank from XP (simplified version)
