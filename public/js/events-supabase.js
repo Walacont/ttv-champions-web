@@ -25,6 +25,9 @@ let currentUserData = null;
 let eventExercises = [];
 let allExercises = []; // Cache of all available exercises
 
+// Points configuration
+const EVENT_ATTENDANCE_POINTS_BASE = 3;
+
 /**
  * Initialize events module
  * @param {Object} userData - Current user data
@@ -864,13 +867,22 @@ window.openEventDetails = async function(eventId) {
 };
 
 /**
- * Save event attendance and exercises
+ * Save event attendance and exercises with points/streak logic
  * @param {string} eventId - Event ID
  */
 window.saveEventAttendance = async function(eventId) {
     try {
         const checkboxes = document.querySelectorAll('.event-attendance-checkbox:checked');
         const presentUserIds = Array.from(checkboxes).map(cb => cb.dataset.userId);
+
+        // Load event details for points calculation
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select('*, target_subgroup_ids')
+            .eq('id', eventId)
+            .single();
+
+        if (eventError) throw eventError;
 
         // Prepare exercise data
         const exerciseData = eventExercises.map(ex => ({
@@ -879,12 +891,45 @@ window.saveEventAttendance = async function(eventId) {
             points: ex.points || 0
         }));
 
-        // Check if attendance record exists
+        // Calculate total exercise points
+        const totalExercisePoints = exerciseData.reduce((sum, ex) => sum + (ex.points || 0), 0);
+
+        // Check if attendance record exists and get previous attendees
         const { data: existing } = await supabase
             .from('event_attendance')
-            .select('id')
+            .select('id, present_user_ids, points_awarded_to')
             .eq('event_id', eventId)
             .single();
+
+        const previouslyAwardedTo = existing?.points_awarded_to || [];
+        const previousPresentIds = existing?.present_user_ids || [];
+
+        // Determine which players need points awarded (new attendees)
+        const newAttendees = presentUserIds.filter(id => !previouslyAwardedTo.includes(id));
+        const removedAttendees = previousPresentIds.filter(id => !presentUserIds.includes(id) && previouslyAwardedTo.includes(id));
+
+        // Award points to new attendees
+        for (const playerId of newAttendees) {
+            await awardEventAttendancePoints(
+                playerId,
+                event,
+                totalExercisePoints
+            );
+        }
+
+        // Deduct points from removed attendees (if they were previously awarded)
+        for (const playerId of removedAttendees) {
+            await deductEventAttendancePoints(
+                playerId,
+                event
+            );
+        }
+
+        // Update the list of players who received points
+        const updatedPointsAwardedTo = [
+            ...previouslyAwardedTo.filter(id => presentUserIds.includes(id)),
+            ...newAttendees
+        ];
 
         if (existing) {
             // Update existing record
@@ -893,6 +938,7 @@ window.saveEventAttendance = async function(eventId) {
                 .update({
                     present_user_ids: presentUserIds,
                     completed_exercises: exerciseData,
+                    points_awarded_to: updatedPointsAwardedTo,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', existing.id);
@@ -906,6 +952,7 @@ window.saveEventAttendance = async function(eventId) {
                     event_id: eventId,
                     present_user_ids: presentUserIds,
                     completed_exercises: exerciseData,
+                    points_awarded_to: updatedPointsAwardedTo,
                     created_at: new Date().toISOString()
                 });
 
@@ -921,6 +968,257 @@ window.saveEventAttendance = async function(eventId) {
         alert('Fehler beim Speichern: ' + error.message);
     }
 };
+
+/**
+ * Award attendance points to a player for an event
+ * @param {string} playerId - Player ID
+ * @param {Object} event - Event object with details
+ * @param {number} exercisePoints - Additional points from exercises
+ */
+async function awardEventAttendancePoints(playerId, event, exercisePoints = 0) {
+    const date = event.start_date;
+    const eventTitle = event.title || 'Veranstaltung';
+    const subgroupIds = event.target_subgroup_ids || [];
+
+    // Use first subgroup for streak tracking, or null for club-wide events
+    const primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : null;
+
+    // Get subgroup name if available
+    let subgroupName = '';
+    if (primarySubgroupId) {
+        const { data: subgroup } = await supabase
+            .from('subgroups')
+            .select('name')
+            .eq('id', primarySubgroupId)
+            .single();
+        subgroupName = subgroup?.name || '';
+    }
+
+    // Get previous event to determine streak continuation
+    const { data: previousEvents } = await supabase
+        .from('events')
+        .select('id, start_date')
+        .eq('club_id', event.club_id)
+        .lt('start_date', date)
+        .order('start_date', { ascending: false })
+        .limit(1);
+
+    let wasPresentAtLastEvent = false;
+    if (previousEvents && previousEvents.length > 0) {
+        const { data: prevAttendance } = await supabase
+            .from('event_attendance')
+            .select('present_user_ids')
+            .eq('event_id', previousEvents[0].id)
+            .single();
+
+        wasPresentAtLastEvent = prevAttendance?.present_user_ids?.includes(playerId) || false;
+    }
+
+    // Get current streak (use event-specific streaks or fallback to subgroup streaks)
+    const { data: streakData } = await supabase
+        .from('streaks')
+        .select('current_streak')
+        .eq('user_id', playerId)
+        .eq('subgroup_id', primarySubgroupId || event.club_id)
+        .single();
+
+    const currentStreak = streakData?.current_streak || 0;
+    const newStreak = wasPresentAtLastEvent ? currentStreak + 1 : 1;
+
+    // Check for other events on same day
+    const { data: otherEventsToday } = await supabase
+        .from('events')
+        .select('id')
+        .eq('club_id', event.club_id)
+        .eq('start_date', date)
+        .neq('id', event.id);
+
+    let alreadyAttendedToday = false;
+    if (otherEventsToday && otherEventsToday.length > 0) {
+        for (const otherEvent of otherEventsToday) {
+            const { data: otherAttendance } = await supabase
+                .from('event_attendance')
+                .select('present_user_ids')
+                .eq('event_id', otherEvent.id)
+                .single();
+
+            if (otherAttendance?.present_user_ids?.includes(playerId)) {
+                alreadyAttendedToday = true;
+                break;
+            }
+        }
+    }
+
+    // Format date for display
+    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+
+    // Calculate points
+    let pointsToAdd = EVENT_ATTENDANCE_POINTS_BASE;
+    let reason = `${eventTitle} am ${formattedDate}`;
+    if (subgroupName) reason += ` - ${subgroupName}`;
+
+    if (newStreak >= 5) {
+        pointsToAdd = 6; // 3 base + 3 bonus (Super-Streak)
+        reason += ` (🔥 ${newStreak}x Streak!)`;
+    } else if (newStreak >= 3) {
+        pointsToAdd = 5; // 3 base + 2 bonus (Streak-Bonus)
+        reason += ` (⚡ ${newStreak}x Streak)`;
+    }
+
+    if (alreadyAttendedToday) {
+        pointsToAdd = Math.ceil(pointsToAdd / 2);
+        reason += ` (2. Veranstaltung heute)`;
+    }
+
+    // Add exercise points
+    const totalPoints = pointsToAdd + exercisePoints;
+    if (exercisePoints > 0) {
+        reason += ` (+${exercisePoints} Übungspunkte)`;
+    }
+
+    // Update streak
+    await supabase.from('streaks').upsert({
+        user_id: playerId,
+        subgroup_id: primarySubgroupId || event.club_id,
+        current_streak: newStreak,
+        last_attendance_date: date,
+        updated_at: new Date().toISOString()
+    }, {
+        onConflict: 'user_id,subgroup_id'
+    });
+
+    // Update player points and XP
+    await supabase.rpc('add_player_points', {
+        p_user_id: playerId,
+        p_points: totalPoints,
+        p_xp: totalPoints
+    });
+
+    // Create points history entry
+    await supabase.from('points_history').insert({
+        user_id: playerId,
+        points: totalPoints,
+        xp: totalPoints,
+        elo_change: 0,
+        reason,
+        date,
+        subgroup_id: primarySubgroupId,
+        created_at: new Date().toISOString(),
+        awarded_by: 'System (Veranstaltung)',
+    });
+
+    // Create XP history entry
+    await supabase.from('xp_history').insert({
+        user_id: playerId,
+        xp: totalPoints,
+        reason,
+        date,
+        subgroup_id: primarySubgroupId,
+        created_at: new Date().toISOString(),
+        source: 'System (Veranstaltung)',
+    });
+
+    // Send notification to player
+    let notificationTitle = 'Anwesenheit eingetragen';
+    let notificationMessage = `Du hast +${totalPoints} Punkte für "${eventTitle}" am ${formattedDate} erhalten.`;
+
+    if (newStreak >= 5) {
+        notificationTitle = '🔥 Super-Streak!';
+        notificationMessage = `${newStreak}x in Folge dabei! +${totalPoints} Punkte`;
+    } else if (newStreak >= 3) {
+        notificationTitle = '⚡ Streak-Bonus!';
+        notificationMessage = `${newStreak}x in Folge dabei! +${totalPoints} Punkte`;
+    }
+
+    await supabase.from('notifications').insert({
+        user_id: playerId,
+        type: 'event_attendance',
+        title: notificationTitle,
+        message: notificationMessage,
+        data: {
+            points: totalPoints,
+            streak: newStreak,
+            date,
+            event_id: event.id,
+            event_title: eventTitle,
+            subgroup_id: primarySubgroupId,
+            subgroup_name: subgroupName
+        }
+    });
+
+    console.log(`[Events] Awarded ${totalPoints} points to player ${playerId} (streak: ${newStreak})`);
+}
+
+/**
+ * Deduct attendance points from a player when removed from event
+ * @param {string} playerId - Player ID
+ * @param {Object} event - Event object with details
+ */
+async function deductEventAttendancePoints(playerId, event) {
+    const date = event.start_date;
+    const eventTitle = event.title || 'Veranstaltung';
+    const subgroupIds = event.target_subgroup_ids || [];
+    const primarySubgroupId = subgroupIds.length > 0 ? subgroupIds[0] : null;
+
+    // Get subgroup name if available
+    let subgroupName = '';
+    if (primarySubgroupId) {
+        const { data: subgroup } = await supabase
+            .from('subgroups')
+            .select('name')
+            .eq('id', primarySubgroupId)
+            .single();
+        subgroupName = subgroup?.name || '';
+    }
+
+    // Format date for display
+    const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
+
+    // Deduct base points (we don't track exact amount previously given, so use base)
+    const pointsToDeduct = EVENT_ATTENDANCE_POINTS_BASE;
+    const reason = `Anwesenheit korrigiert: ${eventTitle} am ${formattedDate}${subgroupName ? ` - ${subgroupName}` : ''} (${pointsToDeduct} Punkte abgezogen)`;
+
+    // Deduct player points and XP
+    await supabase.rpc('deduct_player_points', {
+        p_user_id: playerId,
+        p_points: pointsToDeduct,
+        p_xp: pointsToDeduct
+    });
+
+    // Create negative history entry
+    await supabase.from('points_history').insert({
+        user_id: playerId,
+        points: -pointsToDeduct,
+        xp: -pointsToDeduct,
+        elo_change: 0,
+        reason,
+        date,
+        subgroup_id: primarySubgroupId,
+        created_at: new Date().toISOString(),
+        awarded_by: 'System (Veranstaltung)',
+    });
+
+    // Create negative XP history entry
+    await supabase.from('xp_history').insert({
+        user_id: playerId,
+        xp: -pointsToDeduct,
+        reason,
+        date,
+        subgroup_id: primarySubgroupId,
+        created_at: new Date().toISOString(),
+        source: 'System (Veranstaltung)',
+    });
+
+    console.log(`[Events] Deducted ${pointsToDeduct} points from player ${playerId}`);
+}
 
 /**
  * Open exercise selector modal
