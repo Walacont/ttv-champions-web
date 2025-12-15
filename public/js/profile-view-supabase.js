@@ -1593,6 +1593,7 @@ async function loadProfileAttendance() {
         .single();
 
     const clubId = profile?.club_id;
+    console.log('[ProfileView] Loading calendar for profile', profileId, 'club_id:', clubId);
 
     // Query event_attendance where this user was present
     const { data: eventAttendance, error: attendanceError } = await supabase
@@ -1645,12 +1646,13 @@ async function loadProfileAttendance() {
                 invitation_lead_time_unit,
                 organizer_id
             `)
-            .eq('club_id', clubId)
-            .is('deleted_at', null);
+            .eq('club_id', clubId);
 
         if (eventsError) {
             console.warn('[ProfileView] Error loading club events:', eventsError);
         }
+
+        console.log('[ProfileView] Club events loaded:', clubEvents?.length || 0, 'events for club', clubId);
 
         // Process events including recurring ones
         if (clubEvents) {
