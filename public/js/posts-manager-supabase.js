@@ -400,6 +400,7 @@ async function handlePollSubmit(e) {
     const question = pollQuestionInput.value.trim();
     const visibility = pollVisibilitySelect.value;
     const durationDays = parseInt(pollDurationSelect.value);
+    const allowMultiple = document.getElementById('poll-multiple-choice')?.checked || false;
 
     // Get poll options
     const optionInputs = pollOptionsContainer.querySelectorAll('.poll-option-input');
@@ -458,7 +459,8 @@ async function handlePollSubmit(e) {
                 options: options,
                 visibility: visibility,
                 duration_days: durationDays,
-                ends_at: endsAt.toISOString()
+                ends_at: endsAt.toISOString(),
+                allow_multiple: allowMultiple
             })
             .select()
             .single();

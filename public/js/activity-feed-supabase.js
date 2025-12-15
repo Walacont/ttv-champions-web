@@ -782,14 +782,17 @@ async function fetchActivities(userIds) {
             .in('poll_id', pollIds)
             .eq('user_id', currentUser.id);
 
-        // Attach user vote to each poll
+        // Attach user votes to each poll (as array for multiple choice support)
         const voteMap = {};
         (userVotes || []).forEach(v => {
-            voteMap[v.poll_id] = v.option_id;
+            if (!voteMap[v.poll_id]) {
+                voteMap[v.poll_id] = [];
+            }
+            voteMap[v.poll_id].push(v.option_id);
         });
 
         pollActivities.forEach(poll => {
-            poll.userVotedOptionId = voteMap[poll.id] || null;
+            poll.userVotedOptionIds = voteMap[poll.id] || [];
         });
     }
 
@@ -2082,15 +2085,16 @@ function renderPollCard(activity, profileMap) {
     const endsAt = new Date(activity.ends_at);
     const isActive = endsAt > new Date();
     const totalVotes = activity.total_votes || 0;
-    const userVotedOptionId = activity.userVotedOptionId;
+    const userVotedOptionIds = activity.userVotedOptionIds || [];
+    const allowMultiple = activity.allow_multiple || false;
 
     const options = activity.options || [];
 
-    // Calculate percentages and mark user's vote
+    // Calculate percentages and mark user's votes
     const optionsWithPercent = options.map(opt => ({
         ...opt,
         percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
-        isUserVote: opt.id === userVotedOptionId
+        isUserVote: userVotedOptionIds.includes(opt.id)
     }));
 
     return `
@@ -2122,19 +2126,23 @@ function renderPollCard(activity, profileMap) {
             <!-- Poll Question -->
             <div class="mb-4">
                 <h3 class="text-lg font-semibold text-gray-900">${activity.question}</h3>
-                ${userVotedOptionId ? '<p class="text-xs text-purple-600 mt-1"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
+                <div class="flex items-center gap-3 mt-1">
+                    ${userVotedOptionIds.length > 0 ? '<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
+                    ${allowMultiple ? '<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>Mehrfachauswahl möglich</p>' : ''}
+                </div>
             </div>
 
             <!-- Poll Options -->
-            <div class="space-y-2 mb-3">
+            <div class="space-y-2 mb-3" data-poll-id="${activity.id}" data-allow-multiple="${allowMultiple}">
                 ${optionsWithPercent.map((option, index) => `
                     <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} ${option.isUserVote ? 'ring-2 ring-purple-500 bg-purple-50' : 'bg-white'} rounded-lg p-3 border border-purple-200 transition"
-                         onclick="${isActive ? `votePoll('${activity.id}', '${option.id}')` : ''}"
+                         onclick="${isActive ? `votePoll('${activity.id}', '${option.id}', ${allowMultiple})` : ''}"
                     >
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-medium text-gray-800 flex items-center gap-2">
+                                ${allowMultiple ? `<i class="far ${option.isUserVote ? 'fa-check-square text-purple-600' : 'fa-square text-gray-400'}"></i>` : ''}
                                 ${option.text}
-                                ${option.isUserVote ? '<i class="fas fa-check-circle text-purple-600"></i>' : ''}
+                                ${!allowMultiple && option.isUserVote ? '<i class="fas fa-check-circle text-purple-600"></i>' : ''}
                             </span>
                             <span class="text-sm font-semibold text-purple-600">${option.percentage}%</span>
                         </div>
@@ -2230,8 +2238,9 @@ window.carouselGoTo = function(carouselId, index) {
  * Vote on a poll
  * @param {string} pollId - Poll ID
  * @param {string} optionId - Selected option ID
+ * @param {boolean} allowMultiple - Whether multiple selections are allowed
  */
-window.votePoll = async function(pollId, optionId) {
+window.votePoll = async function(pollId, optionId, allowMultiple = false) {
     if (!currentUser) {
         alert('Bitte melde dich an, um abzustimmen.');
         return;
@@ -2241,7 +2250,7 @@ window.votePoll = async function(pollId, optionId) {
         // Check if poll is still active
         const { data: poll, error: pollError } = await supabase
             .from('community_polls')
-            .select('ends_at, options, total_votes, user_id')
+            .select('ends_at, options, total_votes, user_id, allow_multiple')
             .eq('id', pollId)
             .single();
 
@@ -2252,73 +2261,117 @@ window.votePoll = async function(pollId, optionId) {
             return;
         }
 
-        // Check if user already voted
-        const { data: existingVote, error: checkError } = await supabase
-            .from('poll_votes')
-            .select('id, option_id')
-            .eq('poll_id', pollId)
-            .eq('user_id', currentUser.id)
-            .maybeSingle();
+        // Use the poll's allow_multiple setting if not provided
+        const isMultipleChoice = poll.allow_multiple || allowMultiple;
 
-        if (checkError) {
-            console.warn('[ActivityFeed] Error checking existing vote:', checkError);
-        }
-
-        if (existingVote) {
-            if (existingVote.option_id === optionId) {
-                // User clicked same option - show that they already voted
-                alert('Du hast bereits für diese Option gestimmt.');
-                return;
-            }
-
-            // User wants to change vote - delete old and insert new
-            // (This triggers the decrement/increment triggers)
-            const { error: deleteError } = await supabase
+        if (isMultipleChoice) {
+            // Multiple choice voting logic
+            // Check if user already voted for this specific option
+            const { data: existingVoteForOption, error: checkError } = await supabase
                 .from('poll_votes')
-                .delete()
-                .eq('id', existingVote.id);
+                .select('id')
+                .eq('poll_id', pollId)
+                .eq('user_id', currentUser.id)
+                .eq('option_id', optionId)
+                .maybeSingle();
 
-            if (deleteError) {
-                console.error('[ActivityFeed] Error deleting old vote:', deleteError);
-                throw deleteError;
+            if (checkError) {
+                console.warn('[ActivityFeed] Error checking existing vote:', checkError);
             }
 
-            // Insert new vote (triggers will update the poll counts)
-            const { error: insertError } = await supabase
-                .from('poll_votes')
-                .insert({
-                    poll_id: pollId,
-                    user_id: currentUser.id,
-                    option_id: optionId
-                });
+            if (existingVoteForOption) {
+                // User clicked same option - remove the vote (toggle off)
+                const { error: deleteError } = await supabase
+                    .from('poll_votes')
+                    .delete()
+                    .eq('id', existingVoteForOption.id);
 
-            if (insertError) {
-                console.error('[ActivityFeed] Error inserting new vote:', insertError);
-                throw insertError;
+                if (deleteError) {
+                    console.error('[ActivityFeed] Error removing vote:', deleteError);
+                    throw deleteError;
+                }
+            } else {
+                // Add vote for this option
+                const { error: insertError } = await supabase
+                    .from('poll_votes')
+                    .insert({
+                        poll_id: pollId,
+                        user_id: currentUser.id,
+                        option_id: optionId
+                    });
+
+                if (insertError) {
+                    console.error('[ActivityFeed] Error inserting vote:', insertError);
+                    throw insertError;
+                }
             }
-
         } else {
-            // New vote - insert (triggers will update poll counts automatically)
-            const { error: voteError } = await supabase
+            // Single choice voting logic (original behavior)
+            // Check if user already voted
+            const { data: existingVote, error: checkError } = await supabase
                 .from('poll_votes')
-                .insert({
-                    poll_id: pollId,
-                    user_id: currentUser.id,
-                    option_id: optionId
-                });
+                .select('id, option_id')
+                .eq('poll_id', pollId)
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
 
-            if (voteError) {
-                console.error('[ActivityFeed] Error inserting vote:', voteError);
-                if (voteError.code === '23505') {
-                    // Unique constraint violation - user already voted
-                    alert('Du hast bereits abgestimmt.');
+            if (checkError) {
+                console.warn('[ActivityFeed] Error checking existing vote:', checkError);
+            }
+
+            if (existingVote) {
+                if (existingVote.option_id === optionId) {
+                    // User clicked same option - show that they already voted
+                    alert('Du hast bereits für diese Option gestimmt.');
                     return;
                 }
-                throw voteError;
+
+                // User wants to change vote - delete old and insert new
+                const { error: deleteError } = await supabase
+                    .from('poll_votes')
+                    .delete()
+                    .eq('id', existingVote.id);
+
+                if (deleteError) {
+                    console.error('[ActivityFeed] Error deleting old vote:', deleteError);
+                    throw deleteError;
+                }
+
+                // Insert new vote
+                const { error: insertError } = await supabase
+                    .from('poll_votes')
+                    .insert({
+                        poll_id: pollId,
+                        user_id: currentUser.id,
+                        option_id: optionId
+                    });
+
+                if (insertError) {
+                    console.error('[ActivityFeed] Error inserting new vote:', insertError);
+                    throw insertError;
+                }
+            } else {
+                // New vote
+                const { error: voteError } = await supabase
+                    .from('poll_votes')
+                    .insert({
+                        poll_id: pollId,
+                        user_id: currentUser.id,
+                        option_id: optionId
+                    });
+
+                if (voteError) {
+                    console.error('[ActivityFeed] Error inserting vote:', voteError);
+                    if (voteError.code === '23505') {
+                        alert('Du hast bereits abgestimmt.');
+                        return;
+                    }
+                    throw voteError;
+                }
             }
         }
 
-        // Refresh the activity feed to show updated poll
+        // Refresh the poll card to show updated results
         await refreshPollCard(pollId);
 
     } catch (error) {
@@ -2341,22 +2394,23 @@ async function refreshPollCard(pollId) {
 
         if (error) throw error;
 
-        // Get user's vote
-        const { data: userVote } = await supabase
+        // Get user's votes (can be multiple for multi-choice polls)
+        const { data: userVotes } = await supabase
             .from('poll_votes')
             .select('option_id')
             .eq('poll_id', pollId)
-            .eq('user_id', currentUser.id)
-            .single();
+            .eq('user_id', currentUser.id);
 
+        const userVotedOptionIds = (userVotes || []).map(v => v.option_id);
         const totalVotes = poll.total_votes || 0;
         const options = poll.options || [];
+        const allowMultiple = poll.allow_multiple || false;
 
         // Calculate percentages
         const optionsWithPercent = options.map(opt => ({
             ...opt,
             percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
-            isUserVote: userVote?.option_id === opt.id
+            isUserVote: userVotedOptionIds.includes(opt.id)
         }));
 
         const endsAt = new Date(poll.ends_at);
@@ -2368,13 +2422,14 @@ async function refreshPollCard(pollId) {
             const optionsContainer = pollCard.querySelector('.space-y-2.mb-3');
             if (optionsContainer) {
                 optionsContainer.innerHTML = optionsWithPercent.map(option => `
-                    <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} ${option.isUserVote ? 'ring-2 ring-purple-500' : ''} bg-white rounded-lg p-3 border border-purple-200 transition"
-                         onclick="${isActive ? `votePoll('${pollId}', '${option.id}')` : ''}"
+                    <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} ${option.isUserVote ? 'ring-2 ring-purple-500 bg-purple-50' : 'bg-white'} rounded-lg p-3 border border-purple-200 transition"
+                         onclick="${isActive ? `votePoll('${pollId}', '${option.id}', ${allowMultiple})` : ''}"
                     >
                         <div class="flex items-center justify-between mb-1">
                             <span class="font-medium text-gray-800 flex items-center gap-2">
+                                ${allowMultiple ? `<i class="far ${option.isUserVote ? 'fa-check-square text-purple-600' : 'fa-square text-gray-400'}"></i>` : ''}
                                 ${option.text}
-                                ${option.isUserVote ? '<i class="fas fa-check-circle text-purple-600"></i>' : ''}
+                                ${!allowMultiple && option.isUserVote ? '<i class="fas fa-check-circle text-purple-600"></i>' : ''}
                             </span>
                             <span class="text-sm font-semibold text-purple-600">${option.percentage}%</span>
                         </div>
@@ -2394,6 +2449,18 @@ async function refreshPollCard(pollId) {
                     <i class="fas fa-users"></i>
                     <span>${totalVotes} ${totalVotes === 1 ? t('dashboard.activityFeed.vote') : t('dashboard.activityFeed.votes')}</span>
                 `;
+            }
+
+            // Update the "Du hast bereits abgestimmt" text
+            const questionDiv = pollCard.querySelector('.mb-4');
+            if (questionDiv) {
+                const statusDiv = questionDiv.querySelector('.flex.items-center.gap-3');
+                if (statusDiv) {
+                    statusDiv.innerHTML = `
+                        ${userVotedOptionIds.length > 0 ? '<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
+                        ${allowMultiple ? '<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>Mehrfachauswahl möglich</p>' : ''}
+                    `;
+                }
             }
         }
 
