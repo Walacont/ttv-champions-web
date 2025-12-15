@@ -422,8 +422,8 @@ async function submitEvent() {
     let repeatType = null;
     let repeatEnd = null;
     if (currentEventData.eventType === 'recurring') {
-        repeatType = document.getElementById('event-repeat-type')?.value;
-        repeatEnd = document.getElementById('event-repeat-end')?.value;
+        repeatType = document.getElementById('event-repeat-type')?.value || null;
+        repeatEnd = document.getElementById('event-repeat-end')?.value || null;
     }
 
     // Build event data
