@@ -2253,48 +2253,52 @@ window.votePoll = async function(pollId, optionId) {
         }
 
         // Check if user already voted
-        const { data: existingVote } = await supabase
+        const { data: existingVote, error: checkError } = await supabase
             .from('poll_votes')
             .select('id, option_id')
             .eq('poll_id', pollId)
             .eq('user_id', currentUser.id)
-            .single();
+            .maybeSingle();
+
+        if (checkError) {
+            console.warn('[ActivityFeed] Error checking existing vote:', checkError);
+        }
 
         if (existingVote) {
             if (existingVote.option_id === optionId) {
-                // User clicked same option - maybe show that they already voted
+                // User clicked same option - show that they already voted
                 alert('Du hast bereits für diese Option gestimmt.');
                 return;
             }
 
-            // User wants to change vote - update it
-            const oldOptionId = existingVote.option_id;
-
-            // Update vote
-            const { error: updateError } = await supabase
+            // User wants to change vote - delete old and insert new
+            // (This triggers the decrement/increment triggers)
+            const { error: deleteError } = await supabase
                 .from('poll_votes')
-                .update({ option_id: optionId })
+                .delete()
                 .eq('id', existingVote.id);
 
-            if (updateError) throw updateError;
+            if (deleteError) {
+                console.error('[ActivityFeed] Error deleting old vote:', deleteError);
+                throw deleteError;
+            }
 
-            // Update poll options (decrement old, increment new)
-            const newOptions = poll.options.map(opt => {
-                if (opt.id === oldOptionId) {
-                    return { ...opt, votes: Math.max(0, (opt.votes || 0) - 1) };
-                } else if (opt.id === optionId) {
-                    return { ...opt, votes: (opt.votes || 0) + 1 };
-                }
-                return opt;
-            });
+            // Insert new vote (triggers will update the poll counts)
+            const { error: insertError } = await supabase
+                .from('poll_votes')
+                .insert({
+                    poll_id: pollId,
+                    user_id: currentUser.id,
+                    option_id: optionId
+                });
 
-            await supabase
-                .from('community_polls')
-                .update({ options: newOptions })
-                .eq('id', pollId);
+            if (insertError) {
+                console.error('[ActivityFeed] Error inserting new vote:', insertError);
+                throw insertError;
+            }
 
         } else {
-            // New vote
+            // New vote - insert (triggers will update poll counts automatically)
             const { error: voteError } = await supabase
                 .from('poll_votes')
                 .insert({
@@ -2304,6 +2308,7 @@ window.votePoll = async function(pollId, optionId) {
                 });
 
             if (voteError) {
+                console.error('[ActivityFeed] Error inserting vote:', voteError);
                 if (voteError.code === '23505') {
                     // Unique constraint violation - user already voted
                     alert('Du hast bereits abgestimmt.');
@@ -2311,26 +2316,9 @@ window.votePoll = async function(pollId, optionId) {
                 }
                 throw voteError;
             }
-
-            // Update poll options and total votes
-            const newOptions = poll.options.map(opt => {
-                if (opt.id === optionId) {
-                    return { ...opt, votes: (opt.votes || 0) + 1 };
-                }
-                return opt;
-            });
-
-            await supabase
-                .from('community_polls')
-                .update({
-                    options: newOptions,
-                    total_votes: (poll.total_votes || 0) + 1
-                })
-                .eq('id', pollId);
         }
 
         // Refresh the activity feed to show updated poll
-        // Find the poll card and update it
         await refreshPollCard(pollId);
 
     } catch (error) {
