@@ -1,10 +1,12 @@
 /**
  * Calendar Module (Supabase Version)
  * Handles calendar rendering and attendance tracking for dashboard
+ * Now includes event display for players
  */
 
 // Module state
 let subgroupsMap = new Map(); // Store subgroups with their colors
+let eventsPerDayCache = new Map(); // Store events per day for the current month
 
 /**
  * Gets club attendance data for a specific period
@@ -71,9 +73,10 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
     cutoffDate.setDate(cutoffDate.getDate() - 90);
     const startString = cutoffDate.toISOString().split('T')[0];
 
-    // Cache for sessions and attendance
+    // Cache for sessions, attendance, and events
     let allSessionsCache = [];
     let allClubTrainingsCache = [];
+    let allEventsCache = [];
     let subscriptions = [];
 
     // Load subgroups for color mapping
@@ -184,15 +187,19 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
             dayCell.className =
                 'border rounded-md p-2 min-h-[80px] hover:shadow-md transition-shadow';
 
-            // Make clickable if there are sessions
-            if (sessionsOnDay.length > 0) {
+            // Get events for this day
+            const eventsOnDay = eventsPerDayCache.get(dateString) || [];
+
+            // Make clickable if there are sessions or events
+            if (sessionsOnDay.length > 0 || eventsOnDay.length > 0) {
                 dayCell.classList.add('cursor-pointer', 'hover:bg-gray-50');
                 dayCell.addEventListener('click', () => {
                     openTrainingDayModal(
                         dateString,
                         sessionsOnDay,
                         filteredTrainings,
-                        currentUserData.id
+                        currentUserData.id,
+                        eventsOnDay
                     );
                 });
             }
@@ -282,6 +289,31 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
                 dayCell.appendChild(dotsContainer);
             }
 
+            // Add event indicators (red dots with calendar icon)
+            if (eventsOnDay.length > 0) {
+                const eventDotsContainer = document.createElement('div');
+                eventDotsContainer.className = 'flex gap-1 flex-wrap mt-1';
+
+                const eventsToShow = Math.min(eventsOnDay.length, 3);
+                for (let i = 0; i < eventsToShow; i++) {
+                    const event = eventsOnDay[i];
+                    const dot = document.createElement('div');
+                    dot.className = 'w-2 h-2 rounded-sm'; // Square to distinguish from training
+                    dot.style.backgroundColor = event.subgroupColor || '#ef4444';
+                    dot.title = event.title;
+                    eventDotsContainer.appendChild(dot);
+                }
+
+                if (eventsOnDay.length > 3) {
+                    const moreDot = document.createElement('span');
+                    moreDot.className = 'text-xs text-red-500';
+                    moreDot.textContent = `+${eventsOnDay.length - 3}`;
+                    eventDotsContainer.appendChild(moreDot);
+                }
+
+                dayCell.appendChild(eventDotsContainer);
+            }
+
             calendarGrid.appendChild(dayCell);
         }
     }
@@ -348,9 +380,106 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
             }
         }
 
+        // Load events for the month (including recurring events)
+        async function loadEvents() {
+            try {
+                eventsPerDayCache.clear();
+                const userSubgroups = currentUserData.subgroupIDs || [];
+
+                // Query 1: Single events in this month
+                const { data: singleEvents, error: singleError } = await supabase
+                    .from('events')
+                    .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
+                    .eq('club_id', currentUserData.clubId)
+                    .eq('cancelled', false)
+                    .or('event_type.eq.single,event_type.is.null')
+                    .gte('start_date', startDate)
+                    .lte('start_date', endDate);
+
+                // Query 2: Recurring events that might occur in this month
+                const { data: recurringEvents, error: recurringError } = await supabase
+                    .from('events')
+                    .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
+                    .eq('club_id', currentUserData.clubId)
+                    .eq('cancelled', false)
+                    .eq('event_type', 'recurring')
+                    .lte('start_date', endDate)
+                    .or(`repeat_end_date.gte.${startDate},repeat_end_date.is.null`);
+
+                if (singleError) console.warn('[Calendar] Error loading single events:', singleError);
+                if (recurringError) console.warn('[Calendar] Error loading recurring events:', recurringError);
+
+                // Helper to check if player is invited to this event
+                const isPlayerInvited = (event) => {
+                    if (event.target_type === 'club') return true;
+                    if (event.target_type === 'subgroups' && event.target_subgroup_ids) {
+                        return userSubgroups.some(sg => event.target_subgroup_ids.includes(sg));
+                    }
+                    return true;
+                };
+
+                // Helper to add event to a date
+                const addEventToDate = (dateKey, event) => {
+                    if (!isPlayerInvited(event)) return;
+
+                    let subgroupColor = '#ef4444'; // Red for events (to distinguish from training)
+                    if (event.target_type === 'subgroups' && event.target_subgroup_ids && event.target_subgroup_ids.length > 0) {
+                        const firstSubgroup = subgroupsMap.get(event.target_subgroup_ids[0]);
+                        if (firstSubgroup) {
+                            subgroupColor = firstSubgroup.color;
+                        }
+                    }
+
+                    if (!eventsPerDayCache.has(dateKey)) {
+                        eventsPerDayCache.set(dateKey, []);
+                    }
+                    eventsPerDayCache.get(dateKey).push({
+                        id: event.id,
+                        title: event.title,
+                        startTime: event.start_time,
+                        targetType: event.target_type,
+                        subgroupColor,
+                        isRecurring: event.event_type === 'recurring'
+                    });
+                };
+
+                // Process single events
+                (singleEvents || []).forEach(e => addEventToDate(e.start_date, e));
+
+                // Process recurring events
+                (recurringEvents || []).forEach(e => {
+                    const eventStartDate = new Date(e.start_date + 'T12:00:00');
+                    const monthStart = new Date(startDate + 'T12:00:00');
+                    const monthEnd = new Date(endDate + 'T12:00:00');
+                    const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
+                    const eventDayOfWeek = eventStartDate.getDay();
+
+                    for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+                        if (d < eventStartDate) continue;
+                        if (repeatEndDate && d > repeatEndDate) continue;
+
+                        const currentDateString = d.toISOString().split('T')[0];
+
+                        if (e.repeat_type === 'weekly' && d.getDay() === eventDayOfWeek) {
+                            addEventToDate(currentDateString, e);
+                        } else if (e.repeat_type === 'daily') {
+                            addEventToDate(currentDateString, e);
+                        } else if (e.repeat_type === 'monthly' && d.getDate() === eventStartDate.getDate()) {
+                            addEventToDate(currentDateString, e);
+                        }
+                    }
+                });
+
+                renderCalendarGrid();
+            } catch (error) {
+                console.warn('[Calendar] Error loading events:', error);
+            }
+        }
+
         // Initial loads
         await loadSessions();
         await loadAttendance();
+        await loadEvents();
 
         // Set up real-time subscriptions
         const sessionsSubscription = supabase
@@ -387,7 +516,24 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
             )
             .subscribe();
 
-        subscriptions.push(sessionsSubscription, attendanceSubscription);
+        const eventsSubscription = supabase
+            .channel('calendar-events')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'events',
+                    filter: `club_id=eq.${currentUserData.clubId}`
+                },
+                () => {
+                    console.log('[Calendar] Events updated in real-time');
+                    loadEvents();
+                }
+            )
+            .subscribe();
+
+        subscriptions.push(sessionsSubscription, attendanceSubscription, eventsSubscription);
     });
 
     // Return combined unsubscribe function
@@ -665,13 +811,14 @@ async function loadPairingsForSession(sessionId, userData, supabase) {
 }
 
 /**
- * Opens the training day modal with session details
+ * Opens the training day modal with session and event details
  * @param {string} dateString - Date in YYYY-MM-DD format
  * @param {Array} sessions - Array of training sessions
  * @param {Array} allTrainings - All attendance records
  * @param {string} playerId - Player ID
+ * @param {Array} events - Array of events for this day (optional)
  */
-function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
+function openTrainingDayModal(dateString, sessions, allTrainings, playerId, events = []) {
     const modal = document.getElementById('training-day-modal');
     const modalTitle = document.getElementById('training-day-modal-title');
     const modalContent = document.getElementById('training-day-modal-content');
@@ -688,7 +835,16 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
         day: 'numeric',
     });
 
-    modalTitle.textContent = `Training am ${formattedDate}`;
+    // Dynamic title based on content
+    const hasTrainings = sessions.length > 0;
+    const hasEvents = events.length > 0;
+    if (hasTrainings && hasEvents) {
+        modalTitle.textContent = `${formattedDate}`;
+    } else if (hasEvents) {
+        modalTitle.textContent = `Veranstaltungen am ${formattedDate}`;
+    } else {
+        modalTitle.textContent = `Training am ${formattedDate}`;
+    }
 
     // Build content
     let html = '<div class="space-y-3">';
@@ -792,6 +948,40 @@ function openTrainingDayModal(dateString, sessions, allTrainings, playerId) {
             </div>
         `;
     });
+
+    // Add events section if there are any
+    if (events.length > 0) {
+        if (sessions.length > 0) {
+            html += '<div class="border-t pt-3 mt-3"><h4 class="font-semibold text-gray-800 mb-2">📅 Veranstaltungen</h4></div>';
+        }
+
+        events.forEach(event => {
+            html += `
+                <div class="border rounded-lg p-3 bg-blue-50 border-blue-300">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-lg">📅</span>
+                                <span class="font-semibold text-gray-900">${event.title}</span>
+                            </div>
+                            ${event.startTime ? `
+                                <div class="text-sm text-gray-700">
+                                    <span class="font-medium">Uhrzeit:</span> ${event.startTime}
+                                </div>
+                            ` : ''}
+                            ${event.isRecurring ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Wiederkehrend</span>' : ''}
+                        </div>
+                        <div class="w-3 h-3 rounded-sm" style="background-color: ${event.subgroupColor || '#ef4444'};"></div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // Show message if nothing to display
+    if (sessions.length === 0 && events.length === 0) {
+        html += '<p class="text-gray-500 text-center py-4">Keine Termine an diesem Tag.</p>';
+    }
 
     html += '</div>';
 
