@@ -1155,6 +1155,11 @@ function renderLikeButton(matchId, matchType, activity = null) {
 function renderGenericLikeButton(activityId, activityType, activity, count = 0) {
     const key = `${activityType}-${activityId}`;
 
+    // Get count from cache if available (cache is populated before rendering)
+    const cachedData = likesDataCache[key];
+    const displayCount = cachedData ? cachedData.likeCount : count;
+    const isLiked = cachedData ? cachedData.isLiked : false;
+
     // Check if this is user's own activity
     const isOwn = activity ? isOwnActivity(activity, activityType) : false;
 
@@ -1167,8 +1172,8 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
                 data-like-btn="${key}"
                 title="Likes anzeigen"
             >
-                <i class="far fa-thumbs-up"></i>
-                <span class="text-sm" data-like-count="${key}">${count}</span>
+                <i class="${isLiked ? 'fas' : 'far'} fa-thumbs-up"></i>
+                <span class="text-sm" data-like-count="${key}">${displayCount > 0 ? displayCount : ''}</span>
             </button>
         `;
     }
@@ -1177,12 +1182,12 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
     return `
         <button
             onclick="toggleActivityLike('${activityId}', '${activityType}')"
-            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+            class="flex items-center gap-2 ${isLiked ? 'text-orange-500' : 'text-gray-600'} hover:text-orange-500 transition"
             data-like-btn="${key}"
             title="${t('dashboard.activityFeed.giveKudos')}"
         >
-            <i class="far fa-thumbs-up"></i>
-            <span class="text-sm" data-like-count="${key}">${count}</span>
+            <i class="${isLiked ? 'fas' : 'far'} fa-thumbs-up"></i>
+            <span class="text-sm" data-like-count="${key}">${displayCount > 0 ? displayCount : ''}</span>
         </button>
     `;
 }
