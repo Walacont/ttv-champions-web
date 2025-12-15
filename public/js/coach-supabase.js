@@ -757,20 +757,57 @@ async function initializeCoachPage(userData) {
             const dateString = dayCell.dataset.date;
             if (!dateString) return;
 
-            // Load events for this day
+            // Load events for this day (including recurring events)
             try {
-                const { data: events, error: eventsError } = await supabase
+                // Query 1: Single events on this exact date
+                const { data: singleEvents, error: singleError } = await supabase
                     .from('events')
-                    .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids')
+                    .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type')
                     .eq('club_id', userData.clubId)
                     .eq('start_date', dateString)
                     .eq('cancelled', false)
+                    .or('event_type.eq.single,event_type.is.null')
                     .order('start_time');
 
-                if (eventsError) throw eventsError;
+                if (singleError) throw singleError;
+
+                // Query 2: Recurring events that might occur on this day
+                const clickedDate = new Date(dateString + 'T12:00:00');
+                const clickedDayOfWeek = clickedDate.getDay();
+                const clickedDayOfMonth = clickedDate.getDate();
+
+                const { data: recurringEvents, error: recurringError } = await supabase
+                    .from('events')
+                    .select('id, title, start_time, end_time, location, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, start_date')
+                    .eq('club_id', userData.clubId)
+                    .eq('cancelled', false)
+                    .eq('event_type', 'recurring')
+                    .lte('start_date', dateString)
+                    .or(`repeat_end_date.gte.${dateString},repeat_end_date.is.null`);
+
+                if (recurringError) throw recurringError;
+
+                // Filter recurring events that actually occur on this day
+                const matchingRecurringEvents = (recurringEvents || []).filter(event => {
+                    const eventStartDate = new Date(event.start_date + 'T12:00:00');
+                    const eventDayOfWeek = eventStartDate.getDay();
+                    const eventDayOfMonth = eventStartDate.getDate();
+
+                    if (event.repeat_type === 'weekly') {
+                        return clickedDayOfWeek === eventDayOfWeek;
+                    } else if (event.repeat_type === 'daily') {
+                        return true;
+                    } else if (event.repeat_type === 'monthly') {
+                        return clickedDayOfMonth === eventDayOfMonth;
+                    }
+                    return false;
+                });
+
+                // Combine all events
+                const allEvents = [...(singleEvents || []), ...matchingRecurringEvents];
 
                 // Get subgroup info for events with subgroup targets
-                const eventsWithInfo = await Promise.all((events || []).map(async (event) => {
+                const eventsWithInfo = await Promise.all(allEvents.map(async (event) => {
                     let subgroupNames = [];
                     let subgroupColor = '#6366f1'; // Default indigo for club-wide
 
@@ -795,9 +832,13 @@ async function initializeCoachPage(userData) {
                         location: event.location,
                         targetType: event.target_type,
                         subgroupNames,
-                        subgroupColor
+                        subgroupColor,
+                        isRecurring: event.event_type === 'recurring'
                     };
                 }));
+
+                // Sort by start time
+                eventsWithInfo.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
                 // Open the event day modal
                 openEventDayModal(dateString, eventsWithInfo);

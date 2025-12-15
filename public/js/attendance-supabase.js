@@ -198,45 +198,101 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
         throw error;
     }
 
-    // Fetch events for the month
+    // Fetch events for the month (including recurring events)
     try {
-        const { data: events, error: eventsError } = await supabase
+        // Query 1: Single events in this month
+        const { data: singleEvents, error: singleError } = await supabase
             .from('events')
-            .select('id, title, start_date, start_time, target_type, target_subgroup_ids')
+            .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
             .eq('club_id', effectiveClubId)
+            .eq('cancelled', false)
+            .or(`event_type.eq.single,event_type.is.null`)
             .gte('start_date', startDate)
+            .lte('start_date', endDate);
+
+        // Query 2: Recurring events that might occur in this month
+        const { data: recurringEvents, error: recurringError } = await supabase
+            .from('events')
+            .select('id, title, start_date, start_time, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
+            .eq('club_id', effectiveClubId)
+            .eq('cancelled', false)
+            .eq('event_type', 'recurring')
             .lte('start_date', endDate)
-            .eq('cancelled', false);
+            .or(`repeat_end_date.gte.${startDate},repeat_end_date.is.null`);
 
-        if (eventsError) {
-            console.warn('[fetchMonthlyAttendance] Could not load events:', eventsError);
-        } else {
-            (events || []).forEach(e => {
-                const dateKey = e.start_date;
+        if (singleError) {
+            console.warn('[fetchMonthlyAttendance] Could not load single events:', singleError);
+        }
+        if (recurringError) {
+            console.warn('[fetchMonthlyAttendance] Could not load recurring events:', recurringError);
+        }
 
-                // Determine color based on target subgroups
-                let subgroupColor = '#6366f1'; // Default indigo for club-wide events
-                if (e.target_type === 'subgroups' && e.target_subgroup_ids && e.target_subgroup_ids.length > 0) {
-                    // Use the color of the first target subgroup
-                    const firstSubgroup = subgroupsMap.get(e.target_subgroup_ids[0]);
-                    if (firstSubgroup) {
-                        subgroupColor = firstSubgroup.color;
+        // Helper function to add event to a specific date
+        const addEventToDate = (dateKey, event) => {
+            let subgroupColor = '#6366f1';
+            if (event.target_type === 'subgroups' && event.target_subgroup_ids && event.target_subgroup_ids.length > 0) {
+                const firstSubgroup = subgroupsMap.get(event.target_subgroup_ids[0]);
+                if (firstSubgroup) {
+                    subgroupColor = firstSubgroup.color;
+                }
+            }
+
+            if (!monthlyEvents.has(dateKey)) {
+                monthlyEvents.set(dateKey, []);
+            }
+            monthlyEvents.get(dateKey).push({
+                id: event.id,
+                title: event.title,
+                startTime: event.start_time,
+                targetType: event.target_type,
+                targetSubgroupIds: event.target_subgroup_ids,
+                subgroupColor,
+                isRecurring: event.event_type === 'recurring'
+            });
+        };
+
+        // Process single events
+        (singleEvents || []).forEach(e => {
+            addEventToDate(e.start_date, e);
+        });
+
+        // Process recurring events - generate instances for each matching day in the month
+        (recurringEvents || []).forEach(e => {
+            const eventStartDate = new Date(e.start_date + 'T12:00:00');
+            const monthStart = new Date(startDate + 'T12:00:00');
+            const monthEnd = new Date(endDate + 'T12:00:00');
+            const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
+
+            // Get the day of week for the original event (0 = Sunday, 1 = Monday, etc.)
+            const eventDayOfWeek = eventStartDate.getDay();
+
+            // Iterate through each day in the month
+            for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+                // Skip if before event start date
+                if (d < eventStartDate) continue;
+
+                // Skip if after repeat end date
+                if (repeatEndDate && d > repeatEndDate) continue;
+
+                const currentDateString = d.toISOString().split('T')[0];
+
+                // Check if this day matches the repeat pattern
+                if (e.repeat_type === 'weekly') {
+                    // Weekly: same day of week
+                    if (d.getDay() === eventDayOfWeek) {
+                        addEventToDate(currentDateString, e);
+                    }
+                } else if (e.repeat_type === 'daily') {
+                    // Daily: every day
+                    addEventToDate(currentDateString, e);
+                } else if (e.repeat_type === 'monthly') {
+                    // Monthly: same day of month
+                    if (d.getDate() === eventStartDate.getDate()) {
+                        addEventToDate(currentDateString, e);
                     }
                 }
-
-                if (!monthlyEvents.has(dateKey)) {
-                    monthlyEvents.set(dateKey, []);
-                }
-                monthlyEvents.get(dateKey).push({
-                    id: e.id,
-                    title: e.title,
-                    startTime: e.start_time,
-                    targetType: e.target_type,
-                    targetSubgroupIds: e.target_subgroup_ids,
-                    subgroupColor
-                });
-            });
-        }
+            }
+        });
     } catch (error) {
         console.warn('[fetchMonthlyAttendance] Error loading events:', error);
         // Don't throw - events loading shouldn't break the page
