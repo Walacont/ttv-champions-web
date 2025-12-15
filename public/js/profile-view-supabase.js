@@ -1641,6 +1641,8 @@ async function loadProfileAttendance() {
                 repeat_end_date,
                 excluded_dates,
                 invitation_send_at,
+                invitation_lead_time_value,
+                invitation_lead_time_unit,
                 organizer_id
             `)
             .eq('club_id', clubId)
@@ -1870,7 +1872,29 @@ window.showDayEvents = function(dateStr) {
         // Determine status
         let statusHtml = '';
         const now = new Date();
-        const invitationSendAt = event.invitation_send_at ? new Date(event.invitation_send_at) : null;
+        const isRecurring = event.repeat_type && event.repeat_type !== 'none';
+
+        // Calculate invitation send time for this specific occurrence
+        let invitationSendAt = event.invitation_send_at ? new Date(event.invitation_send_at) : null;
+
+        // For recurring events with lead time, calculate send time for this occurrence
+        if (isRecurring && event.invitation_lead_time_value && event.invitation_lead_time_unit && event.displayDate) {
+            const eventDateTime = new Date(`${event.displayDate}T${event.start_time || '12:00'}`);
+            const sendDateTime = new Date(eventDateTime);
+
+            switch (event.invitation_lead_time_unit) {
+                case 'hours':
+                    sendDateTime.setHours(sendDateTime.getHours() - event.invitation_lead_time_value);
+                    break;
+                case 'days':
+                    sendDateTime.setDate(sendDateTime.getDate() - event.invitation_lead_time_value);
+                    break;
+                case 'weeks':
+                    sendDateTime.setDate(sendDateTime.getDate() - (event.invitation_lead_time_value * 7));
+                    break;
+            }
+            invitationSendAt = sendDateTime;
+        }
 
         if (event.invitationStatus === 'accepted') {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700"><i class="fas fa-check mr-1"></i>Zugesagt</span>';
@@ -1879,19 +1903,26 @@ window.showDayEvents = function(dateStr) {
         } else if (event.invitationStatus === 'pending') {
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700"><i class="fas fa-clock mr-1"></i>Ausstehend</span>';
         } else if (invitationSendAt && invitationSendAt > now) {
-            // Invitation not yet sent
+            // Invitation not yet sent - show when it will be sent
             const sendDateStr = invitationSendAt.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'short' });
             const sendTimeStr = invitationSendAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            statusHtml = `<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600"><i class="fas fa-paper-plane mr-1"></i>Einladung: ${sendDateStr}, ${sendTimeStr}</span>`;
+            statusHtml = `<span class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700"><i class="fas fa-paper-plane mr-1"></i>Einladung: ${sendDateStr}, ${sendTimeStr}</span>`;
         } else {
             // No invitation yet (possibly hasn't been sent or event is public)
             statusHtml = '<span class="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500"><i class="fas fa-question mr-1"></i>Keine Einladung</span>';
         }
 
-        // Recurring indicator
-        const recurringHtml = event.repeat_type && event.repeat_type !== 'none'
-            ? '<i class="fas fa-redo text-xs text-indigo-500 ml-1" title="Wiederkehrend"></i>'
-            : '';
+        // Recurring indicator with lead time info
+        let recurringHtml = '';
+        if (isRecurring) {
+            if (event.invitation_lead_time_value && event.invitation_lead_time_unit) {
+                const unitText = event.invitation_lead_time_unit === 'hours' ? 'Std.' :
+                                 event.invitation_lead_time_unit === 'days' ? 'Tage' : 'Wochen';
+                recurringHtml = `<i class="fas fa-redo text-xs text-indigo-500 ml-1" title="Wiederkehrend (${event.invitation_lead_time_value} ${unitText} vorher)"></i>`;
+            } else {
+                recurringHtml = '<i class="fas fa-redo text-xs text-indigo-500 ml-1" title="Wiederkehrend"></i>';
+            }
+        }
 
         return `
             <div class="bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition">

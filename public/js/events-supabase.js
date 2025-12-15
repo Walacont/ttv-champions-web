@@ -75,10 +75,17 @@ function setupEventListeners() {
     // Invitation send type toggle
     document.getElementById('event-send-invitation')?.addEventListener('change', (e) => {
         const scheduledDiv = document.getElementById('event-scheduled-send');
+        const leadTimeDiv = document.getElementById('event-lead-time-send');
+
+        // Hide all first
+        scheduledDiv?.classList.add('hidden');
+        leadTimeDiv?.classList.add('hidden');
+
+        // Show the relevant one
         if (e.target.value === 'scheduled') {
             scheduledDiv?.classList.remove('hidden');
-        } else {
-            scheduledDiv?.classList.add('hidden');
+        } else if (e.target.value === 'lead_time') {
+            leadTimeDiv?.classList.remove('hidden');
         }
     });
 }
@@ -405,6 +412,8 @@ async function submitEvent() {
     const responseDeadline = document.getElementById('event-response-deadline')?.value;
     const sendInvitation = document.getElementById('event-send-invitation')?.value;
     const sendAt = document.getElementById('event-send-at')?.value;
+    const leadTimeValue = parseInt(document.getElementById('event-lead-time-value')?.value) || 3;
+    const leadTimeUnit = document.getElementById('event-lead-time-unit')?.value || 'days';
     const commentsEnabled = document.getElementById('event-comments-enabled')?.checked;
 
     // Validation
@@ -429,6 +438,42 @@ async function submitEvent() {
         repeatEnd = document.getElementById('event-repeat-end')?.value || null;
     }
 
+    // Calculate invitation_send_at based on send type
+    let invitationSendAt = new Date().toISOString();
+    let invitationLeadTimeValue = null;
+    let invitationLeadTimeUnit = null;
+
+    if (sendInvitation === 'scheduled' && sendAt) {
+        invitationSendAt = sendAt;
+    } else if (sendInvitation === 'lead_time') {
+        // Calculate when to send based on lead time before event
+        const eventDateTime = new Date(`${startDate}T${startTime}`);
+        const sendDateTime = new Date(eventDateTime);
+
+        switch (leadTimeUnit) {
+            case 'hours':
+                sendDateTime.setHours(sendDateTime.getHours() - leadTimeValue);
+                break;
+            case 'days':
+                sendDateTime.setDate(sendDateTime.getDate() - leadTimeValue);
+                break;
+            case 'weeks':
+                sendDateTime.setDate(sendDateTime.getDate() - (leadTimeValue * 7));
+                break;
+        }
+
+        // If calculated time is in the past, send now
+        if (sendDateTime < new Date()) {
+            invitationSendAt = new Date().toISOString();
+        } else {
+            invitationSendAt = sendDateTime.toISOString();
+        }
+
+        // Store lead time for recurring events
+        invitationLeadTimeValue = leadTimeValue;
+        invitationLeadTimeUnit = leadTimeUnit;
+    }
+
     // Build event data
     const eventData = {
         club_id: currentUserData.clubId,
@@ -445,7 +490,9 @@ async function submitEvent() {
         target_subgroup_ids: currentEventData.targetType === 'subgroups' ? currentEventData.selectedSubgroups : [],
         max_participants: maxParticipants ? parseInt(maxParticipants) : null,
         response_deadline: responseDeadline || null,
-        invitation_send_at: sendInvitation === 'scheduled' && sendAt ? sendAt : new Date().toISOString(),
+        invitation_send_at: invitationSendAt,
+        invitation_lead_time_value: invitationLeadTimeValue,
+        invitation_lead_time_unit: invitationLeadTimeUnit,
         comments_enabled: commentsEnabled,
         repeat_type: repeatType,
         repeat_end_date: repeatEnd,
