@@ -1510,48 +1510,53 @@ async function loadProfileChallenges() {
     if (!container) return;
 
     try {
-        const { data: activeChallenges } = await supabase
-            .from('challenge_progress')
+        // Load completed challenges for this user
+        const { data: completedChallenges, error } = await supabase
+            .from('completed_challenges')
             .select(`
                 id,
-                progress,
+                completed_at,
                 challenges (
                     id,
                     name,
                     description,
-                    target_value,
                     xp_reward
                 )
             `)
-            .eq('player_id', profileId)
-            .eq('completed', false)
+            .eq('user_id', profileId)
+            .order('completed_at', { ascending: false })
             .limit(5);
 
-        if (!activeChallenges || activeChallenges.length === 0) {
-            container.innerHTML = '<p class="text-gray-400 text-sm">Keine aktiven Challenges</p>';
+        if (error) {
+            console.warn('[ProfileView] Error loading challenges:', error);
+            container.innerHTML = '<p class="text-gray-400 text-sm">Challenges nicht verfügbar</p>';
             return;
         }
 
-        container.innerHTML = activeChallenges.map(cp => {
-            const challenge = cp.challenges;
+        if (!completedChallenges || completedChallenges.length === 0) {
+            container.innerHTML = '<p class="text-gray-400 text-sm">Noch keine Challenges abgeschlossen</p>';
+            return;
+        }
+
+        container.innerHTML = completedChallenges.map(cc => {
+            const challenge = cc.challenges;
             if (!challenge) return '';
 
-            const progress = cp.progress || 0;
-            const target = challenge.target_value || 1;
-            const percentage = Math.min(100, Math.round((progress / target) * 100));
+            const completedDate = cc.completed_at ? new Date(cc.completed_at).toLocaleDateString('de-DE', {
+                day: 'numeric',
+                month: 'short'
+            }) : '';
 
             return `
-                <div class="bg-gray-50 rounded-lg p-3">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.name)}</span>
-                        <span class="text-xs text-indigo-600 font-semibold">+${challenge.xp_reward} XP</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="flex-1 bg-gray-200 rounded-full h-2">
-                            <div class="bg-indigo-600 h-2 rounded-full transition-all" style="width: ${percentage}%"></div>
+                <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-check-circle text-green-600"></i>
+                            <span class="font-medium text-gray-800 text-sm">${escapeHtml(challenge.name)}</span>
                         </div>
-                        <span class="text-xs text-gray-500">${progress}/${target}</span>
+                        <span class="text-xs text-green-600 font-semibold">+${challenge.xp_reward} XP</span>
                     </div>
+                    ${completedDate ? `<p class="text-xs text-gray-500 mt-1 ml-6">Abgeschlossen am ${completedDate}</p>` : ''}
                 </div>
             `;
         }).join('');
@@ -1562,7 +1567,7 @@ async function loadProfileChallenges() {
 }
 
 /**
- * Load attendance calendar for own profile
+ * Load attendance calendar for own profile (now based on event_attendance)
  */
 async function loadProfileAttendance() {
     const container = document.getElementById('profile-attendance-calendar');
@@ -1576,19 +1581,36 @@ async function loadProfileAttendance() {
     // Get first and last day of current month
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
+    const startDateStr = firstDay.toISOString().split('T')[0];
+    const endDateStr = lastDay.toISOString().split('T')[0];
 
-    const { data: attendance } = await supabase
-        .from('attendance')
-        .select('date, status')
-        .eq('player_id', profileId)
-        .gte('date', firstDay.toISOString().split('T')[0])
-        .lte('date', lastDay.toISOString().split('T')[0]);
+    // Query event_attendance where this user was present
+    // event_attendance has present_user_ids array and links to events via event_id
+    const { data: eventAttendance, error } = await supabase
+        .from('event_attendance')
+        .select(`
+            event_id,
+            present_user_ids,
+            events (
+                start_date,
+                title
+            )
+        `)
+        .contains('present_user_ids', [profileId]);
 
+    if (error) {
+        console.warn('[ProfileView] Error loading event attendance:', error);
+    }
+
+    // Filter to events in current month and collect dates
     const attendanceDates = new Set();
-    if (attendance) {
-        attendance.forEach(a => {
-            if (a.status === 'present') {
-                attendanceDates.add(a.date);
+    if (eventAttendance) {
+        eventAttendance.forEach(ea => {
+            if (ea.events?.start_date) {
+                const eventDate = ea.events.start_date;
+                if (eventDate >= startDateStr && eventDate <= endDateStr) {
+                    attendanceDates.add(eventDate);
+                }
             }
         });
     }
@@ -1641,7 +1663,7 @@ async function loadProfileAttendance() {
     calendarHtml += `
         <div class="mt-4 text-center">
             <span class="text-green-600 font-semibold">${presentDays}</span>
-            <span class="text-gray-500 text-sm">Trainingstage diesen Monat</span>
+            <span class="text-gray-500 text-sm">Veranstaltungen diesen Monat</span>
         </div>
     `;
 
