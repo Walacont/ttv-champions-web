@@ -69,10 +69,44 @@ DECLARE
     v_existing_like UUID;
     v_like_count INT;
     v_is_liked BOOLEAN;
+    v_is_owner BOOLEAN := FALSE;
 BEGIN
     -- Validate activity type
     IF p_activity_type NOT IN ('singles_match', 'doubles_match', 'post', 'poll', 'event', 'rank_up', 'club_join') THEN
         RAISE EXCEPTION 'Invalid activity type: %', p_activity_type;
+    END IF;
+
+    -- Check if user is owner/participant of the activity
+    IF p_activity_type = 'singles_match' THEN
+        SELECT EXISTS (
+            SELECT 1 FROM matches
+            WHERE id = p_activity_id
+            AND (player_a_id = v_user_id OR player_b_id = v_user_id)
+        ) INTO v_is_owner;
+    ELSIF p_activity_type = 'doubles_match' THEN
+        SELECT EXISTS (
+            SELECT 1 FROM doubles_matches
+            WHERE id = p_activity_id
+            AND (team_a_player1_id = v_user_id OR team_a_player2_id = v_user_id
+                 OR team_b_player1_id = v_user_id OR team_b_player2_id = v_user_id)
+        ) INTO v_is_owner;
+    ELSIF p_activity_type IN ('post', 'poll') THEN
+        SELECT EXISTS (
+            SELECT 1 FROM community_posts
+            WHERE id = p_activity_id
+            AND (user_id = v_user_id OR created_by = v_user_id)
+        ) INTO v_is_owner;
+    ELSIF p_activity_type IN ('rank_up', 'club_join', 'event') THEN
+        SELECT EXISTS (
+            SELECT 1 FROM activity_events
+            WHERE id = p_activity_id
+            AND user_id = v_user_id
+        ) INTO v_is_owner;
+    END IF;
+
+    -- Prevent users from liking their own activities
+    IF v_is_owner THEN
+        RAISE EXCEPTION 'You cannot like your own activity';
     END IF;
 
     -- Check if user already liked this activity
@@ -121,13 +155,13 @@ BEGIN
                 json_build_object('activity_id', p_activity_id, 'activity_type', p_activity_type, 'liker_id', v_user_id),
                 NOW()
             FROM (
-                SELECT team_a_player_1_id AS player_id FROM doubles_matches WHERE id = p_activity_id
+                SELECT team_a_player1_id AS player_id FROM doubles_matches WHERE id = p_activity_id
                 UNION
-                SELECT team_a_player_2_id FROM doubles_matches WHERE id = p_activity_id
+                SELECT team_a_player2_id FROM doubles_matches WHERE id = p_activity_id
                 UNION
-                SELECT team_b_player_1_id FROM doubles_matches WHERE id = p_activity_id
+                SELECT team_b_player1_id FROM doubles_matches WHERE id = p_activity_id
                 UNION
-                SELECT team_b_player_2_id FROM doubles_matches WHERE id = p_activity_id
+                SELECT team_b_player2_id FROM doubles_matches WHERE id = p_activity_id
             ) AS players
             WHERE player_id != v_user_id AND player_id IS NOT NULL;
 
@@ -164,7 +198,7 @@ BEGIN
                 user_id,
                 'activity_like',
                 'Neues Like',
-                (SELECT COALESCE(display_name, first_name || ' ' || last_name) FROM profiles WHERE id = v_user_id) || ' hat deine Aktivität geliked',
+                (SELECT COALESCE(display_name, first_name || ' ' || last_name) FROM profiles WHERE id = v_user_id) || ' hat deine Aktivitï¿½t geliked',
                 json_build_object('activity_id', p_activity_id, 'activity_type', p_activity_type, 'liker_id', v_user_id),
                 NOW()
             FROM activity_events
@@ -309,13 +343,13 @@ BEGIN
             json_build_object('activity_id', p_activity_id, 'activity_type', p_activity_type, 'comment_id', v_comment_id, 'commenter_id', v_user_id),
             NOW()
         FROM (
-            SELECT team_a_player_1_id AS player_id FROM doubles_matches WHERE id = p_activity_id
+            SELECT team_a_player1_id AS player_id FROM doubles_matches WHERE id = p_activity_id
             UNION
-            SELECT team_a_player_2_id FROM doubles_matches WHERE id = p_activity_id
+            SELECT team_a_player2_id FROM doubles_matches WHERE id = p_activity_id
             UNION
-            SELECT team_b_player_1_id FROM doubles_matches WHERE id = p_activity_id
+            SELECT team_b_player1_id FROM doubles_matches WHERE id = p_activity_id
             UNION
-            SELECT team_b_player_2_id FROM doubles_matches WHERE id = p_activity_id
+            SELECT team_b_player2_id FROM doubles_matches WHERE id = p_activity_id
         ) AS players
         WHERE player_id != v_user_id AND player_id IS NOT NULL;
 
@@ -352,7 +386,7 @@ BEGIN
             user_id,
             'activity_comment',
             'Neuer Kommentar',
-            (SELECT COALESCE(display_name, first_name || ' ' || last_name) FROM profiles WHERE id = v_user_id) || ' hat deine Aktivität kommentiert',
+            (SELECT COALESCE(display_name, first_name || ' ' || last_name) FROM profiles WHERE id = v_user_id) || ' hat deine Aktivitï¿½t kommentiert',
             json_build_object('activity_id', p_activity_id, 'activity_type', p_activity_type, 'comment_id', v_comment_id, 'commenter_id', v_user_id),
             NOW()
         FROM activity_events

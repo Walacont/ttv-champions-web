@@ -115,6 +115,10 @@ export function initActivityFeedModule(user, userData) {
     initComments(userData);
     window.openComments = openComments;
 
+    // Setup likes viewer modal
+    setupLikesModal();
+    window.showLikesModal = showLikesModal;
+
     // Setup infinite scroll
     setupInfiniteScroll();
 
@@ -137,6 +141,190 @@ export function initActivityFeedModule(user, userData) {
         loadActivityFeed();
     };
     window.addEventListener('languageChanged', window.activityFeedLanguageListener);
+}
+
+/**
+ * Setup likes modal
+ */
+function setupLikesModal() {
+    // Check if modal already exists
+    if (document.getElementById('likes-modal')) return;
+
+    const modalHTML = `
+        <div id="likes-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[80vh] flex flex-col">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between p-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        <i class="fas fa-thumbs-up mr-2 text-orange-500"></i>
+                        <span>Likes</span>
+                    </h3>
+                    <button onclick="window.closeLikesModal()" class="text-gray-400 hover:text-gray-600 transition">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Likes List -->
+                <div id="likes-list" class="flex-1 overflow-y-auto p-4">
+                    <div class="text-center text-gray-400 py-8">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                        <p class="text-sm">Lädt...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // Close modal when clicking outside
+    document.getElementById('likes-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'likes-modal') {
+            window.closeLikesModal();
+        }
+    });
+}
+
+/**
+ * Show likes modal with list of users who liked
+ */
+async function showLikesModal(activityId, activityType) {
+    const modal = document.getElementById('likes-modal');
+    const likesList = document.getElementById('likes-list');
+
+    if (!modal) return;
+
+    // Show modal
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Show loading
+    likesList.innerHTML = `
+        <div class="text-center text-gray-400 py-8">
+            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+            <p class="text-sm">Lädt...</p>
+        </div>
+    `;
+
+    try {
+        // Fetch likes
+        const { data: likes, error } = await supabase
+            .from('activity_likes')
+            .select('user_id, created_at')
+            .eq('activity_id', activityId)
+            .eq('activity_type', activityType)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!likes || likes.length === 0) {
+            likesList.innerHTML = `
+                <div class="text-center text-gray-400 py-8">
+                    <i class="far fa-heart text-3xl mb-2"></i>
+                    <p class="text-sm">Noch keine Likes</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Get user profiles
+        const userIds = likes.map(l => l.user_id);
+        const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, display_name, avatar_url')
+            .in('id', userIds);
+
+        if (profileError) throw profileError;
+
+        // Create profile map
+        const profileMap = {};
+        (profiles || []).forEach(p => {
+            profileMap[p.id] = p;
+        });
+
+        // Render likes
+        likesList.innerHTML = likes.map(like => {
+            const profile = profileMap[like.user_id];
+            if (!profile) return '';
+
+            const displayName = profile.display_name || `${profile.first_name} ${profile.last_name?.charAt(0) || ''}.`;
+            const avatarUrl = profile.avatar_url || DEFAULT_AVATAR;
+            const likedDate = new Date(like.created_at);
+            const timeAgo = getTimeAgo(likedDate);
+
+            return `
+                <a href="/profile.html?id=${like.user_id}" class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-900 truncate">${displayName}</p>
+                        <p class="text-xs text-gray-500">${timeAgo}</p>
+                    </div>
+                    <i class="fas fa-thumbs-up text-orange-500"></i>
+                </a>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading likes:', error);
+        likesList.innerHTML = `
+            <div class="text-center text-gray-400 py-8">
+                <i class="fas fa-exclamation-triangle text-3xl mb-2"></i>
+                <p class="text-sm">Fehler beim Laden</p>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Close likes modal
+ */
+window.closeLikesModal = function() {
+    const modal = document.getElementById('likes-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+};
+
+/**
+ * Get time ago string for a date
+ */
+function getTimeAgo(date) {
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return 'gerade eben';
+    if (seconds < 3600) return `vor ${Math.floor(seconds / 60)} Min.`;
+    if (seconds < 86400) return `vor ${Math.floor(seconds / 3600)} Std.`;
+    if (seconds < 604800) return `vor ${Math.floor(seconds / 86400)} Tag(en)`;
+
+    return date.toLocaleDateString('de-DE');
+}
+
+/**
+ * Check if activity belongs to current user
+ */
+function isOwnActivity(activity, activityType) {
+    if (!currentUser?.id) return false;
+
+    if (activityType === 'singles' || activityType === 'singles_match') {
+        return activity.player_a_id === currentUser.id || activity.player_b_id === currentUser.id;
+    } else if (activityType === 'doubles' || activityType === 'doubles_match') {
+        return [
+            activity.team_a_player1_id,
+            activity.team_a_player2_id,
+            activity.team_b_player1_id,
+            activity.team_b_player2_id
+        ].includes(currentUser.id);
+    } else if (activityType === 'post' || activityType === 'poll') {
+        return activity.user_id === currentUser.id || activity.created_by === currentUser.id;
+    } else if (activityType === 'rank_up' || activityType === 'club_join' || activityType === 'event') {
+        return activity.user_id === currentUser.id;
+    }
+
+    return false;
 }
 
 /**
@@ -679,7 +867,8 @@ async function loadLikesForActivities(activities) {
             // Convert match types to activity types for new schema
             if (a.matchType === 'singles') return 'singles_match';
             if (a.matchType === 'doubles') return 'doubles_match';
-            return a.activityType || a.matchType;
+            // For other types, use activityType directly
+            return a.activityType || a.matchType || 'post';
         });
 
         const { data, error } = await supabase.rpc('get_activity_likes_batch', {
@@ -700,6 +889,22 @@ async function loadLikesForActivities(activities) {
                 isLiked: like.is_liked_by_me || false,
                 recentLikers: like.recent_likers || []
             };
+
+            // Update UI immediately
+            const countEl = document.querySelector(`[data-like-count="${key}"]`);
+            const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
+            if (countEl) {
+                countEl.textContent = like.like_count > 0 ? like.like_count : '';
+            }
+            if (likeBtn && like.is_liked_by_me) {
+                const icon = likeBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                }
+                likeBtn.classList.remove('text-gray-400');
+                likeBtn.classList.add('text-orange-500');
+            }
         });
 
     } catch (error) {
@@ -740,6 +945,22 @@ async function loadLikesFallback(activities) {
                 isLiked: !!userLike,
                 recentLikers: []
             };
+
+            // Update UI immediately
+            const countEl = document.querySelector(`[data-like-count="${key}"]`);
+            const likeBtn = document.querySelector(`[data-like-btn="${key}"]`);
+            if (countEl) {
+                countEl.textContent = count > 0 ? count : '';
+            }
+            if (likeBtn && userLike) {
+                const icon = likeBtn.querySelector('i');
+                if (icon) {
+                    icon.classList.remove('far');
+                    icon.classList.add('fas');
+                }
+                likeBtn.classList.remove('text-gray-400');
+                likeBtn.classList.add('text-orange-500');
+            }
         } catch (e) {
             likesDataCache[key] = { likeCount: 0, isLiked: false, recentLikers: [] };
         }
@@ -774,6 +995,20 @@ async function toggleActivityLike(activityId, activityType) {
         });
 
         if (error) {
+            // Check if user tried to like their own activity
+            if (error.message && error.message.includes('cannot like your own activity')) {
+                // Revert UI changes
+                updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+                likesDataCache[key] = currentData;
+                // Show user-friendly message
+                const activityName = activityType === 'singles_match' ? 'dein Spiel' :
+                                   activityType === 'doubles_match' ? 'dein Doppel' :
+                                   activityType === 'post' ? 'deinen Beitrag' :
+                                   activityType === 'poll' ? 'deine Umfrage' :
+                                   'deine Aktivität';
+                alert(`Du kannst ${activityName} nicht selbst liken.`);
+                return;
+            }
             console.warn('[ActivityFeed] Toggle RPC not available:', error.message);
             await toggleLikeFallback(activityId, activityType, newIsLiked, key);
         } else if (data) {
@@ -787,8 +1022,20 @@ async function toggleActivityLike(activityId, activityType) {
 
     } catch (error) {
         console.error('[ActivityFeed] Error toggling like:', error);
-        updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
-        likesDataCache[key] = currentData;
+        // Check if it's the "own activity" error
+        if (error.message && error.message.includes('cannot like your own activity')) {
+            updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+            likesDataCache[key] = currentData;
+            const activityName = activityType === 'singles_match' ? 'dein Spiel' :
+                               activityType === 'doubles_match' ? 'dein Doppel' :
+                               activityType === 'post' ? 'deinen Beitrag' :
+                               activityType === 'poll' ? 'deine Umfrage' :
+                               'deine Aktivität';
+            alert(`Du kannst ${activityName} nicht selbst liken.`);
+        } else {
+            updateLikeUI(likeBtn, countEl, currentData.isLiked, currentData.likeCount);
+            likesDataCache[key] = currentData;
+        }
     }
 }
 
@@ -857,9 +1104,9 @@ function getLikeData(matchId, matchType) {
 }
 
 /**
- * Render the like button HTML
+ * Render the like button HTML (for matches)
  */
-function renderLikeButton(matchId, matchType) {
+function renderLikeButton(matchId, matchType, activity = null) {
     // Convert match type to activity type for new schema
     const activityType = matchType === 'singles' ? 'singles_match' : 'doubles_match';
     const key = `${activityType}-${matchId}`;
@@ -867,6 +1114,25 @@ function renderLikeButton(matchId, matchType) {
     const isLiked = likeData.isLiked;
     const count = likeData.likeCount;
 
+    // Check if this is user's own activity
+    const isOwn = activity ? isOwnActivity(activity, matchType) : false;
+
+    if (isOwn) {
+        // Render "View Likes" button for own activities
+        return `
+            <button
+                data-like-btn="${key}"
+                onclick="event.stopPropagation(); showLikesModal('${matchId}', '${activityType}')"
+                class="flex items-center gap-1 text-gray-600 hover:text-orange-500 transition-colors"
+                title="Likes anzeigen"
+            >
+                <i class="far fa-thumbs-up"></i>
+                <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>
+            </button>
+        `;
+    }
+
+    // Regular like button for other users' activities
     const iconClass = isLiked ? 'fas' : 'far';
     const colorClass = isLiked ? 'text-orange-500' : 'text-gray-400 hover:text-orange-500';
 
@@ -879,6 +1145,44 @@ function renderLikeButton(matchId, matchType) {
         >
             <i class="${iconClass} fa-thumbs-up"></i>
             <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>
+        </button>
+    `;
+}
+
+/**
+ * Render generic like button for posts/polls/events
+ */
+function renderGenericLikeButton(activityId, activityType, activity, count = 0) {
+    const key = `${activityType}-${activityId}`;
+
+    // Check if this is user's own activity
+    const isOwn = activity ? isOwnActivity(activity, activityType) : false;
+
+    if (isOwn) {
+        // Render "View Likes" button for own activities
+        return `
+            <button
+                onclick="showLikesModal('${activityId}', '${activityType}')"
+                class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                data-like-btn="${key}"
+                title="Likes anzeigen"
+            >
+                <i class="far fa-thumbs-up"></i>
+                <span class="text-sm" data-like-count="${key}">${count}</span>
+            </button>
+        `;
+    }
+
+    // Regular like button for other users' activities
+    return `
+        <button
+            onclick="toggleActivityLike('${activityId}', '${activityType}')"
+            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+            data-like-btn="${key}"
+            title="${t('dashboard.activityFeed.giveKudos')}"
+        >
+            <i class="far fa-thumbs-up"></i>
+            <span class="text-sm" data-like-count="${key}">${count}</span>
         </button>
     `;
 }
@@ -1237,7 +1541,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
             <!-- Actions: Like, Comment, Details -->
             <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                 <div class="flex items-center gap-4">
-                    ${renderLikeButton(match.id, 'singles')}
+                    ${renderLikeButton(match.id, 'singles', match)}
                     <button
                         onclick="openComments('${match.id}', 'singles_match')"
                         class="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
@@ -1414,7 +1718,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
             <!-- Actions: Like, Comment, Details -->
             <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
                 <div class="flex items-center gap-4">
-                    ${renderLikeButton(match.id, 'doubles')}
+                    ${renderLikeButton(match.id, 'doubles', match)}
                     <button
                         onclick="openComments('${match.id}', 'doubles_match')"
                         class="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
@@ -1493,21 +1797,13 @@ function renderClubJoinCard(activity) {
 
                     <!-- Event Actions -->
                     <div class="flex items-center gap-6 mt-3 pt-3 border-t border-blue-100">
+                        ${renderGenericLikeButton(activity.id, 'club_join', activity, activity.likes_count || 0)}
                         <button
-                            onclick="toggleActivityLike('${activity.id}', 'event')"
-                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
-                            data-like-btn="event-${activity.id}"
-                            title="Liken"
-                        >
-                            <i class="far fa-thumbs-up"></i>
-                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
-                        </button>
-                        <button
-                            onclick="openComments('${activity.id}', 'event')"
+                            onclick="openComments('${activity.id}', 'club_join')"
                             class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
                         >
                             <i class="far fa-comment"></i>
-                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                            <span class="text-sm" data-comment-count="club_join-${activity.id}">${activity.comments_count || 0}</span>
                         </button>
                     </div>
                 </div>
@@ -1550,26 +1846,6 @@ function renderClubLeaveCard(activity) {
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
-                    </div>
-
-                    <!-- Event Actions -->
-                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-gray-200">
-                        <button
-                            onclick="toggleActivityLike('${activity.id}', 'event')"
-                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
-                            data-like-btn="event-${activity.id}"
-                            title="Liken"
-                        >
-                            <i class="far fa-thumbs-up"></i>
-                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
-                        </button>
-                        <button
-                            onclick="openComments('${activity.id}', 'event')"
-                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
-                        >
-                            <i class="far fa-comment"></i>
-                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -1644,21 +1920,13 @@ function renderRankUpCard(activity) {
 
                     <!-- Event Actions -->
                     <div class="flex items-center gap-6 mt-3 pt-3 border-t border-${colorScheme}-200">
+                        ${renderGenericLikeButton(activity.id, 'rank_up', activity, activity.likes_count || 0)}
                         <button
-                            onclick="toggleActivityLike('${activity.id}', 'event')"
-                            class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
-                            data-like-btn="event-${activity.id}"
-                            title="Liken"
-                        >
-                            <i class="far fa-thumbs-up"></i>
-                            <span class="text-sm" data-like-count="event-${activity.id}">${activity.likes_count || 0}</span>
-                        </button>
-                        <button
-                            onclick="openComments('${activity.id}', 'event')"
+                            onclick="openComments('${activity.id}', 'rank_up')"
                             class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
                         >
                             <i class="far fa-comment"></i>
-                            <span class="text-sm" data-comment-count="event-${activity.id}">${activity.comments_count || 0}</span>
+                            <span class="text-sm" data-comment-count="rank_up-${activity.id}">${activity.comments_count || 0}</span>
                         </button>
                     </div>
                 </div>
@@ -1760,15 +2028,7 @@ function renderPostCard(activity, profileMap) {
 
             <!-- Post Actions -->
             <div class="flex items-center gap-6 pt-3 border-t border-gray-100">
-                <button
-                    onclick="toggleActivityLike('${postId}', 'post')"
-                    class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
-                    data-like-btn="post-${postId}"
-                    title="${t('dashboard.activityFeed.giveKudos')}"
-                >
-                    <i class="far fa-thumbs-up"></i>
-                    <span class="text-sm" data-like-count="post-${postId}">${likesCount}</span>
-                </button>
+                ${renderGenericLikeButton(postId, 'post', activity, likesCount)}
                 <button
                     onclick="openComments('${postId}', 'post')"
                     class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
@@ -1870,15 +2130,7 @@ function renderPollCard(activity, profileMap) {
 
                 <!-- Poll Actions -->
                 <div class="flex items-center gap-6">
-                    <button
-                        onclick="toggleActivityLike('${activity.id}', 'poll')"
-                        class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
-                        data-like-btn="poll-${activity.id}"
-                        title="${t('dashboard.activityFeed.giveKudos')}"
-                    >
-                        <i class="far fa-thumbs-up"></i>
-                        <span class="text-sm" data-like-count="poll-${activity.id}">${activity.likes_count || 0}</span>
-                    </button>
+                    ${renderGenericLikeButton(activity.id, 'poll', activity, activity.likes_count || 0)}
                     <button
                         onclick="openComments('${activity.id}', 'poll')"
                         class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
