@@ -13,7 +13,7 @@ COMMENT ON COLUMN events.invitation_lead_time_unit IS 'Unit of time: hours, days
 
 -- Create an index for querying events that need invitations sent
 CREATE INDEX IF NOT EXISTS idx_events_invitation_send_at ON events (invitation_send_at)
-WHERE invitation_send_at IS NOT NULL AND deleted_at IS NULL;
+WHERE invitation_send_at IS NOT NULL;
 
 -- Done!
 SELECT 'Invitation lead time columns added!' as status;
