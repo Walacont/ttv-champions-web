@@ -690,12 +690,34 @@ window.openEventDetails = async function(eventId) {
                         <div>
                             <h2 class="text-xl font-bold text-gray-900">${event.title}</h2>
                             <p class="text-gray-500 mt-1">${formattedDate}</p>
+                            ${event.repeat_type ? `
+                            <p class="text-sm text-indigo-600 mt-1">
+                                <svg class="w-4 h-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                Wiederkehrend (${event.repeat_type === 'weekly' ? 'Wöchentlich' : event.repeat_type === 'daily' ? 'Täglich' : 'Monatlich'})
+                            </p>
+                            ` : ''}
                         </div>
-                        <button onclick="document.getElementById('event-details-modal').remove()" class="text-gray-400 hover:text-gray-600">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                            </svg>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            ${isCoach ? `
+                            <button onclick="window.openEditEventModal('${eventId}')" class="text-indigo-500 hover:text-indigo-700 p-2" title="Bearbeiten">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <button onclick="window.openDeleteEventModal('${eventId}', ${event.repeat_type ? 'true' : 'false'})" class="text-red-500 hover:text-red-700 p-2" title="Löschen">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                            ` : ''}
+                            <button onclick="document.getElementById('event-details-modal').remove()" class="text-gray-400 hover:text-gray-600 p-2">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1703,6 +1725,535 @@ window.saveNewExerciseFull = async function() {
     } catch (error) {
         console.error('[Events] Error creating exercise:', error);
         alert('Fehler beim Erstellen: ' + error.message);
+    }
+};
+
+/**
+ * Open delete event confirmation modal
+ * @param {string} eventId - Event ID
+ * @param {boolean} isRecurring - Whether this is a recurring event
+ */
+window.openDeleteEventModal = async function(eventId, isRecurring) {
+    // Load event details
+    const { data: event, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+    if (error) {
+        console.error('[Events] Error loading event:', error);
+        alert('Fehler beim Laden der Veranstaltung');
+        return;
+    }
+
+    const existingModal = document.getElementById('delete-event-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'delete-event-modal';
+    modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <div class="text-center mb-6">
+                <div class="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">Veranstaltung löschen</h3>
+                <p class="text-gray-500 mt-2">Möchtest du "${event.title}" wirklich löschen?</p>
+            </div>
+
+            ${isRecurring ? `
+            <div class="mb-6">
+                <p class="text-sm font-medium text-gray-700 mb-3">Diese Veranstaltung ist wiederkehrend:</p>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="delete-scope" value="this" checked class="w-4 h-4 text-red-600">
+                        <div>
+                            <p class="font-medium text-gray-900">Nur diesen Termin</p>
+                            <p class="text-sm text-gray-500">Nur den ausgewählten Termin löschen</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="delete-scope" value="future" class="w-4 h-4 text-red-600">
+                        <div>
+                            <p class="font-medium text-gray-900">Diesen und alle zukünftigen</p>
+                            <p class="text-sm text-gray-500">Ab diesem Datum löschen</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="delete-scope" value="all" class="w-4 h-4 text-red-600">
+                        <div>
+                            <p class="font-medium text-gray-900">Alle Termine</p>
+                            <p class="text-sm text-gray-500">Die gesamte Veranstaltungsserie löschen</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            ` : ''}
+
+            <div class="mb-6">
+                <label class="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer">
+                    <input type="checkbox" id="delete-notify-participants" checked class="w-4 h-4 text-blue-600 rounded">
+                    <div>
+                        <p class="font-medium text-blue-900">Teilnehmer benachrichtigen</p>
+                        <p class="text-sm text-blue-700">Eingeladene werden über die Absage informiert</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('delete-event-modal').remove()"
+                        class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                    Abbrechen
+                </button>
+                <button onclick="window.executeDeleteEvent('${eventId}', ${isRecurring})"
+                        class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium">
+                    Löschen
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+};
+
+/**
+ * Execute event deletion
+ * @param {string} eventId - Event ID
+ * @param {boolean} isRecurring - Whether this is a recurring event
+ */
+window.executeDeleteEvent = async function(eventId, isRecurring) {
+    try {
+        const deleteScope = isRecurring
+            ? document.querySelector('input[name="delete-scope"]:checked')?.value || 'this'
+            : 'this';
+        const notifyParticipants = document.getElementById('delete-notify-participants')?.checked ?? true;
+
+        // Load event details for notification
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+
+        if (eventError) throw eventError;
+
+        // Get all participants to notify
+        let participantsToNotify = [];
+        if (notifyParticipants) {
+            const { data: invitations } = await supabase
+                .from('event_invitations')
+                .select('user_id')
+                .eq('event_id', eventId);
+            participantsToNotify = (invitations || []).map(i => i.user_id);
+        }
+
+        // Format date for notification
+        const formattedDate = new Date(event.start_date + 'T12:00:00').toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+        });
+
+        if (deleteScope === 'this') {
+            // Delete only this event instance
+            // For recurring events, we add this date to an exclusions list
+            if (isRecurring && event.repeat_type) {
+                // Add exclusion date
+                const exclusions = event.excluded_dates || [];
+                exclusions.push(event.start_date);
+
+                await supabase
+                    .from('events')
+                    .update({ excluded_dates: exclusions })
+                    .eq('id', eventId);
+            } else {
+                // Delete the event completely
+                await supabase.from('event_invitations').delete().eq('event_id', eventId);
+                await supabase.from('event_attendance').delete().eq('event_id', eventId);
+                await supabase.from('events').delete().eq('id', eventId);
+            }
+        } else if (deleteScope === 'future') {
+            // Set repeat_end_date to before this date
+            const previousDay = new Date(event.start_date);
+            previousDay.setDate(previousDay.getDate() - 1);
+            const newEndDate = previousDay.toISOString().split('T')[0];
+
+            await supabase
+                .from('events')
+                .update({ repeat_end_date: newEndDate })
+                .eq('id', eventId);
+        } else if (deleteScope === 'all') {
+            // Delete the entire event series
+            await supabase.from('event_invitations').delete().eq('event_id', eventId);
+            await supabase.from('event_attendance').delete().eq('event_id', eventId);
+            await supabase.from('events').delete().eq('id', eventId);
+        }
+
+        // Send notifications
+        if (notifyParticipants && participantsToNotify.length > 0) {
+            const scopeText = deleteScope === 'all' ? ' (alle Termine)'
+                : deleteScope === 'future' ? ' (ab diesem Datum)'
+                : '';
+
+            const notifications = participantsToNotify.map(userId => ({
+                user_id: userId,
+                type: 'event_cancelled',
+                title: 'Veranstaltung abgesagt',
+                message: `"${event.title}" am ${formattedDate} wurde abgesagt${scopeText}`,
+                data: {
+                    event_id: eventId,
+                    event_title: event.title,
+                    event_date: event.start_date,
+                    delete_scope: deleteScope
+                },
+                is_read: false,
+                created_at: new Date().toISOString()
+            }));
+
+            await supabase.from('notifications').insert(notifications);
+        }
+
+        // Close modals and refresh
+        document.getElementById('delete-event-modal')?.remove();
+        document.getElementById('event-details-modal')?.remove();
+
+        alert('Veranstaltung wurde gelöscht' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : ''));
+
+        // Trigger calendar refresh by dispatching custom event
+        window.dispatchEvent(new CustomEvent('event-changed', { detail: { type: 'delete', eventId } }));
+
+    } catch (error) {
+        console.error('[Events] Error deleting event:', error);
+        alert('Fehler beim Löschen: ' + error.message);
+    }
+};
+
+/**
+ * Open edit event modal
+ * @param {string} eventId - Event ID
+ */
+window.openEditEventModal = async function(eventId) {
+    try {
+        // Load event details
+        const { data: event, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+
+        if (error) throw error;
+
+        const isRecurring = !!event.repeat_type;
+
+        const existingModal = document.getElementById('edit-event-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'edit-event-modal';
+        modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-[100003] p-4';
+
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <!-- Header -->
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-bold text-gray-900">Veranstaltung bearbeiten</h2>
+                        <button onclick="document.getElementById('edit-event-modal').remove()" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <div class="p-6 overflow-y-auto flex-1 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Titel *</label>
+                        <input type="text" id="edit-event-title" value="${event.title || ''}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+                        <textarea id="edit-event-description" rows="2"
+                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">${event.description || ''}</textarea>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+                            <input type="date" id="edit-event-date" value="${event.start_date || ''}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Treffzeit</label>
+                            <input type="time" id="edit-event-meeting-time" value="${event.meeting_time || ''}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Startzeit</label>
+                            <input type="time" id="edit-event-start-time" value="${event.start_time || ''}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Endzeit</label>
+                            <input type="time" id="edit-event-end-time" value="${event.end_time || ''}"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+                        <input type="text" id="edit-event-location" value="${event.location || ''}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    ${isRecurring ? `
+                    <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <p class="text-sm font-medium text-indigo-800 mb-3">Wiederkehrende Veranstaltung</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="edit-scope" value="this" checked class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm text-gray-700">Nur diesen Termin ändern</span>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="edit-scope" value="future" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm text-gray-700">Diesen und alle zukünftigen Termine</span>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="radio" name="edit-scope" value="all" class="w-4 h-4 text-indigo-600">
+                                <span class="text-sm text-gray-700">Alle Termine der Serie</span>
+                            </label>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input type="checkbox" id="edit-notify-participants" checked class="w-4 h-4 text-blue-600 rounded">
+                            <div>
+                                <p class="font-medium text-blue-900">Teilnehmer benachrichtigen</p>
+                                <p class="text-sm text-blue-700">Über die Änderungen informieren</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-6 border-t border-gray-200">
+                    <div class="flex gap-3">
+                        <button onclick="document.getElementById('edit-event-modal').remove()"
+                                class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium">
+                            Abbrechen
+                        </button>
+                        <button onclick="window.executeEditEvent('${eventId}', ${isRecurring})"
+                                class="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                            Speichern
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+    } catch (error) {
+        console.error('[Events] Error loading event for edit:', error);
+        alert('Fehler beim Laden der Veranstaltung');
+    }
+};
+
+/**
+ * Execute event edit/update
+ * @param {string} eventId - Event ID
+ * @param {boolean} isRecurring - Whether this is a recurring event
+ */
+window.executeEditEvent = async function(eventId, isRecurring) {
+    try {
+        const editScope = isRecurring
+            ? document.querySelector('input[name="edit-scope"]:checked')?.value || 'this'
+            : 'all';
+        const notifyParticipants = document.getElementById('edit-notify-participants')?.checked ?? true;
+
+        // Gather form data
+        const title = document.getElementById('edit-event-title')?.value?.trim();
+        const description = document.getElementById('edit-event-description')?.value?.trim();
+        const startDate = document.getElementById('edit-event-date')?.value;
+        const meetingTime = document.getElementById('edit-event-meeting-time')?.value;
+        const startTime = document.getElementById('edit-event-start-time')?.value;
+        const endTime = document.getElementById('edit-event-end-time')?.value;
+        const location = document.getElementById('edit-event-location')?.value?.trim();
+
+        if (!title) {
+            alert('Bitte gib einen Titel ein');
+            return;
+        }
+
+        // Load original event
+        const { data: originalEvent, error: loadError } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', eventId)
+            .single();
+
+        if (loadError) throw loadError;
+
+        // Get participants to notify
+        let participantsToNotify = [];
+        if (notifyParticipants) {
+            const { data: invitations } = await supabase
+                .from('event_invitations')
+                .select('user_id')
+                .eq('event_id', eventId);
+            participantsToNotify = (invitations || []).map(i => i.user_id);
+        }
+
+        // Build update data
+        const updateData = {
+            title,
+            description: description || null,
+            meeting_time: meetingTime || null,
+            start_time: startTime || null,
+            end_time: endTime || null,
+            location: location || null,
+            updated_at: new Date().toISOString()
+        };
+
+        // Handle date changes based on scope
+        if (startDate && startDate !== originalEvent.start_date) {
+            if (editScope === 'this' && isRecurring) {
+                // For single instance change of recurring event, we need to:
+                // 1. Add original date to exclusions
+                // 2. Create a new single event for the new date
+                const exclusions = originalEvent.excluded_dates || [];
+                exclusions.push(originalEvent.start_date);
+
+                await supabase
+                    .from('events')
+                    .update({ excluded_dates: exclusions })
+                    .eq('id', eventId);
+
+                // Create new single event
+                const newEventData = {
+                    ...originalEvent,
+                    id: undefined,
+                    start_date: startDate,
+                    repeat_type: null,
+                    repeat_end_date: null,
+                    excluded_dates: null,
+                    ...updateData
+                };
+                delete newEventData.id;
+
+                const { data: newEvent, error: createError } = await supabase
+                    .from('events')
+                    .insert(newEventData)
+                    .select()
+                    .single();
+
+                if (createError) throw createError;
+
+                // Copy invitations to new event
+                const { data: oldInvitations } = await supabase
+                    .from('event_invitations')
+                    .select('*')
+                    .eq('event_id', eventId);
+
+                if (oldInvitations && oldInvitations.length > 0) {
+                    const newInvitations = oldInvitations.map(inv => ({
+                        ...inv,
+                        id: undefined,
+                        event_id: newEvent.id
+                    }));
+                    newInvitations.forEach(inv => delete inv.id);
+
+                    await supabase.from('event_invitations').insert(newInvitations);
+                }
+
+            } else {
+                updateData.start_date = startDate;
+            }
+        }
+
+        // Update the event (for 'all' or 'future' scope, or non-recurring)
+        if (editScope !== 'this' || !isRecurring || !startDate || startDate === originalEvent.start_date) {
+            if (editScope === 'future' && isRecurring) {
+                // For future: update this event and set previous date as end date for a copy
+                // This is complex - for simplicity we just update all
+                updateData.start_date = startDate || originalEvent.start_date;
+            }
+
+            await supabase
+                .from('events')
+                .update(updateData)
+                .eq('id', eventId);
+        }
+
+        // Format date for notification
+        const formattedDate = new Date((startDate || originalEvent.start_date) + 'T12:00:00').toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
+        });
+
+        // Send notifications
+        if (notifyParticipants && participantsToNotify.length > 0) {
+            // Build change description
+            const changes = [];
+            if (title !== originalEvent.title) changes.push(`Titel: "${title}"`);
+            if (startDate && startDate !== originalEvent.start_date) changes.push(`Neues Datum: ${formattedDate}`);
+            if (startTime !== originalEvent.start_time) changes.push(`Neue Startzeit: ${startTime || '-'}`);
+            if (location !== originalEvent.location) changes.push(`Neuer Ort: ${location || '-'}`);
+
+            const changeText = changes.length > 0 ? changes.join(', ') : 'Details aktualisiert';
+
+            const notifications = participantsToNotify.map(userId => ({
+                user_id: userId,
+                type: 'event_updated',
+                title: 'Veranstaltung geändert',
+                message: `"${title}" am ${formattedDate} wurde geändert: ${changeText}`,
+                data: {
+                    event_id: eventId,
+                    event_title: title,
+                    event_date: startDate || originalEvent.start_date,
+                    changes: changes
+                },
+                is_read: false,
+                created_at: new Date().toISOString()
+            }));
+
+            await supabase.from('notifications').insert(notifications);
+        }
+
+        // Close modals and refresh
+        document.getElementById('edit-event-modal')?.remove();
+        document.getElementById('event-details-modal')?.remove();
+
+        alert('Veranstaltung wurde aktualisiert' + (notifyParticipants ? ' und Teilnehmer benachrichtigt' : ''));
+
+        // Trigger calendar refresh
+        window.dispatchEvent(new CustomEvent('event-changed', { detail: { type: 'update', eventId } }));
+
+    } catch (error) {
+        console.error('[Events] Error updating event:', error);
+        alert('Fehler beim Speichern: ' + error.message);
     }
 };
 

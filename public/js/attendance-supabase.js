@@ -262,6 +262,7 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
             const monthStart = new Date(startDate + 'T12:00:00');
             const monthEnd = new Date(endDate + 'T12:00:00');
             const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
+            const excludedDates = e.excluded_dates || [];
 
             // Get the day of week for the original event (0 = Sunday, 1 = Monday, etc.)
             const eventDayOfWeek = eventStartDate.getDay();
@@ -275,6 +276,9 @@ export async function fetchMonthlyAttendance(year, month, currentUserData) {
                 if (repeatEndDate && d > repeatEndDate) continue;
 
                 const currentDateString = d.toISOString().split('T')[0];
+
+                // Skip if this date is in the excluded dates list
+                if (excludedDates.includes(currentDateString)) continue;
 
                 // Check if this day matches the repeat pattern
                 if (e.repeat_type === 'weekly') {

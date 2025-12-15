@@ -247,6 +247,7 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
                     const monthStart = new Date(startDate + 'T12:00:00');
                     const monthEnd = new Date(endDate + 'T12:00:00');
                     const repeatEndDate = e.repeat_end_date ? new Date(e.repeat_end_date + 'T12:00:00') : null;
+                    const excludedDates = e.excluded_dates || [];
                     const eventDayOfWeek = eventStartDate.getDay();
 
                     for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
@@ -254,6 +255,9 @@ export function renderCalendar(date, currentUserData, supabase, subgroupFilter =
                         if (repeatEndDate && d > repeatEndDate) continue;
 
                         const currentDateString = d.toISOString().split('T')[0];
+
+                        // Skip if this date is in the excluded dates list
+                        if (excludedDates.includes(currentDateString)) continue;
 
                         if (e.repeat_type === 'weekly' && d.getDay() === eventDayOfWeek) {
                             addEventToDate(currentDateString, e);
@@ -336,7 +340,7 @@ export function loadTodaysMatches(userData, supabase, unsubscribes) {
             // Query recurring events that might occur today
             const { data: recurringEvents, error: recurringError } = await supabase
                 .from('events')
-                .select('id, title, start_date, start_time, end_time, location, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date')
+                .select('id, title, start_date, start_time, end_time, location, target_type, target_subgroup_ids, event_type, repeat_type, repeat_end_date, excluded_dates')
                 .eq('club_id', userData.clubId)
                 .eq('cancelled', false)
                 .eq('event_type', 'recurring')
@@ -348,6 +352,10 @@ export function loadTodaysMatches(userData, supabase, unsubscribes) {
 
             // Filter recurring events that actually occur today
             const matchingRecurringEvents = (recurringEvents || []).filter(event => {
+                // Check if today is in excluded dates
+                const excludedDates = event.excluded_dates || [];
+                if (excludedDates.includes(today)) return false;
+
                 const eventStartDate = new Date(event.start_date + 'T12:00:00');
                 const eventDayOfWeek = eventStartDate.getDay();
                 const eventDayOfMonth = eventStartDate.getDate();
