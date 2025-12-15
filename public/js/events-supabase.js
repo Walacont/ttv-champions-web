@@ -486,6 +486,7 @@ async function submitEvent() {
                 const notifications = currentEventData.selectedMembers.map(userId => ({
                     user_id: userId,
                     type: 'event_invitation',
+                    title: 'Neue Einladung',
                     message: `Du wurdest zu "${title}" eingeladen`,
                     data: { event_id: event.id },
                     is_read: false,
