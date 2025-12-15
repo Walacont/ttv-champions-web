@@ -401,6 +401,7 @@ async function handlePollSubmit(e) {
     const visibility = pollVisibilitySelect.value;
     const durationDays = parseInt(pollDurationSelect.value);
     const allowMultiple = document.getElementById('poll-multiple-choice')?.checked || false;
+    const isAnonymous = document.getElementById('poll-anonymous')?.checked !== false; // Default to true
 
     // Get poll options
     const optionInputs = pollOptionsContainer.querySelectorAll('.poll-option-input');
@@ -460,7 +461,8 @@ async function handlePollSubmit(e) {
                 visibility: visibility,
                 duration_days: durationDays,
                 ends_at: endsAt.toISOString(),
-                allow_multiple: allowMultiple
+                allow_multiple: allowMultiple,
+                is_anonymous: isAnonymous
             })
             .select()
             .single();

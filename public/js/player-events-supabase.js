@@ -34,9 +34,10 @@ async function loadUpcomingEvents() {
     if (!section || !list) return;
 
     try {
-        // Get event invitations for current user
         const today = new Date().toISOString().split('T')[0];
 
+        // Get event invitations for current user
+        // Note: Don't filter by events.start_date in the query as nested filters may not work correctly
         const { data: invitations, error } = await supabase
             .from('event_invitations')
             .select(`
@@ -53,22 +54,61 @@ async function loadUpcomingEvents() {
                     location,
                     organizer_id,
                     max_participants,
-                    response_deadline
+                    response_deadline,
+                    repeat_type,
+                    repeat_end_date,
+                    excluded_dates
                 )
             `)
-            .eq('user_id', currentUserId)
-            .gte('events.start_date', today)
-            .order('events(start_date)', { ascending: true });
+            .eq('user_id', currentUserId);
 
         if (error) {
-            // Table might not exist yet
-            console.log('[PlayerEvents] Events table not available yet');
+            console.error('[PlayerEvents] Error fetching invitations:', error);
             section.classList.add('hidden');
             return;
         }
 
-        // Filter out null events (already passed or deleted)
-        const validInvitations = (invitations || []).filter(inv => inv.events);
+        // Filter out null events and past events client-side
+        let validInvitations = (invitations || []).filter(inv => {
+            if (!inv.events) return false;
+            // Include if event is today or in the future
+            return inv.events.start_date >= today;
+        });
+
+        // Also check for recurring events that might have future occurrences
+        const recurringInvitations = (invitations || []).filter(inv => {
+            if (!inv.events) return false;
+            if (!inv.events.repeat_type || inv.events.repeat_type === 'none') return false;
+            // Check if recurring event has a repeat_end_date in the future
+            if (inv.events.repeat_end_date && inv.events.repeat_end_date >= today) return true;
+            // Or if it has no end date (repeats forever)
+            if (!inv.events.repeat_end_date && inv.events.start_date) return true;
+            return false;
+        });
+
+        // Add recurring events that have future occurrences but start_date is in the past
+        recurringInvitations.forEach(inv => {
+            if (!validInvitations.find(v => v.id === inv.id)) {
+                // This is a recurring event with past start_date but future occurrences
+                // Find the next occurrence
+                const nextDate = getNextOccurrence(inv.events, today);
+                if (nextDate) {
+                    // Create a copy with the next occurrence date for display
+                    const invCopy = { ...inv, events: { ...inv.events, displayDate: nextDate } };
+                    validInvitations.push(invCopy);
+                }
+            }
+        });
+
+        // Sort by date
+        validInvitations.sort((a, b) => {
+            const dateA = a.events.displayDate || a.events.start_date;
+            const dateB = b.events.displayDate || b.events.start_date;
+            return dateA.localeCompare(dateB);
+        });
+
+        // Limit to next 10 events
+        validInvitations = validInvitations.slice(0, 10);
 
         if (validInvitations.length === 0) {
             section.classList.add('hidden');
@@ -104,6 +144,59 @@ async function loadUpcomingEvents() {
 }
 
 /**
+ * Get the next occurrence of a recurring event
+ * @param {Object} event - Event with repeat_type, start_date, repeat_end_date, excluded_dates
+ * @param {string} afterDate - Find occurrence after this date (YYYY-MM-DD)
+ * @returns {string|null} Next occurrence date or null
+ */
+function getNextOccurrence(event, afterDate) {
+    if (!event.repeat_type || event.repeat_type === 'none') return null;
+
+    const startDate = new Date(event.start_date + 'T12:00:00');
+    const afterDateObj = new Date(afterDate + 'T12:00:00');
+    const endDate = event.repeat_end_date ? new Date(event.repeat_end_date + 'T12:00:00') : null;
+    const excludedDates = event.excluded_dates || [];
+
+    let currentDate = new Date(startDate);
+    let maxIterations = 365; // Prevent infinite loops
+
+    while (maxIterations > 0) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+
+        // Check if this date is valid
+        if (currentDate >= afterDateObj && !excludedDates.includes(dateStr)) {
+            if (!endDate || currentDate <= endDate) {
+                return dateStr;
+            } else {
+                return null; // Past the end date
+            }
+        }
+
+        // Move to next occurrence based on repeat type
+        switch (event.repeat_type) {
+            case 'daily':
+                currentDate.setDate(currentDate.getDate() + 1);
+                break;
+            case 'weekly':
+                currentDate.setDate(currentDate.getDate() + 7);
+                break;
+            case 'biweekly':
+                currentDate.setDate(currentDate.getDate() + 14);
+                break;
+            case 'monthly':
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                break;
+            default:
+                return null;
+        }
+
+        maxIterations--;
+    }
+
+    return null;
+}
+
+/**
  * Render a single event card
  * @param {Object} invitation - Event invitation with event data
  * @param {number} acceptedCount - Number of accepted invitations
@@ -113,12 +206,18 @@ function renderEventCard(invitation, acceptedCount) {
     const event = invitation.events;
     const status = invitation.status;
 
+    // Use displayDate for recurring events, otherwise use start_date
+    const displayDate = event.displayDate || event.start_date;
+
     // Format date
-    const [year, month, day] = event.start_date.split('-');
+    const [year, month, day] = displayDate.split('-');
     const dateObj = new Date(year, parseInt(month) - 1, parseInt(day));
     const dayName = dateObj.toLocaleDateString('de-DE', { weekday: 'short' });
     const dayNum = dateObj.getDate();
     const monthName = dateObj.toLocaleDateString('de-DE', { month: 'short' });
+
+    // Show recurring indicator
+    const isRecurring = event.repeat_type && event.repeat_type !== 'none';
 
     // Format time
     const startTime = event.start_time?.slice(0, 5) || '';
@@ -185,7 +284,10 @@ function renderEventCard(invitation, acceptedCount) {
                 <div class="flex-1 p-4">
                     <div class="flex items-start justify-between mb-2">
                         <div>
-                            <h3 class="font-semibold text-gray-900">${escapeHtml(event.title)}</h3>
+                            <h3 class="font-semibold text-gray-900">
+                                ${escapeHtml(event.title)}
+                                ${isRecurring ? '<i class="fas fa-redo text-xs text-indigo-500 ml-1" title="Wiederkehrend"></i>' : ''}
+                            </h3>
                             <p class="text-sm text-gray-500 flex items-center gap-1 mt-1">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>

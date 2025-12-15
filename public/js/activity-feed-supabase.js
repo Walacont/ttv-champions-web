@@ -794,6 +794,56 @@ async function fetchActivities(userIds) {
         pollActivities.forEach(poll => {
             poll.userVotedOptionIds = voteMap[poll.id] || [];
         });
+
+        // For non-anonymous polls, load all voters with their profiles
+        const nonAnonymousPolls = pollActivities.filter(p => p.is_anonymous === false);
+        if (nonAnonymousPolls.length > 0) {
+            const nonAnonPollIds = nonAnonymousPolls.map(p => p.id);
+            const { data: allVotes } = await supabase
+                .from('poll_votes')
+                .select('poll_id, option_id, user_id')
+                .in('poll_id', nonAnonPollIds);
+
+            // Get unique voter IDs
+            const voterIds = [...new Set((allVotes || []).map(v => v.user_id))];
+
+            // Load voter profiles
+            let voterProfiles = {};
+            if (voterIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, avatar_url')
+                    .in('id', voterIds);
+
+                (profiles || []).forEach(p => {
+                    voterProfiles[p.id] = p;
+                });
+            }
+
+            // Build voters map per poll and option
+            const votersMap = {};
+            (allVotes || []).forEach(v => {
+                if (!votersMap[v.poll_id]) {
+                    votersMap[v.poll_id] = {};
+                }
+                if (!votersMap[v.poll_id][v.option_id]) {
+                    votersMap[v.poll_id][v.option_id] = [];
+                }
+                const profile = voterProfiles[v.user_id];
+                if (profile) {
+                    votersMap[v.poll_id][v.option_id].push({
+                        id: v.user_id,
+                        name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannt',
+                        avatar_url: profile.avatar_url
+                    });
+                }
+            });
+
+            // Attach voters to non-anonymous polls
+            nonAnonymousPolls.forEach(poll => {
+                poll.voters = votersMap[poll.id] || {};
+            });
+        }
     }
 
     // Load likes data
@@ -2087,6 +2137,8 @@ function renderPollCard(activity, profileMap) {
     const totalVotes = activity.total_votes || 0;
     const userVotedOptionIds = activity.userVotedOptionIds || [];
     const allowMultiple = activity.allow_multiple || false;
+    const isAnonymous = activity.is_anonymous !== false; // Default to true
+    const voters = activity.voters || {};
 
     const options = activity.options || [];
 
@@ -2094,7 +2146,8 @@ function renderPollCard(activity, profileMap) {
     const optionsWithPercent = options.map(opt => ({
         ...opt,
         percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
-        isUserVote: userVotedOptionIds.includes(opt.id)
+        isUserVote: userVotedOptionIds.includes(opt.id),
+        voters: voters[opt.id] || []
     }));
 
     return `
@@ -2126,14 +2179,15 @@ function renderPollCard(activity, profileMap) {
             <!-- Poll Question -->
             <div class="mb-4">
                 <h3 class="text-lg font-semibold text-gray-900">${activity.question}</h3>
-                <div class="flex items-center gap-3 mt-1">
+                <div class="flex flex-wrap items-center gap-3 mt-1">
                     ${userVotedOptionIds.length > 0 ? '<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
                     ${allowMultiple ? '<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>Mehrfachauswahl möglich</p>' : ''}
+                    ${!isAnonymous ? '<p class="text-xs text-orange-600"><i class="fas fa-eye mr-1"></i>Stimmen sichtbar</p>' : '<p class="text-xs text-gray-500"><i class="fas fa-user-secret mr-1"></i>Anonym</p>'}
                 </div>
             </div>
 
             <!-- Poll Options -->
-            <div class="space-y-2 mb-3" data-poll-id="${activity.id}" data-allow-multiple="${allowMultiple}">
+            <div class="space-y-2 mb-3" data-poll-id="${activity.id}" data-allow-multiple="${allowMultiple}" data-is-anonymous="${isAnonymous}">
                 ${optionsWithPercent.map((option, index) => `
                     <div class="poll-option ${isActive ? 'cursor-pointer hover:bg-purple-100' : ''} ${option.isUserVote ? 'ring-2 ring-purple-500 bg-purple-50' : 'bg-white'} rounded-lg p-3 border border-purple-200 transition"
                          onclick="${isActive ? `votePoll('${activity.id}', '${option.id}', ${allowMultiple})` : ''}"
@@ -2150,7 +2204,21 @@ function renderPollCard(activity, profileMap) {
                             <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
                                  style="width: ${option.percentage}%"></div>
                         </div>
-                        <div class="text-xs text-gray-500 mt-1">${option.votes || 0} ${t('dashboard.activityFeed.votes')}</div>
+                        <div class="flex items-center justify-between mt-1">
+                            <span class="text-xs text-gray-500">${option.votes || 0} ${t('dashboard.activityFeed.votes')}</span>
+                            ${!isAnonymous && option.voters.length > 0 ? `
+                                <div class="flex items-center -space-x-2">
+                                    ${option.voters.slice(0, 5).map(voter => `
+                                        <a href="/profile.html?id=${voter.id}" title="${voter.name}" class="block">
+                                            <img src="${voter.avatar_url || DEFAULT_AVATAR}" alt="${voter.name}"
+                                                 class="w-6 h-6 rounded-full border-2 border-white object-cover"
+                                                 onerror="this.src='${DEFAULT_AVATAR}'">
+                                        </a>
+                                    `).join('')}
+                                    ${option.voters.length > 5 ? `<span class="text-xs text-gray-500 ml-2">+${option.voters.length - 5}</span>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
                 `).join('')}
             </div>
@@ -2405,12 +2473,51 @@ async function refreshPollCard(pollId) {
         const totalVotes = poll.total_votes || 0;
         const options = poll.options || [];
         const allowMultiple = poll.allow_multiple || false;
+        const isAnonymous = poll.is_anonymous !== false;
+
+        // For non-anonymous polls, load all voters with profiles
+        let votersMap = {};
+        if (!isAnonymous) {
+            const { data: allVotes } = await supabase
+                .from('poll_votes')
+                .select('option_id, user_id')
+                .eq('poll_id', pollId);
+
+            const voterIds = [...new Set((allVotes || []).map(v => v.user_id))];
+            let voterProfiles = {};
+
+            if (voterIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, first_name, last_name, avatar_url')
+                    .in('id', voterIds);
+
+                (profiles || []).forEach(p => {
+                    voterProfiles[p.id] = p;
+                });
+            }
+
+            (allVotes || []).forEach(v => {
+                if (!votersMap[v.option_id]) {
+                    votersMap[v.option_id] = [];
+                }
+                const profile = voterProfiles[v.user_id];
+                if (profile) {
+                    votersMap[v.option_id].push({
+                        id: v.user_id,
+                        name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unbekannt',
+                        avatar_url: profile.avatar_url
+                    });
+                }
+            });
+        }
 
         // Calculate percentages
         const optionsWithPercent = options.map(opt => ({
             ...opt,
             percentage: totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0,
-            isUserVote: userVotedOptionIds.includes(opt.id)
+            isUserVote: userVotedOptionIds.includes(opt.id),
+            voters: votersMap[opt.id] || []
         }));
 
         const endsAt = new Date(poll.ends_at);
@@ -2437,7 +2544,21 @@ async function refreshPollCard(pollId) {
                             <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
                                  style="width: ${option.percentage}%"></div>
                         </div>
-                        <div class="text-xs text-gray-500 mt-1">${option.votes || 0} ${t('dashboard.activityFeed.votes')}</div>
+                        <div class="flex items-center justify-between mt-1">
+                            <span class="text-xs text-gray-500">${option.votes || 0} ${t('dashboard.activityFeed.votes')}</span>
+                            ${!isAnonymous && option.voters.length > 0 ? `
+                                <div class="flex items-center -space-x-2">
+                                    ${option.voters.slice(0, 5).map(voter => `
+                                        <a href="/profile.html?id=${voter.id}" title="${voter.name}" class="block">
+                                            <img src="${voter.avatar_url || DEFAULT_AVATAR}" alt="${voter.name}"
+                                                 class="w-6 h-6 rounded-full border-2 border-white object-cover"
+                                                 onerror="this.src='${DEFAULT_AVATAR}'">
+                                        </a>
+                                    `).join('')}
+                                    ${option.voters.length > 5 ? `<span class="text-xs text-gray-500 ml-2">+${option.voters.length - 5}</span>` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
                 `).join('');
             }
@@ -2454,11 +2575,12 @@ async function refreshPollCard(pollId) {
             // Update the "Du hast bereits abgestimmt" text
             const questionDiv = pollCard.querySelector('.mb-4');
             if (questionDiv) {
-                const statusDiv = questionDiv.querySelector('.flex.items-center.gap-3');
+                const statusDiv = questionDiv.querySelector('.flex.flex-wrap');
                 if (statusDiv) {
                     statusDiv.innerHTML = `
                         ${userVotedOptionIds.length > 0 ? '<p class="text-xs text-purple-600"><i class="fas fa-check-circle mr-1"></i>Du hast bereits abgestimmt</p>' : ''}
                         ${allowMultiple ? '<p class="text-xs text-indigo-600"><i class="fas fa-check-double mr-1"></i>Mehrfachauswahl möglich</p>' : ''}
+                        ${!isAnonymous ? '<p class="text-xs text-orange-600"><i class="fas fa-eye mr-1"></i>Stimmen sichtbar</p>' : '<p class="text-xs text-gray-500"><i class="fas fa-user-secret mr-1"></i>Anonym</p>'}
                     `;
                 }
             }
