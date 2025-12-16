@@ -35,7 +35,7 @@ INNER JOIN matches m2 ON (
 ORDER BY m1.created_at DESC, m1.player_a_id, m1.player_b_id;
 
 -- Step 2: Show affected players and their FULL stat corrections needed
--- Including: elo, wins, losses, matches_played, XP, and season points
+-- Including: elo, wins, losses, XP, and season points
 WITH duplicates AS (
     SELECT
         m1.id,
@@ -65,7 +65,6 @@ SELECT
     p.elo_rating as current_elo,
     p.wins as current_wins,
     p.losses as current_losses,
-    p.matches_played as current_matches,
     p.xp as current_xp,
     p.points as current_season_points,
     -- Corrections needed:
@@ -79,7 +78,7 @@ SELECT
 FROM profiles p
 LEFT JOIN duplicates d ON p.id = d.winner_id OR p.id = d.loser_id
 WHERE d.id IS NOT NULL
-GROUP BY p.id, p.first_name, p.last_name, p.elo_rating, p.wins, p.losses, p.matches_played, p.xp, p.points
+GROUP BY p.id, p.first_name, p.last_name, p.elo_rating, p.wins, p.losses, p.xp, p.points
 ORDER BY COUNT(DISTINCT d.id) DESC;
 
 -- Step 3: Count total duplicates found
@@ -98,7 +97,7 @@ INNER JOIN matches m2 ON (
 -- EXECUTE THE FOLLOWING TO FIX (after reviewing above)
 -- ===================================================
 
--- Step 4: Update player stats (elo, wins, losses, matches_played, XP, season points) - UNCOMMENT TO RUN
+-- Step 4: Update player stats (elo, wins, losses, XP, season points) - UNCOMMENT TO RUN
 /*
 WITH duplicates AS (
     SELECT
@@ -139,7 +138,6 @@ SET
     elo_rating = GREATEST(100, p.elo_rating + c.elo_correction),
     wins = GREATEST(0, COALESCE(p.wins, 0) - c.wins_to_remove),
     losses = GREATEST(0, COALESCE(p.losses, 0) - c.losses_to_remove),
-    matches_played = GREATEST(0, COALESCE(p.matches_played, 0) - c.wins_to_remove - c.losses_to_remove),
     xp = GREATEST(0, COALESCE(p.xp, 0) + c.xp_correction),
     points = GREATEST(0, COALESCE(p.points, 0) + c.season_points_correction)
 FROM corrections c
