@@ -1,8 +1,8 @@
 -- Script to find and fix ALL duplicate matches in the database
--- Criteria: Same players, created within 5 minutes OR same timestamp, same scores
+-- Criteria: Same players, created within 5 minutes, same scores (or both NULL)
 -- Run this in Supabase SQL Editor (https://supabase.com/dashboard/project/YOUR_PROJECT/sql)
 
--- Step 1: View ALL duplicate matches (same players, same scores, within 5 minutes or same time)
+-- Step 1: View ALL duplicate matches (same players, same scores, within 5 minutes)
 -- This shows which matches will be affected
 SELECT
     m1.id as match_to_delete,
@@ -24,12 +24,12 @@ INNER JOIN matches m2 ON (
     -- Same players (in either order)
     ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
      (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-    -- Same scores
-    AND m1.score_a = m2.score_a
-    AND m1.score_b = m2.score_b
+    -- Same scores (handles NULL correctly)
+    AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+    AND m1.score_b IS NOT DISTINCT FROM m2.score_b
     -- m2 is the original (use ID as tiebreaker for same timestamp)
     AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
-    -- Created within 5 minutes of each other (or same timestamp)
+    -- Created within 5 minutes of each other
     AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
 )
 ORDER BY m1.created_at DESC, m1.player_a_id, m1.player_b_id;
@@ -52,8 +52,8 @@ WITH duplicates AS (
     INNER JOIN matches m2 ON (
         ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
          (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-        AND m1.score_a = m2.score_a
-        AND m1.score_b = m2.score_b
+        AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+        AND m1.score_b IS NOT DISTINCT FROM m2.score_b
         AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
         AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
     )
@@ -87,8 +87,8 @@ FROM matches m1
 INNER JOIN matches m2 ON (
     ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
      (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-    AND m1.score_a = m2.score_a
-    AND m1.score_b = m2.score_b
+    AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+    AND m1.score_b IS NOT DISTINCT FROM m2.score_b
     AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
     AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
 );
@@ -114,8 +114,8 @@ WITH duplicates AS (
     INNER JOIN matches m2 ON (
         ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
          (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-        AND m1.score_a = m2.score_a
-        AND m1.score_b = m2.score_b
+        AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+        AND m1.score_b IS NOT DISTINCT FROM m2.score_b
         AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
         AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
     )
@@ -154,8 +154,8 @@ AND timestamp IN (
     INNER JOIN matches m2 ON (
         ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
          (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-        AND m1.score_a = m2.score_a
-        AND m1.score_b = m2.score_b
+        AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+        AND m1.score_b IS NOT DISTINCT FROM m2.score_b
         AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
         AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
     )
@@ -171,8 +171,8 @@ WHERE id IN (
     INNER JOIN matches m2 ON (
         ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
          (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-        AND m1.score_a = m2.score_a
-        AND m1.score_b = m2.score_b
+        AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+        AND m1.score_b IS NOT DISTINCT FROM m2.score_b
         AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
         AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
     )
@@ -185,8 +185,8 @@ FROM matches m1
 INNER JOIN matches m2 ON (
     ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
      (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
-    AND m1.score_a = m2.score_a
-    AND m1.score_b = m2.score_b
+    AND m1.score_a IS NOT DISTINCT FROM m2.score_a
+    AND m1.score_b IS NOT DISTINCT FROM m2.score_b
     AND (m2.created_at < m1.created_at OR (m2.created_at = m1.created_at AND m2.id < m1.id))
     AND ABS(EXTRACT(EPOCH FROM (m1.created_at - m2.created_at))) <= 300
 );
