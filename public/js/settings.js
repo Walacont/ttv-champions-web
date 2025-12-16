@@ -9,7 +9,6 @@ import {
     reauthenticateWithCredential,
     sendEmailVerification,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import {
     getFirestore,
     doc,
@@ -39,7 +38,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const analytics = getAnalytics(app);
 const functions = getFunctions(app, 'europe-west3');
 
 // Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
