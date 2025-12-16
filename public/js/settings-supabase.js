@@ -144,6 +144,11 @@ if (logoutButton) {
             window.location.replace('/index.html');
         } catch (error) {
             console.error('Logout error:', error);
+            // If session is already missing, just redirect to login
+            if (error.message?.includes('Auth session missing') || error.message?.includes('session_not_found')) {
+                window.location.replace('/index.html');
+                return;
+            }
             logoutButton.disabled = false;
             logoutButton.innerHTML = '<i class="fas fa-sign-out-alt mr-2"></i>Abmelden';
         }
