@@ -1,0 +1,158 @@
+-- Script to find and fix ALL duplicate matches in the database
+-- Criteria: Same players, created within 1 minute, same scores
+-- Run this in Supabase SQL Editor (https://supabase.com/dashboard/project/YOUR_PROJECT/sql)
+
+-- Step 1: View ALL duplicate matches (same players, same scores, within 1 minute)
+-- This shows which matches will be affected
+SELECT
+    m1.id as match_to_delete,
+    m1.player_a_id,
+    m1.player_b_id,
+    m1.score_a,
+    m1.score_b,
+    m1.winner_id,
+    m1.loser_id,
+    m1.winner_elo_change,
+    m1.loser_elo_change,
+    m1.created_at,
+    m2.id as original_match_id,
+    m2.created_at as original_created_at,
+    EXTRACT(EPOCH FROM (m1.created_at - m2.created_at)) as seconds_apart
+FROM matches m1
+INNER JOIN matches m2 ON (
+    -- Same players (in either order)
+    ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+     (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+    -- Same scores
+    AND m1.score_a = m2.score_a
+    AND m1.score_b = m2.score_b
+    -- m2 is the original (created first)
+    AND m2.created_at < m1.created_at
+    -- Created within 1 minute of each other
+    AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+)
+ORDER BY m1.created_at DESC, m1.player_a_id, m1.player_b_id;
+
+-- Step 2: Show affected players and their stat corrections needed
+-- (Run this to see what will be corrected)
+WITH duplicates AS (
+    SELECT
+        m1.id,
+        m1.winner_id,
+        m1.loser_id,
+        m1.winner_elo_change,
+        m1.loser_elo_change,
+        m1.created_at
+    FROM matches m1
+    INNER JOIN matches m2 ON (
+        ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+         (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+        AND m1.score_a = m2.score_a
+        AND m1.score_b = m2.score_b
+        AND m2.created_at < m1.created_at
+        AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+    )
+)
+SELECT
+    p.id,
+    p.first_name,
+    p.last_name,
+    p.elo_rating as current_elo,
+    p.wins as current_wins,
+    p.losses as current_losses,
+    p.matches_played as current_matches,
+    SUM(CASE WHEN d.winner_id = p.id THEN -d.winner_elo_change ELSE 0 END) +
+    SUM(CASE WHEN d.loser_id = p.id THEN -d.loser_elo_change ELSE 0 END) as elo_correction,
+    COUNT(CASE WHEN d.winner_id = p.id THEN 1 END) as wins_to_remove,
+    COUNT(CASE WHEN d.loser_id = p.id THEN 1 END) as losses_to_remove,
+    COUNT(DISTINCT d.id) as matches_to_remove
+FROM profiles p
+LEFT JOIN duplicates d ON p.id = d.winner_id OR p.id = d.loser_id
+WHERE d.id IS NOT NULL
+GROUP BY p.id, p.first_name, p.last_name, p.elo_rating, p.wins, p.losses, p.matches_played
+ORDER BY COUNT(DISTINCT d.id) DESC;
+
+-- Step 3: Count total duplicates found
+SELECT COUNT(*) as total_duplicates_to_delete
+FROM matches m1
+INNER JOIN matches m2 ON (
+    ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+     (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+    AND m1.score_a = m2.score_a
+    AND m1.score_b = m2.score_b
+    AND m2.created_at < m1.created_at
+    AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+);
+
+-- ===================================================
+-- EXECUTE THE FOLLOWING TO FIX (after reviewing above)
+-- ===================================================
+
+-- Step 4: Update player stats (wins, losses, elo, matches_played) - UNCOMMENT TO RUN
+/*
+WITH duplicates AS (
+    SELECT
+        m1.id,
+        m1.winner_id,
+        m1.loser_id,
+        m1.winner_elo_change,
+        m1.loser_elo_change
+    FROM matches m1
+    INNER JOIN matches m2 ON (
+        ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+         (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+        AND m1.score_a = m2.score_a
+        AND m1.score_b = m2.score_b
+        AND m2.created_at < m1.created_at
+        AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+    )
+),
+corrections AS (
+    SELECT
+        p.id,
+        SUM(CASE WHEN d.winner_id = p.id THEN -d.winner_elo_change ELSE 0 END) +
+        SUM(CASE WHEN d.loser_id = p.id THEN -d.loser_elo_change ELSE 0 END) as elo_correction,
+        COUNT(CASE WHEN d.winner_id = p.id THEN 1 END) as wins_to_remove,
+        COUNT(CASE WHEN d.loser_id = p.id THEN 1 END) as losses_to_remove
+    FROM profiles p
+    INNER JOIN duplicates d ON p.id = d.winner_id OR p.id = d.loser_id
+    GROUP BY p.id
+)
+UPDATE profiles p
+SET
+    elo_rating = GREATEST(100, p.elo_rating + c.elo_correction),
+    wins = GREATEST(0, COALESCE(p.wins, 0) - c.wins_to_remove),
+    losses = GREATEST(0, COALESCE(p.losses, 0) - c.losses_to_remove),
+    matches_played = GREATEST(0, COALESCE(p.matches_played, 0) - c.wins_to_remove - c.losses_to_remove)
+FROM corrections c
+WHERE p.id = c.id;
+*/
+
+-- Step 5: Delete duplicate matches - UNCOMMENT TO RUN
+/*
+DELETE FROM matches
+WHERE id IN (
+    SELECT m1.id
+    FROM matches m1
+    INNER JOIN matches m2 ON (
+        ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+         (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+        AND m1.score_a = m2.score_a
+        AND m1.score_b = m2.score_b
+        AND m2.created_at < m1.created_at
+        AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+    )
+);
+*/
+
+-- Step 6: Verify no duplicates remain
+SELECT COUNT(*) as remaining_duplicates
+FROM matches m1
+INNER JOIN matches m2 ON (
+    ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+     (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+    AND m1.score_a = m2.score_a
+    AND m1.score_b = m2.score_b
+    AND m2.created_at < m1.created_at
+    AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+);
