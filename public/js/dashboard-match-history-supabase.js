@@ -55,7 +55,9 @@ export async function loadMatchHistory() {
             .order('created_at', { ascending: false })
             .limit(50);
 
-        if (doublesError) console.warn('Error fetching doubles:', doublesError);
+        console.log('[MatchHistory] Doubles query for user:', currentUser.id);
+        console.log('[MatchHistory] Doubles matches found:', doublesMatches?.length || 0, doublesMatches);
+        if (doublesError) console.warn('[MatchHistory] Error fetching doubles:', doublesError);
 
         // Combine and normalize matches
         allLoadedMatches = [
