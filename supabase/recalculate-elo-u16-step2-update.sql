@@ -1,8 +1,9 @@
 -- ===================================================
--- STEP 1: Preview - Show all ü16 players and their recalculated ELO
--- Run this FIRST to see what will change
+-- STEP 2: Update ELO ratings for all ü16 players
+-- Only run this AFTER reviewing Step 1!
 -- ===================================================
 
+-- Update players WITH matches
 WITH player_elo_changes AS (
     SELECT
         winner_id as player_id,
@@ -27,20 +28,23 @@ aggregated_changes AS (
     FROM player_elo_changes
     GROUP BY player_id
 )
-SELECT
-    p.id,
-    p.first_name,
-    p.last_name,
-    p.birthdate,
-    EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.birthdate::DATE))::INTEGER as age,
-    p.elo_rating as current_elo,
-    COALESCE(ac.total_elo_change, 0) as total_elo_from_matches,
-    1000 + COALESCE(ac.total_elo_change, 0) as new_elo,
-    p.elo_rating - (1000 + COALESCE(ac.total_elo_change, 0)) as difference
-FROM profiles p
-LEFT JOIN aggregated_changes ac ON p.id = ac.player_id
+UPDATE profiles p
+SET elo_rating = GREATEST(100, 1000 + COALESCE(ac.total_elo_change, 0))
+FROM aggregated_changes ac
+WHERE p.id = ac.player_id
+  AND p.birthdate IS NOT NULL
+  AND p.birthdate::TEXT ~ '^\d{4}-\d{2}-\d{2}$'
+  AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.birthdate::DATE)) >= 16
+  AND p.role = 'player';
+
+-- Also reset ü16 players with NO matches to 1000
+UPDATE profiles p
+SET elo_rating = 1000
 WHERE p.birthdate IS NOT NULL
   AND p.birthdate::TEXT ~ '^\d{4}-\d{2}-\d{2}$'
   AND EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.birthdate::DATE)) >= 16
   AND p.role = 'player'
-ORDER BY p.last_name, p.first_name;
+  AND NOT EXISTS (
+      SELECT 1 FROM matches m
+      WHERE m.winner_id = p.id OR m.loser_id = p.id
+  );
