@@ -14,6 +14,7 @@ SELECT
     m1.loser_id,
     m1.winner_elo_change,
     m1.loser_elo_change,
+    m1.season_points_awarded,
     m1.created_at,
     m2.id as original_match_id,
     m2.created_at as original_created_at,
@@ -33,8 +34,8 @@ INNER JOIN matches m2 ON (
 )
 ORDER BY m1.created_at DESC, m1.player_a_id, m1.player_b_id;
 
--- Step 2: Show affected players and their stat corrections needed
--- (Run this to see what will be corrected)
+-- Step 2: Show affected players and their FULL stat corrections needed
+-- Including: elo, wins, losses, matches_played, XP, and season points
 WITH duplicates AS (
     SELECT
         m1.id,
@@ -42,6 +43,10 @@ WITH duplicates AS (
         m1.loser_id,
         m1.winner_elo_change,
         m1.loser_elo_change,
+        -- XP for winner = winner_elo_change (0 for handicap matches)
+        CASE WHEN m1.handicap IS NOT NULL THEN 0 ELSE COALESCE(m1.winner_elo_change, 0) END as winner_xp,
+        -- Season points = season_points_awarded or elo_change * 0.2
+        COALESCE(m1.season_points_awarded, ROUND(COALESCE(m1.winner_elo_change, 0) * 0.2)) as season_points,
         m1.created_at
     FROM matches m1
     INNER JOIN matches m2 ON (
@@ -61,15 +66,20 @@ SELECT
     p.wins as current_wins,
     p.losses as current_losses,
     p.matches_played as current_matches,
+    p.xp as current_xp,
+    p.points as current_season_points,
+    -- Corrections needed:
     SUM(CASE WHEN d.winner_id = p.id THEN -d.winner_elo_change ELSE 0 END) +
     SUM(CASE WHEN d.loser_id = p.id THEN -d.loser_elo_change ELSE 0 END) as elo_correction,
     COUNT(CASE WHEN d.winner_id = p.id THEN 1 END) as wins_to_remove,
     COUNT(CASE WHEN d.loser_id = p.id THEN 1 END) as losses_to_remove,
-    COUNT(DISTINCT d.id) as matches_to_remove
+    COUNT(DISTINCT d.id) as matches_to_remove,
+    SUM(CASE WHEN d.winner_id = p.id THEN -d.winner_xp ELSE 0 END) as xp_correction,
+    SUM(CASE WHEN d.winner_id = p.id THEN -d.season_points ELSE 0 END) as season_points_correction
 FROM profiles p
 LEFT JOIN duplicates d ON p.id = d.winner_id OR p.id = d.loser_id
 WHERE d.id IS NOT NULL
-GROUP BY p.id, p.first_name, p.last_name, p.elo_rating, p.wins, p.losses, p.matches_played
+GROUP BY p.id, p.first_name, p.last_name, p.elo_rating, p.wins, p.losses, p.matches_played, p.xp, p.points
 ORDER BY COUNT(DISTINCT d.id) DESC;
 
 -- Step 3: Count total duplicates found
@@ -88,7 +98,7 @@ INNER JOIN matches m2 ON (
 -- EXECUTE THE FOLLOWING TO FIX (after reviewing above)
 -- ===================================================
 
--- Step 4: Update player stats (wins, losses, elo, matches_played) - UNCOMMENT TO RUN
+-- Step 4: Update player stats (elo, wins, losses, matches_played, XP, season points) - UNCOMMENT TO RUN
 /*
 WITH duplicates AS (
     SELECT
@@ -96,7 +106,11 @@ WITH duplicates AS (
         m1.winner_id,
         m1.loser_id,
         m1.winner_elo_change,
-        m1.loser_elo_change
+        m1.loser_elo_change,
+        -- XP for winner = winner_elo_change (0 for handicap matches)
+        CASE WHEN m1.handicap IS NOT NULL THEN 0 ELSE COALESCE(m1.winner_elo_change, 0) END as winner_xp,
+        -- Season points = season_points_awarded or elo_change * 0.2
+        COALESCE(m1.season_points_awarded, ROUND(COALESCE(m1.winner_elo_change, 0) * 0.2)) as season_points
     FROM matches m1
     INNER JOIN matches m2 ON (
         ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
@@ -113,7 +127,9 @@ corrections AS (
         SUM(CASE WHEN d.winner_id = p.id THEN -d.winner_elo_change ELSE 0 END) +
         SUM(CASE WHEN d.loser_id = p.id THEN -d.loser_elo_change ELSE 0 END) as elo_correction,
         COUNT(CASE WHEN d.winner_id = p.id THEN 1 END) as wins_to_remove,
-        COUNT(CASE WHEN d.loser_id = p.id THEN 1 END) as losses_to_remove
+        COUNT(CASE WHEN d.loser_id = p.id THEN 1 END) as losses_to_remove,
+        SUM(CASE WHEN d.winner_id = p.id THEN -d.winner_xp ELSE 0 END) as xp_correction,
+        SUM(CASE WHEN d.winner_id = p.id THEN -d.season_points ELSE 0 END) as season_points_correction
     FROM profiles p
     INNER JOIN duplicates d ON p.id = d.winner_id OR p.id = d.loser_id
     GROUP BY p.id
@@ -123,12 +139,32 @@ SET
     elo_rating = GREATEST(100, p.elo_rating + c.elo_correction),
     wins = GREATEST(0, COALESCE(p.wins, 0) - c.wins_to_remove),
     losses = GREATEST(0, COALESCE(p.losses, 0) - c.losses_to_remove),
-    matches_played = GREATEST(0, COALESCE(p.matches_played, 0) - c.wins_to_remove - c.losses_to_remove)
+    matches_played = GREATEST(0, COALESCE(p.matches_played, 0) - c.wins_to_remove - c.losses_to_remove),
+    xp = GREATEST(0, COALESCE(p.xp, 0) + c.xp_correction),
+    points = GREATEST(0, COALESCE(p.points, 0) + c.season_points_correction)
 FROM corrections c
 WHERE p.id = c.id;
 */
 
--- Step 5: Delete duplicate matches - UNCOMMENT TO RUN
+-- Step 5: Delete points_history entries for duplicate matches - UNCOMMENT TO RUN
+/*
+DELETE FROM points_history
+WHERE reason LIKE 'match_%'
+AND timestamp IN (
+    SELECT m1.created_at
+    FROM matches m1
+    INNER JOIN matches m2 ON (
+        ((m1.player_a_id = m2.player_a_id AND m1.player_b_id = m2.player_b_id) OR
+         (m1.player_a_id = m2.player_b_id AND m1.player_b_id = m2.player_a_id))
+        AND m1.score_a = m2.score_a
+        AND m1.score_b = m2.score_b
+        AND m2.created_at < m1.created_at
+        AND m1.created_at - m2.created_at <= INTERVAL '1 minute'
+    )
+);
+*/
+
+-- Step 6: Delete duplicate matches - UNCOMMENT TO RUN
 /*
 DELETE FROM matches
 WHERE id IN (
@@ -145,7 +181,7 @@ WHERE id IN (
 );
 */
 
--- Step 6: Verify no duplicates remain
+-- Step 7: Verify no duplicates remain
 SELECT COUNT(*) as remaining_duplicates
 FROM matches m1
 INNER JOIN matches m2 ON (
