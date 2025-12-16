@@ -2920,16 +2920,34 @@ window.openChallengeModal = async (challengeId) => {
     }
 };
 
+// Track in-progress requests to prevent double-clicks
+const processingRequests = new Set();
+
 window.respondToMatchRequest = async (requestId, accept) => {
+    // DOUBLE-CLICK PROTECTION
+    if (processingRequests.has(requestId)) {
+        console.warn('[Match] Request already being processed:', requestId);
+        return;
+    }
+    processingRequests.add(requestId);
+
     try {
         if (!accept) {
             // Rejected - simple update
             // First get player A info for notification
             const { data: request } = await supabase
                 .from('match_requests')
-                .select('player_a_id')
+                .select('player_a_id, status')
                 .eq('id', requestId)
                 .single();
+
+            // Check if already processed
+            if (request?.status === 'approved' || request?.status === 'rejected') {
+                console.warn('[Match] Request already processed:', request.status);
+                processingRequests.delete(requestId);
+                loadMatchRequests();
+                return;
+            }
 
             const { error } = await supabase
                 .from('match_requests')
@@ -2950,6 +2968,7 @@ window.respondToMatchRequest = async (requestId, accept) => {
             }
 
             loadMatchRequests();
+            processingRequests.delete(requestId);
             return;
         }
 
@@ -2961,6 +2980,15 @@ window.respondToMatchRequest = async (requestId, accept) => {
             .single();
 
         if (fetchError) throw fetchError;
+
+        // Check if already approved (prevent duplicate processing)
+        if (request.status === 'approved') {
+            console.warn('[Match] Request already approved, skipping');
+            processingRequests.delete(requestId);
+            loadMatchRequests();
+            alert('Match wurde bereits bestätigt!');
+            return;
+        }
 
         // Auto-approve when Player B confirms (no coach approval needed)
         let newStatus = 'approved';
@@ -2994,6 +3022,8 @@ window.respondToMatchRequest = async (requestId, accept) => {
     } catch (error) {
         console.error('Error responding to match request:', error);
         alert('Fehler beim Verarbeiten der Anfrage');
+    } finally {
+        processingRequests.delete(requestId);
     }
 };
 
@@ -3108,9 +3138,25 @@ window.loadPendingRequests = loadPendingRequests;
 
 /**
  * Create actual match from approved request
+ * Includes duplicate protection to prevent double-creation
  */
 async function createMatchFromRequest(request) {
     try {
+        // DUPLICATE PROTECTION: Check if a match with same players was created in last 60 seconds
+        const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+        const { data: existingMatches, error: checkError } = await supabase
+            .from('matches')
+            .select('id, created_at')
+            .or(`and(player_a_id.eq.${request.player_a_id},player_b_id.eq.${request.player_b_id}),and(player_a_id.eq.${request.player_b_id},player_b_id.eq.${request.player_a_id})`)
+            .gte('created_at', oneMinuteAgo);
+
+        if (checkError) {
+            console.warn('[Match] Error checking for duplicates:', checkError);
+        } else if (existingMatches && existingMatches.length > 0) {
+            console.warn('[Match] DUPLICATE PREVENTED: Match already exists from last 60 seconds', existingMatches);
+            return; // Don't create duplicate
+        }
+
         // Get club_id from request, or from current user's profile if available
         let clubId = request.club_id || null;
         if (!clubId) {
