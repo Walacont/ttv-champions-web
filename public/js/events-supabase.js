@@ -912,8 +912,9 @@ window.openEventDetails = async function(eventId, occurrenceDate = null) {
         eventDate.setHours(0, 0, 0, 0);
         const isPastOrToday = eventDate <= today;
 
-        // Check if current user is coach/head_coach
-        const isCoach = currentUserData && (currentUserData.role === 'coach' || currentUserData.role === 'head_coach');
+        // Check if current user is coach/head_coach/admin
+        const isCoach = currentUserData && ['coach', 'head_coach', 'admin'].includes(currentUserData.role);
+        console.log('[Events] openEventDetails - currentUserData:', currentUserData, 'isCoach:', isCoach);
 
         // Format date
         const formattedDate = eventDate.toLocaleDateString('de-DE', {
