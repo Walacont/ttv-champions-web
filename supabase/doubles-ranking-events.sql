@@ -80,9 +80,21 @@ DECLARE
     v_old_holder_name TEXT;
     v_old_holder_elo INT;
     v_direction TEXT;
+    v_user_exists BOOLEAN;
 BEGIN
     -- Only process if Doubles Elo actually changed
     IF OLD.doubles_elo_rating IS NOT DISTINCT FROM NEW.doubles_elo_rating THEN
+        RETURN NEW;
+    END IF;
+
+    -- Skip offline players (they don't exist in auth.users)
+    IF NEW.is_offline = true THEN
+        RETURN NEW;
+    END IF;
+
+    -- Check if user exists in auth.users (foreign key requirement)
+    SELECT EXISTS(SELECT 1 FROM auth.users WHERE id = NEW.id) INTO v_user_exists;
+    IF NOT v_user_exists THEN
         RETURN NEW;
     END IF;
 

@@ -87,19 +87,23 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS doubles_matches_played INTEGER DEF
 -- INITIALIZE: Update all existing players' doubles Elo
 -- ============================================
 -- This will sync current pairing Elos to profiles and trigger ranking events
+-- Only for real users (not offline players)
 
 DO $$
 DECLARE
     player_record RECORD;
 BEGIN
-    -- Get all unique players from pairings
+    -- Get all unique players from pairings that are NOT offline
     FOR player_record IN
-        SELECT DISTINCT player_id
+        SELECT DISTINCT all_players.player_id
         FROM (
             SELECT player1_id AS player_id FROM doubles_pairings
             UNION
             SELECT player2_id AS player_id FROM doubles_pairings
         ) AS all_players
+        INNER JOIN profiles p ON p.id = all_players.player_id
+        WHERE p.is_offline IS NOT TRUE
+          AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = all_players.player_id)
     LOOP
         PERFORM update_player_doubles_elo(player_record.player_id);
     END LOOP;
