@@ -925,6 +925,10 @@ function renderActivityCard(activity) {
         return renderClubRankingChangeCard(activity);
     } else if (activity.activityType === 'global_ranking_change') {
         return renderGlobalRankingChangeCard(activity);
+    } else if (activity.activityType === 'club_doubles_ranking_change') {
+        return renderClubDoublesRankingChangeCard(activity);
+    } else if (activity.activityType === 'global_doubles_ranking_change') {
+        return renderGlobalDoublesRankingChangeCard(activity);
     } else if (activity.activityType === 'post') {
         return renderPostCard(activity, activity.profileMap);
     } else if (activity.activityType === 'poll') {
@@ -2224,6 +2228,223 @@ function renderGlobalRankingChangeCard(activity) {
                         >
                             <i class="far fa-comment"></i>
                             <span class="text-sm" data-comment-count="global_ranking_change-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a club doubles ranking change activity card (top 10 in club)
+ * Only visible to club members
+ */
+function renderClubDoublesRankingChangeCard(activity) {
+    const eventData = activity.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const newPosition = eventData.new_position || 0;
+    const oldPosition = eventData.old_position || 0;
+    const eloRating = eventData.elo_rating || 0;
+    const direction = eventData.direction || 'same';
+    const positionMedal = eventData.position_medal || '';
+    const previousHolderName = eventData.previous_holder_name;
+    const previousHolderElo = eventData.previous_holder_elo;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    // Color scheme based on position (gold, silver, bronze for top 3, teal for 4-10)
+    const positionColors = {
+        1: { bg: 'yellow', border: 'yellow', text: 'yellow' },
+        2: { bg: 'gray', border: 'gray', text: 'gray' },
+        3: { bg: 'amber', border: 'amber', text: 'amber' }
+    };
+    const colors = positionColors[newPosition] || { bg: 'teal', border: 'teal', text: 'teal' };
+
+    // Generate message based on movement
+    let messageHtml = '';
+    if (direction === 'up') {
+        if (oldPosition > 10) {
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.enteredTop10')}</span>`;
+        } else if (oldPosition > 3 && newPosition <= 3) {
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.enteredPodium')}</span>`;
+        } else {
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubDoublesRanking.position', { position: newPosition })}</span>`;
+        }
+    } else if (direction === 'down') {
+        if (newPosition > 10) {
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.leftTop10')}</span>`;
+        } else if (oldPosition <= 3 && newPosition > 3) {
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.leftPodium')}</span>`;
+        } else {
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubDoublesRanking.position', { position: newPosition })}</span>`;
+        }
+    }
+
+    // Previous holder info (only for moving up within top 10)
+    let previousHolderHtml = '';
+    if (previousHolderName && direction === 'up' && newPosition <= 10) {
+        previousHolderHtml = `
+            <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
+                <i class="fas fa-exchange-alt text-${colors.text}-400"></i>
+                <span>${t('dashboard.activityFeed.events.clubDoublesRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
+            </div>
+        `;
+    }
+
+    // Position badge
+    let positionBadge;
+    if (newPosition <= 3 && positionMedal) {
+        positionBadge = `<span class="text-2xl mr-2">${positionMedal}</span>`;
+    } else if (newPosition <= 10) {
+        positionBadge = `<span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-${colors.bg}-100 text-${colors.text}-700 font-bold text-sm mr-2">#${newPosition}</span>`;
+    } else {
+        positionBadge = `<span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 text-gray-600 font-bold text-sm mr-2">#${newPosition}</span>`;
+    }
+
+    return `
+        <div class="bg-gradient-to-r from-${colors.bg}-50 to-${colors.bg}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colors.border}-200">
+            <div class="flex items-start gap-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-${colors.border}-400"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="absolute -bottom-1 -right-1 bg-${direction === 'up' ? 'green' : 'red'}-500 rounded-full p-1">
+                        <i class="fas fa-${direction === 'up' ? 'arrow-up' : 'arrow-down'} text-white text-xs"></i>
+                    </div>
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1 flex-wrap">
+                        <i class="fas fa-users text-${colors.text}-500 mr-1"></i>
+                        ${positionBadge}
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        ${messageHtml}
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-${colors.bg}-200 text-${colors.text}-800">
+                            <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
+                        </span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                            <i class="fas fa-users mr-1"></i>${t('dashboard.activityFeed.events.clubDoublesRanking.title')}
+                        </span>
+                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    ${previousHolderHtml}
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-${colors.border}-200">
+                        ${renderGenericLikeButton(activity.id, 'club_doubles_ranking_change', activity, activity.likes_count || 0)}
+                        <button
+                            onclick="openComments('${activity.id}', 'club_doubles_ranking_change')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="club_doubles_ranking_change-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a global doubles ranking change activity card
+ * Only visible to the player themselves and their followers (NOT in club feed)
+ */
+function renderGlobalDoublesRankingChangeCard(activity) {
+    const eventData = activity.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const newPosition = eventData.new_position || 0;
+    const oldPosition = eventData.old_position || 0;
+    const eloRating = eventData.elo_rating || 0;
+    const direction = eventData.direction || 'same';
+    const positionMedal = eventData.position_medal || '';
+    const positionsChanged = eventData.positions_changed || Math.abs(newPosition - oldPosition);
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    // Color scheme - teal for global doubles ranking
+    const colors = { bg: 'teal', border: 'teal', text: 'teal' };
+
+    // Generate message based on movement
+    let messageHtml = '';
+    const changeText = positionsChanged > 1
+        ? t('dashboard.activityFeed.events.globalDoublesRanking.positionsPlural', { count: positionsChanged })
+        : t('dashboard.activityFeed.events.globalDoublesRanking.positionsSingular');
+    if (direction === 'up') {
+        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalDoublesRanking.risen')}</span>`;
+    } else {
+        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalDoublesRanking.fallen')}</span>`;
+    }
+
+    // Position badge
+    let positionBadge;
+    if (newPosition <= 3 && positionMedal) {
+        positionBadge = `<span class="text-2xl mr-2">${positionMedal}</span>`;
+    } else {
+        positionBadge = `<span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-teal-100 text-teal-700 font-bold text-sm mr-2">#${newPosition}</span>`;
+    }
+
+    return `
+        <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-teal-200">
+            <div class="flex items-start gap-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-teal-400"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="absolute -bottom-1 -right-1 bg-${direction === 'up' ? 'green' : 'red'}-500 rounded-full p-1">
+                        <i class="fas fa-${direction === 'up' ? 'arrow-up' : 'arrow-down'} text-white text-xs"></i>
+                    </div>
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1 flex-wrap">
+                        <i class="fas fa-globe text-teal-500 mr-1"></i>
+                        ${positionBadge}
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        ${messageHtml}
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                            <i class="fas fa-globe mr-1"></i>${t('dashboard.activityFeed.events.globalDoublesRanking.title')}
+                        </span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
+                        </span>
+                    </div>
+
+                    <div class="mt-2 text-sm text-gray-500">
+                        <span>${t('dashboard.activityFeed.events.globalDoublesRanking.position', { position: oldPosition })}</span>
+                        <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
+                        <span class="font-semibold text-teal-700">${t('dashboard.activityFeed.events.globalDoublesRanking.position', { position: newPosition })}</span>
+                    </div>
+
+                    <div class="text-xs text-gray-400 mt-1">${dateStr}, ${timeStr}</div>
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-teal-200">
+                        ${renderGenericLikeButton(activity.id, 'global_doubles_ranking_change', activity, activity.likes_count || 0)}
+                        <button
+                            onclick="openComments('${activity.id}', 'global_doubles_ranking_change')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="global_doubles_ranking_change-${activity.id}">${activity.comments_count || 0}</span>
                         </button>
                     </div>
                 </div>

@@ -262,6 +262,25 @@
           "positionsPlural": "{{count}} Plätze",
           "risen": "gestiegen",
           "fallen": "gefallen"
+        },
+        "clubDoublesRanking": {
+          "title": "Doppel-Rangliste",
+          "enteredTop10": "ist in die Doppel-Top 10 aufgestiegen!",
+          "enteredPodium": "ist auf das Doppel-Podium aufgestiegen!",
+          "leftTop10": "hat die Doppel-Top 10 verlassen",
+          "leftPodium": "hat das Doppel-Podium verlassen",
+          "movedUp": "steigt auf",
+          "movedDown": "fällt auf",
+          "position": "Platz {{position}}",
+          "previousHolder": "vorher: {{name}} ({{elo}} Elo)"
+        },
+        "globalDoublesRanking": {
+          "title": "Globale Doppel-Rangliste",
+          "position": "Platz {{position}}",
+          "positionsSingular": "1 Platz",
+          "positionsPlural": "{{count}} Plätze",
+          "risen": "gestiegen",
+          "fallen": "gefallen"
         }
       },
       "giveKudos": "Liken",
