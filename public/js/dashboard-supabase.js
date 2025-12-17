@@ -1957,7 +1957,7 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
     const statusText = req.status === 'pending_player' ? 'Warte auf Bestätigung' : 'Warte auf Coach';
 
     return `
-        <div class="p-3 bg-white rounded-lg border mb-2">
+        <div id="match-request-${req.id}" class="p-3 bg-white rounded-lg border mb-2 transition-all duration-300">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
                     <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}"
@@ -1975,13 +1975,13 @@ function renderSinglesRequestCard(req, profileMap, clubMap) {
                 <p class="text-green-700">Gewinner: ${winnerName}${handicapText}</p>
             </div>
             ${!isPlayerA && req.status === 'pending_player' ? `
-                <div class="flex gap-2">
+                <div class="flex gap-2" id="match-request-buttons-${req.id}">
                     <button onclick="respondToMatchRequest('${req.id}', true)"
-                            class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                            class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
                         Annehmen
                     </button>
                     <button onclick="respondToMatchRequest('${req.id}', false)"
-                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
                         Ablehnen
                     </button>
                 </div>
@@ -2041,7 +2041,7 @@ function renderDoublesRequestCard(req, profileMap) {
     }
 
     return `
-        <div class="p-3 bg-white rounded-lg border border-purple-200 mb-2">
+        <div id="doubles-request-${req.id}" class="p-3 bg-white rounded-lg border border-purple-200 mb-2 transition-all duration-300">
             <div class="flex items-center justify-between mb-2">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
@@ -2064,13 +2064,13 @@ function renderDoublesRequestCard(req, profileMap) {
                 <p class="text-green-700">Gewinner: ${winnerTeamName}${handicapText}</p>
             </div>
             ${!isTeamA && req.status === 'pending_opponent' ? `
-                <div class="flex gap-2">
+                <div class="flex gap-2" id="doubles-request-buttons-${req.id}">
                     <button onclick="respondToDoublesMatchRequest('${req.id}', true)"
-                            class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600">
+                            class="flex-1 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
                         Annehmen
                     </button>
                     <button onclick="respondToDoublesMatchRequest('${req.id}', false)"
-                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600">
+                            class="flex-1 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
                         Ablehnen
                     </button>
                 </div>
@@ -2923,6 +2923,34 @@ window.openChallengeModal = async (challengeId) => {
 // Track in-progress requests to prevent double-clicks
 const processingRequests = new Set();
 
+// Helper function to optimistically remove a request card from UI
+function removeRequestCardOptimistically(requestId, type = 'singles') {
+    const cardId = type === 'doubles' ? `doubles-request-${requestId}` : `match-request-${requestId}`;
+    const card = document.getElementById(cardId);
+    if (card) {
+        // Add fade-out animation
+        card.style.opacity = '0.5';
+        card.style.pointerEvents = 'none';
+        // Disable all buttons in the card
+        card.querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+        });
+        // Remove after animation
+        setTimeout(() => {
+            card.style.height = card.offsetHeight + 'px';
+            card.style.overflow = 'hidden';
+            setTimeout(() => {
+                card.style.height = '0';
+                card.style.padding = '0';
+                card.style.margin = '0';
+                card.style.border = 'none';
+                setTimeout(() => card.remove(), 300);
+            }, 50);
+        }, 200);
+    }
+}
+
 window.respondToMatchRequest = async (requestId, accept) => {
     // DOUBLE-CLICK PROTECTION
     if (processingRequests.has(requestId)) {
@@ -2930,6 +2958,9 @@ window.respondToMatchRequest = async (requestId, accept) => {
         return;
     }
     processingRequests.add(requestId);
+
+    // Optimistic UI update - immediately hide the card
+    removeRequestCardOptimistically(requestId, 'singles');
 
     try {
         if (!accept) {
@@ -3029,7 +3060,42 @@ window.respondToMatchRequest = async (requestId, accept) => {
 
 // --- Doubles Match Request Handlers ---
 window.respondToDoublesMatchRequest = async (requestId, accept) => {
+    // DOUBLE-CLICK PROTECTION (reuse the same set as singles)
+    if (processingRequests.has(`doubles-${requestId}`)) {
+        console.warn('[Doubles] Request already being processed:', requestId);
+        return;
+    }
+    processingRequests.add(`doubles-${requestId}`);
+
+    // Optimistic UI update - immediately hide the card
+    removeRequestCardOptimistically(requestId, 'doubles');
+
     try {
+        // First check if request still exists and isn't already processed
+        const { data: request, error: fetchError } = await supabase
+            .from('doubles_match_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+
+        if (fetchError) {
+            console.warn('[Doubles] Request not found or already deleted:', fetchError);
+            processingRequests.delete(`doubles-${requestId}`);
+            loadMatchRequests();
+            return;
+        }
+
+        // Check if already processed
+        if (request.status === 'approved' || request.status === 'rejected') {
+            console.warn('[Doubles] Request already processed:', request.status);
+            processingRequests.delete(`doubles-${requestId}`);
+            loadMatchRequests();
+            if (request.status === 'approved') {
+                alert('Dieses Doppel-Match wurde bereits bestätigt!');
+            }
+            return;
+        }
+
         if (!accept) {
             // Rejected
             const { error } = await supabase
@@ -3039,18 +3105,11 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
 
             if (error) throw error;
             loadMatchRequests();
+            processingRequests.delete(`doubles-${requestId}`);
             return;
         }
 
-        // Accepted - update approvals and check if auto-approved
-        const { data: request, error: fetchError } = await supabase
-            .from('doubles_match_requests')
-            .select('*')
-            .eq('id', requestId)
-            .single();
-
-        if (fetchError) throw fetchError;
-
+        // Accepted - update approvals and approve
         // Parse approvals
         let approvals = request.approvals || {};
         if (typeof approvals === 'string') {
@@ -3060,7 +3119,6 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
         // Mark current user's approval
         approvals[currentUser.id] = true;
 
-        // Check if request is fully approved (at least one opponent confirmed)
         // For doubles, we auto-approve when one opponent confirms
         const newStatus = 'approved';
 
@@ -3081,6 +3139,8 @@ window.respondToDoublesMatchRequest = async (requestId, accept) => {
     } catch (error) {
         console.error('Error responding to doubles match request:', error);
         alert('Fehler beim Verarbeiten der Doppel-Anfrage');
+    } finally {
+        processingRequests.delete(`doubles-${requestId}`);
     }
 };
 
