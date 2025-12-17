@@ -141,7 +141,6 @@ import {
 } from './training-schedule-ui-supabase.js';
 import { initializeTrainingCompletion } from './training-completion-supabase.js';
 import TutorialManager from './tutorial-supabase.js';
-import { coachTutorialSteps } from './tutorial-coach.js';
 
 // Initialize Supabase
 const supabase = getSupabase();
@@ -1003,49 +1002,6 @@ async function initializeCoachPage(userData) {
     updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId);
     setInterval(() => updateSeasonCountdown('season-countdown-coach', false, supabase, activeSportId), 1000);
     setInterval(updateAllCountdowns, 1000);
-
-    // Check if tutorial should be shown (first time coach login)
-    checkAndStartTutorial(userData);
-}
-
-/**
- * Check if tutorial should be shown and start it
- */
-async function checkAndStartTutorial(userData) {
-    // Check if tutorial should be started manually (from settings)
-    const startTutorialFlag = sessionStorage.getItem('startTutorial');
-    if (startTutorialFlag === 'coach') {
-        sessionStorage.removeItem('startTutorial');
-        // Start tutorial after a delay
-        setTimeout(() => {
-            window.startCoachTutorial();
-        }, 1000);
-        return;
-    }
-
-    // Check if tutorial was already completed
-    const tutorialCompleted = userData.tutorialCompleted?.coach || false;
-
-    if (!tutorialCompleted) {
-        // Wait a bit to ensure all content is loaded
-        setTimeout(() => {
-            const tutorial = new TutorialManager(coachTutorialSteps, {
-                tutorialKey: 'coach',
-                autoScroll: true,
-                scrollOffset: 100,
-                supabaseClient: supabase,
-                userId: userData.id,
-                onComplete: () => {
-                    console.log('Coach Tutorial abgeschlossen!');
-                },
-                onSkip: () => {
-                    console.log('Coach Tutorial übersprungen');
-                },
-            });
-
-            tutorial.start();
-        }, 1000);
-    }
 }
 
 /**
@@ -1279,28 +1235,3 @@ document.getElementById('close-reactivate-modal')?.addEventListener('click', () 
     document.getElementById('reactivate-challenge-modal').classList.add('hidden');
     document.getElementById('reactivate-challenge-modal').classList.remove('flex');
 });
-
-/**
- * Global function to manually start the coach tutorial (called from settings)
- */
-window.startCoachTutorial = async function () {
-    // Get current user ID
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    const tutorial = new TutorialManager(coachTutorialSteps, {
-        tutorialKey: 'coach',
-        autoScroll: true,
-        scrollOffset: 100,
-        supabaseClient: supabase,
-        userId: userId,
-        onComplete: () => {
-            console.log('Coach Tutorial abgeschlossen!');
-        },
-        onSkip: () => {
-            console.log('Coach Tutorial übersprungen');
-        },
-    });
-
-    tutorial.start();
-};
