@@ -448,7 +448,7 @@ async function initializeCoachPage(userData) {
     populateSubgroupDropdown(userData.clubId, 'reactivate-challenge-subgroup', supabase);
     loadPlayersForAttendance(userData.clubId, supabase, players => {
         clubPlayers = players; // WICHTIG: clubPlayers wird hier global befüllt
-        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+        populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
         populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter); // Populate doubles dropdowns, exclude coach
         populateHistoryFilterDropdown(clubPlayers);
         updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id); // Exclude coach from points dropdown
@@ -494,7 +494,7 @@ async function initializeCoachPage(userData) {
             clubPlayers = players;
             console.log('[Coach] clubPlayers refreshed with', players.length, 'players');
             // Refresh all filtered views with updated player data
-            populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+            populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
             populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
             updatePointsPlayerDropdown(clubPlayers, currentSubgroupFilter, userData.id);
             updatePairingsButtonState(clubPlayers, currentSubgroupFilter);
@@ -1184,7 +1184,7 @@ function handleSubgroupFilterChange(userData) {
     loadChallengesForDropdown(userData.clubId, supabase, currentSubgroupFilter);
 
     // Reload match dropdowns with new filter (exclude coach from dropdown, apply both subgroup and gender filters)
-    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 
     // Update points player dropdown with new filter (exclude coach)
@@ -1215,7 +1215,7 @@ function handleGenderFilterChange(userData) {
     loadGlobalLeaderboard(userData, supabase, []);
 
     // Reload match dropdowns with new gender filter (combine with current subgroup filter)
-    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
+    populateMatchDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter, true); // true = include offline players for coach
     populateDoublesDropdowns(clubPlayers, currentSubgroupFilter, userData.id, currentGenderFilter);
 }
 
