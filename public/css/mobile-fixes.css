@@ -60,6 +60,32 @@ html.plt-ios header:not(.sticky) {
     padding-top: max(env(safe-area-inset-top, 44px), 44px) !important;
 }
 
+/* ============================================
+   DASHBOARD FIXED NAVIGATION - SAFE AREA
+   The dashboard uses #top-nav with fixed positioning
+   ============================================ */
+
+/* Top Navigation Bar - add padding for status bar */
+html.plt-capacitor #top-nav,
+html.plt-android #top-nav,
+html.plt-ios #top-nav {
+    padding-top: max(env(safe-area-inset-top, 28px), 28px) !important;
+}
+
+/* Main content needs extra padding to account for taller header */
+html.plt-capacitor #main-content,
+html.plt-android #main-content,
+html.plt-ios #main-content {
+    padding-top: calc(56px + max(env(safe-area-inset-top, 28px), 28px)) !important;
+}
+
+/* Community fullscreen overlay - also needs safe area */
+html.plt-capacitor #community-fullscreen > .sticky,
+html.plt-android #community-fullscreen > .sticky,
+html.plt-ios #community-fullscreen > .sticky {
+    padding-top: max(env(safe-area-inset-top, 28px), 28px) !important;
+}
+
 /* Make sure touch events work */
 html.plt-capacitor header *,
 html.plt-android header *,
