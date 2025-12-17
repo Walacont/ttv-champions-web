@@ -66,35 +66,6 @@ function updateTutorialStatus(userData) {
 
     tutorialSection.style.display = 'block';
 
-    // Coach Tutorial Status
-    const coachTutorialCompleted = userData?.tutorialCompleted?.coach || false;
-    const coachBadge = document.getElementById('tutorial-badge-coach');
-    const coachButton = document.getElementById('start-coach-tutorial-btn');
-    const coachCard = document.getElementById('coach-tutorial-card');
-
-    if (coachBadge) {
-        if (coachTutorialCompleted) {
-            coachBadge.className = 'tutorial-badge tutorial-badge-completed';
-            coachBadge.innerHTML = '<i class="fas fa-check mr-1"></i> Abgeschlossen';
-        } else {
-            coachBadge.className = 'tutorial-badge tutorial-badge-pending';
-            coachBadge.textContent = 'Ausstehend';
-        }
-    }
-
-    if (coachButton && coachCard) {
-        if (role === 'coach' || role === 'head_coach' || role === 'admin') {
-            coachCard.style.display = 'block';
-            if (coachTutorialCompleted) {
-                coachButton.innerHTML = '<i class="fas fa-redo mr-2"></i> Tutorial wiederholen';
-            } else {
-                coachButton.innerHTML = '<i class="fas fa-play-circle mr-2"></i> Tutorial starten';
-            }
-        } else {
-            coachCard.style.display = 'none';
-        }
-    }
-
     // Player Tutorial Status
     const playerTutorialCompleted = userData?.tutorialCompleted?.player || false;
     const playerBadge = document.getElementById('tutorial-badge-player');
@@ -124,23 +95,6 @@ function updateTutorialStatus(userData) {
         }
     }
 }
-
-/**
- * Coach-Tutorial starten
- */
-document.getElementById('start-coach-tutorial-btn')?.addEventListener('click', () => {
-    // Zur Coach-Seite navigieren und Tutorial starten
-    if (window.location.pathname.includes('coach.html')) {
-        // Bereits auf der Coach-Seite
-        if (typeof window.startCoachTutorial === 'function') {
-            window.startCoachTutorial();
-        }
-    } else {
-        // Zur Coach-Seite navigieren und Tutorial-Flag setzen
-        sessionStorage.setItem('startTutorial', 'coach');
-        window.location.href = '/coach.html';
-    }
-});
 
 /**
  * Player-Tutorial starten
