@@ -244,6 +244,43 @@
         "rankUp": {
           "achieved": "achieved",
           "congratulations": "Congratulations on your rank up!"
+        },
+        "clubRanking": {
+          "enteredTop10": "entered the top 10!",
+          "enteredPodium": "reached the podium!",
+          "leftTop10": "left the top 10",
+          "leftPodium": "left the podium",
+          "movedUp": "moved up to",
+          "movedDown": "dropped to",
+          "position": "position {{position}}",
+          "previousHolder": "previously: {{name}} ({{elo}} Elo)"
+        },
+        "globalRanking": {
+          "title": "Global Ranking",
+          "position": "position {{position}}",
+          "positionsSingular": "1 position",
+          "positionsPlural": "{{count}} positions",
+          "risen": "up",
+          "fallen": "down"
+        },
+        "clubDoublesRanking": {
+          "title": "Doubles Ranking",
+          "enteredTop10": "entered the doubles top 10!",
+          "enteredPodium": "reached the doubles podium!",
+          "leftTop10": "left the doubles top 10",
+          "leftPodium": "left the doubles podium",
+          "movedUp": "moved up to",
+          "movedDown": "dropped to",
+          "position": "position {{position}}",
+          "previousHolder": "previously: {{name}} ({{elo}} Elo)"
+        },
+        "globalDoublesRanking": {
+          "title": "Global Doubles Ranking",
+          "position": "position {{position}}",
+          "positionsSingular": "1 position",
+          "positionsPlural": "{{count}} positions",
+          "risen": "up",
+          "fallen": "down"
         }
       },
       "giveKudos": "Like",

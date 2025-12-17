@@ -244,6 +244,43 @@
         "rankUp": {
           "achieved": "达到了",
           "congratulations": "恭喜你升级！"
+        },
+        "clubRanking": {
+          "enteredTop10": "进入前10名！",
+          "enteredPodium": "登上领奖台！",
+          "leftTop10": "离开了前10名",
+          "leftPodium": "离开了领奖台",
+          "movedUp": "升至",
+          "movedDown": "降至",
+          "position": "第{{position}}名",
+          "previousHolder": "之前：{{name}}（{{elo}}分）"
+        },
+        "globalRanking": {
+          "title": "全球排名",
+          "position": "第{{position}}名",
+          "positionsSingular": "1个名次",
+          "positionsPlural": "{{count}}个名次",
+          "risen": "上升",
+          "fallen": "下降"
+        },
+        "clubDoublesRanking": {
+          "title": "双打排名",
+          "enteredTop10": "进入双打前10名！",
+          "enteredPodium": "登上双打领奖台！",
+          "leftTop10": "离开了双打前10名",
+          "leftPodium": "离开了双打领奖台",
+          "movedUp": "升至",
+          "movedDown": "降至",
+          "position": "第{{position}}名",
+          "previousHolder": "之前：{{name}}（{{elo}}分）"
+        },
+        "globalDoublesRanking": {
+          "title": "全球双打排名",
+          "position": "第{{position}}名",
+          "positionsSingular": "1个名次",
+          "positionsPlural": "{{count}}个名次",
+          "risen": "上升",
+          "fallen": "下降"
         }
       },
       "giveKudos": "点赞",
