@@ -32,6 +32,44 @@ let currentPairingPlayerAId = null;
 let currentPairingPlayerBId = null;
 
 /**
+ * Updates the coach match winner display based on current set scores
+ * @param {Object} setScoreInput - Optional set score input instance (defaults to coachSetScoreInput)
+ */
+export function updateCoachWinnerDisplay(setScoreInput = null) {
+    const matchWinnerInfo = document.getElementById('coach-match-winner-info');
+    const matchWinnerText = document.getElementById('coach-match-winner-text');
+
+    const inputInstance = setScoreInput || coachSetScoreInput;
+    if (!inputInstance || !matchWinnerInfo || !matchWinnerText) return;
+
+    const winnerData = inputInstance.getMatchWinner();
+
+    if (winnerData && winnerData.winner) {
+        // We have a winner
+        // Get player names from the select elements
+        const playerASelect = document.getElementById('player-a-select');
+        const playerBSelect = document.getElementById('player-b-select');
+
+        let winnerName;
+        if (winnerData.winner === 'A') {
+            winnerName = playerASelect?.selectedOptions[0]?.text || 'Spieler A';
+        } else {
+            winnerName = playerBSelect?.selectedOptions[0]?.text || 'Spieler B';
+        }
+
+        matchWinnerText.textContent = `${winnerName} gewinnt mit ${winnerData.setsA}:${winnerData.setsB} Sätzen`;
+        matchWinnerInfo.classList.remove('hidden');
+    } else if (winnerData && !winnerData.winner && (winnerData.setsA > 0 || winnerData.setsB > 0)) {
+        // Match in progress, show current score
+        matchWinnerText.textContent = `Aktueller Stand: ${winnerData.setsA}:${winnerData.setsB} Sätze`;
+        matchWinnerInfo.classList.remove('hidden');
+    } else {
+        // No valid sets yet
+        matchWinnerInfo.classList.add('hidden');
+    }
+}
+
+/**
  * Initializes the set score input for coach match form
  * @returns {Object|null} The set score input instance
  */
@@ -65,7 +103,7 @@ export function initializeCoachSetScoreInput() {
 
     // Initialize with current mode
     const currentMode = matchModeSelect ? matchModeSelect.value : 'best-of-5';
-    coachSetScoreInput = createSetScoreInput(container, [], currentMode);
+    coachSetScoreInput = createSetScoreInput(container, [], currentMode, updateCoachWinnerDisplay);
     updateSetScoreLabel(currentMode);
 
     // Handle match mode changes
@@ -73,7 +111,7 @@ export function initializeCoachSetScoreInput() {
         matchModeSelect.addEventListener('change', () => {
             const newMode = matchModeSelect.value;
             // Recreate the set score input with new mode
-            coachSetScoreInput = createSetScoreInput(container, [], newMode);
+            coachSetScoreInput = createSetScoreInput(container, [], newMode, updateCoachWinnerDisplay);
             updateSetScoreLabel(newMode);
 
             // Update doubles reference if doubles-coach-ui is loaded
@@ -491,7 +529,7 @@ export async function handleMatchSave(e, db, currentUserData, clubPlayers) {
 
         // Recreate set score input with default mode to keep fields and dropdown in sync
         if (container) {
-            coachSetScoreInput = createSetScoreInput(container, [], 'best-of-5');
+            coachSetScoreInput = createSetScoreInput(container, [], 'best-of-5', updateCoachWinnerDisplay);
             if (setScoreLabel) {
                 setScoreLabel.textContent = 'Satzergebnisse (Best of 5)';
             }

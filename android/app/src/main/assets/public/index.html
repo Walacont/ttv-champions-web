@@ -3,6 +3,9 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
         <script src="/js/capacitor-init.js"></script>
 
         <!-- Favicon -->
@@ -42,7 +45,7 @@
         />
         <meta
             name="keywords"
-            content="Tischtennis, TTV, Training, Elo-System, Gamification, Verein, Wettkampf, Ranking, QTTR"
+            content="Tischtennis, TTV, Training, Elo-System, Gamification, Verein, Wettkampf, Ranking"
         />
         <meta name="author" content="SC Champions" />
         <link rel="canonical" href="https://sc-champions.de/" />
@@ -104,6 +107,7 @@
                     <button
                         id="open-login-modal"
                         class="bg-indigo-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-indigo-700 transition-colors"
+                        data-i18n="nav.login"
                     >
                         Login
                     </button>
@@ -114,7 +118,7 @@
         <div class="bg-blue-100 border-b border-blue-300 text-blue-900 text-sm p-4">
             <div class="container mx-auto px-6 flex items-center justify-center">
                 <i class="fas fa-info-circle mr-3 text-lg text-blue-700"></i>
-                <div class="text-center">
+                <div class="text-center" data-i18n="[html]index.hero.notice">
                     <strong>Hinweis:</strong> SC Champions ist derzeit ein Forschungsprojekt im
                     Rahmen einer Bachelorarbeit und befindet sich in der Testphase.
                 </div>
@@ -125,16 +129,17 @@
                 class="bg-gradient-to-r from-indigo-600 to-purple-700 text-white py-20 md:py-32"
             >
                 <div class="container mx-auto px-6 text-center">
-                    <h1 class="text-4xl md:text-6xl font-extrabold leading-tight mb-4">
+                    <h1 class="text-4xl md:text-6xl font-extrabold leading-tight mb-4" data-i18n="index.hero.title">
                         Mach dein Training zum Spiel.
                     </h1>
-                    <p class="text-lg md:text-xl text-indigo-100 max-w-3xl mx-auto">
+                    <p class="text-lg md:text-xl text-indigo-100 max-w-3xl mx-auto" data-i18n="index.hero.subtitle">
                         Willkommen bei SC Champions – der Gamification-Plattform, die dein
                         Sport-Training im Verein auf ein neues Level hebt.
                     </p>
                     <a
                         href="#features"
                         class="mt-10 inline-block bg-white text-indigo-600 font-bold py-3 px-8 rounded-lg text-lg hover:bg-gray-100 transition-colors"
+                        data-i18n="index.hero.cta"
                     >
                         Mehr erfahren
                     </a>
@@ -247,7 +252,7 @@
                         <details class="group bg-white p-6 rounded-lg shadow-sm mt-4">
                             <summary class="flex justify-between items-center cursor-pointer">
                                 <span class="font-medium text-lg text-gray-900"
-                                    >Wie werden QTTR-Punkte in Elo umgerechnet?</span
+                                    >Wie funktioniert das Elo-System?</span
                                 >
                                 <i
                                     class="fas fa-chevron-down transform transition-transform group-open:rotate-180"
@@ -255,22 +260,20 @@
                             </summary>
                             <div class="mt-4 text-gray-700 space-y-2">
                                 <p>
-                                    Wenn ein Coach einen erfahrenen Offline-Spieler erstellt und
-                                    dessen <strong>QTTR-Punkte</strong> eingibt, wird die Start-Elo
-                                    automatisch berechnet.
+                                    Das Elo-System berechnet deine Spielstärke basierend auf deinen
+                                    Wettkampfergebnissen. Je mehr Spiele du machst, desto stabiler
+                                    wird dein Rating.
                                 </p>
-                                <p class="font-medium">Formel: Elo = QTTR × 0,9 (mindestens 800)</p>
-                                <p class="text-sm">Beispiele:</p>
+                                <p class="font-medium">Dein persönlicher Faktor (A-Faktor):</p>
                                 <ul class="list-disc list-inside text-sm space-y-1">
-                                    <li>QTTR 1000 → Elo 900</li>
-                                    <li>QTTR 1200 → Elo 1080</li>
-                                    <li>QTTR 1500 → Elo 1350</li>
-                                    <li>QTTR 2000 → Elo 1800</li>
+                                    <li><strong>Spiele 1-10:</strong> Faktor 32 (schnelles Einpendeln)</li>
+                                    <li><strong>Spiele 11-20:</strong> Faktor 24 (Stabilisierung)</li>
+                                    <li><strong>Ab Spiel 21:</strong> Faktor 16 (stabile Rangliste)</li>
+                                    <li><strong>Jugend (U21):</strong> Faktor 20 (dauerhaft erhöht)</li>
                                 </ul>
                                 <p class="text-sm text-gray-600 mt-2">
-                                    Diese konservative Umrechnung (90%) stellt sicher, dass sich
-                                    neue Spieler erst im System beweisen müssen, bevor sie ihr
-                                    volles Niveau erreichen.
+                                    Neue Spieler starten bei 800 Elo. Der höhere Faktor am Anfang
+                                    sorgt dafür, dass du schnell auf dein echtes Niveau kommst.
                                 </p>
                             </div>
                         </details>
@@ -343,9 +346,28 @@
                     <h2
                         id="form-title"
                         class="mt-6 text-center text-3xl font-extrabold text-gray-900"
+                        data-i18n="auth.login"
                     >
                         Anmelden
                     </h2>
+                </div>
+
+                <!-- Migration Notice -->
+                <div id="migration-notice" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">Systemaktualisierung</h3>
+                            <p class="mt-1 text-sm text-blue-700">
+                                Wir haben unser System verbessert. Bitte setze dein Passwort einmalig zurück,
+                                um dich anzumelden. Klicke dazu auf "Passwort vergessen".
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex border-b border-gray-200">
@@ -374,6 +396,7 @@
                                 autocomplete="email"
                                 required
                                 class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                data-i18n-placeholder="auth.emailPlaceholder"
                                 placeholder="E-Mail-Adresse"
                             />
                         </div>
@@ -386,6 +409,7 @@
                                 autocomplete="current-password"
                                 required
                                 class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                                data-i18n-placeholder="auth.passwordPlaceholder"
                                 placeholder="Passwort"
                             />
                         </div>
@@ -397,6 +421,7 @@
                                 type="button"
                                 id="forgot-password-button"
                                 class="font-medium text-indigo-600 hover:text-indigo-500"
+                                data-i18n="auth.forgotPassword"
                             >
                                 Passwort vergessen?
                             </button>
@@ -408,6 +433,7 @@
                             type="submit"
                             id="login-submit-button"
                             class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            data-i18n="auth.login"
                         >
                             Anmelden
                         </button>
@@ -494,10 +520,11 @@
                 <!-- Registrierungs-Link -->
                 <div class="mt-6 text-center border-t border-gray-200 pt-6">
                     <p class="text-sm text-gray-600">
-                        Noch kein Account?
+                        <span data-i18n="auth.noAccount">Noch kein Account?</span>
                         <a
                             href="/register.html"
                             class="font-medium text-indigo-600 hover:text-indigo-500"
+                            data-i18n="auth.signUpNow"
                         >
                             Jetzt registrieren
                         </a>
@@ -510,6 +537,20 @@
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/index.js"></script>
+        <!-- Firebase: <script type="module" src="/js/index.js"></script> -->
+        <script type="module">
+            // Initialize i18n before other scripts
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
+        <script type="module" src="/js/index-supabase.js"></script>
     </body>
 </html>

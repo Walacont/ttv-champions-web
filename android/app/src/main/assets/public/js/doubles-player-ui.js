@@ -1,4 +1,5 @@
 import { createDoublesMatchRequest } from './doubles-matches.js';
+import { calculateDoublesHandicap } from './validation-utils.js';
 import { doc, getDoc, collection, query, where, getDocs, onSnapshot } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 
 /**
@@ -84,7 +85,7 @@ function switchPlayerMatchType(type) {
         // Clear singles selection
         clearSinglesSelection();
 
-        // Hide handicap info when switching to doubles
+        // Clear handicap when switching to doubles
         const handicapInfo = document.getElementById('match-handicap-info');
         if (handicapInfo) {
             handicapInfo.classList.add('hidden');
@@ -241,6 +242,9 @@ export async function initializeDoublesPlayerSearch(db, userData) {
         userData,
         []
     );
+
+    // Setup handicap calculation for doubles
+    setupDoublesPlayerHandicap(playersData, userData);
 }
 
 /**
@@ -539,6 +543,124 @@ export async function handleDoublesPlayerMatchRequest(e, db, currentUserData) {
         feedbackEl.textContent = `Fehler: ${error.message}`;
         feedbackEl.className = 'bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded';
     }
+}
+
+/**
+ * Sets up handicap calculation for doubles player form
+ * @param {Object} playersData - Object with players array
+ * @param {Object} userData - Current user data
+ */
+function setupDoublesPlayerHandicap(playersData, userData) {
+    const partnerIdField = document.getElementById('selected-partner-id');
+    const opponent1IdField = document.getElementById('selected-opponent1-id');
+    const opponent2IdField = document.getElementById('selected-opponent2-id');
+    const handicapInfo = document.getElementById('match-handicap-info');
+    const handicapText = document.getElementById('match-handicap-text');
+    const handicapToggleContainer = document.getElementById('match-handicap-toggle-container');
+
+    if (!partnerIdField || !opponent1IdField || !opponent2IdField || !handicapInfo || !handicapText) {
+        console.warn('Handicap elements not found for doubles player form');
+        return;
+    }
+
+    /**
+     * Calculate and display handicap based on current selections
+     */
+    function calculateAndDisplayHandicap() {
+        const partnerId = partnerIdField.value;
+        const opponent1Id = opponent1IdField.value;
+        const opponent2Id = opponent2IdField.value;
+
+        // Check if all 3 players are selected
+        if (!partnerId || !opponent1Id || !opponent2Id) {
+            // Hide handicap if not all players selected
+            handicapInfo.classList.add('hidden');
+            if (handicapToggleContainer) {
+                handicapToggleContainer.classList.add('hidden');
+            }
+            return;
+        }
+
+        // Get player data from playersData
+        const partner = playersData.players.find(p => p.id === partnerId);
+        const opponent1 = playersData.players.find(p => p.id === opponent1Id);
+        const opponent2 = playersData.players.find(p => p.id === opponent2Id);
+
+        // If any player not found, hide handicap
+        if (!partner || !opponent1 || !opponent2) {
+            handicapInfo.classList.add('hidden');
+            if (handicapToggleContainer) {
+                handicapToggleContainer.classList.add('hidden');
+            }
+            return;
+        }
+
+        // Build team objects for handicap calculation
+        const teamA = {
+            player1: { eloRating: userData.doublesEloRating || 800 },
+            player2: { eloRating: partner.doublesEloRating || 800 }
+        };
+
+        const teamB = {
+            player1: { eloRating: opponent1.doublesEloRating || 800 },
+            player2: { eloRating: opponent2.doublesEloRating || 800 }
+        };
+
+        // Calculate handicap
+        const handicapResult = calculateDoublesHandicap(teamA, teamB);
+
+        if (handicapResult && handicapText) {
+            // Build team names
+            const teamAName = `${userData.firstName || ''} ${userData.lastName || ''} & ${partner.firstName || ''} ${partner.lastName || ''}`;
+            const teamBName = `${opponent1.firstName || ''} ${opponent1.lastName || ''} & ${opponent2.firstName || ''} ${opponent2.lastName || ''}`;
+
+            const weakerTeamName = handicapResult.team === 'A' ? teamAName.trim() : teamBName.trim();
+
+            handicapText.textContent = `${weakerTeamName} startet mit ${handicapResult.points} Punkt${handicapResult.points !== 1 ? 'en' : ''} Vorsprung (Ø ${handicapResult.averageEloA} vs ${handicapResult.averageEloB} Elo)`;
+            handicapInfo.classList.remove('hidden');
+            if (handicapToggleContainer) {
+                handicapToggleContainer.classList.remove('hidden');
+            }
+        } else {
+            // No handicap needed
+            handicapInfo.classList.add('hidden');
+            if (handicapToggleContainer) {
+                handicapToggleContainer.classList.add('hidden');
+            }
+        }
+    }
+
+    // Use MutationObserver to watch for changes to hidden fields
+    const observer = new MutationObserver(() => {
+        calculateAndDisplayHandicap();
+    });
+
+    // Observe all three hidden fields
+    observer.observe(partnerIdField, { attributes: true, attributeFilter: ['value'] });
+    observer.observe(opponent1IdField, { attributes: true, attributeFilter: ['value'] });
+    observer.observe(opponent2IdField, { attributes: true, attributeFilter: ['value'] });
+
+    // Also add direct event listener for when value is set programmatically
+    // Since MutationObserver doesn't always catch programmatic value changes,
+    // we'll add a periodic check as a fallback
+    let lastPartnerId = '';
+    let lastOpponent1Id = '';
+    let lastOpponent2Id = '';
+
+    setInterval(() => {
+        const currentPartnerId = partnerIdField.value;
+        const currentOpponent1Id = opponent1IdField.value;
+        const currentOpponent2Id = opponent2IdField.value;
+
+        if (currentPartnerId !== lastPartnerId ||
+            currentOpponent1Id !== lastOpponent1Id ||
+            currentOpponent2Id !== lastOpponent2Id) {
+            lastPartnerId = currentPartnerId;
+            lastOpponent1Id = currentOpponent1Id;
+            lastOpponent2Id = currentOpponent2Id;
+            calculateAndDisplayHandicap();
+        }
+    }, 500); // Check every 500ms
 }
 
 /**

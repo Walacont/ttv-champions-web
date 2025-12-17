@@ -3,6 +3,10 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
         <script src="/js/capacitor-init.js"></script>
 
         <!-- Favicon -->
@@ -25,11 +29,11 @@
         />
         <meta
             name="description"
-            content="Alle Regeln und FAQ zu SC Champions: Elo-System, XP, Saison-Punkte, QTTR-Umrechnung, Ränge, Doppel-Matches und Wettkampf-Matches. Verstehe das Punktesystem und steige in den Rängen auf."
+            content="Alle Regeln und FAQ zu SC Champions: Elo-System mit A-Faktor, XP, Saison-Punkte, Handicap-System, Ränge, Doppel-Matches und Wettkampf-Matches. Verstehe das Punktesystem und steige in den Rängen auf."
         />
         <meta
             name="keywords"
-            content="SC Champions FAQ, Tischtennis Regeln, Elo-System, QTTR Umrechnung, XP Punkte, Ränge, Doppel-Matches, Wettkampf, Gamification"
+            content="SC Champions FAQ, Tischtennis Regeln, Elo-System, A-Faktor, XP Punkte, Ränge, Doppel-Matches, Wettkampf, Gamification, Handicap"
         />
         <meta name="author" content="SC Champions" />
         <link rel="canonical" href="https://sc-champions.de/faq.html" />
@@ -43,7 +47,7 @@
         />
         <meta
             property="og:description"
-            content="Alle Regeln zu SC Champions: Elo-System, XP, QTTR-Umrechnung, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
+            content="Alle Regeln zu SC Champions: Elo-System mit A-Faktor, XP, Handicap-System, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
         />
         <meta property="og:locale" content="de_DE" />
 
@@ -56,7 +60,7 @@
         />
         <meta
             property="twitter:description"
-            content="Alle Regeln zu SC Champions: Elo-System, XP, QTTR-Umrechnung, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
+            content="Alle Regeln zu SC Champions: Elo-System mit A-Faktor, XP, Handicap-System, Ränge, Doppel-Matches und Wettkampf-Matches erklärt."
         />
 
         <script src="https://cdn.tailwindcss.com"></script>
@@ -82,13 +86,14 @@
         <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-3xl">
             <header class="flex justify-between items-start mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900">FAQ & Regeln</h1>
-                    <p class="text-gray-600">Alles, was du über SC Champions wissen musst.</p>
+                    <h1 class="text-3xl font-bold text-gray-900" data-i18n="faq.title">FAQ & Regeln</h1>
+                    <p class="text-gray-600" data-i18n="faq.subtitle">Alles, was du über SC Champions wissen musst.</p>
                 </div>
                 <a
                     href="/dashboard.html"
                     id="back-link"
                     class="text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap pt-1"
+                    data-i18n="faq.backToDashboard"
                 >
                     &larr; Zurück zum Dashboard
                 </a>
@@ -96,11 +101,11 @@
 
             <div class="bg-white p-6 rounded-xl shadow-md space-y-6">
                 <div>
-                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Das Punktesystem</h2>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2" data-i18n="faq.sections.pointSystem">Das Punktesystem</h2>
                     <div class="space-y-4">
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.eloVsXp"
                                     >Was ist der Unterschied zwischen Elo, XP und
                                     Saison-Punkten?</span
                                 >
@@ -118,45 +123,13 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                Es gibt drei Arten von Punkten, die du sammelst:
-                                <ul class="list-disc list-inside mt-2 space-y-2">
-                                    <li>
-                                        <strong>⚡ Skill (Elo):</strong> Dies ist deine permanente
-                                        Spielstärke. Du startest mit
-                                        <strong>800 Elo-Punkten</strong>. Du gewinnst Elo, indem du
-                                        Wettkampf-Matches gegen andere gewinnst. Du verlierst Elo,
-                                        wenn du verlierst. <strong>Wichtig:</strong> Sobald du
-                                        bestimmte Elo-Meilensteine erreichst (850, 900, 1000, 1100,
-                                        1300, 1600), kannst du nicht mehr darunter fallen – das sind
-                                        deine "Sicherheitsnetze". Dein Elo-Wert bestimmt maßgeblich
-                                        deinen Rang.
-                                    </li>
-                                    <li>
-                                        <strong>💪 Fleiß (XP):</strong> Das sind deine permanenten
-                                        Erfahrungspunkte. Du erhältst XP für fast alles:
-                                        Anwesenheit, Übungen, Challenges und Match-Siege.
-                                        <strong>XP werden nie abgezogen</strong> – du kannst sie nur
-                                        gewinnen! XP sind (genau wie Elo) für deinen Rangaufstieg
-                                        nötig. Allerdings können Strafen für unsportliches Verhalten
-                                        auch XP kosten (siehe unten).
-                                    </li>
-                                    <li>
-                                        <strong>🏆 Saison-Punkte:</strong> Diese Punkte sind nur für
-                                        den "Saison-Wettbewerb" (alle 6 Wochen). Sie werden für
-                                        Anwesenheit, Übungen, Challenges und Matches vergeben. Im
-                                        Gegensatz zu XP kannst du Saison-Punkte bei
-                                        Match-Niederlagen oder durch Strafen verlieren. Am Ende der
-                                        Saison werden sie zurückgesetzt.
-                                    </li>
-                                </ul>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.eloVsXp"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
                                 <span class="font-medium"
-                                    >Wie werden QTTR-Punkte in Elo umgerechnet?</span
+                                    >Wie funktioniert das Elo-System?</span
                                 >
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
@@ -173,54 +146,21 @@
                                 </svg>
                             </summary>
                             <div class="mt-2 text-gray-700">
-                                <p>
-                                    Wenn ein Coach einen erfahrenen Offline-Spieler erstellt und als
-                                    "wettkampfsbereit" markiert, kann er optional die
-                                    <strong>QTTR-Punkte</strong> (offizielles Tischtennisranking)
-                                    des Spielers eingeben.
-                                </p>
-                                <p class="mt-2 font-semibold text-lg">📊 Umrechnungsformel:</p>
-                                <p
-                                    class="mt-1 bg-indigo-50 p-3 rounded-lg border border-indigo-200"
-                                >
-                                    <strong>Elo = QTTR × 0,9</strong> (mindestens 800)
-                                </p>
-                                <p class="mt-3"><strong>Beispiele:</strong></p>
-                                <ul class="list-none mt-2 space-y-1 bg-gray-50 p-3 rounded">
-                                    <li>
-                                        <span class="font-mono">QTTR 1000</span> →
-                                        <span class="font-semibold text-indigo-600">Elo 900</span>
-                                    </li>
-                                    <li>
-                                        <span class="font-mono">QTTR 1200</span> →
-                                        <span class="font-semibold text-indigo-600">Elo 1080</span>
-                                    </li>
-                                    <li>
-                                        <span class="font-mono">QTTR 1500</span> →
-                                        <span class="font-semibold text-indigo-600">Elo 1350</span>
-                                    </li>
-                                    <li>
-                                        <span class="font-mono">QTTR 2000</span> →
-                                        <span class="font-semibold text-indigo-600">Elo 1800</span>
-                                    </li>
+                                <p>Das Elo-System berechnet deine Spielstärke basierend auf deinen Wettkampfergebnissen. Je mehr Spiele du machst, desto stabiler wird dein Rating.</p>
+                                <p class="font-medium mt-2">Dein persönlicher Faktor (A-Faktor):</p>
+                                <ul class="list-disc list-inside mt-1 space-y-1">
+                                    <li><strong>Spiele 1-10:</strong> Faktor 32 (schnelles Einpendeln)</li>
+                                    <li><strong>Spiele 11-20:</strong> Faktor 24 (Stabilisierung)</li>
+                                    <li><strong>Ab Spiel 21:</strong> Faktor 16 (stabile Rangliste)</li>
+                                    <li><strong>Jugend (U21):</strong> Faktor 20 (dauerhaft erhöht)</li>
                                 </ul>
-                                <p class="mt-3 text-sm text-gray-600">
-                                    <strong>💡 Warum 90%?</strong> Diese konservative Umrechnung
-                                    stellt sicher, dass sich neue Spieler erst im System beweisen
-                                    müssen, bevor sie ihr volles Niveau erreichen. So bleibt das
-                                    interne Ranking fair und spiegelt die tatsächliche Leistung in
-                                    eurem Verein wider.
-                                </p>
-                                <p class="mt-2 text-sm">
-                                    <strong>Hinweis:</strong> Ohne QTTR-Eingabe starten
-                                    wettkampfsbereite Spieler mit dem Standard-Wert von 800 Elo.
-                                </p>
+                                <p class="mt-2 text-sm text-gray-600">Neue Spieler starten bei 800 Elo. Das Minimum liegt bei 400 Elo.</p>
                             </div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.singlesPoints"
                                     >Wie funktionieren die Punkte bei Einzel-Matches?</span
                                 >
                                 <svg
@@ -237,42 +177,12 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p>
-                                    Wenn du ein Wettkampf-Match (kein Handicap-Match) spielst,
-                                    werden deine <strong>Elo-Punkte</strong> und deine
-                                    <strong>Saison-Punkte</strong> angepasst. Deine
-                                    <strong>XP</strong> können nur steigen.
-                                </p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        <strong>Sieg:</strong> Du gewinnst Elo-Punkte, Saison-Punkte
-                                        und XP.
-                                    </li>
-                                    <li>
-                                        <strong>Niederlage:</strong> Du verlierst Elo-Punkte und
-                                        Saison-Punkte. Du verlierst <strong>keine</strong> XP.
-                                    </li>
-                                    <li>
-                                        <strong>Fairness:</strong> Gewinnst du gegen einen stärkeren
-                                        Spieler (höheres Elo), erhältst du mehr Punkte. Verlierst du
-                                        gegen einen stärkeren Spieler, verlierst du nur wenige
-                                        Punkte.
-                                    </li>
-                                </ul>
-                                <p class="mt-2">
-                                    <strong>Wichtig für Rekruten:</strong> Als Rekrut (niedrigster
-                                    Rang) musst du erst
-                                    <strong>5 Grundlagen-Übungen</strong> abschließen, bevor du
-                                    Wettkampf-Matches spielen darfst. So stellst du sicher, dass du
-                                    die Basics beherrschst!
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.singlesPoints"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Wie funktionieren Doppel-Matches?</span>
+                                <span class="font-medium" data-i18n="faq.questions.handicapSystem">Wie funktioniert das Handicap-System?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -287,93 +197,12 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p>
-                                    Neben Einzel-Matches kannst du auch
-                                    <strong>Doppel-Matches</strong> spielen! Im Doppel spielst du
-                                    mit einem Partner gegen ein anderes Team.
-                                </p>
-
-                                <p class="mt-3"><strong>📋 Der Ablauf:</strong></p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        <strong>Team bilden:</strong> Du wählst einen Partner (Team
-                                        A) und zwei Gegner (Team B)
-                                    </li>
-                                    <li>
-                                        <strong>Anfrage senden:</strong> Das Gegner-Team muss die
-                                        Anfrage bestätigen
-                                    </li>
-                                    <li>
-                                        <strong>Coach-Genehmigung:</strong> Nach der Bestätigung
-                                        muss ein Coach das Match genehmigen und das Ergebnis
-                                        eintragen
-                                    </li>
-                                    <li>
-                                        <strong>Punkte:</strong> Alle 4 Spieler erhalten oder
-                                        verlieren Doppel-Elo-Punkte
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3"><strong>⚡ Doppel-Elo-System:</strong></p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        Du hast ein <strong>separates Doppel-Elo</strong> (startet
-                                        bei 800), unabhängig von deinem Einzel-Elo
-                                    </li>
-                                    <li>
-                                        Das Team-Elo wird aus dem Durchschnitt der beiden Spieler
-                                        berechnet
-                                    </li>
-                                    <li>
-                                        <strong>Beispiel:</strong> Spieler A (Doppel-Elo 900) +
-                                        Spieler B (Doppel-Elo 1000) = Team-Elo 950
-                                    </li>
-                                    <li>
-                                        Wie beim Einzel gilt: Gewinne gegen stärkere Teams bringen
-                                        mehr Punkte
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3"><strong>🏆 Doppel-Rangliste:</strong></p>
-                                <p class="mt-1">
-                                    Es gibt eine eigene Doppel-Rangliste, die du im
-                                    <strong>Ranglisten-Tab</strong> findest. Dort siehst du, welche
-                                    Teams die besten Doppel-Elo-Werte haben!
-                                </p>
-
-                                <p class="mt-3"><strong>📊 Punkte-Berechnung:</strong></p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        <strong>Sieg:</strong> Beide Spieler des Gewinnerteams
-                                        erhalten Doppel-Elo und Saison-Punkte
-                                    </li>
-                                    <li>
-                                        <strong>Niederlage:</strong> Beide Spieler des
-                                        Verliererteams verlieren Doppel-Elo und Saison-Punkte
-                                    </li>
-                                    <li>
-                                        <strong>XP:</strong> Wie beim Einzel erhält nur das
-                                        Gewinnerteam XP (kein XP-Verlust bei Niederlage)
-                                    </li>
-                                    <li>
-                                        <strong>Handicap:</strong> Doppel-Matches können auch mit
-                                        Handicap gespielt werden (keine Elo-Änderung)
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3">
-                                    <strong>💡 Tipp:</strong> Doppel-Matches sind eine großartige
-                                    Möglichkeit, Teamwork zu trainieren und neue Spielstile
-                                    kennenzulernen. Auch wenn du im Einzel noch nicht so stark bist,
-                                    kannst du mit einem guten Partner im Doppel erfolgreich sein!
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.handicapSystem"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Kann ich auch Punkte verlieren?</span>
+                                <span class="font-medium" data-i18n="faq.questions.doublesMatches">Wie funktionieren Doppel-Matches?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -388,56 +217,37 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                Ja, du kannst Punkte verlieren – sogar <strong>XP</strong>, aber nur
-                                bei schweren Verstößen!
-                                <ul class="list-disc list-inside mt-2 space-y-2">
-                                    <li>
-                                        <strong>Match-Niederlage:</strong> Du verlierst Elo und
-                                        Saison-Punkte (siehe oben). Du verlierst
-                                        <strong>keine</strong> XP.
-                                    </li>
-                                    <li>
-                                        <strong
-                                            >Leichte Verstöße (z.B. hört nicht auf Anweisungen,
-                                            hilft nicht beim Aufbauen):</strong
-                                        ><br />
-                                        <strong>-10 Saison-Punkte</strong> und
-                                        <strong>-5 XP</strong>
-                                    </li>
-                                    <li>
-                                        <strong
-                                            >Mittlere Verstöße (z.B. trainiert nicht ordentlich,
-                                            macht Quatsch, wirft mit Bällen):</strong
-                                        ><br />
-                                        <strong>-20 Saison-Punkte</strong> und
-                                        <strong>-10 XP</strong>
-                                    </li>
-                                    <li>
-                                        <strong
-                                            >Schwere Verstöße (z.B. respektloses Verhalten gegenüber
-                                            Trainern oder Mitspielern):</strong
-                                        ><br />
-                                        <strong>-30 Saison-Punkte</strong> und
-                                        <strong>-20 XP</strong>
-                                    </li>
-                                </ul>
-                                <p class="mt-2">
-                                    <strong>Wichtig:</strong> Strafen treffen dich doppelt – sie
-                                    ziehen sowohl Saison-Punkte als auch XP ab. Also: Fair bleiben
-                                    und respektvoll miteinander umgehen!
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.doublesMatches"></div>
+                        </details>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center cursor-pointer">
+                                <span class="font-medium" data-i18n="faq.questions.losePoints">Kann ich auch Punkte verlieren?</span>
+                                <svg
+                                    class="h-6 w-6 transform transition-transform group-open:rotate-180"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M19 9l-7 7-7-7"
+                                    />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.losePoints"></div>
                         </details>
                     </div>
                 </div>
 
                 <div>
-                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Spielmechaniken</h2>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2" data-i18n="faq.sections.gameMechanics">Spielmechaniken</h2>
                     <div class="space-y-4">
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.attendancePoints"
                                     >Wie funktioniert das Anwesenheits-Punktesystem?</span
                                 >
                                 <svg
@@ -454,88 +264,12 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p class="mb-3">
-                                    <strong>📅 Punkte für Training-Teilnahme:</strong>
-                                </p>
-                                <p>
-                                    Für jedes Training erhältst du Punkte (Saison & XP). Die Höhe
-                                    hängt von deinem "Streak" ab – einer Serie von
-                                    aufeinanderfolgenden Trainings:
-                                </p>
-                                <ul class="list-disc list-inside mt-2 space-y-1 mb-3">
-                                    <li>
-                                        <strong>Normale Anwesenheit (1-2x in Folge):</strong>
-                                        <strong>+3 Punkte</strong>
-                                    </li>
-                                    <li>
-                                        <strong>Streak-Bonus (3-4x in Folge):</strong>
-                                        <strong>+5 Punkte</strong> ⚡
-                                    </li>
-                                    <li>
-                                        <strong>Super-Streak (5x oder mehr):</strong>
-                                        <strong>+6 Punkte</strong> 🔥
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3 mb-3">
-                                    <strong>🎯 Mehrfach-Training am selben Tag:</strong>
-                                </p>
-                                <p>
-                                    Wenn du an
-                                    <strong>mehreren Trainings am selben Tag</strong> teilnimmst
-                                    (z.B. Basis-Training 16-17 Uhr und Leistungs-Training 17-18
-                                    Uhr), gilt:
-                                </p>
-                                <ul class="list-disc list-inside mt-2 space-y-1 mb-3">
-                                    <li>
-                                        <strong>1. Training des Tages:</strong> Volle Punkte (3/5/6
-                                        je nach Streak)
-                                    </li>
-                                    <li>
-                                        <strong>2. Training des Tages:</strong> Halbe Punkte
-                                        (aufgerundet)
-                                        <ul
-                                            class="list-circle list-inside ml-6 mt-1 space-y-1 text-sm"
-                                        >
-                                            <li>3 Punkte → 2 Punkte (1.5 aufgerundet)</li>
-                                            <li>5 Punkte → 3 Punkte (2.5 aufgerundet)</li>
-                                            <li>6 Punkte → 3 Punkte</li>
-                                        </ul>
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3 mb-2"><strong>📊 Punkte-Historie:</strong></p>
-                                <p class="text-sm">
-                                    In deiner Historie siehst du genau, wann du welche Punkte
-                                    erhalten hast:
-                                </p>
-                                <ul class="list-none mt-2 space-y-1 text-sm bg-gray-50 p-2 rounded">
-                                    <li>✓ "Training am 09.11.2025 - Basistraining"</li>
-                                    <li>
-                                        ✓ "Training am 10.11.2025 - Leistungstraining (⚡ 3x
-                                        Streak)"
-                                    </li>
-                                    <li>
-                                        ✓ "Training am 11.11.2025 - Techniktraining (🔥 5x Streak!)"
-                                    </li>
-                                    <li>
-                                        ✓ "Training am 11.11.2025 - Basistraining (2. Training
-                                        heute)"
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3">
-                                    <strong>⚠️ Wichtig:</strong> Wenn du ein Training verpasst, wird
-                                    dein Streak auf Null zurückgesetzt. Regelmäßiges Training lohnt
-                                    sich!
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.attendancePoints"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.exercisesPoints"
                                     >Wie funktionieren Übungen und Punkte?</span
                                 >
                                 <svg
@@ -552,114 +286,12 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p>
-                                    Übungen sind in
-                                    <strong>drei Schwierigkeitsstufen</strong> eingeteilt: Leicht,
-                                    Mittel und Schwer. Die Punkte, die du erhältst, hängen sowohl
-                                    von der Schwierigkeit der Übung als auch von deinem aktuellen
-                                    Level ab:
-                                </p>
-
-                                <div class="mt-2 overflow-x-auto">
-                                    <table class="min-w-full border border-gray-300 text-sm">
-                                        <thead class="bg-gray-100">
-                                            <tr>
-                                                <th class="border border-gray-300 px-2 py-1">
-                                                    Dein Level
-                                                </th>
-                                                <th class="border border-gray-300 px-2 py-1">
-                                                    Leichte Übung
-                                                </th>
-                                                <th class="border border-gray-300 px-2 py-1">
-                                                    Mittlere Übung
-                                                </th>
-                                                <th class="border border-gray-300 px-2 py-1">
-                                                    Schwere Übung
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td class="border border-gray-300 px-2 py-1">
-                                                    Rekrut/Bronze
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    5 P.
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    8 P.
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    10 P.
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="border border-gray-300 px-2 py-1">
-                                                    Silber/Gold
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    6 P.
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    10 P.
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    12 P.
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td class="border border-gray-300 px-2 py-1">
-                                                    Platin/Champion
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    8 P.
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    12 P.
-                                                </td>
-                                                <td
-                                                    class="border border-gray-300 px-2 py-1 text-center"
-                                                >
-                                                    18 P.
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <p class="mt-2">
-                                    <strong>Wichtig:</strong> Je höher dein Level, desto mehr Punkte
-                                    bekommst du für dieselbe Übung. Das System berechnet die Punkte
-                                    automatisch basierend auf deinem aktuellen Rang und der
-                                    Übungsschwierigkeit.
-                                </p>
-                                <p class="mt-2">
-                                    Du erhältst sowohl <strong>Saison-Punkte</strong> als auch
-                                    <strong>XP</strong> in gleicher Höhe.
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.exercisesPoints"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.milestones"
                                     >Was sind Meilenstein-Übungen und -Challenges?</span
                                 >
                                 <svg
@@ -676,104 +308,12 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p>
-                                    Manche Übungen und Challenges verwenden ein
-                                    <strong>abgestuftes Punktesystem</strong> mit Meilensteinen. Das
-                                    bedeutet: Je öfter du eine Übung schaffst, desto mehr Punkte
-                                    kannst du insgesamt verdienen!
-                                </p>
-
-                                <p class="mt-3">
-                                    <strong>📊 Beispiel: Endlos-Aufschlag-Übung</strong>
-                                </p>
-                                <ul
-                                    class="list-disc list-inside mt-2 space-y-1 bg-indigo-50 p-3 rounded"
-                                >
-                                    <li>1× geschafft → <strong>3 Punkte</strong></li>
-                                    <li>
-                                        3× geschafft → <strong>+5 Punkte</strong> (insgesamt 8
-                                        Punkte)
-                                    </li>
-                                    <li>
-                                        5× geschafft → <strong>+8 Punkte</strong> (insgesamt 16
-                                        Punkte)
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3"><strong>Wie funktioniert es?</strong></p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        Die Punkte sind <strong>kumulativ</strong> – du bekommst
-                                        alle Punkte bis zum erreichten Meilenstein.
-                                    </li>
-                                    <li>
-                                        Jeder Meilenstein kann
-                                        <strong>nur einmal pro Saison</strong> erreicht werden.
-                                    </li>
-                                    <li>
-                                        Dein Coach sieht deinen aktuellen Fortschritt, wenn er dir
-                                        Punkte vergibt.
-                                    </li>
-                                    <li>
-                                        Nach dem Saison-Reset (alle 6 Wochen) kannst du alle
-                                        Meilensteine erneut erreichen!
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3">
-                                    <strong>🎯 So vergibt dein Coach Punkte:</strong>
-                                </p>
-                                <ul
-                                    class="list-disc list-inside mt-2 space-y-1 bg-gray-50 p-3 rounded"
-                                >
-                                    <li>
-                                        Bei Meilenstein-Übungen wählt der Coach aus,
-                                        <strong>welchen Meilenstein</strong> du erreicht hast (z.B.
-                                        "3×" oder "5×")
-                                    </li>
-                                    <li>
-                                        Das System zeigt automatisch an:
-                                        <ul
-                                            class="list-circle list-inside ml-6 mt-1 space-y-1 text-sm"
-                                        >
-                                            <li>Welche Meilensteine du bereits erreicht hast ✓</li>
-                                            <li>
-                                                Welche Punkte du für den nächsten Meilenstein
-                                                bekommst
-                                            </li>
-                                            <li>Deine Gesamt-Anzahl an Wiederholungen</li>
-                                        </ul>
-                                    </li>
-                                    <li>
-                                        Du kannst
-                                        <strong>nicht zweimal denselben Meilenstein</strong>
-                                        bekommen – wenn du 5× bereits hast, kannst du nicht nochmal
-                                        3× bekommen
-                                    </li>
-                                    <li>
-                                        Du kannst aber
-                                        <strong>mehrere Meilensteine auf einmal</strong>
-                                        überspringen – direkt von 1× auf 5× ist möglich!
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3">
-                                    <strong>💡 Tipp für Coaches:</strong> Beim Erstellen einer Übung
-                                    oder Challenge kannst du zwischen normalem Punktesystem und
-                                    Meilensteinen wählen. Meilensteine eignen sich besonders für:
-                                </p>
-                                <ul class="list-disc list-inside ml-6 mt-1 space-y-1 text-sm">
-                                    <li>Endlos-Übungen (z.B. "100 Aufschläge in Folge")</li>
-                                    <li>Wiederholbare Challenges (z.B. "Topspin-Serie")</li>
-                                    <li>Langzeit-Ziele mit steigendem Schwierigkeitsgrad</li>
-                                </ul>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.milestones"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium">Wie funktioniert der Saison-Reset?</span>
+                                <span class="font-medium" data-i18n="faq.questions.seasonReset">Wie funktioniert der Saison-Reset?</span>
                                 <svg
                                     class="h-6 w-6 transform transition-transform group-open:rotate-180"
                                     fill="none"
@@ -788,67 +328,12 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p>
-                                    Jede <strong>6 Wochen</strong> (42 Tage) wird eine neue Saison
-                                    gestartet. Der Reset erfolgt
-                                    <strong>automatisch um Mitternacht</strong>.
-                                </p>
-
-                                <p class="mt-3"><strong>Was wird zurückgesetzt?</strong></p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        <strong>Saison-Punkte:</strong> Werden auf 0 zurückgesetzt
-                                    </li>
-                                    <li>
-                                        <strong>Liga-Platzierungen:</strong> Top 2 jeder Liga
-                                        steigen auf, Bottom 2 steigen ab
-                                    </li>
-                                    <li>
-                                        <strong>Meilenstein-Fortschritt:</strong> Alle Meilensteine
-                                        können erneut erreicht werden
-                                    </li>
-                                    <li>
-                                        <strong>Abschluss-Status:</strong> Übungen und Challenges
-                                        können erneut absolviert werden
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3"><strong>Was bleibt erhalten?</strong></p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        <strong>Einzel-Elo:</strong> Deine Einzel-Skill-Bewertung
-                                        bleibt permanent
-                                    </li>
-                                    <li>
-                                        <strong>Doppel-Elo:</strong> Deine Doppel-Skill-Bewertung
-                                        bleibt permanent
-                                    </li>
-                                    <li>
-                                        <strong>XP (Erfahrungspunkte):</strong> Dein Fleiß wird nie
-                                        zurückgesetzt
-                                    </li>
-                                    <li>
-                                        <strong>Rang:</strong> Dein Rang (Rekrut, Bronze, Silber...)
-                                        ist permanent
-                                    </li>
-                                    <li>
-                                        <strong>Grundlagen-Abschlüsse:</strong> Die 5
-                                        Grundlagen-Übungen bleiben abgeschlossen
-                                    </li>
-                                </ul>
-
-                                <p class="mt-3">
-                                    <strong>💡 Tipp:</strong> Im Dashboard siehst du einen Countdown
-                                    bis zum nächsten Saison-Reset. Nutze die Zeit, um noch schnell
-                                    Punkte zu sammeln und in deiner Liga aufzusteigen!
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.seasonReset"></div>
                         </details>
 
                         <details class="group">
                             <summary class="flex justify-between items-center cursor-pointer">
-                                <span class="font-medium"
+                                <span class="font-medium" data-i18n="faq.questions.ranksLeaderboard"
                                     >Wie funktionieren die Ränge und das Leaderboard?</span
                                 >
                                 <svg
@@ -865,90 +350,28 @@
                                     />
                                 </svg>
                             </summary>
-                            <div class="mt-2 text-gray-700">
-                                <p>
-                                    Dein Rang (z.B. Rekrut, Bronze, Silber) ist
-                                    <strong>permanent</strong> und wird nie zurückgesetzt. Um im
-                                    Rang aufzusteigen, musst du bestimmte Meilensteine bei
-                                    <strong>Elo (Skill)</strong> und
-                                    <strong>XP (Fleiß)</strong> erreichen.
-                                </p>
-
-                                <p class="mt-2">
-                                    <strong>Die Ränge und ihre Anforderungen:</strong>
-                                </p>
-                                <ul class="list-disc list-inside mt-2 space-y-2">
-                                    <li>
-                                        <strong>🥉 Rekrut (Start):</strong> 0-49 XP, 800-849 Elo, 0
-                                        Grundlagen<br />
-                                        <em>Du startest hier mit 800 Elo und 0 XP.</em>
-                                    </li>
-                                    <li>
-                                        <strong>🥉 Bronze:</strong> 50+ XP, 850+ Elo, 5
-                                        Grundlagen<br />
-                                        <em
-                                            >Lerne erst die Basics, bevor du Matches spielen
-                                            darfst!</em
-                                        >
-                                    </li>
-                                    <li><strong>🥈 Silber:</strong> 200+ XP, 900+ Elo</li>
-                                    <li><strong>🥇 Gold:</strong> 500+ XP, 1000+ Elo</li>
-                                    <li><strong>💎 Platin:</strong> 1000+ XP, 1100+ Elo</li>
-                                    <li>
-                                        <strong>👑 Champion:</strong> 1800+ XP, 1300+ Elo<br />
-                                        <em>Die Elite – nur die Besten schaffen es hierher!</em>
-                                    </li>
-                                </ul>
-
-                                <p class="mt-2">
-                                    <strong>Wichtig:</strong> Du musst immer
-                                    <strong>beide</strong> Anforderungen (Elo UND XP) für den
-                                    nächsten Rang erfüllen. Für Bronze musst du zusätzlich 5
-                                    Grundlagen-Übungen abschließen.
-                                </p>
-
-                                <p class="mt-2">
-                                    <strong
-                                        >Das Leaderboard (Ranglisten) ist in mehrere Tabs
-                                        aufgeteilt:</strong
-                                    >
-                                </p>
-                                <ul class="list-disc list-inside mt-2 space-y-1">
-                                    <li>
-                                        <strong>💪 Fleiß (XP):</strong> Zeigt die Rangliste
-                                        basierend auf Erfahrungspunkten.
-                                    </li>
-                                    <li>
-                                        <strong>⭐ Season (Punkte):</strong> Zeigt die aktuelle
-                                        Saison-Rangliste.
-                                    </li>
-                                    <li>
-                                        <strong>⚡ Skill (Elo):</strong> Zeigt die Rangliste
-                                        basierend auf Einzel-Elo-Punkten.
-                                    </li>
-                                    <li>
-                                        <strong>🏆 Ränge (Level):</strong> Zeigt alle Spieler
-                                        gruppiert nach ihrem aktuellen Rang (z.B. alle in Bronze,
-                                        alle in Silber).
-                                    </li>
-                                    <li>
-                                        <strong>🎾 Doppel (Teams):</strong> Zeigt die
-                                        Doppel-Rangliste mit den besten Team-Kombinationen basierend
-                                        auf Doppel-Elo.
-                                    </li>
-                                </ul>
-                                <p class="mt-2 text-sm italic text-gray-600">
-                                    Du kannst im Ranglisten-Tab einstellen, welche Ranglisten du
-                                    sehen möchtest.
-                                </p>
-                            </div>
+                            <div class="mt-2 text-gray-700" data-i18n-html="faq.answers.ranksLeaderboard"></div>
                         </details>
                     </div>
                 </div>
             </div>
         </div>
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/faq.js"></script>
+        <!-- Firebase: <script type="module" src="/js/faq.js"></script> -->
+        <script type="module" src="/js/faq-supabase.js"></script>
     </body>
 </html>

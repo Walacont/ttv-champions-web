@@ -1,41 +1,28 @@
-// NEU: Zusätzliche Imports für die Emulatoren
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js';
+// Use shared Firebase instance to avoid duplicate initialization
 import {
-    getAuth,
     signInWithEmailAndPassword,
     onAuthStateChanged,
     sendPasswordResetEmail,
-    connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
 import {
-    getFirestore,
     doc,
     getDoc,
     query,
     collection,
     where,
     getDocs,
-    connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js';
+import { initFirebase } from './firebase-init.js';
 import { validateCodeFormat, formatCode, isCodeExpired } from './invitation-code-utils.js';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+console.log('[INDEX] Script starting...');
 
-// NEU: Der Emulator-Block
-// Verbindet sich nur mit den lokalen Emulatoren, wenn die Seite über localhost läuft (aber NICHT in Capacitor).
-const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
-if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    console.log('Login-Script: Verbinde mit lokalen Firebase Emulatoren...');
+// Use shared Firebase instance (singleton) - this ensures we use the same
+// auth/db instances as other parts of the app
+// Using top-level await (supported in ES modules)
+const { auth, db } = await initFirebase();
 
-    // Auth Emulator
-    connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
-    connectFirestoreEmulator(db, 'localhost', 8080);
-}
+console.log('[INDEX] Firebase initialized via shared instance');
 
 const loginForm = document.getElementById('login-form');
 const resetForm = document.getElementById('reset-form');
@@ -48,6 +35,14 @@ const codeLoginTab = document.getElementById('code-login-tab');
 const forgotPasswordButton = document.getElementById('forgot-password-button');
 const backToLoginButton = document.getElementById('back-to-login-button');
 const invitationCodeInput = document.getElementById('invitation-code');
+
+console.log('[INDEX] DOM elements:', {
+    loginForm: !!loginForm,
+    resetForm: !!resetForm,
+    codeForm: !!codeForm,
+    emailLoginTab: !!emailLoginTab,
+    codeLoginTab: !!codeLoginTab
+});
 
 // Check URL for code parameter (direct link from WhatsApp/etc)
 const urlParams = new URLSearchParams(window.location.search);
@@ -65,8 +60,8 @@ if (codeFromUrl) {
 }
 
 // Tab Switching
-emailLoginTab.addEventListener('click', switchToEmailTab);
-codeLoginTab.addEventListener('click', switchToCodeTab);
+if (emailLoginTab) emailLoginTab.addEventListener('click', switchToEmailTab);
+if (codeLoginTab) codeLoginTab.addEventListener('click', switchToCodeTab);
 
 function switchToEmailTab() {
     emailLoginTab.classList.add('text-indigo-600', 'border-indigo-600', 'bg-indigo-50');
@@ -108,64 +103,104 @@ invitationCodeInput?.addEventListener('input', e => {
 // *** VEREINFACHTE LOGIK ***
 // Dieser Listener ist jetzt NUR für bereits eingeloggte Nutzer, die die Seite neu laden.
 onAuthStateChanged(auth, async user => {
+    console.log('[INDEX] onAuthStateChanged triggered, user:', user ? user.email : 'null');
     if (user) {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-            const userData = userDoc.data();
-            // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
-            if (!userData.onboardingComplete) {
-                console.log('[LOGIN] User not onboarded, redirecting to onboarding');
-                window.location.href = '/onboarding.html';
-                return;
-            }
-            // Ansonsten, normale Weiterleitung basierend auf der Rolle.
-            let targetUrl;
-            if (userData.role === 'admin') targetUrl = '/admin.html';
-            else if (userData.role === 'coach') targetUrl = '/coach.html';
-            else targetUrl = '/dashboard.html';
+        try {
+            console.log('[INDEX] Fetching user document for uid:', user.uid);
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            console.log('[INDEX] User document exists:', userDoc.exists());
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                console.log('[INDEX] User data:', JSON.stringify({ role: userData.role, onboardingComplete: userData.onboardingComplete }));
+                // Wenn das Onboarding aus irgendeinem Grund nicht abgeschlossen ist, schicke sie dorthin.
+                if (!userData.onboardingComplete) {
+                    console.log('[INDEX] User not onboarded, redirecting to onboarding');
+                    window.location.href = '/onboarding.html';
+                    return;
+                }
+                // Ansonsten, normale Weiterleitung basierend auf der Rolle.
+                let targetUrl;
+                if (userData.role === 'admin') targetUrl = '/admin.html';
+                else if (userData.role === 'coach') targetUrl = '/coach.html';
+                else targetUrl = '/dashboard.html';
 
-            console.log('[LOGIN] User already logged in, redirecting to:', targetUrl);
-            // Use normal navigation for initial login redirect (not SPA navigation)
-            window.location.href = targetUrl;
+                console.log('[INDEX] Redirecting to:', targetUrl);
+                // Use normal navigation for initial login redirect (not SPA navigation)
+                window.location.href = targetUrl;
+            } else {
+                console.error('[INDEX] User document does not exist in Firestore!');
+            }
+        } catch (error) {
+            console.error('[INDEX] Error fetching user document:', error);
         }
     }
 });
 
-loginForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = document.getElementById('email-address').value;
-    const password = document.getElementById('password').value;
-    const submitButton = document.getElementById('login-submit-button');
-    feedbackMessage.textContent = '';
-    feedbackMessage.className = 'mt-2 text-center text-sm';
-    submitButton.disabled = true;
+if (loginForm) {
+    console.log('[INDEX] Setting up login form submit handler');
+    loginForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        console.log('[INDEX] Login form submitted!');
+        const email = document.getElementById('email-address').value;
+        const password = document.getElementById('password').value;
+        const submitButton = document.getElementById('login-submit-button');
+        console.log('[INDEX] Attempting login for:', email);
+        feedbackMessage.textContent = '';
+        feedbackMessage.className = 'mt-2 text-center text-sm';
+        submitButton.disabled = true;
 
-    try {
-        await signInWithEmailAndPassword(auth, email, password);
-        // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
-    } catch (error) {
-        console.error('Login-Fehler:', error);
-        feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
-        feedbackMessage.classList.add('text-red-600');
-        submitButton.disabled = false;
-    }
-});
+        try {
+            console.log('[INDEX] Calling signInWithEmailAndPassword...');
+            console.log('[INDEX] Auth object:', auth ? 'exists' : 'null');
+            console.log('[INDEX] Auth app name:', auth?.app?.name);
 
-forgotPasswordButton.addEventListener('click', () => {
+            // Add timeout wrapper to detect hanging calls
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Login timeout after 15 seconds')), 15000)
+            );
+
+            const loginPromise = signInWithEmailAndPassword(auth, email, password);
+
+            console.log('[INDEX] Login promise created, waiting...');
+
+            const userCredential = await Promise.race([loginPromise, timeoutPromise]);
+            console.log('[INDEX] Login successful! User:', userCredential.user.email);
+            console.log('[INDEX] Waiting for onAuthStateChanged to handle redirect...');
+            // Die Weiterleitung wird vom onAuthStateChanged Listener oben übernommen.
+        } catch (error) {
+            console.error('[INDEX] Login error:', error);
+            console.error('[INDEX] Error name:', error.name);
+            console.error('[INDEX] Error code:', error.code);
+            console.error('[INDEX] Error message:', error.message);
+
+            if (error.message === 'Login timeout after 15 seconds') {
+                feedbackMessage.textContent = 'Login-Timeout. Bitte prüfe deine Internetverbindung.';
+            } else {
+                feedbackMessage.textContent = 'E-Mail oder Passwort ist falsch.';
+            }
+            feedbackMessage.classList.add('text-red-600');
+            submitButton.disabled = false;
+        }
+    });
+} else {
+    console.error('[INDEX] loginForm NOT found - cannot set up submit handler!');
+}
+
+forgotPasswordButton?.addEventListener('click', () => {
     loginForm.classList.add('hidden');
     resetForm.classList.remove('hidden');
     formTitle.textContent = 'Passwort zurücksetzen';
     feedbackMessage.textContent = '';
 });
 
-backToLoginButton.addEventListener('click', () => {
+backToLoginButton?.addEventListener('click', () => {
     resetForm.classList.add('hidden');
     loginForm.classList.remove('hidden');
     formTitle.textContent = 'Anmelden';
     feedbackMessage.textContent = '';
 });
 
-resetForm.addEventListener('submit', async e => {
+resetForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('reset-email-address').value;
     feedbackMessage.textContent = '';
@@ -185,7 +220,7 @@ resetForm.addEventListener('submit', async e => {
 });
 
 // Code Form Handler
-codeForm.addEventListener('submit', async e => {
+codeForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const code = invitationCodeInput.value.trim().toUpperCase();
     feedbackMessage.textContent = '';
@@ -259,14 +294,24 @@ const loginModal = document.getElementById('login-modal');
 const openLoginBtn = document.getElementById('open-login-modal');
 const closeLoginBtn = document.getElementById('close-login-modal');
 
+console.log('[INDEX] Modal elements:', {
+    loginModal: !!loginModal,
+    openLoginBtn: !!openLoginBtn,
+    closeLoginBtn: !!closeLoginBtn
+});
+
 if (loginModal && openLoginBtn && closeLoginBtn) {
+    console.log('[INDEX] Setting up modal event listeners');
+
     // Modal öffnen (Klick auf "Login" im Header)
     openLoginBtn.addEventListener('click', () => {
+        console.log('[INDEX] Open login button clicked - opening modal');
         loginModal.classList.remove('hidden');
     });
 
     // Modal schließen (Klick auf 'X' im Modal)
     closeLoginBtn.addEventListener('click', () => {
+        console.log('[INDEX] Close button clicked - closing modal');
         loginModal.classList.add('hidden');
     });
 
@@ -275,7 +320,19 @@ if (loginModal && openLoginBtn && closeLoginBtn) {
         // Prüfen, ob der Klick direkt auf den Hintergrund (loginModal)
         // und nicht auf ein Kind-Element (das weiße Panel) erfolgte.
         if (e.target === loginModal) {
+            console.log('[INDEX] Background clicked - closing modal');
             loginModal.classList.add('hidden');
         }
+    });
+} else {
+    console.error('[INDEX] Modal elements NOT found - cannot set up modal!');
+}
+
+// Also add a direct click listener on the submit button for debugging
+const loginSubmitBtn = document.getElementById('login-submit-button');
+if (loginSubmitBtn) {
+    console.log('[INDEX] Adding click listener to submit button');
+    loginSubmitBtn.addEventListener('click', (e) => {
+        console.log('[INDEX] Submit button clicked directly');
     });
 }

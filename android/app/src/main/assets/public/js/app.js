@@ -9,13 +9,11 @@ import {
     getAuth,
     onAuthStateChanged,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import { firebaseConfig } from './firebase-config.js';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const analytics = getAnalytics(app);
 
 // Track loaded modules to prevent re-initialization
 const loadedModules = new Map();

@@ -5,7 +5,6 @@ import {
     onAuthStateChanged,
     connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import {
     getFirestore,
     doc,
@@ -26,26 +25,18 @@ import {
     getDownloadURL,
     connectStorageEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-storage.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, shouldUseEmulators } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const analytics = getAnalytics(app);
 
-// NEU: Der Emulator-Block (aber NICHT in Capacitor)
-const isCapacitorApp = typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform();
-if (!isCapacitorApp && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+// Emulator-Verbindung nur wenn explizit aktiviert (USE_FIREBASE_EMULATORS = true)
+if (shouldUseEmulators()) {
     console.log('Onboarding.js: Verbinde mit lokalen Firebase Emulatoren...');
-
-    // Auth Emulator
     connectAuthEmulator(auth, 'http://localhost:9099');
-
-    // Firestore Emulator
     connectFirestoreEmulator(db, 'localhost', 8080);
-
-    // Storage Emulator
     connectStorageEmulator(storage, 'localhost', 9199);
 }
 
