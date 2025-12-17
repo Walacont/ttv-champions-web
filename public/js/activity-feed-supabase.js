@@ -2287,12 +2287,16 @@ function renderGlobalRankingChangeCard(activity) {
 
 /**
  * Render a club doubles ranking change activity card (top 10 in club)
+ * Shows PAIRING ranking - both players' names
  * Only visible to club members
  */
 function renderClubDoublesRankingChangeCard(activity) {
     const eventData = activity.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const player1Name = eventData.player1_name || 'Spieler 1';
+    const player2Name = eventData.player2_name || 'Spieler 2';
+    const player1Id = eventData.player1_id;
+    const player2Id = eventData.player2_id;
+    const displayName = eventData.display_name || `${player1Name} & ${player2Name}`;
     const newPosition = eventData.new_position || 0;
     const oldPosition = eventData.old_position || 0;
     const eloRating = eventData.elo_rating || 0;
@@ -2313,23 +2317,23 @@ function renderClubDoublesRankingChangeCard(activity) {
     };
     const colors = positionColors[newPosition] || { bg: 'teal', border: 'teal', text: 'teal' };
 
-    // Generate message based on movement
+    // Generate message based on movement (plural for pairings: "steigen" instead of "steigt")
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.enteredTop10')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">sind in die Top 10 aufgestiegen!</span>`;
         } else if (oldPosition > 3 && newPosition <= 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.enteredPodium')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">sind auf das Podium aufgestiegen!</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${getRankingText('clubDoublesRanking.position', { position: newPosition })}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">steigen auf</span> <span class="font-bold text-${colors.text}-700">Platz ${newPosition}</span>`;
         }
     } else if (direction === 'down') {
         if (newPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.leftTop10')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">haben die Top 10 verlassen</span>`;
         } else if (oldPosition <= 3 && newPosition > 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.leftPodium')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">haben das Podium verlassen</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${getRankingText('clubDoublesRanking.position', { position: newPosition })}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">fallen auf</span> <span class="font-bold text-${colors.text}-700">Platz ${newPosition}</span>`;
         }
     }
 
@@ -2339,7 +2343,7 @@ function renderClubDoublesRankingChangeCard(activity) {
         previousHolderHtml = `
             <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
                 <i class="fas fa-exchange-alt text-${colors.text}-400"></i>
-                <span>${getRankingText('clubDoublesRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
+                <span>vorher: ${previousHolderName} (${previousHolderElo} Elo)</span>
             </div>
         `;
     }
@@ -2357,22 +2361,24 @@ function renderClubDoublesRankingChangeCard(activity) {
     return `
         <div class="bg-gradient-to-r from-${colors.bg}-50 to-${colors.bg}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colors.border}-200">
             <div class="flex items-start gap-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
-                    <img src="${avatarUrl}" alt="${displayName}"
-                         class="w-12 h-12 rounded-full object-cover border-2 border-${colors.border}-400"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-shrink-0 relative">
+                    <div class="w-12 h-12 rounded-full bg-${colors.bg}-200 flex items-center justify-center border-2 border-${colors.border}-400">
+                        <i class="fas fa-user-friends text-${colors.text}-600 text-lg"></i>
+                    </div>
                     <div class="absolute -bottom-1 -right-1 bg-${direction === 'up' ? 'green' : 'red'}-500 rounded-full p-1">
                         <i class="fas fa-${direction === 'up' ? 'arrow-up' : 'arrow-down'} text-white text-xs"></i>
                     </div>
-                </a>
+                </div>
 
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1 flex-wrap">
                         <i class="fas fa-users text-${colors.text}-500 mr-1"></i>
                         ${positionBadge}
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
-                            ${displayName}
-                        </a>
+                        <span class="font-semibold text-gray-900">
+                            <a href="/profile.html?id=${player1Id}" class="hover:text-indigo-600 transition">${player1Name}</a>
+                            <span class="text-gray-500">&</span>
+                            <a href="/profile.html?id=${player2Id}" class="hover:text-indigo-600 transition">${player2Name}</a>
+                        </span>
                         ${messageHtml}
                     </div>
 
@@ -2381,7 +2387,7 @@ function renderClubDoublesRankingChangeCard(activity) {
                             <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
                         </span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                            <i class="fas fa-users mr-1"></i>${getRankingText('clubDoublesRanking.title')}
+                            <i class="fas fa-users mr-1"></i>Doppel-Rangliste
                         </span>
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
                     </div>
@@ -2407,12 +2413,16 @@ function renderClubDoublesRankingChangeCard(activity) {
 
 /**
  * Render a global doubles ranking change activity card
- * Only visible to the player themselves and their followers (NOT in club feed)
+ * Shows PAIRING ranking - both players' names
+ * Only visible to both players and their followers
  */
 function renderGlobalDoublesRankingChangeCard(activity) {
     const eventData = activity.event_data || {};
-    const displayName = eventData.display_name || 'Spieler';
-    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const player1Name = eventData.player1_name || 'Spieler 1';
+    const player2Name = eventData.player2_name || 'Spieler 2';
+    const player1Id = eventData.player1_id;
+    const player2Id = eventData.player2_id;
+    const displayName = eventData.display_name || `${player1Name} & ${player2Name}`;
     const newPosition = eventData.new_position || 0;
     const oldPosition = eventData.old_position || 0;
     const eloRating = eventData.elo_rating || 0;
@@ -2427,15 +2437,13 @@ function renderGlobalDoublesRankingChangeCard(activity) {
     // Color scheme - teal for global doubles ranking
     const colors = { bg: 'teal', border: 'teal', text: 'teal' };
 
-    // Generate message based on movement
+    // Generate message based on movement (plural for pairings)
     let messageHtml = '';
-    const changeText = positionsChanged > 1
-        ? getRankingText('globalDoublesRanking.positionsPlural', { count: positionsChanged })
-        : getRankingText('globalDoublesRanking.positionsSingular');
+    const changeText = positionsChanged > 1 ? `${positionsChanged} Plätze` : '1 Platz';
     if (direction === 'up') {
-        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${getRankingText('globalDoublesRanking.risen')}</span>`;
+        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} gestiegen</span>`;
     } else {
-        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${getRankingText('globalDoublesRanking.fallen')}</span>`;
+        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} gefallen</span>`;
     }
 
     // Position badge
@@ -2449,28 +2457,30 @@ function renderGlobalDoublesRankingChangeCard(activity) {
     return `
         <div class="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-teal-200">
             <div class="flex items-start gap-3">
-                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
-                    <img src="${avatarUrl}" alt="${displayName}"
-                         class="w-12 h-12 rounded-full object-cover border-2 border-teal-400"
-                         onerror="this.src='${DEFAULT_AVATAR}'">
+                <div class="flex-shrink-0 relative">
+                    <div class="w-12 h-12 rounded-full bg-teal-200 flex items-center justify-center border-2 border-teal-400">
+                        <i class="fas fa-user-friends text-teal-600 text-lg"></i>
+                    </div>
                     <div class="absolute -bottom-1 -right-1 bg-${direction === 'up' ? 'green' : 'red'}-500 rounded-full p-1">
                         <i class="fas fa-${direction === 'up' ? 'arrow-up' : 'arrow-down'} text-white text-xs"></i>
                     </div>
-                </a>
+                </div>
 
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1 flex-wrap">
                         <i class="fas fa-globe text-teal-500 mr-1"></i>
                         ${positionBadge}
-                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
-                            ${displayName}
-                        </a>
+                        <span class="font-semibold text-gray-900">
+                            <a href="/profile.html?id=${player1Id}" class="hover:text-indigo-600 transition">${player1Name}</a>
+                            <span class="text-gray-500">&</span>
+                            <a href="/profile.html?id=${player2Id}" class="hover:text-indigo-600 transition">${player2Name}</a>
+                        </span>
                         ${messageHtml}
                     </div>
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                            <i class="fas fa-globe mr-1"></i>${getRankingText('globalDoublesRanking.title')}
+                            <i class="fas fa-globe mr-1"></i>Globale Doppel-Rangliste
                         </span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
@@ -2478,9 +2488,9 @@ function renderGlobalDoublesRankingChangeCard(activity) {
                     </div>
 
                     <div class="mt-2 text-sm text-gray-500">
-                        <span>${getRankingText('globalDoublesRanking.position', { position: oldPosition })}</span>
+                        <span>Platz ${oldPosition}</span>
                         <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
-                        <span class="font-semibold text-teal-700">${getRankingText('globalDoublesRanking.position', { position: newPosition })}</span>
+                        <span class="font-semibold text-teal-700">Platz ${newPosition}</span>
                     </div>
 
                     <div class="text-xs text-gray-400 mt-1">${dateStr}, ${timeStr}</div>
