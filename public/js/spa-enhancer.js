@@ -306,8 +306,14 @@ class SPAEnhancer {
         });
         this.currentPageScripts = [];
 
-        // You could add more cleanup here if needed
-        // For example, clearing timers, removing event listeners, etc.
+        // Reset body styles that might have been set by modals/overlays
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+
+        // Remove any modal-related classes
+        document.body.classList.remove('modal-open', 'overflow-hidden', 'keyboard-visible');
     }
 
     /**
