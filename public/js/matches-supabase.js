@@ -743,28 +743,44 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
     try {
         const supabase = getSupabase();
 
+        // Prepare match data
+        const matchData = {
+            player_a_id: playerAId,
+            player_b_id: playerBId,
+            winner_id: winnerId,
+            loser_id: winnerId === playerAId ? playerBId : playerAId,
+            player_a_sets_won: setsA,
+            player_b_sets_won: setsB,
+            sets: sets,
+            club_id: currentUserData.clubId || currentUserData.club_id,
+            created_by: currentUserData.id,
+            sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
+            match_mode: matchMode,
+            handicap_used: handicapUsed,
+            played_at: new Date().toISOString()
+        };
+
+        // Debug: Log match data being sent
+        console.log('[Matches] Saving match with data:', matchData);
+        console.log('[Matches] Player A:', playerA);
+        console.log('[Matches] Player B:', playerB);
+
         // Save match result - ELO trigger handles calculation automatically
         const { data: match, error: matchError } = await supabase
             .from('matches')
-            .insert({
-                player_a_id: playerAId,
-                player_b_id: playerBId,
-                winner_id: winnerId,
-                loser_id: winnerId === playerAId ? playerBId : playerAId,
-                player_a_sets_won: setsA,
-                player_b_sets_won: setsB,
-                sets: sets,
-                club_id: currentUserData.clubId || currentUserData.club_id,
-                created_by: currentUserData.id,
-                sport_id: currentUserData.activeSportId || currentUserData.active_sport_id || null,
-                match_mode: matchMode,
-                handicap_used: handicapUsed,
-                played_at: new Date().toISOString()
-            })
+            .insert(matchData)
             .select()
             .single();
 
-        if (matchError) throw matchError;
+        if (matchError) {
+            console.error('[Matches] Match insert error details:', {
+                message: matchError.message,
+                details: matchError.details,
+                hint: matchError.hint,
+                code: matchError.code
+            });
+            throw matchError;
+        }
 
         if (feedbackEl) {
             feedbackEl.textContent = 'Match erfolgreich gespeichert!';
