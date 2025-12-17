@@ -793,8 +793,9 @@ export async function handleMatchSave(e, supabaseClient, currentUserData, clubPl
 
 /**
  * Populates match dropdowns with match-ready players
+ * @param {boolean} includeOfflinePlayers - If true, include offline players (for coach dashboard)
  */
-export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all') {
+export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all', excludePlayerId = null, currentGenderFilter = 'all', includeOfflinePlayers = false) {
     const playerASelect = document.getElementById('player-a-select');
     const playerBSelect = document.getElementById('player-b-select');
 
@@ -815,7 +816,11 @@ export function populateMatchDropdowns(clubPlayers, currentSubgroupFilter = 'all
     let matchReadyPlayers = clubPlayers.filter(p => {
         const isMatchReady = p.isMatchReady || p.is_match_ready;
         const isOffline = p.isOffline || p.is_offline;
-        // Singles: exclude offline players (they can only play doubles)
+        // For coach dashboard: include offline players
+        // For player dashboard: exclude offline players (they can only play doubles)
+        if (includeOfflinePlayers) {
+            return isMatchReady === true;
+        }
         return isMatchReady === true && !isOffline;
     });
 
