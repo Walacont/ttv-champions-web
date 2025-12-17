@@ -2022,6 +2022,55 @@ function renderRankUpCard(activity) {
     `;
 }
 
+// Helper function to get ranking translations with fallbacks
+// This ensures text is displayed even if i18n isn't loaded yet
+function getRankingText(key, params = {}) {
+    const fallbacks = {
+        // Club ranking
+        'clubRanking.enteredTop10': 'ist in die Top 10 aufgestiegen!',
+        'clubRanking.enteredPodium': 'ist auf das Podium aufgestiegen!',
+        'clubRanking.leftTop10': 'hat die Top 10 verlassen',
+        'clubRanking.leftPodium': 'hat das Podium verlassen',
+        'clubRanking.movedUp': 'steigt auf',
+        'clubRanking.movedDown': 'fällt auf',
+        'clubRanking.position': `Platz ${params.position || ''}`,
+        'clubRanking.previousHolder': `vorher: ${params.name || ''} (${params.elo || ''} Elo)`,
+        // Global ranking
+        'globalRanking.title': 'Globale Rangliste',
+        'globalRanking.position': `Platz ${params.position || ''}`,
+        'globalRanking.positionsSingular': '1 Platz',
+        'globalRanking.positionsPlural': `${params.count || ''} Plätze`,
+        'globalRanking.risen': 'gestiegen',
+        'globalRanking.fallen': 'gefallen',
+        // Club doubles ranking
+        'clubDoublesRanking.title': 'Doppel-Rangliste',
+        'clubDoublesRanking.enteredTop10': 'ist in die Doppel-Top 10 aufgestiegen!',
+        'clubDoublesRanking.enteredPodium': 'ist auf das Doppel-Podium aufgestiegen!',
+        'clubDoublesRanking.leftTop10': 'hat die Doppel-Top 10 verlassen',
+        'clubDoublesRanking.leftPodium': 'hat das Doppel-Podium verlassen',
+        'clubDoublesRanking.movedUp': 'steigt auf',
+        'clubDoublesRanking.movedDown': 'fällt auf',
+        'clubDoublesRanking.position': `Platz ${params.position || ''}`,
+        'clubDoublesRanking.previousHolder': `vorher: ${params.name || ''} (${params.elo || ''} Elo)`,
+        // Global doubles ranking
+        'globalDoublesRanking.title': 'Globale Doppel-Rangliste',
+        'globalDoublesRanking.position': `Platz ${params.position || ''}`,
+        'globalDoublesRanking.positionsSingular': '1 Platz',
+        'globalDoublesRanking.positionsPlural': `${params.count || ''} Plätze`,
+        'globalDoublesRanking.risen': 'gestiegen',
+        'globalDoublesRanking.fallen': 'gefallen'
+    };
+
+    const fullKey = `dashboard.activityFeed.events.${key}`;
+    const translated = t(fullKey, params);
+
+    // If translation returns the key itself, use fallback
+    if (translated === fullKey || translated.startsWith('dashboard.activityFeed.events.')) {
+        return fallbacks[key] || translated;
+    }
+    return translated;
+}
+
 /**
  * Render a club ranking change activity card (top 10 in club)
  * Only visible to club members
@@ -2054,19 +2103,19 @@ function renderClubRankingChangeCard(activity) {
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.enteredTop10')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubRanking.enteredTop10')}</span>`;
         } else if (oldPosition > 3 && newPosition <= 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.enteredPodium')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubRanking.enteredPodium')}</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubRanking.position', { position: newPosition })}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${getRankingText('clubRanking.position', { position: newPosition })}</span>`;
         }
     } else if (direction === 'down') {
         if (newPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.leftTop10')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubRanking.leftTop10')}</span>`;
         } else if (oldPosition <= 3 && newPosition > 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.leftPodium')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubRanking.leftPodium')}</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubRanking.position', { position: newPosition })}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${getRankingText('clubRanking.position', { position: newPosition })}</span>`;
         }
     }
 
@@ -2076,7 +2125,7 @@ function renderClubRankingChangeCard(activity) {
         previousHolderHtml = `
             <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
                 <i class="fas fa-exchange-alt text-${colors.text}-400"></i>
-                <span>${t('dashboard.activityFeed.events.clubRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
+                <span>${getRankingText('clubRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
             </div>
         `;
     }
@@ -2164,12 +2213,12 @@ function renderGlobalRankingChangeCard(activity) {
     // Generate message based on movement
     let messageHtml = '';
     const changeText = positionsChanged > 1
-        ? t('dashboard.activityFeed.events.globalRanking.positionsPlural', { count: positionsChanged })
-        : t('dashboard.activityFeed.events.globalRanking.positionsSingular');
+        ? getRankingText('globalRanking.positionsPlural', { count: positionsChanged })
+        : getRankingText('globalRanking.positionsSingular');
     if (direction === 'up') {
-        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalRanking.risen')}</span>`;
+        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${getRankingText('globalRanking.risen')}</span>`;
     } else {
-        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalRanking.fallen')}</span>`;
+        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${getRankingText('globalRanking.fallen')}</span>`;
     }
 
     // Position badge
@@ -2204,7 +2253,7 @@ function renderGlobalRankingChangeCard(activity) {
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            <i class="fas fa-globe mr-1"></i>${t('dashboard.activityFeed.events.globalRanking.title')}
+                            <i class="fas fa-globe mr-1"></i>${getRankingText('globalRanking.title')}
                         </span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
@@ -2212,9 +2261,9 @@ function renderGlobalRankingChangeCard(activity) {
                     </div>
 
                     <div class="mt-2 text-sm text-gray-500">
-                        <span>${t('dashboard.activityFeed.events.globalRanking.position', { position: oldPosition })}</span>
+                        <span>${getRankingText('globalRanking.position', { position: oldPosition })}</span>
                         <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
-                        <span class="font-semibold text-purple-700">${t('dashboard.activityFeed.events.globalRanking.position', { position: newPosition })}</span>
+                        <span class="font-semibold text-purple-700">${getRankingText('globalRanking.position', { position: newPosition })}</span>
                     </div>
 
                     <div class="text-xs text-gray-400 mt-1">${dateStr}, ${timeStr}</div>
@@ -2268,19 +2317,19 @@ function renderClubDoublesRankingChangeCard(activity) {
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.enteredTop10')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.enteredTop10')}</span>`;
         } else if (oldPosition > 3 && newPosition <= 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.enteredPodium')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.enteredPodium')}</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubDoublesRanking.position', { position: newPosition })}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${getRankingText('clubDoublesRanking.position', { position: newPosition })}</span>`;
         }
     } else if (direction === 'down') {
         if (newPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.leftTop10')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.leftTop10')}</span>`;
         } else if (oldPosition <= 3 && newPosition > 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.leftPodium')}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.leftPodium')}</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubDoublesRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubDoublesRanking.position', { position: newPosition })}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${getRankingText('clubDoublesRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${getRankingText('clubDoublesRanking.position', { position: newPosition })}</span>`;
         }
     }
 
@@ -2290,7 +2339,7 @@ function renderClubDoublesRankingChangeCard(activity) {
         previousHolderHtml = `
             <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
                 <i class="fas fa-exchange-alt text-${colors.text}-400"></i>
-                <span>${t('dashboard.activityFeed.events.clubDoublesRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
+                <span>${getRankingText('clubDoublesRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
             </div>
         `;
     }
@@ -2332,7 +2381,7 @@ function renderClubDoublesRankingChangeCard(activity) {
                             <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
                         </span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                            <i class="fas fa-users mr-1"></i>${t('dashboard.activityFeed.events.clubDoublesRanking.title')}
+                            <i class="fas fa-users mr-1"></i>${getRankingText('clubDoublesRanking.title')}
                         </span>
                         <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
                     </div>
@@ -2381,12 +2430,12 @@ function renderGlobalDoublesRankingChangeCard(activity) {
     // Generate message based on movement
     let messageHtml = '';
     const changeText = positionsChanged > 1
-        ? t('dashboard.activityFeed.events.globalDoublesRanking.positionsPlural', { count: positionsChanged })
-        : t('dashboard.activityFeed.events.globalDoublesRanking.positionsSingular');
+        ? getRankingText('globalDoublesRanking.positionsPlural', { count: positionsChanged })
+        : getRankingText('globalDoublesRanking.positionsSingular');
     if (direction === 'up') {
-        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalDoublesRanking.risen')}</span>`;
+        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${getRankingText('globalDoublesRanking.risen')}</span>`;
     } else {
-        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalDoublesRanking.fallen')}</span>`;
+        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${getRankingText('globalDoublesRanking.fallen')}</span>`;
     }
 
     // Position badge
@@ -2421,7 +2470,7 @@ function renderGlobalDoublesRankingChangeCard(activity) {
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
-                            <i class="fas fa-globe mr-1"></i>${t('dashboard.activityFeed.events.globalDoublesRanking.title')}
+                            <i class="fas fa-globe mr-1"></i>${getRankingText('globalDoublesRanking.title')}
                         </span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
@@ -2429,9 +2478,9 @@ function renderGlobalDoublesRankingChangeCard(activity) {
                     </div>
 
                     <div class="mt-2 text-sm text-gray-500">
-                        <span>${t('dashboard.activityFeed.events.globalDoublesRanking.position', { position: oldPosition })}</span>
+                        <span>${getRankingText('globalDoublesRanking.position', { position: oldPosition })}</span>
                         <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
-                        <span class="font-semibold text-teal-700">${t('dashboard.activityFeed.events.globalDoublesRanking.position', { position: newPosition })}</span>
+                        <span class="font-semibold text-teal-700">${getRankingText('globalDoublesRanking.position', { position: newPosition })}</span>
                     </div>
 
                     <div class="text-xs text-gray-400 mt-1">${dateStr}, ${timeStr}</div>
