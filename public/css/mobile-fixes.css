@@ -120,8 +120,21 @@ html.plt-ios .keyboard-visible {
 /* Ensure main content is scrollable */
 main,
 section,
-.container {
+.container,
+.min-h-screen {
     touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Profile page scroll fix */
+body {
+    overflow-y: auto !important;
+}
+
+/* Ensure page content can scroll after SPA navigation */
+html:not(.modal-open) body,
+html body:not([style*="overflow: hidden"]) {
+    overflow-y: auto;
 }
 
 /* ============================================
