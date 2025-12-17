@@ -244,6 +244,24 @@
         "rankUp": {
           "achieved": "erreichte",
           "congratulations": "Glückwunsch zum Rangaufstieg!"
+        },
+        "clubRanking": {
+          "enteredTop10": "ist in die Top 10 aufgestiegen!",
+          "enteredPodium": "ist auf das Podium aufgestiegen!",
+          "leftTop10": "hat die Top 10 verlassen",
+          "leftPodium": "hat das Podium verlassen",
+          "movedUp": "steigt auf",
+          "movedDown": "fällt auf",
+          "position": "Platz {{position}}",
+          "previousHolder": "vorher: {{name}} ({{elo}} Elo)"
+        },
+        "globalRanking": {
+          "title": "Globale Rangliste",
+          "position": "Platz {{position}}",
+          "positionsSingular": "1 Platz",
+          "positionsPlural": "{{count}} Plätze",
+          "risen": "gestiegen",
+          "fallen": "gefallen"
         }
       },
       "giveKudos": "Liken",

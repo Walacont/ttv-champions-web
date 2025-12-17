@@ -2050,19 +2050,19 @@ function renderClubRankingChangeCard(activity) {
     let messageHtml = '';
     if (direction === 'up') {
         if (oldPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">ist in die Top 10 aufgestiegen!</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.enteredTop10')}</span>`;
         } else if (oldPosition > 3 && newPosition <= 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">ist auf das Podium aufgestiegen!</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.enteredPodium')}</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">steigt auf</span> <span class="font-bold text-${colors.text}-700">Platz ${newPosition}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.movedUp')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubRanking.position', { position: newPosition })}</span>`;
         }
     } else if (direction === 'down') {
         if (newPosition > 10) {
-            messageHtml = `<span class="text-gray-600 text-sm">hat die Top 10 verlassen</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.leftTop10')}</span>`;
         } else if (oldPosition <= 3 && newPosition > 3) {
-            messageHtml = `<span class="text-gray-600 text-sm">hat das Podium verlassen</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.leftPodium')}</span>`;
         } else {
-            messageHtml = `<span class="text-gray-600 text-sm">fällt auf</span> <span class="font-bold text-${colors.text}-700">Platz ${newPosition}</span>`;
+            messageHtml = `<span class="text-gray-600 text-sm">${t('dashboard.activityFeed.events.clubRanking.movedDown')}</span> <span class="font-bold text-${colors.text}-700">${t('dashboard.activityFeed.events.clubRanking.position', { position: newPosition })}</span>`;
         }
     }
 
@@ -2072,7 +2072,7 @@ function renderClubRankingChangeCard(activity) {
         previousHolderHtml = `
             <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
                 <i class="fas fa-exchange-alt text-${colors.text}-400"></i>
-                <span>war: ${previousHolderName} (${previousHolderElo} Elo)</span>
+                <span>${t('dashboard.activityFeed.events.clubRanking.previousHolder', { name: previousHolderName, elo: previousHolderElo })}</span>
             </div>
         `;
     }
@@ -2159,11 +2159,13 @@ function renderGlobalRankingChangeCard(activity) {
 
     // Generate message based on movement
     let messageHtml = '';
-    const changeText = positionsChanged > 1 ? `${positionsChanged} Plätze` : '1 Platz';
+    const changeText = positionsChanged > 1
+        ? t('dashboard.activityFeed.events.globalRanking.positionsPlural', { count: positionsChanged })
+        : t('dashboard.activityFeed.events.globalRanking.positionsSingular');
     if (direction === 'up') {
-        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} gestiegen</span>`;
+        messageHtml = `<span class="text-green-600 text-sm"><i class="fas fa-arrow-up mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalRanking.risen')}</span>`;
     } else {
-        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} gefallen</span>`;
+        messageHtml = `<span class="text-red-600 text-sm"><i class="fas fa-arrow-down mr-1"></i>${changeText} ${t('dashboard.activityFeed.events.globalRanking.fallen')}</span>`;
     }
 
     // Position badge
@@ -2198,7 +2200,7 @@ function renderGlobalRankingChangeCard(activity) {
 
                     <div class="flex items-center gap-3 mt-1">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            <i class="fas fa-globe mr-1"></i>Globale Rangliste
+                            <i class="fas fa-globe mr-1"></i>${t('dashboard.activityFeed.events.globalRanking.title')}
                         </span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
@@ -2206,9 +2208,9 @@ function renderGlobalRankingChangeCard(activity) {
                     </div>
 
                     <div class="mt-2 text-sm text-gray-500">
-                        <span>Platz ${oldPosition}</span>
+                        <span>${t('dashboard.activityFeed.events.globalRanking.position', { position: oldPosition })}</span>
                         <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
-                        <span class="font-semibold text-purple-700">Platz ${newPosition}</span>
+                        <span class="font-semibold text-purple-700">${t('dashboard.activityFeed.events.globalRanking.position', { position: newPosition })}</span>
                     </div>
 
                     <div class="text-xs text-gray-400 mt-1">${dateStr}, ${timeStr}</div>
