@@ -921,6 +921,8 @@ function renderActivityCard(activity) {
         return renderClubLeaveCard(activity);
     } else if (activity.activityType === 'rank_up') {
         return renderRankUpCard(activity);
+    } else if (activity.activityType === 'podium_change') {
+        return renderPodiumChangeCard(activity);
     } else if (activity.activityType === 'post') {
         return renderPostCard(activity, activity.profileMap);
     } else if (activity.activityType === 'poll') {
@@ -2006,6 +2008,129 @@ function renderRankUpCard(activity) {
                         >
                             <i class="far fa-comment"></i>
                             <span class="text-sm" data-comment-count="rank_up-${activity.id}">${activity.comments_count || 0}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render a podium change activity card (top 3 ranking changes)
+ */
+function renderPodiumChangeCard(activity) {
+    const eventData = activity.event_data || {};
+    const displayName = eventData.display_name || 'Spieler';
+    const avatarUrl = eventData.avatar_url || DEFAULT_AVATAR;
+    const newPosition = eventData.new_position || 0;
+    const oldPosition = eventData.old_position || 0;
+    const eloRating = eventData.elo_rating || 0;
+    const direction = eventData.direction || 'same';
+    const positionMedal = eventData.position_medal || '';
+    const previousHolderName = eventData.previous_holder_name;
+    const previousHolderElo = eventData.previous_holder_elo;
+    const displacedByName = eventData.displaced_by_name;
+
+    const eventDate = new Date(activity.created_at);
+    const dateStr = formatRelativeDate(eventDate);
+    const timeStr = eventDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    // Color scheme based on position
+    const positionColors = {
+        1: { bg: 'yellow', border: 'yellow', text: 'yellow' },
+        2: { bg: 'gray', border: 'gray', text: 'gray' },
+        3: { bg: 'amber', border: 'amber', text: 'amber' }
+    };
+    const colors = positionColors[newPosition] || { bg: 'indigo', border: 'indigo', text: 'indigo' };
+
+    // Generate message based on movement
+    let messageHtml = '';
+    if (direction === 'up') {
+        if (oldPosition > 3) {
+            // Entered podium
+            messageHtml = `<span class="text-gray-600 text-sm">ist auf das Podium aufgestiegen!</span>`;
+        } else {
+            // Moved up within podium
+            messageHtml = `<span class="text-gray-600 text-sm">übernimmt</span> <span class="font-bold text-${colors.text}-700">Platz ${newPosition}</span>`;
+        }
+    } else if (direction === 'down') {
+        if (newPosition > 3) {
+            // Left podium
+            messageHtml = `<span class="text-gray-600 text-sm">hat das Podium verlassen</span>`;
+        } else {
+            // Moved down within podium
+            messageHtml = `<span class="text-gray-600 text-sm">fällt auf</span> <span class="font-bold text-${colors.text}-700">Platz ${newPosition}</span>`;
+        }
+    }
+
+    // Previous holder info
+    let previousHolderHtml = '';
+    if (previousHolderName && direction === 'up' && newPosition <= 3) {
+        previousHolderHtml = `
+            <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
+                <i class="fas fa-exchange-alt text-${colors.text}-400"></i>
+                <span>war: ${previousHolderName} (${previousHolderElo} Elo)</span>
+            </div>
+        `;
+    }
+
+    // Displaced by info (for players who got bumped down)
+    let displacedByHtml = '';
+    if (displacedByName && direction === 'down') {
+        displacedByHtml = `
+            <div class="mt-2 text-sm text-gray-500 flex items-center gap-1">
+                <i class="fas fa-arrow-down text-red-400"></i>
+                <span>verdrängt von ${displacedByName}</span>
+            </div>
+        `;
+    }
+
+    // Position badge
+    const positionBadge = newPosition <= 3
+        ? `<span class="text-2xl mr-2">${positionMedal}</span>`
+        : `<span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 text-gray-600 font-bold text-sm mr-2">${newPosition}</span>`;
+
+    return `
+        <div class="bg-gradient-to-r from-${colors.bg}-50 to-${colors.bg}-100 rounded-xl shadow-sm p-4 hover:shadow-md transition border border-${colors.border}-200">
+            <div class="flex items-start gap-3">
+                <a href="/profile.html?id=${activity.user_id}" class="flex-shrink-0 relative">
+                    <img src="${avatarUrl}" alt="${displayName}"
+                         class="w-12 h-12 rounded-full object-cover border-2 border-${colors.border}-400"
+                         onerror="this.src='${DEFAULT_AVATAR}'">
+                    <div class="absolute -bottom-1 -right-1 bg-${colors.bg}-500 rounded-full p-1">
+                        <i class="fas fa-${direction === 'up' ? 'arrow-up' : 'arrow-down'} text-white text-xs"></i>
+                    </div>
+                </a>
+
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1 flex-wrap">
+                        ${positionBadge}
+                        <a href="/profile.html?id=${activity.user_id}" class="font-semibold text-gray-900 hover:text-indigo-600 transition">
+                            ${displayName}
+                        </a>
+                        ${messageHtml}
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-${colors.bg}-200 text-${colors.text}-800">
+                            <i class="fas fa-chart-line mr-1"></i>${Math.round(eloRating)} Elo
+                        </span>
+                        <span class="text-xs text-gray-400">${dateStr}, ${timeStr}</span>
+                    </div>
+
+                    ${previousHolderHtml}
+                    ${displacedByHtml}
+
+                    <!-- Event Actions -->
+                    <div class="flex items-center gap-6 mt-3 pt-3 border-t border-${colors.border}-200">
+                        ${renderGenericLikeButton(activity.id, 'podium_change', activity, activity.likes_count || 0)}
+                        <button
+                            onclick="openComments('${activity.id}', 'podium_change')"
+                            class="flex items-center gap-2 text-gray-600 hover:text-indigo-600 transition"
+                        >
+                            <i class="far fa-comment"></i>
+                            <span class="text-sm" data-comment-count="podium_change-${activity.id}">${activity.comments_count || 0}</span>
                         </button>
                     </div>
                 </div>
