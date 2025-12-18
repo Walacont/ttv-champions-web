@@ -79,14 +79,28 @@ async function savePushToken(token) {
  * @returns {Promise<boolean>} - Whether permission was granted
  */
 export async function requestPushPermission() {
-    const granted = await window.CapacitorUtils?.requestPushPermission();
+    console.log('[Push] requestPushPermission called');
 
-    if (granted && currentUserId) {
-        // Token will be received via the event listener
-        console.log('[Push] Permission granted, waiting for token...');
+    try {
+        if (!window.CapacitorUtils) {
+            console.error('[Push] CapacitorUtils not available');
+            return false;
+        }
+
+        console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
+        const granted = await window.CapacitorUtils.requestPushPermission();
+        console.log('[Push] Permission result:', granted);
+
+        if (granted && currentUserId) {
+            // Token will be received via the event listener
+            console.log('[Push] Permission granted, waiting for token...');
+        }
+
+        return granted;
+    } catch (e) {
+        console.error('[Push] Error in requestPushPermission:', e);
+        return false;
     }
-
-    return granted;
 }
 
 /**
@@ -309,9 +323,16 @@ export async function showPushPermissionPrompt() {
 
         // Handle enable button
         document.getElementById('enable-push-btn').addEventListener('click', async () => {
+            console.log('[Push] Enable button clicked');
             modal.remove();
-            const granted = await requestPushPermission();
-            resolve(granted);
+            try {
+                const granted = await requestPushPermission();
+                console.log('[Push] Permission granted:', granted);
+                resolve(granted);
+            } catch (e) {
+                console.error('[Push] Error after enable button click:', e);
+                resolve(false);
+            }
         });
 
         // Handle skip button
