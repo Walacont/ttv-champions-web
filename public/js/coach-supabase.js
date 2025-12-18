@@ -516,6 +516,23 @@ async function initializeCoachPage(userData) {
         console.warn('Notifications not available:', e);
     }
 
+    // Initialize push notifications (loaded dynamically, non-blocking)
+    try {
+        const pushModule = await import('./push-notifications-manager.js');
+        if (pushModule.initPushNotifications) {
+            pushModule.initPushNotifications(userData.id);
+        }
+
+        // Show push permission prompt after a short delay (only if not already enabled)
+        setTimeout(async () => {
+            if (pushModule.shouldShowPushPrompt && pushModule.shouldShowPushPrompt()) {
+                await pushModule.showPushPermissionPrompt();
+            }
+        }, 3000);
+    } catch (e) {
+        console.warn('Push notifications not available:', e);
+    }
+
     // --- Event Listeners ---
     const logoutBtn = document.getElementById('logout-button');
     if (logoutBtn) {

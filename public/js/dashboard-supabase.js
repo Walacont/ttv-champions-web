@@ -213,6 +213,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Notifications not available:', e);
     }
 
+    // Initialize push notifications (loaded dynamically, non-blocking)
+    try {
+        const pushModule = await import('./push-notifications-manager.js');
+        if (pushModule.initPushNotifications) {
+            pushModule.initPushNotifications(currentUser.id);
+        }
+
+        // Show push permission prompt after a short delay (only if not already enabled)
+        setTimeout(async () => {
+            if (pushModule.shouldShowPushPrompt && pushModule.shouldShowPushPrompt()) {
+                await pushModule.showPushPermissionPrompt();
+            }
+        }, 3000);
+    } catch (e) {
+        console.warn('Push notifications not available:', e);
+    }
+
     // Listen for auth changes
     onAuthStateChange((event, session) => {
         console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
