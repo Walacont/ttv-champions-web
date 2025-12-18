@@ -1,15 +1,15 @@
--- Doubles Ranking Change Events
+-- Doubles Ranking Change Events (PAIRING-BASED)
 -- Creates activity events for:
--- 1. Club Top 10 doubles changes (only visible to club members)
--- 2. Global doubles ranking changes (only visible to the player + followers, NOT in club)
+-- 1. Club Top 10 doubles pairing changes (only visible to club members)
+-- 2. Global doubles pairing ranking changes (visible to both players + their followers)
 --
--- Tie-breaking: Doubles Elo DESC, then doubles_matches_played DESC
+-- Rankings are based on PAIRINGS, not individual players!
+-- A player can have multiple rankings with different partners.
 
 -- ============================================
 -- UPDATE CONSTRAINT: Add doubles event types
 -- ============================================
 
--- Drop and recreate the constraint to include doubles event types
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
     CHECK (event_type IN (
@@ -19,22 +19,28 @@ ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
     ));
 
 -- ============================================
--- HELPER FUNCTION: Get club doubles ranking position
+-- HELPER FUNCTION: Get club doubles PAIRING ranking position
 -- ============================================
 
-CREATE OR REPLACE FUNCTION get_club_doubles_ranking_position(p_player_id UUID, p_club_id UUID, p_doubles_elo INT)
+CREATE OR REPLACE FUNCTION get_club_doubles_pairing_position(p_pairing_id TEXT, p_club_id UUID, p_elo INT)
 RETURNS INT AS $$
 DECLARE
     v_position INT;
+    v_matches_played INT;
 BEGIN
+    -- Get the pairing's matches_played for tie-breaking
+    SELECT COALESCE(matches_played, 0) INTO v_matches_played
+    FROM doubles_pairings WHERE id = p_pairing_id;
+
+    -- Count pairings with higher Elo (or same Elo but more matches)
     SELECT COUNT(*) + 1 INTO v_position
-    FROM profiles
+    FROM doubles_pairings
     WHERE club_id = p_club_id
-      AND role IN ('player', 'coach', 'head_coach')
-      AND id != p_player_id
+      AND id != p_pairing_id
+      AND matches_played > 0  -- Only count pairings that have played
       AND (
-          COALESCE(doubles_elo_rating, 800) > p_doubles_elo
-          OR (COALESCE(doubles_elo_rating, 800) = p_doubles_elo AND COALESCE(doubles_matches_played, 0) > (SELECT COALESCE(doubles_matches_played, 0) FROM profiles WHERE id = p_player_id))
+          current_elo_rating > p_elo
+          OR (current_elo_rating = p_elo AND matches_played > v_matches_played)
       );
 
     RETURN v_position;
@@ -42,21 +48,27 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- ============================================
--- HELPER FUNCTION: Get global doubles ranking position
+-- HELPER FUNCTION: Get global doubles PAIRING ranking position
 -- ============================================
 
-CREATE OR REPLACE FUNCTION get_global_doubles_ranking_position(p_player_id UUID, p_doubles_elo INT)
+CREATE OR REPLACE FUNCTION get_global_doubles_pairing_position(p_pairing_id TEXT, p_elo INT)
 RETURNS INT AS $$
 DECLARE
     v_position INT;
+    v_matches_played INT;
 BEGIN
+    -- Get the pairing's matches_played for tie-breaking
+    SELECT COALESCE(matches_played, 0) INTO v_matches_played
+    FROM doubles_pairings WHERE id = p_pairing_id;
+
+    -- Count all pairings with higher Elo globally
     SELECT COUNT(*) + 1 INTO v_position
-    FROM profiles
-    WHERE role IN ('player', 'coach', 'head_coach')
-      AND id != p_player_id
+    FROM doubles_pairings
+    WHERE id != p_pairing_id
+      AND matches_played > 0  -- Only count pairings that have played
       AND (
-          COALESCE(doubles_elo_rating, 800) > p_doubles_elo
-          OR (COALESCE(doubles_elo_rating, 800) = p_doubles_elo AND COALESCE(doubles_matches_played, 0) > (SELECT COALESCE(doubles_matches_played, 0) FROM profiles WHERE id = p_player_id))
+          current_elo_rating > p_elo
+          OR (current_elo_rating = p_elo AND matches_played > v_matches_played)
       );
 
     RETURN v_position;
@@ -64,73 +76,65 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- ============================================
--- TRIGGER FUNCTION: Detect doubles ranking changes
+-- TRIGGER FUNCTION: Detect doubles PAIRING ranking changes
+-- Fires on doubles_pairings table
 -- ============================================
 
-CREATE OR REPLACE FUNCTION create_doubles_ranking_change_events()
+CREATE OR REPLACE FUNCTION create_doubles_pairing_ranking_events()
 RETURNS TRIGGER AS $$
 DECLARE
     v_old_club_position INT;
     v_new_club_position INT;
     v_old_global_position INT;
     v_new_global_position INT;
-    v_club_player_count INT;
+    v_club_pairing_count INT;
+    v_global_pairing_count INT;
     v_position_medal TEXT;
-    v_old_holder_id UUID;
-    v_old_holder_name TEXT;
+    v_old_holder_id TEXT;
+    v_old_holder_names TEXT;
     v_old_holder_elo INT;
     v_direction TEXT;
-    v_user_exists BOOLEAN;
+    v_player1_exists BOOLEAN;
+    v_player2_exists BOOLEAN;
+    v_player1_offline BOOLEAN;
+    v_player2_offline BOOLEAN;
 BEGIN
-    -- Only process if Doubles Elo actually changed
-    IF OLD.doubles_elo_rating IS NOT DISTINCT FROM NEW.doubles_elo_rating THEN
+    -- Only process if Elo actually changed
+    IF OLD.current_elo_rating IS NOT DISTINCT FROM NEW.current_elo_rating THEN
         RETURN NEW;
     END IF;
 
-    -- Skip offline players (they don't exist in auth.users)
-    IF NEW.is_offline = true THEN
+    -- Check if players exist in auth.users (skip offline players)
+    SELECT is_offline INTO v_player1_offline FROM profiles WHERE id = NEW.player1_id;
+    SELECT is_offline INTO v_player2_offline FROM profiles WHERE id = NEW.player2_id;
+
+    IF v_player1_offline IS TRUE AND v_player2_offline IS TRUE THEN
         RETURN NEW;
     END IF;
 
-    -- Check if user exists in auth.users (foreign key requirement)
-    SELECT EXISTS(SELECT 1 FROM auth.users WHERE id = NEW.id) INTO v_user_exists;
-    IF NOT v_user_exists THEN
+    SELECT EXISTS(SELECT 1 FROM auth.users WHERE id = NEW.player1_id) INTO v_player1_exists;
+    SELECT EXISTS(SELECT 1 FROM auth.users WHERE id = NEW.player2_id) INTO v_player2_exists;
+
+    -- At least one real user must exist
+    IF NOT v_player1_exists AND NOT v_player2_exists THEN
         RETURN NEW;
     END IF;
 
     -- ============================================
-    -- CLUB TOP 10 DOUBLES RANKING CHANGE
+    -- CLUB TOP 10 DOUBLES PAIRING RANKING
     -- ============================================
 
     IF NEW.club_id IS NOT NULL THEN
-        -- Count players in club (minimum 3 needed for ranking to matter)
-        SELECT COUNT(*) INTO v_club_player_count
-        FROM profiles
-        WHERE club_id = NEW.club_id
-          AND role IN ('player', 'coach', 'head_coach');
+        -- Count pairings in club (minimum 3 needed)
+        SELECT COUNT(*) INTO v_club_pairing_count
+        FROM doubles_pairings
+        WHERE club_id = NEW.club_id AND matches_played > 0;
 
-        IF v_club_player_count >= 3 THEN
-            -- Calculate old position (with old Doubles Elo)
-            SELECT COUNT(*) + 1 INTO v_old_club_position
-            FROM profiles
-            WHERE club_id = NEW.club_id
-              AND role IN ('player', 'coach', 'head_coach')
-              AND id != NEW.id
-              AND (
-                  COALESCE(doubles_elo_rating, 800) > COALESCE(OLD.doubles_elo_rating, 800)
-                  OR (COALESCE(doubles_elo_rating, 800) = COALESCE(OLD.doubles_elo_rating, 800) AND COALESCE(doubles_matches_played, 0) > COALESCE(NEW.doubles_matches_played, 0))
-              );
-
-            -- Calculate new position (with new Doubles Elo)
-            SELECT COUNT(*) + 1 INTO v_new_club_position
-            FROM profiles
-            WHERE club_id = NEW.club_id
-              AND role IN ('player', 'coach', 'head_coach')
-              AND id != NEW.id
-              AND (
-                  COALESCE(doubles_elo_rating, 800) > COALESCE(NEW.doubles_elo_rating, 800)
-                  OR (COALESCE(doubles_elo_rating, 800) = COALESCE(NEW.doubles_elo_rating, 800) AND COALESCE(doubles_matches_played, 0) > COALESCE(NEW.doubles_matches_played, 0))
-              );
+        IF v_club_pairing_count >= 3 THEN
+            -- Calculate old position
+            v_old_club_position := get_club_doubles_pairing_position(NEW.id, NEW.club_id, COALESCE(OLD.current_elo_rating, 800));
+            -- Calculate new position
+            v_new_club_position := get_club_doubles_pairing_position(NEW.id, NEW.club_id, NEW.current_elo_rating);
 
             -- Only create event for TOP 10 changes
             IF (v_old_club_position > 10 AND v_new_club_position <= 10) OR
@@ -152,206 +156,207 @@ BEGIN
                     ELSE ''
                 END;
 
-                -- Get the previous holder of the new position (if moving up)
+                -- Get previous holder info (if moving up)
                 IF v_direction = 'up' AND v_new_club_position <= 10 THEN
-                    WITH ranked_before AS (
-                        SELECT
-                            p.id,
-                            COALESCE(p.display_name, p.first_name, 'Spieler') as display_name,
-                            COALESCE(p.doubles_elo_rating, 800) as doubles_elo_rating,
-                            ROW_NUMBER() OVER (
-                                ORDER BY
-                                    CASE WHEN p.id = NEW.id THEN COALESCE(OLD.doubles_elo_rating, 800) ELSE COALESCE(p.doubles_elo_rating, 800) END DESC,
-                                    COALESCE(p.doubles_matches_played, 0) DESC
-                            ) as old_position
-                        FROM profiles p
-                        WHERE p.club_id = NEW.club_id
-                          AND p.role IN ('player', 'coach', 'head_coach')
-                    )
-                    SELECT id, display_name, doubles_elo_rating
-                    INTO v_old_holder_id, v_old_holder_name, v_old_holder_elo
-                    FROM ranked_before
-                    WHERE old_position = v_new_club_position AND id != NEW.id;
+                    SELECT
+                        dp.id,
+                        COALESCE(dp.player1_name, '') || ' & ' || COALESCE(dp.player2_name, ''),
+                        dp.current_elo_rating
+                    INTO v_old_holder_id, v_old_holder_names, v_old_holder_elo
+                    FROM doubles_pairings dp
+                    WHERE dp.club_id = NEW.club_id
+                      AND dp.id != NEW.id
+                      AND dp.matches_played > 0
+                    ORDER BY dp.current_elo_rating DESC, dp.matches_played DESC
+                    OFFSET (v_new_club_position - 1)
+                    LIMIT 1;
                 END IF;
 
-                -- Create the club doubles ranking change event
+                -- Create event for player 1 (if real user)
+                IF v_player1_exists AND v_player1_offline IS NOT TRUE THEN
+                    INSERT INTO activity_events (user_id, club_id, event_type, event_data)
+                    VALUES (
+                        NEW.player1_id,
+                        NEW.club_id,
+                        'club_doubles_ranking_change',
+                        jsonb_build_object(
+                            'pairing_id', NEW.id,
+                            'player1_id', NEW.player1_id,
+                            'player2_id', NEW.player2_id,
+                            'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
+                            'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
+                            'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                            'new_position', v_new_club_position,
+                            'old_position', v_old_club_position,
+                            'position_medal', v_position_medal,
+                            'elo_rating', NEW.current_elo_rating,
+                            'previous_holder_id', v_old_holder_id,
+                            'previous_holder_name', v_old_holder_names,
+                            'previous_holder_elo', v_old_holder_elo,
+                            'direction', v_direction,
+                            'ranking_type', 'club_doubles_pairing'
+                        )
+                    );
+                END IF;
+
+                -- Create event for player 2 (if real user and different from player 1)
+                IF v_player2_exists AND v_player2_offline IS NOT TRUE AND NEW.player2_id != NEW.player1_id THEN
+                    INSERT INTO activity_events (user_id, club_id, event_type, event_data)
+                    VALUES (
+                        NEW.player2_id,
+                        NEW.club_id,
+                        'club_doubles_ranking_change',
+                        jsonb_build_object(
+                            'pairing_id', NEW.id,
+                            'player1_id', NEW.player1_id,
+                            'player2_id', NEW.player2_id,
+                            'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
+                            'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
+                            'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                            'new_position', v_new_club_position,
+                            'old_position', v_old_club_position,
+                            'position_medal', v_position_medal,
+                            'elo_rating', NEW.current_elo_rating,
+                            'previous_holder_id', v_old_holder_id,
+                            'previous_holder_name', v_old_holder_names,
+                            'previous_holder_elo', v_old_holder_elo,
+                            'direction', v_direction,
+                            'ranking_type', 'club_doubles_pairing'
+                        )
+                    );
+                END IF;
+            END IF;
+        END IF;
+    END IF;
+
+    -- ============================================
+    -- GLOBAL DOUBLES PAIRING RANKING
+    -- ============================================
+
+    -- Count global pairings (minimum 3 needed)
+    SELECT COUNT(*) INTO v_global_pairing_count
+    FROM doubles_pairings WHERE matches_played > 0;
+
+    IF v_global_pairing_count >= 3 THEN
+        -- Calculate positions
+        v_old_global_position := get_global_doubles_pairing_position(NEW.id, COALESCE(OLD.current_elo_rating, 800));
+        v_new_global_position := get_global_doubles_pairing_position(NEW.id, NEW.current_elo_rating);
+
+        -- Only create event if position changed
+        IF v_old_global_position != v_new_global_position THEN
+            -- Determine direction
+            IF v_new_global_position < v_old_global_position THEN
+                v_direction := 'up';
+            ELSE
+                v_direction := 'down';
+            END IF;
+
+            -- Get medal emoji for top 3
+            v_position_medal := CASE v_new_global_position
+                WHEN 1 THEN '🥇'
+                WHEN 2 THEN '🥈'
+                WHEN 3 THEN '🥉'
+                ELSE ''
+            END;
+
+            -- Create event for player 1 (if real user)
+            IF v_player1_exists AND v_player1_offline IS NOT TRUE THEN
                 INSERT INTO activity_events (user_id, club_id, event_type, event_data)
                 VALUES (
-                    NEW.id,
+                    NEW.player1_id,
                     NEW.club_id,
-                    'club_doubles_ranking_change',
+                    'global_doubles_ranking_change',
                     jsonb_build_object(
-                        'new_position', v_new_club_position,
-                        'old_position', v_old_club_position,
+                        'pairing_id', NEW.id,
+                        'player1_id', NEW.player1_id,
+                        'player2_id', NEW.player2_id,
+                        'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
+                        'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
+                        'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                        'new_position', v_new_global_position,
+                        'old_position', v_old_global_position,
+                        'positions_changed', ABS(v_new_global_position - v_old_global_position),
                         'position_medal', v_position_medal,
-                        'display_name', COALESCE(NEW.display_name, NEW.first_name, 'Spieler'),
-                        'avatar_url', NEW.avatar_url,
-                        'elo_rating', NEW.doubles_elo_rating,
-                        'previous_holder_id', v_old_holder_id,
-                        'previous_holder_name', v_old_holder_name,
-                        'previous_holder_elo', v_old_holder_elo,
+                        'elo_rating', NEW.current_elo_rating,
                         'direction', v_direction,
-                        'ranking_type', 'club_doubles'
+                        'ranking_type', 'global_doubles_pairing'
+                    )
+                );
+            END IF;
+
+            -- Create event for player 2 (if real user and different)
+            IF v_player2_exists AND v_player2_offline IS NOT TRUE AND NEW.player2_id != NEW.player1_id THEN
+                INSERT INTO activity_events (user_id, club_id, event_type, event_data)
+                VALUES (
+                    NEW.player2_id,
+                    NEW.club_id,
+                    'global_doubles_ranking_change',
+                    jsonb_build_object(
+                        'pairing_id', NEW.id,
+                        'player1_id', NEW.player1_id,
+                        'player2_id', NEW.player2_id,
+                        'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
+                        'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
+                        'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                        'new_position', v_new_global_position,
+                        'old_position', v_old_global_position,
+                        'positions_changed', ABS(v_new_global_position - v_old_global_position),
+                        'position_medal', v_position_medal,
+                        'elo_rating', NEW.current_elo_rating,
+                        'direction', v_direction,
+                        'ranking_type', 'global_doubles_pairing'
                     )
                 );
             END IF;
         END IF;
     END IF;
 
-    -- ============================================
-    -- GLOBAL DOUBLES RANKING CHANGE (for followers)
-    -- ============================================
-
-    -- Calculate old global position (with old Doubles Elo)
-    SELECT COUNT(*) + 1 INTO v_old_global_position
-    FROM profiles
-    WHERE role IN ('player', 'coach', 'head_coach')
-      AND id != NEW.id
-      AND (
-          COALESCE(doubles_elo_rating, 800) > COALESCE(OLD.doubles_elo_rating, 800)
-          OR (COALESCE(doubles_elo_rating, 800) = COALESCE(OLD.doubles_elo_rating, 800) AND COALESCE(doubles_matches_played, 0) > COALESCE(NEW.doubles_matches_played, 0))
-      );
-
-    -- Calculate new global position (with new Doubles Elo)
-    SELECT COUNT(*) + 1 INTO v_new_global_position
-    FROM profiles
-    WHERE role IN ('player', 'coach', 'head_coach')
-      AND id != NEW.id
-      AND (
-          COALESCE(doubles_elo_rating, 800) > COALESCE(NEW.doubles_elo_rating, 800)
-          OR (COALESCE(doubles_elo_rating, 800) = COALESCE(NEW.doubles_elo_rating, 800) AND COALESCE(doubles_matches_played, 0) > COALESCE(NEW.doubles_matches_played, 0))
-      );
-
-    -- Create event for ANY global position change
-    IF v_old_global_position != v_new_global_position THEN
-        -- Determine direction
-        IF v_new_global_position < v_old_global_position THEN
-            v_direction := 'up';
-        ELSE
-            v_direction := 'down';
-        END IF;
-
-        -- Get medal emoji for top 3
-        v_position_medal := CASE v_new_global_position
-            WHEN 1 THEN '🥇'
-            WHEN 2 THEN '🥈'
-            WHEN 3 THEN '🥉'
-            ELSE ''
-        END;
-
-        -- Create the global doubles ranking change event (NO club_id so it's not club-visible)
-        INSERT INTO activity_events (user_id, club_id, event_type, event_data)
-        VALUES (
-            NEW.id,
-            NULL,  -- Important: NULL club_id means it won't show in club feed
-            'global_doubles_ranking_change',
-            jsonb_build_object(
-                'new_position', v_new_global_position,
-                'old_position', v_old_global_position,
-                'position_medal', v_position_medal,
-                'display_name', COALESCE(NEW.display_name, NEW.first_name, 'Spieler'),
-                'avatar_url', NEW.avatar_url,
-                'elo_rating', NEW.doubles_elo_rating,
-                'direction', v_direction,
-                'ranking_type', 'global_doubles',
-                'positions_changed', ABS(v_new_global_position - v_old_global_position)
-            )
-        );
-    END IF;
-
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
--- Drop existing trigger if it exists
+-- ============================================
+-- DROP OLD TRIGGERS (player-based)
+-- ============================================
+
 DROP TRIGGER IF EXISTS trigger_doubles_ranking_change_events ON profiles;
+DROP TRIGGER IF EXISTS trigger_sync_doubles_elo_to_profiles ON doubles_pairings;
 
--- Create new trigger that fires on doubles_elo_rating changes
-CREATE TRIGGER trigger_doubles_ranking_change_events
-    AFTER UPDATE OF doubles_elo_rating ON profiles
+-- ============================================
+-- CREATE NEW TRIGGER (pairing-based)
+-- ============================================
+
+DROP TRIGGER IF EXISTS trigger_doubles_pairing_ranking_events ON doubles_pairings;
+CREATE TRIGGER trigger_doubles_pairing_ranking_events
+    AFTER UPDATE OF current_elo_rating ON doubles_pairings
     FOR EACH ROW
-    EXECUTE FUNCTION create_doubles_ranking_change_events();
+    EXECUTE FUNCTION create_doubles_pairing_ranking_events();
 
 -- ============================================
--- UPDATE RLS POLICY to include doubles events
+-- RLS POLICIES for doubles ranking events
 -- ============================================
 
-DROP POLICY IF EXISTS "Users can view activity events based on type and privacy" ON activity_events;
-
-CREATE POLICY "Users can view activity events based on type and privacy"
-    ON activity_events FOR SELECT
-    USING (
-        -- User can always see their own events
-        user_id = auth.uid()
-        OR
-        -- Check privacy settings and event type
-        EXISTS (
-            SELECT 1 FROM profiles p
-            WHERE p.id = activity_events.user_id
-            -- User must not be invisible (searchable = 'none')
-            AND COALESCE(p.privacy_settings->>'searchable', 'global') != 'none'
-            AND (
-                -- club_join, club_leave, club_ranking_change, club_doubles_ranking_change: Only visible to club members
-                (
-                    activity_events.event_type IN ('club_join', 'club_leave', 'club_ranking_change', 'club_doubles_ranking_change')
-                    AND activity_events.club_id IS NOT NULL
-                    AND activity_events.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                )
-                OR
-                -- global_ranking_change, global_doubles_ranking_change: Only visible to followers (NOT club members)
-                (
-                    activity_events.event_type IN ('global_ranking_change', 'global_doubles_ranking_change')
-                    AND EXISTS (
-                        SELECT 1 FROM friendships
-                        WHERE requester_id = auth.uid()
-                        AND addressee_id = activity_events.user_id
-                        AND status = 'accepted'
-                    )
-                )
-                OR
-                -- rank_up, milestone, achievement: Visible based on privacy settings
-                (
-                    activity_events.event_type IN ('rank_up', 'milestone', 'achievement')
-                    AND (
-                        (
-                            COALESCE(p.privacy_settings->>'searchable', 'global') = 'global'
-                            AND (
-                                p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                                OR
-                                EXISTS (
-                                    SELECT 1 FROM friendships
-                                    WHERE requester_id = auth.uid()
-                                    AND addressee_id = activity_events.user_id
-                                    AND status = 'accepted'
-                                )
-                            )
-                        )
-                        OR
-                        (
-                            p.privacy_settings->>'searchable' = 'club_only'
-                            AND p.club_id = (SELECT club_id FROM profiles WHERE id = auth.uid())
-                        )
-                        OR
-                        (
-                            p.privacy_settings->>'searchable' = 'friends_only'
-                            AND EXISTS (
-                                SELECT 1 FROM friendships
-                                WHERE requester_id = auth.uid()
-                                AND addressee_id = activity_events.user_id
-                                AND status = 'accepted'
-                            )
-                        )
-                    )
-                )
-            )
-        )
+-- Club doubles ranking: visible to all club members
+DROP POLICY IF EXISTS "Club doubles ranking visible to club members" ON activity_events;
+CREATE POLICY "Club doubles ranking visible to club members" ON activity_events
+    FOR SELECT USING (
+        event_type = 'club_doubles_ranking_change'
+        AND club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid())
     );
 
--- ============================================
--- Verify
--- ============================================
-
-DO $$
-BEGIN
-    RAISE NOTICE 'Doubles ranking change events trigger created successfully';
-END $$;
+-- Global doubles ranking: visible to both players in the pairing and their followers
+DROP POLICY IF EXISTS "Global doubles ranking visible to players and followers" ON activity_events;
+CREATE POLICY "Global doubles ranking visible to players and followers" ON activity_events
+    FOR SELECT USING (
+        event_type = 'global_doubles_ranking_change'
+        AND (
+            -- User is one of the players
+            user_id = auth.uid()
+            OR (event_data->>'player1_id')::uuid = auth.uid()
+            OR (event_data->>'player2_id')::uuid = auth.uid()
+            -- Or user follows one of the players
+            OR user_id IN (SELECT following_id FROM follows WHERE follower_id = auth.uid())
+            OR (event_data->>'player1_id')::uuid IN (SELECT following_id FROM follows WHERE follower_id = auth.uid())
+            OR (event_data->>'player2_id')::uuid IN (SELECT following_id FROM follows WHERE follower_id = auth.uid())
+        )
+    );
