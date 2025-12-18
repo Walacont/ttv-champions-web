@@ -525,7 +525,7 @@ async function initializeCoachPage(userData) {
 
         // Show push permission prompt after a short delay (only if not already enabled)
         setTimeout(async () => {
-            if (pushModule.shouldShowPushPrompt && pushModule.shouldShowPushPrompt()) {
+            if (pushModule.shouldShowPushPrompt && await pushModule.shouldShowPushPrompt()) {
                 await pushModule.showPushPermissionPrompt();
             }
         }, 3000);
