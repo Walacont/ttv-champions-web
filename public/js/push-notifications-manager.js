@@ -317,8 +317,10 @@ export async function showPushPermissionPrompt() {
         // Handle skip button
         document.getElementById('skip-push-btn').addEventListener('click', () => {
             modal.remove();
-            // Store that user skipped, don't ask again for a while
+            // Store that user skipped, increment counter
             localStorage.setItem('push_prompt_skipped', Date.now().toString());
+            const currentCount = parseInt(localStorage.getItem('push_prompt_skip_count') || '0');
+            localStorage.setItem('push_prompt_skip_count', (currentCount + 1).toString());
             resolve(false);
         });
     });
@@ -326,20 +328,43 @@ export async function showPushPermissionPrompt() {
 
 /**
  * Check if we should show the push permission prompt
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-export function shouldShowPushPrompt() {
-    // Don't show if already enabled
+export async function shouldShowPushPrompt() {
+    // Don't show if already have a token
     if (window.pushToken) return false;
+
+    // Check if user permanently dismissed (clicked "Später" 3 times or "Nicht mehr fragen")
+    const dismissedPermanently = localStorage.getItem('push_prompt_dismissed_permanently');
+    if (dismissedPermanently === 'true') return false;
 
     // Check if user recently skipped
     const skippedTime = localStorage.getItem('push_prompt_skipped');
+    const skipCount = parseInt(localStorage.getItem('push_prompt_skip_count') || '0');
+
     if (skippedTime) {
         const daysSinceSkip = (Date.now() - parseInt(skippedTime)) / (1000 * 60 * 60 * 24);
-        if (daysSinceSkip < 7) return false; // Don't ask again for 7 days
+        // After 3 skips, don't ask again (user clearly doesn't want it)
+        if (skipCount >= 3) {
+            localStorage.setItem('push_prompt_dismissed_permanently', 'true');
+            return false;
+        }
+        // Wait longer each time (7 days, then 14, then 30)
+        const waitDays = skipCount === 0 ? 7 : skipCount === 1 ? 14 : 30;
+        if (daysSinceSkip < waitDays) return false;
     }
 
-    // Check if permission was already denied (web only)
+    // For native apps, check if push is already enabled
+    if (window.CapacitorUtils?.isNative()) {
+        try {
+            const isEnabled = await window.CapacitorUtils.isPushEnabled();
+            if (isEnabled) return false;
+        } catch (e) {
+            // Continue to show prompt if check fails
+        }
+    }
+
+    // Check if permission was already denied or granted (web only)
     if (!window.CapacitorUtils?.isNative() && 'Notification' in window) {
         if (Notification.permission === 'denied') return false;
         if (Notification.permission === 'granted') return false;
