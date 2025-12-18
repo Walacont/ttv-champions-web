@@ -648,28 +648,25 @@ function renderProfileDoublesCard(match, profileMap) {
                 </span>
             </div>
 
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <div class="flex -space-x-2">
-                        <img src="${myTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
-                        <img src="${myTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
-                    </div>
-                    <div>
-                        <p class="font-semibold text-sm">${escapeHtml(myTeamNames)}</p>
-                    </div>
-                </div>
+            <!-- Score and Teams - mobile optimized vertical layout -->
+            <div class="flex flex-col items-center mb-3">
+                <p class="text-2xl font-bold mb-2">${mySetWins} : ${oppSetWins}</p>
 
-                <div class="text-center px-3">
-                    <p class="text-xl font-bold">${mySetWins} : ${oppSetWins}</p>
-                </div>
-
-                <div class="flex items-center gap-2">
-                    <div class="text-right">
-                        <p class="font-semibold text-sm">${escapeHtml(oppTeamNames)}</p>
+                <div class="doubles-teams-row flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
+                    <div class="flex items-center">
+                        <div class="flex -space-x-2 flex-shrink-0">
+                            <img src="${myTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-7 h-7 rounded-full border-2 ${won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${myTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-7 h-7 rounded-full border-2 ${won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        </div>
+                        <span class="ml-1 doubles-team-names truncate max-w-[100px] font-medium">${escapeHtml(myTeamNames)}</span>
                     </div>
-                    <div class="flex -space-x-2">
-                        <img src="${oppTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${!won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
-                        <img src="${oppTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-9 h-9 rounded-full border-2 ${!won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                    <span class="vs-separator text-gray-400">vs</span>
+                    <div class="flex items-center">
+                        <div class="flex -space-x-2 flex-shrink-0">
+                            <img src="${oppTeam[0]?.avatar_url || DEFAULT_AVATAR}" class="w-7 h-7 rounded-full border-2 ${!won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                            <img src="${oppTeam[1]?.avatar_url || DEFAULT_AVATAR}" class="w-7 h-7 rounded-full border-2 ${!won ? 'border-green-500' : 'border-red-500'}" onerror="this.src='${DEFAULT_AVATAR}'">
+                        </div>
+                        <span class="ml-1 doubles-team-names truncate max-w-[100px] font-medium">${escapeHtml(oppTeamNames)}</span>
                     </div>
                 </div>
             </div>

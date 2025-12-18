@@ -101,6 +101,102 @@ html.plt-ios .fixed.inset-0 {
 }
 
 /* ============================================
+   NOTIFICATION MODAL FIX
+   Modal needs to be pushed down more to clear header on Android
+   ============================================ */
+html.plt-capacitor #notification-modal,
+html.plt-android #notification-modal,
+html.plt-ios #notification-modal {
+    padding-top: calc(max(env(safe-area-inset-top, 44px), 44px) + 56px) !important;
+}
+
+/* ============================================
+   COACH DASHBOARD TOP SPACING FIX
+   Reduce top padding on mobile native apps
+   ============================================ */
+html.plt-capacitor .coach-dashboard-content,
+html.plt-android .coach-dashboard-content,
+html.plt-ios .coach-dashboard-content {
+    padding-top: 0 !important;
+}
+
+html.plt-capacitor .coach-dashboard-content > header,
+html.plt-android .coach-dashboard-content > header,
+html.plt-ios .coach-dashboard-content > header {
+    margin-bottom: 0.5rem !important;
+}
+
+/* ============================================
+   PROFILE PAGE TOP SPACING FIX
+   Reduce top padding on mobile native apps
+   ============================================ */
+html.plt-capacitor .profile-content-wrapper,
+html.plt-android .profile-content-wrapper,
+html.plt-ios .profile-content-wrapper {
+    padding-top: 0.5rem !important;
+}
+
+/* ============================================
+   EXPORT BUTTONS - SMALLER ON MOBILE
+   ============================================ */
+@media (max-width: 640px) {
+    .export-btn-mobile {
+        padding: 0.375rem 0.75rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    .export-btn-mobile span {
+        display: none;
+    }
+
+    .export-btn-mobile i {
+        margin-right: 0 !important;
+    }
+}
+
+/* ============================================
+   DOUBLES MATCH CARD - MOBILE TEXT OVERFLOW
+   ============================================ */
+@media (max-width: 480px) {
+    /* Truncate long player names in doubles cards */
+    .doubles-match-card .team-names,
+    .doubles-team-names {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Stack teams vertically on very small screens */
+    .doubles-teams-row {
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+    }
+
+    .doubles-teams-row .vs-separator {
+        display: none !important;
+    }
+
+    /* Show "vs" between stacked teams */
+    .doubles-teams-row::after {
+        content: 'vs';
+        display: block;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 0.75rem;
+        order: 1;
+    }
+
+    .doubles-teams-row > div:first-child {
+        order: 0;
+    }
+
+    .doubles-teams-row > div:last-child {
+        order: 2;
+    }
+}
+
+/* ============================================
    GENERAL MOBILE STYLES (Web + Native)
    ============================================ */
 
