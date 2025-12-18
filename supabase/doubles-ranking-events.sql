@@ -344,9 +344,9 @@ CREATE POLICY "Club doubles ranking visible to club members" ON activity_events
         AND club_id IN (SELECT club_id FROM profiles WHERE id = auth.uid())
     );
 
--- Global doubles ranking: visible to both players in the pairing and their followers
-DROP POLICY IF EXISTS "Global doubles ranking visible to players and followers" ON activity_events;
-CREATE POLICY "Global doubles ranking visible to players and followers" ON activity_events
+-- Global doubles ranking: visible to both players in the pairing and their friends
+DROP POLICY IF EXISTS "Global doubles ranking visible to players and friends" ON activity_events;
+CREATE POLICY "Global doubles ranking visible to players and friends" ON activity_events
     FOR SELECT USING (
         event_type = 'global_doubles_ranking_change'
         AND (
@@ -354,9 +354,16 @@ CREATE POLICY "Global doubles ranking visible to players and followers" ON activ
             user_id = auth.uid()
             OR (event_data->>'player1_id')::uuid = auth.uid()
             OR (event_data->>'player2_id')::uuid = auth.uid()
-            -- Or user follows one of the players
-            OR user_id IN (SELECT following_id FROM follows WHERE follower_id = auth.uid())
-            OR (event_data->>'player1_id')::uuid IN (SELECT following_id FROM follows WHERE follower_id = auth.uid())
-            OR (event_data->>'player2_id')::uuid IN (SELECT following_id FROM follows WHERE follower_id = auth.uid())
+            -- Or user is friends with one of the players
+            OR EXISTS (
+                SELECT 1 FROM friendships
+                WHERE status = 'accepted'
+                AND (
+                    (user_id = auth.uid() AND friend_id = (event_data->>'player1_id')::uuid)
+                    OR (friend_id = auth.uid() AND user_id = (event_data->>'player1_id')::uuid)
+                    OR (user_id = auth.uid() AND friend_id = (event_data->>'player2_id')::uuid)
+                    OR (friend_id = auth.uid() AND user_id = (event_data->>'player2_id')::uuid)
+                )
+            )
         )
     );
