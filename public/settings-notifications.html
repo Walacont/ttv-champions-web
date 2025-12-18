@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
+        <script src="/js/capacitor-init.js"></script>
+        <title>Benachrichtigungen - SC Champions</title>
+
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+        <!-- PWA Meta Tags -->
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1e3a5f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="SC Champions" />
+        <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/css/spa-enhancements.css" />
+        <link rel="stylesheet" href="/css/mobile-fixes.css" />
+        <style>
+            body {
+                font-family: 'Inter', sans-serif;
+            }
+            #page-loader {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #f3f4f6;
+                z-index: 9999;
+            }
+            #main-content {
+                display: none;
+            }
+            /* Toggle Switch Styles */
+            .toggle-switch {
+                position: relative;
+                width: 52px;
+                height: 28px;
+                flex-shrink: 0;
+            }
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+            .toggle-slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #cbd5e1;
+                transition: 0.3s;
+                border-radius: 28px;
+            }
+            .toggle-slider:before {
+                position: absolute;
+                content: "";
+                height: 22px;
+                width: 22px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                transition: 0.3s;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            input:checked + .toggle-slider {
+                background-color: #4f46e5;
+            }
+            input:checked + .toggle-slider:before {
+                transform: translateX(24px);
+            }
+            input:disabled + .toggle-slider {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100 text-gray-800">
+        <div id="page-loader">
+            <svg
+                class="animate-spin h-10 w-10 text-indigo-600"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+            </svg>
+        </div>
+
+        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-2xl">
+            <div class="mb-6">
+                <a
+                    href="/settings.html"
+                    class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4"
+                >
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    <span data-i18n="common.back">Zurück</span>
+                </a>
+                <h1 class="text-2xl font-bold text-gray-900" data-i18n="settings.notifications.title">Benachrichtigungen</h1>
+                <p class="text-gray-500 mt-1" data-i18n="settings.notifications.description">Verwalte deine Push-Benachrichtigungen</p>
+            </div>
+
+            <!-- Push Permission Status -->
+            <div id="push-permission-card" class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="push-status-icon" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-bell text-gray-400"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900" data-i18n="settings.notifications.pushStatus">Push-Benachrichtigungen</h3>
+                            <p id="push-status-text" class="text-sm text-gray-500">Wird geladen...</p>
+                        </div>
+                    </div>
+                    <button
+                        id="enable-push-btn"
+                        class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition"
+                    >
+                        Aktivieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Notification Preferences -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="p-4 border-b border-gray-100">
+                    <h2 class="font-semibold text-gray-900" data-i18n="settings.notifications.preferences">Benachrichtigungs-Einstellungen</h2>
+                    <p class="text-sm text-gray-500 mt-1" data-i18n="settings.notifications.preferencesDesc">Wähle, welche Benachrichtigungen du erhalten möchtest</p>
+                </div>
+
+                <div id="preferences-container" class="divide-y divide-gray-100">
+                    <!-- Match Requests -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-table-tennis-paddle-ball text-blue-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.matchRequests">Spielanfragen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.matchRequestsDesc">Wenn jemand dich zu einem Spiel herausfordert</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-match_requests" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Doubles Match Requests -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-users text-purple-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.doublesRequests">Doppel-Anfragen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.doublesRequestsDesc">Anfragen für Doppelspiele</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-doubles_match_requests" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Friend Requests -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user-plus text-green-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.friendRequests">Freundschaftsanfragen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.friendRequestsDesc">Wenn jemand dir eine Freundschaftsanfrage sendet</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-friend_requests" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Club Requests -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-building text-amber-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.clubRequests">Vereins-Anfragen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.clubRequestsDesc">Beitritts- und Austrittsanfragen (für Coaches)</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-club_requests" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Ranking Changes -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-trophy text-yellow-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.rankingChanges">Ranglistenänderungen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.rankingChangesDesc">Wenn sich deine Position in der Rangliste ändert</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-ranking_changes" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Training Reminders -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-calendar-check text-indigo-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.trainingReminders">Trainings-Erinnerungen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.trainingRemindersDesc">Erinnerungen an bevorstehende Trainings</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-training_reminders" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Points Awarded -->
+                    <div class="p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-star text-pink-600"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-medium text-gray-900" data-i18n="settings.notifications.pointsAwarded">Punkte-Benachrichtigungen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.pointsAwardedDesc">Wenn dir Punkte vergeben oder abgezogen werden</p>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pref-points_awarded">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Status -->
+            <div id="save-status" class="hidden mt-4 p-3 rounded-lg text-center text-sm font-medium"></div>
+
+            <!-- Info Box -->
+            <div class="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-info-circle text-blue-600 mt-0.5"></i>
+                    <div>
+                        <h4 class="font-medium text-blue-900" data-i18n="settings.notifications.infoTitle">Hinweis</h4>
+                        <p class="text-sm text-blue-700 mt-1" data-i18n="settings.notifications.infoText">
+                            Push-Benachrichtigungen erfordern die Erlaubnis deines Geräts. Du kannst die Berechtigung jederzeit in den Geräteeinstellungen ändern.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="/js/update-checker.js"></script>
+        <script src="/js/pwa-register.js"></script>
+        <script type="module" src="/js/notifications.js"></script>
+        <script type="module" src="/js/spa-enhancer.js"></script>
+        <script type="module" src="/js/settings-notifications-supabase.js"></script>
+    </body>
+</html>
