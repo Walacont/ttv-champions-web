@@ -21,6 +21,107 @@ function isCapacitorNative() {
 }
 
 /**
+ * Custom storage adapter for Capacitor apps
+ * Uses Capacitor Preferences (secure native storage) for better session persistence
+ * Falls back to localStorage for web
+ */
+class CapacitorStorageAdapter {
+    constructor() {
+        this.isNative = isCapacitorNative();
+        this.preferencesModule = null;
+        this.cache = new Map(); // In-memory cache for sync access
+        this.initialized = false;
+        this.initPromise = this.init();
+    }
+
+    async init() {
+        if (this.isNative) {
+            try {
+                const module = await import('@capacitor/preferences');
+                this.preferencesModule = module.Preferences;
+                // Load existing auth data into cache
+                await this.loadCacheFromNative();
+                console.log('[Storage] Capacitor Preferences initialized');
+            } catch (e) {
+                console.log('[Storage] Falling back to localStorage:', e.message);
+                this.isNative = false;
+            }
+        }
+        this.initialized = true;
+    }
+
+    async loadCacheFromNative() {
+        if (!this.preferencesModule) return;
+
+        // Load common Supabase auth keys
+        const keys = [
+            'sb-' + new URL(supabaseConfig.url).hostname.split('.')[0] + '-auth-token'
+        ];
+
+        for (const key of keys) {
+            try {
+                const { value } = await this.preferencesModule.get({ key });
+                if (value) {
+                    this.cache.set(key, value);
+                }
+            } catch (e) {
+                // Key doesn't exist yet
+            }
+        }
+    }
+
+    getItem(key) {
+        // First check cache (for sync access that Supabase needs)
+        if (this.cache.has(key)) {
+            return this.cache.get(key);
+        }
+        // Fall back to localStorage
+        return localStorage.getItem(key);
+    }
+
+    setItem(key, value) {
+        // Update cache immediately
+        this.cache.set(key, value);
+        // Update localStorage as backup
+        localStorage.setItem(key, value);
+
+        // Persist to native storage asynchronously
+        if (this.isNative && this.preferencesModule) {
+            this.preferencesModule.set({ key, value }).catch(e => {
+                console.error('[Storage] Error saving to Preferences:', e);
+            });
+        }
+    }
+
+    removeItem(key) {
+        // Remove from cache
+        this.cache.delete(key);
+        // Remove from localStorage
+        localStorage.removeItem(key);
+
+        // Remove from native storage asynchronously
+        if (this.isNative && this.preferencesModule) {
+            this.preferencesModule.remove({ key }).catch(e => {
+                console.error('[Storage] Error removing from Preferences:', e);
+            });
+        }
+    }
+}
+
+// Global storage adapter instance
+let storageAdapter = null;
+
+/**
+ * Get or create storage adapter
+ */
+function getStorageAdapter() {
+    if (!storageAdapter) {
+        storageAdapter = new CapacitorStorageAdapter();
+    }
+    return storageAdapter;
+}
+
+/**
  * Initializes Supabase client
  * @returns {Object} Supabase client
  */
@@ -32,18 +133,55 @@ export function initSupabase() {
     console.log('[Supabase] Initializing...');
     console.log('[Supabase] Is Capacitor native:', isCapacitorNative());
 
+    const storage = getStorageAdapter();
+
     supabaseInstance = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
         auth: {
             autoRefreshToken: true,
             persistSession: true,
-            detectSessionInUrl: true,
-            // Für Capacitor: localStorage verwenden
-            storage: window.localStorage
+            detectSessionInUrl: !isCapacitorNative(), // Disable URL detection in native apps
+            storage: storage
         }
     });
 
+    // Set up session refresh on app resume for native apps
+    if (isCapacitorNative()) {
+        setupAppStateListener();
+    }
+
     console.log('[Supabase] Initialization complete');
     return supabaseInstance;
+}
+
+/**
+ * Setup listener to refresh session when app resumes from background
+ */
+async function setupAppStateListener() {
+    try {
+        const { App } = await import('@capacitor/app');
+
+        App.addListener('appStateChange', async ({ isActive }) => {
+            if (isActive && supabaseInstance) {
+                console.log('[Supabase] App resumed, checking session...');
+                try {
+                    // Refresh the session when app comes to foreground
+                    const { data, error } = await supabaseInstance.auth.getSession();
+                    if (data?.session) {
+                        console.log('[Supabase] Session valid, refreshing token...');
+                        await supabaseInstance.auth.refreshSession();
+                    } else if (error) {
+                        console.log('[Supabase] Session error:', error.message);
+                    }
+                } catch (e) {
+                    console.error('[Supabase] Error refreshing session:', e);
+                }
+            }
+        });
+
+        console.log('[Supabase] App state listener set up');
+    } catch (e) {
+        console.log('[Supabase] Could not set up app state listener:', e.message);
+    }
 }
 
 /**
