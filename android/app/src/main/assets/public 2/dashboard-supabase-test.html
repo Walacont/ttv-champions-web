@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <title>Dashboard Test - Supabase Version</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <style>
+            body { font-family: 'Inter', sans-serif; }
+            .card { @apply bg-white rounded-lg shadow-md p-6 mb-4; }
+        </style>
+    </head>
+    <body class="bg-gray-100 min-h-screen">
+        <!-- Header -->
+        <header class="bg-indigo-600 text-white p-4 shadow-lg">
+            <div class="container mx-auto flex justify-between items-center">
+                <h1 class="text-xl font-bold">SC Champions - Supabase Test</h1>
+                <div id="user-info" class="text-sm">Laden...</div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-4 py-8">
+            <!-- Auth Status -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-lg font-semibold mb-4">Auth Status</h2>
+                <div id="auth-status" class="mb-4">Pruefe Login...</div>
+                <div id="login-form" class="hidden">
+                    <div class="flex gap-2">
+                        <input type="email" id="email" placeholder="Email" class="flex-1 px-3 py-2 border rounded" />
+                        <input type="password" id="password" placeholder="Passwort" class="flex-1 px-3 py-2 border rounded" />
+                        <button id="login-btn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Login</button>
+                    </div>
+                </div>
+                <button id="logout-btn" class="hidden bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Logout</button>
+            </div>
+
+            <!-- Test Sections -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Leaderboard Test -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-trophy text-yellow-500 mr-2"></i>
+                        Leaderboard (Skill)
+                    </h2>
+                    <button id="load-leaderboard" class="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700">
+                        Laden
+                    </button>
+                    <div id="leaderboard-result" class="space-y-2 max-h-64 overflow-auto"></div>
+                </div>
+
+                <!-- Matches Test -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-table-tennis text-green-500 mr-2"></i>
+                        Letzte Matches
+                    </h2>
+                    <button id="load-matches" class="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700">
+                        Laden
+                    </button>
+                    <div id="matches-result" class="space-y-2 max-h-64 overflow-auto"></div>
+                </div>
+
+                <!-- Challenges Test -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-flag text-purple-500 mr-2"></i>
+                        Aktive Challenges
+                    </h2>
+                    <button id="load-challenges" class="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700">
+                        Laden
+                    </button>
+                    <div id="challenges-result" class="space-y-2 max-h-64 overflow-auto"></div>
+                </div>
+
+                <!-- Training Sessions Test -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-calendar text-orange-500 mr-2"></i>
+                        Training Sessions (diese Woche)
+                    </h2>
+                    <button id="load-training" class="bg-blue-600 text-white px-4 py-2 rounded mb-4 hover:bg-blue-700">
+                        Laden
+                    </button>
+                    <div id="training-result" class="space-y-2 max-h-64 overflow-auto"></div>
+                </div>
+            </div>
+
+            <!-- RPC Functions Test -->
+            <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+                <h2 class="text-lg font-semibold mb-4">
+                    <i class="fas fa-cogs text-gray-500 mr-2"></i>
+                    RPC Functions Test
+                </h2>
+                <div class="flex gap-2 flex-wrap">
+                    <button id="test-elo" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        Test ELO Calculation
+                    </button>
+                    <button id="test-rpc" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                        Test RPC Functions
+                    </button>
+                </div>
+                <div id="rpc-result" class="mt-4 p-4 bg-gray-100 rounded font-mono text-sm"></div>
+            </div>
+
+            <!-- Console -->
+            <div class="bg-gray-900 rounded-lg shadow-md p-6 mt-6">
+                <h2 class="text-lg font-semibold mb-4 text-white">Console Log</h2>
+                <div id="console" class="text-green-400 font-mono text-xs max-h-48 overflow-auto"></div>
+            </div>
+        </main>
+
+        <script type="module">
+            import { initSupabase, getSupabase, signIn, signOut, getCurrentUser, onAuthStateChange, getUserProfile } from './js/supabase-init.js';
+
+            // Initialize
+            const supabase = initSupabase();
+            let currentUser = null;
+            let currentProfile = null;
+
+            // Console logger
+            const consoleEl = document.getElementById('console');
+            function log(msg, type = 'info') {
+                const colors = { info: 'text-green-400', error: 'text-red-400', warn: 'text-yellow-400' };
+                const time = new Date().toLocaleTimeString();
+                consoleEl.innerHTML += `<div class="${colors[type]}">[${time}] ${msg}</div>`;
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+                console.log(`[${type}]`, msg);
+            }
+
+            log('Supabase Test Dashboard initialized');
+
+            // Auth state handling
+            const authStatus = document.getElementById('auth-status');
+            const loginForm = document.getElementById('login-form');
+            const logoutBtn = document.getElementById('logout-btn');
+            const userInfo = document.getElementById('user-info');
+
+            onAuthStateChange(async (event, session) => {
+                log(`Auth event: ${event}`);
+
+                if (session?.user) {
+                    currentUser = session.user;
+                    try {
+                        currentProfile = await getUserProfile(currentUser.id);
+                        authStatus.innerHTML = `<span class="text-green-600 font-semibold">Eingeloggt als: ${currentProfile.display_name || currentUser.email}</span>`;
+                        userInfo.textContent = currentProfile.display_name || currentUser.email;
+                        loginForm.classList.add('hidden');
+                        logoutBtn.classList.remove('hidden');
+                        log(`Profile loaded: ${currentProfile.display_name}, Club: ${currentProfile.club_id}`);
+                    } catch (e) {
+                        log(`Profile error: ${e.message}`, 'error');
+                        authStatus.innerHTML = `<span class="text-yellow-600">Eingeloggt aber Profil nicht gefunden</span>`;
+                    }
+                } else {
+                    currentUser = null;
+                    currentProfile = null;
+                    authStatus.innerHTML = '<span class="text-gray-600">Nicht eingeloggt</span>';
+                    userInfo.textContent = 'Nicht eingeloggt';
+                    loginForm.classList.remove('hidden');
+                    logoutBtn.classList.add('hidden');
+                }
+            });
+
+            // Login
+            document.getElementById('login-btn').addEventListener('click', async () => {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                try {
+                    log(`Login attempt: ${email}`);
+                    await signIn(email, password);
+                    log('Login successful!');
+                } catch (e) {
+                    log(`Login failed: ${e.message}`, 'error');
+                }
+            });
+
+            // Logout
+            logoutBtn.addEventListener('click', async () => {
+                try {
+                    await signOut();
+                    log('Logged out');
+                } catch (e) {
+                    log(`Logout error: ${e.message}`, 'error');
+                }
+            });
+
+            // Load Leaderboard
+            document.getElementById('load-leaderboard').addEventListener('click', async () => {
+                const resultEl = document.getElementById('leaderboard-result');
+                if (!currentUser) {
+                    resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
+                    return;
+                }
+
+                resultEl.innerHTML = '<p class="text-gray-500">Laden...</p>';
+                log('Loading leaderboard...');
+
+                try {
+                    // Load club data if user has club, otherwise global
+                    let query = supabase
+                        .from('profiles')
+                        .select('id, display_name, first_name, last_name, elo_rating, xp, points')
+                        .in('role', ['player', 'coach'])
+                        .order('elo_rating', { ascending: false })
+                        .limit(10);
+
+                    if (currentProfile?.club_id) {
+                        query = query.eq('club_id', currentProfile.club_id);
+                    }
+
+                    const { data, error } = await query;
+
+                    if (error) throw error;
+
+                    const scope = currentProfile?.club_id ? 'Verein' : 'Global';
+                    log(`Loaded ${data.length} players (${scope})`);
+
+                    resultEl.innerHTML = data.map((p, i) => `
+                        <div class="flex justify-between items-center p-2 ${i % 2 === 0 ? 'bg-gray-50' : ''} rounded">
+                            <span class="font-medium">${i + 1}. ${p.first_name} ${p.last_name || ''}</span>
+                            <span class="text-indigo-600 font-bold">${p.elo_rating || 1000} ELO</span>
+                        </div>
+                    `).join('') || '<p class="text-gray-500">Keine Spieler gefunden</p>';
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                    resultEl.innerHTML = `<p class="text-red-500">Fehler: ${e.message}</p>`;
+                }
+            });
+
+            // Load Matches
+            document.getElementById('load-matches').addEventListener('click', async () => {
+                const resultEl = document.getElementById('matches-result');
+                if (!currentUser) {
+                    resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
+                    return;
+                }
+
+                resultEl.innerHTML = '<p class="text-gray-500">Laden...</p>';
+                log('Loading matches...');
+
+                try {
+                    // Load user's matches (where they are player_a or player_b)
+                    const { data, error } = await supabase
+                        .from('matches')
+                        .select(`
+                            id, played_at, score_a, score_b, elo_change,
+                            player_a:profiles!matches_player_a_id_fkey(first_name, last_name),
+                            player_b:profiles!matches_player_b_id_fkey(first_name, last_name)
+                        `)
+                        .or(`player_a_id.eq.${currentUser.id},player_b_id.eq.${currentUser.id}`)
+                        .order('played_at', { ascending: false })
+                        .limit(10);
+
+                    if (error) throw error;
+
+                    log(`Loaded ${data.length} matches`);
+
+                    resultEl.innerHTML = data.map(m => `
+                        <div class="p-2 border-b text-sm">
+                            <div class="font-medium">${m.player_a?.first_name || '?'} vs ${m.player_b?.first_name || '?'}</div>
+                            <div class="text-gray-500">${m.score_a}:${m.score_b} | +${m.elo_change || 0} ELO</div>
+                        </div>
+                    `).join('') || '<p class="text-gray-500">Keine Matches gefunden</p>';
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                    resultEl.innerHTML = `<p class="text-red-500">Fehler: ${e.message}</p>`;
+                }
+            });
+
+            // Load Challenges
+            document.getElementById('load-challenges').addEventListener('click', async () => {
+                const resultEl = document.getElementById('challenges-result');
+                if (!currentUser) {
+                    resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
+                    return;
+                }
+
+                if (!currentProfile?.club_id) {
+                    resultEl.innerHTML = '<p class="text-gray-500">Challenges sind nur für Vereinsmitglieder verfügbar</p>';
+                    return;
+                }
+
+                resultEl.innerHTML = '<p class="text-gray-500">Laden...</p>';
+                log('Loading challenges...');
+
+                try {
+                    const { data, error } = await supabase
+                        .from('challenges')
+                        .select('*')
+                        .eq('club_id', currentProfile.club_id)
+                        .eq('is_active', true)
+                        .order('created_at', { ascending: false });
+
+                    if (error) throw error;
+
+                    log(`Loaded ${data.length} challenges`);
+
+                    resultEl.innerHTML = data.map(c => `
+                        <div class="p-2 border-b">
+                            <div class="font-medium">${c.title}</div>
+                            <div class="text-sm text-gray-500">${c.type} | ${c.points} Punkte</div>
+                        </div>
+                    `).join('') || '<p class="text-gray-500">Keine aktiven Challenges</p>';
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                    resultEl.innerHTML = `<p class="text-red-500">Fehler: ${e.message}</p>`;
+                }
+            });
+
+            // Load Training Sessions
+            document.getElementById('load-training').addEventListener('click', async () => {
+                const resultEl = document.getElementById('training-result');
+                if (!currentUser) {
+                    resultEl.innerHTML = '<p class="text-red-500">Bitte zuerst einloggen</p>';
+                    return;
+                }
+
+                if (!currentProfile?.club_id) {
+                    resultEl.innerHTML = '<p class="text-gray-500">Trainings sind nur für Vereinsmitglieder verfügbar</p>';
+                    return;
+                }
+
+                resultEl.innerHTML = '<p class="text-gray-500">Laden...</p>';
+                log('Loading training sessions...');
+
+                // Get this week's dates
+                const today = new Date();
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay() + 1);
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+                const startDate = startOfWeek.toISOString().split('T')[0];
+                const endDate = endOfWeek.toISOString().split('T')[0];
+
+                try {
+                    const { data, error } = await supabase
+                        .from('training_sessions')
+                        .select('*, subgroups(name)')
+                        .eq('club_id', currentProfile.club_id)
+                        .gte('date', startDate)
+                        .lte('date', endDate)
+                        .eq('cancelled', false)
+                        .order('date', { ascending: true });
+
+                    if (error) throw error;
+
+                    log(`Loaded ${data.length} training sessions`);
+
+                    resultEl.innerHTML = data.map(s => `
+                        <div class="p-2 border-b">
+                            <div class="font-medium">${new Date(s.date).toLocaleDateString('de-DE', {weekday: 'short', day: '2-digit', month: '2-digit'})}</div>
+                            <div class="text-sm text-gray-500">${s.start_time}-${s.end_time} | ${s.subgroups?.name || 'Unbekannt'}</div>
+                        </div>
+                    `).join('') || '<p class="text-gray-500">Keine Trainings diese Woche</p>';
+                } catch (e) {
+                    log(`Error: ${e.message}`, 'error');
+                    resultEl.innerHTML = `<p class="text-red-500">Fehler: ${e.message}</p>`;
+                }
+            });
+
+            // Test ELO Calculation
+            document.getElementById('test-elo').addEventListener('click', async () => {
+                const resultEl = document.getElementById('rpc-result');
+                log('Testing ELO calculation...');
+
+                try {
+                    const { data, error } = await supabase.rpc('calculate_elo', {
+                        winner_elo: 1000,
+                        loser_elo: 1000
+                    });
+
+                    if (error) throw error;
+
+                    log('ELO calculation successful!');
+                    resultEl.innerHTML = `<pre class="text-green-600">${JSON.stringify(data, null, 2)}</pre>`;
+                } catch (e) {
+                    log(`ELO test failed: ${e.message}`, 'error');
+                    resultEl.innerHTML = `<pre class="text-red-600">Fehler: ${e.message}\n\nHast du elo-trigger.sql ausgefuehrt?</pre>`;
+                }
+            });
+
+            // Test RPC Functions
+            document.getElementById('test-rpc').addEventListener('click', async () => {
+                const resultEl = document.getElementById('rpc-result');
+                log('Testing RPC functions...');
+
+                // Test if add_player_points exists
+                try {
+                    // We'll just check if the function exists by calling it with a dummy UUID
+                    // This will fail but tell us if the function exists
+                    const { error } = await supabase.rpc('add_player_points', {
+                        p_user_id: '00000000-0000-0000-0000-000000000000',
+                        p_points: 0,
+                        p_xp: 0
+                    });
+
+                    if (error && error.message.includes('does not exist')) {
+                        throw new Error('RPC function not found - bitte rpc-functions.sql ausfuehren!');
+                    }
+
+                    log('RPC functions exist!');
+                    resultEl.innerHTML = `<pre class="text-green-600">RPC Funktionen sind verfuegbar!</pre>`;
+                } catch (e) {
+                    log(`RPC test: ${e.message}`, e.message.includes('not found') ? 'error' : 'info');
+                    if (e.message.includes('not found') || e.message.includes('does not exist')) {
+                        resultEl.innerHTML = `<pre class="text-red-600">RPC Funktionen nicht gefunden!\n\nBitte fuehre supabase/rpc-functions.sql im SQL Editor aus.</pre>`;
+                    } else {
+                        resultEl.innerHTML = `<pre class="text-green-600">RPC Funktionen scheinen zu existieren.\n(Fehler war: ${e.message})</pre>`;
+                    }
+                }
+            });
+
+            log('Ready! Bitte einloggen um Tests durchzufuehren.');
+        </script>
+    </body>
+</html>
