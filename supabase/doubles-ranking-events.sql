@@ -98,15 +98,26 @@ DECLARE
     v_player2_exists BOOLEAN;
     v_player1_offline BOOLEAN;
     v_player2_offline BOOLEAN;
+    v_player1_name TEXT;
+    v_player2_name TEXT;
+    v_display_name TEXT;
 BEGIN
     -- Only process if Elo actually changed
     IF OLD.current_elo_rating IS NOT DISTINCT FROM NEW.current_elo_rating THEN
         RETURN NEW;
     END IF;
 
-    -- Check if players exist in auth.users (skip offline players)
-    SELECT is_offline INTO v_player1_offline FROM profiles WHERE id = NEW.player1_id;
-    SELECT is_offline INTO v_player2_offline FROM profiles WHERE id = NEW.player2_id;
+    -- Get player names from profiles table (more reliable than pairing names)
+    SELECT COALESCE(display_name, first_name, 'Spieler 1'), is_offline
+    INTO v_player1_name, v_player1_offline
+    FROM profiles WHERE id = NEW.player1_id;
+
+    SELECT COALESCE(display_name, first_name, 'Spieler 2'), is_offline
+    INTO v_player2_name, v_player2_offline
+    FROM profiles WHERE id = NEW.player2_id;
+
+    -- Build display name
+    v_display_name := v_player1_name || ' & ' || v_player2_name;
 
     IF v_player1_offline IS TRUE AND v_player2_offline IS TRUE THEN
         RETURN NEW;
@@ -183,9 +194,9 @@ BEGIN
                             'pairing_id', NEW.id,
                             'player1_id', NEW.player1_id,
                             'player2_id', NEW.player2_id,
-                            'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
-                            'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
-                            'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                            'player1_name', v_player1_name,
+                            'player2_name', v_player2_name,
+                            'display_name', v_display_name,
                             'new_position', v_new_club_position,
                             'old_position', v_old_club_position,
                             'position_medal', v_position_medal,
@@ -210,9 +221,9 @@ BEGIN
                             'pairing_id', NEW.id,
                             'player1_id', NEW.player1_id,
                             'player2_id', NEW.player2_id,
-                            'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
-                            'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
-                            'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                            'player1_name', v_player1_name,
+                            'player2_name', v_player2_name,
+                            'display_name', v_display_name,
                             'new_position', v_new_club_position,
                             'old_position', v_old_club_position,
                             'position_medal', v_position_medal,
@@ -270,9 +281,9 @@ BEGIN
                         'pairing_id', NEW.id,
                         'player1_id', NEW.player1_id,
                         'player2_id', NEW.player2_id,
-                        'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
-                        'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
-                        'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                        'player1_name', v_player1_name,
+                        'player2_name', v_player2_name,
+                        'display_name', v_display_name,
                         'new_position', v_new_global_position,
                         'old_position', v_old_global_position,
                         'positions_changed', ABS(v_new_global_position - v_old_global_position),
@@ -295,9 +306,9 @@ BEGIN
                         'pairing_id', NEW.id,
                         'player1_id', NEW.player1_id,
                         'player2_id', NEW.player2_id,
-                        'player1_name', COALESCE(NEW.player1_name, 'Spieler 1'),
-                        'player2_name', COALESCE(NEW.player2_name, 'Spieler 2'),
-                        'display_name', COALESCE(NEW.player1_name, '') || ' & ' || COALESCE(NEW.player2_name, ''),
+                        'player1_name', v_player1_name,
+                        'player2_name', v_player2_name,
+                        'display_name', v_display_name,
                         'new_position', v_new_global_position,
                         'old_position', v_old_global_position,
                         'positions_changed', ABS(v_new_global_position - v_old_global_position),
