@@ -107,7 +107,15 @@ html.plt-ios .fixed.inset-0 {
 html.plt-capacitor #notification-modal,
 html.plt-android #notification-modal,
 html.plt-ios #notification-modal {
-    padding-top: calc(max(env(safe-area-inset-top, 44px), 44px) + 56px) !important;
+    padding-top: calc(max(env(safe-area-inset-top, 44px), 44px) + 70px) !important;
+}
+
+/* Also fix the notification modal content container */
+html.plt-capacitor #notification-modal > div,
+html.plt-android #notification-modal > div,
+html.plt-ios #notification-modal > div {
+    margin-top: 0 !important;
+    max-height: calc(100vh - 150px) !important;
 }
 
 /* ============================================
@@ -118,12 +126,50 @@ html.plt-capacitor .coach-dashboard-content,
 html.plt-android .coach-dashboard-content,
 html.plt-ios .coach-dashboard-content {
     padding-top: 0 !important;
+    margin-top: 0 !important;
 }
 
 html.plt-capacitor .coach-dashboard-content > header,
 html.plt-android .coach-dashboard-content > header,
 html.plt-ios .coach-dashboard-content > header {
     margin-bottom: 0.5rem !important;
+    padding-top: 0 !important;
+}
+
+/* Fix coach.html main content area - directly target the structure */
+html.plt-capacitor #main-content > .container,
+html.plt-android #main-content > .container,
+html.plt-ios #main-content > .container {
+    padding-top: 0.5rem !important;
+}
+
+/* Target the header section in coach dashboard specifically */
+html.plt-capacitor #main-content header.flex,
+html.plt-android #main-content header.flex,
+html.plt-ios #main-content header.flex {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Reduce the pt-6 and pt-4 classes on mobile */
+@media (max-width: 768px) {
+    html.plt-capacitor .pt-6,
+    html.plt-android .pt-6,
+    html.plt-ios .pt-6 {
+        padding-top: 0.5rem !important;
+    }
+
+    html.plt-capacitor .pt-4,
+    html.plt-android .pt-4,
+    html.plt-ios .pt-4 {
+        padding-top: 0.25rem !important;
+    }
+
+    html.plt-capacitor .mb-6,
+    html.plt-android .mb-6,
+    html.plt-ios .mb-6 {
+        margin-bottom: 0.75rem !important;
+    }
 }
 
 /* ============================================
@@ -133,7 +179,24 @@ html.plt-ios .coach-dashboard-content > header {
 html.plt-capacitor .profile-content-wrapper,
 html.plt-android .profile-content-wrapper,
 html.plt-ios .profile-content-wrapper {
-    padding-top: 0.5rem !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Profile header area - reduce spacing */
+@media (max-width: 768px) {
+    html.plt-capacitor .profile-content-wrapper > div:first-child,
+    html.plt-android .profile-content-wrapper > div:first-child,
+    html.plt-ios .profile-content-wrapper > div:first-child {
+        padding-top: 0.5rem !important;
+    }
+
+    /* Profile avatar section - reduce margin */
+    html.plt-capacitor .profile-content-wrapper .relative.-mt-16,
+    html.plt-android .profile-content-wrapper .relative.-mt-16,
+    html.plt-ios .profile-content-wrapper .relative.-mt-16 {
+        margin-top: -3rem !important;
+    }
 }
 
 /* ============================================
@@ -152,47 +215,111 @@ html.plt-ios .profile-content-wrapper {
     .export-btn-mobile i {
         margin-right: 0 !important;
     }
+
+    /* Target Excel and Zusammenfassung buttons by color classes */
+    html.plt-capacitor button.bg-green-500,
+    html.plt-android button.bg-green-500,
+    html.plt-ios button.bg-green-500,
+    html.plt-capacitor button.bg-blue-500,
+    html.plt-android button.bg-blue-500,
+    html.plt-ios button.bg-blue-500 {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Hide text labels on small screens, show only icons */
+    html.plt-capacitor button.bg-green-500 span,
+    html.plt-android button.bg-green-500 span,
+    html.plt-ios button.bg-green-500 span,
+    html.plt-capacitor button.bg-blue-500 span,
+    html.plt-android button.bg-blue-500 span,
+    html.plt-ios button.bg-blue-500 span {
+        display: none !important;
+    }
+
+    /* Remove icon margin when text is hidden */
+    html.plt-capacitor button.bg-green-500 i,
+    html.plt-android button.bg-green-500 i,
+    html.plt-ios button.bg-green-500 i,
+    html.plt-capacitor button.bg-blue-500 i,
+    html.plt-android button.bg-blue-500 i,
+    html.plt-ios button.bg-blue-500 i {
+        margin-right: 0 !important;
+    }
 }
 
 /* ============================================
-   DOUBLES MATCH CARD - MOBILE TEXT OVERFLOW
+   DOUBLES MATCH CARD - MOBILE LAYOUT FIX
    ============================================ */
-@media (max-width: 480px) {
-    /* Truncate long player names in doubles cards */
-    .doubles-match-card .team-names,
-    .doubles-team-names {
-        max-width: 100%;
+
+/* Better doubles layout for match history */
+@media (max-width: 640px) {
+    /* Make the match card layout more compact for doubles */
+    html.plt-capacitor .match-card[data-match-type="doubles"],
+    html.plt-android .match-card[data-match-type="doubles"],
+    html.plt-ios .match-card[data-match-type="doubles"] {
+        padding: 0.75rem !important;
+    }
+
+    /* Team avatar groups - make smaller */
+    html.plt-capacitor .team-avatars,
+    html.plt-android .team-avatars,
+    html.plt-ios .team-avatars {
+        transform: scale(0.85);
+    }
+
+    /* Team names - truncate and stack */
+    html.plt-capacitor .team-names,
+    html.plt-android .team-names,
+    html.plt-ios .team-names,
+    html.plt-capacitor .doubles-team-names,
+    html.plt-android .doubles-team-names,
+    html.plt-ios .doubles-team-names {
+        font-size: 0.8rem !important;
+        max-width: 90px !important;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    /* Stack teams vertically on very small screens */
-    .doubles-teams-row {
-        flex-direction: column !important;
-        gap: 0.5rem !important;
+    /* Doubles score section - make more compact */
+    html.plt-capacitor .doubles-score,
+    html.plt-android .doubles-score,
+    html.plt-ios .doubles-score {
+        font-size: 1.25rem !important;
     }
 
-    .doubles-teams-row .vs-separator {
-        display: none !important;
+    /* The overlapping avatars in doubles - adjust positioning */
+    html.plt-capacitor .doubles-avatar-group img,
+    html.plt-android .doubles-avatar-group img,
+    html.plt-ios .doubles-avatar-group img,
+    html.plt-capacitor .doubles-avatar-group .avatar,
+    html.plt-android .doubles-avatar-group .avatar,
+    html.plt-ios .doubles-avatar-group .avatar {
+        width: 32px !important;
+        height: 32px !important;
     }
 
-    /* Show "vs" between stacked teams */
-    .doubles-teams-row::after {
-        content: 'vs';
-        display: block;
-        text-align: center;
-        color: #9ca3af;
-        font-size: 0.75rem;
-        order: 1;
+    html.plt-capacitor .doubles-avatar-group img:last-child,
+    html.plt-android .doubles-avatar-group img:last-child,
+    html.plt-ios .doubles-avatar-group img:last-child,
+    html.plt-capacitor .doubles-avatar-group .avatar:last-child,
+    html.plt-android .doubles-avatar-group .avatar:last-child,
+    html.plt-ios .doubles-avatar-group .avatar:last-child {
+        margin-left: -12px !important;
     }
+}
 
-    .doubles-teams-row > div:first-child {
-        order: 0;
-    }
-
-    .doubles-teams-row > div:last-child {
-        order: 2;
+@media (max-width: 480px) {
+    /* Even smaller on very small screens */
+    html.plt-capacitor .team-names,
+    html.plt-android .team-names,
+    html.plt-ios .team-names,
+    html.plt-capacitor .doubles-team-names,
+    html.plt-android .doubles-team-names,
+    html.plt-ios .doubles-team-names {
+        font-size: 0.7rem !important;
+        max-width: 70px !important;
     }
 }
 
