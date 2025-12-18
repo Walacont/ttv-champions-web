@@ -359,10 +359,8 @@ CREATE POLICY "Global doubles ranking visible to players and friends" ON activit
                 SELECT 1 FROM friendships
                 WHERE status = 'accepted'
                 AND (
-                    (user_id = auth.uid() AND friend_id = (event_data->>'player1_id')::uuid)
-                    OR (friend_id = auth.uid() AND user_id = (event_data->>'player1_id')::uuid)
-                    OR (user_id = auth.uid() AND friend_id = (event_data->>'player2_id')::uuid)
-                    OR (friend_id = auth.uid() AND user_id = (event_data->>'player2_id')::uuid)
+                    (requester_id = auth.uid() AND addressee_id = (event_data->>'player1_id')::uuid)
+                    OR (requester_id = auth.uid() AND addressee_id = (event_data->>'player2_id')::uuid)
                 )
             )
         )
