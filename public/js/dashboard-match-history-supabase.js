@@ -348,9 +348,9 @@ function renderDoublesMatchCard(match, profileMap) {
                 <p class="text-3xl font-bold mb-2">${mySetWins} : ${oppSetWins}</p>
 
                 <!-- Teams wrap on small screens -->
-                <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
+                <div class="doubles-teams-row flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm">
                     <div class="flex items-center">
-                        <div class="flex -space-x-1">
+                        <div class="flex -space-x-1 flex-shrink-0">
                             <img src="${myAvatar}" alt="Du"
                                 class="w-5 h-5 rounded-full object-cover border ${isWinner ? 'border-green-500' : 'border-red-500'}"
                                 onerror="this.src='${DEFAULT_AVATAR}'">
@@ -358,11 +358,11 @@ function renderDoublesMatchCard(match, profileMap) {
                                 class="w-5 h-5 rounded-full object-cover border ${isWinner ? 'border-green-500' : 'border-red-500'}"
                                 onerror="this.src='${DEFAULT_AVATAR}'">
                         </div>
-                        <span class="ml-1">Du & ${partnerName}</span>
+                        <span class="ml-1 doubles-team-names truncate max-w-[120px]">Du & ${partnerName}</span>
                     </div>
-                    <span class="text-gray-400">vs</span>
+                    <span class="vs-separator text-gray-400">vs</span>
                     <div class="flex items-center">
-                        <div class="flex -space-x-1">
+                        <div class="flex -space-x-1 flex-shrink-0">
                             <img src="${opp1Avatar}" alt="${opp1Name}"
                                 class="w-5 h-5 rounded-full object-cover border ${!isWinner ? 'border-green-500' : 'border-red-500'}"
                                 onerror="this.src='${DEFAULT_AVATAR}'">
@@ -370,7 +370,7 @@ function renderDoublesMatchCard(match, profileMap) {
                                 class="w-5 h-5 rounded-full object-cover border ${!isWinner ? 'border-green-500' : 'border-red-500'}"
                                 onerror="this.src='${DEFAULT_AVATAR}'">
                         </div>
-                        <span class="ml-1">${opp1Name} & ${opp2Name}</span>
+                        <span class="ml-1 doubles-team-names truncate max-w-[120px]">${opp1Name} & ${opp2Name}</span>
                     </div>
                 </div>
             </div>
