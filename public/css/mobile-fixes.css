@@ -174,13 +174,38 @@ html.plt-ios #main-content header.flex {
 
 /* ============================================
    PROFILE PAGE TOP SPACING FIX
-   Reduce top padding on mobile native apps
+   Profile.html uses sticky header, NOT fixed #top-nav
+   So we need to reset the main-content padding
    ============================================ */
+
+/* Reset main-content padding for profile page specifically */
+html.plt-capacitor #main-content.profile-page,
+html.plt-android #main-content.profile-page,
+html.plt-ios #main-content.profile-page {
+    padding-top: 0 !important;
+}
+
+/* Profile page sticky header - add safe area padding */
+html.plt-capacitor .profile-page .sticky.top-0,
+html.plt-android .profile-page .sticky.top-0,
+html.plt-ios .profile-page .sticky.top-0 {
+    padding-top: max(env(safe-area-inset-top, 20px), 20px) !important;
+}
+
+/* Profile content wrapper - reduce padding */
 html.plt-capacitor .profile-content-wrapper,
 html.plt-android .profile-content-wrapper,
 html.plt-ios .profile-content-wrapper {
-    padding-top: 0 !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
     margin-top: 0 !important;
+}
+
+/* Profile avatar - reduce top margin */
+html.plt-capacitor .profile-content-wrapper .flex.justify-center.mb-4,
+html.plt-android .profile-content-wrapper .flex.justify-center.mb-4,
+html.plt-ios .profile-content-wrapper .flex.justify-center.mb-4 {
+    margin-bottom: 0.5rem !important;
 }
 
 /* Profile header area - reduce spacing */
@@ -188,7 +213,7 @@ html.plt-ios .profile-content-wrapper {
     html.plt-capacitor .profile-content-wrapper > div:first-child,
     html.plt-android .profile-content-wrapper > div:first-child,
     html.plt-ios .profile-content-wrapper > div:first-child {
-        padding-top: 0.5rem !important;
+        padding-top: 0 !important;
     }
 
     /* Profile avatar section - reduce margin */
