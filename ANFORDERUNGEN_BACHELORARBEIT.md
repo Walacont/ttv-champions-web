@@ -44,7 +44,7 @@ Entwicklung einer webbasierten Gamification-Plattform, die:
 | Rolle | Beschreibung | Kernfunktionen |
 |-------|--------------|----------------|
 | **Spieler** | Aktive Vereinsmitglieder | Matches eintragen, Fortschritt verfolgen, Challenges absolvieren |
-| **Coach** | Trainer und Übungsleiter | Match-Freigaben, Anwesenheit erfassen, Trainingsplanung |
+| **Coach** | Trainer und Übungsleiter | Anwesenheit erfassen, Trainingsplanung, Club-Verwaltung |
 | **Admin** | Vereinsadministrator | Benutzerverwaltung, Club-Einstellungen, Subgruppen |
 
 ---
@@ -113,40 +113,56 @@ Das Elo-System bildet das Herzstück der Gamification:
 │                    ELO FEEDBACK LOOP                             │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   Match spielen ──→ Ergebnis eintragen ──→ Coach genehmigt      │
+│   Match spielen ──→ Ergebnis eintragen ──→ Gegner bestätigt     │
 │         ↑                                          │             │
 │         │                                          ↓             │
-│         │                                  Elo + XP Update       │
+│         │                              Auto-Genehmigung          │
 │         │                                          │             │
 │         │                                          ↓             │
-│    Motivation ←────── Rangliste ←───── Sichtbarer Fortschritt   │
+│    Motivation ←────── Rangliste ←───── Elo + XP sofort sichtbar │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 **Eigenschaften des Elo-Systems:**
-- **Unmittelbares Feedback**: Elo-Änderung sofort nach Genehmigung sichtbar
+- **Unmittelbares Feedback**: Elo-Änderung sofort nach Gegner-Bestätigung sichtbar
 - **Faire Bewertung**: Sieg gegen stärkeren Gegner = mehr Elo-Gewinn
 - **A-Faktor**: Neue Spieler haben höheren Multiplikator (32→24→16)
 - **Jugend-Faktor**: U21-Spieler behalten erhöhten Faktor (20)
 - **Rating Floor**: Minimum bei 400 Elo (kein negatives Erlebnis)
 
-#### 3.2.2 Der Coach als "Gamemaster"
+#### 3.2.2 Schnelle Feedback-Schleife durch Auto-Genehmigung
 
-Ein zentraler **Erkenntnispivot** während der Entwicklung:
+Ein zentraler **Erkenntnispivot** während der Entwicklung: **Matches brauchen keine Coach-Freigabe mehr.**
 
-| Traditionelle Rolle | Gamification-Rolle |
-|---------------------|-------------------|
-| Trainingsleitung | **Match-Validator**: Qualitätssicherung der Ergebnisse |
-| Anwesenheitskontrolle | **XP-Verwalter**: Anwesenheit = Punkte |
-| Trainer | **Challenge-Designer**: Erstellt motivierende Aufgaben |
-| Mentor | **Feedback-Geber**: Genehmigt/Ablehnt mit Begründung |
+Ursprünglich war ein Coach-Approval-System geplant. Die Evaluation zeigte jedoch:
 
-**Warum der Coach unverzichtbar ist:**
-1. **Verhindert Manipulation** - Spieler können nicht selbst Punkte vergeben
-2. **Schafft Anerkennung** - Coach-Genehmigung = offizielle Bestätigung
-3. **Qualitätssicherung** - Nur valide Matches fließen ins Elo ein
-4. **Bindeglied** - Verbindet digitales System mit realem Training
+| Problem Coach-Approval | Lösung Auto-Approval |
+|------------------------|----------------------|
+| Verzögerung von Stunden/Tagen | **Sofortiges Feedback** nach Gegner-Bestätigung |
+| Coach-Bottleneck bei vielen Matches | **Skaliert automatisch** ohne Mehraufwand |
+| Frustration bei wartenden Spielern | **Motivation bleibt hoch** durch direkte Elo-Updates |
+| Coach muss immer verfügbar sein | **Coach entlastet** für wichtigere Aufgaben |
+
+**Neuer Ablauf (Singles):**
+1. Spieler A trägt Match-Ergebnis ein
+2. Spieler B erhält Push-Notification
+3. Spieler B bestätigt das Ergebnis
+4. Match wird **automatisch genehmigt** → Elo + XP sofort aktualisiert
+
+**Sicherheit ohne Coach:**
+- **Peer-Validation**: Beide Spieler müssen zustimmen
+- **Keine Selbstbestätigung**: Match-Ersteller kann eigene Matches nicht genehmigen
+- **Audit-Trail**: Alle Änderungen werden protokolliert
+- **Korrektur möglich**: Bei Fehlern können Spieler sich an Coach wenden
+
+**Coach-Rolle fokussiert sich nun auf:**
+| Aufgabe | Beschreibung |
+|---------|--------------|
+| **Trainingsplanung** | Recurring Templates, Session-Management |
+| **Anwesenheit erfassen** | XP-Vergabe für Trainingsbesuche |
+| **Club-Verwaltung** | Beitrittsanfragen, Subgruppen, Spieler-Management |
+| **Challenge-Design** | Erstellt motivierende Aufgaben (zukünftig) |
 
 ### 3.3 Technisches Design
 
@@ -247,15 +263,11 @@ attendance (
 CREATE POLICY "users_own_profile" ON profiles
 FOR UPDATE USING (auth.uid() = id);
 
--- Coach: Match-Genehmigung im eigenen Club
-CREATE POLICY "coaches_approve_matches" ON matches
+-- Spieler: Eigene Match-Requests bestätigen/ablehnen
+CREATE POLICY "players_confirm_matches" ON match_requests
 FOR UPDATE USING (
-    EXISTS (
-        SELECT 1 FROM profiles
-        WHERE id = auth.uid()
-        AND role IN ('coach', 'admin')
-        AND club_id = matches.club_id
-    )
+    auth.uid() = player_b_id  -- Nur Gegner kann bestätigen
+    AND status = 'pending_player'
 );
 ```
 
@@ -278,7 +290,7 @@ FOR UPDATE USING (
 |--------|---|----------------|
 | Jugendliche (U18) | ~15 | Start-Elo: 800 |
 | Erwachsene (Ü18) | ~25 | Start-Elo: 1000 |
-| Coaches | 3-5 | Freigabe-Berechtigung |
+| Coaches | 3-5 | Trainings-Management |
 | **Gesamt** | **~45** | Ein Verein |
 
 #### 3.4.3 Erhebungsinstrumente
@@ -510,7 +522,7 @@ $$;
 | Recurring Template | Coach erstellt Template | Sessions für 14 Tage generiert |
 | Overlap Prevention | Überlappende Zeiten eingeben | Fehlermeldung |
 | Multi-Session | 2 Sessions am gleichen Tag | Kalender zeigt 2 Punkte |
-| Match Approval | Coach genehmigt Match | Elo + XP aktualisiert |
+| Match Auto-Approval | Gegner bestätigt Match | Elo + XP sofort aktualisiert |
 
 #### Security Tests (RLS)
 
@@ -564,7 +576,7 @@ test('player cannot create session', async () => {
 |----|-------------|-----------|
 | FA-3.1 | Einzel-Match eintragen | Must |
 | FA-3.2 | Doppel-Match eintragen | Must |
-| FA-3.3 | Coach-Genehmigung erforderlich | Must |
+| FA-3.3 | Gegner-Bestätigung für Auto-Genehmigung | Must |
 | FA-3.4 | Match-Validierung (Satzergebnis) | Must |
 | FA-3.5 | Automatische Elo/XP-Vergabe | Must |
 | FA-3.6 | Handicap-System bei großem Elo-Unterschied | Should |
@@ -643,7 +655,7 @@ test('player cannot create session', async () => {
 |----|-----------|
 | H1 | Die Nutzung von SC Champions führt zu einer signifikanten Steigerung der Trainingsteilnahme. |
 | H2 | Das Elo-System wird als fair und motivierend wahrgenommen. |
-| H3 | Die Rolle des Coaches als "Gamemaster" erhöht die wahrgenommene Legitimität des Systems. |
+| H3 | Die Peer-Validation (Gegner-Bestätigung) erhöht die wahrgenommene Legitimität des Systems. |
 | H4 | Season Points führen zu höherem kurzfristigem Engagement als permanente XP. |
 
 ---
