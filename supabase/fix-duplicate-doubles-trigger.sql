@@ -1,41 +1,15 @@
--- =====================================================
--- Fix: Remove duplicate doubles match trigger
--- =====================================================
--- Problem: Both trigger_process_doubles_match AND process_doubles_match_trigger
--- were processing doubles matches, causing:
--- 1. Duplicate pairings
--- 2. Double ELO calculations
--- 3. Incorrect win/loss counts
---
--- Solution: Drop process_doubles_match_trigger (from doubles-policies.sql)
--- and keep trigger_process_doubles_match (from functions.sql) which has
--- correct pairing ID creation logic
--- =====================================================
+-- Fix: Remove duplicate trigger for doubles match requests
+-- There were TWO triggers that both created matches when a request was approved:
+-- 1. trigger_process_approved_doubles_request (from functions.sql)
+-- 2. process_approved_doubles_request_trigger (from doubles-policies.sql)
+-- This caused doubles matches to be created twice.
 
--- Drop the duplicate trigger
-DROP TRIGGER IF EXISTS process_doubles_match_trigger ON doubles_matches;
+-- Drop the duplicate trigger from functions.sql
+DROP TRIGGER IF EXISTS trigger_process_approved_doubles_request ON doubles_match_requests;
 
--- Verify only one trigger remains
-SELECT 'Doubles match triggers after cleanup:' as status;
-SELECT tgname as trigger_name, tgtype, pg_get_triggerdef(oid) as definition
-FROM pg_trigger
-WHERE tgrelid = 'doubles_matches'::regclass
-AND NOT tgisinternal;
+-- Keep the one from doubles-policies.sql:
+-- process_approved_doubles_request_trigger
+-- which executes process_approved_doubles_request()
 
--- Optional: Clean up duplicate pairings (run this manually if needed)
--- This will show duplicates:
-SELECT
-    player1_id,
-    player2_id,
-    COUNT(*) as duplicate_count,
-    array_agg(id) as pairing_ids
-FROM doubles_pairings
-GROUP BY player1_id, player2_id
-HAVING COUNT(*) > 1;
-
--- Note: To fix existing data, you may need to:
--- 1. Delete duplicate pairings (keep the one with most matches)
--- 2. Recalculate ELO from scratch
--- 3. Reset match counts
-
-SELECT 'Fix applied! Only trigger_process_doubles_match should remain.' as result;
+-- Verify only one trigger exists:
+-- SELECT * FROM pg_trigger WHERE tgrelid = 'doubles_match_requests'::regclass;

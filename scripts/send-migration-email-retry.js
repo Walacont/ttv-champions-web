@@ -1,11 +1,20 @@
 /**
  * Retry failed migration emails
+ * Includes:
+ * - Updated Phone Number (+49 176...)
+ * - Cache clearing tip
+ * - Beta/Feedback section
+ * - Correct links
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
-const SUPABASE_URL = 'https://wmrbjuyqgbmvtzrujuxs.supabase.co';
+// ============================================
+// CONFIGURATION
+// ============================================
+
+const SUPABASE_URL = 'https://wmrbjuyqbmvtzrujuxs.supabase.co';
 const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndtcmJqdXlxZ2JtdnR6cnVqdXhzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDY3OTMzOSwiZXhwIjoyMDgwMjU1MzM5fQ.94nqvxAhCHUP0g1unKzdnInOaM4huwTTcSnKxJ5jSdA';
 
 const FROM_EMAIL = 'SC Champions <noreply@sc-champions.de>';
@@ -45,14 +54,23 @@ const FAILED_EMAILS = [
     'vporebski@wtnet.de'
 ];
 
+// ============================================
+// Initialize clients
+// ============================================
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// ============================================
+// Email Template (Updated)
+// ============================================
+
 function generateEmailHtml(firstName) {
     const name = firstName || 'Spieler';
+
     return `
 <!DOCTYPE html>
 <html lang="de">
@@ -68,59 +86,105 @@ function generateEmailHtml(firstName) {
                 <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
                     <tr>
                         <td style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 30px 40px; border-radius: 12px 12px 0 0;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">🏆 SC Champions</h1>
-                            <p style="margin: 10px 0 0 0; color: #e0e7ff; font-size: 16px;">Systemaktualisierung</p>
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                                🏆 SC Champions
+                            </h1>
+                            <p style="margin: 10px 0 0 0; color: #e0e7ff; font-size: 16px;">
+                                Systemaktualisierung
+                            </p>
                         </td>
                     </tr>
+
                     <tr>
                         <td style="padding: 40px;">
-                            <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 22px;">Hallo ${name}! 👋</h2>
+                            <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 22px;">
+                                Hallo ${name}! 👋
+                            </h2>
+
                             <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
                                 Wir haben <strong>SC Champions</strong> auf ein neues, verbessertes System umgestellt,
                                 um dir ein noch besseres Erlebnis zu bieten.
                             </p>
+
                             <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; margin: 24px 0; border-radius: 0 8px 8px 0;">
                                 <p style="margin: 0; color: #92400e; font-size: 15px;">
                                     <strong>⚠️ Wichtig:</strong> Aus Sicherheitsgründen musst du dein Passwort
                                     einmalig zurücksetzen, um dich wieder anzumelden.
                                 </p>
                             </div>
-                            <h3 style="margin: 30px 0 15px 0; color: #1f2937; font-size: 18px;">So geht's:</h3>
-                            <ol style="margin: 0 0 30px 0; padding-left: 20px; color: #4b5563; font-size: 15px; line-height: 1.8;">
+
+                            <h3 style="margin: 30px 0 15px 0; color: #1f2937; font-size: 18px;">
+                                So geht's:
+                            </h3>
+
+                            <ol style="margin: 0 0 20px 0; padding-left: 20px; color: #4b5563; font-size: 15px; line-height: 1.8;">
                                 <li>Gehe zu <a href="${APP_URL}" style="color: #4f46e5; text-decoration: none;">${APP_URL}</a></li>
                                 <li>Klicke auf <strong>"Passwort vergessen"</strong></li>
                                 <li>Gib deine E-Mail-Adresse ein</li>
                                 <li>Du erhältst einen Link zum Zurücksetzen</li>
                             </ol>
+
+                            <p style="margin: 0 0 30px 0; font-size: 13px; color: #6b7280; background-color: #f9fafb; padding: 10px; border-radius: 6px; border: 1px dashed #d1d5db;">
+                                <strong>💡 Tipp:</strong> Falls die Seite nicht korrekt angezeigt wird, leere bitte deinen <strong>Browser-Cache</strong> oder lade die Seite neu.
+                            </p>
+
                             <table role="presentation" style="margin: 30px 0;">
                                 <tr>
                                     <td>
-                                        <a href="${APP_URL}" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);">
+                                        <a href="${APP_URL}"
+                                           style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                                                  color: #ffffff; text-decoration: none; padding: 14px 32px;
+                                                  border-radius: 8px; font-weight: bold; font-size: 16px;
+                                                  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);">
                                             Jetzt Passwort zurücksetzen →
                                         </a>
                                     </td>
                                 </tr>
                             </table>
+
                             <div style="background-color: #ecfdf5; border-radius: 8px; padding: 16px 20px; margin: 24px 0;">
                                 <p style="margin: 0; color: #065f46; font-size: 15px;">
-                                    <strong>✅ Gute Nachricht:</strong> Deine Daten (Punkte, Matches, Ränge) sind vollständig erhalten geblieben!
+                                    <strong>✅ Gute Nachricht:</strong> Deine Daten (Punkte, Matches, Ränge)
+                                    sind vollständig erhalten geblieben!
                                 </p>
                             </div>
-                            <h3 style="margin: 30px 0 15px 0; color: #1f2937; font-size: 18px;">🆕 Was ist neu?</h3>
+
+                            <h3 style="margin: 30px 0 15px 0; color: #1f2937; font-size: 18px;">
+                                🆕 Was ist neu?
+                            </h3>
+
                             <ul style="margin: 0 0 20px 0; padding-left: 20px; color: #4b5563; font-size: 15px; line-height: 1.8;">
                                 <li><strong>Neues Elo-System:</strong> Erwachsene (Ü18) starten jetzt mit 1000 Elo, Jugendliche mit 800 Elo</li>
                                 <li><strong>A-Faktor:</strong> Neue Spieler haben einen höheren Multiplikator für schnelleres Einpendeln</li>
                                 <li><strong>Faires Handicap:</strong> Bei großen Elo-Unterschieden gibt es automatische Handicap-Vorschläge</li>
                                 <li><strong>Verbessertes Head-to-Head:</strong> Das Handicap wird jetzt graduell angepasst</li>
                             </ul>
+
+                            <div style="background-color: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                                <h4 style="margin: 0 0 10px 0; color: #1f2937; font-size: 16px;">
+                                    🚧 Testphase & Feedback
+                                </h4>
+                                <p style="margin: 0; color: #4b5563; font-size: 14px; line-height: 1.6;">
+                                    SC Champions befindet sich noch in der <strong>Testphase</strong>.
+                                    Wenn du Bugs findest oder Feedback hast, schreib uns gerne:
+                                </p>
+                                <p style="margin: 10px 0 0 0; font-size: 14px;">
+                                    📱 <strong>WhatsApp:</strong> <a href="https://wa.me/4917649068962" style="color: #4f46e5; text-decoration: none;">+49 176 4906 8962</a><br>
+                                    📧 <strong>E-Mail:</strong> <a href="mailto:noreply@sc-champions.de" style="color: #4f46e5; text-decoration: none;">noreply@sc-champions.de</a>
+                                </p>
+                            </div>
+
                             <p style="margin: 30px 0 0 0; color: #4b5563; font-size: 15px; line-height: 1.6;">
-                                Bei Fragen kannst du auf diese E-Mail antworten.
+                                Bei Fragen kannst du auch direkt auf diese E-Mail antworten.
                             </p>
+
                             <p style="margin: 20px 0 0 0; color: #1f2937; font-size: 15px;">
-                                Sportliche Grüße,<br><strong>Das SC Champions Team</strong>
+                                Sportliche Grüße,<br>
+                                <strong>Tommy Wang</strong>
                             </p>
                         </td>
                     </tr>
+
                     <tr>
                         <td style="background-color: #f9fafb; padding: 24px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
                             <p style="margin: 0; color: #6b7280; font-size: 13px; text-align: center;">
@@ -133,17 +197,19 @@ function generateEmailHtml(firstName) {
         </tr>
     </table>
 </body>
-</html>`;
+</html>
+    `;
 }
 
 function generateEmailText(firstName) {
     const name = firstName || 'Spieler';
+
     return `
 Hallo ${name}!
 
-Wir haben SC Champions auf ein neues, verbessertes System umgestellt.
+Wir haben SC Champions auf ein neues, verbessertes System umgestellt, um dir ein noch besseres Erlebnis zu bieten.
 
-WICHTIG: Du musst dein Passwort einmalig zurücksetzen.
+WICHTIG: Aus Sicherheitsgründen musst du dein Passwort einmalig zurücksetzen, um dich wieder anzumelden.
 
 So geht's:
 1. Gehe zu ${APP_URL}
@@ -151,18 +217,40 @@ So geht's:
 3. Gib deine E-Mail-Adresse ein
 4. Du erhältst einen Link zum Zurücksetzen
 
-Deine Daten (Punkte, Elo, Matches, Ränge) sind vollständig erhalten!
+TIPP: Falls die Seite nicht korrekt angezeigt wird, leere bitte deinen Browser-Cache oder lade die Seite neu.
+
+Gute Nachricht: Deine Daten (Punkte, Elo, Matches, Ränge) sind vollständig erhalten geblieben!
 
 WAS IST NEU?
-- Erwachsene (Ü18) starten mit 1000 Elo, Jugendliche mit 800 Elo
-- A-Faktor für schnelleres Einpendeln bei neuen Spielern
-- Faires Handicap bei großen Elo-Unterschieden
-- Verbessertes Head-to-Head System
+- Neues Elo-System: Erwachsene (Ü18) starten jetzt mit 1000 Elo, Jugendliche mit 800 Elo
+- A-Faktor: Neue Spieler haben einen höheren Multiplikator für schnelleres Einpendeln
+- Faires Handicap: Bei großen Elo-Unterschieden gibt es automatische Handicap-Vorschläge
+- Verbessertes Head-to-Head: Das Handicap wird jetzt graduell angepasst
+- Neue Startseite
+- Spieler abonnieren
+- Videos/Fotos zu Matches hinzufügen
+- Beiträge hochladen
+
+---
+TESTPHASE & FEEDBACK
+SC Champions befindet sich noch in der Testphase. Wenn du Probleme/Bugs findest oder Feedback geben möchtest, kannst du uns gerne schreiben:
+WhatsApp: +49 176 4906 8962
+E-Mail: noreply@sc-champions.de
+---
+
+Bei Fragen kannst du auf diese E-Mail antworten.
 
 Sportliche Grüße,
-Das SC Champions Team
+Tommy Wang
+
+---
+© ${new Date().getFullYear()} SC Champions - Das Gamification-System für Sportvereine
     `.trim();
 }
+
+// ============================================
+// Main Execution
+// ============================================
 
 async function main() {
     console.log('');
@@ -171,10 +259,10 @@ async function main() {
     console.log('========================================');
     console.log('');
     console.log(`📧 Sending to ${FAILED_EMAILS.length} failed emails...`);
-    console.log('   (with 600ms delay between each)');
+    console.log('   (with 600ms delay between each to be safe)');
     console.log('');
 
-    // Fetch user data for these emails
+    // Fetch user data for these specific emails
     const { data: users, error } = await supabase
         .from('profiles')
         .select('id, email, display_name, first_name')
@@ -184,6 +272,14 @@ async function main() {
         console.error('Failed to fetch users:', error.message);
         process.exit(1);
     }
+
+    if (!users || users.length === 0) {
+        console.log('❌ No users found for the provided emails.');
+        return;
+    }
+
+    console.log(`   Found ${users.length} users in database.`);
+    console.log('');
 
     let successCount = 0;
     let failCount = 0;
@@ -209,7 +305,7 @@ async function main() {
             console.log(`${progress} ❌ ${user.email} - ${err.message}`);
         }
 
-        // Wait 600ms between emails (well under 2/sec limit)
+        // Wait 600ms between emails (slower than main script to be safe with retries)
         if (i < users.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 600));
         }
