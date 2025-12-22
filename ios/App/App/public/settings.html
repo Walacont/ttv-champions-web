@@ -3,6 +3,10 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
         <script src="/js/capacitor-init.js"></script>
         <title>Einstellungen - SC Champions</title>
 
@@ -18,17 +22,6 @@
         <link rel="apple-touch-icon" href="/icons/icon-152x152.png" />
         <meta name="mobile-web-app-capable" content="yes" />
 
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-H2R9ZJYQ06"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag() {
-                dataLayer.push(arguments);
-            }
-            gtag('js', new Date());
-            gtag('config', 'G-H2R9ZJYQ06');
-        </script>
-
         <script src="https://cdn.tailwindcss.com"></script>
         <link
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
@@ -40,7 +33,6 @@
         />
         <link rel="stylesheet" href="/css/spa-enhancements.css" />
         <link rel="stylesheet" href="/css/mobile-fixes.css" />
-        <link rel="stylesheet" href="/css/tutorial.css" />
         <style>
             body {
                 font-family: 'Inter', sans-serif;
@@ -59,6 +51,13 @@
             }
             #main-content {
                 display: none;
+            }
+            .settings-card {
+                transition: all 0.2s;
+            }
+            .settings-card:active {
+                transform: scale(0.98);
+                background-color: #f9fafb;
             }
         </style>
     </head>
@@ -87,429 +86,205 @@
         </div>
 
         <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-2xl">
-            <header class="flex justify-between items-start mb-8">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-900">Einstellungen</h1>
-                    <p class="text-gray-600">Verwalte dein Profil</p>
-                </div>
+            <div class="mb-8">
                 <a
                     href="/dashboard.html"
-                    class="text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap pt-1"
+                    class="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center mb-4"
                 >
-                    &larr; Zurück zum Dashboard
+                    <i class="fas fa-arrow-left mr-2"></i>
+                    <span data-i18n="common.back">Zurück</span>
                 </a>
-            </header>
+                <h1 class="text-3xl font-bold text-gray-900 text-center" data-i18n="settings.title">Einstellungen</h1>
+            </div>
 
-            <div class="bg-white p-6 rounded-xl shadow-md space-y-8">
-                <div>
-                    <h2 class="text-xl font-semibold mb-4">Profilbild</h2>
-                    <div class="flex items-center space-x-6">
-                        <img
-                            id="profile-image-preview"
-                            src="https://placehold.co/96x96/e2e8f0/64748b?text=..."
-                            alt="Profilbild"
-                            class="h-24 w-24 rounded-full object-cover"
-                        />
-                        <form id="upload-photo-form" class="flex flex-col space-y-3">
-                            <label
-                                for="photo-upload"
-                                class="cursor-pointer text-center bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                <span>Bild ändern</span>
-                                <input
-                                    id="photo-upload"
-                                    name="photo-upload"
-                                    type="file"
-                                    class="sr-only"
-                                    accept="image/*"
-                                />
-                            </label>
-                            <button
-                                type="submit"
-                                id="save-photo-button"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-opacity opacity-0 disabled:opacity-50"
-                                disabled
-                            >
-                                Speichern
-                            </button>
-                        </form>
-                    </div>
-                    <p id="upload-feedback" class="mt-2 text-sm"></p>
-                </div>
-
-                <div>
-                    <h2 class="text-xl font-semibold mb-4">Name</h2>
-                    <form id="update-name-form" class="space-y-4">
-                        <div>
-                            <label for="firstName" class="block text-sm font-medium text-gray-700"
-                                >Vorname</label
-                            >
-                            <input
-                                type="text"
-                                id="firstName"
-                                required
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                        </div>
-                        <div>
-                            <label for="lastName" class="block text-sm font-medium text-gray-700"
-                                >Nachname</label
-                            >
-                            <input
-                                type="text"
-                                id="lastName"
-                                required
-                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
-                        >
-                            Namen speichern
-                        </button>
-                    </form>
-                    <p id="name-feedback" class="mt-2 text-sm text-green-600"></p>
-                </div>
-
-                <div>
-                    <h2 class="text-xl font-semibold mb-4">Email-Adresse</h2>
-                    <div class="space-y-4">
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <p class="text-sm text-gray-600 mb-1">Aktuelle Email:</p>
-                            <p id="current-email" class="font-semibold text-gray-900">lädt...</p>
-                            <div id="email-verification-status" class="mt-2"></div>
-                        </div>
-
-                        <form id="update-email-form" class="space-y-4">
-                            <div>
-                                <label
-                                    for="new-email"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Neue Email-Adresse</label
-                                >
-                                <input
-                                    type="email"
-                                    id="new-email"
-                                    required
-                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="neue-email@beispiel.de"
-                                />
+            <!-- Settings Navigation Cards -->
+            <div class="space-y-3">
+                <!-- Profil bearbeiten -->
+                <a
+                    href="/settings-profile.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-user text-indigo-600 text-xl"></i>
                             </div>
                             <div>
-                                <label
-                                    for="current-password"
-                                    class="block text-sm font-medium text-gray-700"
-                                    >Aktuelles Passwort (zur Bestätigung)</label
-                                >
-                                <input
-                                    type="password"
-                                    id="current-password"
-                                    required
-                                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="••••••••"
-                                />
-                                <p class="mt-1 text-sm text-gray-500">
-                                    Aus Sicherheitsgründen musst du dein Passwort eingeben
-                                </p>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.profile.title">Profil bearbeiten</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.profile.subtitle">Name, Email, Passwort, Foto</p>
                             </div>
-                            <button
-                                type="submit"
-                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md"
-                            >
-                                Email-Adresse ändern
-                            </button>
-                        </form>
-                        <p id="email-feedback" class="text-sm"></p>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Benachrichtigungen -->
+                <a
+                    href="/settings-notifications.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-bell text-red-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.notifications.title">Benachrichtigungen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.notifications.subtitle">Push-Benachrichtigungen verwalten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Privatsphäre -->
+                <a
+                    href="/settings-privacy.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-shield-alt text-purple-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.privacy.title">Privatsphäre</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.privacy.subtitle">Sichtbarkeit und Datenschutz</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Vereinsverwaltung -->
+                <a
+                    href="/settings-club.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-users text-blue-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.club.title">Vereinsverwaltung</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.club.subtitle">Verein beitreten oder verlassen</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Support -->
+                <a
+                    href="/settings-support.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-question-circle text-green-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.support.title">Support</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.support.subtitle">Hilfe, Tutorials und FAQs</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </a>
+
+                <!-- Language Selection -->
+                <div
+                    id="language-card"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-language text-amber-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.language.title">Sprache</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.language.subtitle">App-Sprache ändern</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
                     </div>
                 </div>
 
-                <!-- Tutorial & Hilfe -->
-                <div id="tutorial-section">
-                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <i class="fas fa-graduation-cap text-indigo-600"></i>
-                        Tutorial & Hilfe
-                    </h2>
-
-                    <div class="space-y-3">
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <h3
-                                        class="font-semibold text-gray-900 mb-1 flex items-center gap-2"
-                                    >
-                                        Coach Tutorial
-                                        <span
-                                            id="tutorial-badge-coach"
-                                            class="tutorial-badge tutorial-badge-pending"
-                                            >Ausstehend</span
-                                        >
-                                    </h3>
-                                    <p class="text-sm text-gray-600 mb-3">
-                                        Lerne alle wichtigen Funktionen für Coaches kennen:
-                                        Spielerverwaltung, Wettkämpfe, Challenges, Ranglisten und
-                                        mehr.
-                                    </p>
-                                    <button
-                                        id="start-coach-tutorial-btn"
-                                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-md"
-                                    >
-                                        <i class="fas fa-play-circle mr-2"></i>
-                                        Tutorial starten
-                                    </button>
-                                </div>
+                <!-- Rechtsinformationen -->
+                <a
+                    href="/settings-legal.html"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-gavel text-gray-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900" data-i18n="settings.legal.title">Rechtsinformationen</h3>
+                                <p class="text-sm text-gray-500" data-i18n="settings.legal.subtitle">Datenexport, Account löschen</p>
                             </div>
                         </div>
-
-                        <div class="bg-gray-50 p-4 rounded-lg">
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <h3
-                                        class="font-semibold text-gray-900 mb-1 flex items-center gap-2"
-                                    >
-                                        Spieler Tutorial
-                                        <span
-                                            id="tutorial-badge-player"
-                                            class="tutorial-badge tutorial-badge-pending"
-                                            >Ausstehend</span
-                                        >
-                                    </h3>
-                                    <p class="text-sm text-gray-600 mb-3">
-                                        Lerne alle wichtigen Funktionen kennen: Ansichten wechseln,
-                                        Ranglisten nutzen, Wettkämpfe anfragen, Dashboard anpassen
-                                        und mehr.
-                                    </p>
-                                    <button
-                                        id="start-player-tutorial-btn"
-                                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-transform transform hover:scale-105 shadow-md"
-                                    >
-                                        <i class="fas fa-play-circle mr-2"></i>
-                                        Tutorial starten
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                            <p class="text-sm text-blue-800">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                <strong>Tipp:</strong> Das Tutorial kann jederzeit abgebrochen
-                                werden. Du kannst es später hier wiederholen.
-                            </p>
-                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
                     </div>
+                </a>
+
+                <!-- Logout Button -->
+                <div class="pt-4">
+                    <button
+                        id="logout-button"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-transform transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                    >
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span data-i18n="settings.logout">Abmelden</span>
+                    </button>
                 </div>
+            </div>
+        </div>
 
-                <!-- Privacy & Account Management -->
-                <div id="privacy-account-section">
-                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <i class="fas fa-shield-alt text-indigo-600"></i>
-                        Datenschutz & Konto
-                    </h2>
-
-                    <!-- Privacy Settings -->
-                    <div class="bg-white border border-gray-200 p-4 rounded-lg mb-4">
-                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                            <i class="fas fa-user-shield text-indigo-600"></i>
-                            Privatsphäre-Einstellungen
-                        </h3>
-
-                        <div class="space-y-4">
-                            <!-- Searchability Setting -->
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    Sichtbarkeit in Spielersuche
-                                </label>
-                                <p class="text-xs text-gray-500 mb-3">
-                                    Bestimme, wer dich bei der Gegnerwahl für Wettkämpfe finden kann.
-                                </p>
-
-                                <div class="space-y-2">
-                                    <label class="flex items-center cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="searchable"
-                                            value="global"
-                                            id="searchable-global"
-                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                        />
-                                        <span class="ml-3 text-sm">
-                                            <span class="font-medium text-gray-900">Global sichtbar</span>
-                                            <span class="block text-xs text-gray-500 mt-0.5">
-                                                Alle Spieler auf der Plattform können dich finden
-                                            </span>
-                                        </span>
-                                    </label>
-
-                                    <label class="flex items-center cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="searchable"
-                                            value="club_only"
-                                            id="searchable-club-only"
-                                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                        />
-                                        <span class="ml-3 text-sm">
-                                            <span class="font-medium text-gray-900">Nur Vereinsmitglieder</span>
-                                            <span class="block text-xs text-gray-500 mt-0.5">
-                                                Nur Spieler aus deinem Verein können dich finden
-                                            </span>
-                                        </span>
-                                    </label>
-                                </div>
-
-                                <div id="no-club-warning" class="hidden mt-3 bg-amber-50 border border-amber-200 p-3 rounded-lg">
-                                    <p class="text-xs text-amber-800">
-                                        <i class="fas fa-exclamation-triangle mr-1"></i>
-                                        Du bist aktuell keinem Verein zugeordnet. Die Einstellung "Nur Vereinsmitglieder" bedeutet, dass dich niemand finden kann.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- Leaderboard Visibility -->
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <label class="flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        id="show-in-leaderboards"
-                                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                    />
-                                    <span class="ml-3 text-sm">
-                                        <span class="font-medium text-gray-900">In Ranglisten anzeigen</span>
-                                        <span class="block text-xs text-gray-500 mt-0.5">
-                                            Deine Statistiken werden in öffentlichen Ranglisten angezeigt
-                                        </span>
-                                    </span>
-                                </label>
-                            </div>
-
-                            <button
-                                id="save-privacy-settings-btn"
-                                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition"
-                            >
-                                <i class="fas fa-save mr-2"></i>
-                                Einstellungen speichern
-                            </button>
-                            <p id="privacy-feedback" class="text-sm mt-2"></p>
+        <!-- Language Selection Modal -->
+        <div id="language-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900" data-i18n="settings.language.select">Sprache auswählen</h2>
+                    <button id="close-language-modal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="space-y-3">
+                    <button
+                        class="language-option w-full flex items-center justify-between p-4 rounded-xl border-2 hover:bg-gray-50 transition-all"
+                        data-lang="de"
+                    >
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🇩🇪</span>
+                            <span class="font-semibold text-gray-900" data-i18n="settings.language.german">Deutsch</span>
                         </div>
-                    </div>
-
-                    <!-- Club Management Section -->
-                    <div class="bg-white border border-gray-200 p-4 rounded-lg mb-4">
-                        <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                            <i class="fas fa-users text-indigo-600"></i>
-                            Vereinsverwaltung
-                        </h3>
-
-                        <!-- Current Club Status -->
-                        <div id="current-club-status" class="mb-4"></div>
-
-                        <!-- Pending Request Status -->
-                        <div id="pending-request-status" class="mb-4"></div>
-
-                        <!-- Club Search (only shown if no club and no pending request) -->
-                        <div id="club-search-section" class="hidden">
-                            <label for="club-search-input" class="block text-sm font-medium text-gray-700 mb-2">
-                                Verein suchen
-                            </label>
-                            <div class="flex gap-2 mb-3">
-                                <input
-                                    type="text"
-                                    id="club-search-input"
-                                    placeholder="Vereinsname eingeben..."
-                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                />
-                                <button
-                                    id="club-search-btn"
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md transition"
-                                >
-                                    <i class="fas fa-search mr-2"></i>
-                                    Suchen
-                                </button>
-                            </div>
-
-                            <!-- Search Results -->
-                            <div id="club-search-results" class="space-y-2"></div>
-
-                            <p class="text-xs text-gray-500 mt-2">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Nach dem Senden einer Beitrittsanfrage muss ein Coach deines Wunschvereins diese genehmigen.
-                            </p>
+                        <i class="fas fa-check text-indigo-600 hidden check-icon"></i>
+                    </button>
+                    <button
+                        class="language-option w-full flex items-center justify-between p-4 rounded-xl border-2 hover:bg-gray-50 transition-all"
+                        data-lang="en"
+                    >
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🇬🇧</span>
+                            <span class="font-semibold text-gray-900" data-i18n="settings.language.english">English</span>
                         </div>
-
-                        <!-- Leave Club Button (only shown if in club and no pending leave request) -->
-                        <div id="leave-club-section" class="hidden">
-                            <button
-                                id="leave-club-btn"
-                                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-2 px-4 rounded-lg transition"
-                            >
-                                <i class="fas fa-sign-out-alt mr-2"></i>
-                                Austrittsanfrage senden
-                            </button>
-                            <p class="text-xs text-gray-500 mt-2">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                Nach dem Senden einer Austrittsanfrage muss ein Coach deines Vereins diese genehmigen.
-                            </p>
+                        <i class="fas fa-check text-indigo-600 hidden check-icon"></i>
+                    </button>
+                    <button
+                        class="language-option w-full flex items-center justify-between p-4 rounded-xl border-2 hover:bg-gray-50 transition-all"
+                        data-lang="zh"
+                    >
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🇨🇳</span>
+                            <span class="font-semibold text-gray-900" data-i18n="settings.language.chinese">简体中文</span>
                         </div>
-
-                        <p id="club-management-feedback" class="text-sm mt-3"></p>
-                    </div>
-
-                    <!-- Data Export Section (GDPR Art. 20) -->
-                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
-                        <h3 class="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                            <i class="fas fa-download"></i>
-                            Datenexport
-                        </h3>
-                        <p class="text-sm text-blue-800 mb-3">
-                            Lade alle deine gespeicherten Daten als JSON-Datei herunter.
-                            Dies umfasst dein Profil, Match-Historie, Trainings-Teilnahmen und Statistiken.
-                        </p>
-                        <button
-                            id="export-data-btn"
-                            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition"
-                        >
-                            <i class="fas fa-file-download mr-2"></i>
-                            Daten herunterladen
-                        </button>
-                        <p id="export-feedback" class="text-sm mt-2"></p>
-                    </div>
-
-                    <!-- Account Deletion Section -->
-                    <div class="bg-red-50 border border-red-200 p-4 rounded-lg">
-                        <h3 class="font-semibold text-red-900 mb-2 flex items-center gap-2">
-                            <i class="fas fa-user-slash"></i>
-                            Account löschen
-                        </h3>
-                        <div class="space-y-3">
-                            <div class="bg-white border border-red-300 p-3 rounded-lg">
-                                <p class="text-sm text-gray-800 font-medium mb-2">
-                                    ⚠️ Was passiert bei der Account-Löschung:
-                                </p>
-                                <ul class="text-sm text-gray-700 space-y-1 ml-5 list-disc">
-                                    <li>Dein Account wird deaktiviert - Login nicht mehr möglich</li>
-                                    <li>Persönliche Daten werden gelöscht (Name, Email, Geburtsdatum, Profilbild)</li>
-                                    <li>Dein Name wird durch "Gelöschter Nutzer" ersetzt</li>
-                                    <li>Match-Historie bleibt erhalten (anonymisiert)</li>
-                                    <li>Ranglisten-Einträge bleiben als "Gelöschter Nutzer"</li>
-                                    <li><strong>Diese Aktion kann nicht rückgängig gemacht werden!</strong></li>
-                                </ul>
-                            </div>
-
-                            <p class="text-sm text-red-800">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                <strong>Empfehlung:</strong> Lade zuerst deine Daten herunter (siehe oben).
-                            </p>
-
-                            <button
-                                id="delete-account-btn"
-                                class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition"
-                            >
-                                <i class="fas fa-trash-alt mr-2"></i>
-                                Account unwiderruflich löschen
-                            </button>
-                        </div>
-                    </div>
+                        <i class="fas fa-check text-indigo-600 hidden check-icon"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -518,6 +293,104 @@
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/settings.js"></script>
+        <script type="module">
+            import { getSupabase } from '/js/supabase-init.js';
+            import { initI18n, changeLanguage, getCurrentLanguage, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            // Initialize immediately or on DOMContentLoaded
+            async function init() {
+                // Initialize i18n first
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+
+                // Update HTML lang attribute
+                document.documentElement.lang = getCurrentLanguage();
+
+                document.getElementById('page-loader').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+
+                // Language selection modal
+                const languageCard = document.getElementById('language-card');
+                const languageModal = document.getElementById('language-modal');
+                const closeModalBtn = document.getElementById('close-language-modal');
+                const languageOptions = document.querySelectorAll('.language-option');
+
+                // Update active language indicator
+                function updateActiveLanguage() {
+                    const currentLang = getCurrentLanguage();
+                    languageOptions.forEach(option => {
+                        const lang = option.getAttribute('data-lang');
+                        const checkIcon = option.querySelector('.check-icon');
+                        if (lang === currentLang) {
+                            option.classList.add('border-indigo-600', 'bg-indigo-50');
+                            checkIcon.classList.remove('hidden');
+                        } else {
+                            option.classList.remove('border-indigo-600', 'bg-indigo-50');
+                            checkIcon.classList.add('hidden');
+                        }
+                    });
+                }
+
+                // Show modal
+                languageCard.addEventListener('click', () => {
+                    languageModal.classList.remove('hidden');
+                    updateActiveLanguage();
+                });
+
+                // Close modal
+                closeModalBtn.addEventListener('click', () => {
+                    languageModal.classList.add('hidden');
+                });
+
+                // Close modal on backdrop click
+                languageModal.addEventListener('click', (e) => {
+                    if (e.target === languageModal) {
+                        languageModal.classList.add('hidden');
+                    }
+                });
+
+                // Language selection
+                languageOptions.forEach(option => {
+                    option.addEventListener('click', async () => {
+                        const selectedLang = option.getAttribute('data-lang');
+                        await changeLanguage(selectedLang);
+                        updateActiveLanguage();
+
+                        // Show success feedback
+                        const feedback = document.createElement('div');
+                        feedback.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+                        feedback.innerHTML = '<i class="fas fa-check mr-2"></i><span data-i18n="settings.language.changed">Sprache wurde geändert</span>';
+                        document.body.appendChild(feedback);
+                        translatePage(); // Re-translate the feedback message
+
+                        setTimeout(() => {
+                            feedback.remove();
+                            languageModal.classList.add('hidden');
+                        }, 2000);
+                    });
+                });
+
+                // Logout functionality
+                document.getElementById('logout-button').addEventListener('click', async () => {
+                    const supabase = getSupabase();
+                    const { error } = await supabase.auth.signOut();
+
+                    if (error) {
+                        console.error('Logout error:', error);
+                        alert('Fehler beim Abmelden: ' + error.message);
+                    } else {
+                        window.location.href = '/index.html';
+                    }
+                });
+            }
+
+            // Initialize on DOMContentLoaded or immediately if already loaded (for SPA navigation)
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        </script>
     </body>
 </html>

@@ -3,6 +3,10 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+        <!-- Cookie Consent & Analytics -->
+        <script src="/js/cookie-consent.js"></script>
+
         <script src="/js/capacitor-init.js"></script>
         <title>Mein Dashboard - SC Champions</title>
 
@@ -42,8 +46,10 @@
         <link rel="stylesheet" href="/css/mobile-fixes.css" />
         <link rel="stylesheet" href="/css/tutorial.css" />
         <style>
-            body {
+            html, body {
                 font-family: 'Inter', sans-serif;
+                height: 100%;
+                overflow-x: hidden;
             }
             #page-loader {
                 display: flex;
@@ -62,8 +68,37 @@
             }
             .tab-active {
                 border-color: #4f46e5; /* indigo-600 */
-                color: #4f46e5;
+                color: #4f46e5 !important;
                 background-color: #eef2ff; /* indigo-50 */
+            }
+
+            /* Bottom navigation - explicit fixed positioning for Safari iOS */
+            #bottom-nav {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                -webkit-transform: translateZ(0);
+                transform: translateZ(0);
+            }
+
+            /* Bottom navigation safe area for iPhones */
+            .safe-area-bottom {
+                padding-bottom: env(safe-area-inset-bottom, 0);
+            }
+
+            /* Bottom nav button styles for mobile touch */
+            .bottom-tab-button {
+                cursor: pointer;
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            /* Active state for bottom nav (purple like other elements) */
+            .bottom-tab-button.tab-active {
+                color: #4f46e5 !important; /* indigo-600 */
             }
             .modal {
                 transition: opacity 0.25s ease;
@@ -134,117 +169,203 @@
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                 </svg>
-                <p id="loader-text" class="mt-4 text-sm font-medium text-gray-600">Lade Daten...</p>
+                <p id="loader-text" class="mt-4 text-sm font-medium text-gray-600" data-i18n="dashboard.loading">Lade Daten...</p>
             </div>
         </div>
 
-        <div id="main-content" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
-            <header class="mb-6">
-                <!-- Top Row: Profile + Title + Settings/Logout -->
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-start gap-3 flex-1">
-                        <!-- Profile Picture -->
-                        <img id="header-profile-pic" src="" alt="Profilbild"
-                             class="h-14 w-14 rounded-full object-cover border-2 border-indigo-200 shadow-md flex-shrink-0">
+        <!-- Community Fullscreen Page -->
+        <div id="community-fullscreen" class="fixed inset-0 bg-gray-100 hidden overflow-y-auto" style="z-index: 100000;">
+            <!-- Back Button Header -->
+            <div class="sticky top-0 bg-white shadow-sm z-10">
+                <div class="flex items-center px-4 py-3">
+                    <button
+                        id="close-community-btn"
+                        class="p-2 -ml-2 text-gray-600 hover:text-gray-900 transition"
+                    >
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                    <h1 class="ml-3 text-lg font-bold text-gray-900" data-i18n="dashboard.community.title">Community</h1>
+                </div>
+            </div>
 
-                        <!-- Title and Club Info -->
-                        <div class="flex-1">
-                            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Mein Dashboard</h1>
-                            <p id="welcome-message" class="text-sm sm:text-base text-gray-600">
-                                Willkommen zurück!
-                            </p>
-                            <p id="header-club-info" class="text-xs sm:text-sm text-gray-500 mt-1">
-                                <i class="fas fa-building mr-1"></i><span id="header-club-name">Lade...</span>
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3 sm:space-x-4">
-                        <!-- Coach Switch Button (hidden by default, shown for coaches) -->
-                        <a
-                            id="switch-to-coach-btn"
-                            href="/coach.html"
-                            class="hidden bg-purple-500 hover:bg-purple-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
-                            title="Zur Coach-Ansicht wechseln"
-                        >
-                            <i class="fas fa-user-shield mr-1"></i>
-                            <span class="hidden sm:inline">Coach</span>
-                        </a>
-                        <a
-                            href="/settings.html"
-                            class="text-gray-500 hover:text-gray-800 transition-colors"
-                            title="Einstellungen"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-5 w-5 sm:h-6 sm:w-6"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                ></path>
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                ></path>
-                            </svg>
-                        </a>
+            <!-- Community Content -->
+            <div class="container mx-auto p-4 max-w-4xl">
+                <!-- Community Sub-Tabs (Personen / Clubs) -->
+                <div class="bg-white rounded-xl shadow-md mb-6">
+                    <div class="flex border-b">
                         <button
-                            id="logout-button"
-                            class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 sm:py-2 sm:px-4 text-sm rounded-lg shadow transition-transform transform hover:scale-105"
+                            id="community-tab-persons"
+                            class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-indigo-600 text-indigo-600 transition"
+                            onclick="switchCommunityTab('persons')"
                         >
-                            Logout
+                            <i class="fas fa-users mr-2"></i><span data-i18n="dashboard.community.persons">Personen</span>
+                        </button>
+                        <button
+                            id="community-tab-clubs"
+                            class="flex-1 py-4 px-6 text-center font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition"
+                            onclick="switchCommunityTab('clubs')"
+                        >
+                            <i class="fas fa-building mr-2"></i><span data-i18n="dashboard.community.clubs">Clubs</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Second Row: Filter-Switcher (Mobile-friendly stacked layout) -->
-                <div
-                    id="player-subgroup-filter-container"
-                    class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3 shadow-sm"
-                >
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <label
-                            for="player-subgroup-filter"
-                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
-                            onclick="document.getElementById('player-subgroup-filter').focus(); document.getElementById('player-subgroup-filter').click();"
-                        >
-                            👥 Ansicht:
-                        </label>
-                        <select
-                            id="player-subgroup-filter"
-                            class="flex-1 min-w-0 px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                        >
-                            <option value="club">🏠 Mein Verein</option>
-                            <option value="global">🌍 Global</option>
-                            <!-- Subgroup options will be added dynamically -->
-                        </select>
+                <!-- Persons Content -->
+                <div id="community-content-persons" class="space-y-6">
+                    <!-- Search Section -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input
+                                type="text"
+                                id="player-search-input"
+                                placeholder="Nach Personen suchen..."
+                                data-i18n-placeholder="dashboard.community.searchPersons"
+                                class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                                autofocus
+                            />
+                        </div>
                     </div>
-                    <div id="gender-filter-container" class="flex items-center gap-2 flex-1 sm:flex-none">
-                        <label
-                            for="player-gender-filter"
-                            class="text-sm font-medium text-gray-700 whitespace-nowrap cursor-pointer select-none"
-                            onclick="document.getElementById('player-gender-filter').focus(); document.getElementById('player-gender-filter').click();"
-                        >
-                            ⚧ Geschlecht:
-                        </label>
-                        <select
-                            id="player-gender-filter"
-                            class="flex-1 sm:flex-none px-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-md shadow-sm bg-white"
-                        >
-                            <option value="all">Alle</option>
-                            <option value="male">Jungen/Herren</option>
-                            <option value="female">Mädchen/Damen</option>
-                        </select>
+
+                    <!-- Search Results -->
+                    <div id="player-search-results" class="space-y-3 hidden">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+
+                    <!-- Suggested Users Section -->
+                    <div id="suggested-users-section" class="bg-white p-6 rounded-xl shadow-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-bold text-gray-800" data-i18n="dashboard.community.suggested">
+                                Vorgeschlagen
+                            </h2>
+                            <button
+                                id="follow-all-btn"
+                                class="text-indigo-600 hover:text-indigo-700 text-sm font-semibold border border-indigo-600 rounded-full px-4 py-1 transition hover:bg-indigo-50"
+                                data-i18n="dashboard.community.followAll"
+                            >
+                                Allen folgen
+                            </button>
+                        </div>
+                        <div id="suggested-users-list" class="space-y-3">
+                            <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.community.loadingSuggestions">
+                                Lade Vorschläge...
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Pending Follow Requests Section (outgoing) -->
+                    <div id="pending-follow-requests-section" class="bg-white p-6 rounded-xl shadow-md hidden">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4">
+                            <i class="fas fa-clock mr-2 text-yellow-600"></i><span data-i18n="dashboard.community.pendingRequests">Ausstehende Anfragen</span>
+                            <span id="pending-requests-count" class="ml-2 text-sm text-gray-500 font-normal">(0)</span>
+                        </h2>
+                        <div id="pending-follow-requests-list" class="space-y-3">
+                            <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.community.noPendingRequests">
+                                Keine ausstehenden Anfragen
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </header>
+
+                <!-- Clubs Content -->
+                <div id="community-content-clubs" class="space-y-6 hidden">
+                    <!-- Club Search Section -->
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <div class="relative mb-4">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input
+                                type="text"
+                                id="club-search-input"
+                                placeholder="Nach Clubs suchen..."
+                                data-i18n-placeholder="dashboard.community.searchClubs"
+                                class="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50"
+                            />
+                        </div>
+
+                        <!-- Club Search Results -->
+                        <div id="club-search-results" class="space-y-3">
+                            <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.community.enterClubName">
+                                Gib einen Namen ein, um nach Clubs zu suchen
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Current Club Status -->
+                    <div id="current-club-section" class="bg-white p-6 rounded-xl shadow-md">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4">
+                            <i class="fas fa-building mr-2 text-indigo-600"></i><span data-i18n="dashboard.community.yourClub">Dein Verein</span>
+                        </h2>
+                        <div id="current-club-status">
+                            <!-- Dynamisch gefüllt -->
+                        </div>
+                    </div>
+
+                    <!-- Pending Club Request -->
+                    <div id="pending-club-request-section" class="hidden">
+                        <!-- Dynamisch gefüllt -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fixed Top Bar (like Instagram) - Outside main-content for proper fixed positioning -->
+        <header id="top-nav" style="position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: white; border-bottom: 1px solid #e5e7eb;">
+            <div class="flex justify-between items-center h-12 px-4 max-w-7xl mx-auto">
+                <!-- Left: Search Icon (opens Community) -->
+                <button
+                    id="open-community-btn"
+                    class="text-gray-600 hover:text-indigo-600 transition-colors p-1"
+                    title="Community suchen"
+                >
+                    <i class="fas fa-search text-lg"></i>
+                </button>
+
+                <!-- Center: Profile Photo and Title -->
+                <div class="flex items-center gap-2">
+                    <a id="header-profile-link" href="#" class="flex-shrink-0">
+                        <img id="header-profile-pic" src="" alt="Profilbild"
+                             class="h-8 w-8 rounded-full object-cover border border-gray-200 hover:border-indigo-400 transition cursor-pointer">
+                    </a>
+                    <h1 id="header-title" class="text-base font-semibold text-gray-900">Start</h1>
+                    <p id="header-club-info" class="hidden">
+                        <span id="header-club-name"></span>
+                    </p>
+                </div>
+
+                <!-- Right: Notifications & Settings -->
+                <div class="flex items-center space-x-1">
+                    <!-- Notification Bell -->
+                    <button
+                        id="desktop-notifications-btn"
+                        class="relative text-gray-600 hover:text-gray-800 transition-colors p-1"
+                        title="Benachrichtigungen"
+                    >
+                        <i class="far fa-bell text-lg"></i>
+                        <span id="desktop-notifications-badge" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">0</span>
+                    </button>
+                    <!-- Settings -->
+                    <a
+                        href="/settings.html"
+                        class="text-gray-600 hover:text-gray-800 transition-colors p-1"
+                        title="Einstellungen"
+                    >
+                        <i class="fas fa-cog text-lg"></i>
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <div id="main-content" class="container mx-auto px-4 sm:px-6 md:px-8 max-w-7xl pt-14">
+            <div class="mb-4">
+                <div id="coach-player-indicator" class="hidden bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center gap-2 text-purple-700">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="text-sm font-medium" data-i18n="dashboard.coachIndicator.message">Du befindest dich im Spieler-Dashboard</span>
+                        <a href="/coach.html" class="ml-auto text-purple-600 hover:text-purple-800 text-sm font-semibold">
+                            <span data-i18n="dashboard.coachIndicator.switchToCoach">Zur Coach-Ansicht</span> <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                </div>
 
             <!-- Info Box for Players without Club (hidden by default, shown via JS) -->
             <div id="no-club-info-box" class="hidden mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg shadow-sm">
@@ -253,11 +374,11 @@
                         <i class="fas fa-info-circle text-blue-400 text-2xl"></i>
                     </div>
                     <div class="ml-3 flex-1">
-                        <h3 class="text-sm font-medium text-blue-800">
+                        <h3 class="text-sm font-medium text-blue-800" data-i18n="dashboard.noClub.title">
                             Du bist noch keinem Verein beigetreten
                         </h3>
                         <div class="mt-2 text-sm text-blue-700">
-                            <p>
+                            <p data-i18n="[html]dashboard.noClub.description">
                                 Möchtest du einem Verein beitreten? Du kannst in den
                                 <a href="/settings.html#club-management" class="font-semibold underline hover:text-blue-900">
                                     Einstellungen
@@ -272,396 +393,112 @@
                 </div>
             </div>
 
-            <div class="mb-6 border-b border-gray-200">
-                <nav id="main-nav" class="-mb-px flex space-x-6 overflow-x-auto">
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="overview"
-                    >
-                        Übersicht
-                    </button>
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="leaderboard"
-                    >
-                        Ranglisten
-                    </button>
-
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="matches"
-                    >
-                        Wettkampf
-                    </button>
-
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="exercises"
-                    >
-                        Übungskatalog
-                    </button>
-
-                    <button
-                        class="tab-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                        data-tab="profile"
-                    >
-                        Anwesenheit
-                    </button>
-                    <a
-                        id="faq-link"
-                        href="/faq.html"
-                        class="whitespace-nowrap py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    >
-                        FAQ & Regeln
-                    </a>
-                </nav>
-            </div>
-
-            <main>
+            <main class="pb-16">
                 <div id="tab-content-overview" class="tab-content">
-                    <div
-                        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-                        id="dashboard-widgets-container"
-                    >
-                        <!-- Info Banner explaining the 3 systems -->
-                        <div
-                            data-widget-id="info-banner"
-                            class="dashboard-widget lg:col-span-3 bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-4 rounded-lg"
-                        >
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0">
-                                    <svg
-                                        class="h-5 w-5 text-indigo-500"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                    >
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd"
-                                        />
+                    <!-- Upcoming Events Section -->
+                    <div id="upcoming-events-section" class="hidden mb-6">
+                        <div class="max-w-2xl mx-auto">
+                            <div class="flex items-center justify-between mb-3">
+                                <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                     </svg>
-                                </div>
-                                <div class="ml-3 flex-1">
-                                    <p class="text-sm font-medium text-indigo-800">
-                                        Drei Systeme für deinen Fortschritt
-                                    </p>
-                                    <p class="text-xs text-indigo-700 mt-1">
-                                        <strong class="text-purple-700">XP</strong> = Permanenter
-                                        Fleiß für Rang-Aufstieg •
-                                        <strong class="text-blue-700">Elo</strong> =
-                                        Wettkampf-Spielstärke •
-                                        <strong class="text-yellow-700">Saisonpunkte</strong> =
-                                        Temporärer 6-Wochen-Wettbewerb
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div
-                            data-widget-id="statistics"
-                            class="dashboard-widget lg:col-span-3 bg-white p-6 rounded-xl shadow-md"
-                        >
-                            <h2 class="text-lg font-semibold text-gray-500 mb-4 text-center">
-                                Deine Statistiken
-                            </h2>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <!-- XP Card -->
-                                <div
-                                    class="text-center p-4 bg-purple-50 rounded-lg border-2 border-purple-200 relative group"
-                                >
-                                    <div class="flex items-center justify-center gap-2 mb-1">
-                                        <p class="text-sm font-semibold text-purple-800">
-                                            💪 Erfahrung (XP)
-                                        </p>
-                                        <span
-                                            class="cursor-help text-purple-400 hover:text-purple-600"
-                                            >ⓘ</span
-                                        >
-                                    </div>
-                                    <p class="text-4xl font-bold text-purple-600 mb-2">
-                                        <span id="player-xp">0</span>
-                                    </p>
-                                    <p class="text-xs text-purple-700 font-medium">
-                                        Für Rang-Aufstieg
-                                    </p>
-                                    <!-- Tooltip -->
-                                    <div
-                                        class="hidden group-hover:block absolute z-10 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
-                                    >
-                                        <strong>Erfahrungspunkte (XP)</strong><br />
-                                        Permanente Punkte für Fleiß und Teilnahme. Bestimmt deinen
-                                        Rang (Rekrut → Champion). Kann nicht verloren gehen.
-                                        <div
-                                            class="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"
-                                        ></div>
-                                    </div>
-                                </div>
-                                <!-- ELO Card -->
-                                <div
-                                    class="text-center p-4 bg-blue-50 rounded-lg border-2 border-blue-200 relative group"
-                                >
-                                    <div class="flex items-center justify-center gap-2 mb-1">
-                                        <p class="text-sm font-semibold text-blue-800">
-                                            ⚡ Spielstärke (Elo)
-                                        </p>
-                                        <span class="cursor-help text-blue-400 hover:text-blue-600"
-                                            >ⓘ</span
-                                        >
-                                    </div>
-                                    <p class="text-4xl font-bold text-blue-600 mb-2">
-                                        <span id="player-elo">0</span>
-                                    </p>
-                                    <p class="text-xs text-blue-700 font-medium">Wettkampf-Skill</p>
-                                    <!-- Tooltip -->
-                                    <div
-                                        class="hidden group-hover:block absolute z-10 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
-                                    >
-                                        <strong>Elo-Rating</strong><br />
-                                        Misst deine echte Spielstärke. Steigt bei Siegen, sinkt bei
-                                        Niederlagen. Gates verhindern Absturz unter 800/850/900/etc.
-                                        <div
-                                            class="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"
-                                        ></div>
-                                    </div>
-                                </div>
-                                <!-- Season Points Card -->
-                                <div
-                                    class="text-center p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200 relative group"
-                                >
-                                    <div class="flex items-center justify-center gap-2 mb-1">
-                                        <p class="text-sm font-semibold text-yellow-800">
-                                            🏆 Saisonpunkte
-                                        </p>
-                                        <span
-                                            class="cursor-help text-yellow-400 hover:text-yellow-600"
-                                            >ⓘ</span
-                                        >
-                                    </div>
-                                    <p class="text-4xl font-bold text-yellow-600 mb-2">
-                                        <span id="player-points">0</span>
-                                    </p>
-                                    <p class="text-xs text-yellow-700 font-medium">
-                                        Aktueller Wettbewerb
-                                    </p>
-                                    <!-- Tooltip -->
-                                    <div
-                                        class="hidden group-hover:block absolute z-10 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
-                                    >
-                                        <strong>Saisonpunkte</strong><br />
-                                        Temporäre Punkte für den aktuellen 6-Wochen-Wettbewerb.
-                                        Elo-Gewinne × 0.2 + Übungen + Challenges. Werden am
-                                        Saisonende zurückgesetzt.
-                                        <div
-                                            class="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"
-                                        ></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Season Countdown -->
-                        <div
-                            data-widget-id="season-countdown"
-                            class="dashboard-widget lg:col-span-3 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 p-4 rounded-xl shadow-md"
-                        >
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="bg-yellow-400 p-3 rounded-full">
-                                        <svg
-                                            class="w-6 h-6 text-yellow-900"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                stroke-width="2"
-                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                            ></path>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-sm font-semibold text-yellow-900">
-                                            ⏳ Saison-Ende
-                                        </h3>
-                                        <p class="text-xs text-yellow-700">
-                                            Saison-Punkte werden zurückgesetzt
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <p
-                                        id="season-countdown"
-                                        class="text-2xl font-bold text-yellow-900"
-                                    >
-                                        Lädt...
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div
-                            data-widget-id="match-requests"
-                            class="dashboard-widget lg:col-span-3 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 p-6 rounded-xl shadow-md"
-                        >
-                            <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-xl font-semibold text-indigo-800">
-                                    🏓 Wettkampf-Anfragen
+                                    Kommende Veranstaltungen
                                 </h2>
-                                <div class="flex items-center gap-2">
-                                    <span
-                                        id="match-request-badge"
-                                        class="hidden bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full"
-                                        >0</span
-                                    >
-                                </div>
                             </div>
+                            <div id="upcoming-events-list" class="space-y-3">
+                                <!-- Events werden hier dynamisch eingefügt -->
+                            </div>
+                        </div>
+                    </div>
 
-                            <!-- Combined view of match requests and proposals -->
-                            <div id="overview-match-requests" class="space-y-3">
-                                <p class="text-gray-500 text-center py-4">
-                                    Keine ausstehenden Anfragen
-                                </p>
-                            </div>
-
-                            <!-- Hidden containers for proposals (will be used by JavaScript) -->
-                            <div id="sent-proposals-list" class="hidden"></div>
-                            <div id="received-proposals-list" class="hidden"></div>
-                        </div>
-
-                        <div
-                            data-widget-id="rank"
-                            class="dashboard-widget bg-white p-6 rounded-xl shadow-md"
-                        >
-                            <h2 class="text-xl font-semibold mb-4">Dein Rang</h2>
-                            <div id="rank-info" class="text-gray-600">
-                                <p>Rang wird geladen...</p>
-                            </div>
-                        </div>
-
-                        <div
-                            data-widget-id="skill-rival"
-                            class="dashboard-widget bg-white p-6 rounded-xl shadow-md"
-                        >
-                            <h2 class="text-xl font-semibold mb-4">⚡ Skill-Rivale (Elo)</h2>
-                            <div id="rival-skill-info" class="text-gray-600">
-                                <p>Daten werden geladen...</p>
-                            </div>
-                        </div>
-                        <div
-                            data-widget-id="effort-rival"
-                            class="dashboard-widget bg-white p-6 rounded-xl shadow-md"
-                        >
-                            <h2 class="text-xl font-semibold mb-4">💪 Fleiß-Rivale (XP)</h2>
-                            <div id="rival-effort-info" class="text-gray-600">
-                                <p>Daten werden geladen...</p>
-                            </div>
-                        </div>
-                        <div
-                            data-widget-id="points-history"
-                            class="dashboard-widget bg-white p-6 rounded-xl shadow-md md:col-span-1 lg:col-span-2"
-                        >
-                            <h2 class="text-xl font-semibold mb-4">Punkte-Historie</h2>
-                            <ul id="points-history" class="space-y-3 max-h-64 overflow-y-auto">
-                                <li>Historie wird geladen...</li>
-                            </ul>
-                        </div>
-                        <div
-                            data-widget-id="challenges"
-                            class="dashboard-widget md:col-span-2 lg:col-span-3 bg-white p-6 rounded-xl shadow-md"
-                        >
-                            <h2 class="text-xl font-semibold mb-4">Aktive Challenges</h2>
-                            <div
-                                id="challenges-list"
-                                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                    <!-- Activity Feed - Full width, infinite scroll -->
+                    <div class="max-w-2xl mx-auto">
+                        <!-- Filter and Create Post Button -->
+                        <div class="mb-4 flex items-center gap-3">
+                            <!-- Filter Dropdown -->
+                            <div class="flex-1 relative">
+                            <button
+                                id="activity-filter-btn"
+                                class="flex items-center justify-between w-full max-w-xs bg-white border border-gray-200 rounded-lg px-4 py-2.5 text-left shadow-sm hover:bg-gray-50 transition"
                             >
-                                <p>Challenges werden geladen...</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Edit Dashboard Button -->
-                    <div class="mt-8 text-center">
-                        <button
-                            id="edit-dashboard-button"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-all transform hover:scale-105"
-                        >
-                            <i class="fas fa-edit mr-2"></i> Startseite bearbeiten
-                        </button>
-                    </div>
-                </div>
-
-                <div id="tab-content-profile" class="tab-content hidden">
-                    <div class="space-y-8">
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-gray-800">Monatsübersicht</h2>
-                                <div class="flex items-center space-x-4">
-                                    <button
-                                        id="prev-month"
-                                        class="text-gray-500 hover:text-indigo-600"
-                                    >
-                                        <i class="fas fa-chevron-left"></i>
-                                    </button>
-                                    <h3
-                                        id="calendar-month-year"
-                                        class="font-semibold text-lg w-32 text-center"
-                                    ></h3>
-                                    <button
-                                        id="next-month"
-                                        class="text-gray-500 hover:text-indigo-600"
-                                    >
-                                        <i class="fas fa-chevron-right"></i>
-                                    </button>
-                                </div>
-                            </div>
+                                <span id="activity-filter-label" class="font-medium text-gray-800" data-i18n="dashboard.activityFeed.filter.all">Alle Aktivitäten</span>
+                                <i class="fas fa-chevron-down text-gray-400 ml-2"></i>
+                            </button>
                             <div
-                                class="grid grid-cols-7 gap-2 text-center text-sm font-semibold text-gray-500 mb-2"
+                                id="activity-filter-dropdown"
+                                class="hidden absolute top-full left-0 mt-1 w-full max-w-xs bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden"
                             >
-                                <div>Mo</div>
-                                <div>Di</div>
-                                <div>Mi</div>
-                                <div>Do</div>
-                                <div>Fr</div>
-                                <div>Sa</div>
-                                <div>So</div>
-                            </div>
-                            <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
-                            <div class="mt-6 pt-6 border-t">
-                                <h3 class="text-xl font-semibold mb-4">
-                                    Statistiken für <span id="stats-month-name"></span>
-                                </h3>
-                                <div class="grid grid-cols-2 gap-4 text-center">
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-500">Trainingstage</p>
-                                        <p
-                                            id="stats-training-days"
-                                            class="text-2xl font-bold text-indigo-600"
-                                        >
-                                            0
-                                        </p>
-                                    </div>
-                                    <div class="bg-gray-50 p-4 rounded-lg">
-                                        <p class="text-sm text-gray-500 mb-2">Deine Streaks</p>
-                                        <div id="stats-current-streak" class="space-y-1">
-                                            <p class="text-sm text-gray-400">Lade Streaks...</p>
-                                        </div>
-                                    </div>
+                                <button
+                                    class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
+                                    data-filter="all"
+                                >
+                                    <span data-i18n="dashboard.activityFeed.filter.all">Alle Aktivitäten</span>
+                                    <i class="fas fa-check text-indigo-600 filter-check"></i>
+                                </button>
+                                <button
+                                    class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
+                                    data-filter="following"
+                                >
+                                    <span data-i18n="dashboard.activityFeed.filter.following">Abonniert</span>
+                                    <i class="fas fa-check text-indigo-600 filter-check hidden"></i>
+                                </button>
+                                <button
+                                    class="activity-filter-option w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between"
+                                    data-filter="my-activities"
+                                >
+                                    <span data-i18n="dashboard.activityFeed.filter.myActivities">Meine Aktivitäten</span>
+                                    <i class="fas fa-check text-indigo-600 filter-check hidden"></i>
+                                </button>
+                                <div id="activity-filter-clubs" class="border-t border-gray-100">
+                                    <!-- Club filters will be dynamically inserted here -->
                                 </div>
                             </div>
+                            </div>
+
+                            <!-- Create Post Button -->
+                            <button
+                                id="create-post-btn"
+                                class="flex-shrink-0 w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center"
+                                title="Beitrag oder Umfrage erstellen"
+                            >
+                                <i class="fas fa-plus text-xl"></i>
+                            </button>
                         </div>
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-2xl mx-auto">
-                            <h2 class="text-xl font-semibold mb-4">Deine Erfolge</h2>
-                            <p class="text-gray-500">
-                                Hier werden bald deine freigeschalteten Abzeichen und Erfolge
-                                angezeigt.
-                            </p>
+
+                        <div id="activity-feed" class="space-y-3">
+                            <div class="p-6 text-center text-gray-400">
+                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                <p class="text-sm" data-i18n="dashboard.activityFeed.loading">Lade Aktivitäten...</p>
+                            </div>
+                        </div>
+                        <!-- Infinite scroll sentinel -->
+                        <div id="activity-feed-sentinel" class="h-10 flex items-center justify-center">
+                            <div id="activity-feed-loader" class="hidden">
+                                <i class="fas fa-spinner fa-spin text-indigo-400"></i>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Hidden containers needed by existing JS (keep for compatibility) -->
+                    <div id="dashboard-widgets-container" class="hidden">
+                        <span id="player-xp" class="hidden">0</span>
+                        <span id="player-elo" class="hidden">0</span>
+                        <span id="player-points" class="hidden">0</span>
+                    </div>
+                    <div id="overview-match-requests" class="hidden"></div>
+                    <div id="sent-proposals-list" class="hidden"></div>
+                    <div id="received-proposals-list" class="hidden"></div>
+                    <div id="rank-info" class="hidden"></div>
+                    <div id="rival-skill-info" class="hidden"></div>
+                    <div id="rival-effort-info" class="hidden"></div>
+                    <ul id="points-history" class="hidden"></ul>
+                    <div id="challenges-list" class="hidden"></div>
                 </div>
 
                 <div id="tab-content-exercises" class="tab-content hidden">
                     <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-semibold mb-4">Übungskatalog</h2>
+                        <h2 class="text-xl font-semibold mb-4" data-i18n="dashboard.exercises.title">Übungskatalog</h2>
                         <!-- Tag Filter Section (Collapsible) -->
                         <div class="mb-4">
                             <button
@@ -682,7 +519,7 @@
                                         d="M19 9l-7 7-7-7"
                                     ></path>
                                 </svg>
-                                🏷️ Tags filtern
+                                🏷️ <span data-i18n="dashboard.exercises.filterTags">Tags filtern</span>
                             </button>
                             <div
                                 id="tags-filter-section-player"
@@ -692,6 +529,7 @@
                                     type="text"
                                     id="tag-search-player"
                                     placeholder="Tag suchen..."
+                                    data-i18n-placeholder="dashboard.exercises.searchTag"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                                 <div
@@ -706,7 +544,7 @@
                             id="exercises-list"
                             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                         >
-                            <p>Übungen werden geladen...</p>
+                            <p data-i18n="dashboard.exercises.loading">Übungen werden geladen...</p>
                         </div>
                     </div>
                 </div>
@@ -723,9 +561,9 @@
                             >
                                 <div>
                                     <h2 class="text-lg font-bold text-gray-800">
-                                        ⭐ Match-Vorschläge
+                                        ⭐ <span data-i18n="dashboard.matches.suggestions.title">Match-Vorschläge</span>
                                     </h2>
-                                    <p class="text-xs text-gray-600">
+                                    <p class="text-xs text-gray-600" data-i18n="dashboard.matches.suggestions.description">
                                         Gegen wen hast du noch nie oder lange nicht gespielt?
                                     </p>
                                 </div>
@@ -736,7 +574,7 @@
                             </button>
                             <div id="match-suggestions-content" class="hidden px-4 pb-4">
                                 <div id="match-suggestions-list" class="space-y-2">
-                                    <p class="text-gray-500 text-center py-2 text-sm">
+                                    <p class="text-gray-500 text-center py-2 text-sm" data-i18n="dashboard.matches.suggestions.loading">
                                         Lade Vorschläge...
                                     </p>
                                 </div>
@@ -746,9 +584,9 @@
                         <!-- Match Request Form -->
                         <div class="bg-white p-4 rounded-lg shadow-sm max-w-3xl mx-auto">
                             <h2 class="text-lg font-bold text-gray-800 mb-1">
-                                🏓 Wettkampf melden
+                                🏓 <span data-i18n="dashboard.matches.report.title">Wettkampf melden</span>
                             </h2>
-                            <p class="text-xs text-gray-600 mb-4">Für bereits gespielte Matches</p>
+                            <p class="text-xs text-gray-600 mb-4" data-i18n="dashboard.matches.report.subtitle">Für bereits gespielte Matches</p>
                             <form id="match-request-form" class="space-y-6">
                                 <!-- Match Type Toggle (Singles/Doubles) -->
                                 <div class="flex justify-center mb-6">
@@ -760,14 +598,14 @@
                                             id="player-singles-toggle"
                                             class="player-match-type-toggle active px-6 py-2 rounded-md text-sm font-medium transition-all"
                                         >
-                                            <i class="fas fa-user mr-2"></i>Einzel
+                                            <i class="fas fa-user mr-2"></i><span data-i18n="dashboard.matches.report.singles">Einzel</span>
                                         </button>
                                         <button
                                             type="button"
                                             id="player-doubles-toggle"
                                             class="player-match-type-toggle px-6 py-2 rounded-md text-sm font-medium transition-all"
                                         >
-                                            <i class="fas fa-users mr-2"></i>Doppel
+                                            <i class="fas fa-users mr-2"></i><span data-i18n="dashboard.matches.report.doubles">Doppel</span>
                                         </button>
                                     </div>
                                 </div>
@@ -777,6 +615,7 @@
                                     <label
                                         for="match-mode-select"
                                         class="block text-sm font-medium text-gray-700 mb-2"
+                                        data-i18n="dashboard.matches.report.gameMode"
                                     >
                                         Spielmodus
                                     </label>
@@ -784,13 +623,40 @@
                                         id="match-mode-select"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                                     >
-                                        <option value="single-set">1 Satz</option>
-                                        <option value="best-of-3">Best of 3</option>
-                                        <option value="best-of-5" selected>
+                                        <option value="single-set" data-i18n="dashboard.matches.report.singleSet">1 Satz</option>
+                                        <option value="best-of-3" data-i18n="dashboard.matches.report.bestOf3">Best of 3</option>
+                                        <option value="best-of-5" selected data-i18n="dashboard.matches.report.bestOf5">
                                             Best of 5 (Standard)
                                         </option>
-                                        <option value="best-of-7">Best of 7</option>
+                                        <option value="best-of-7" data-i18n="dashboard.matches.report.bestOf7">Best of 7</option>
                                     </select>
+                                </div>
+
+                                <!-- Tennis/Padel Specific Options (hidden for Table Tennis) -->
+                                <div id="tennis-options-container" class="hidden space-y-3 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <h4 class="text-sm font-semibold text-blue-900 mb-2">
+                                        <i class="fas fa-tennis-ball mr-2"></i><span data-i18n="dashboard.matches.tennisOptions.title">Tennis/Padel Optionen</span>
+                                    </h4>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="golden-point-checkbox"
+                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <label for="golden-point-checkbox" class="text-sm text-gray-700" data-i18n="dashboard.matches.tennisOptions.goldenPoint">
+                                            Golden Point (No-Ad bei 40:40)
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="match-tiebreak-checkbox"
+                                            class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        <label for="match-tiebreak-checkbox" class="text-sm text-gray-700" data-i18n="dashboard.matches.tennisOptions.matchTiebreak">
+                                            Match Tie-Break statt 3. Satz (bis 10 Punkte)
+                                        </label>
+                                    </div>
                                 </div>
 
                                 <!-- Singles Opponent Selection (default) -->
@@ -798,6 +664,7 @@
                                     <label
                                         for="opponent-search-input"
                                         class="block text-sm font-medium text-gray-700 mb-2"
+                                        data-i18n="dashboard.matches.report.searchOpponent"
                                     >
                                         Gegner suchen
                                     </label>
@@ -805,6 +672,7 @@
                                         type="text"
                                         id="opponent-search-input"
                                         placeholder="Gegner suchen (Name eingeben)..."
+                                        data-i18n-placeholder="dashboard.matches.report.searchOpponentPlaceholder"
                                         class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                     />
                                     <div id="opponent-search-results" class="mt-2 max-h-64 overflow-y-auto">
@@ -821,12 +689,13 @@
                                         class="border-2 border-green-100 rounded-lg p-4 bg-green-50"
                                     >
                                         <h3 class="text-md font-semibold text-green-800 mb-3">
-                                            <i class="fas fa-user-friends mr-2"></i>Dein Team
+                                            <i class="fas fa-user-friends mr-2"></i><span data-i18n="dashboard.matches.report.yourTeam">Dein Team</span>
                                         </h3>
                                         <div>
                                             <label
                                                 for="partner-search-input"
                                                 class="block text-sm font-medium text-gray-700 mb-2"
+                                                data-i18n="dashboard.matches.report.selectPartner"
                                             >
                                                 Partner wählen
                                             </label>
@@ -834,6 +703,7 @@
                                                 type="text"
                                                 id="partner-search-input"
                                                 placeholder="Suche nach Partner..."
+                                                data-i18n-placeholder="dashboard.matches.report.searchPartner"
                                                 class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                 autocomplete="off"
                                             />
@@ -846,14 +716,14 @@
                                         class="border-2 border-orange-100 rounded-lg p-4 bg-orange-50"
                                     >
                                         <h3 class="text-md font-semibold text-orange-800 mb-3">
-                                            <i class="fas fa-user-friends mr-2"></i>Gegnerisches
-                                            Team
+                                            <i class="fas fa-user-friends mr-2"></i><span data-i18n="dashboard.matches.report.opponentTeam">Gegnerisches Team</span>
                                         </h3>
                                         <div class="space-y-3">
                                             <div>
                                                 <label
                                                     for="opponent1-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
+                                                    data-i18n="dashboard.matches.report.opponent1"
                                                 >
                                                     Gegner 1
                                                 </label>
@@ -861,6 +731,7 @@
                                                     type="text"
                                                     id="opponent1-search-input"
                                                     placeholder="Suche nach Gegner 1..."
+                                                    data-i18n-placeholder="dashboard.matches.report.searchOpponent1"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     autocomplete="off"
                                                 />
@@ -872,6 +743,7 @@
                                                 <label
                                                     for="opponent2-search-input"
                                                     class="block text-sm font-medium text-gray-700 mb-2"
+                                                    data-i18n="dashboard.matches.report.opponent2"
                                                 >
                                                     Gegner 2
                                                 </label>
@@ -879,6 +751,7 @@
                                                     type="text"
                                                     id="opponent2-search-input"
                                                     placeholder="Suche nach Gegner 2..."
+                                                    data-i18n-placeholder="dashboard.matches.report.searchOpponent2"
                                                     class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                                     autocomplete="off"
                                                 />
@@ -890,18 +763,37 @@
                                     </div>
                                 </div>
 
+                                <!-- Team Elo Display (for doubles) -->
+                                <div id="doubles-team-elo-display" class="hidden">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                                            <div class="text-xs text-green-600 font-medium mb-1">
+                                                <i class="fas fa-users mr-1"></i><span data-i18n="dashboard.matches.report.yourTeamElo">Dein Team Elo</span>
+                                            </div>
+                                            <div id="team-a-elo-value" class="text-xl font-bold text-green-800">--</div>
+                                        </div>
+                                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                            <div class="text-xs text-orange-600 font-medium mb-1">
+                                                <i class="fas fa-users mr-1"></i><span data-i18n="dashboard.matches.report.opponentTeamElo">Gegner Team Elo</span>
+                                            </div>
+                                            <div id="team-b-elo-value" class="text-xl font-bold text-orange-800">--</div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Set Score Input -->
                                 <div>
                                     <label
                                         id="set-score-label"
                                         class="block text-sm font-medium text-gray-700 mb-3"
+                                        data-i18n="dashboard.matches.report.enterScore"
                                     >
                                         Spielergebnis eingeben (mind. 3 Sätze)
                                     </label>
                                     <div id="set-score-container" class="space-y-2">
                                         <!-- Set inputs will be generated dynamically -->
                                     </div>
-                                    <p class="text-xs text-gray-500 mt-2">
+                                    <p class="text-xs text-gray-500 mt-2" data-i18n="dashboard.matches.report.scoreHint">
                                         * Du bist Spieler A, dein Gegner ist Spieler B
                                     </p>
                                 </div>
@@ -912,7 +804,7 @@
                                     class="hidden bg-blue-50 border border-blue-200 rounded-md p-4"
                                 >
                                     <p class="text-sm text-blue-800 font-medium mb-2">
-                                        <i class="fas fa-info-circle"></i> Handicap-Vorschlag
+                                        <i class="fas fa-info-circle"></i> <span data-i18n="dashboard.matches.report.handicapSuggestion">Handicap-Vorschlag</span>
                                     </p>
                                     <p id="match-handicap-text" class="text-sm text-blue-700"></p>
                                     <div class="flex items-center mt-3">
@@ -924,10 +816,22 @@
                                         <label
                                             for="match-handicap-toggle"
                                             class="ml-2 text-sm text-gray-700"
+                                            data-i18n="dashboard.matches.report.handicapUsed"
                                         >
                                             Handicap wurde verwendet
                                         </label>
                                     </div>
+                                </div>
+
+                                <!-- Match Winner Display -->
+                                <div
+                                    id="match-winner-info"
+                                    class="hidden bg-green-50 border border-green-200 rounded-md p-4"
+                                >
+                                    <p class="text-sm text-green-800 font-medium mb-1">
+                                        <i class="fas fa-trophy"></i> <span data-i18n="dashboard.matches.report.winner">Gewinner</span>
+                                    </p>
+                                    <p id="match-winner-text" class="text-lg text-green-700 font-bold"></p>
                                 </div>
 
                                 <!-- Submit Button -->
@@ -936,7 +840,7 @@
                                         type="submit"
                                         class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition shadow-md"
                                     >
-                                        <i class="fas fa-paper-plane mr-2"></i> Anfrage senden
+                                        <i class="fas fa-paper-plane mr-2"></i> <span data-i18n="dashboard.matches.report.sendRequest">Anfrage senden</span>
                                     </button>
                                 </div>
 
@@ -945,66 +849,79 @@
                             </form>
                         </div>
 
-                        <!-- Match History - Competition Results -->
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
-                            <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                🏆 Wettkampf-Historie
-                            </h2>
-                            <p class="text-xs text-gray-500 mb-4">
-                                Alle gespielten Wettkämpfe mit Ergebnissen und ELO-Änderungen
-                            </p>
-                            <div id="match-history-list" class="space-y-3 min-h-[100px]">
-                                <p class="text-gray-400 text-center py-4 text-sm">
-                                    Lade Historie...
-                                </p>
-                            </div>
-                        </div>
-
                         <!-- Pending Requests -->
-                        <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
+                        <div id="pending-requests-section" class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                             <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                ⏳ Ausstehende Anfragen
+                                ⏳ <span data-i18n="dashboard.matches.pending.title">Ausstehende Anfragen</span>
                             </h2>
-                            <p class="text-xs text-gray-500 mb-4">
+                            <p class="text-xs text-gray-500 mb-4" data-i18n="dashboard.matches.pending.subtitle">
                                 Anfragen, die noch auf Bestätigung warten
                             </p>
                             <div id="pending-result-requests-list" class="space-y-3 min-h-[100px]">
-                                <p class="text-gray-400 text-center py-4 text-sm">
+                                <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.matches.pending.none">
                                     Keine ausstehenden Anfragen
                                 </p>
                             </div>
                         </div>
 
-                        <!-- History - Completed Requests -->
+                        <!-- Match History - Competition Results -->
                         <div class="bg-white p-6 rounded-xl shadow-md max-w-3xl mx-auto">
                             <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                                📋 Anfragen-Historie
+                                🏆 <span data-i18n="dashboard.matches.history.title">Wettkampf-Historie</span>
                             </h2>
-                            <p class="text-xs text-gray-500 mb-4">
-                                Alle abgeschlossenen Anfragen (gesendet & empfangen)
+                            <p class="text-xs text-gray-500 mb-4" data-i18n="dashboard.matches.history.subtitle">
+                                Alle gespielten Wettkämpfe mit Ergebnissen und ELO-Änderungen
                             </p>
-                            <div>
-                                <h3
-                                    class="text-sm font-semibold text-blue-700 mb-2 flex items-center"
-                                >
-                                    <span class="bg-blue-100 px-2 py-1 rounded"
-                                        >📊 Ergebnis-Anfragen</span
-                                    >
-                                </h3>
-                                <div
-                                    id="history-result-requests-list"
-                                    class="space-y-3 min-h-[100px]"
-                                >
-                                    <p class="text-gray-400 text-center py-4 text-sm">
-                                        Keine Ergebnis-Anfragen
-                                    </p>
-                                </div>
+                            <div id="match-history-list" class="space-y-3 min-h-[100px]">
+                                <p class="text-gray-400 text-center py-4 text-sm" data-i18n="dashboard.matches.history.loading">
+                                    Lade Historie...
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div id="tab-content-leaderboard" class="tab-content hidden">
+                    <!-- Season Countdown - important context for rankings -->
+                    <div
+                        data-widget-id="season-countdown"
+                        class="max-w-2xl mx-auto mb-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 p-3 rounded-xl shadow-sm"
+                    >
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="bg-yellow-400 p-2 rounded-full">
+                                    <svg
+                                        class="w-4 h-4 text-yellow-900"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        ></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-xs font-semibold text-yellow-900">
+                                        ⏳ <span data-i18n="dashboard.leaderboard.seasonEnd">Saison-Ende</span>
+                                    </h3>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p
+                                    id="season-countdown"
+                                    class="text-lg font-bold text-yellow-900"
+                                    data-i18n="dashboard.leaderboard.loading"
+                                >
+                                    Lädt...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Leaderboard Preferences (Collapsible) -->
                     <div
                         class="bg-white rounded-lg shadow-sm max-w-2xl mx-auto mb-4 border border-gray-200"
@@ -1015,9 +932,9 @@
                         >
                             <div>
                                 <h2 class="text-lg font-semibold text-gray-800">
-                                    ⚙️ Ranglisten-Einstellungen
+                                    ⚙️ <span data-i18n="dashboard.leaderboard.settings.title">Ranglisten-Einstellungen</span>
                                 </h2>
-                                <p class="text-xs text-gray-600">
+                                <p class="text-xs text-gray-600" data-i18n="dashboard.leaderboard.settings.subtitle">
                                     Passe an, welche Ranglisten angezeigt werden
                                 </p>
                             </div>
@@ -1037,7 +954,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">💪 Fleiß (XP)</span>
+                                    <span class="text-gray-700">💪 <span data-i18n="dashboard.leaderboard.settings.effort">Fleiß (XP)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1048,7 +965,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">⭐ Season (Punkte)</span>
+                                    <span class="text-gray-700">⭐ <span data-i18n="dashboard.leaderboard.settings.season">Season (Punkte)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1059,7 +976,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">⚡ Skill (Elo)</span>
+                                    <span class="text-gray-700">⚡ <span data-i18n="dashboard.leaderboard.settings.skill">Skill (Elo)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1070,7 +987,7 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">🏆 Ränge (Level)</span>
+                                    <span class="text-gray-700">🏆 <span data-i18n="dashboard.leaderboard.settings.ranks">Ränge (Level)</span></span>
                                 </label>
                                 <label
                                     class="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
@@ -1081,10 +998,10 @@
                                         class="leaderboard-pref-checkbox w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                         checked
                                     />
-                                    <span class="text-gray-700">🎾 Doppel (Teams)</span>
+                                    <span class="text-gray-700">🎾 <span data-i18n="dashboard.leaderboard.settings.doubles">Doppel (Teams)</span></span>
                                 </label>
                             </div>
-                            <p class="text-xs text-gray-500 mt-4">
+                            <p class="text-xs text-gray-500 mt-4" data-i18n="dashboard.leaderboard.settings.autoSave">
                                 Die Einstellungen werden automatisch gespeichert.
                             </p>
                         </div>
@@ -1137,6 +1054,9 @@
                     style="white-space: pre-wrap"
                 ></p>
 
+                <!-- Ablauf/Procedure Section -->
+                <div id="modal-exercise-procedure" class="hidden"></div>
+
                 <!-- Abkürzungen Legende -->
                 <div class="mb-4 border-t border-gray-200 pt-3">
                     <button
@@ -1157,7 +1077,7 @@
                                 d="M19 9l-7 7-7-7"
                             ></path>
                         </svg>
-                        📖 Abkürzungen anzeigen
+                        📖 <span data-i18n="dashboard.exercises.showAbbreviations">Abkürzungen anzeigen</span>
                     </button>
                     <div id="abbreviations-content" class="hidden mt-3 bg-gray-50 rounded-lg p-3">
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -1291,10 +1211,10 @@
             <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-md bg-white">
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h3 class="text-2xl leading-6 font-bold text-gray-900">
+                        <h3 class="text-2xl leading-6 font-bold text-gray-900" data-i18n="dashboard.widgets.customize">
                             Startseite anpassen
                         </h3>
-                        <p class="text-sm text-gray-600 mt-1">
+                        <p class="text-sm text-gray-600 mt-1" data-i18n="dashboard.widgets.customizeDesc">
                             Wähle aus, welche Widgets auf deiner Startseite angezeigt werden sollen
                         </p>
                     </div>
@@ -1345,17 +1265,272 @@
             </div>
         </div>
 
+        <!-- Create Post/Poll Modal -->
+        <div
+            id="create-post-modal"
+            class="modal fixed inset-0 bg-gray-800 bg-opacity-75 overflow-y-auto h-full w-full hidden z-50 flex justify-center items-start py-8"
+        >
+            <div class="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-xl bg-white my-auto">
+                <!-- Close button -->
+                <button
+                    id="close-create-post-modal"
+                    class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+                >
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                <!-- Modal Header -->
+                <div class="mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">
+                        <i class="fas fa-edit text-indigo-600 mr-2"></i>Neuer Beitrag
+                    </h3>
+                    <p class="text-sm text-gray-600 mt-1">Teile etwas mit deiner Community</p>
+                </div>
+
+                <!-- Post Type Toggle -->
+                <div class="mb-6">
+                    <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1">
+                        <button
+                            type="button"
+                            id="post-type-text"
+                            class="post-type-toggle active px-6 py-2 rounded-md text-sm font-medium transition-all bg-indigo-600 text-white"
+                        >
+                            <i class="fas fa-align-left mr-2"></i>Beitrag
+                        </button>
+                        <button
+                            type="button"
+                            id="post-type-poll"
+                            class="post-type-toggle px-6 py-2 rounded-md text-sm font-medium transition-all text-gray-600"
+                        >
+                            <i class="fas fa-poll mr-2"></i>Umfrage
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Text Post Form -->
+                <form id="text-post-form" class="space-y-4">
+                    <!-- Post Content -->
+                    <div>
+                        <label for="post-content" class="block text-sm font-medium text-gray-700 mb-2">
+                            Was möchtest du teilen?
+                        </label>
+                        <textarea
+                            id="post-content"
+                            rows="4"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                            placeholder="Schreibe etwas..."
+                        ></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Max. 5000 Zeichen</p>
+                    </div>
+
+                    <!-- Image Upload (optional) -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-images mr-1"></i>Bilder hinzufügen (optional)
+                        </label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-400 transition cursor-pointer">
+                            <input type="file" id="post-image-input" class="hidden" accept="image/*" multiple />
+                            <label for="post-image-input" class="cursor-pointer">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-sm text-gray-600">Klicke oder ziehe Bilder hierher</p>
+                                <p class="text-xs text-gray-500 mt-1">PNG, JPG, GIF bis 5MB pro Bild (max. 10 Bilder)</p>
+                            </label>
+                            <div id="post-images-preview" class="mt-4 hidden">
+                                <div id="post-images-preview-grid" class="grid grid-cols-3 gap-2">
+                                    <!-- Image previews will be added here -->
+                                </div>
+                                <button
+                                    type="button"
+                                    id="clear-post-images"
+                                    class="mt-3 text-red-600 hover:text-red-800 text-sm font-medium"
+                                >
+                                    <i class="fas fa-times mr-1"></i>Alle Bilder entfernen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visibility Settings -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            <i class="fas fa-eye mr-1"></i>Sichtbarkeit
+                        </label>
+                        <select
+                            id="post-visibility"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="club">Nur mein Verein</option>
+                            <option value="followers">Meine Follower</option>
+                            <option value="public" selected>Öffentlich (alle)</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            id="cancel-post-btn"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+                        >
+                            Abbrechen
+                        </button>
+                        <button
+                            type="submit"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-md"
+                        >
+                            <i class="fas fa-paper-plane mr-2"></i>Veröffentlichen
+                        </button>
+                    </div>
+
+                    <!-- Feedback -->
+                    <div id="post-form-feedback" class="hidden"></div>
+                </form>
+
+                <!-- Poll Form -->
+                <form id="poll-form" class="space-y-4 hidden">
+                    <!-- Poll Question -->
+                    <div>
+                        <label for="poll-question" class="block text-sm font-medium text-gray-700 mb-2">
+                            Deine Frage
+                        </label>
+                        <input
+                            type="text"
+                            id="poll-question"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="z.B. Was ist eure Lieblingsübung?"
+                        />
+                    </div>
+
+                    <!-- Poll Options -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Antwortmöglichkeiten
+                        </label>
+                        <div id="poll-options-container" class="space-y-2">
+                            <div class="poll-option-item flex gap-2">
+                                <input
+                                    type="text"
+                                    class="poll-option-input flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Option 1"
+                                />
+                            </div>
+                            <div class="poll-option-item flex gap-2">
+                                <input
+                                    type="text"
+                                    class="poll-option-input flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Option 2"
+                                />
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            id="add-poll-option"
+                            class="mt-2 text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                        >
+                            <i class="fas fa-plus-circle mr-1"></i>Option hinzufügen
+                        </button>
+                        <p class="text-xs text-gray-500 mt-2">Max. 10 Optionen</p>
+                    </div>
+
+                    <!-- Multiple Selection Option -->
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="poll-multiple-choice"
+                                class="w-5 h-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                            />
+                            <div>
+                                <span class="font-medium text-gray-800">Mehrfachauswahl erlauben</span>
+                                <p class="text-xs text-gray-500">Teilnehmer können mehrere Optionen auswählen</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Anonymous Voting Option -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="flex items-center gap-3 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                id="poll-anonymous"
+                                class="w-5 h-5 text-gray-600 rounded border-gray-300 focus:ring-gray-500"
+                                checked
+                            />
+                            <div>
+                                <span class="font-medium text-gray-800">Anonyme Abstimmung</span>
+                                <p class="text-xs text-gray-500">Wenn deaktiviert, können alle sehen wer was gewählt hat</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Poll Duration -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label for="poll-duration" class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-clock mr-1"></i>Dauer der Umfrage
+                        </label>
+                        <select
+                            id="poll-duration"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="1">1 Tag</option>
+                            <option value="3">3 Tage</option>
+                            <option value="7" selected>7 Tage</option>
+                            <option value="14">14 Tage</option>
+                            <option value="30">30 Tage</option>
+                        </select>
+                    </div>
+
+                    <!-- Poll Visibility -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            <i class="fas fa-eye mr-1"></i>Sichtbarkeit
+                        </label>
+                        <select
+                            id="poll-visibility"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="club">Nur mein Verein</option>
+                            <option value="followers">Meine Follower</option>
+                            <option value="public" selected>Öffentlich (alle)</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            id="cancel-poll-btn"
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition"
+                        >
+                            Abbrechen
+                        </button>
+                        <button
+                            type="submit"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-md"
+                        >
+                            <i class="fas fa-poll mr-2"></i>Umfrage erstellen
+                        </button>
+                    </div>
+
+                    <!-- Feedback -->
+                    <div id="poll-form-feedback" class="hidden"></div>
+                </form>
+            </div>
+        </div>
+
         <!-- Footer -->
-        <footer class="mt-12 pb-6 px-4">
+        <footer class="mt-12 pb-16 px-4">
             <div class="max-w-4xl mx-auto">
                 <!-- Bug Report Notice -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <div class="flex items-start gap-3">
                         <i class="fas fa-bug text-blue-600 text-xl mt-1"></i>
                         <div class="flex-1">
-                            <h3 class="text-sm font-semibold text-blue-900 mb-1">Bug gefunden?</h3>
+                            <h3 class="text-sm font-semibold text-blue-900 mb-1" data-i18n="dashboard.footer.bugFound">Bug gefunden?</h3>
                             <p class="text-xs text-blue-800">
-                                Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an
+                                <span data-i18n="dashboard.footer.bugDescription">Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an</span>
                                 <a href="mailto:support@sc-champions.de" class="font-semibold underline hover:text-blue-900">
                                     support@sc-champions.de
                                 </a>
@@ -1367,28 +1542,156 @@
                 <!-- Links -->
                 <div class="text-center text-xs text-gray-600 space-y-2">
                     <div class="flex justify-center items-center gap-4">
-                        <a href="/docs/impressum.html" class="hover:text-indigo-600 transition-colors">
+                        <a href="/docs/impressum.html" class="hover:text-indigo-600 transition-colors" data-i18n="dashboard.footer.imprint">
                             Impressum
                         </a>
                         <span class="text-gray-400">•</span>
-                        <a href="/docs/datenschutz.html" class="hover:text-indigo-600 transition-colors">
+                        <a href="/docs/datenschutz.html" class="hover:text-indigo-600 transition-colors" data-i18n="dashboard.footer.privacy">
                             Datenschutzerklärung
                         </a>
                     </div>
-                    <p class="text-gray-500">
+                    <p class="text-gray-500" data-i18n="dashboard.footer.copyright">
                         © 2025 SC Champions. Alle Rechte vorbehalten.
                     </p>
-                    <p class="text-gray-400 text-xs italic mt-2">
+                    <p class="text-gray-400 text-xs italic mt-2" data-i18n="dashboard.footer.disclaimer">
                         Hinweis: SC Champions ist derzeit ein Forschungsprojekt im Rahmen einer Bachelorarbeit und befindet sich in der Testphase.
                     </p>
                 </div>
             </div>
         </footer>
 
+        <!-- Bottom Navigation Bar (like Instagram) -->
+        <nav id="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: white; border-top: 1px solid #e5e7eb;" class="safe-area-bottom">
+            <div class="flex justify-around items-center h-12 max-w-lg mx-auto">
+                <button
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
+                    data-tab="overview"
+                    data-title="Start"
+                    onclick="handleBottomTabClick('overview', 'Start')"
+                >
+                    <i class="fas fa-home text-xl"></i>
+                </button>
+                <button
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
+                    data-tab="leaderboard"
+                    data-title="Ranglisten"
+                    onclick="handleBottomTabClick('leaderboard', 'Ranglisten')"
+                >
+                    <i class="fas fa-trophy text-xl"></i>
+                </button>
+                <button
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
+                    data-tab="matches"
+                    data-title="Wettkampf"
+                    onclick="handleBottomTabClick('matches', 'Wettkampf')"
+                >
+                    <i class="fas fa-table-tennis-paddle-ball text-xl"></i>
+                </button>
+                <button
+                    class="bottom-tab-button flex items-center justify-center flex-1 h-full text-gray-400 hover:text-gray-900 transition-colors"
+                    data-tab="exercises"
+                    data-title="Übungen"
+                    onclick="handleBottomTabClick('exercises', 'Übungen')"
+                >
+                    <i class="fas fa-dumbbell text-xl"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Global tab handler for Safari compatibility (must be non-module, loaded first) -->
+        <script>
+            // Global function for bottom tab navigation - works in all browsers including Safari
+            function handleBottomTabClick(tabId, tabTitle) {
+                console.log('[TABS] handleBottomTabClick called:', tabId, tabTitle);
+
+                // Update active states on ALL tab buttons
+                var allTabButtons = document.querySelectorAll('.tab-button, .bottom-tab-button');
+                for (var i = 0; i < allTabButtons.length; i++) {
+                    var btn = allTabButtons[i];
+                    btn.classList.remove('tab-active');
+                    btn.classList.add('text-gray-400');
+                    if (btn.getAttribute('data-tab') === tabId) {
+                        btn.classList.add('tab-active');
+                        btn.classList.remove('text-gray-400');
+                    }
+                }
+
+                // Update header title
+                var headerTitle = document.getElementById('header-title');
+                if (headerTitle) {
+                    headerTitle.textContent = tabTitle;
+                }
+
+                // Show/hide tab contents
+                var tabContents = document.querySelectorAll('.tab-content');
+                for (var j = 0; j < tabContents.length; j++) {
+                    var content = tabContents[j];
+                    content.classList.add('hidden');
+                    if (content.id === 'tab-content-' + tabId) {
+                        content.classList.remove('hidden');
+                    }
+                }
+            }
+
+            // Initialize first tab on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                // Small delay to ensure everything is loaded
+                setTimeout(function() {
+                    handleBottomTabClick('overview', 'Start');
+                }, 50);
+
+                // Force bottom nav to be a direct child of body and properly positioned
+                // This fixes issues with transform/will-change on parent elements breaking fixed positioning
+                var bottomNav = document.getElementById('bottom-nav');
+                if (bottomNav) {
+                    // Remove from current position and append to end of body
+                    document.body.appendChild(bottomNav);
+                    // Force fixed positioning with inline styles
+                    bottomNav.style.position = 'fixed';
+                    bottomNav.style.bottom = '0';
+                    bottomNav.style.left = '0';
+                    bottomNav.style.right = '0';
+                    bottomNav.style.zIndex = '99999';
+                    bottomNav.style.background = 'white';
+                    bottomNav.style.borderTop = '1px solid #e5e7eb';
+                }
+
+                // Same for top nav - move to beginning of body
+                var topNav = document.getElementById('top-nav');
+                if (topNav) {
+                    document.body.insertBefore(topNav, document.body.firstChild);
+                    topNav.style.position = 'fixed';
+                    topNav.style.top = '0';
+                    topNav.style.left = '0';
+                    topNav.style.right = '0';
+                    topNav.style.zIndex = '99999';
+                    topNav.style.background = 'white';
+                    topNav.style.borderBottom = '1px solid #e5e7eb';
+                }
+            });
+        </script>
+
+        <script type="module">
+            // Initialize i18n
+            import { initI18n, translatePage, setupAutoTranslate } from '/js/i18n.js';
+
+            async function initializeI18n() {
+                await initI18n();
+                setupAutoTranslate();
+                translatePage();
+                document.documentElement.lang = localStorage.getItem('app_language') || 'de';
+            }
+
+            initializeI18n();
+        </script>
         <script src="/js/update-checker.js"></script>
         <script src="/js/pwa-register.js"></script>
         <script type="module" src="/js/notifications.js"></script>
         <script type="module" src="/js/spa-enhancer.js"></script>
-        <script type="module" src="/js/dashboard.js"></script>
+        <!-- Supabase Version - keine Firebase-Abhängigkeiten -->
+        <script type="module" src="/js/dashboard-supabase.js"></script>
+        <script type="module" src="/js/posts-manager-supabase.js"></script>
+        <script type="module" src="/js/activity-comments.js"></script>
+        <script type="module" src="/js/match-media.js"></script>
     </body>
 </html>

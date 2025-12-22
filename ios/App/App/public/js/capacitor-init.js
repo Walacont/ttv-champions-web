@@ -102,12 +102,128 @@
                 console.log('[Capacitor] Splash screen error:', e.message);
             }
         }, 500);
+
+        // Initialize Push Notifications
+        await initializePushNotifications();
+    }
+
+    /**
+     * Initialize Push Notifications for native apps
+     */
+    async function initializePushNotifications() {
+        try {
+            const { PushNotifications } = await import('@capacitor/push-notifications');
+
+            // Check current permission status
+            const permStatus = await PushNotifications.checkPermissions();
+            console.log('[Push] Current permission status:', permStatus.receive);
+
+            // Listen for registration success
+            PushNotifications.addListener('registration', async (token) => {
+                console.log('[Push] Registration successful, token:', token.value.substring(0, 20) + '...');
+                // Store token for later use - will be saved to Supabase when user logs in
+                window.pushToken = token.value;
+                window.dispatchEvent(new CustomEvent('push-token-received', { detail: { token: token.value } }));
+            });
+
+            // Listen for registration errors
+            PushNotifications.addListener('registrationError', (error) => {
+                console.error('[Push] Registration error:', error);
+            });
+
+            // Listen for push notifications received while app is in foreground
+            PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('[Push] Notification received in foreground:', notification);
+                // Show in-app notification toast
+                window.dispatchEvent(new CustomEvent('push-notification-received', {
+                    detail: notification
+                }));
+            });
+
+            // Listen for notification actions (when user taps on notification)
+            PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+                console.log('[Push] Notification action performed:', action);
+                const data = action.notification.data;
+
+                // Handle navigation based on notification type
+                if (data?.type === 'match_request') {
+                    window.location.href = '/dashboard.html#matches';
+                } else if (data?.type === 'doubles_match_request') {
+                    window.location.href = '/dashboard.html#matches';
+                } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
+                    if (data?.requester_id) {
+                        window.location.href = `/profile.html?id=${data.requester_id}`;
+                    }
+                } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
+                    window.location.href = '/coach.html#club';
+                } else if (data?.url) {
+                    window.location.href = data.url;
+                }
+            });
+
+            // If permission is already granted, register immediately
+            if (permStatus.receive === 'granted') {
+                await PushNotifications.register();
+                console.log('[Push] Already permitted, registering...');
+            }
+
+            console.log('[Push] Push notifications initialized');
+        } catch (e) {
+            console.log('[Push] Push notifications not available:', e.message);
+        }
     }
 
     // Expose utility functions
     window.CapacitorUtils = {
         isNative: () => isCapacitor,
         getPlatform: () => (isCapacitor ? window.Capacitor.getPlatform() : 'web'),
+
+        // Request push notification permission
+        async requestPushPermission() {
+            if (!isCapacitor) {
+                console.log('[Push] Not running in Capacitor, using web notifications');
+                return await requestWebPushPermission();
+            }
+            try {
+                const { PushNotifications } = await import('@capacitor/push-notifications');
+                const permStatus = await PushNotifications.checkPermissions();
+
+                if (permStatus.receive === 'prompt') {
+                    const result = await PushNotifications.requestPermissions();
+                    if (result.receive === 'granted') {
+                        await PushNotifications.register();
+                        return true;
+                    }
+                    return false;
+                } else if (permStatus.receive === 'granted') {
+                    await PushNotifications.register();
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('[Push] Error requesting permission:', e);
+                return false;
+            }
+        },
+
+        // Get current push token
+        getPushToken() {
+            return window.pushToken || null;
+        },
+
+        // Check if push notifications are enabled
+        async isPushEnabled() {
+            if (!isCapacitor) {
+                return 'Notification' in window && Notification.permission === 'granted';
+            }
+            try {
+                const { PushNotifications } = await import('@capacitor/push-notifications');
+                const permStatus = await PushNotifications.checkPermissions();
+                return permStatus.receive === 'granted';
+            } catch (e) {
+                return false;
+            }
+        },
 
         // Haptic feedback
         async vibrate(style = 'medium') {
@@ -156,4 +272,25 @@
             }
         }
     };
+
+    /**
+     * Request web push notification permission (for PWA/browser)
+     */
+    async function requestWebPushPermission() {
+        if (!('Notification' in window)) {
+            console.log('[Push] Web notifications not supported');
+            return false;
+        }
+
+        if (Notification.permission === 'granted') {
+            return true;
+        }
+
+        if (Notification.permission !== 'denied') {
+            const permission = await Notification.requestPermission();
+            return permission === 'granted';
+        }
+
+        return false;
+    }
 })();

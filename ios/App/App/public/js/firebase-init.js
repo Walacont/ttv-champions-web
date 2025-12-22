@@ -10,7 +10,6 @@ import {
     getFirestore,
     connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-analytics.js';
 import {
     getStorage,
     connectStorageEmulator,
@@ -39,7 +38,7 @@ function isCapacitorNative() {
 
 /**
  * Initializes Firebase services and connects to emulators in development
- * @returns {Object} Firebase services (app, auth, db, analytics, storage, functions)
+ * @returns {Object} Firebase services (app, auth, db, storage, functions)
  */
 export async function initFirebase() {
     if (firebaseInstance) {
@@ -64,7 +63,6 @@ export async function initFirebase() {
     }
 
     const db = getFirestore(app);
-    const analytics = getAnalytics(app);
     const storage = getStorage(app);
     const functions = getFunctions(app, 'europe-west3');
 
@@ -82,13 +80,13 @@ export async function initFirebase() {
     }
 
     console.log('[Firebase] Initialization complete');
-    firebaseInstance = { app, auth, db, analytics, storage, functions };
+    firebaseInstance = { app, auth, db, storage, functions };
     return firebaseInstance;
 }
 
 /**
  * Gets the existing Firebase instance or initializes if not yet created
- * @returns {Promise<Object>} Firebase services (app, auth, db, analytics, storage, functions)
+ * @returns {Promise<Object>} Firebase services (app, auth, db, storage, functions)
  */
 export async function getFirebaseInstance() {
     return firebaseInstance || await initFirebase();

@@ -13,6 +13,7 @@ import {
     getDocs,
 } from 'https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js';
 import { formatDate } from './ui-utils.js';
+import { showDoublesHeadToHeadModal } from './doubles-head-to-head.js';
 
 /**
  * Doubles Matches Module
@@ -602,7 +603,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
         }
 
         // Render the leaderboard with updated data
-        renderDoublesLeaderboard(pairings, container, isGlobal);
+        renderDoublesLeaderboard(pairings, container, isGlobal, db, currentUserId);
     });
 
     if (unsubscribes) unsubscribes.push(listener);
@@ -614,7 +615,7 @@ export function loadDoublesLeaderboard(clubId, db, container, unsubscribes, curr
  * @param {HTMLElement} container - Container element
  * @param {boolean} isGlobal - Whether this is the global leaderboard (shows club info)
  */
-export function renderDoublesLeaderboard(pairings, container, isGlobal = false) {
+export function renderDoublesLeaderboard(pairings, container, isGlobal = false, db = null, currentUserId = null) {
     if (!container) return;
 
     if (pairings.length === 0) {
@@ -663,7 +664,8 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
 
         // Desktop Table Row
         html += `
-            <tr class="hover:bg-gray-50">
+            <tr class="hover:bg-gray-100 ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? 'cursor-pointer' : ''}"
+                ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? `data-doubles-team='${JSON.stringify({player1Id: pairing.player1Id, player2Id: pairing.player2Id, player1Name: pairing.player1Name, player2Name: pairing.player2Name})}'` : ''}>
                 <td class="px-2 py-3 text-sm font-bold text-gray-900 w-16">#${rank}</td>
                 <td class="px-4 py-3 ${isGlobal ? 'w-64' : 'w-80'}">
                     <div class="flex flex-col gap-2">
@@ -725,7 +727,8 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
         const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
 
         html += `
-            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? 'cursor-pointer hover:bg-gray-50' : ''}"
+                 ${db && currentUserId && (pairing.player1Id !== currentUserId && pairing.player2Id !== currentUserId) ? `data-doubles-team='${JSON.stringify({player1Id: pairing.player1Id, player2Id: pairing.player2Id, player1Name: pairing.player1Name, player2Name: pairing.player2Name})}'` : ''}>
                 <!-- Rank Badge -->
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-lg font-bold text-gray-900">${rankDisplay}</span>
@@ -787,6 +790,17 @@ export function renderDoublesLeaderboard(pairings, container, isGlobal = false) 
     `;
 
     container.innerHTML = html;
+
+    // Add click handlers for head-to-head modal (only if db and currentUserId are provided)
+    if (db && currentUserId) {
+        const clickableElements = container.querySelectorAll('[data-doubles-team]');
+        clickableElements.forEach(el => {
+            el.addEventListener('click', () => {
+                const teamData = JSON.parse(el.getAttribute('data-doubles-team'));
+                showDoublesHeadToHeadModal(db, currentUserId, teamData);
+            });
+        });
+    }
 }
 
 // ========================================================================

@@ -56,7 +56,7 @@
             const banner = document.createElement('div');
             banner.id = 'pwa-update-banner';
             banner.innerHTML = `
-                <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+                <div style="position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
                             background: #4f46e5; color: white; padding: 12px 20px; border-radius: 8px;
                             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; display: flex;
                             align-items: center; gap: 12px; font-family: 'Inter', sans-serif;">
