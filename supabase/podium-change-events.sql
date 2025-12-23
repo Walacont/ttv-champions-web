@@ -12,7 +12,11 @@
 -- Drop and recreate the constraint to include new event types
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
-    CHECK (event_type IN ('club_join', 'club_leave', 'rank_up', 'milestone', 'achievement', 'club_ranking_change', 'global_ranking_change'));
+    CHECK (event_type IN (
+        'club_join', 'club_leave', 'rank_up', 'milestone', 'achievement',
+        'club_ranking_change', 'global_ranking_change',
+        'club_doubles_ranking_change', 'global_doubles_ranking_change'
+    ));
 
 -- ============================================
 -- HELPER FUNCTION: Get club ranking position (filtered by sport)
