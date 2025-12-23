@@ -12,6 +12,12 @@
 -- First, delete any old podium_change events that might exist
 DELETE FROM activity_events WHERE event_type = 'podium_change';
 
+-- Delete old ranking change events that were calculated without sport filtering
+-- These have incorrect position data because they compared players across all sports
+DELETE FROM activity_events
+WHERE event_type IN ('club_ranking_change', 'global_ranking_change')
+  AND (event_data->>'sport_id') IS NULL;
+
 -- Drop and recreate the constraint to include new event types
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
