@@ -11,8 +11,8 @@
 1. [Einleitung](#1-einleitung)
 2. [Theoretische Grundlagen](#2-theoretische-grundlagen)
 3. [Konzeption und Methodik](#3-konzeption-und-methodik)
-4. [Implementierung](#4-implementierung)
-5. [Anforderungskatalog](#5-anforderungskatalog)
+4. [Anforderungskatalog](#4-anforderungskatalog)
+5. [Implementierung](#5-implementierung)
 6. [Evaluation](#6-evaluation)
 7. [Anhang](#7-anhang)
 
@@ -39,7 +39,18 @@ Entwicklung einer webbasierten Gamification-Plattform, die:
 - Soziale Interaktion im Verein fördert
 - Coaches bei der Trainingsorganisation unterstützt
 
-### 1.3 Nutzergruppen
+### 1.3 Forschungshypothesen
+
+Aus der Problemstellung und den theoretischen Grundlagen werden folgende Hypothesen abgeleitet:
+
+| H# | Hypothese |
+|----|-----------|
+| H1 | Die Nutzung von SC Champions führt zu einer signifikanten Steigerung der Trainingsteilnahme. |
+| H2 | Das Elo-System wird als fair und motivierend wahrgenommen. |
+| H3 | Die Peer-Validation (Gegner-Bestätigung) erhöht die wahrgenommene Legitimität des Systems. |
+| H4 | Season Points führen zu höherem kurzfristigem Engagement als permanente XP. |
+
+### 1.4 Nutzergruppen
 
 | Rolle | Beschreibung | Kernfunktionen |
 |-------|--------------|----------------|
@@ -131,7 +142,7 @@ Das Elo-System bildet das Herzstück der Gamification:
 - **Jugend-Faktor**: U21-Spieler behalten erhöhten Faktor (20)
 - **Rating Floor**: Minimum bei 400 Elo (kein negatives Erlebnis)
 
-#### 3.2.2 Schnelle Feedback-Schleife durch Auto-Genehmigung
+#### 3.2.2 Automatisierte Genehmigungsprozesse
 
 Ein zentraler **Erkenntnispivot** während der Entwicklung: **Matches brauchen keine Coach-Freigabe mehr.**
 
@@ -327,9 +338,95 @@ FOR UPDATE USING (
 
 ---
 
-## 4. Implementierung
+## 4. Anforderungskatalog
 
-### 4.1 Highlight 1: SPA-Enhancer mit Progressive Enhancement
+### 4.1 Funktionale Anforderungen
+
+#### FA-1: Authentifizierung & Benutzerverwaltung
+
+| ID | Anforderung | Priorität |
+|----|-------------|-----------|
+| FA-1.1 | E-Mail/Passwort Registrierung | Must |
+| FA-1.2 | Drei Rollen: Spieler, Coach, Admin | Must |
+| FA-1.3 | Profil mit Statistiken (Elo, XP, Rang) | Must |
+| FA-1.4 | Registrierung ohne Club möglich | Should |
+| FA-1.5 | DSGVO-konformes Löschen | Should |
+
+#### FA-2: Gamification-Mechaniken
+
+| ID | Anforderung | Priorität |
+|----|-------------|-----------|
+| FA-2.1 | XP-System (permanent) | Must |
+| FA-2.2 | Season Points (6-Wochen-Reset) | Must |
+| FA-2.3 | Elo-Rating mit A-Faktor | Must |
+| FA-2.4 | Ränge (Bronze → Grandmaster) | Must |
+| FA-2.5 | Drei Leaderboards (XP, Season, Elo) | Must |
+| FA-2.6 | Doppel-Rangliste | Should |
+| FA-2.7 | Challenge-System mit Milestones | Should |
+| FA-2.8 | Anwesenheits-Streaks | Should |
+
+#### FA-3: Match-Verwaltung
+
+| ID | Anforderung | Priorität |
+|----|-------------|-----------|
+| FA-3.1 | Einzel-Match eintragen | Must |
+| FA-3.2 | Doppel-Match eintragen | Must |
+| FA-3.3 | Gegner-Bestätigung für Auto-Genehmigung | Must |
+| FA-3.4 | Match-Validierung (Satzergebnis) | Must |
+| FA-3.5 | Automatische Elo/XP-Vergabe | Must |
+| FA-3.6 | Handicap-System bei großem Elo-Unterschied | Should |
+| FA-3.7 | Match-Medien (Fotos/Videos) | Nice |
+
+#### FA-4: Training & Anwesenheit
+
+| ID | Anforderung | Priorität |
+|----|-------------|-----------|
+| FA-4.1 | Wiederkehrende Trainings (Templates) | Must |
+| FA-4.2 | Mehrere Sessions pro Tag | Must |
+| FA-4.3 | Automatische Session-Generierung | Must |
+| FA-4.4 | Anwesenheit pro Session | Must |
+| FA-4.5 | Spontane Trainings erstellen | Should |
+| FA-4.6 | Session absagen (Soft Delete) | Should |
+
+### 4.2 Nicht-funktionale Anforderungen
+
+#### NFA-1: Performance
+
+| ID | Anforderung | Zielwert |
+|----|-------------|----------|
+| NFA-1.1 | Initiale Ladezeit | < 3 Sekunden |
+| NFA-1.2 | SPA-Navigation | < 500ms |
+| NFA-1.3 | Leaderboard (100+ Spieler) | < 2 Sekunden |
+
+#### NFA-2: Usability
+
+| ID | Anforderung | Zielwert |
+|----|-------------|----------|
+| NFA-2.1 | Klicks zu Hauptfunktion | ≤ 3 |
+| NFA-2.2 | SUS-Score | ≥ 68 |
+| NFA-2.3 | Mobile-Responsive | Ja |
+
+#### NFA-3: Sicherheit
+
+| ID | Anforderung | Umsetzung |
+|----|-------------|-----------|
+| NFA-3.1 | Authentifizierung | Supabase Auth |
+| NFA-3.2 | Autorisierung | Row Level Security |
+| NFA-3.3 | Verschlüsselung | HTTPS |
+
+#### NFA-4: SEO & Accessibility
+
+| ID | Anforderung | Umsetzung |
+|----|-------------|-----------|
+| NFA-4.1 | Progressive Enhancement | Server-HTML + JS-Enhancement |
+| NFA-4.2 | Semantisches HTML | Korrekte Überschriften-Hierarchie |
+| NFA-4.3 | Reduced Motion | CSS `prefers-reduced-motion` |
+
+---
+
+## 5. Implementierung
+
+### 5.1 Implementierung des SPA-Enhancers
 
 #### Problem
 Traditionelle SPAs (React, Angular) erfordern JavaScript für Grundfunktionalität, was zu schlechter SEO und langen Ladezeiten führt.
@@ -388,7 +485,7 @@ class SPAEnhancer {
 - ✅ Fallback bei JS-Fehler
 - ✅ Browser Back/Forward funktioniert
 
-### 4.2 Highlight 2: Toast Notification System
+### 5.2 Entwicklung des Notification Systems
 
 #### Problem
 Browser `alert()` blockiert die UI und bietet schlechte UX.
@@ -418,7 +515,7 @@ try {
 - Mobile-responsive
 - Stack-Management (mehrere gleichzeitig)
 
-### 4.3 Highlight 3: Multi-Session Training System
+### 5.3 Realisierung des Multi-Session Trainings
 
 #### Problem
 Traditionelle Systeme unterstützen nur "ein Training pro Tag", aber Vereine haben oft:
@@ -462,7 +559,7 @@ async function autoGenerateSessions() {
 - Anwesenheit wird pro Session erfasst
 - XP für jede besuchte Session
 
-### 4.4 Highlight 4: Advanced Elo-System
+### 5.4 Berechnungslogik des Elo-Systems
 
 #### Implementierung (PostgreSQL Function)
 
@@ -513,7 +610,7 @@ $$;
 | 20+ | 16 | Etabliert |
 | U21 Spieler | 20 | Jugend (permanent) |
 
-### 4.5 Test-Strategie
+### 5.5 Test-Strategie
 
 #### End-to-End Tests
 
@@ -543,92 +640,6 @@ test('player cannot create session', async () => {
 
 ---
 
-## 5. Anforderungskatalog
-
-### 5.1 Funktionale Anforderungen
-
-#### FA-1: Authentifizierung & Benutzerverwaltung
-
-| ID | Anforderung | Priorität |
-|----|-------------|-----------|
-| FA-1.1 | E-Mail/Passwort Registrierung | Must |
-| FA-1.2 | Drei Rollen: Spieler, Coach, Admin | Must |
-| FA-1.3 | Profil mit Statistiken (Elo, XP, Rang) | Must |
-| FA-1.4 | Registrierung ohne Club möglich | Should |
-| FA-1.5 | DSGVO-konformes Löschen | Should |
-
-#### FA-2: Gamification-Mechaniken
-
-| ID | Anforderung | Priorität |
-|----|-------------|-----------|
-| FA-2.1 | XP-System (permanent) | Must |
-| FA-2.2 | Season Points (6-Wochen-Reset) | Must |
-| FA-2.3 | Elo-Rating mit A-Faktor | Must |
-| FA-2.4 | Ränge (Bronze → Grandmaster) | Must |
-| FA-2.5 | Drei Leaderboards (XP, Season, Elo) | Must |
-| FA-2.6 | Doppel-Rangliste | Should |
-| FA-2.7 | Challenge-System mit Milestones | Should |
-| FA-2.8 | Anwesenheits-Streaks | Should |
-
-#### FA-3: Match-Verwaltung
-
-| ID | Anforderung | Priorität |
-|----|-------------|-----------|
-| FA-3.1 | Einzel-Match eintragen | Must |
-| FA-3.2 | Doppel-Match eintragen | Must |
-| FA-3.3 | Gegner-Bestätigung für Auto-Genehmigung | Must |
-| FA-3.4 | Match-Validierung (Satzergebnis) | Must |
-| FA-3.5 | Automatische Elo/XP-Vergabe | Must |
-| FA-3.6 | Handicap-System bei großem Elo-Unterschied | Should |
-| FA-3.7 | Match-Medien (Fotos/Videos) | Nice |
-
-#### FA-4: Training & Anwesenheit
-
-| ID | Anforderung | Priorität |
-|----|-------------|-----------|
-| FA-4.1 | Wiederkehrende Trainings (Templates) | Must |
-| FA-4.2 | Mehrere Sessions pro Tag | Must |
-| FA-4.3 | Automatische Session-Generierung | Must |
-| FA-4.4 | Anwesenheit pro Session | Must |
-| FA-4.5 | Spontane Trainings erstellen | Should |
-| FA-4.6 | Session absagen (Soft Delete) | Should |
-
-### 5.2 Nicht-funktionale Anforderungen
-
-#### NFA-1: Performance
-
-| ID | Anforderung | Zielwert |
-|----|-------------|----------|
-| NFA-1.1 | Initiale Ladezeit | < 3 Sekunden |
-| NFA-1.2 | SPA-Navigation | < 500ms |
-| NFA-1.3 | Leaderboard (100+ Spieler) | < 2 Sekunden |
-
-#### NFA-2: Usability
-
-| ID | Anforderung | Zielwert |
-|----|-------------|----------|
-| NFA-2.1 | Klicks zu Hauptfunktion | ≤ 3 |
-| NFA-2.2 | SUS-Score | ≥ 68 |
-| NFA-2.3 | Mobile-Responsive | Ja |
-
-#### NFA-3: Sicherheit
-
-| ID | Anforderung | Umsetzung |
-|----|-------------|-----------|
-| NFA-3.1 | Authentifizierung | Supabase Auth |
-| NFA-3.2 | Autorisierung | Row Level Security |
-| NFA-3.3 | Verschlüsselung | HTTPS |
-
-#### NFA-4: SEO & Accessibility
-
-| ID | Anforderung | Umsetzung |
-|----|-------------|-----------|
-| NFA-4.1 | Progressive Enhancement | Server-HTML + JS-Enhancement |
-| NFA-4.2 | Semantisches HTML | Korrekte Überschriften-Hierarchie |
-| NFA-4.3 | Reduced Motion | CSS `prefers-reduced-motion` |
-
----
-
 ## 6. Evaluation
 
 ### 6.1 Quantitative Metriken
@@ -649,14 +660,14 @@ test('player cannot create session', async () => {
 | **Motivation** | IMI-Fragen | ≥ 70% positiv |
 | **NPS** | Net Promoter Score | > 30 |
 
-### 6.3 Hypothesen
+### 6.3 Überprüfung der Hypothesen
 
-| H# | Hypothese |
-|----|-----------|
-| H1 | Die Nutzung von SC Champions führt zu einer signifikanten Steigerung der Trainingsteilnahme. |
-| H2 | Das Elo-System wird als fair und motivierend wahrgenommen. |
-| H3 | Die Peer-Validation (Gegner-Bestätigung) erhöht die wahrgenommene Legitimität des Systems. |
-| H4 | Season Points führen zu höherem kurzfristigem Engagement als permanente XP. |
+| H# | Hypothese | Ergebnis |
+|----|-----------|----------|
+| H1 | Die Nutzung von SC Champions führt zu einer signifikanten Steigerung der Trainingsteilnahme. | *Auswertung nach Studie* |
+| H2 | Das Elo-System wird als fair und motivierend wahrgenommen. | *Auswertung nach Studie* |
+| H3 | Die Peer-Validation (Gegner-Bestätigung) erhöht die wahrgenommene Legitimität des Systems. | *Auswertung nach Studie* |
+| H4 | Season Points führen zu höherem kurzfristigem Engagement als permanente XP. | *Auswertung nach Studie* |
 
 ---
 
@@ -733,7 +744,7 @@ sc-champions/
 
 ---
 
-**Dokumenten-Version:** 3.0
+**Dokumenten-Version:** 4.0
 **Erstellt:** November 2025
 **Aktualisiert:** Dezember 2025
 **Autor:** Tommy Wang
