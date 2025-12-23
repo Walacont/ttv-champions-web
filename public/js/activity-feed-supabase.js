@@ -729,15 +729,31 @@ async function fetchActivities(userIds) {
     // Sort by date descending
     allActivities.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    console.log('[ActivityFeed] Total activities after combine:', allActivities.length);
-    console.log('[ActivityFeed] First 3 activities:', allActivities.slice(0, 3).map(a => ({
+    // Deduplicate doubles ranking events (one event per pairing, not per player)
+    const seenPairingEvents = new Set();
+    const deduplicatedActivities = allActivities.filter(activity => {
+        if (activity.activityType === 'global_doubles_ranking_change' ||
+            activity.activityType === 'club_doubles_ranking_change') {
+            const pairingId = activity.event_data?.pairing_id;
+            const eventType = activity.activityType;
+            const key = `${eventType}-${pairingId}-${activity.event_data?.new_position}`;
+            if (seenPairingEvents.has(key)) {
+                return false; // Skip duplicate
+            }
+            seenPairingEvents.add(key);
+        }
+        return true;
+    });
+
+    console.log('[ActivityFeed] Total activities after combine:', deduplicatedActivities.length);
+    console.log('[ActivityFeed] First 3 activities:', deduplicatedActivities.slice(0, 3).map(a => ({
         type: a.activityType,
         created_at: a.created_at,
         id: a.id
     })));
 
     // Take page size
-    const activities = allActivities.slice(0, ACTIVITIES_PER_PAGE);
+    const activities = deduplicatedActivities.slice(0, ACTIVITIES_PER_PAGE);
 
     if (activities.length === 0) {
         return [];
