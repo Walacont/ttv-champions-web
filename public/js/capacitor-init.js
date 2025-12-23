@@ -111,29 +111,33 @@
      * Initialize Push Notifications for native apps
      */
     async function initializePushNotifications() {
+        console.log('[Push] Initializing push notifications...');
+
         try {
             const { PushNotifications } = await import('@capacitor/push-notifications');
+            console.log('[Push] PushNotifications plugin loaded');
 
             // Check current permission status
             const permStatus = await PushNotifications.checkPermissions();
-            console.log('[Push] Current permission status:', permStatus.receive);
+            console.log('[Push] Initial permission status:', JSON.stringify(permStatus));
 
             // Listen for registration success
-            PushNotifications.addListener('registration', async (token) => {
-                console.log('[Push] Registration successful, token:', token.value.substring(0, 20) + '...');
+            await PushNotifications.addListener('registration', async (token) => {
+                console.log('[Push] Registration successful!');
+                console.log('[Push] Token received:', token.value ? token.value.substring(0, 30) + '...' : 'empty');
                 // Store token for later use - will be saved to Supabase when user logs in
                 window.pushToken = token.value;
                 window.dispatchEvent(new CustomEvent('push-token-received', { detail: { token: token.value } }));
             });
 
             // Listen for registration errors
-            PushNotifications.addListener('registrationError', (error) => {
-                console.error('[Push] Registration error:', error);
+            await PushNotifications.addListener('registrationError', (error) => {
+                console.error('[Push] Registration error:', JSON.stringify(error));
             });
 
             // Listen for push notifications received while app is in foreground
-            PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                console.log('[Push] Notification received in foreground:', notification);
+            await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('[Push] Notification received in foreground:', JSON.stringify(notification));
                 // Show in-app notification toast
                 window.dispatchEvent(new CustomEvent('push-notification-received', {
                     detail: notification
@@ -141,8 +145,8 @@
             });
 
             // Listen for notification actions (when user taps on notification)
-            PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-                console.log('[Push] Notification action performed:', action);
+            await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+                console.log('[Push] Notification action performed:', JSON.stringify(action));
                 const data = action.notification.data;
 
                 // Handle navigation based on notification type
@@ -161,15 +165,25 @@
                 }
             });
 
-            // If permission is already granted, register immediately
+            console.log('[Push] All listeners registered');
+
+            // If permission is already granted, register immediately to get token
             if (permStatus.receive === 'granted') {
-                await PushNotifications.register();
-                console.log('[Push] Already permitted, registering...');
+                console.log('[Push] Permission already granted, registering to get token...');
+                try {
+                    await PushNotifications.register();
+                    console.log('[Push] Registration call completed');
+                } catch (regError) {
+                    console.error('[Push] Registration failed:', regError);
+                }
+            } else {
+                console.log('[Push] Permission not yet granted, status:', permStatus.receive);
             }
 
-            console.log('[Push] Push notifications initialized');
+            console.log('[Push] Push notifications initialized successfully');
         } catch (e) {
-            console.log('[Push] Push notifications not available:', e.message);
+            console.error('[Push] Push notifications initialization failed:', e.message);
+            console.error('[Push] Error stack:', e.stack);
         }
     }
 
@@ -180,28 +194,45 @@
 
         // Request push notification permission
         async requestPushPermission() {
+            console.log('[Push] requestPushPermission called, isCapacitor:', isCapacitor);
+
             if (!isCapacitor) {
                 console.log('[Push] Not running in Capacitor, using web notifications');
                 return await requestWebPushPermission();
             }
+
             try {
                 const { PushNotifications } = await import('@capacitor/push-notifications');
-                const permStatus = await PushNotifications.checkPermissions();
+                console.log('[Push] PushNotifications module loaded');
 
-                if (permStatus.receive === 'prompt') {
-                    const result = await PushNotifications.requestPermissions();
-                    if (result.receive === 'granted') {
-                        await PushNotifications.register();
-                        return true;
-                    }
-                    return false;
-                } else if (permStatus.receive === 'granted') {
+                // Check current permission status
+                const permStatus = await PushNotifications.checkPermissions();
+                console.log('[Push] Current permission status:', JSON.stringify(permStatus));
+
+                // If already granted, just register
+                if (permStatus.receive === 'granted') {
+                    console.log('[Push] Already granted, registering...');
                     await PushNotifications.register();
                     return true;
                 }
+
+                // For any other status (prompt, denied, or unknown), try to request permission
+                // On Android 13+, this will show the system permission dialog
+                console.log('[Push] Requesting permission...');
+                const result = await PushNotifications.requestPermissions();
+                console.log('[Push] Permission request result:', JSON.stringify(result));
+
+                if (result.receive === 'granted') {
+                    console.log('[Push] Permission granted, registering...');
+                    await PushNotifications.register();
+                    return true;
+                }
+
+                console.log('[Push] Permission not granted:', result.receive);
                 return false;
             } catch (e) {
                 console.error('[Push] Error requesting permission:', e);
+                console.error('[Push] Error details:', e.message, e.stack);
                 return false;
             }
         },
