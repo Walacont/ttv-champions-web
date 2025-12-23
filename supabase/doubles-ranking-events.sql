@@ -19,10 +19,10 @@ ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
     ));
 
 -- ============================================
--- HELPER FUNCTION: Get club doubles PAIRING ranking position
+-- HELPER FUNCTION: Get club doubles PAIRING ranking position (filtered by sport)
 -- ============================================
 
-CREATE OR REPLACE FUNCTION get_club_doubles_pairing_position(p_pairing_id TEXT, p_club_id UUID, p_elo INT)
+CREATE OR REPLACE FUNCTION get_club_doubles_pairing_position(p_pairing_id TEXT, p_club_id UUID, p_elo INT, p_sport_id UUID DEFAULT NULL)
 RETURNS INT AS $$
 DECLARE
     v_position INT;
@@ -32,12 +32,13 @@ BEGIN
     SELECT COALESCE(matches_played, 0) INTO v_matches_played
     FROM doubles_pairings WHERE id = p_pairing_id;
 
-    -- Count pairings with higher Elo (or same Elo but more matches)
+    -- Count pairings with higher Elo (or same Elo but more matches) - filtered by sport
     SELECT COUNT(*) + 1 INTO v_position
     FROM doubles_pairings
     WHERE club_id = p_club_id
       AND id != p_pairing_id
       AND matches_played > 0  -- Only count pairings that have played
+      AND (p_sport_id IS NULL OR sport_id = p_sport_id)
       AND (
           current_elo_rating > p_elo
           OR (current_elo_rating = p_elo AND matches_played > v_matches_played)
@@ -48,10 +49,10 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- ============================================
--- HELPER FUNCTION: Get global doubles PAIRING ranking position
+-- HELPER FUNCTION: Get global doubles PAIRING ranking position (filtered by sport)
 -- ============================================
 
-CREATE OR REPLACE FUNCTION get_global_doubles_pairing_position(p_pairing_id TEXT, p_elo INT)
+CREATE OR REPLACE FUNCTION get_global_doubles_pairing_position(p_pairing_id TEXT, p_elo INT, p_sport_id UUID DEFAULT NULL)
 RETURNS INT AS $$
 DECLARE
     v_position INT;
@@ -61,11 +62,12 @@ BEGIN
     SELECT COALESCE(matches_played, 0) INTO v_matches_played
     FROM doubles_pairings WHERE id = p_pairing_id;
 
-    -- Count all pairings with higher Elo globally
+    -- Count all pairings with higher Elo globally - filtered by sport
     SELECT COUNT(*) + 1 INTO v_position
     FROM doubles_pairings
     WHERE id != p_pairing_id
       AND matches_played > 0  -- Only count pairings that have played
+      AND (p_sport_id IS NULL OR sport_id = p_sport_id)
       AND (
           current_elo_rating > p_elo
           OR (current_elo_rating = p_elo AND matches_played > v_matches_played)
@@ -101,11 +103,15 @@ DECLARE
     v_player1_name TEXT;
     v_player2_name TEXT;
     v_display_name TEXT;
+    v_sport_id UUID;
 BEGIN
     -- Only process if Elo actually changed
     IF OLD.current_elo_rating IS NOT DISTINCT FROM NEW.current_elo_rating THEN
         RETURN NEW;
     END IF;
+
+    -- Get the pairing's sport (rankings are per-sport)
+    v_sport_id := NEW.sport_id;
 
     -- Get player names from profiles table (more reliable than pairing names)
     SELECT COALESCE(display_name, first_name, 'Spieler 1'), is_offline
@@ -136,16 +142,18 @@ BEGIN
     -- ============================================
 
     IF NEW.club_id IS NOT NULL THEN
-        -- Count pairings in club (minimum 3 needed)
+        -- Count pairings in club for the same sport (minimum 3 needed)
         SELECT COUNT(*) INTO v_club_pairing_count
         FROM doubles_pairings
-        WHERE club_id = NEW.club_id AND matches_played > 0;
+        WHERE club_id = NEW.club_id
+          AND matches_played > 0
+          AND (v_sport_id IS NULL OR sport_id = v_sport_id);
 
         IF v_club_pairing_count >= 3 THEN
-            -- Calculate old position
-            v_old_club_position := get_club_doubles_pairing_position(NEW.id, NEW.club_id, COALESCE(OLD.current_elo_rating, 800));
-            -- Calculate new position
-            v_new_club_position := get_club_doubles_pairing_position(NEW.id, NEW.club_id, NEW.current_elo_rating);
+            -- Calculate old position - filtered by sport
+            v_old_club_position := get_club_doubles_pairing_position(NEW.id, NEW.club_id, COALESCE(OLD.current_elo_rating, 800), v_sport_id);
+            -- Calculate new position - filtered by sport
+            v_new_club_position := get_club_doubles_pairing_position(NEW.id, NEW.club_id, NEW.current_elo_rating, v_sport_id);
 
             -- Only create event for TOP 10 changes
             IF (v_old_club_position > 10 AND v_new_club_position <= 10) OR
@@ -167,7 +175,7 @@ BEGIN
                     ELSE ''
                 END;
 
-                -- Get previous holder info (if moving up)
+                -- Get previous holder info (if moving up) - filtered by sport
                 IF v_direction = 'up' AND v_new_club_position <= 10 THEN
                     SELECT
                         dp.id,
@@ -178,6 +186,7 @@ BEGIN
                     WHERE dp.club_id = NEW.club_id
                       AND dp.id != NEW.id
                       AND dp.matches_played > 0
+                      AND (v_sport_id IS NULL OR dp.sport_id = v_sport_id)
                     ORDER BY dp.current_elo_rating DESC, dp.matches_played DESC
                     OFFSET (v_new_club_position - 1)
                     LIMIT 1;
@@ -205,7 +214,8 @@ BEGIN
                             'previous_holder_name', v_old_holder_names,
                             'previous_holder_elo', v_old_holder_elo,
                             'direction', v_direction,
-                            'ranking_type', 'club_doubles_pairing'
+                            'ranking_type', 'club_doubles_pairing',
+                            'sport_id', v_sport_id
                         )
                     );
                 END IF;
@@ -232,7 +242,8 @@ BEGIN
                             'previous_holder_name', v_old_holder_names,
                             'previous_holder_elo', v_old_holder_elo,
                             'direction', v_direction,
-                            'ranking_type', 'club_doubles_pairing'
+                            'ranking_type', 'club_doubles_pairing',
+                            'sport_id', v_sport_id
                         )
                     );
                 END IF;
@@ -241,17 +252,19 @@ BEGIN
     END IF;
 
     -- ============================================
-    -- GLOBAL DOUBLES PAIRING RANKING
+    -- GLOBAL DOUBLES PAIRING RANKING - filtered by sport
     -- ============================================
 
-    -- Count global pairings (minimum 3 needed)
+    -- Count global pairings for the same sport (minimum 3 needed)
     SELECT COUNT(*) INTO v_global_pairing_count
-    FROM doubles_pairings WHERE matches_played > 0;
+    FROM doubles_pairings
+    WHERE matches_played > 0
+      AND (v_sport_id IS NULL OR sport_id = v_sport_id);
 
     IF v_global_pairing_count >= 3 THEN
-        -- Calculate positions
-        v_old_global_position := get_global_doubles_pairing_position(NEW.id, COALESCE(OLD.current_elo_rating, 800));
-        v_new_global_position := get_global_doubles_pairing_position(NEW.id, NEW.current_elo_rating);
+        -- Calculate positions - filtered by sport
+        v_old_global_position := get_global_doubles_pairing_position(NEW.id, COALESCE(OLD.current_elo_rating, 800), v_sport_id);
+        v_new_global_position := get_global_doubles_pairing_position(NEW.id, NEW.current_elo_rating, v_sport_id);
 
         -- Only create event if position changed
         IF v_old_global_position != v_new_global_position THEN
@@ -290,7 +303,8 @@ BEGIN
                         'position_medal', v_position_medal,
                         'elo_rating', NEW.current_elo_rating,
                         'direction', v_direction,
-                        'ranking_type', 'global_doubles_pairing'
+                        'ranking_type', 'global_doubles_pairing',
+                        'sport_id', v_sport_id
                     )
                 );
             END IF;
@@ -315,7 +329,8 @@ BEGIN
                         'position_medal', v_position_medal,
                         'elo_rating', NEW.current_elo_rating,
                         'direction', v_direction,
-                        'ranking_type', 'global_doubles_pairing'
+                        'ranking_type', 'global_doubles_pairing',
+                        'sport_id', v_sport_id
                     )
                 );
             END IF;

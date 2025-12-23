@@ -15,11 +15,11 @@ ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
     CHECK (event_type IN ('club_join', 'club_leave', 'rank_up', 'milestone', 'achievement', 'club_ranking_change', 'global_ranking_change'));
 
 -- ============================================
--- HELPER FUNCTION: Get club ranking position
+-- HELPER FUNCTION: Get club ranking position (filtered by sport)
 -- ============================================
 
--- Returns a player's position in their club ranking
-CREATE OR REPLACE FUNCTION get_club_ranking_position(p_player_id UUID, p_club_id UUID, p_elo INT)
+-- Returns a player's position in their club ranking for a specific sport
+CREATE OR REPLACE FUNCTION get_club_ranking_position(p_player_id UUID, p_club_id UUID, p_elo INT, p_sport_id UUID DEFAULT NULL)
 RETURNS INT AS $$
 DECLARE
     v_position INT;
@@ -29,6 +29,8 @@ BEGIN
     WHERE club_id = p_club_id
       AND role IN ('player', 'coach', 'head_coach')
       AND id != p_player_id
+      -- Filter by sport if provided
+      AND (p_sport_id IS NULL OR active_sport_id = p_sport_id)
       AND (
           COALESCE(elo_rating, 800) > p_elo
           OR (COALESCE(elo_rating, 800) = p_elo AND COALESCE(matches_played, 0) > (SELECT COALESCE(matches_played, 0) FROM profiles WHERE id = p_player_id))
@@ -39,11 +41,11 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- ============================================
--- HELPER FUNCTION: Get global ranking position
+-- HELPER FUNCTION: Get global ranking position (filtered by sport)
 -- ============================================
 
--- Returns a player's position in the global ranking (all players)
-CREATE OR REPLACE FUNCTION get_global_ranking_position(p_player_id UUID, p_elo INT)
+-- Returns a player's position in the global ranking for a specific sport
+CREATE OR REPLACE FUNCTION get_global_ranking_position(p_player_id UUID, p_elo INT, p_sport_id UUID DEFAULT NULL)
 RETURNS INT AS $$
 DECLARE
     v_position INT;
@@ -52,6 +54,8 @@ BEGIN
     FROM profiles
     WHERE role IN ('player', 'coach', 'head_coach')
       AND id != p_player_id
+      -- Filter by sport if provided
+      AND (p_sport_id IS NULL OR active_sport_id = p_sport_id)
       AND (
           COALESCE(elo_rating, 800) > p_elo
           OR (COALESCE(elo_rating, 800) = p_elo AND COALESCE(matches_played, 0) > (SELECT COALESCE(matches_played, 0) FROM profiles WHERE id = p_player_id))
@@ -78,41 +82,48 @@ DECLARE
     v_old_holder_name TEXT;
     v_old_holder_elo INT;
     v_direction TEXT;
+    v_sport_id UUID;
 BEGIN
     -- Only process if Elo actually changed
     IF OLD.elo_rating IS NOT DISTINCT FROM NEW.elo_rating THEN
         RETURN NEW;
     END IF;
 
+    -- Get the player's active sport (rankings are per-sport)
+    v_sport_id := NEW.active_sport_id;
+
     -- ============================================
     -- CLUB TOP 10 RANKING CHANGE
     -- ============================================
 
     IF NEW.club_id IS NOT NULL THEN
-        -- Count players in club (minimum 3 needed for ranking to matter)
+        -- Count players in club for the same sport (minimum 3 needed for ranking to matter)
         SELECT COUNT(*) INTO v_club_player_count
         FROM profiles
         WHERE club_id = NEW.club_id
-          AND role IN ('player', 'coach', 'head_coach');
+          AND role IN ('player', 'coach', 'head_coach')
+          AND (v_sport_id IS NULL OR active_sport_id = v_sport_id);
 
         IF v_club_player_count >= 3 THEN
-            -- Calculate old position (with old Elo)
+            -- Calculate old position (with old Elo) - filtered by sport
             SELECT COUNT(*) + 1 INTO v_old_club_position
             FROM profiles
             WHERE club_id = NEW.club_id
               AND role IN ('player', 'coach', 'head_coach')
               AND id != NEW.id
+              AND (v_sport_id IS NULL OR active_sport_id = v_sport_id)
               AND (
                   COALESCE(elo_rating, 800) > COALESCE(OLD.elo_rating, 800)
                   OR (COALESCE(elo_rating, 800) = COALESCE(OLD.elo_rating, 800) AND COALESCE(matches_played, 0) > COALESCE(NEW.matches_played, 0))
               );
 
-            -- Calculate new position (with new Elo)
+            -- Calculate new position (with new Elo) - filtered by sport
             SELECT COUNT(*) + 1 INTO v_new_club_position
             FROM profiles
             WHERE club_id = NEW.club_id
               AND role IN ('player', 'coach', 'head_coach')
               AND id != NEW.id
+              AND (v_sport_id IS NULL OR active_sport_id = v_sport_id)
               AND (
                   COALESCE(elo_rating, 800) > COALESCE(NEW.elo_rating, 800)
                   OR (COALESCE(elo_rating, 800) = COALESCE(NEW.elo_rating, 800) AND COALESCE(matches_played, 0) > COALESCE(NEW.matches_played, 0))
@@ -153,6 +164,7 @@ BEGIN
                         FROM profiles p
                         WHERE p.club_id = NEW.club_id
                           AND p.role IN ('player', 'coach', 'head_coach')
+                          AND (v_sport_id IS NULL OR p.active_sport_id = v_sport_id)
                     )
                     SELECT id, display_name, elo_rating
                     INTO v_old_holder_id, v_old_holder_name, v_old_holder_elo
@@ -177,7 +189,8 @@ BEGIN
                         'previous_holder_name', v_old_holder_name,
                         'previous_holder_elo', v_old_holder_elo,
                         'direction', v_direction,
-                        'ranking_type', 'club'
+                        'ranking_type', 'club',
+                        'sport_id', v_sport_id
                     )
                 );
             END IF;
@@ -185,24 +198,26 @@ BEGIN
     END IF;
 
     -- ============================================
-    -- GLOBAL RANKING CHANGE (for followers)
+    -- GLOBAL RANKING CHANGE (for followers) - filtered by sport
     -- ============================================
 
-    -- Calculate old global position (with old Elo)
+    -- Calculate old global position (with old Elo) - filtered by sport
     SELECT COUNT(*) + 1 INTO v_old_global_position
     FROM profiles
     WHERE role IN ('player', 'coach', 'head_coach')
       AND id != NEW.id
+      AND (v_sport_id IS NULL OR active_sport_id = v_sport_id)
       AND (
           COALESCE(elo_rating, 800) > COALESCE(OLD.elo_rating, 800)
           OR (COALESCE(elo_rating, 800) = COALESCE(OLD.elo_rating, 800) AND COALESCE(matches_played, 0) > COALESCE(NEW.matches_played, 0))
       );
 
-    -- Calculate new global position (with new Elo)
+    -- Calculate new global position (with new Elo) - filtered by sport
     SELECT COUNT(*) + 1 INTO v_new_global_position
     FROM profiles
     WHERE role IN ('player', 'coach', 'head_coach')
       AND id != NEW.id
+      AND (v_sport_id IS NULL OR active_sport_id = v_sport_id)
       AND (
           COALESCE(elo_rating, 800) > COALESCE(NEW.elo_rating, 800)
           OR (COALESCE(elo_rating, 800) = COALESCE(NEW.elo_rating, 800) AND COALESCE(matches_played, 0) > COALESCE(NEW.matches_played, 0))
@@ -240,7 +255,8 @@ BEGIN
                 'elo_rating', NEW.elo_rating,
                 'direction', v_direction,
                 'ranking_type', 'global',
-                'positions_changed', ABS(v_new_global_position - v_old_global_position)
+                'positions_changed', ABS(v_new_global_position - v_old_global_position),
+                'sport_id', v_sport_id
             )
         );
     END IF;
