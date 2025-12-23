@@ -93,9 +93,9 @@ if (document.readyState === 'loading') {
     initializeAuth();
 }
 
-// Listen for auth state changes
+// Listen for auth state changes - only redirect on explicit sign out
 onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT' || !session) {
+    if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
     }
 });

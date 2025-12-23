@@ -121,8 +121,15 @@ if (document.readyState === 'loading') {
 
 // Listen for auth state changes
 onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT' || !session) {
+    // Only redirect on explicit sign out, not on initial load or token refresh
+    // SIGNED_OUT is the only reliable indicator that user intentionally signed out
+    if (event === 'SIGNED_OUT') {
+        console.log('[Settings] User signed out, redirecting to login');
         window.location.href = '/index.html';
+    }
+    // TOKEN_REFRESHED means session is still valid
+    if (event === 'TOKEN_REFRESHED' && session) {
+        console.log('[Settings] Token refreshed, session still valid');
     }
 });
 

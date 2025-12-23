@@ -206,11 +206,11 @@ async function checkAuthState() {
 
 checkAuthState();
 
-// Listen for auth state changes
+// Listen for auth state changes - only redirect on explicit sign out
 onAuthStateChange((event, session) => {
     console.log('[ONBOARDING-SUPABASE] Auth state changed:', event);
 
-    if (event === 'SIGNED_OUT' || !session) {
+    if (event === 'SIGNED_OUT') {
         window.location.href = '/index.html';
     }
 });

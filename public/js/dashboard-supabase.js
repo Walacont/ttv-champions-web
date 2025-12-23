@@ -230,10 +230,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Push notifications not available:', e);
     }
 
-    // Listen for auth changes
+    // Listen for auth changes - only redirect on explicit sign out
     onAuthStateChange((event, session) => {
         console.log('[DASHBOARD-SUPABASE] Auth state changed:', event);
-        if (event === 'SIGNED_OUT' || !session) {
+        if (event === 'SIGNED_OUT') {
             cleanupSubscriptions();
             window.location.replace('/index.html');
         }

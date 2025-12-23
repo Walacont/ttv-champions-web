@@ -273,10 +273,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.replace('/index.html');
     }
 
-    // Listen for auth state changes (logout, etc.)
+    // Listen for auth state changes - only redirect on explicit sign out
     supabaseAuthStateChange((event, session) => {
         console.log('[COACH] Auth state changed:', event);
-        if (event === 'SIGNED_OUT' || !session) {
+        if (event === 'SIGNED_OUT') {
             window.location.replace('/index.html');
         }
     });
