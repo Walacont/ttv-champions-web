@@ -36,15 +36,6 @@
     </application>
 
     <!-- Permissions -->
+
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Push Notification Permissions -->
-    <!-- Required for Android 13+ (API 33+) to show notifications -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Optional: Vibration for notifications -->
-    <uses-permission android:name="android.permission.VIBRATE" />
-
-    <!-- Optional: Receive boot completed to reschedule notifications -->
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

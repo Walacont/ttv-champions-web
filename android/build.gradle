@@ -1,8 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    ext.kotlinVersion = '1.9.22'
-
+    
     repositories {
         google()
         mavenCentral()
@@ -10,7 +9,6 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.7.2'
         classpath 'com.google.gms:google-services:4.4.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -23,16 +21,6 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-    }
-
-    // Force consistent Kotlin version across all modules
-    configurations.all {
-        resolutionStrategy {
-            force "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion"
-            force "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlinVersion"
-        }
     }
 }
 
