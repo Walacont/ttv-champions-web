@@ -352,6 +352,11 @@ export async function showPushPermissionPrompt() {
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
+    // ONLY show push notifications on native apps (iOS/Android), NOT on web
+    if (!window.CapacitorUtils?.isNative()) {
+        return false;
+    }
+
     // Don't show if already have a token
     if (window.pushToken) return false;
 
@@ -376,19 +381,11 @@ export async function shouldShowPushPrompt() {
     }
 
     // For native apps, check if push is already enabled
-    if (window.CapacitorUtils?.isNative()) {
-        try {
-            const isEnabled = await window.CapacitorUtils.isPushEnabled();
-            if (isEnabled) return false;
-        } catch (e) {
-            // Continue to show prompt if check fails
-        }
-    }
-
-    // Check if permission was already denied or granted (web only)
-    if (!window.CapacitorUtils?.isNative() && 'Notification' in window) {
-        if (Notification.permission === 'denied') return false;
-        if (Notification.permission === 'granted') return false;
+    try {
+        const isEnabled = await window.CapacitorUtils.isPushEnabled();
+        if (isEnabled) return false;
+    } catch (e) {
+        // Continue to show prompt if check fails
     }
 
     return true;

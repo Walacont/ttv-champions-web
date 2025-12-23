@@ -28,6 +28,13 @@ const PREFERENCE_KEYS = [
 ];
 
 async function init() {
+    // Push notifications are only available on native apps (iOS/Android)
+    // Redirect to settings page if accessed on web
+    if (!window.CapacitorUtils?.isNative()) {
+        window.location.href = '/settings.html';
+        return;
+    }
+
     // Initialize i18n
     await initI18n();
     setupAutoTranslate();
