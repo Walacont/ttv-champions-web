@@ -9,6 +9,9 @@
 -- UPDATE CONSTRAINT: Add event types
 -- ============================================
 
+-- First, delete any old podium_change events that might exist
+DELETE FROM activity_events WHERE event_type = 'podium_change';
+
 -- Drop and recreate the constraint to include new event types
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
@@ -356,6 +359,5 @@ CREATE POLICY "Users can view activity events based on type and privacy"
     );
 
 -- ============================================
--- CLEANUP: Remove old podium_change events if any exist
+-- CLEANUP: Old podium_change events are now deleted at the beginning of this file
 -- ============================================
--- DELETE FROM activity_events WHERE event_type = 'podium_change';

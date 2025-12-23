@@ -10,6 +10,9 @@
 -- UPDATE CONSTRAINT: Add doubles event types
 -- ============================================
 
+-- First, delete any old podium_change events that might exist (in case this runs before podium-change-events.sql)
+DELETE FROM activity_events WHERE event_type = 'podium_change';
+
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
     CHECK (event_type IN (
