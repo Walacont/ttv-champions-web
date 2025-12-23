@@ -22,6 +22,20 @@ allprojects {
         google()
         mavenCentral()
     }
+<<<<<<< HEAD
+=======
+
+    // Force consistent Kotlin version across all modules
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+            force "org.jetbrains.kotlin:kotlin-stdlib-common:$kotlinVersion"
+        }
+        // Exclude old jdk7/jdk8 libs - they're included in kotlin-stdlib since 1.8
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+    }
+>>>>>>> 59e299d90c29197311cfc1fac3c548a613df1b52
 }
 
 task clean(type: Delete) {
