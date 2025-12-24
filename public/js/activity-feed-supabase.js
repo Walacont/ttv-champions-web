@@ -106,12 +106,21 @@ export function initActivityFeedModule(user, userData) {
                 display: none;
             }
             #pull-to-refresh {
-                transition: all 0.2s ease-out;
-                overflow: hidden;
-                max-height: 0;
+                position: fixed;
+                top: 120px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1000;
+                background: white;
+                border-radius: 9999px;
+                padding: 8px 16px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.2s ease-out;
             }
             #pull-to-refresh.visible {
-                max-height: 60px;
+                opacity: 1;
             }
             #pull-to-refresh.ready #pull-to-refresh-icon {
                 transform: rotate(180deg);
@@ -543,16 +552,15 @@ function setupPullToRefresh() {
         // Only show indicator when pulling down
         if (pullDistance > 0 && isPulling) {
             // Show the indicator
-            pullIndicator.classList.remove('hidden');
             pullIndicator.classList.add('visible');
 
             // Update text and icon based on pull distance
             if (pullDistance >= PULL_THRESHOLD) {
                 pullIndicator.classList.add('ready');
-                pullText.textContent = 'Loslassen zum Aktualisieren';
+                pullText.textContent = 'Loslassen';
             } else {
                 pullIndicator.classList.remove('ready');
-                pullText.textContent = 'Nach unten ziehen zum Aktualisieren';
+                pullText.textContent = 'Nach unten ziehen';
             }
 
             // Prevent default scrolling when pulling
@@ -573,20 +581,19 @@ function setupPullToRefresh() {
             pullIndicator.classList.remove('ready');
             pullIndicator.classList.add('refreshing');
             pullText.textContent = 'Aktualisiere...';
-            pullIcon.className = 'fas fa-spinner text-xl mr-2 transition-transform';
+            pullIcon.className = 'fas fa-spinner text-lg mr-2 transition-transform';
 
             try {
                 await loadActivityFeed();
             } finally {
                 isRefreshing = false;
                 pullIndicator.classList.remove('refreshing', 'visible');
-                pullIndicator.classList.add('hidden');
-                pullIcon.className = 'fas fa-arrow-down text-xl mr-2 transition-transform';
+                pullIcon.className = 'fas fa-arrow-down text-lg mr-2 transition-transform';
+                pullText.textContent = 'Nach unten ziehen';
             }
         } else {
             // Hide indicator without refreshing
             pullIndicator.classList.remove('visible', 'ready');
-            pullIndicator.classList.add('hidden');
         }
 
         // Reset state
