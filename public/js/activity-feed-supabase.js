@@ -702,6 +702,9 @@ export async function loadActivityFeed() {
         // Load match media for all rendered matches
         loadMatchMediaForActivities(activities);
 
+        // Load comment counts for matches (after rendering so DOM exists)
+        loadCommentCountsForMatches(activities);
+
         // Update offset for next load
         activityOffset += activities.length;
         hasMoreActivities = activities.length >= ACTIVITIES_PER_PAGE;
@@ -1010,9 +1013,6 @@ async function fetchActivities(userIds) {
     // Load likes data
     await loadLikesForActivities(activities);
 
-    // Load comment counts for matches (they don't have comments_count column)
-    await loadCommentCountsForMatches(activities);
-
     // Get following IDs for context icons
     let followingIds = [];
     if (currentFilter !== 'my-activities') {
@@ -1058,6 +1058,9 @@ async function loadMoreActivities() {
 
             // Load match media for newly rendered matches
             loadMatchMediaForActivities(activities);
+
+            // Load comment counts for matches
+            loadCommentCountsForMatches(activities);
         }
 
         activityOffset += activities.length;
