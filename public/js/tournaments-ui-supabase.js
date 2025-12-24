@@ -59,6 +59,13 @@ export async function initTournamentsUI(userId, clubId, sportId) {
     // Set up event listeners
     setupEventListeners();
 
+    // Set initial active tab
+    const openTab = document.getElementById('tournament-tab-open');
+    if (openTab) {
+        openTab.classList.remove('text-gray-400', 'border-transparent');
+        openTab.classList.add('text-orange-600', 'border-orange-600');
+    }
+
     // Load initial tournaments
     await loadTournaments();
 
@@ -69,18 +76,6 @@ export async function initTournamentsUI(userId, clubId, sportId) {
  * Setup all event listeners
  */
 function setupEventListeners() {
-    // Toggle tournaments section
-    const toggleBtn = document.getElementById('toggle-tournaments');
-    const content = document.getElementById('tournaments-content');
-    const chevron = document.getElementById('tournaments-chevron');
-
-    if (toggleBtn && content) {
-        toggleBtn.addEventListener('click', () => {
-            content.classList.toggle('hidden');
-            chevron?.classList.toggle('rotate-180');
-        });
-    }
-
     // Create tournament button
     document.getElementById('create-tournament-btn')?.addEventListener('click', () => {
         openCreateTournamentModal();
@@ -119,21 +114,21 @@ function setupEventListeners() {
 }
 
 /**
- * Switch tournament filter tab
+ * Switch tournament filter tab (Strava Style)
  */
 async function switchTab(filter) {
     currentFilter = filter;
 
-    // Update tab styles
+    // Update tab styles - Strava style with orange underline
     document.querySelectorAll('.tournament-tab-btn').forEach(btn => {
-        btn.classList.remove('active', 'text-amber-600', 'border-b-2', 'border-amber-600');
-        btn.classList.add('text-gray-500', 'hover:text-gray-700');
+        btn.classList.remove('text-orange-600', 'border-orange-600');
+        btn.classList.add('text-gray-400', 'border-transparent');
     });
 
     const activeTab = document.getElementById(`tournament-tab-${filter}`);
     if (activeTab) {
-        activeTab.classList.remove('text-gray-500', 'hover:text-gray-700');
-        activeTab.classList.add('active', 'text-amber-600', 'border-b-2', 'border-amber-600');
+        activeTab.classList.remove('text-gray-400', 'border-transparent');
+        activeTab.classList.add('text-orange-600', 'border-orange-600');
     }
 
     // Reload tournaments
