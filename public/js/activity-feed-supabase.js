@@ -644,13 +644,16 @@ export async function loadActivityFeed() {
     hasMoreActivities = false;  // Disable infinite scroll during load
     followingIdsCache = null;   // Clear old cache
 
-    // Show loading
-    container.innerHTML = `
-        <div class="p-6 text-center text-gray-400">
-            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-            <p class="text-sm">${t('dashboard.activityFeed.loading')}</p>
-        </div>
-    `;
+    // Only show loading indicator if NOT triggered by pull-to-refresh
+    // (pull-to-refresh has its own indicator)
+    if (!isRefreshing) {
+        container.innerHTML = `
+            <div class="p-6 text-center text-gray-400">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <p class="text-sm">${t('dashboard.activityFeed.loading')}</p>
+            </div>
+        `;
+    }
 
     try {
         // Get user IDs based on filter
