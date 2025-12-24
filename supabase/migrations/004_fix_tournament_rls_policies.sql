@@ -1,7 +1,26 @@
 -- ============================================
 -- FIX TOURNAMENT RLS POLICIES - Migration 004
--- Drop and recreate policies with correct role field
+-- Add is_club_only field and recreate policies
 -- ============================================
+
+-- Add is_club_only field if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'tournaments'
+        AND column_name = 'is_club_only'
+    ) THEN
+        ALTER TABLE tournaments ADD COLUMN is_club_only BOOLEAN DEFAULT false;
+        COMMENT ON COLUMN tournaments.is_club_only IS 'true = nur Vereinsmitglieder können sehen/beitreten, false = global sichtbar';
+    END IF;
+END $$;
+
+-- Enable RLS on all tournament tables
+ALTER TABLE tournaments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tournament_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tournament_matches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tournament_standings ENABLE ROW LEVEL SECURITY;
 
 -- Drop all existing tournament policies
 DROP POLICY IF EXISTS "Users can view tournaments" ON tournaments;
