@@ -212,18 +212,25 @@
                     const data = action?.notification?.data;
 
                     // Handle navigation based on notification type
-                    if (data?.type === 'match_request') {
-                        window.location.href = '/dashboard.html#matches';
-                    } else if (data?.type === 'doubles_match_request') {
-                        window.location.href = '/dashboard.html#matches';
+                    // Always redirect to player dashboard (not coach dashboard)
+                    if (data?.type === 'match_request' || data?.type === 'doubles_match_request') {
+                        // Navigate to dashboard, matches tab, scroll to pending requests
+                        window.location.href = '/dashboard.html?tab=matches&scrollTo=pending-requests-section';
                     } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
                         if (data?.requester_id) {
                             window.location.href = `/profile.html?id=${data.requester_id}`;
+                        } else {
+                            // Fallback: go to dashboard overview with friend requests
+                            window.location.href = '/dashboard.html?scrollTo=pending-follow-requests-section';
                         }
                     } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
-                        window.location.href = '/coach.html#club';
+                        // Club requests still go to coach dashboard
+                        window.location.href = '/coach.html?tab=club&scrollTo=club-join-requests-list';
                     } else if (data?.url) {
                         window.location.href = data.url;
+                    } else {
+                        // Default: go to dashboard matches tab
+                        window.location.href = '/dashboard.html?tab=matches';
                     }
                 });
             } catch (e) {
