@@ -1774,6 +1774,29 @@
                         </div>
                     </div>
 
+                    <!-- Visibility -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <span data-i18n="tournaments.modal.create.visibility">Sichtbarkeit</span> <span class="text-red-500">*</span>
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="tournament-visibility" value="global" checked class="w-4 h-4 text-indigo-600" />
+                                <div>
+                                    <div class="font-medium text-gray-800"><span data-i18n="tournaments.modal.create.visibilityGlobal">Global</span></div>
+                                    <div class="text-xs text-gray-600"><span data-i18n="tournaments.modal.create.visibilityGlobalDesc">Alle Spieler können das Turnier sehen</span></div>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-2 p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="tournament-visibility" value="club" class="w-4 h-4 text-indigo-600" />
+                                <div>
+                                    <div class="font-medium text-gray-800"><span data-i18n="tournaments.modal.create.visibilityClub">Nur Vereinsintern</span></div>
+                                    <div class="text-xs text-gray-600"><span data-i18n="tournaments.modal.create.visibilityClubDesc">Nur Vereinsmitglieder können sehen</span></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- Handicap -->
                     <div>
                         <label class="flex items-center gap-2 cursor-pointer">

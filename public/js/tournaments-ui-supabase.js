@@ -666,6 +666,8 @@ async function handleCreateTournament() {
     const maxParticipants = parseInt(document.getElementById('tournament-max-participants')?.value || '8');
     const accessType = document.querySelector('input[name="tournament-access"]:checked')?.value;
     const isOpen = accessType === 'open';
+    const visibilityType = document.querySelector('input[name="tournament-visibility"]:checked')?.value;
+    const isClubOnly = visibilityType === 'club';
     const withHandicap = document.getElementById('tournament-handicap')?.checked || false;
 
     try {
@@ -675,6 +677,7 @@ async function handleCreateTournament() {
             format,
             maxParticipants,
             isOpen,
+            isClubOnly,
             withHandicap
         });
 
