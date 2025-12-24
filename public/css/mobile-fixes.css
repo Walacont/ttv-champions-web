@@ -118,6 +118,20 @@ html.plt-ios #notification-modal > div {
     max-height: calc(100vh - 150px) !important;
 }
 
+/* PWA Standalone mode - notification modal fix */
+@media all and (display-mode: standalone) {
+    #notification-modal {
+        z-index: 99999 !important;
+        padding-top: calc(env(safe-area-inset-top, 20px) + 60px) !important;
+        padding-bottom: calc(env(safe-area-inset-bottom, 20px) + 80px) !important;
+    }
+
+    #notification-modal > div {
+        max-height: calc(100vh - env(safe-area-inset-top, 20px) - env(safe-area-inset-bottom, 20px) - 160px) !important;
+        margin-bottom: auto !important;
+    }
+}
+
 /* ============================================
    COACH DASHBOARD TOP SPACING FIX
    Reduce top padding on mobile native apps
