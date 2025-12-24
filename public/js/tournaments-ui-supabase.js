@@ -223,7 +223,7 @@ function renderTournamentCard(tournament) {
                     ${tournament.with_handicap ? '<i class="fas fa-balance-scale text-blue-500" title="Mit Handicap"></i>' : ''}
                 </div>
                 <div class="w-24 bg-gray-200 rounded-full h-2">
-                    <div class="bg-amber-500 h-2 rounded-full" style="width: ${percentFull}%"></div>
+                    <div class="bg-indigo-600 h-2 rounded-full" style="width: ${percentFull}%"></div>
                 </div>
             </div>
         </div>
@@ -369,7 +369,7 @@ function renderTournamentDetails(tournament, participating) {
                     ${!tournament.is_open && tournament.join_code ? `
                     <div>
                         <span class="text-gray-600">Einladungscode:</span>
-                        <span class="font-mono font-bold ml-2 text-amber-600">${tournament.join_code}</span>
+                        <span class="font-mono font-bold ml-2 text-indigo-600">${tournament.join_code}</span>
                     </div>
                     ` : ''}
                 </div>
@@ -432,7 +432,7 @@ function renderActionButtons(tournament, participating) {
 
         if (isCreator && tournament.participant_count >= 2) {
             buttons.push(`
-                <button id="start-tournament-btn" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded-lg font-medium">
+                <button id="start-tournament-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium">
                     <i class="fas fa-play mr-2"></i>Turnier starten
                 </button>
             `);
