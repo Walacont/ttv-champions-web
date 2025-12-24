@@ -742,17 +742,48 @@ async function submitMatchRequest(callbacks = {}) {
 
         if (error) throw error;
 
-        // Notify opponent with request_id for direct accept/decline
+        // Notify opponent with request_id and match details
         const playerName = `${currentUserData.first_name || ''} ${currentUserData.last_name || ''}`.trim() || 'Ein Spieler';
+        const opponentName = selectedOpponent.displayName || selectedOpponent.display_name ||
+            `${selectedOpponent.firstName || selectedOpponent.first_name || ''} ${selectedOpponent.lastName || selectedOpponent.last_name || ''}`.trim() || 'du';
+
+        // Build set score string (e.g., "11:7, 9:11, 11:5")
+        const setsString = sets.map(s => `${s.playerA}:${s.playerB}`).join(', ');
+
+        // Determine winner from opponent's perspective
+        // validation.winnerId is 'A' (requester) or 'B' (opponent/receiver)
+        const opponentWon = validation.winnerId === 'B';
+        const setScore = `${validation.playerAWins}:${validation.playerBWins}`;
+
+        // Build notification message
+        let notificationBody;
+        if (opponentWon) {
+            // Opponent (receiver) won
+            notificationBody = `${playerName} trägt ein: Du hast ${setScore} gewonnen (${setsString})`;
+        } else {
+            // Requester won
+            notificationBody = `${playerName} trägt ein: ${playerName} hat ${setScore} gewonnen (${setsString})`;
+        }
+
+        // Add handicap info if used
+        if (handicapUsed) {
+            notificationBody += ' [Handicap]';
+        }
+
         await createNotification(
             selectedOpponent.id,
             'match_request',
             'Neue Spielanfrage',
-            `${playerName} möchte ein Spiel mit dir eintragen. Bitte bestätige das Ergebnis.`,
+            notificationBody,
             {
                 request_id: insertedRequest?.id,
                 requester_id: currentUser.id,
-                requester_name: playerName
+                requester_name: playerName,
+                winner_id: winnerId,
+                loser_id: loserId,
+                sets: JSON.stringify(sets),
+                set_score: setScore,
+                handicap_used: handicapUsed ? 'true' : 'false'
             }
         );
 
