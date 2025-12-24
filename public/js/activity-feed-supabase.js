@@ -1255,7 +1255,7 @@ async function loadCommentCountsForMatches(activities) {
                 const key = `${item.activity_type}-${item.activity_id}`;
                 const countEl = document.querySelector(`[data-comment-count="${key}"]`);
                 if (countEl) {
-                    countEl.textContent = item.comment_count > 0 ? item.comment_count : '';
+                    countEl.textContent = item.comment_count || 0;
                 }
             });
             return;
@@ -1275,7 +1275,7 @@ async function loadCommentCountsForMatches(activities) {
 
             const countEl = document.querySelector(`[data-comment-count="${key}"]`);
             if (countEl) {
-                countEl.textContent = count > 0 ? count : '';
+                countEl.textContent = count || 0;
             }
         }
     } catch (error) {
@@ -1443,7 +1443,7 @@ function renderLikeButton(matchId, matchType, activity = null) {
                 title="Likes anzeigen"
             >
                 <i class="far fa-thumbs-up"></i>
-                <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>
+                <span data-like-count="${key}" class="text-xs font-medium">${count || 0}</span>
             </button>
         `;
     }
@@ -1460,7 +1460,7 @@ function renderLikeButton(matchId, matchType, activity = null) {
             title="${t('dashboard.activityFeed.giveKudos')}"
         >
             <i class="${iconClass} fa-thumbs-up"></i>
-            <span data-like-count="${key}" class="text-xs font-medium">${count > 0 ? count : ''}</span>
+            <span data-like-count="${key}" class="text-xs font-medium">${count || 0}</span>
         </button>
     `;
 }
@@ -1489,7 +1489,7 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
                 title="Likes anzeigen"
             >
                 <i class="${isLiked ? 'fas' : 'far'} fa-thumbs-up"></i>
-                <span class="text-sm" data-like-count="${key}">${displayCount > 0 ? displayCount : ''}</span>
+                <span class="text-sm" data-like-count="${key}">${displayCount || 0}</span>
             </button>
         `;
     }
@@ -1503,7 +1503,7 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
             title="${t('dashboard.activityFeed.giveKudos')}"
         >
             <i class="${isLiked ? 'fas' : 'far'} fa-thumbs-up"></i>
-            <span class="text-sm" data-like-count="${key}">${displayCount > 0 ? displayCount : ''}</span>
+            <span class="text-sm" data-like-count="${key}">${displayCount || 0}</span>
         </button>
     `;
 }
@@ -1869,7 +1869,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                         title="Kommentieren"
                     >
                         <i class="far fa-comment"></i>
-                        <span data-comment-count="singles_match-${match.id}" class="text-xs font-medium"></span>
+                        <span data-comment-count="singles_match-${match.id}" class="text-xs font-medium">0</span>
                     </button>
                 </div>
                 <button onclick="showMatchDetails('${match.id}', 'singles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
@@ -2046,7 +2046,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                         title="Kommentieren"
                     >
                         <i class="far fa-comment"></i>
-                        <span data-comment-count="doubles_match-${match.id}" class="text-xs font-medium"></span>
+                        <span data-comment-count="doubles_match-${match.id}" class="text-xs font-medium">0</span>
                     </button>
                 </div>
                 <button onclick="showMatchDetails('${match.id}', 'doubles')" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1">
