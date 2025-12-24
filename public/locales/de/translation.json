@@ -405,6 +405,18 @@
         "matchTiebreak": "Match Tie-Break statt 3. Satz (bis 10 Punkte)"
       }
     },
+    "tournaments": {
+      "title": "Turniere",
+      "description": "Erstelle oder tritt Turnieren bei",
+      "create": "Turnier erstellen",
+      "joinWithCode": "Mit Code beitreten",
+      "loading": "Lade Turniere...",
+      "tabs": {
+        "open": "Offen",
+        "my": "Meine Turniere",
+        "completed": "Abgeschlossen"
+      }
+    },
     "leaderboard": {
       "title": "Rangliste",
       "seasonEnd": "Saison-Ende",
@@ -951,6 +963,38 @@
       "list": "Spielerliste",
       "statistics": "Statistiken",
       "manage": "Verwalten"
+    }
+  },
+  "tournaments": {
+    "title": "Turniere",
+    "create": "Turnier erstellen",
+    "join": "Beitreten",
+    "leave": "Verlassen",
+    "start": "Starten",
+    "participants": "Teilnehmer",
+    "standings": "Tabelle",
+    "matches": "Spiele",
+    "modal": {
+      "create": {
+        "title": "Turnier erstellen",
+        "name": "Turniername",
+        "description": "Beschreibung",
+        "format": "Modus",
+        "maxParticipants": "Maximale Teilnehmerzahl",
+        "access": "Zugang",
+        "accessOpen": "Offen",
+        "accessOpenDesc": "Jeder kann beitreten",
+        "accessInvite": "Nur mit Einladung",
+        "accessInviteDesc": "Ein Code wird generiert",
+        "withHandicap": "Mit Handicap",
+        "submit": "Erstellen"
+      },
+      "join": {
+        "title": "Turnier beitreten",
+        "description": "Gib den 6-stelligen Einladungscode ein, um einem privaten Turnier beizutreten.",
+        "code": "Einladungscode",
+        "submit": "Beitreten"
+      }
     }
   }
 }

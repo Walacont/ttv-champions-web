@@ -20,6 +20,7 @@ import { initPlayerEvents } from './player-events-supabase.js';
 import { initComments } from './activity-comments.js';
 import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
+import { initTournamentsUI } from './tournaments-ui-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -375,6 +376,13 @@ async function initializeDashboard() {
 
     // Initialize match media module
     initMatchMedia(currentUserData);
+
+    // Initialize tournaments module
+    const sportId = currentSportContext?.sportId || currentUserData.sport_id;
+    const clubId = currentSportContext?.clubId || currentUserData.club_id;
+    if (sportId && clubId) {
+        initTournamentsUI(currentUser.id, clubId, sportId);
+    }
 
     // Load match history (after module initialization)
     loadMatchHistory();
