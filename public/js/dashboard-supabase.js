@@ -3003,31 +3003,39 @@ window.openChallengeModal = async (challengeId) => {
 const processingRequests = new Set();
 
 // Helper function to optimistically remove a request card from UI
+// Cards can appear in multiple locations (overview and matches tab), so we check all possible IDs
 function removeRequestCardOptimistically(requestId, type = 'singles') {
-    const cardId = type === 'doubles' ? `doubles-request-${requestId}` : `match-request-${requestId}`;
-    const card = document.getElementById(cardId);
-    if (card) {
-        // Add fade-out animation
-        card.style.opacity = '0.5';
-        card.style.pointerEvents = 'none';
-        // Disable all buttons in the card
-        card.querySelectorAll('button').forEach(btn => {
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-        });
-        // Remove after animation
-        setTimeout(() => {
-            card.style.height = card.offsetHeight + 'px';
-            card.style.overflow = 'hidden';
+    // Possible card IDs for singles: match-request-X (overview) and pending-match-request-X (matches tab)
+    // Possible card IDs for doubles: doubles-request-X (overview) and pending-doubles-request-X (matches tab)
+    const cardIds = type === 'doubles'
+        ? [`doubles-request-${requestId}`, `pending-doubles-request-${requestId}`]
+        : [`match-request-${requestId}`, `pending-match-request-${requestId}`];
+
+    cardIds.forEach(cardId => {
+        const card = document.getElementById(cardId);
+        if (card) {
+            // Add fade-out animation
+            card.style.opacity = '0.5';
+            card.style.pointerEvents = 'none';
+            // Disable all buttons in the card
+            card.querySelectorAll('button').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            });
+            // Remove after animation
             setTimeout(() => {
-                card.style.height = '0';
-                card.style.padding = '0';
-                card.style.margin = '0';
-                card.style.border = 'none';
-                setTimeout(() => card.remove(), 300);
-            }, 50);
-        }, 200);
-    }
+                card.style.height = card.offsetHeight + 'px';
+                card.style.overflow = 'hidden';
+                setTimeout(() => {
+                    card.style.height = '0';
+                    card.style.padding = '0';
+                    card.style.margin = '0';
+                    card.style.border = 'none';
+                    setTimeout(() => card.remove(), 300);
+                }, 50);
+            }, 200);
+        }
+    });
 }
 
 window.respondToMatchRequest = async (requestId, accept) => {
@@ -3484,7 +3492,7 @@ function renderPendingSinglesCard(req, profileMap, clubMap) {
     const needsResponse = !isPlayerA && req.status === 'pending_player';
 
     return `
-        <div class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3">
+        <div id="pending-match-request-${req.id}" class="bg-white border ${needsResponse ? 'border-indigo-300' : 'border-gray-200'} rounded-lg p-4 shadow-sm mb-3 transition-all duration-300">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-3">
                     <img src="${otherPlayer?.avatar_url || DEFAULT_AVATAR}" class="w-10 h-10 rounded-full" onerror="this.src='${DEFAULT_AVATAR}'">
@@ -3563,7 +3571,7 @@ function renderPendingDoublesCard(req, profileMap) {
     const needsResponse = !isTeamA && req.status === 'pending_opponent';
 
     return `
-        <div class="bg-white border ${needsResponse ? 'border-purple-300' : 'border-purple-200'} rounded-lg p-4 shadow-sm mb-3">
+        <div id="pending-doubles-request-${req.id}" class="bg-white border ${needsResponse ? 'border-purple-300' : 'border-purple-200'} rounded-lg p-4 shadow-sm mb-3 transition-all duration-300">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
