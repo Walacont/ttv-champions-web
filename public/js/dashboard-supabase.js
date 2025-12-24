@@ -531,12 +531,53 @@ function initializeTabSystem() {
             });
         });
 
-        // Activate first tab
-        const firstButton = bottomNav.querySelector('.bottom-tab-button');
-        if (firstButton) {
-            const tabId = firstButton.dataset.tab;
-            const tabTitle = firstButton.dataset.title || 'Start';
-            window.switchToTab(tabId, tabTitle);
+        // Check URL parameters for tab and scrollTo (from push notifications)
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestedTab = urlParams.get('tab');
+        const scrollToId = urlParams.get('scrollTo');
+
+        if (requestedTab) {
+            // Find the button for the requested tab
+            const targetButton = bottomNav.querySelector(`.bottom-tab-button[data-tab="${requestedTab}"]`);
+            if (targetButton) {
+                const tabTitle = targetButton.dataset.title || requestedTab;
+                console.log('[TABS] Switching to requested tab from URL:', requestedTab);
+                window.switchToTab(requestedTab, tabTitle);
+
+                // Clean up URL parameters after processing
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, '', newUrl);
+
+                // Scroll to element after a delay to ensure content is loaded
+                if (scrollToId) {
+                    setTimeout(() => {
+                        const scrollTarget = document.getElementById(scrollToId);
+                        if (scrollTarget) {
+                            console.log('[TABS] Scrolling to element:', scrollToId);
+                            scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // Highlight the element briefly
+                            scrollTarget.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2');
+                            setTimeout(() => {
+                                scrollTarget.classList.remove('ring-2', 'ring-indigo-500', 'ring-offset-2');
+                            }, 2000);
+                        }
+                    }, 500);
+                }
+            } else {
+                // Fallback to first tab if requested tab not found
+                const firstButton = bottomNav.querySelector('.bottom-tab-button');
+                if (firstButton) {
+                    window.switchToTab(firstButton.dataset.tab, firstButton.dataset.title || 'Start');
+                }
+            }
+        } else {
+            // No tab parameter, activate first tab
+            const firstButton = bottomNav.querySelector('.bottom-tab-button');
+            if (firstButton) {
+                const tabId = firstButton.dataset.tab;
+                const tabTitle = firstButton.dataset.title || 'Start';
+                window.switchToTab(tabId, tabTitle);
+            }
         }
     } else {
         console.error('[TABS] Bottom nav not found! Retrying in 100ms...');
