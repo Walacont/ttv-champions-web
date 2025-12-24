@@ -19,8 +19,15 @@
         return;
     }
 
-    // Get Capacitor plugins from the global Capacitor object
-    const Plugins = window.Capacitor.Plugins;
+    // Helper function to get plugins safely
+    function getPlugins() {
+        try {
+            return window.Capacitor?.Plugins || {};
+        } catch (e) {
+            console.error('[Capacitor] Error accessing plugins:', e);
+            return {};
+        }
+    }
 
     // Wait for Capacitor plugins to be ready
     document.addEventListener('DOMContentLoaded', async () => {
@@ -32,6 +39,7 @@
     });
 
     async function initializeNativeFeatures() {
+        const Plugins = getPlugins();
         const { SplashScreen, StatusBar, App, Keyboard } = Plugins;
 
         // Configure Status Bar
@@ -65,35 +73,43 @@
 
         // Handle app state changes
         if (App) {
-            App.addListener('appStateChange', ({ isActive }) => {
-                console.log('[Capacitor] App state changed, active:', isActive);
-                if (isActive) {
-                    // App came to foreground - refresh data if needed
-                    window.dispatchEvent(new CustomEvent('app-resumed'));
-                }
-            });
-
-            // Handle back button (Android)
-            App.addListener('backButton', ({ canGoBack }) => {
-                if (canGoBack) {
-                    window.history.back();
-                } else {
-                    // Ask user if they want to exit
-                    if (confirm('App beenden?')) {
-                        App.exitApp();
+            try {
+                App.addListener('appStateChange', ({ isActive }) => {
+                    console.log('[Capacitor] App state changed, active:', isActive);
+                    if (isActive) {
+                        // App came to foreground - refresh data if needed
+                        window.dispatchEvent(new CustomEvent('app-resumed'));
                     }
-                }
-            });
+                });
 
-            // Handle deep links
-            App.addListener('appUrlOpen', (event) => {
-                console.log('[Capacitor] Deep link opened:', event.url);
-                const url = new URL(event.url);
-                // Handle the deep link - navigate to the appropriate page
-                if (url.pathname) {
-                    window.location.href = url.pathname;
-                }
-            });
+                // Handle back button (Android)
+                App.addListener('backButton', ({ canGoBack }) => {
+                    if (canGoBack) {
+                        window.history.back();
+                    } else {
+                        // Ask user if they want to exit
+                        if (confirm('App beenden?')) {
+                            App.exitApp();
+                        }
+                    }
+                });
+
+                // Handle deep links
+                App.addListener('appUrlOpen', (event) => {
+                    console.log('[Capacitor] Deep link opened:', event.url);
+                    try {
+                        const url = new URL(event.url);
+                        // Handle the deep link - navigate to the appropriate page
+                        if (url.pathname) {
+                            window.location.href = url.pathname;
+                        }
+                    } catch (e) {
+                        console.error('[Capacitor] Error parsing deep link:', e);
+                    }
+                });
+            } catch (e) {
+                console.log('[Capacitor] App plugin error:', e.message);
+            }
         }
 
         // Hide splash screen after content is ready
@@ -110,8 +126,12 @@
             }, 500);
         }
 
-        // Initialize Push Notifications
-        await initializePushNotifications();
+        // Initialize Push Notifications (delayed to ensure everything is ready)
+        setTimeout(() => {
+            initializePushNotifications().catch(e => {
+                console.error('[Push] Failed to initialize:', e);
+            });
+        }, 1000);
     }
 
     /**
@@ -120,10 +140,11 @@
     async function initializePushNotifications() {
         console.log('[Push] Initializing push notifications...');
 
+        const Plugins = getPlugins();
         const PushNotifications = Plugins.PushNotifications;
 
         if (!PushNotifications) {
-            console.error('[Push] PushNotifications plugin not available');
+            console.log('[Push] PushNotifications plugin not available');
             return;
         }
 
@@ -131,57 +152,88 @@
             console.log('[Push] PushNotifications plugin loaded');
 
             // Check current permission status
-            const permStatus = await PushNotifications.checkPermissions();
-            console.log('[Push] Initial permission status:', JSON.stringify(permStatus));
+            let permStatus;
+            try {
+                permStatus = await PushNotifications.checkPermissions();
+                console.log('[Push] Initial permission status:', JSON.stringify(permStatus));
+            } catch (e) {
+                console.error('[Push] Error checking permissions:', e);
+                return;
+            }
 
             // Listen for registration success
-            await PushNotifications.addListener('registration', async (token) => {
-                console.log('[Push] Registration successful!');
-                console.log('[Push] Token received:', token.value ? token.value.substring(0, 30) + '...' : 'empty');
-                // Store token for later use - will be saved to Supabase when user logs in
-                window.pushToken = token.value;
-                window.dispatchEvent(new CustomEvent('push-token-received', { detail: { token: token.value } }));
-            });
+            try {
+                await PushNotifications.addListener('registration', (token) => {
+                    console.log('[Push] Registration successful!');
+                    const tokenValue = token?.value || '';
+                    console.log('[Push] Token received:', tokenValue ? tokenValue.substring(0, 30) + '...' : 'empty');
+                    // Store token for later use - will be saved to Supabase when user logs in
+                    window.pushToken = tokenValue;
+                    try {
+                        window.dispatchEvent(new CustomEvent('push-token-received', { detail: { token: tokenValue } }));
+                    } catch (e) {
+                        console.error('[Push] Error dispatching token event:', e);
+                    }
+                });
+            } catch (e) {
+                console.error('[Push] Error adding registration listener:', e);
+            }
 
             // Listen for registration errors
-            await PushNotifications.addListener('registrationError', (error) => {
-                console.error('[Push] Registration error:', JSON.stringify(error));
-            });
+            try {
+                await PushNotifications.addListener('registrationError', (error) => {
+                    console.error('[Push] Registration error:', JSON.stringify(error));
+                });
+            } catch (e) {
+                console.error('[Push] Error adding registrationError listener:', e);
+            }
 
             // Listen for push notifications received while app is in foreground
-            await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-                console.log('[Push] Notification received in foreground:', JSON.stringify(notification));
-                // Show in-app notification toast
-                window.dispatchEvent(new CustomEvent('push-notification-received', {
-                    detail: notification
-                }));
-            });
+            try {
+                await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                    console.log('[Push] Notification received in foreground:', JSON.stringify(notification));
+                    // Show in-app notification toast
+                    try {
+                        window.dispatchEvent(new CustomEvent('push-notification-received', {
+                            detail: notification
+                        }));
+                    } catch (e) {
+                        console.error('[Push] Error dispatching notification event:', e);
+                    }
+                });
+            } catch (e) {
+                console.error('[Push] Error adding pushNotificationReceived listener:', e);
+            }
 
             // Listen for notification actions (when user taps on notification)
-            await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-                console.log('[Push] Notification action performed:', JSON.stringify(action));
-                const data = action.notification.data;
+            try {
+                await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+                    console.log('[Push] Notification action performed:', JSON.stringify(action));
+                    const data = action?.notification?.data;
 
-                // Handle navigation based on notification type
-                if (data?.type === 'match_request') {
-                    window.location.href = '/dashboard.html#matches';
-                } else if (data?.type === 'doubles_match_request') {
-                    window.location.href = '/dashboard.html#matches';
-                } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
-                    if (data?.requester_id) {
-                        window.location.href = `/profile.html?id=${data.requester_id}`;
+                    // Handle navigation based on notification type
+                    if (data?.type === 'match_request') {
+                        window.location.href = '/dashboard.html#matches';
+                    } else if (data?.type === 'doubles_match_request') {
+                        window.location.href = '/dashboard.html#matches';
+                    } else if (data?.type === 'follow_request' || data?.type === 'friend_request') {
+                        if (data?.requester_id) {
+                            window.location.href = `/profile.html?id=${data.requester_id}`;
+                        }
+                    } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
+                        window.location.href = '/coach.html#club';
+                    } else if (data?.url) {
+                        window.location.href = data.url;
                     }
-                } else if (data?.type === 'club_join_request' || data?.type === 'club_leave_request') {
-                    window.location.href = '/coach.html#club';
-                } else if (data?.url) {
-                    window.location.href = data.url;
-                }
-            });
+                });
+            } catch (e) {
+                console.error('[Push] Error adding pushNotificationActionPerformed listener:', e);
+            }
 
             console.log('[Push] All listeners registered');
 
             // If permission is already granted, register immediately to get token
-            if (permStatus.receive === 'granted') {
+            if (permStatus && permStatus.receive === 'granted') {
                 console.log('[Push] Permission already granted, registering to get token...');
                 try {
                     await PushNotifications.register();
@@ -190,13 +242,12 @@
                     console.error('[Push] Registration failed:', regError);
                 }
             } else {
-                console.log('[Push] Permission not yet granted, status:', permStatus.receive);
+                console.log('[Push] Permission not yet granted, status:', permStatus?.receive);
             }
 
             console.log('[Push] Push notifications initialized successfully');
         } catch (e) {
-            console.error('[Push] Push notifications initialization failed:', e.message);
-            console.error('[Push] Error stack:', e.stack);
+            console.error('[Push] Push notifications initialization failed:', e);
         }
     }
 
@@ -214,6 +265,7 @@
                 return await requestWebPushPermission();
             }
 
+            const Plugins = getPlugins();
             const PushNotifications = Plugins.PushNotifications;
 
             if (!PushNotifications) {
@@ -251,7 +303,6 @@
                 return false;
             } catch (e) {
                 console.error('[Push] Error requesting permission:', e);
-                console.error('[Push] Error details:', e.message, e.stack);
                 return false;
             }
         },
@@ -267,6 +318,7 @@
                 return 'Notification' in window && Notification.permission === 'granted';
             }
 
+            const Plugins = getPlugins();
             const PushNotifications = Plugins.PushNotifications;
             if (!PushNotifications) return false;
 
@@ -282,6 +334,7 @@
         async vibrate(style = 'medium') {
             if (!isCapacitor) return;
 
+            const Plugins = getPlugins();
             const Haptics = Plugins.Haptics;
             if (!Haptics) return;
 
@@ -305,6 +358,7 @@
                 return;
             }
 
+            const Plugins = getPlugins();
             const Preferences = Plugins.Preferences;
             if (!Preferences) {
                 localStorage.setItem(key, JSON.stringify(value));
@@ -324,6 +378,7 @@
                 return item ? JSON.parse(item) : null;
             }
 
+            const Plugins = getPlugins();
             const Preferences = Plugins.Preferences;
             if (!Preferences) {
                 const item = localStorage.getItem(key);
