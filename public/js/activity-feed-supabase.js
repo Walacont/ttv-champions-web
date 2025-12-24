@@ -26,6 +26,13 @@ let followedClubsCache = null;
 let currentFilter = 'all'; // 'all', 'following', 'my-activities', or club id
 const ACTIVITIES_PER_PAGE = 8;
 
+// Pull to refresh state
+let pullToRefreshStartY = 0;
+let pullToRefreshEnabled = false;
+let isPulling = false;
+let isRefreshing = false;
+const PULL_THRESHOLD = 80; // pixels to pull before triggering refresh
+
 /**
  * Update carousel counter on scroll
  */
@@ -86,7 +93,7 @@ export function initActivityFeedModule(user, userData) {
     currentUserData = userData;
     activityOffset = 0;
 
-    // Inject CSS for hidden scrollbar
+    // Inject CSS for hidden scrollbar and pull-to-refresh
     if (!document.getElementById('activity-feed-styles')) {
         const style = document.createElement('style');
         style.id = 'activity-feed-styles';
@@ -97,6 +104,24 @@ export function initActivityFeedModule(user, userData) {
             }
             .scrollbar-hide::-webkit-scrollbar {
                 display: none;
+            }
+            #pull-to-refresh {
+                transition: all 0.2s ease-out;
+                overflow: hidden;
+                max-height: 0;
+            }
+            #pull-to-refresh.visible {
+                max-height: 60px;
+            }
+            #pull-to-refresh.ready #pull-to-refresh-icon {
+                transform: rotate(180deg);
+            }
+            #pull-to-refresh.refreshing #pull-to-refresh-icon {
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
             }
         `;
         document.head.appendChild(style);
@@ -121,6 +146,9 @@ export function initActivityFeedModule(user, userData) {
 
     // Setup infinite scroll
     setupInfiniteScroll();
+
+    // Setup pull to refresh
+    setupPullToRefresh();
 
     // Setup filter dropdown
     setupFilterDropdown();
@@ -472,6 +500,113 @@ function setupInfiniteScroll() {
     );
 
     infiniteScrollObserver.observe(sentinel);
+}
+
+/**
+ * Setup pull to refresh functionality
+ */
+function setupPullToRefresh() {
+    const pullIndicator = document.getElementById('pull-to-refresh');
+    const pullIcon = document.getElementById('pull-to-refresh-icon');
+    const pullText = document.getElementById('pull-to-refresh-text');
+    const feedContainer = document.getElementById('activity-feed');
+
+    if (!pullIndicator || !feedContainer) return;
+
+    // Get the scrollable container (the main content area)
+    const scrollContainer = feedContainer.closest('.overflow-y-auto') || window;
+
+    let startY = 0;
+    let currentY = 0;
+
+    const handleTouchStart = (e) => {
+        if (isRefreshing) return;
+
+        // Only enable pull-to-refresh when scrolled to top
+        const scrollTop = scrollContainer === window
+            ? window.scrollY
+            : scrollContainer.scrollTop;
+
+        if (scrollTop <= 0) {
+            startY = e.touches[0].pageY;
+            isPulling = true;
+            pullToRefreshEnabled = true;
+        }
+    };
+
+    const handleTouchMove = (e) => {
+        if (!pullToRefreshEnabled || isRefreshing) return;
+
+        currentY = e.touches[0].pageY;
+        const pullDistance = currentY - startY;
+
+        // Only show indicator when pulling down
+        if (pullDistance > 0 && isPulling) {
+            // Show the indicator
+            pullIndicator.classList.remove('hidden');
+            pullIndicator.classList.add('visible');
+
+            // Update text and icon based on pull distance
+            if (pullDistance >= PULL_THRESHOLD) {
+                pullIndicator.classList.add('ready');
+                pullText.textContent = 'Loslassen zum Aktualisieren';
+            } else {
+                pullIndicator.classList.remove('ready');
+                pullText.textContent = 'Nach unten ziehen zum Aktualisieren';
+            }
+
+            // Prevent default scrolling when pulling
+            if (pullDistance > 10) {
+                e.preventDefault();
+            }
+        }
+    };
+
+    const handleTouchEnd = async () => {
+        if (!pullToRefreshEnabled || isRefreshing) return;
+
+        const pullDistance = currentY - startY;
+
+        if (pullDistance >= PULL_THRESHOLD) {
+            // Trigger refresh
+            isRefreshing = true;
+            pullIndicator.classList.remove('ready');
+            pullIndicator.classList.add('refreshing');
+            pullText.textContent = 'Aktualisiere...';
+            pullIcon.className = 'fas fa-spinner text-xl mr-2 transition-transform';
+
+            try {
+                await loadActivityFeed();
+            } finally {
+                isRefreshing = false;
+                pullIndicator.classList.remove('refreshing', 'visible');
+                pullIndicator.classList.add('hidden');
+                pullIcon.className = 'fas fa-arrow-down text-xl mr-2 transition-transform';
+            }
+        } else {
+            // Hide indicator without refreshing
+            pullIndicator.classList.remove('visible', 'ready');
+            pullIndicator.classList.add('hidden');
+        }
+
+        // Reset state
+        isPulling = false;
+        pullToRefreshEnabled = false;
+        startY = 0;
+        currentY = 0;
+    };
+
+    // Add touch event listeners
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    // Store cleanup function for potential removal
+    window.cleanupPullToRefresh = () => {
+        document.removeEventListener('touchstart', handleTouchStart);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+    };
 }
 
 /**
