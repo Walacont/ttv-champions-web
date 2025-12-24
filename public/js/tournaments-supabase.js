@@ -126,6 +126,30 @@ export async function createTournament(tournamentData) {
 
         console.log('[Tournaments] Tournament created:', data);
 
+        // Automatically add creator as first participant
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('elo_rating')
+            .eq('id', currentUserId)
+            .single();
+
+        const eloRating = profile?.elo_rating || 800;
+
+        const { error: participantError } = await supabase
+            .from('tournament_participants')
+            .insert({
+                tournament_id: data.id,
+                player_id: currentUserId,
+                elo_at_registration: eloRating
+            });
+
+        if (participantError) {
+            console.error('[Tournaments] Error adding creator as participant:', participantError);
+            // Don't throw - tournament was created successfully
+        } else {
+            console.log('[Tournaments] Creator automatically joined tournament');
+        }
+
         // Show join code if private
         if (!isOpen && joinCode) {
             showToast(`Turnier erstellt! Einladungscode: ${joinCode}`, 'success');
@@ -172,7 +196,9 @@ export async function joinTournament(tournamentId, joinCode = null) {
         }
 
         // Validate join code for private tournaments
-        if (!tournament.is_open) {
+        // Exception: Tournament creator can join without code
+        const isCreator = tournament.created_by === currentUserId;
+        if (!tournament.is_open && !isCreator) {
             if (!joinCode || joinCode.toUpperCase() !== tournament.join_code) {
                 throw new Error('Ungültiger Einladungscode');
             }
