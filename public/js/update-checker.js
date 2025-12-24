@@ -5,6 +5,7 @@
 
 let currentVersion = null;
 let updateCheckInterval = null;
+let updateBannerShown = false;
 
 // Check interval: 5 minutes
 const CHECK_INTERVAL = 5 * 60 * 1000;
@@ -14,25 +15,46 @@ const CHECK_INTERVAL = 5 * 60 * 1000;
  */
 async function initializeUpdateChecker() {
     try {
-        // Get current version
-        const response = await fetch('/version.json?' + Date.now());
+        // Get current version from server (with aggressive cache busting)
+        const response = await fetch('/version.json?t=' + Date.now(), {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         const versionData = await response.json();
         currentVersion = versionData.version;
 
-        // Store in localStorage for comparison
+        console.log('[UpdateChecker] Server version:', currentVersion);
+
+        // Get stored version
         const storedVersion = localStorage.getItem('app_version');
+        console.log('[UpdateChecker] Stored version:', storedVersion);
+
+        // If no stored version, save current and don't show banner
         if (!storedVersion) {
             localStorage.setItem('app_version', currentVersion);
-        } else if (storedVersion === currentVersion) {
-            // If versions match, update timestamp to current version
-            // This ensures we're in sync after a reload
+            console.log('[UpdateChecker] First visit, storing version');
+        }
+        // If versions match, we're up to date
+        else if (storedVersion === currentVersion) {
+            console.log('[UpdateChecker] Already up to date');
+        }
+        // If banner was already dismissed for this version, don't show again
+        else if (localStorage.getItem('dismissed_version') === currentVersion) {
+            console.log('[UpdateChecker] Banner already dismissed for this version');
             localStorage.setItem('app_version', currentVersion);
         }
+        // Version mismatch - show banner immediately
+        else {
+            console.log('[UpdateChecker] Version mismatch, showing banner');
+            showUpdateBanner(versionData.message || 'Eine neue Version ist verfügbar!');
+        }
 
-        // Start periodic check
+        // Start periodic check for future updates
         startUpdateCheck();
     } catch (error) {
-        // Silent fail - update check is not critical
+        console.error('[UpdateChecker] Init error:', error);
     }
 }
 
@@ -40,10 +62,7 @@ async function initializeUpdateChecker() {
  * Start periodic version check
  */
 function startUpdateCheck() {
-    // Check immediately after 1 minute
-    setTimeout(checkForUpdates, 60000);
-
-    // Then check every 5 minutes
+    // Check every 5 minutes
     updateCheckInterval = setInterval(checkForUpdates, CHECK_INTERVAL);
 }
 
@@ -51,16 +70,28 @@ function startUpdateCheck() {
  * Check if new version is available
  */
 async function checkForUpdates() {
+    // Don't check if banner is already shown
+    if (updateBannerShown) return;
+
     try {
-        const response = await fetch('/version.json?' + Date.now());
+        const response = await fetch('/version.json?t=' + Date.now(), {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         const versionData = await response.json();
         const latestVersion = versionData.version;
         const storedVersion = localStorage.getItem('app_version');
 
-        // Compare versions
+        // Check if new version available
         if (storedVersion && latestVersion !== storedVersion) {
+            // Don't show if already dismissed for this version
+            if (localStorage.getItem('dismissed_version') === latestVersion) {
+                return;
+            }
             showUpdateBanner(versionData.message || 'Eine neue Version ist verfügbar!');
-            // Stop checking once update is detected
+            // Stop checking
             if (updateCheckInterval) {
                 clearInterval(updateCheckInterval);
             }
@@ -74,15 +105,16 @@ async function checkForUpdates() {
  * Show update notification banner
  */
 function showUpdateBanner(message) {
-    // Check if banner already exists
-    if (document.getElementById('update-banner')) {
+    // Prevent multiple banners
+    if (document.getElementById('update-banner') || updateBannerShown) {
         return;
     }
+    updateBannerShown = true;
 
     const banner = document.createElement('div');
     banner.id = 'update-banner';
     banner.className =
-        'fixed top-0 left-0 right-0 bg-indigo-600 text-white py-3 px-4 shadow-lg z-50 animate-slide-down';
+        'fixed top-0 left-0 right-0 bg-indigo-600 text-white py-3 px-4 shadow-lg z-[99999] animate-slide-down';
     banner.innerHTML = `
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
@@ -93,8 +125,7 @@ function showUpdateBanner(message) {
             </div>
             <div class="flex items-center gap-2">
                 <button id="update-reload-btn" class="bg-white text-indigo-600 hover:bg-gray-100 font-semibold py-2 px-4 rounded-lg transition-colors shadow-sm">
-                    <i class="fas fa-sync-alt mr-2"></i>
-                    Jetzt aktualisieren
+                    Aktualisieren
                 </button>
                 <button id="update-dismiss-btn" class="text-white hover:text-gray-200 p-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,72 +137,57 @@ function showUpdateBanner(message) {
     `;
 
     // Add CSS for animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slide-down {
-            from {
-                transform: translateY(-100%);
-                opacity: 0;
+    if (!document.getElementById('update-banner-styles')) {
+        const style = document.createElement('style');
+        style.id = 'update-banner-styles';
+        style.textContent = `
+            @keyframes slide-down {
+                from {
+                    transform: translateY(-100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
             }
-            to {
-                transform: translateY(0);
-                opacity: 1;
+            .animate-slide-down {
+                animation: slide-down 0.3s ease-out;
             }
-        }
-        .animate-slide-down {
-            animation: slide-down 0.3s ease-out;
-        }
-    `;
-    document.head.appendChild(style);
+        `;
+        document.head.appendChild(style);
+    }
 
     document.body.prepend(banner);
 
-    // Add event listeners
+    // Handle "Aktualisieren" button
     document.getElementById('update-reload-btn').addEventListener('click', async () => {
-        // Update stored version BEFORE reload to prevent banner from showing again
-        try {
-            const response = await fetch('/version.json?' + Date.now());
-            const versionData = await response.json();
-            localStorage.setItem('app_version', versionData.version);
-        } catch (error) {
-            // If fetch fails, still reload
-        }
-
-        // Clear cache and reload
-        if ('caches' in window) {
-            caches
-                .keys()
-                .then(names => {
-                    names.forEach(name => caches.delete(name));
-                })
-                .then(() => {
-                    location.reload(true);
-                });
-        } else {
-            location.reload(true);
-        }
-    });
-
-    document.getElementById('update-dismiss-btn').addEventListener('click', async () => {
-        // Update stored version to prevent banner from showing again
-        try {
-            const response = await fetch('/version.json?' + Date.now());
-            const versionData = await response.json();
-            localStorage.setItem('app_version', versionData.version);
-        } catch (error) {
-            // Silent fail
-        }
-        banner.remove();
-    });
-}
-
-/**
- * Update version after successful reload
- */
-function updateStoredVersion() {
-    if (currentVersion) {
+        // Update stored version FIRST
         localStorage.setItem('app_version', currentVersion);
-    }
+        localStorage.removeItem('dismissed_version');
+
+        // Clear all caches
+        if ('caches' in window) {
+            try {
+                const names = await caches.keys();
+                await Promise.all(names.map(name => caches.delete(name)));
+            } catch (e) {
+                console.error('[UpdateChecker] Error clearing caches:', e);
+            }
+        }
+
+        // Force reload
+        window.location.reload(true);
+    });
+
+    // Handle dismiss button
+    document.getElementById('update-dismiss-btn').addEventListener('click', () => {
+        // Mark as dismissed for this version
+        localStorage.setItem('app_version', currentVersion);
+        localStorage.setItem('dismissed_version', currentVersion);
+        banner.remove();
+        updateBannerShown = false;
+    });
 }
 
 // Initialize on page load
@@ -180,9 +196,6 @@ if (document.readyState === 'loading') {
 } else {
     initializeUpdateChecker();
 }
-
-// Update stored version on successful load
-window.addEventListener('load', updateStoredVersion);
 
 // Export for manual checks if needed
 window.checkForUpdates = checkForUpdates;
