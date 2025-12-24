@@ -50,6 +50,8 @@ let currentUserData = null;
 let currentClubData = null;
 let currentSportContext = null; // Multi-sport: stores sportId, clubId, role for active sport
 let realtimeSubscriptions = [];
+let isReconnecting = false;
+let reconnectTimeout = null;
 let currentSubgroupFilter = 'global'; // Will be set properly in populatePlayerSubgroupFilter
 let currentGenderFilter = 'all';
 let currentAgeGroupFilter = 'all';
@@ -2303,8 +2305,102 @@ async function updateSeasonCountdown() {
 }
 
 // --- Realtime Subscriptions ---
+
+/**
+ * Handle realtime subscription status changes
+ * Auto-reconnect on CHANNEL_ERROR
+ */
+function handleSubscriptionStatus(channelName, status) {
+    console.log(`[Realtime] ${channelName} subscription status:`, status);
+
+    if (status === 'CHANNEL_ERROR' && !isReconnecting) {
+        console.warn(`[Realtime] ${channelName} got CHANNEL_ERROR, scheduling reconnect...`);
+        scheduleReconnect();
+    }
+}
+
+/**
+ * Schedule a reconnection attempt
+ */
+function scheduleReconnect() {
+    if (isReconnecting || reconnectTimeout) return;
+
+    console.log('[Realtime] Scheduling reconnect in 3 seconds...');
+    reconnectTimeout = setTimeout(() => {
+        reconnectTimeout = null;
+        reconnectRealtime();
+    }, 3000);
+}
+
+/**
+ * Reconnect all realtime subscriptions
+ */
+async function reconnectRealtime() {
+    if (isReconnecting) return;
+    isReconnecting = true;
+
+    console.log('[Realtime] Reconnecting...');
+
+    try {
+        // Unsubscribe all existing subscriptions
+        for (const sub of realtimeSubscriptions) {
+            try {
+                await supabase.removeChannel(sub);
+            } catch (e) {
+                console.warn('[Realtime] Error removing channel:', e);
+            }
+        }
+        realtimeSubscriptions = [];
+
+        // Wait a moment before reconnecting
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Re-setup subscriptions
+        setupRealtimeSubscriptions();
+        console.log('[Realtime] Reconnection complete');
+    } catch (e) {
+        console.error('[Realtime] Reconnection failed:', e);
+    } finally {
+        isReconnecting = false;
+    }
+}
+
+/**
+ * Setup visibility change handler for reconnection
+ */
+function setupVisibilityChangeHandler() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentUser) {
+            console.log('[Realtime] App became visible, checking connections...');
+            // Check if any subscriptions are in error state
+            const hasError = realtimeSubscriptions.some(sub =>
+                sub.state === 'errored' || sub.state === 'closed'
+            );
+            if (hasError || realtimeSubscriptions.length === 0) {
+                console.log('[Realtime] Detected disconnected state, reconnecting...');
+                reconnectRealtime();
+            }
+        }
+    });
+
+    // Also handle online/offline events
+    window.addEventListener('online', () => {
+        console.log('[Realtime] Network came online, reconnecting...');
+        setTimeout(() => reconnectRealtime(), 1000);
+    });
+}
+
+// Initialize visibility handler once
+let visibilityHandlerInitialized = false;
+
 function setupRealtimeSubscriptions() {
     console.log('[Realtime] Setting up realtime subscriptions...');
+
+    // Setup visibility change handler (only once)
+    if (!visibilityHandlerInitialized) {
+        setupVisibilityChangeHandler();
+        visibilityHandlerInitialized = true;
+    }
 
     // Listen for custom matchRequestUpdated events (from notifications, etc.)
     window.addEventListener('matchRequestUpdated', (event) => {
@@ -2328,7 +2424,7 @@ function setupRealtimeSubscriptions() {
             updateRankDisplay();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Profile subscription status:', status);
+            handleSubscriptionStatus('Profile', status);
         });
 
     realtimeSubscriptions.push(profileSub);
@@ -2347,7 +2443,7 @@ function setupRealtimeSubscriptions() {
             loadPendingRequests();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Match request (player_a) subscription status:', status);
+            handleSubscriptionStatus('Match request (player_a)', status);
         });
 
     realtimeSubscriptions.push(matchRequestSubA);
@@ -2370,7 +2466,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Match request (player_b) subscription status:', status);
+            handleSubscriptionStatus('Match request (player_b)', status);
         });
 
     realtimeSubscriptions.push(matchRequestSubB);
@@ -2391,7 +2487,7 @@ function setupRealtimeSubscriptions() {
             loadPendingRequests();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Match request DELETE subscription status:', status);
+            handleSubscriptionStatus('Match request DELETE', status);
         });
 
     realtimeSubscriptions.push(matchRequestDeleteSub);
@@ -2419,7 +2515,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Doubles match requests subscription status:', status);
+            handleSubscriptionStatus('Doubles match requests', status);
         });
 
     realtimeSubscriptions.push(doublesRequestSub);
@@ -2439,7 +2535,7 @@ function setupRealtimeSubscriptions() {
             loadPendingRequests();
         })
         .subscribe((status) => {
-            console.log('[Realtime] Doubles match request DELETE subscription status:', status);
+            handleSubscriptionStatus('Doubles match request DELETE', status);
         });
 
     realtimeSubscriptions.push(doublesRequestDeleteSub);
@@ -2471,7 +2567,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Matches subscription status:', status);
+            handleSubscriptionStatus('Matches', status);
         });
 
     realtimeSubscriptions.push(matchesSub);
@@ -2498,7 +2594,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Doubles matches subscription status:', status);
+            handleSubscriptionStatus('Doubles matches', status);
         });
 
     realtimeSubscriptions.push(doublesMatchesSub);
@@ -2520,7 +2616,7 @@ function setupRealtimeSubscriptions() {
             }
         })
         .subscribe((status) => {
-            console.log('[Realtime] Leaderboard subscription status:', status);
+            handleSubscriptionStatus('Leaderboard', status);
         });
 
     realtimeSubscriptions.push(leaderboardSub);
