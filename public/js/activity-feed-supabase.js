@@ -107,14 +107,14 @@ export function initActivityFeedModule(user, userData) {
             }
             #pull-to-refresh {
                 position: fixed;
-                top: 120px;
+                top: 70px;
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 1000;
                 background: white;
                 border-radius: 9999px;
                 padding: 8px 16px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                 opacity: 0;
                 pointer-events: none;
                 transition: opacity 0.2s ease-out;
