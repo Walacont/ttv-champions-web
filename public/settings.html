@@ -118,10 +118,11 @@
                     </div>
                 </a>
 
-                <!-- Benachrichtigungen -->
+                <!-- Benachrichtigungen (nur auf Android/iOS anzeigen) -->
                 <a
+                    id="push-settings-link"
                     href="/settings-notifications.html"
-                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200 hidden"
                 >
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-4">
@@ -309,6 +310,12 @@
 
                 document.getElementById('page-loader').style.display = 'none';
                 document.getElementById('main-content').style.display = 'block';
+
+                // Show push notification settings only on native apps (Android/iOS)
+                const pushSettingsLink = document.getElementById('push-settings-link');
+                if (pushSettingsLink && window.CapacitorUtils?.isNative()) {
+                    pushSettingsLink.classList.remove('hidden');
+                }
 
                 // Language selection modal
                 const languageCard = document.getElementById('language-card');

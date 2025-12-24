@@ -332,9 +332,43 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
 
     console.log('Doubles match request created successfully! ID:', request.id);
 
-    // Send notifications to partner and both opponents
+    // Build notification with match details
     const initiatorName = playerNames.player1 || 'Ein Spieler';
-    const notificationMessage = `${initiatorName} möchte ein Doppel-Match mit dir eintragen.`;
+    const teamANames = `${playerNames.player1 || '?'} & ${playerNames.player2 || '?'}`;
+    const teamBNames = `${playerNames.opponent1 || '?'} & ${playerNames.opponent2 || '?'}`;
+
+    // Build set score string
+    const setsString = sets.map(s => {
+        const scoreA = s.teamA ?? s.playerA ?? 0;
+        const scoreB = s.teamB ?? s.playerB ?? 0;
+        return `${scoreA}:${scoreB}`;
+    }).join(', ');
+
+    // Count set wins
+    let teamAWins = 0, teamBWins = 0;
+    sets.forEach(s => {
+        const scoreA = s.teamA ?? s.playerA ?? 0;
+        const scoreB = s.teamB ?? s.playerB ?? 0;
+        if (scoreA > scoreB) teamAWins++;
+        else if (scoreB > scoreA) teamBWins++;
+    });
+    const setScore = `${teamAWins}:${teamBWins}`;
+
+    // Build notification message with winner info
+    const winnerNames = winningTeam === 'A' ? teamANames : teamBNames;
+    let notificationMessage = `${initiatorName} trägt ein: ${winnerNames} hat ${setScore} gewonnen (${setsString})`;
+    if (handicapUsed) {
+        notificationMessage += ' [Handicap]';
+    }
+
+    const notificationData = {
+        request_id: request.id,
+        initiator_id: initiatorId,
+        winning_team: winningTeam,
+        sets: JSON.stringify(sets),
+        set_score: setScore,
+        handicap_used: handicapUsed ? 'true' : 'false'
+    };
 
     // Notify partner
     await createNotification(
@@ -343,7 +377,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         'doubles_match_request',
         'Neue Doppel-Spielanfrage',
         notificationMessage,
-        { request_id: request.id, initiator_id: initiatorId }
+        notificationData
     );
 
     // Notify opponent 1
@@ -353,7 +387,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         'doubles_match_request',
         'Neue Doppel-Spielanfrage',
         notificationMessage,
-        { request_id: request.id, initiator_id: initiatorId }
+        notificationData
     );
 
     // Notify opponent 2
@@ -363,7 +397,7 @@ export async function createDoublesMatchRequest(requestData, supabase, currentUs
         'doubles_match_request',
         'Neue Doppel-Spielanfrage',
         notificationMessage,
-        { request_id: request.id, initiator_id: initiatorId }
+        notificationData
     );
 
     return { success: true, requestId: request.id };

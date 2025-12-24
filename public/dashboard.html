@@ -87,6 +87,48 @@
                 padding-bottom: env(safe-area-inset-bottom, 0);
             }
 
+            /* Top safe area for PWA/standalone mode (status bar) */
+            .safe-area-top {
+                padding-top: env(safe-area-inset-top, 0);
+            }
+
+            /* PWA standalone mode - add top padding and background to body */
+            @media all and (display-mode: standalone) {
+                html {
+                    background-color: white;
+                }
+                body {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+
+            /* iOS PWA detection via CSS */
+            @supports (-webkit-touch-callout: none) {
+                body.standalone-mode {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+
+            /* Top navigation safe area in standalone/PWA mode */
+            @media all and (display-mode: standalone) {
+                #top-nav {
+                    padding-top: env(safe-area-inset-top, 0);
+                }
+            }
+            body.standalone-mode #top-nav {
+                padding-top: env(safe-area-inset-top, 0);
+            }
+
+            /* Main content needs extra top padding in standalone mode to account for taller top-nav */
+            @media all and (display-mode: standalone) {
+                #main-content {
+                    padding-top: calc(3.5rem + env(safe-area-inset-top, 0)) !important;
+                }
+            }
+            body.standalone-mode #main-content {
+                padding-top: calc(3.5rem + env(safe-area-inset-top, 0)) !important;
+            }
+
             /* Bottom nav button styles for mobile touch */
             .bottom-tab-button {
                 cursor: pointer;
@@ -464,6 +506,14 @@
                             >
                                 <i class="fas fa-plus text-xl"></i>
                             </button>
+                        </div>
+
+                        <!-- Pull-to-Refresh Indicator -->
+                        <div id="pull-to-refresh-indicator" class="flex flex-col items-center justify-center overflow-hidden transition-all duration-200" style="height: 0; opacity: 0;">
+                            <div id="ptr-content" class="py-3 text-center">
+                                <i id="ptr-icon" class="fas fa-arrow-down text-indigo-500 text-lg mb-1 transition-transform duration-200"></i>
+                                <p id="ptr-text" class="text-sm text-gray-500">Nach unten ziehen zum Aktualisieren</p>
+                            </div>
                         </div>
 
                         <div id="activity-feed" class="space-y-3">
@@ -1635,6 +1685,12 @@
 
             // Initialize first tab on page load
             document.addEventListener('DOMContentLoaded', function() {
+                // Detect PWA standalone mode and add safe area padding
+                if (window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true) {
+                    document.body.classList.add('standalone-mode');
+                }
+
                 // Small delay to ensure everything is loaded
                 setTimeout(function() {
                     handleBottomTabClick('overview', 'Start');

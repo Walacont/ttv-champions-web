@@ -95,6 +95,7 @@ DECLARE
     h2h_id UUID;
     prev_last_winner UUID;
     prev_consecutive INTEGER;
+    prev_handicap INTEGER;
     new_consecutive INTEGER;
     new_handicap INTEGER;
 BEGIN
@@ -102,27 +103,31 @@ BEGIN
     h2h_id := get_or_create_h2h_stats(NEW.winner_id, NEW.loser_id);
 
     -- Get previous state
-    SELECT last_winner_id, consecutive_wins
-    INTO prev_last_winner, prev_consecutive
+    SELECT last_winner_id, consecutive_wins, suggested_handicap
+    INTO prev_last_winner, prev_consecutive, prev_handicap
     FROM head_to_head_stats WHERE id = h2h_id;
 
     prev_consecutive := COALESCE(prev_consecutive, 0);
+    prev_handicap := COALESCE(prev_handicap, 0);
 
     -- Check if same player won again (continuing streak) or new winner (reset)
     IF prev_last_winner IS NULL OR prev_last_winner = NEW.winner_id THEN
         -- Same winner or first match - increment streak
         new_consecutive := prev_consecutive + 1;
-    ELSE
-        -- Different winner - reset streak
-        new_consecutive := 1;
-    END IF;
 
-    -- Calculate handicap: starts after 2 wins, +1 per additional win, max 7
-    -- 2 wins = +1, 3 wins = +2, 4 wins = +3, etc.
-    IF new_consecutive >= 2 THEN
-        new_handicap := LEAST(new_consecutive - 1, 7);
+        -- Increase handicap: starts after 2 wins
+        -- 2 wins = 1, 3 wins = 2, 4 wins = 3, etc. (max 7)
+        IF new_consecutive >= 2 THEN
+            new_handicap := LEAST(new_consecutive - 1, 7);
+        ELSE
+            new_handicap := 0;
+        END IF;
     ELSE
-        new_handicap := 0;
+        -- DIFFERENT WINNER - underdog won!
+        -- GRADUAL adjustment: decrease handicap by 1 instead of resetting to 0
+        -- Example: 4 wins (handicap 3) -> underdog wins -> handicap becomes 2
+        new_consecutive := 1;
+        new_handicap := GREATEST(0, prev_handicap - 1);
     END IF;
 
     -- Update the h2h stats
@@ -238,10 +243,11 @@ CREATE POLICY "System can manage h2h stats" ON head_to_head_stats
 -- =========================================
 DO $$
 BEGIN
-    RAISE NOTICE 'Head-to-Head Handicap System v2:';
+    RAISE NOTICE 'Head-to-Head Handicap System v2 (Fixed):';
     RAISE NOTICE '- Verfolgt Siegesserie zwischen zwei Spielern';
     RAISE NOTICE '- 2 Siege in Folge = +1 Handicap fuer Verlierer';
-    RAISE NOTICE '- 3 Siege = +2, bis max +7';
-    RAISE NOTICE '- Bei Niederlage des Seriengewinners: Reset auf 0';
+    RAISE NOTICE '- 3 Siege = +2, 4 Siege = +3, bis max +7';
+    RAISE NOTICE '- Bei Niederlage des Seriengewinners: Handicap -1 (nicht Reset!)';
+    RAISE NOTICE '  Beispiel: 4 Siege (Handicap 3) -> Underdog gewinnt -> Handicap 2';
     RAISE NOTICE '- Unabhaengig von Elo!';
 END $$;

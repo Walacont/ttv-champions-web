@@ -1,0 +1,956 @@
+{
+  "common": {
+    "back": "Zurück",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "loading": "Laden...",
+    "success": "Erfolgreich",
+    "error": "Fehler",
+    "confirm": "Bestätigen",
+    "yes": "Ja",
+    "no": "Nein",
+    "continue": "Weiter",
+    "submit": "Absenden",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "sort": "Sortieren",
+    "viewMore": "Mehr anzeigen",
+    "viewLess": "Weniger anzeigen"
+  },
+  "nav": {
+    "home": "Startseite",
+    "dashboard": "Dashboard",
+    "profile": "Profil",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "login": "Anmelden"
+  },
+  "index": {
+    "title": "SC Champions - Digitales Sport-Training & Wettkampfsystem",
+    "description": "SC Champions ist das moderne Gamification-System für Tischtennisvereine. Verwalte Training, Matches und Elo-Rankings digital.",
+    "hero": {
+      "title": "Mach dein Training zum Spiel.",
+      "subtitle": "Willkommen bei SC Champions – der Gamification-Plattform, die dein Sport-Training im Verein auf ein neues Level hebt.",
+      "cta": "Mehr erfahren",
+      "notice": "Hinweis: SC Champions ist derzeit ein Forschungsprojekt im Rahmen einer Bachelorarbeit und befindet sich in der Testphase."
+    },
+    "features": {
+      "title": "Training. Neu gedacht.",
+      "gamification": {
+        "title": "Gamification-System",
+        "description": "Sammle XP, steige in Rängen auf und schalte neue Achievements frei."
+      },
+      "matches": {
+        "title": "Match-Tracking",
+        "description": "Erfasse Spiele, berechne Elo-Ratings und verfolge deinen Fortschritt."
+      },
+      "training": {
+        "title": "Trainingsplanung",
+        "description": "Plane dein Training, setze Ziele und tracke deine Verbesserung."
+      },
+      "leaderboard": {
+        "title": "Ranglisten",
+        "description": "Vergleiche dich mit anderen Spielern und klettere die Rangliste hoch."
+      },
+      "community": {
+        "title": "Community",
+        "description": "Vernetze dich mit anderen Spielern und fordere sie heraus."
+      },
+      "stats": {
+        "title": "Statistiken",
+        "description": "Analysiere deine Leistung mit detaillierten Statistiken und Grafiken."
+      }
+    },
+    "cta": {
+      "ready": "Bereit loszulegen?",
+      "getStarted": "Jetzt starten"
+    }
+  },
+  "auth": {
+    "login": "Anmelden",
+    "loginTitle": "Bei SC Champions anmelden",
+    "register": "Registrieren",
+    "registerTitle": "Konto erstellen",
+    "logout": "Abmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "forgotPassword": "Passwort vergessen?",
+    "resetPassword": "Passwort zurücksetzen",
+    "rememberMe": "Angemeldet bleiben",
+    "noAccount": "Noch kein Konto?",
+    "hasAccount": "Bereits ein Konto?",
+    "signInNow": "Jetzt anmelden",
+    "signUpNow": "Jetzt registrieren",
+    "emailPlaceholder": "deine@email.de",
+    "passwordPlaceholder": "Dein Passwort",
+    "loginError": "Fehler beim Anmelden",
+    "registerError": "Fehler bei der Registrierung",
+    "passwordMismatch": "Passwörter stimmen nicht überein",
+    "weakPassword": "Passwort ist zu schwach",
+    "emailInUse": "E-Mail wird bereits verwendet",
+    "invalidEmail": "Ungültige E-Mail-Adresse",
+    "userNotFound": "Benutzer nicht gefunden",
+    "wrongPassword": "Falsches Passwort",
+    "emailSent": "E-Mail wurde gesendet",
+    "resetEmailSent": "Zurücksetzungs-E-Mail wurde gesendet"
+  },
+  "register": {
+    "title": "Konto erstellen",
+    "subtitle": "Starte deine Reise mit SC Champions",
+    "welcome": "Willkommen bei SC Champions!",
+    "twoOptions": "Du hast zwei Möglichkeiten, dich zu registrieren:",
+    "withoutCode": "Ohne Code registrieren",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "invitationCode": "Einladungscode (optional)",
+    "terms": "Ich akzeptiere die",
+    "termsLink": "AGB",
+    "and": "und",
+    "privacyPolicy": "Datenschutzerklärung",
+    "createAccount": "Konto erstellen",
+    "alreadyHaveAccount": "Bereits ein Konto?",
+    "signIn": "Anmelden"
+  },
+  "onboarding": {
+    "welcome": "Willkommen bei SC Champions!",
+    "letsGetStarted": "Lass uns loslegen",
+    "step": "Schritt",
+    "of": "von",
+    "title": "Vervollständige dein Profil",
+    "subtitle": "Fast geschafft! Wir brauchen nur noch ein paar Infos.",
+    "selectPhoto": "Profilbild auswählen",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "birthdate": "Geburtsdatum",
+    "day": "Tag",
+    "month": "Monat",
+    "year": "Jahr",
+    "gender": "Geschlecht",
+    "selectGender": "Geschlecht wählen",
+    "male": "Männlich",
+    "female": "Weiblich",
+    "diverse": "Divers",
+    "sport": "Sportart",
+    "selectSport": "Sportart wählen...",
+    "saveProfile": "Profil speichern",
+    "profile": {
+      "title": "Vervollständige dein Profil",
+      "description": "Erzähle uns ein wenig über dich",
+      "birthdate": "Geburtsdatum",
+      "gender": "Geschlecht",
+      "male": "Männlich",
+      "female": "Weiblich",
+      "other": "Divers",
+      "preferNotToSay": "Keine Angabe"
+    },
+    "club": {
+      "title": "Trete einem Verein bei",
+      "description": "Finde deinen Verein und werde Teil der Community",
+      "search": "Verein suchen...",
+      "noClub": "Kein Verein? Ohne Verein fortfahren",
+      "join": "Beitreten",
+      "joinRequest": "Beitrittsanfrage senden",
+      "requestSent": "Anfrage gesendet"
+    },
+    "tutorial": {
+      "title": "Kurze Einführung",
+      "description": "Lerne die wichtigsten Funktionen kennen",
+      "skip": "Tutorial überspringen",
+      "start": "Tutorial starten"
+    },
+    "finish": {
+      "title": "Alles bereit!",
+      "description": "Du kannst jetzt SC Champions nutzen",
+      "goToDashboard": "Zum Dashboard"
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Willkommen",
+    "welcomeBack": "Willkommen zurück",
+    "loading": "Lade Daten...",
+    "tabs": {
+      "start": "Start",
+      "leaderboard": "Rang",
+      "competition": "Match",
+      "exercises": "Übungen"
+    },
+    "stats": {
+      "title": "Deine Statistiken",
+      "matches": "Spiele",
+      "wins": "Siege",
+      "losses": "Niederlagen",
+      "winRate": "Siegquote",
+      "elo": "Elo-Rating",
+      "xp": "Erfahrungspunkte",
+      "rank": "Rang",
+      "level": "Level"
+    },
+    "quickActions": {
+      "title": "Schnellzugriff",
+      "recordMatch": "Spiel erfassen",
+      "viewMatches": "Spiele anzeigen",
+      "viewProfile": "Profil ansehen",
+      "viewLeaderboard": "Rangliste ansehen"
+    },
+    "recentMatches": {
+      "title": "Letzte Spiele",
+      "viewAll": "Alle anzeigen",
+      "noMatches": "Noch keine Spiele vorhanden",
+      "won": "Gewonnen",
+      "lost": "Verloren",
+      "vs": "vs"
+    },
+    "activityFeed": {
+      "title": "Aktivitäten",
+      "noActivity": "Noch keine Aktivitäten",
+      "loading": "Lade Aktivitäten...",
+      "emptyMyActivities": "Du hast noch keine Spiele gespielt",
+      "emptyFollowing": "Folge anderen Spielern um ihre Aktivitäten zu sehen",
+      "emptyAll": "Noch keine Aktivitäten vorhanden",
+      "emptyClub": "Keine Aktivitäten in diesem Verein",
+      "defeated": "besiegte",
+      "defeatedPlural": "besiegten",
+      "set": "Satz",
+      "vote": "Stimme",
+      "votes": "Stimmen",
+      "endsAt": "Endet",
+      "ended": "Beendet",
+      "filter": {
+        "all": "Alle Aktivitäten",
+        "following": "Abonniert",
+        "myActivities": "Meine Aktivitäten"
+      },
+      "visibility": {
+        "public": "Öffentlich",
+        "club": "Verein",
+        "followers": "Follower"
+      },
+      "events": {
+        "clubJoin": {
+          "joined": "ist dem Verein beigetreten",
+          "welcome": "Willkommen im Team!"
+        },
+        "clubLeave": {
+          "left": "hat den Verein verlassen"
+        },
+        "rankUp": {
+          "achieved": "erreichte",
+          "congratulations": "Glückwunsch zum Rangaufstieg!"
+        },
+        "clubRanking": {
+          "enteredTop10": "ist in die Top 10 aufgestiegen!",
+          "enteredPodium": "ist auf das Podium aufgestiegen!",
+          "leftTop10": "hat die Top 10 verlassen",
+          "leftPodium": "hat das Podium verlassen",
+          "movedUp": "steigt auf",
+          "movedDown": "fällt auf",
+          "position": "Platz {{position}}",
+          "previousHolder": "vorher: {{name}} ({{elo}} Elo)"
+        },
+        "globalRanking": {
+          "title": "Globale Rangliste",
+          "position": "Platz {{position}}",
+          "positionsSingular": "1 Platz",
+          "positionsPlural": "{{count}} Plätze",
+          "risen": "gestiegen",
+          "fallen": "gefallen"
+        },
+        "clubDoublesRanking": {
+          "title": "Doppel-Rangliste",
+          "enteredTop10": "ist in die Doppel-Top 10 aufgestiegen!",
+          "enteredPodium": "ist auf das Doppel-Podium aufgestiegen!",
+          "leftTop10": "hat die Doppel-Top 10 verlassen",
+          "leftPodium": "hat das Doppel-Podium verlassen",
+          "movedUp": "steigt auf",
+          "movedDown": "fällt auf",
+          "position": "Platz {{position}}",
+          "previousHolder": "vorher: {{name}} ({{elo}} Elo)"
+        },
+        "globalDoublesRanking": {
+          "title": "Globale Doppel-Rangliste",
+          "position": "Platz {{position}}",
+          "positionsSingular": "1 Platz",
+          "positionsPlural": "{{count}} Plätze",
+          "risen": "gestiegen",
+          "fallen": "gefallen"
+        }
+      },
+      "giveKudos": "Liken",
+      "like": "Like",
+      "likes": "Likes",
+      "comments": {
+        "title": "Kommentare",
+        "post": "Posten",
+        "empty": "Noch keine Kommentare. Sei der Erste!",
+        "deleteConfirm": "Möchtest du diesen Kommentar wirklich löschen?"
+      },
+      "matchMedia": {
+        "uploadTitle": "Fotos/Videos hochladen",
+        "upload": "Hochladen",
+        "uploading": "Wird hochgeladen...",
+        "gallery": "Match Medien",
+        "selectFiles": "Dateien auswählen",
+        "infoTitle": "Hinweis",
+        "infoText": "Bitte nur kurze Highlights hochladen (max. 30-60 Sekunden), nicht das gesamte Match!",
+        "limits": "Maximal 5 Dateien | Fotos: max. 10MB | Videos: max. 50MB",
+        "deleteConfirm": "Möchtest du diese Datei wirklich löschen?",
+        "addMedia": "Fotos/Videos hinzufügen",
+        "viewMedia": "Medien ansehen",
+        "errors": {
+          "invalidType": "Dateityp wird nicht unterstützt",
+          "photoTooLarge": "Foto ist zu groß (max. 10MB)",
+          "videoTooLarge": "Video ist zu groß (max. 50MB)",
+          "maxReached": "Maximale Anzahl von 5 Dateien erreicht",
+          "notParticipant": "Nur Spieler dieses Matches können Medien hochladen"
+        }
+      }
+    },
+    "training": {
+      "title": "Training",
+      "nextSession": "Nächste Trainingseinheit",
+      "noSessions": "Keine anstehenden Trainings"
+    },
+    "community": {
+      "title": "Community",
+      "persons": "Personen",
+      "clubs": "Clubs",
+      "searchPersons": "Nach Personen suchen...",
+      "searchClubs": "Nach Clubs suchen...",
+      "suggested": "Vorgeschlagen",
+      "followAll": "Allen folgen",
+      "loadingSuggestions": "Lade Vorschläge...",
+      "pendingRequests": "Ausstehende Anfragen",
+      "noPendingRequests": "Keine ausstehenden Anfragen",
+      "yourClub": "Dein Verein",
+      "enterClubName": "Gib einen Namen ein, um nach Clubs zu suchen"
+    },
+    "noClub": {
+      "title": "Du bist noch keinem Verein beigetreten",
+      "description": "Möchtest du einem Verein beitreten? Du kannst in den Einstellungen nach Vereinen suchen und eine Beitrittsanfrage stellen.",
+      "settingsLink": "Einstellungen"
+    },
+    "coachIndicator": {
+      "message": "Du befindest dich im Spieler-Dashboard",
+      "switchToCoach": "Zur Coach-Ansicht"
+    },
+    "exercises": {
+      "title": "Übungskatalog",
+      "filterTags": "Tags filtern",
+      "searchTag": "Tag suchen...",
+      "loading": "Übungen werden geladen...",
+      "showAbbreviations": "Abkürzungen anzeigen"
+    },
+    "matches": {
+      "suggestions": {
+        "title": "Match-Vorschläge",
+        "description": "Gegen wen hast du noch nie oder lange nicht gespielt?",
+        "loading": "Lade Vorschläge..."
+      },
+      "report": {
+        "title": "Wettkampf melden",
+        "subtitle": "Für bereits gespielte Matches",
+        "singles": "Einzel",
+        "doubles": "Doppel",
+        "gameMode": "Spielmodus",
+        "singleSet": "1 Satz",
+        "bestOf3": "Best of 3",
+        "bestOf5": "Best of 5 (Standard)",
+        "bestOf7": "Best of 7",
+        "searchOpponent": "Gegner suchen",
+        "searchOpponentPlaceholder": "Gegner suchen (Name eingeben)...",
+        "yourTeam": "Dein Team",
+        "selectPartner": "Partner wählen",
+        "searchPartner": "Suche nach Partner...",
+        "opponentTeam": "Gegnerisches Team",
+        "opponent1": "Gegner 1",
+        "opponent2": "Gegner 2",
+        "searchOpponent1": "Suche nach Gegner 1...",
+        "searchOpponent2": "Suche nach Gegner 2...",
+        "yourTeamElo": "Dein Team Elo",
+        "opponentTeamElo": "Gegner Team Elo",
+        "enterScore": "Spielergebnis eingeben (mind. 3 Sätze)",
+        "scoreHint": "Du bist Spieler A, dein Gegner ist Spieler B",
+        "handicapSuggestion": "Handicap-Vorschlag",
+        "handicapUsed": "Handicap wurde verwendet",
+        "winner": "Gewinner",
+        "sendRequest": "Anfrage senden"
+      },
+      "history": {
+        "title": "Wettkampf-Historie",
+        "subtitle": "Alle gespielten Wettkämpfe mit Ergebnissen und ELO-Änderungen",
+        "loading": "Lade Historie..."
+      },
+      "pending": {
+        "title": "Ausstehende Anfragen",
+        "subtitle": "Anfragen, die noch auf Bestätigung warten",
+        "none": "Keine ausstehenden Anfragen"
+      },
+      "requestHistory": {
+        "title": "Anfragen-Historie",
+        "subtitle": "Alle abgeschlossenen Anfragen (gesendet & empfangen)",
+        "resultRequests": "Ergebnis-Anfragen",
+        "none": "Keine Ergebnis-Anfragen"
+      },
+      "tennisOptions": {
+        "title": "Tennis/Padel Optionen",
+        "goldenPoint": "Golden Point (No-Ad bei 40:40)",
+        "matchTiebreak": "Match Tie-Break statt 3. Satz (bis 10 Punkte)"
+      }
+    },
+    "leaderboard": {
+      "title": "Rangliste",
+      "seasonEnd": "Saison-Ende",
+      "loading": "Lädt...",
+      "settings": {
+        "title": "Ranglisten-Einstellungen",
+        "subtitle": "Passe an, welche Ranglisten angezeigt werden",
+        "effort": "Fleiß (XP)",
+        "season": "Season (Punkte)",
+        "skill": "Skill (Elo)",
+        "ranks": "Ränge (Level)",
+        "doubles": "Doppel (Teams)",
+        "autoSave": "Die Einstellungen werden automatisch gespeichert."
+      },
+      "filter": {
+        "view": "Ansicht",
+        "myClub": "Mein Verein",
+        "following": "Abonniert",
+        "global": "Global",
+        "gender": "Geschlecht",
+        "all": "Alle",
+        "male": "Jungen/Herren",
+        "female": "Mädchen/Damen"
+      },
+      "tabs": {
+        "effort": "Fleiß",
+        "effortSub": "(XP)",
+        "season": "Season",
+        "seasonSub": "(Punkte)",
+        "skill": "Skill",
+        "skillSub": "(Elo)",
+        "ranks": "Ränge",
+        "ranksSub": "(Level)",
+        "doubles": "Doppel",
+        "doublesSub": "(Teams)"
+      },
+      "ageGroups": {
+        "youth": "Jugend (nach Alter)",
+        "u11": "U11",
+        "u13": "U13",
+        "u15": "U15",
+        "u17": "U17",
+        "u19": "U19",
+        "adults": "Erwachsene (18-39)",
+        "seniors": "Senioren (nach Alter)",
+        "o40": "Ü40",
+        "o45": "Ü45",
+        "o50": "Ü50",
+        "o55": "Ü55",
+        "o60": "Ü60",
+        "o65": "Ü65",
+        "o70": "Ü70",
+        "o75": "Ü75",
+        "o80": "Ü80"
+      }
+    },
+    "widgets": {
+      "customize": "Startseite anpassen",
+      "customizeDesc": "Wähle aus, welche Widgets auf deiner Startseite angezeigt werden sollen",
+      "resetToDefault": "Auf Standard zurücksetzen",
+      "save": "Speichern"
+    },
+    "footer": {
+      "bugFound": "Bug gefunden?",
+      "bugDescription": "Hilf uns, die App zu verbessern! Sende Fehlerberichte und Feedback an",
+      "imprint": "Impressum",
+      "privacy": "Datenschutzerklärung",
+      "copyright": "© 2025 SC Champions. Alle Rechte vorbehalten.",
+      "disclaimer": "Hinweis: SC Champions ist derzeit ein Forschungsprojekt im Rahmen einer Bachelorarbeit und befindet sich in der Testphase."
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "back": "Zurück",
+    "loading": "Laden...",
+    "editProfile": "Profil bearbeiten",
+    "publicProfile": "Öffentliches Profil",
+    "stats": "Statistiken",
+    "matches": "Spiele",
+    "achievements": "Erfolge",
+    "friends": "Freunde",
+    "following": "Gefolgt",
+    "followers": "Abonnenten",
+    "privateProfile": {
+      "title": "Dieses Profil ist privat",
+      "description": "Folge dieser Person, um Aktivitäten, Erfolge und mehr zu sehen"
+    },
+    "tabs": {
+      "activity": "Aktivität",
+      "progress": "Fortschritt"
+    },
+    "statLabels": {
+      "elo": "Elo",
+      "wins": "Siege",
+      "matches": "Spiele",
+      "points": "Punkte"
+    },
+    "recentActivity": "Letzte Aktivität",
+    "noActivities": "Keine Aktivitäten",
+    "mutualFriends": "Gemeinsame Freunde",
+    "members": "Mitglieder",
+    "info": {
+      "memberSince": "Mitglied seit",
+      "club": "Verein",
+      "noClub": "Kein Verein",
+      "role": "Rolle",
+      "level": "Level",
+      "xp": "XP"
+    },
+    "roles": {
+      "player": "Spieler",
+      "coach": "Trainer",
+      "admin": "Administrator",
+      "headCoach": "Cheftrainer"
+    }
+  },
+  "matches": {
+    "title": "Spiele",
+    "recordMatch": "Spiel erfassen",
+    "matchHistory": "Spielhistorie",
+    "doubles": "Doppel",
+    "singles": "Einzel",
+    "selectOpponent": "Gegner auswählen",
+    "selectPartner": "Partner auswählen",
+    "yourScore": "Dein Ergebnis",
+    "opponentScore": "Gegner-Ergebnis",
+    "sets": "Sätze",
+    "winner": "Gewinner",
+    "loser": "Verlierer",
+    "result": "Ergebnis",
+    "date": "Datum",
+    "opponent": "Gegner",
+    "partner": "Partner",
+    "eloChange": "Elo-Änderung",
+    "noMatches": "Noch keine Spiele vorhanden",
+    "recordSuccess": "Spiel erfolgreich erfasst",
+    "recordError": "Fehler beim Erfassen des Spiels"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "profile": {
+      "title": "Profil bearbeiten",
+      "subtitle": "Name, Email, Passwort, Foto",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail",
+      "password": "Passwort",
+      "photo": "Profilbild",
+      "updateName": "Name aktualisieren",
+      "updateEmail": "E-Mail aktualisieren",
+      "updatePassword": "Passwort aktualisieren",
+      "uploadPhoto": "Foto hochladen",
+      "changePhoto": "Foto ändern",
+      "removePhoto": "Foto entfernen",
+      "currentPassword": "Aktuelles Passwort",
+      "newPassword": "Neues Passwort",
+      "confirmNewPassword": "Neues Passwort bestätigen"
+    },
+    "privacy": {
+      "title": "Privatsphäre",
+      "subtitle": "Sichtbarkeit und Datenschutz",
+      "profileVisibility": "Profilsichtbarkeit",
+      "showInLeaderboard": "In Rangliste anzeigen",
+      "allowFriendRequests": "Freundschaftsanfragen erlauben",
+      "showMatchHistory": "Spielhistorie anzeigen",
+      "showStats": "Statistiken anzeigen",
+      "public": "Öffentlich",
+      "friendsOnly": "Nur Abonnenten",
+      "private": "Privat",
+      "clubOnly": "Nur Vereinsmitglieder",
+      "options": {
+        "global": "Global sichtbar",
+        "clubOnly": "Nur Vereinsmitglieder",
+        "followersOnly": "Nur Abonnenten",
+        "none": "Unsichtbar"
+      },
+      "profile": {
+        "title": "Profil",
+        "description": "Bestimme, wer dein Profil sehen kann.",
+        "globalDesc": "Alle können dein Profil sehen",
+        "clubDesc": "Nur Vereinsmitglieder können dein Profil sehen",
+        "followersDesc": "Nur deine Abonnenten können dein Profil sehen"
+      },
+      "search": {
+        "title": "Spielersuche",
+        "description": "Bestimme, wer dich bei der Spielersuche und für Wettkämpfe finden kann.",
+        "globalDesc": "Alle Spieler können dich finden",
+        "clubDesc": "Nur Spieler aus deinem Verein",
+        "followersDesc": "Nur deine Abonnenten können dich finden",
+        "noneDesc": "Niemand kann dich finden"
+      },
+      "leaderboard": {
+        "title": "Rangliste Optionen",
+        "description": "Bestimme, wer deine Position in Ranglisten sehen kann.",
+        "globalDesc": "Alle können deine Ranglisten-Position sehen",
+        "clubDesc": "Nur Vereinsmitglieder sehen deine Position",
+        "followersDesc": "Nur Abonnenten sehen deine Position",
+        "noneDesc": "Du erscheinst nicht in Ranglisten"
+      },
+      "matches": {
+        "title": "Aktivitäten",
+        "description": "Bestimme, wer deine Spiele und Match-Historie sehen kann.",
+        "globalDesc": "Alle können deine Spiele sehen",
+        "clubDesc": "Nur Vereinsmitglieder sehen deine Spiele",
+        "followersDesc": "Nur Abonnenten sehen deine Spiele",
+        "noneDesc": "Niemand kann deine Spiele sehen"
+      }
+    },
+    "club": {
+      "title": "Vereinsverwaltung",
+      "subtitle": "Verein beitreten oder verlassen",
+      "currentClub": "Aktueller Verein",
+      "noClub": "Kein Verein",
+      "joinClub": "Verein beitreten",
+      "leaveClub": "Verein verlassen",
+      "leaveConfirm": "Möchtest du wirklich den Verein verlassen?",
+      "searchClubs": "Vereine suchen..."
+    },
+    "support": {
+      "title": "Support",
+      "subtitle": "Hilfe, Tutorials und FAQs",
+      "faq": "Häufig gestellte Fragen",
+      "tutorial": "Tutorial ansehen",
+      "contactSupport": "Support kontaktieren",
+      "reportBug": "Fehler melden",
+      "feedback": "Feedback geben"
+    },
+    "legal": {
+      "title": "Rechtsinformationen",
+      "subtitle": "Datenexport, Account löschen",
+      "termsOfService": "Nutzungsbedingungen",
+      "privacyPolicy": "Datenschutzerklärung",
+      "imprint": "Impressum",
+      "exportData": "Daten exportieren",
+      "deleteAccount": "Account löschen",
+      "deleteConfirm": "Möchtest du deinen Account wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "language": {
+      "title": "Sprache",
+      "subtitle": "App-Sprache ändern",
+      "select": "Sprache auswählen",
+      "german": "Deutsch",
+      "english": "English",
+      "chinese": "简体中文",
+      "changed": "Sprache wurde geändert"
+    },
+    "logout": "Abmelden"
+  },
+  "coach": {
+    "title": "Trainer-Bereich",
+    "dashboard": "Trainer-Dashboard",
+    "players": "Spieler",
+    "training": "Training",
+    "attendance": "Anwesenheit",
+    "statistics": "Statistiken",
+    "schedule": "Trainingsplan",
+    "manageExercises": "Übungen verwalten",
+    "viewPlayerStats": "Spieler-Statistiken"
+  },
+  "admin": {
+    "title": "Administrator-Bereich",
+    "dashboard": "Admin-Dashboard",
+    "users": "Benutzer",
+    "clubs": "Vereine",
+    "settings": "Systemeinstellungen",
+    "statistics": "Systemstatistiken",
+    "invitationCodes": "Einladungscodes",
+    "logs": "Systemprotokolle"
+  },
+  "errors": {
+    "403": "Zugriff verweigert",
+    "404": "Seite nicht gefunden",
+    "500": "Serverfehler",
+    "networkError": "Netzwerkfehler",
+    "unknownError": "Ein unbekannter Fehler ist aufgetreten",
+    "tryAgain": "Erneut versuchen",
+    "goHome": "Zur Startseite"
+  },
+  "validation": {
+    "required": "Dieses Feld ist erforderlich",
+    "emailInvalid": "Ungültige E-Mail-Adresse",
+    "passwordTooShort": "Passwort muss mindestens {{min}} Zeichen lang sein",
+    "passwordMismatch": "Passwörter stimmen nicht überein",
+    "invalidDate": "Ungültiges Datum",
+    "invalidNumber": "Ungültige Zahl",
+    "minLength": "Mindestens {{min}} Zeichen erforderlich",
+    "maxLength": "Maximal {{max}} Zeichen erlaubt"
+  },
+  "time": {
+    "now": "Jetzt",
+    "today": "Heute",
+    "yesterday": "Gestern",
+    "tomorrow": "Morgen",
+    "daysAgo": "vor {{count}} Tag",
+    "daysAgo_plural": "vor {{count}} Tagen",
+    "hoursAgo": "vor {{count}} Stunde",
+    "hoursAgo_plural": "vor {{count}} Stunden",
+    "minutesAgo": "vor {{count}} Minute",
+    "minutesAgo_plural": "vor {{count}} Minuten",
+    "secondsAgo": "vor {{count}} Sekunde",
+    "secondsAgo_plural": "vor {{count}} Sekunden"
+  },
+  "connections": {
+    "title": "Verbindungen",
+    "following": "Abonniert",
+    "followers": "Abonnenten",
+    "noConnections": "Keine Verbindungen",
+    "followingYou": "Sportler, denen du folgst",
+    "followingOther": "Sportler, denen {{name}} folgt",
+    "followersYou": "Deine Abonnenten",
+    "followersOther": "Abonnenten von {{name}}",
+    "noFollowing": "Du folgst noch niemandem",
+    "noFollowingOther": "{{name}} folgt noch niemandem",
+    "noFollowersYou": "Du hast noch keine Abonnenten",
+    "noFollowersOther": "{{name}} hat noch keine Abonnenten"
+  },
+  "follow": {
+    "follow": "Folgen",
+    "following": "Gefolgt",
+    "requested": "Angefragt",
+    "unfollow": "Entfolgen",
+    "cancelRequest": "Anfrage zurückziehen",
+    "followers": "Abonnenten",
+    "followersCount": "{{count}} Abonnent",
+    "followersCount_plural": "{{count}} Abonnenten",
+    "noFollowers": "Noch keine Abonnenten",
+    "request": {
+      "sent": "Anfrage gesendet",
+      "cancelled": "Anfrage zurückgezogen",
+      "accepted": "Anfrage angenommen",
+      "declined": "Anfrage abgelehnt"
+    }
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "noNotifications": "Keine Benachrichtigungen",
+    "markAllRead": "Alle gelesen",
+    "deleteRead": "Gelesene löschen",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "accepted": "Bestätigt",
+    "error": "Fehler - bitte erneut versuchen",
+    "matchApproved": "Spiel bestätigt",
+    "matchApprovedMessage": "{{name}} hat deine Spielanfrage angenommen.",
+    "matchRejected": "Spielanfrage abgelehnt",
+    "matchRejectedMessage": "{{name}} hat deine Spielanfrage abgelehnt.",
+    "types": {
+      "newFollower": "Neuer Abonnent",
+      "followRequest": "Neue Abonnement-Anfrage",
+      "followRequestAccepted": "Anfrage angenommen",
+      "followRequestDeclined": "Anfrage abgelehnt"
+    },
+    "messages": {
+      "newFollower": "{{name}} folgt dir jetzt",
+      "followRequest": "{{name}} möchte dir folgen",
+      "followRequestAccepted": "{{name}} hat deine Anfrage angenommen",
+      "followRequestDeclined": "{{name}} hat deine Anfrage abgelehnt"
+    }
+  },
+  "settingsClub": {
+    "title": "Vereinsverwaltung",
+    "searchClub": "Verein suchen",
+    "enterClubName": "Vereinsname eingeben",
+    "enterClubNamePlaceholder": "Vereinsname eingeben...",
+    "joinRequestInfo": "Nach dem Senden einer Beitrittsanfrage muss ein Coach deines Wunschvereins diese genehmigen.",
+    "leaveClub": "Verein verlassen",
+    "sendLeaveRequest": "Austrittsanfrage senden",
+    "leaveRequestInfo": "Nach dem Senden einer Austrittsanfrage muss ein Coach deines Vereins diese genehmigen."
+  },
+  "settingsLegal": {
+    "title": "Rechtsinformationen",
+    "dataExport": {
+      "title": "Datenexport",
+      "description": "Lade alle deine gespeicherten Daten als JSON-Datei herunter. Dies umfasst dein Profil, Match-Historie, Trainings-Teilnahmen und Statistiken.",
+      "button": "Daten herunterladen"
+    },
+    "deleteAccount": {
+      "title": "Account löschen",
+      "warningTitle": "⚠️ Was passiert bei der Account-Löschung:",
+      "warning1": "Dein Account wird deaktiviert - Login nicht mehr möglich",
+      "warning2": "Persönliche Daten werden gelöscht (Name, Email, Geburtsdatum, Profilbild)",
+      "warning3": "Dein Name wird durch \"Gelöschter Nutzer\" ersetzt",
+      "warning4": "Match-Historie bleibt erhalten (anonymisiert)",
+      "warning5": "Ranglisten-Einträge bleiben als \"Gelöschter Nutzer\"",
+      "warning6": "Diese Aktion kann nicht rückgängig gemacht werden!",
+      "recommendation": "Empfehlung: Lade zuerst deine Daten herunter (siehe oben).",
+      "button": "Account unwiderruflich löschen"
+    }
+  },
+  "settingsProfile": {
+    "title": "Profil bearbeiten",
+    "profilePicture": "Profilbild",
+    "changePhoto": "Bild ändern",
+    "name": "Name",
+    "saveName": "Namen speichern",
+    "email": {
+      "title": "Email-Adresse",
+      "current": "Aktuelle Email:",
+      "new": "Neue Email-Adresse",
+      "newPlaceholder": "neue-email@beispiel.de",
+      "currentPassword": "Aktuelles Passwort (zur Bestätigung)",
+      "passwordReason": "Aus Sicherheitsgründen musst du dein Passwort eingeben",
+      "changeButton": "Email-Adresse ändern"
+    },
+    "personalData": {
+      "title": "Persönliche Daten",
+      "pleaseSelect": "Bitte wählen",
+      "preferNotToSay": "Keine Angabe",
+      "saveButton": "Persönliche Daten speichern"
+    },
+    "password": {
+      "title": "Passwort ändern",
+      "current": "Aktuelles Passwort",
+      "new": "Neues Passwort",
+      "minChars": "Mindestens 8 Zeichen",
+      "confirm": "Neues Passwort bestätigen",
+      "changeButton": "Passwort ändern"
+    }
+  },
+  "settingsSupport": {
+    "title": "Support",
+    "pending": "Ausstehend",
+    "startTutorial": "Tutorial starten",
+    "tutorialTip": "Tipp: Das Tutorial kann jederzeit abgebrochen werden. Du kannst es später hier wiederholen.",
+    "coachTutorial": {
+      "title": "Coach Tutorial",
+      "description": "Lerne alle wichtigen Funktionen für Coaches kennen: Spielerverwaltung, Wettkämpfe, Challenges, Ranglisten und mehr."
+    },
+    "playerTutorial": {
+      "title": "Spieler Tutorial",
+      "description": "Lerne alle wichtigen Funktionen kennen: Ansichten wechseln, Ranglisten nutzen, Wettkämpfe anfragen, Dashboard anpassen und mehr."
+    },
+    "faq": {
+      "title": "FAQ & Regeln",
+      "description": "Häufig gestellte Fragen und Spielregeln",
+      "openButton": "FAQ öffnen"
+    }
+  },
+  "resetPassword": {
+    "setNewPassword": "Neues Passwort setzen",
+    "enterNewPassword": "Gib dein neues Passwort ein.",
+    "newPassword": "Neues Passwort",
+    "minChars": "Mindestens 6 Zeichen",
+    "confirmPassword": "Passwort bestätigen",
+    "repeatPassword": "Passwort wiederholen",
+    "savePassword": "Passwort speichern",
+    "success": {
+      "title": "Passwort geändert!",
+      "description": "Dein Passwort wurde erfolgreich geändert. Du kannst dich jetzt mit deinem neuen Passwort anmelden."
+    },
+    "toLogin": "Zur Anmeldung",
+    "error": {
+      "title": "Link ungültig",
+      "description": "Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen."
+    },
+    "requestNewLink": "Neuen Link anfordern:",
+    "emailPlaceholder": "Deine E-Mail-Adresse",
+    "sendNewLink": "Neuen Link senden",
+    "toHomepage": "Zur Startseite"
+  },
+  "faq": {
+    "title": "FAQ & Regeln",
+    "subtitle": "Alles, was du über SC Champions wissen musst.",
+    "backToDashboard": "Zurück zum Dashboard",
+    "sections": {
+      "pointSystem": "Das Punktesystem",
+      "gameMechanics": "Spielmechaniken"
+    },
+    "questions": {
+      "eloVsXp": "Was ist der Unterschied zwischen Elo, XP und Saison-Punkten?",
+      "eloSystem": "Wie funktioniert das Elo-System?",
+      "singlesPoints": "Wie funktionieren die Punkte bei Einzel-Matches?",
+      "handicapSystem": "Wie funktioniert das Handicap-System?",
+      "doublesMatches": "Wie funktionieren Doppel-Matches?",
+      "losePoints": "Kann ich auch Punkte verlieren?",
+      "attendancePoints": "Wie funktioniert das Anwesenheits-Punktesystem?",
+      "exercisesPoints": "Wie funktionieren Übungen und Punkte?",
+      "milestones": "Was sind Meilenstein-Übungen und -Challenges?",
+      "seasonReset": "Wie funktioniert der Saison-Reset?",
+      "ranksLeaderboard": "Wie funktionieren die Ränge und das Leaderboard?"
+    },
+    "answers": {
+      "eloVsXp": "Es gibt drei Arten von Punkten, die du sammelst:<ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>Skill (Elo):</strong> Dies ist deine permanente Spielstärke. Du startest mit <strong>800 Elo-Punkten</strong>. Du gewinnst Elo, indem du Wettkampf-Matches gegen andere gewinnst. Du verlierst Elo, wenn du verlierst. Dein Elo-Wert bestimmt maßgeblich deinen Rang.</li><li><strong>Fleiss (XP):</strong> Das sind deine permanenten Erfahrungspunkte. Du erhältst XP für fast alles: Anwesenheit, Übungen, Challenges und Match-Siege. <strong>XP werden nie abgezogen</strong> - du kannst sie nur gewinnen! XP sind (genau wie Elo) für deinen Rangaufstieg nötig. Allerdings können Strafen für unsportliches Verhalten auch XP kosten (siehe unten).</li><li><strong>Saison-Punkte:</strong> Diese Punkte sind nur für den \"Saison-Wettbewerb\" (alle 6 Wochen). Sie werden für Anwesenheit, Übungen, Challenges und Matches vergeben. Im Gegensatz zu XP kannst du Saison-Punkte bei Match-Niederlagen oder durch Strafen verlieren. Am Ende der Saison werden sie zurückgesetzt.</li></ul>",
+      "eloSystem": "<p>Das Elo-System berechnet deine Spielstärke basierend auf deinen Wettkampfergebnissen. Je mehr Spiele du machst, desto stabiler wird dein Rating.</p><p class=\"mt-3 font-semibold\">Dein persönlicher Faktor (A-Faktor):</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Spiele 1-10:</strong> Faktor 32 (schnelles Einpendeln)</li><li><strong>Spiele 11-20:</strong> Faktor 24 (Stabilisierung)</li><li><strong>Ab Spiel 21:</strong> Faktor 16 (stabile Rangliste)</li><li><strong>Jugend (U21):</strong> Faktor 20 (dauerhaft erhöht)</li></ul><p class=\"mt-3 font-semibold\">Entkoppelte Berechnung:</p><p class=\"mt-1\">Jeder Spieler rechnet mit seinem eigenen Faktor. Dadurch kann ein neuer Spieler mehr Punkte gewinnen als ein etablierter Spieler verliert.</p><p class=\"mt-3\"><strong>Beispiel:</strong> Neuer (Faktor 32) vs Etablierter (Faktor 16), beide 800 Elo</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>Neuer gewinnt: +16 Punkte (32 × 0.5)</li><li>Etablierter verliert: -8 Punkte (16 × 0.5)</li></ul><p class=\"mt-3 text-sm text-gray-600\">Neue Spieler starten bei 800 Elo. Das Minimum liegt bei 400 Elo.</p>",
+      "singlesPoints": "<p>Wenn du ein Wettkampf-Match (kein Handicap-Match) spielst, werden deine <strong>Elo-Punkte</strong> und deine <strong>Saison-Punkte</strong> angepasst. Deine <strong>XP</strong> können nur steigen.</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Sieg:</strong> Du gewinnst Elo-Punkte, Saison-Punkte und XP.</li><li><strong>Niederlage:</strong> Du verlierst Elo-Punkte und Saison-Punkte. Du verlierst <strong>keine</strong> XP.</li><li><strong>Fairness:</strong> Gewinnst du gegen einen stärkeren Spieler (höheres Elo), erhältst du mehr Punkte. Verlierst du gegen einen stärkeren Spieler, verlierst du nur wenige Punkte.</li></ul><p class=\"mt-2\"><strong>Wichtig für Rekruten:</strong> Als Rekrut (niedrigster Rang) musst du erst <strong>5 Grundlagen-Übungen</strong> abschliessen, bevor du Wettkampf-Matches spielen darfst. So stellst du sicher, dass du die Basics beherrschst!</p>",
+      "handicapSystem": "<p>Das Handicap-System sorgt für faire Spiele zwischen Spielern unterschiedlicher Stärke. Es gibt zwei Arten von Handicap-Vorschlägen:</p><p class=\"mt-3 font-semibold\">1. Elo-basiertes Handicap:</p><p class=\"mt-1\">Ab 40 Elo-Punkten Unterschied wird ein Handicap vorgeschlagen. Der schwächere Spieler startet jeden Satz mit Punkten Vorsprung.</p><ul class=\"list-none mt-2 space-y-1 bg-gray-50 p-3 rounded text-sm\"><li>40-79 Elo Differenz: +1 Punkt</li><li>80-119 Elo Differenz: +2 Punkte</li><li>120-159 Elo Differenz: +3 Punkte</li><li>160-199 Elo Differenz: +4 Punkte</li><li>... bis maximal +7 Punkte</li></ul><p class=\"mt-3 font-semibold\">2. Head-to-Head Handicap:</p><p class=\"mt-1\">Wenn ein Spieler 2x oder mehr hintereinander gegen denselben Gegner gewinnt, wird ein dynamisches Handicap vorgeschlagen:</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>2 Siege in Folge: +1 Punkt für den Verlierer</li><li>3 Siege in Folge: +2 Punkte</li><li>4 Siege in Folge: +3 Punkte</li><li>... bis maximal +7 Punkte</li></ul><p class=\"mt-1 text-sm\">Bei einem Sieg des Underdogs wird das Handicap um 1 reduziert (nicht komplett zurückgesetzt).</p><p class=\"mt-3 font-semibold\">Elo-Änderung bei Handicap-Matches:</p><p class=\"mt-1\">Bei Handicap-Matches wird eine <strong>feste Punktzahl</strong> vergeben, unabhängig von der Elo-Differenz:</p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Sieg mit Handicap:</strong> +8 Elo (fest)</li><li><strong>Niederlage mit Handicap:</strong> -8 Elo (fest)</li></ul><p class=\"mt-2 text-sm\"><strong>Tipp:</strong> Das Handicap ist optional - beide Spieler müssen zustimmen, es zu aktivieren.</p>",
+      "doublesMatches": "<p>Neben Einzel-Matches kannst du auch <strong>Doppel-Matches</strong> spielen! Im Doppel spielst du mit einem Partner gegen ein anderes Team.</p><p class=\"mt-3\"><strong>Der Ablauf:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Team bilden:</strong> Du wählst einen Partner (Team A) und zwei Gegner (Team B)</li><li><strong>Anfrage senden:</strong> Das Gegner-Team muss die Anfrage bestätigen</li><li><strong>Coach-Genehmigung:</strong> Nach der Bestätigung muss ein Coach das Match genehmigen und das Ergebnis eintragen</li><li><strong>Punkte:</strong> Alle 4 Spieler erhalten oder verlieren Doppel-Elo-Punkte</li></ul><p class=\"mt-3\"><strong>Doppel-Elo-System:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>Du hast ein <strong>separates Doppel-Elo</strong> (startet bei 800), unabhängig von deinem Einzel-Elo</li><li>Das Team-Elo wird aus dem Durchschnitt der beiden Spieler berechnet</li><li><strong>Beispiel:</strong> Spieler A (Doppel-Elo 900) + Spieler B (Doppel-Elo 1000) = Team-Elo 950</li><li>Wie beim Einzel gilt: Gewinne gegen stärkere Teams bringen mehr Punkte</li></ul><p class=\"mt-3\"><strong>Doppel-Rangliste:</strong></p><p class=\"mt-1\">Es gibt eine eigene Doppel-Rangliste, die du im <strong>Ranglisten-Tab</strong> findest. Dort siehst du, welche Teams die besten Doppel-Elo-Werte haben!</p><p class=\"mt-3\"><strong>Punkte-Berechnung:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Sieg:</strong> Beide Spieler des Gewinnerteams erhalten Doppel-Elo und Saison-Punkte</li><li><strong>Niederlage:</strong> Beide Spieler des Verliererteams verlieren Doppel-Elo und Saison-Punkte</li><li><strong>XP:</strong> Wie beim Einzel erhält nur das Gewinnerteam XP (kein XP-Verlust bei Niederlage)</li><li><strong>Handicap:</strong> Doppel-Matches können auch mit Handicap gespielt werden (keine Elo-Änderung)</li></ul><p class=\"mt-3\"><strong>Tipp:</strong> Doppel-Matches sind eine grossartige Möglichkeit, Teamwork zu trainieren und neue Spielstile kennenzulernen. Auch wenn du im Einzel noch nicht so stark bist, kannst du mit einem guten Partner im Doppel erfolgreich sein!</p>",
+      "losePoints": "Ja, du kannst Punkte verlieren – sogar <strong>XP</strong>, aber nur bei schweren Verstößen!<ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>Match-Niederlage:</strong> Du verlierst Elo und Saison-Punkte (siehe oben). Du verlierst <strong>keine</strong> XP.</li><li><strong>Leichte Verstöße (z.B. hört nicht auf Anweisungen, hilft nicht beim Aufbauen):</strong><br/><strong>-10 Saison-Punkte</strong> und <strong>-5 XP</strong></li><li><strong>Mittlere Verstöße (z.B. trainiert nicht ordentlich, macht Quatsch, wirft mit Bällen):</strong><br/><strong>-20 Saison-Punkte</strong> und <strong>-10 XP</strong></li><li><strong>Schwere Verstöße (z.B. respektloses Verhalten gegenüber Trainern oder Mitspielern):</strong><br/><strong>-30 Saison-Punkte</strong> und <strong>-20 XP</strong></li></ul><p class=\"mt-2\"><strong>Wichtig:</strong> Strafen treffen dich doppelt – sie ziehen sowohl Saison-Punkte als auch XP ab. Also: Fair bleiben und respektvoll miteinander umgehen!</p>",
+      "attendancePoints": "<p class=\"mb-3\"><strong>Punkte für Training-Teilnahme:</strong></p><p>Für jedes Training erhältst du Punkte (Saison & XP). Die Höhe hängt von deinem \"Streak\" ab – einer Serie von aufeinanderfolgenden Trainings:</p><ul class=\"list-disc list-inside mt-2 space-y-1 mb-3\"><li><strong>Normale Anwesenheit (1-2x in Folge):</strong> <strong>+3 Punkte</strong></li><li><strong>Streak-Bonus (3-4x in Folge):</strong> <strong>+5 Punkte</strong></li><li><strong>Super-Streak (5x oder mehr):</strong> <strong>+6 Punkte</strong></li></ul><p class=\"mt-3 mb-3\"><strong>Mehrfach-Training am selben Tag:</strong></p><p>Wenn du an <strong>mehreren Trainings am selben Tag</strong> teilnimmst (z.B. Basis-Training 16-17 Uhr und Leistungs-Training 17-18 Uhr), gilt:</p><ul class=\"list-disc list-inside mt-2 space-y-1 mb-3\"><li><strong>1. Training des Tages:</strong> Volle Punkte (3/5/6 je nach Streak)</li><li><strong>2. Training des Tages:</strong> Halbe Punkte (aufgerundet)<ul class=\"list-circle list-inside ml-6 mt-1 space-y-1 text-sm\"><li>3 Punkte → 2 Punkte (1.5 aufgerundet)</li><li>5 Punkte → 3 Punkte (2.5 aufgerundet)</li><li>6 Punkte → 3 Punkte</li></ul></li></ul><p class=\"mt-3\"><strong>Wichtig:</strong> Wenn du ein Training verpasst, wird dein Streak auf Null zurückgesetzt. Regelmässiges Training lohnt sich!</p>",
+      "exercisesPoints": "<p>Übungen sind in <strong>drei Schwierigkeitsstufen</strong> eingeteilt: Leicht, Mittel und Schwer. Die Punkte, die du erhältst, hängen sowohl von der Schwierigkeit der Übung als auch von deinem aktuellen Level ab:</p><p class=\"mt-2\"><strong>Wichtig:</strong> Je höher dein Level, desto mehr Punkte bekommst du für dieselbe Übung. Das System berechnet die Punkte automatisch basierend auf deinem aktuellen Rang und der Übungsschwierigkeit.</p><p class=\"mt-2\">Du erhältst sowohl <strong>Saison-Punkte</strong> als auch <strong>XP</strong> in gleicher Höhe.</p>",
+      "milestones": "<p>Manche Übungen und Challenges verwenden ein <strong>abgestuftes Punktesystem</strong> mit Meilensteinen. Das bedeutet: Je öfter du eine Übung schaffst, desto mehr Punkte kannst du insgesamt verdienen!</p><p class=\"mt-3\"><strong>Beispiel: Endlos-Aufschlag-Übung</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1 bg-indigo-50 p-3 rounded\"><li>1× geschafft → <strong>3 Punkte</strong></li><li>3× geschafft → <strong>+5 Punkte</strong> (insgesamt 8 Punkte)</li><li>5× geschafft → <strong>+8 Punkte</strong> (insgesamt 16 Punkte)</li></ul><p class=\"mt-3\"><strong>Wie funktioniert es?</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li>Die Punkte sind <strong>kumulativ</strong> – du bekommst alle Punkte bis zum erreichten Meilenstein.</li><li>Jeder Meilenstein kann <strong>nur einmal pro Saison</strong> erreicht werden.</li><li>Dein Coach sieht deinen aktuellen Fortschritt, wenn er dir Punkte vergibt.</li><li>Nach dem Saison-Reset (alle 6 Wochen) kannst du alle Meilensteine erneut erreichen!</li></ul>",
+      "seasonReset": "<p>Jede <strong>6 Wochen</strong> (42 Tage) wird eine neue Saison gestartet. Der Reset erfolgt <strong>automatisch um Mitternacht</strong>.</p><p class=\"mt-3\"><strong>Was wird zurückgesetzt?</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Saison-Punkte:</strong> Werden auf 0 zurückgesetzt</li><li><strong>Liga-Platzierungen:</strong> Top 2 jeder Liga steigen auf, Bottom 2 steigen ab</li><li><strong>Meilenstein-Fortschritt:</strong> Alle Meilensteine können erneut erreicht werden</li><li><strong>Abschluss-Status:</strong> Übungen und Challenges können erneut absolviert werden</li></ul><p class=\"mt-3\"><strong>Was bleibt erhalten?</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Einzel-Elo:</strong> Deine Einzel-Skill-Bewertung bleibt permanent</li><li><strong>Doppel-Elo:</strong> Deine Doppel-Skill-Bewertung bleibt permanent</li><li><strong>XP (Erfahrungspunkte):</strong> Dein Fleiß wird nie zurückgesetzt</li><li><strong>Rang:</strong> Dein Rang (Rekrut, Bronze, Silber...) ist permanent</li><li><strong>Grundlagen-Abschlüsse:</strong> Die 5 Grundlagen-Übungen bleiben abgeschlossen</li></ul><p class=\"mt-3\"><strong>Tipp:</strong> Im Dashboard siehst du einen Countdown bis zum nächsten Saison-Reset. Nutze die Zeit, um noch schnell Punkte zu sammeln und in deiner Liga aufzusteigen!</p>",
+      "ranksLeaderboard": "<p>Dein Rang (z.B. Rekrut, Bronze, Silber) ist <strong>permanent</strong> und wird nie zurückgesetzt. Um im Rang aufzusteigen, musst du bestimmte Meilensteine bei <strong>Elo (Skill)</strong> und <strong>XP (Fleiß)</strong> erreichen.</p><p class=\"mt-2\"><strong>Die Ränge und ihre Anforderungen:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-2\"><li><strong>Rekrut (Start):</strong> 0-49 XP, 1200 Elo, 0 Grundlagen<br/><em>Du startest hier mit 1200 Elo und 0 XP.</em></li><li><strong>Bronze:</strong> 50+ XP, 850+ Elo, 5 Grundlagen<br/><em>Lerne erst die Basics, bevor du Matches spielen darfst!</em></li><li><strong>Silber:</strong> 200+ XP, 900+ Elo</li><li><strong>Gold:</strong> 500+ XP, 1000+ Elo</li><li><strong>Platin:</strong> 1000+ XP, 1100+ Elo</li><li><strong>Champion:</strong> 1800+ XP, 1300+ Elo<br/><em>Die Elite - nur die Besten schaffen es hierher!</em></li></ul><p class=\"mt-2\"><strong>Wichtig:</strong> Du musst immer <strong>beide</strong> Anforderungen (Elo UND XP) für den nächsten Rang erfüllen. Für Bronze musst du zusätzlich 5 Grundlagen-Übungen abschließen.</p><p class=\"mt-2\"><strong>Das Leaderboard (Ranglisten) ist in mehrere Tabs aufgeteilt:</strong></p><ul class=\"list-disc list-inside mt-2 space-y-1\"><li><strong>Fleiss (XP):</strong> Zeigt die Rangliste basierend auf Erfahrungspunkten.</li><li><strong>Season (Punkte):</strong> Zeigt die aktuelle Saison-Rangliste.</li><li><strong>Skill (Elo):</strong> Zeigt die Rangliste basierend auf Einzel-Elo-Punkten.</li><li><strong>Ränge (Level):</strong> Zeigt alle Spieler gruppiert nach ihrem aktuellen Rang (z.B. alle in Bronze, alle in Silber).</li><li><strong>Doppel (Teams):</strong> Zeigt die Doppel-Rangliste mit den besten Team-Kombinationen basierend auf Doppel-Elo.</li></ul><p class=\"mt-2 text-sm italic text-gray-600\">Du kannst im Ranglisten-Tab einstellen, welche Ranglisten du sehen möchtest.</p>"
+    }
+  },
+  "coachPage": {
+    "title": "Coach Dashboard",
+    "welcomeBack": "Willkommen zurück!",
+    "switchToPlayer": "Zur Spieler-Ansicht",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "loading": "Lade...",
+    "tabs": {
+      "overview": "Übersicht",
+      "attendance": "Anwesenheit",
+      "exercises": "Übungen",
+      "challenges": "Challenges",
+      "matches": "Wettkämpfe",
+      "players": "Spieler"
+    },
+    "clubInfo": {
+      "noClub": "Du bist keinem Verein zugeordnet",
+      "club": "Verein"
+    },
+    "overview": {
+      "title": "Übersicht",
+      "statistics": "Statistiken"
+    },
+    "attendance": {
+      "title": "Anwesenheit",
+      "markPresent": "Anwesend markieren",
+      "selectTraining": "Training auswählen",
+      "selectPlayers": "Spieler auswählen"
+    },
+    "exercises": {
+      "title": "Übungen",
+      "create": "Übung erstellen",
+      "manage": "Übungen verwalten",
+      "assign": "Übung zuweisen"
+    },
+    "challenges": {
+      "title": "Challenges",
+      "create": "Challenge erstellen",
+      "manage": "Challenges verwalten"
+    },
+    "matches": {
+      "title": "Wettkämpfe",
+      "pending": "Ausstehend",
+      "approve": "Genehmigen",
+      "reject": "Ablehnen"
+    },
+    "players": {
+      "title": "Spieler",
+      "list": "Spielerliste",
+      "statistics": "Statistiken",
+      "manage": "Verwalten"
+    }
+  }
+}

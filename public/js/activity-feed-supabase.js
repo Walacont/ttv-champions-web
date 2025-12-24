@@ -122,6 +122,9 @@ export function initActivityFeedModule(user, userData) {
     // Setup infinite scroll
     setupInfiniteScroll();
 
+    // Setup pull-to-refresh
+    setupPullToRefresh();
+
     // Setup filter dropdown
     setupFilterDropdown();
 
@@ -472,6 +475,125 @@ function setupInfiniteScroll() {
     );
 
     infiniteScrollObserver.observe(sentinel);
+}
+
+/**
+ * Setup pull-to-refresh functionality for touch devices
+ */
+function setupPullToRefresh() {
+    const feedContainer = document.getElementById('activity-feed');
+    const ptrIndicator = document.getElementById('pull-to-refresh-indicator');
+    const ptrIcon = document.getElementById('ptr-icon');
+    const ptrText = document.getElementById('ptr-text');
+
+    if (!feedContainer || !ptrIndicator) return;
+
+    let startY = 0;
+    let currentY = 0;
+    let isPulling = false;
+    let isRefreshing = false;
+    const pullThreshold = 80; // px needed to trigger refresh
+    const maxPull = 120; // max pull distance
+
+    // Get the scrollable parent (could be the tab content or window)
+    function getScrollTop() {
+        const tabContent = feedContainer.closest('.tab-content');
+        if (tabContent) {
+            return tabContent.scrollTop;
+        }
+        return window.scrollY || document.documentElement.scrollTop;
+    }
+
+    // Touch start
+    feedContainer.addEventListener('touchstart', (e) => {
+        if (isRefreshing) return;
+        if (getScrollTop() > 5) return; // Only trigger at top
+
+        startY = e.touches[0].clientY;
+        isPulling = true;
+    }, { passive: true });
+
+    // Touch move
+    feedContainer.addEventListener('touchmove', (e) => {
+        if (!isPulling || isRefreshing) return;
+        if (getScrollTop() > 5) {
+            isPulling = false;
+            return;
+        }
+
+        currentY = e.touches[0].clientY;
+        const pullDistance = Math.min(currentY - startY, maxPull);
+
+        if (pullDistance > 0) {
+            // Update indicator
+            const progress = Math.min(pullDistance / pullThreshold, 1);
+            ptrIndicator.style.height = `${pullDistance}px`;
+            ptrIndicator.style.opacity = progress;
+
+            // Rotate arrow icon based on progress
+            if (pullDistance >= pullThreshold) {
+                ptrIcon.style.transform = 'rotate(180deg)';
+                ptrIcon.className = 'fas fa-arrow-up text-indigo-600 text-lg mb-1 transition-transform duration-200';
+                ptrText.textContent = 'Loslassen zum Aktualisieren';
+            } else {
+                ptrIcon.style.transform = 'rotate(0deg)';
+                ptrIcon.className = 'fas fa-arrow-down text-indigo-500 text-lg mb-1 transition-transform duration-200';
+                ptrText.textContent = 'Nach unten ziehen zum Aktualisieren';
+            }
+        }
+    }, { passive: true });
+
+    // Touch end
+    feedContainer.addEventListener('touchend', async () => {
+        if (!isPulling || isRefreshing) return;
+
+        const pullDistance = currentY - startY;
+
+        if (pullDistance >= pullThreshold) {
+            // Trigger refresh
+            isRefreshing = true;
+
+            // Show loading state
+            ptrIcon.className = 'fas fa-spinner fa-spin text-indigo-600 text-lg mb-1';
+            ptrText.textContent = 'Aktualisiere...';
+            ptrIndicator.style.height = '60px';
+
+            try {
+                // Reload activity feed
+                await loadActivityFeed();
+            } finally {
+                // Hide indicator
+                isRefreshing = false;
+                ptrIndicator.style.height = '0';
+                ptrIndicator.style.opacity = '0';
+
+                // Reset icon
+                setTimeout(() => {
+                    ptrIcon.className = 'fas fa-arrow-down text-indigo-500 text-lg mb-1 transition-transform duration-200';
+                    ptrIcon.style.transform = 'rotate(0deg)';
+                    ptrText.textContent = 'Nach unten ziehen zum Aktualisieren';
+                }, 300);
+            }
+        } else {
+            // Cancel - hide indicator
+            ptrIndicator.style.height = '0';
+            ptrIndicator.style.opacity = '0';
+        }
+
+        isPulling = false;
+        startY = 0;
+        currentY = 0;
+    }, { passive: true });
+
+    // Touch cancel
+    feedContainer.addEventListener('touchcancel', () => {
+        isPulling = false;
+        isRefreshing = false;
+        startY = 0;
+        currentY = 0;
+        ptrIndicator.style.height = '0';
+        ptrIndicator.style.opacity = '0';
+    }, { passive: true });
 }
 
 /**
