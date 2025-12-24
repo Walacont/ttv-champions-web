@@ -42,37 +42,23 @@ export async function initOneSignal() {
                 appId: ONESIGNAL_APP_ID,
                 // Safari web push requires this
                 safari_web_id: undefined,
-                // Don't show the native prompt immediately
+                // Auto resubscribe returning users
                 autoResubscribe: true,
-                // Use custom prompt instead of native
+                // DISABLE all automatic prompts - we use our own UI
+                autoRegister: false,
+                notifyButton: {
+                    enable: false
+                },
                 promptOptions: {
+                    autoPrompt: false,
                     slidedown: {
-                        prompts: [
-                            {
-                                type: "push",
-                                autoPrompt: false,
-                                text: {
-                                    actionMessage: "Möchtest du Push-Benachrichtigungen für Spielanfragen und Updates erhalten?",
-                                    acceptButton: "Aktivieren",
-                                    cancelButton: "Später"
-                                },
-                                delay: {
-                                    pageViews: 2,
-                                    timeDelay: 10
-                                }
-                            }
-                        ]
+                        enabled: false,
+                        autoPrompt: false
                     }
                 },
                 // Welcome notification after opt-in
                 welcomeNotification: {
-                    title: "SC Champions",
-                    message: "Danke! Du erhältst jetzt Benachrichtigungen.",
-                    url: "/dashboard.html"
-                },
-                // Notification behavior
-                notifyButton: {
-                    enable: false // We use our own UI
+                    disable: true
                 },
                 // Service worker settings
                 serviceWorkerPath: '/OneSignalSDKWorker.js',
@@ -139,7 +125,7 @@ export async function logoutOneSignal() {
 
 /**
  * Request push notification permission
- * Shows the OneSignal prompt
+ * Uses native browser permission (not OneSignal slidedown)
  */
 export async function requestOneSignalPermission() {
     if (!isOneSignalInitialized || !window.OneSignal) {
@@ -148,8 +134,8 @@ export async function requestOneSignalPermission() {
     }
 
     try {
-        // Show the slidedown prompt
-        await window.OneSignal.Slidedown.promptPush();
+        // Request native browser permission directly
+        await window.OneSignal.Notifications.requestPermission();
 
         // Check if permission was granted
         const permission = await window.OneSignal.Notifications.permission;
