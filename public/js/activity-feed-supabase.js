@@ -193,7 +193,7 @@ function setupLikesModal() {
                 <!-- Modal Header -->
                 <div class="flex items-center justify-between p-4 border-b border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-900">
-                        <i class="fas fa-thumbs-up mr-2 text-orange-500"></i>
+                        <i class="fas fa-thumbs-up mr-2 text-blue-500"></i>
                         <span>Likes</span>
                     </h3>
                     <button onclick="window.closeLikesModal()" class="text-gray-400 hover:text-gray-600 transition">
@@ -298,7 +298,7 @@ async function showLikesModal(activityId, activityType) {
                         <p class="font-semibold text-gray-900 truncate">${displayName}</p>
                         <p class="text-xs text-gray-500">${timeAgo}</p>
                     </div>
-                    <i class="fas fa-thumbs-up text-orange-500"></i>
+                    <i class="fas fa-thumbs-up text-blue-500"></i>
                 </a>
             `;
         }).join('');
@@ -1010,6 +1010,9 @@ async function fetchActivities(userIds) {
     // Load likes data
     await loadLikesForActivities(activities);
 
+    // Load comment counts for matches (they don't have comments_count column)
+    await loadCommentCountsForMatches(activities);
+
     // Get following IDs for context icons
     let followingIds = [];
     if (currentFilter !== 'my-activities') {
@@ -1108,10 +1111,11 @@ async function loadLikesForActivities(activities) {
         const activityIds = activities.map(a => a.id);
         const activityTypes = activities.map(a => {
             // Convert match types to activity types for new schema
-            if (a.matchType === 'singles') return 'singles_match';
-            if (a.matchType === 'doubles') return 'doubles_match';
-            // For other types, use activityType directly
-            return a.activityType || a.matchType || 'post';
+            const type = a.activityType || a.matchType;
+            if (type === 'singles') return 'singles_match';
+            if (type === 'doubles') return 'doubles_match';
+            // For other types, use directly
+            return type || 'post';
         });
 
         const { data, error } = await supabase.rpc('get_activity_likes_batch', {
@@ -1146,7 +1150,7 @@ async function loadLikesForActivities(activities) {
                     icon.classList.add('fas');
                 }
                 likeBtn.classList.remove('text-gray-400');
-                likeBtn.classList.add('text-orange-500');
+                likeBtn.classList.add('text-blue-500');
             }
         });
 
@@ -1202,11 +1206,77 @@ async function loadLikesFallback(activities) {
                     icon.classList.add('fas');
                 }
                 likeBtn.classList.remove('text-gray-400');
-                likeBtn.classList.add('text-orange-500');
+                likeBtn.classList.add('text-blue-500');
             }
         } catch (e) {
             likesDataCache[key] = { likeCount: 0, isLiked: false, recentLikers: [] };
         }
+    }
+}
+
+/**
+ * Load comment counts for match activities
+ * Matches don't have a comments_count column so we need to fetch it separately
+ */
+async function loadCommentCountsForMatches(activities) {
+    if (!activities || activities.length === 0) return;
+
+    // Filter only match activities
+    const matchActivities = activities.filter(a =>
+        a.activityType === 'singles' || a.activityType === 'doubles' ||
+        a.matchType === 'singles' || a.matchType === 'doubles'
+    );
+
+    if (matchActivities.length === 0) return;
+
+    try {
+        // Build queries for each match type
+        const singlesIds = matchActivities
+            .filter(a => a.activityType === 'singles' || a.matchType === 'singles')
+            .map(a => a.id);
+        const doublesIds = matchActivities
+            .filter(a => a.activityType === 'doubles' || a.matchType === 'doubles')
+            .map(a => a.id);
+
+        // Try batch function first
+        const { data, error } = await supabase.rpc('get_activity_comment_counts_batch', {
+            p_activity_ids: matchActivities.map(a => a.id),
+            p_activity_types: matchActivities.map(a => {
+                if (a.activityType === 'singles' || a.matchType === 'singles') return 'singles_match';
+                return 'doubles_match';
+            })
+        });
+
+        if (!error && data) {
+            data.forEach(item => {
+                const key = `${item.activity_type}-${item.activity_id}`;
+                const countEl = document.querySelector(`[data-comment-count="${key}"]`);
+                if (countEl) {
+                    countEl.textContent = item.comment_count > 0 ? item.comment_count : '';
+                }
+            });
+            return;
+        }
+
+        // Fallback: load counts individually
+        for (const match of matchActivities) {
+            const activityType = match.activityType === 'singles' || match.matchType === 'singles'
+                ? 'singles_match' : 'doubles_match';
+            const key = `${activityType}-${match.id}`;
+
+            const { count } = await supabase
+                .from('activity_comments')
+                .select('id', { count: 'exact', head: true })
+                .eq('activity_id', match.id)
+                .eq('activity_type', activityType);
+
+            const countEl = document.querySelector(`[data-comment-count="${key}"]`);
+            if (countEl) {
+                countEl.textContent = count > 0 ? count : '';
+            }
+        }
+    } catch (error) {
+        console.error('[ActivityFeed] Error loading comment counts:', error);
     }
 }
 
@@ -1315,15 +1385,15 @@ function updateLikeUI(likeBtn, countEl, isLiked, count) {
     if (likeBtn) {
         const icon = likeBtn.querySelector('i');
         if (isLiked) {
-            likeBtn.classList.add('text-orange-500');
-            likeBtn.classList.remove('text-gray-400', 'hover:text-orange-500');
+            likeBtn.classList.add('text-blue-500');
+            likeBtn.classList.remove('text-gray-400', 'hover:text-blue-500');
             if (icon) {
                 icon.classList.remove('far');
                 icon.classList.add('fas');
             }
         } else {
-            likeBtn.classList.remove('text-orange-500');
-            likeBtn.classList.add('text-gray-400', 'hover:text-orange-500');
+            likeBtn.classList.remove('text-blue-500');
+            likeBtn.classList.add('text-gray-400', 'hover:text-blue-500');
             if (icon) {
                 icon.classList.remove('fas');
                 icon.classList.add('far');
@@ -1366,7 +1436,7 @@ function renderLikeButton(matchId, matchType, activity = null) {
             <button
                 data-like-btn="${key}"
                 onclick="event.stopPropagation(); showLikesModal('${matchId}', '${activityType}')"
-                class="flex items-center gap-1 text-gray-600 hover:text-orange-500 transition-colors"
+                class="flex items-center gap-1 text-gray-600 hover:text-blue-500 transition-colors"
                 title="Likes anzeigen"
             >
                 <i class="far fa-thumbs-up"></i>
@@ -1377,7 +1447,7 @@ function renderLikeButton(matchId, matchType, activity = null) {
 
     // Regular like button for other users' activities
     const iconClass = isLiked ? 'fas' : 'far';
-    const colorClass = isLiked ? 'text-orange-500' : 'text-gray-400 hover:text-orange-500';
+    const colorClass = isLiked ? 'text-blue-500' : 'text-gray-400 hover:text-blue-500';
 
     return `
         <button
@@ -1411,7 +1481,7 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
         return `
             <button
                 onclick="showLikesModal('${activityId}', '${activityType}')"
-                class="flex items-center gap-2 text-gray-600 hover:text-orange-500 transition"
+                class="flex items-center gap-2 text-gray-600 hover:text-blue-500 transition"
                 data-like-btn="${key}"
                 title="Likes anzeigen"
             >
@@ -1425,7 +1495,7 @@ function renderGenericLikeButton(activityId, activityType, activity, count = 0) 
     return `
         <button
             onclick="toggleActivityLike('${activityId}', '${activityType}')"
-            class="flex items-center gap-2 ${isLiked ? 'text-orange-500' : 'text-gray-600'} hover:text-orange-500 transition"
+            class="flex items-center gap-2 ${isLiked ? 'text-blue-500' : 'text-gray-600'} hover:text-blue-500 transition"
             data-like-btn="${key}"
             title="${t('dashboard.activityFeed.giveKudos')}"
         >
