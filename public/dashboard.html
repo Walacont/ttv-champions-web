@@ -80,26 +80,8 @@
                 right: 0 !important;
                 -webkit-transform: translateZ(0);
                 transform: translateZ(0);
-                /* Add padding for safe area with fallback */
-                padding-bottom: env(safe-area-inset-bottom, 0);
-                /* Ensure minimum height for PWA home bar */
-                min-height: calc(48px + env(safe-area-inset-bottom, 0));
             }
-
-            /* Standalone PWA mode - extra padding for home indicator */
-            @media all and (display-mode: standalone) {
-                #bottom-nav {
-                    padding-bottom: max(env(safe-area-inset-bottom, 20px), 20px);
-                }
-                main {
-                    padding-bottom: calc(64px + env(safe-area-inset-bottom, 20px)) !important;
-                }
-            }
-
-            /* Bottom navigation safe area for iPhones */
-            .safe-area-bottom {
-                padding-bottom: env(safe-area-inset-bottom, 0);
-            }
+            /* PWA standalone styles are in mobile-fixes.css */
 
             /* Bottom nav button styles for mobile touch */
             .bottom-tab-button {

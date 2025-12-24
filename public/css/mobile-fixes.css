@@ -413,3 +413,71 @@ html body:not([style*="overflow: hidden"]) {
     max-height: calc(100vh - 40px);
     overflow-y: auto;
 }
+
+/* ============================================
+   PWA STANDALONE MODE - SAFE AREA FIXES
+   These apply when app is installed to home screen
+   ============================================ */
+
+/* Safe area bottom class - applies to elements that need bottom padding */
+.safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* PWA Standalone Mode - Bottom Navigation Fix */
+@media all and (display-mode: standalone) {
+    /* Bottom navigation bar needs safe area padding */
+    #bottom-nav {
+        padding-bottom: max(env(safe-area-inset-bottom, 20px), 20px) !important;
+        height: auto !important;
+    }
+
+    /* The inner flex container maintains its height */
+    #bottom-nav > div {
+        height: 48px;
+    }
+
+    /* Main content needs extra bottom padding for taller nav */
+    main,
+    #main-content,
+    .min-h-screen {
+        padding-bottom: calc(64px + max(env(safe-area-inset-bottom, 20px), 20px)) !important;
+    }
+
+    /* Top header also needs safe area for status bar */
+    #top-nav {
+        padding-top: max(env(safe-area-inset-top, 20px), 20px) !important;
+    }
+
+    /* Adjust main content top padding for taller header */
+    #main-content {
+        padding-top: calc(56px + max(env(safe-area-inset-top, 20px), 20px)) !important;
+    }
+
+    /* Profile and other pages with sticky headers */
+    .sticky.top-0 {
+        padding-top: max(env(safe-area-inset-top, 20px), 20px) !important;
+    }
+
+    /* Body safe area */
+    body {
+        padding-left: env(safe-area-inset-left, 0);
+        padding-right: env(safe-area-inset-right, 0);
+    }
+}
+
+/* iOS Safari PWA - additional fixes using -webkit-touch-callout detection */
+@supports (-webkit-touch-callout: none) {
+    @media all and (display-mode: standalone) {
+        /* Extra specific fix for iOS home indicator area */
+        #bottom-nav {
+            padding-bottom: max(env(safe-area-inset-bottom, 34px), 34px) !important;
+        }
+
+        /* Ensure enough space at bottom of scrollable content */
+        main,
+        #main-content {
+            padding-bottom: calc(64px + max(env(safe-area-inset-bottom, 34px), 34px)) !important;
+        }
+    }
+}
