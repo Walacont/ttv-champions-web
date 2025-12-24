@@ -13,12 +13,33 @@ import {
     getTournamentFormatName,
     getTournamentStatusName
 } from './tournaments-supabase.js';
-import { showToast } from './ui-utils.js';
 
 /**
  * Tournament UI Module
  * Handles all UI interactions for tournaments
  */
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    const colors = {
+        info: 'bg-indigo-600',
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        warning: 'bg-yellow-600'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-20 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('opacity-0', 'transition-opacity');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 
 let currentFilter = 'open'; // 'open', 'my', 'completed'
 let selectedTournamentId = null;
