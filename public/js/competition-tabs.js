@@ -45,7 +45,7 @@ function switchCompetitionTab(tab) {
 
     // Reset all tab buttons
     document.querySelectorAll('.competition-tab-btn').forEach(btn => {
-        btn.classList.remove('text-orange-600', 'border-orange-600');
+        btn.classList.remove('text-indigo-600', 'border-indigo-600');
         btn.classList.add('text-gray-400', 'border-transparent');
     });
 
@@ -57,11 +57,11 @@ function switchCompetitionTab(tab) {
     // Activate selected tab
     if (tab === 'matches') {
         matchesTabBtn?.classList.remove('text-gray-400', 'border-transparent');
-        matchesTabBtn?.classList.add('text-orange-600', 'border-orange-600');
+        matchesTabBtn?.classList.add('text-indigo-600', 'border-indigo-600');
         matchesContent?.classList.remove('hidden');
     } else if (tab === 'tournaments') {
         tournamentsTabBtn?.classList.remove('text-gray-400', 'border-transparent');
-        tournamentsTabBtn?.classList.add('text-orange-600', 'border-orange-600');
+        tournamentsTabBtn?.classList.add('text-indigo-600', 'border-indigo-600');
         tournamentsContent?.classList.remove('hidden');
     }
 }

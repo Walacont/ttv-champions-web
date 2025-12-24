@@ -63,7 +63,7 @@ export async function initTournamentsUI(userId, clubId, sportId) {
     const openTab = document.getElementById('tournament-tab-open');
     if (openTab) {
         openTab.classList.remove('text-gray-400', 'border-transparent');
-        openTab.classList.add('text-orange-600', 'border-orange-600');
+        openTab.classList.add('text-indigo-600', 'border-indigo-600');
     }
 
     // Load initial tournaments
@@ -119,16 +119,16 @@ function setupEventListeners() {
 async function switchTab(filter) {
     currentFilter = filter;
 
-    // Update tab styles - Strava style with orange underline
+    // Update tab styles - Strava style with indigo underline
     document.querySelectorAll('.tournament-tab-btn').forEach(btn => {
-        btn.classList.remove('text-orange-600', 'border-orange-600');
+        btn.classList.remove('text-indigo-600', 'border-indigo-600');
         btn.classList.add('text-gray-400', 'border-transparent');
     });
 
     const activeTab = document.getElementById(`tournament-tab-${filter}`);
     if (activeTab) {
         activeTab.classList.remove('text-gray-400', 'border-transparent');
-        activeTab.classList.add('text-orange-600', 'border-orange-600');
+        activeTab.classList.add('text-indigo-600', 'border-indigo-600');
     }
 
     // Reload tournaments
