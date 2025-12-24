@@ -10,16 +10,29 @@ let updateBannerShown = false;
 // Check interval: 5 minutes
 const CHECK_INTERVAL = 5 * 60 * 1000;
 
+// Version of this update checker logic - increment to force reset
+const UPDATE_CHECKER_VERSION = 2;
+
 /**
  * Initialize update checker
  */
 async function initializeUpdateChecker() {
     try {
+        // Check if we need to reset due to update checker code change
+        const storedCheckerVersion = localStorage.getItem('update_checker_version');
+        if (storedCheckerVersion !== String(UPDATE_CHECKER_VERSION)) {
+            console.log('[UpdateChecker] Resetting due to code update');
+            localStorage.removeItem('app_version');
+            localStorage.removeItem('dismissed_version');
+            localStorage.setItem('update_checker_version', String(UPDATE_CHECKER_VERSION));
+        }
+
         // Get current version from server (with aggressive cache busting)
         const response = await fetch('/version.json?t=' + Date.now(), {
             cache: 'no-store',
             headers: {
-                'Cache-Control': 'no-cache'
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
             }
         });
         const versionData = await response.json();
@@ -35,24 +48,26 @@ async function initializeUpdateChecker() {
         if (!storedVersion) {
             localStorage.setItem('app_version', currentVersion);
             console.log('[UpdateChecker] First visit, storing version');
-        }
-        // If versions match, we're up to date
-        else if (storedVersion === currentVersion) {
-            console.log('[UpdateChecker] Already up to date');
-        }
-        // If banner was already dismissed for this version, don't show again
-        else if (localStorage.getItem('dismissed_version') === currentVersion) {
-            console.log('[UpdateChecker] Banner already dismissed for this version');
-            localStorage.setItem('app_version', currentVersion);
-        }
-        // Version mismatch - show banner immediately
-        else {
-            console.log('[UpdateChecker] Version mismatch, showing banner');
-            showUpdateBanner(versionData.message || 'Eine neue Version ist verfügbar!');
+            return; // Don't start checking, we're up to date
         }
 
-        // Start periodic check for future updates
-        startUpdateCheck();
+        // If versions match, we're up to date
+        if (storedVersion === currentVersion) {
+            console.log('[UpdateChecker] Already up to date');
+            return; // Don't start checking, we're up to date
+        }
+
+        // If banner was already dismissed for this version, update and don't show
+        if (localStorage.getItem('dismissed_version') === currentVersion) {
+            console.log('[UpdateChecker] Banner already dismissed for this version');
+            localStorage.setItem('app_version', currentVersion);
+            return;
+        }
+
+        // Version mismatch - show banner
+        console.log('[UpdateChecker] Version mismatch, showing banner');
+        showUpdateBanner(versionData.message || 'Eine neue Version ist verfügbar!');
+
     } catch (error) {
         console.error('[UpdateChecker] Init error:', error);
     }

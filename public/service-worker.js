@@ -1,7 +1,7 @@
 // TTV Champions Service Worker
-const CACHE_NAME = 'ttv-champions-v3';
-const STATIC_CACHE = 'ttv-static-v3';
-const DYNAMIC_CACHE = 'ttv-dynamic-v3';
+const CACHE_NAME = 'ttv-champions-v4';
+const STATIC_CACHE = 'ttv-static-v4';
+const DYNAMIC_CACHE = 'ttv-dynamic-v4';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
