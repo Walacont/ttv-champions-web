@@ -18,6 +18,7 @@ import { createSetScoreInput, createTennisScoreInput, createBadmintonScoreInput 
 import { getSportContext } from './sport-context-supabase.js';
 import { calculateHandicap } from './validation-utils.js';
 import { formatDate, isAgeGroupFilter, filterPlayersByAgeGroup, isGenderFilter, filterPlayersByGender } from './ui-utils.js';
+import { recordTournamentMatchResult } from './tournaments-supabase.js';
 
 /**
  * Matches Module - Supabase Version
@@ -1138,7 +1139,7 @@ async function handleCoachApproval(requestId, approve, userData) {
         }
 
         // Create the match (first coach to approve releases it)
-        const { error: matchError } = await supabase
+        const { data: createdMatch, error: matchError } = await supabase
             .from('matches')
             .insert({
                 player_a_id: request.player_a_id,
@@ -1154,9 +1155,28 @@ async function handleCoachApproval(requestId, approve, userData) {
                 is_cross_club: request.is_cross_club,
                 match_request_id: request.id,
                 created_at: new Date().toISOString()
-            });
+            })
+            .select()
+            .single();
 
         if (matchError) throw matchError;
+
+        // If this match is linked to a tournament match, update the tournament
+        if (request.tournament_match_id && createdMatch) {
+            console.log('[Matches] Linking match to tournament:', {
+                tournamentMatchId: request.tournament_match_id,
+                matchId: createdMatch.id
+            });
+
+            try {
+                await recordTournamentMatchResult(request.tournament_match_id, createdMatch.id);
+                console.log('[Matches] Tournament match updated successfully');
+            } catch (tournamentError) {
+                console.error('[Matches] Error updating tournament match:', tournamentError);
+                // Don't throw - match was already created successfully
+                // Just log the error and continue
+            }
+        }
 
         // Update the request status to approved
         const { error: updateError } = await supabase
