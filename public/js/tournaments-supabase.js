@@ -369,20 +369,61 @@ async function generateRoundRobinMatches(tournamentId) {
         if (error) throw error;
 
         const playerIds = participants.map(p => p.player_id);
+        const n = playerIds.length;
         const matches = [];
 
-        // Round Robin algorithm: every player plays every other player
-        for (let i = 0; i < playerIds.length; i++) {
-            for (let j = i + 1; j < playerIds.length; j++) {
-                matches.push({
-                    tournament_id: tournamentId,
-                    round_number: 1,
-                    match_number: matches.length + 1,
-                    player_a_id: playerIds[i],
-                    player_b_id: playerIds[j],
-                    status: 'pending'
-                });
+        // Round-Robin with rotation algorithm (supports odd/even number of players)
+        // For odd number of players, one player gets a "bye" each round
+        const hasOddPlayers = n % 2 === 1;
+        const totalPlayers = hasOddPlayers ? n + 1 : n; // Add dummy player for odd numbers
+        const numRounds = totalPlayers - 1;
+        const matchesPerRound = totalPlayers / 2;
+
+        // Create array of player indices (0 to n-1, and null for dummy if odd)
+        const players = [...Array(n).keys()];
+        if (hasOddPlayers) {
+            players.push(null); // null represents the "bye" (Freilos)
+        }
+
+        // Round-robin rotation algorithm
+        // Player at index 0 stays fixed, others rotate
+        for (let round = 0; round < numRounds; round++) {
+            // Generate pairings for this round
+            for (let match = 0; match < matchesPerRound; match++) {
+                const home = match === 0 ? 0 : round - match + 1;
+                const away = round + match + 1;
+
+                const homeIdx = home % totalPlayers;
+                const awayIdx = away % totalPlayers;
+
+                const playerA = players[homeIdx];
+                const playerB = players[awayIdx];
+
+                // Skip if either player is the "bye" (null)
+                if (playerA !== null && playerB !== null) {
+                    matches.push({
+                        tournament_id: tournamentId,
+                        round_number: round + 1,
+                        match_number: matches.length + 1,
+                        player_a_id: playerIds[playerA],
+                        player_b_id: playerIds[playerB],
+                        status: 'pending'
+                    });
+                } else {
+                    // Log which player has a bye this round
+                    const playerWithBye = playerA === null ? playerB : playerA;
+                    if (playerWithBye !== null) {
+                        console.log(`[Tournaments] Round ${round + 1}: Player ${playerIds[playerWithBye]} has a bye (Freilos)`);
+                    }
+                }
             }
+
+            // Rotate players (except first one which stays fixed)
+            const temp = players[players.length - 1];
+            for (let i = players.length - 1; i > 1; i--) {
+                players[i] = players[i - 1];
+            }
+            players[1] = temp;
         }
 
         // Insert all matches
@@ -404,7 +445,10 @@ async function generateRoundRobinMatches(tournamentId) {
 
         if (standingsError) throw standingsError;
 
-        console.log(`[Tournaments] Generated ${matches.length} Round Robin matches`);
+        console.log(`[Tournaments] Generated ${matches.length} Round Robin matches across ${numRounds} rounds`);
+        if (hasOddPlayers) {
+            console.log('[Tournaments] Tournament has odd number of players - using bye rotation');
+        }
         return matches;
     } catch (error) {
         console.error('[Tournaments] Error generating matches:', error);

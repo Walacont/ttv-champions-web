@@ -529,32 +529,40 @@ function renderMatches(matches) {
         return '<p class="text-gray-400 text-sm">Noch keine Spiele generiert</p>';
     }
 
-    const pending = matches.filter(m => m.status === 'pending');
-    const completed = matches.filter(m => m.status === 'completed');
+    // Group matches by round number
+    const matchesByRound = {};
+    matches.forEach(match => {
+        const round = match.round_number || 1;
+        if (!matchesByRound[round]) {
+            matchesByRound[round] = [];
+        }
+        matchesByRound[round].push(match);
+    });
+
+    const rounds = Object.keys(matchesByRound).sort((a, b) => parseInt(a) - parseInt(b));
 
     let html = '';
 
-    if (pending.length > 0) {
+    rounds.forEach(round => {
+        const roundMatches = matchesByRound[round];
+        const pending = roundMatches.filter(m => m.status === 'pending');
+        const completed = roundMatches.filter(m => m.status === 'completed');
+        const total = roundMatches.length;
+
         html += `
             <div class="mb-4">
-                <h5 class="text-sm font-semibold text-gray-700 mb-2">Ausstehend (${pending.length})</h5>
+                <div class="flex items-center justify-between mb-2">
+                    <h5 class="text-sm font-semibold text-gray-700">
+                        <i class="fas fa-layer-group mr-1"></i>Runde ${round}
+                    </h5>
+                    <span class="text-xs text-gray-500">${completed.length}/${total} abgeschlossen</span>
+                </div>
                 <div class="space-y-2">
-                    ${pending.map(m => renderMatchCard(m)).join('')}
+                    ${roundMatches.map(m => renderMatchCard(m)).join('')}
                 </div>
             </div>
         `;
-    }
-
-    if (completed.length > 0) {
-        html += `
-            <div>
-                <h5 class="text-sm font-semibold text-gray-700 mb-2">Abgeschlossen (${completed.length})</h5>
-                <div class="space-y-2">
-                    ${completed.map(m => renderMatchCard(m)).join('')}
-                </div>
-            </div>
-        `;
-    }
+    });
 
     return html;
 }
