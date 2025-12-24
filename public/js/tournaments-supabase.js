@@ -744,6 +744,43 @@ export function getTournamentStatusName(status) {
     return statuses[status] || status;
 }
 
+/**
+ * Check if two players have a pending tournament match
+ * @param {string} playerAId - Player A ID
+ * @param {string} playerBId - Player B ID
+ * @returns {Promise<Object|null>} Tournament match if found, null otherwise
+ */
+export async function getPendingTournamentMatch(playerAId, playerBId) {
+    try {
+        const { data, error } = await supabase
+            .from('tournament_matches')
+            .select(`
+                *,
+                tournament:tournaments(id, name, format, with_handicap)
+            `)
+            .eq('status', 'pending')
+            .or(`and(player_a_id.eq.${playerAId},player_b_id.eq.${playerBId}),and(player_a_id.eq.${playerBId},player_b_id.eq.${playerAId})`)
+            .limit(1)
+            .single();
+
+        if (error && error.code !== 'PGRST116') {
+            // PGRST116 = no rows found, which is fine
+            console.error('[Tournaments] Error checking pending match:', error);
+            return null;
+        }
+
+        if (data) {
+            console.log('[Tournaments] Found pending tournament match:', data);
+            return data;
+        }
+
+        return null;
+    } catch (error) {
+        console.error('[Tournaments] Error in getPendingTournamentMatch:', error);
+        return null;
+    }
+}
+
 export default {
     initTournaments,
     createTournament,

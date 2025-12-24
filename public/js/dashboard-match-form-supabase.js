@@ -5,6 +5,7 @@
 import { getSupabase } from './supabase-init.js';
 import { initializeDoublesPlayerUI, initializeDoublesPlayerSearch } from './doubles-player-ui-supabase.js';
 import { createTennisScoreInput, createBadmintonScoreInput } from './player-matches-supabase.js';
+import { getPendingTournamentMatch, recordTournamentMatchResult } from './tournaments-supabase.js';
 
 const supabase = getSupabase();
 const DEFAULT_AVATAR = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23e5e7eb%22/%3E%3Ccircle cx=%2250%22 cy=%2240%22 r=%2220%22 fill=%22%239ca3af%22/%3E%3Cellipse cx=%2250%22 cy=%2285%22 rx=%2235%22 ry=%2225%22 fill=%22%239ca3af%22/%3E%3C/svg%3E';
@@ -17,6 +18,7 @@ let currentUserData = null;
 let currentSportContext = null;
 let testClubIdsCache = null;
 let currentHandicapDetails = null; // Stores current handicap suggestion details
+let currentTournamentMatch = null; // Stores pending tournament match if found
 
 /**
  * Initialize the module with user data
@@ -514,6 +516,7 @@ function selectOpponent(optionElement) {
     `;
 
     checkHandicap();
+    checkTournamentMatch();
 }
 
 /**
@@ -672,6 +675,43 @@ async function checkHandicap() {
 }
 
 /**
+ * Check if selected opponent has a pending tournament match with current user
+ */
+async function checkTournamentMatch() {
+    const tournamentInfo = document.getElementById('tournament-match-info');
+    const tournamentText = document.getElementById('tournament-match-text');
+    const tournamentToggle = document.getElementById('tournament-match-toggle');
+
+    if (!tournamentInfo || !selectedOpponent) return;
+
+    try {
+        // Check for pending tournament match
+        const tournamentMatch = await getPendingTournamentMatch(currentUser.id, selectedOpponent.id);
+
+        if (tournamentMatch && tournamentMatch.tournament) {
+            currentTournamentMatch = tournamentMatch;
+
+            const tournamentName = tournamentMatch.tournament.name || 'Unbenanntes Turnier';
+            tournamentText.textContent = `Du hast ein ausstehendes Turnierspiel gegen ${selectedOpponent.name} im Turnier "${tournamentName}". Soll dieses Match als Turnierspiel gewertet werden?`;
+
+            // Auto-check the checkbox
+            tournamentToggle.checked = true;
+
+            tournamentInfo.classList.remove('hidden');
+            console.log('[Match Form] Found pending tournament match:', tournamentMatch);
+        } else {
+            currentTournamentMatch = null;
+            tournamentInfo.classList.add('hidden');
+            tournamentToggle.checked = false;
+        }
+    } catch (error) {
+        console.error('[Match Form] Error checking tournament match:', error);
+        currentTournamentMatch = null;
+        tournamentInfo.classList.add('hidden');
+    }
+}
+
+/**
  * Submit match request
  */
 async function submitMatchRequest(callbacks = {}) {
@@ -696,6 +736,7 @@ async function submitMatchRequest(callbacks = {}) {
     const sets = setScoreHandler.getSets();
     const matchMode = document.getElementById('match-mode-select')?.value || 'best-of-5';
     const handicapUsed = document.getElementById('match-handicap-toggle')?.checked || false;
+    const countAsTournamentMatch = document.getElementById('tournament-match-toggle')?.checked || false;
 
     const winnerId = validation.winnerId === 'A' ? currentUser.id : selectedOpponent.id;
     const loserId = validation.winnerId === 'A' ? selectedOpponent.id : currentUser.id;
@@ -714,6 +755,10 @@ async function submitMatchRequest(callbacks = {}) {
             points: currentHandicapDetails.points
         } : null;
 
+        // Include tournament_match_id if this should count as tournament match
+        const tournamentMatchId = countAsTournamentMatch && currentTournamentMatch ?
+            currentTournamentMatch.id : null;
+
         const { data: insertedRequest, error } = await supabase
             .from('match_requests')
             .insert({
@@ -724,6 +769,7 @@ async function submitMatchRequest(callbacks = {}) {
                 sets: sets,
                 match_mode: matchMode,
                 handicap_used: handicapUsed,
+                tournament_match_id: tournamentMatchId,
                 handicap: handicapData,
                 winner_id: winnerId,
                 loser_id: loserId,
