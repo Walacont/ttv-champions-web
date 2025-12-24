@@ -48,7 +48,7 @@ USING (
     OR
     (club_id IN (
         SELECT club_id FROM profiles
-        WHERE id = auth.uid() AND is_coach = true
+        WHERE id = auth.uid() AND role = 'coach'
     ))
 );
 
@@ -60,7 +60,7 @@ USING (
     OR
     (club_id IN (
         SELECT club_id FROM profiles
-        WHERE id = auth.uid() AND is_coach = true
+        WHERE id = auth.uid() AND role = 'coach'
     ))
 );
 
@@ -141,7 +141,7 @@ WITH CHECK (
     tournament_id IN (
         SELECT id FROM tournaments
         WHERE created_by = auth.uid() OR club_id IN (
-            SELECT club_id FROM profiles WHERE id = auth.uid() AND is_coach = true
+            SELECT club_id FROM profiles WHERE id = auth.uid() AND role = 'coach'
         )
     )
 );
