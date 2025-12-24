@@ -19,6 +19,9 @@
         return;
     }
 
+    // Get Capacitor plugins from the global Capacitor object
+    const Plugins = window.Capacitor.Plugins;
+
     // Wait for Capacitor plugins to be ready
     document.addEventListener('DOMContentLoaded', async () => {
         try {
@@ -29,79 +32,83 @@
     });
 
     async function initializeNativeFeatures() {
-        // Import Capacitor plugins dynamically
-        const { SplashScreen } = await import('@capacitor/splash-screen');
-        const { StatusBar, Style } = await import('@capacitor/status-bar');
-        const { App } = await import('@capacitor/app');
-        const { Keyboard } = await import('@capacitor/keyboard');
+        const { SplashScreen, StatusBar, App, Keyboard } = Plugins;
 
         // Configure Status Bar
-        try {
-            await StatusBar.setBackgroundColor({ color: '#1e3a5f' });
-            await StatusBar.setStyle({ style: Style.Light });
-            console.log('[Capacitor] Status bar configured');
-        } catch (e) {
-            console.log('[Capacitor] Status bar not available:', e.message);
+        if (StatusBar) {
+            try {
+                await StatusBar.setBackgroundColor({ color: '#1e3a5f' });
+                await StatusBar.setStyle({ style: 'LIGHT' });
+                console.log('[Capacitor] Status bar configured');
+            } catch (e) {
+                console.log('[Capacitor] Status bar not available:', e.message);
+            }
         }
 
         // Handle keyboard events
-        try {
-            Keyboard.addListener('keyboardWillShow', (info) => {
-                document.body.classList.add('keyboard-visible');
-                document.body.style.setProperty('--keyboard-height', `${info.keyboardHeight}px`);
-            });
+        if (Keyboard) {
+            try {
+                Keyboard.addListener('keyboardWillShow', (info) => {
+                    document.body.classList.add('keyboard-visible');
+                    document.body.style.setProperty('--keyboard-height', `${info.keyboardHeight}px`);
+                });
 
-            Keyboard.addListener('keyboardWillHide', () => {
-                document.body.classList.remove('keyboard-visible');
-                document.body.style.removeProperty('--keyboard-height');
-            });
-            console.log('[Capacitor] Keyboard listeners configured');
-        } catch (e) {
-            console.log('[Capacitor] Keyboard not available:', e.message);
+                Keyboard.addListener('keyboardWillHide', () => {
+                    document.body.classList.remove('keyboard-visible');
+                    document.body.style.removeProperty('--keyboard-height');
+                });
+                console.log('[Capacitor] Keyboard listeners configured');
+            } catch (e) {
+                console.log('[Capacitor] Keyboard not available:', e.message);
+            }
         }
 
         // Handle app state changes
-        App.addListener('appStateChange', ({ isActive }) => {
-            console.log('[Capacitor] App state changed, active:', isActive);
-            if (isActive) {
-                // App came to foreground - refresh data if needed
-                window.dispatchEvent(new CustomEvent('app-resumed'));
-            }
-        });
-
-        // Handle back button (Android)
-        App.addListener('backButton', ({ canGoBack }) => {
-            if (canGoBack) {
-                window.history.back();
-            } else {
-                // Ask user if they want to exit
-                if (confirm('App beenden?')) {
-                    App.exitApp();
+        if (App) {
+            App.addListener('appStateChange', ({ isActive }) => {
+                console.log('[Capacitor] App state changed, active:', isActive);
+                if (isActive) {
+                    // App came to foreground - refresh data if needed
+                    window.dispatchEvent(new CustomEvent('app-resumed'));
                 }
-            }
-        });
+            });
 
-        // Handle deep links
-        App.addListener('appUrlOpen', (event) => {
-            console.log('[Capacitor] Deep link opened:', event.url);
-            const url = new URL(event.url);
-            // Handle the deep link - navigate to the appropriate page
-            if (url.pathname) {
-                window.location.href = url.pathname;
-            }
-        });
+            // Handle back button (Android)
+            App.addListener('backButton', ({ canGoBack }) => {
+                if (canGoBack) {
+                    window.history.back();
+                } else {
+                    // Ask user if they want to exit
+                    if (confirm('App beenden?')) {
+                        App.exitApp();
+                    }
+                }
+            });
+
+            // Handle deep links
+            App.addListener('appUrlOpen', (event) => {
+                console.log('[Capacitor] Deep link opened:', event.url);
+                const url = new URL(event.url);
+                // Handle the deep link - navigate to the appropriate page
+                if (url.pathname) {
+                    window.location.href = url.pathname;
+                }
+            });
+        }
 
         // Hide splash screen after content is ready
-        setTimeout(async () => {
-            try {
-                await SplashScreen.hide({
-                    fadeOutDuration: 300
-                });
-                console.log('[Capacitor] Splash screen hidden');
-            } catch (e) {
-                console.log('[Capacitor] Splash screen error:', e.message);
-            }
-        }, 500);
+        if (SplashScreen) {
+            setTimeout(async () => {
+                try {
+                    await SplashScreen.hide({
+                        fadeOutDuration: 300
+                    });
+                    console.log('[Capacitor] Splash screen hidden');
+                } catch (e) {
+                    console.log('[Capacitor] Splash screen error:', e.message);
+                }
+            }, 500);
+        }
 
         // Initialize Push Notifications
         await initializePushNotifications();
@@ -113,8 +120,14 @@
     async function initializePushNotifications() {
         console.log('[Push] Initializing push notifications...');
 
+        const PushNotifications = Plugins.PushNotifications;
+
+        if (!PushNotifications) {
+            console.error('[Push] PushNotifications plugin not available');
+            return;
+        }
+
         try {
-            const { PushNotifications } = await import('@capacitor/push-notifications');
             console.log('[Push] PushNotifications plugin loaded');
 
             // Check current permission status
@@ -201,8 +214,14 @@
                 return await requestWebPushPermission();
             }
 
+            const PushNotifications = Plugins.PushNotifications;
+
+            if (!PushNotifications) {
+                console.error('[Push] PushNotifications plugin not available');
+                return false;
+            }
+
             try {
-                const { PushNotifications } = await import('@capacitor/push-notifications');
                 console.log('[Push] PushNotifications module loaded');
 
                 // Check current permission status
@@ -247,8 +266,11 @@
             if (!isCapacitor) {
                 return 'Notification' in window && Notification.permission === 'granted';
             }
+
+            const PushNotifications = Plugins.PushNotifications;
+            if (!PushNotifications) return false;
+
             try {
-                const { PushNotifications } = await import('@capacitor/push-notifications');
                 const permStatus = await PushNotifications.checkPermissions();
                 return permStatus.receive === 'granted';
             } catch (e) {
@@ -259,14 +281,16 @@
         // Haptic feedback
         async vibrate(style = 'medium') {
             if (!isCapacitor) return;
+
+            const Haptics = Plugins.Haptics;
+            if (!Haptics) return;
+
             try {
-                const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
-                const impactStyle =
-                    {
-                        light: ImpactStyle.Light,
-                        medium: ImpactStyle.Medium,
-                        heavy: ImpactStyle.Heavy
-                    }[style] || ImpactStyle.Medium;
+                const impactStyle = {
+                    light: 'LIGHT',
+                    medium: 'MEDIUM',
+                    heavy: 'HEAVY'
+                }[style] || 'MEDIUM';
 
                 await Haptics.impact({ style: impactStyle });
             } catch (e) {
@@ -280,8 +304,14 @@
                 localStorage.setItem(key, JSON.stringify(value));
                 return;
             }
+
+            const Preferences = Plugins.Preferences;
+            if (!Preferences) {
+                localStorage.setItem(key, JSON.stringify(value));
+                return;
+            }
+
             try {
-                const { Preferences } = await import('@capacitor/preferences');
                 await Preferences.set({ key, value: JSON.stringify(value) });
             } catch (e) {
                 localStorage.setItem(key, JSON.stringify(value));
@@ -293,8 +323,14 @@
                 const item = localStorage.getItem(key);
                 return item ? JSON.parse(item) : null;
             }
+
+            const Preferences = Plugins.Preferences;
+            if (!Preferences) {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : null;
+            }
+
             try {
-                const { Preferences } = await import('@capacitor/preferences');
                 const { value } = await Preferences.get({ key });
                 return value ? JSON.parse(value) : null;
             } catch (e) {
