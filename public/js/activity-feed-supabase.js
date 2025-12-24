@@ -1865,7 +1865,7 @@ function renderSinglesActivityCard(match, profileMap, followingIds) {
                     ${renderLikeButton(match.id, 'singles', match)}
                     <button
                         onclick="openComments('${match.id}', 'singles_match')"
-                        class="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                        class="flex items-center gap-1 text-gray-600 hover:text-indigo-600 transition-colors"
                         title="Kommentieren"
                     >
                         <i class="far fa-comment"></i>
@@ -2042,7 +2042,7 @@ function renderDoublesActivityCard(match, profileMap, followingIds) {
                     ${renderLikeButton(match.id, 'doubles', match)}
                     <button
                         onclick="openComments('${match.id}', 'doubles_match')"
-                        class="flex items-center gap-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                        class="flex items-center gap-1 text-gray-600 hover:text-indigo-600 transition-colors"
                         title="Kommentieren"
                     >
                         <i class="far fa-comment"></i>
