@@ -352,6 +352,11 @@ export async function showPushPermissionPrompt() {
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
+    // Only show push prompt on native apps (Android/iOS), not on web
+    if (!window.CapacitorUtils?.isNative()) {
+        return false;
+    }
+
     // Don't show if already have a token
     if (window.pushToken) return false;
 

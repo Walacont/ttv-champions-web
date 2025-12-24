@@ -8,6 +8,17 @@
         <script src="/js/cookie-consent.js"></script>
 
         <script src="/js/capacitor-init.js"></script>
+        <script>
+            // Redirect to settings page if not on native app (Android/iOS)
+            // Push notifications are only available on native apps
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(function() {
+                    if (!window.CapacitorUtils?.isNative()) {
+                        window.location.href = '/settings.html';
+                    }
+                }, 100);
+            });
+        </script>
         <title>Benachrichtigungen - SC Champions</title>
 
         <!-- Favicon -->
