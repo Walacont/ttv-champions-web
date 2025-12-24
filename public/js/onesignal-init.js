@@ -125,7 +125,7 @@ export async function logoutOneSignal() {
 
 /**
  * Request push notification permission
- * Uses native browser permission (not OneSignal slidedown)
+ * Uses native browser permission API directly to avoid OneSignal UI
  */
 export async function requestOneSignalPermission() {
     if (!isOneSignalInitialized || !window.OneSignal) {
@@ -134,12 +134,18 @@ export async function requestOneSignalPermission() {
     }
 
     try {
-        // Request native browser permission directly
-        await window.OneSignal.Notifications.requestPermission();
+        // Use native browser API directly to avoid any OneSignal UI
+        if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
 
-        // Check if permission was granted
-        const permission = await window.OneSignal.Notifications.permission;
-        return permission;
+            if (permission === 'granted') {
+                // Tell OneSignal to register now that we have permission
+                await window.OneSignal.User.PushSubscription.optIn();
+                return true;
+            }
+            return false;
+        }
+        return false;
     } catch (error) {
         console.error('[OneSignal] Error requesting permission:', error);
         return false;
