@@ -1,10 +1,16 @@
 // Push Notifications Manager
 // Handles FCM token registration with Supabase and notification preferences
+// Also handles Web Push API for PWA
 
 import { getSupabase } from './supabase-init.js';
 
 let currentUserId = null;
 let tokenSaveTimeout = null;
+
+// VAPID Public Key for Web Push
+// Generate with: npx web-push generate-vapid-keys
+// Store the private key in Supabase Edge Function secrets as VAPID_PRIVATE_KEY
+const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
 
 /**
  * Initialize push notifications for a logged-in user
@@ -82,21 +88,23 @@ export async function requestPushPermission() {
     console.log('[Push] requestPushPermission called');
 
     try {
-        if (!window.CapacitorUtils) {
-            console.error('[Push] CapacitorUtils not available');
-            return false;
+        // For native apps, use Capacitor
+        if (window.CapacitorUtils?.isNative()) {
+            console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
+            const granted = await window.CapacitorUtils.requestPushPermission();
+            console.log('[Push] Permission result:', granted);
+
+            if (granted && currentUserId) {
+                // Token will be received via the event listener
+                console.log('[Push] Permission granted, waiting for token...');
+            }
+
+            return granted;
         }
 
-        console.log('[Push] Calling CapacitorUtils.requestPushPermission...');
-        const granted = await window.CapacitorUtils.requestPushPermission();
-        console.log('[Push] Permission result:', granted);
-
-        if (granted && currentUserId) {
-            // Token will be received via the event listener
-            console.log('[Push] Permission granted, waiting for token...');
-        }
-
-        return granted;
+        // For PWA/Web, use Web Push API
+        console.log('[Push] Using Web Push API for PWA...');
+        return await requestWebPushPermission();
     } catch (e) {
         console.error('[Push] Error in requestPushPermission:', e);
         return false;
@@ -104,11 +112,145 @@ export async function requestPushPermission() {
 }
 
 /**
+ * Request Web Push permission for PWA
+ * @returns {Promise<boolean>} - Whether permission was granted
+ */
+async function requestWebPushPermission() {
+    // Check if Web Push is supported
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('[Push] Web Push not supported in this browser');
+        return false;
+    }
+
+    // Request notification permission
+    const permission = await Notification.requestPermission();
+    console.log('[Push] Notification permission:', permission);
+
+    if (permission !== 'granted') {
+        return false;
+    }
+
+    try {
+        // Get service worker registration
+        const registration = await navigator.serviceWorker.ready;
+        console.log('[Push] Service worker ready');
+
+        // Check for existing subscription
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription) {
+            // Create new subscription
+            console.log('[Push] Creating new Web Push subscription...');
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+            console.log('[Push] New subscription created');
+        } else {
+            console.log('[Push] Existing subscription found');
+        }
+
+        // Save subscription to Supabase
+        await saveWebPushSubscription(subscription);
+        return true;
+    } catch (error) {
+        console.error('[Push] Web Push subscription error:', error);
+        return false;
+    }
+}
+
+/**
+ * Save Web Push subscription to Supabase
+ * @param {PushSubscription} subscription - The Web Push subscription
+ */
+async function saveWebPushSubscription(subscription) {
+    if (!currentUserId) {
+        console.error('[Push] No user ID for saving subscription');
+        return;
+    }
+
+    try {
+        const db = getSupabase();
+        if (!db) return;
+
+        const subscriptionJSON = subscription.toJSON();
+
+        const { error } = await db
+            .from('push_subscriptions')
+            .upsert({
+                user_id: currentUserId,
+                endpoint: subscription.endpoint,
+                p256dh: subscriptionJSON.keys.p256dh,
+                auth: subscriptionJSON.keys.auth,
+                user_agent: navigator.userAgent,
+                is_active: true
+            }, {
+                onConflict: 'endpoint'
+            });
+
+        if (error) {
+            console.error('[Push] Error saving Web Push subscription:', error);
+        } else {
+            console.log('[Push] Web Push subscription saved to database');
+        }
+    } catch (e) {
+        console.error('[Push] Error saving Web Push subscription:', e);
+    }
+}
+
+/**
+ * Convert VAPID key from base64 to Uint8Array
+ */
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+/**
  * Check if push notifications are enabled
  * @returns {Promise<boolean>}
  */
 export async function isPushEnabled() {
-    return await window.CapacitorUtils?.isPushEnabled() || false;
+    // For native apps, use Capacitor
+    if (window.CapacitorUtils?.isNative()) {
+        return await window.CapacitorUtils?.isPushEnabled() || false;
+    }
+
+    // For PWA/Web, check Web Push subscription
+    return await isWebPushEnabled();
+}
+
+/**
+ * Check if Web Push is enabled for PWA
+ * @returns {Promise<boolean>}
+ */
+async function isWebPushEnabled() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return false;
+    }
+
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+        return false;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        return !!subscription;
+    } catch (error) {
+        console.error('[Push] Error checking Web Push status:', error);
+        return false;
+    }
 }
 
 /**
@@ -121,13 +263,38 @@ export async function disablePushNotifications() {
         const db = getSupabase();
         if (!db) return;
 
-        await db
-            .from('profiles')
-            .update({
-                fcm_token: null,
-                notifications_enabled: false
-            })
-            .eq('id', currentUserId);
+        // For native apps
+        if (window.CapacitorUtils?.isNative()) {
+            await db
+                .from('profiles')
+                .update({
+                    fcm_token: null,
+                    notifications_enabled: false
+                })
+                .eq('id', currentUserId);
+        }
+
+        // For Web Push - unsubscribe and remove from database
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+
+                if (subscription) {
+                    // Remove from database
+                    await db
+                        .from('push_subscriptions')
+                        .delete()
+                        .eq('endpoint', subscription.endpoint);
+
+                    // Unsubscribe from push
+                    await subscription.unsubscribe();
+                    console.log('[Push] Web Push unsubscribed');
+                }
+            } catch (webPushError) {
+                console.error('[Push] Error unsubscribing from Web Push:', webPushError);
+            }
+        }
 
         console.log('[Push] Notifications disabled');
     } catch (e) {
@@ -352,7 +519,7 @@ export async function showPushPermissionPrompt() {
  * @returns {Promise<boolean>}
  */
 export async function shouldShowPushPrompt() {
-    // Don't show if already have a token
+    // Don't show if already have a token (native)
     if (window.pushToken) return false;
 
     // Check if user permanently dismissed (clicked "Später" 3 times or "Nicht mehr fragen")
@@ -383,12 +550,27 @@ export async function shouldShowPushPrompt() {
         } catch (e) {
             // Continue to show prompt if check fails
         }
-    }
+    } else {
+        // For PWA/Web - check Web Push status
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            // Web Push not supported, don't show prompt
+            return false;
+        }
 
-    // Check if permission was already denied or granted (web only)
-    if (!window.CapacitorUtils?.isNative() && 'Notification' in window) {
-        if (Notification.permission === 'denied') return false;
-        if (Notification.permission === 'granted') return false;
+        // Check if permission was already denied or granted
+        if ('Notification' in window) {
+            if (Notification.permission === 'denied') return false;
+            if (Notification.permission === 'granted') {
+                // Check if already subscribed
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const subscription = await registration.pushManager.getSubscription();
+                    if (subscription) return false;
+                } catch (e) {
+                    // Continue to show prompt if check fails
+                }
+            }
+        }
     }
 
     return true;
