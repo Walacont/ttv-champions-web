@@ -191,6 +191,16 @@ function showUpdateBanner(message) {
             }
         }
 
+        // Unregister all service workers so they don't re-cache old content
+        if ('serviceWorker' in navigator) {
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(reg => reg.unregister()));
+            } catch (e) {
+                console.error('[UpdateChecker] Error unregistering service workers:', e);
+            }
+        }
+
         // Force reload
         window.location.reload(true);
     });
