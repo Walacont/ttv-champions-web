@@ -11,7 +11,7 @@ let updateBannerShown = false;
 const CHECK_INTERVAL = 5 * 60 * 1000;
 
 // Version of this update checker logic - increment to force reset
-const UPDATE_CHECKER_VERSION = 3;
+const UPDATE_CHECKER_VERSION = 4;
 
 /**
  * Initialize update checker
@@ -177,9 +177,9 @@ function showUpdateBanner(message) {
 
     // Handle "Aktualisieren" button
     document.getElementById('update-reload-btn').addEventListener('click', async () => {
-        // Update stored version FIRST
+        // Update stored version FIRST - set both to prevent banner from showing again
         localStorage.setItem('app_version', currentVersion);
-        localStorage.removeItem('dismissed_version');
+        localStorage.setItem('dismissed_version', currentVersion);
 
         // Clear all caches
         if ('caches' in window) {
