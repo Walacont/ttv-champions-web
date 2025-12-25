@@ -52,6 +52,14 @@ export function initTournaments(userId, clubId, sportId) {
 }
 
 /**
+ * Get current user ID
+ * @returns {string|null} Current user ID
+ */
+export function getCurrentUserId() {
+    return currentUserId;
+}
+
+/**
  * Generate a random 6-character join code
  * @returns {string} Join code (e.g., "ABC123")
  */

@@ -12,7 +12,8 @@ import {
     getTournamentDetails,
     isParticipating,
     getTournamentFormatName,
-    getTournamentStatusName
+    getTournamentStatusName,
+    getCurrentUserId
 } from './tournaments-supabase.js';
 
 /**
@@ -420,7 +421,7 @@ function renderTournamentDetails(tournament, participating) {
  * Render action buttons
  */
 function renderActionButtons(tournament, participating) {
-    const isCreator = tournament.created_by === window.currentUser?.uid;
+    const isCreator = tournament.created_by === getCurrentUserId();
 
     let buttons = [];
 
