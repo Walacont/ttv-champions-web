@@ -6,6 +6,7 @@ import {
     createTournament,
     joinTournament,
     leaveTournament,
+    deleteTournament,
     startTournament,
     getTournaments,
     getTournamentDetails,
@@ -437,6 +438,15 @@ function renderActionButtons(tournament, participating) {
                 </button>
             `);
         }
+
+        // Delete button for creator (only during registration)
+        if (isCreator) {
+            buttons.push(`
+                <button id="delete-tournament-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium">
+                    <i class="fas fa-trash mr-2"></i>Löschen
+                </button>
+            `);
+        }
     }
 
     return buttons.join('');
@@ -647,6 +657,22 @@ function setupDetailEventListeners(tournament, participating) {
                 try {
                     await startTournament(tournament.id);
                     await openTournamentDetails(tournament.id); // Reload
+                    await loadTournaments(); // Refresh list
+                } catch (error) {
+                    // Error already shown
+                }
+            }
+        });
+    }
+
+    // Delete tournament button
+    const deleteBtn = document.getElementById('delete-tournament-btn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            if (confirm('Turnier wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+                try {
+                    await deleteTournament(tournament.id);
+                    closeTournamentDetailsModal();
                     await loadTournaments(); // Refresh list
                 } catch (error) {
                     // Error already shown

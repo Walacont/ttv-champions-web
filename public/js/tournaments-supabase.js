@@ -289,6 +289,30 @@ export async function leaveTournament(tournamentId) {
 }
 
 /**
+ * Delete a tournament (only creator or coach can delete)
+ * @param {string} tournamentId - Tournament ID
+ */
+export async function deleteTournament(tournamentId) {
+    try {
+        console.log('[Tournaments] Deleting tournament:', tournamentId);
+
+        // Delete tournament (CASCADE will delete participants, matches, standings)
+        const { error } = await supabase
+            .from('tournaments')
+            .delete()
+            .eq('id', tournamentId);
+
+        if (error) throw error;
+
+        showToast('Turnier erfolgreich gelöscht', 'success');
+    } catch (error) {
+        console.error('[Tournaments] Error deleting tournament:', error);
+        showToast('Fehler beim Löschen: ' + error.message, 'error');
+        throw error;
+    }
+}
+
+/**
  * Start a tournament (assign seeds and generate matches)
  * @param {string} tournamentId - Tournament ID
  */
@@ -861,6 +885,7 @@ export default {
     createTournament,
     joinTournament,
     leaveTournament,
+    deleteTournament,
     startTournament,
     getTournaments,
     getTournamentDetails,
