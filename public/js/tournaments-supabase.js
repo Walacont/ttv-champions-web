@@ -692,7 +692,6 @@ export async function getTournaments(status = null) {
                 created_by_profile:profiles!tournaments_created_by_fkey(id, display_name, first_name, last_name),
                 tournament_participants(count)
             `)
-            .eq('club_id', currentClubId)
             .eq('sport_id', currentSportId)
             .order('created_at', { ascending: false });
 
@@ -703,6 +702,10 @@ export async function getTournaments(status = null) {
         const { data, error } = await query;
 
         if (error) throw error;
+
+        // RLS policies will automatically filter:
+        // - Global tournaments (is_club_only = false): visible to all
+        // - Club-only tournaments (is_club_only = true): only visible to club members
 
         console.log('[Tournaments] Loaded tournaments:', data?.length);
         return data || [];
