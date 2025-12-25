@@ -387,6 +387,14 @@ function renderTournamentDetails(tournament, participating) {
                 ${renderParticipants(tournament.tournament_participants || [])}
             </div>
 
+            <!-- Pairing Table (if matches are generated) -->
+            ${tournament.tournament_matches && tournament.tournament_matches.length > 0 ? `
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-3"><i class="fas fa-chess-board mr-2"></i>Spielpaarungen</h4>
+                    ${renderPairingTable(tournament.tournament_participants || [], tournament.tournament_matches || [])}
+                </div>
+            ` : ''}
+
             <!-- Standings (if tournament is in progress or completed) -->
             ${tournament.status === 'in_progress' || tournament.status === 'completed' ? `
                 <div>
@@ -482,6 +490,99 @@ function renderParticipants(participants) {
                     </div>
                 `;
             }).join('')}
+        </div>
+    `;
+}
+
+/**
+ * Render pairing table (who plays whom in each round)
+ */
+function renderPairingTable(participants, matches) {
+    if (participants.length === 0 || matches.length === 0) {
+        return '<p class="text-gray-400 text-sm">Keine Paarungen verfügbar</p>';
+    }
+
+    // Sort participants by seed
+    const sortedParticipants = [...participants].sort((a, b) => (a.seed || 999) - (b.seed || 999));
+
+    // Get number of rounds
+    const maxRound = Math.max(...matches.map(m => m.round_number || 1));
+    const rounds = Array.from({ length: maxRound }, (_, i) => i + 1);
+
+    // Create a lookup: participantId -> round -> opponentName
+    const pairings = {};
+    sortedParticipants.forEach(p => {
+        pairings[p.player_id] = {};
+    });
+
+    matches.forEach(match => {
+        const round = match.round_number || 1;
+        const playerAId = match.player_a_id;
+        const playerBId = match.player_b_id;
+
+        // Get player names
+        const playerAName = match.player_a?.display_name ||
+                           `${match.player_a?.first_name || ''} ${match.player_a?.last_name || ''}`.trim() ||
+                           'TBD';
+        const playerBName = match.player_b?.display_name ||
+                           `${match.player_b?.first_name || ''} ${match.player_b?.last_name || ''}`.trim() ||
+                           'TBD';
+
+        // If it's a bye (one player is null), mark as "Freilos"
+        if (!playerBId) {
+            if (pairings[playerAId]) {
+                pairings[playerAId][round] = 'Freilos';
+            }
+        } else {
+            // Normal match - both players face each other
+            if (pairings[playerAId]) {
+                pairings[playerAId][round] = playerBName;
+            }
+            if (pairings[playerBId]) {
+                pairings[playerBId][round] = playerAName;
+            }
+        }
+    });
+
+    return `
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-2 py-2 text-left border border-gray-300 sticky left-0 bg-gray-100 z-10">Spieler</th>
+                        ${rounds.map(r => `
+                            <th class="px-2 py-2 text-center border border-gray-300 whitespace-nowrap">
+                                Runde ${r}
+                            </th>
+                        `).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sortedParticipants.map(p => {
+                        const name = p.profile?.display_name ||
+                                   `${p.profile?.first_name || ''} ${p.profile?.last_name || ''}`.trim() ||
+                                   'Unbekannt';
+                        const seed = p.seed || '-';
+
+                        return `
+                            <tr class="bg-white hover:bg-gray-50">
+                                <td class="px-2 py-2 border border-gray-300 sticky left-0 bg-white font-medium whitespace-nowrap">
+                                    <span class="text-gray-500 mr-1">#${seed}</span>${name}
+                                </td>
+                                ${rounds.map(round => {
+                                    const opponent = pairings[p.player_id]?.[round] || '-';
+                                    const isBye = opponent === 'Freilos';
+                                    return `
+                                        <td class="px-2 py-2 text-center border border-gray-300 ${isBye ? 'bg-gray-50 text-gray-400 italic' : ''}">
+                                            ${opponent}
+                                        </td>
+                                    `;
+                                }).join('')}
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
         </div>
     `;
 }
