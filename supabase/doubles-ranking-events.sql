@@ -10,6 +10,15 @@
 -- UPDATE CONSTRAINT: Add doubles event types
 -- ============================================
 
+-- First, delete any old podium_change events that might exist (in case this runs before podium-change-events.sql)
+DELETE FROM activity_events WHERE event_type = 'podium_change';
+
+-- Delete old ranking change events that were calculated without sport filtering
+-- These have incorrect position data because they compared players/pairings across all sports
+DELETE FROM activity_events
+WHERE event_type IN ('club_ranking_change', 'global_ranking_change', 'club_doubles_ranking_change', 'global_doubles_ranking_change')
+  AND (event_data->>'sport_id') IS NULL;
+
 ALTER TABLE activity_events DROP CONSTRAINT IF EXISTS valid_event_type;
 ALTER TABLE activity_events ADD CONSTRAINT valid_event_type
     CHECK (event_type IN (

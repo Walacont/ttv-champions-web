@@ -233,6 +233,25 @@
                     </div>
                 </a>
 
+                <!-- Cache Reset (for PWA issues) -->
+                <div
+                    id="cache-reset-card"
+                    class="settings-card block bg-white p-4 rounded-xl shadow-sm hover:shadow-md cursor-pointer border border-gray-200"
+                >
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-sync-alt text-orange-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">Cache zurücksetzen</h3>
+                                <p class="text-sm text-gray-500">Bei Anzeigeproblemen oder veralteten Daten</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </div>
+                </div>
+
                 <!-- Logout Button -->
                 <div class="pt-4">
                     <button
@@ -376,6 +395,38 @@
                             languageModal.classList.add('hidden');
                         }, 2000);
                     });
+                });
+
+                // Cache reset functionality
+                document.getElementById('cache-reset-card').addEventListener('click', async () => {
+                    if (confirm('Cache und lokale Daten zurücksetzen? Die App wird danach neu geladen.')) {
+                        try {
+                            // Clear localStorage (but preserve auth)
+                            const authData = localStorage.getItem('sb-auth-token');
+                            localStorage.clear();
+                            if (authData) {
+                                localStorage.setItem('sb-auth-token', authData);
+                            }
+
+                            // Clear all caches
+                            if ('caches' in window) {
+                                const cacheNames = await caches.keys();
+                                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                            }
+
+                            // Unregister service workers
+                            if ('serviceWorker' in navigator) {
+                                const registrations = await navigator.serviceWorker.getRegistrations();
+                                await Promise.all(registrations.map(reg => reg.unregister()));
+                            }
+
+                            // Force reload
+                            window.location.reload(true);
+                        } catch (error) {
+                            console.error('Cache reset error:', error);
+                            alert('Fehler beim Zurücksetzen: ' + error.message);
+                        }
+                    }
                 });
 
                 // Logout functionality

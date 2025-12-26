@@ -1,7 +1,7 @@
 // TTV Champions Service Worker
-const CACHE_NAME = 'ttv-champions-v2';
-const STATIC_CACHE = 'ttv-static-v2';
-const DYNAMIC_CACHE = 'ttv-dynamic-v2';
+const CACHE_NAME = 'ttv-champions-v5';
+const STATIC_CACHE = 'ttv-static-v5';
+const DYNAMIC_CACHE = 'ttv-dynamic-v5';
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
@@ -51,7 +51,12 @@ const NETWORK_ONLY = [
     // Supabase URLs - MUST bypass cache for real-time data!
     'supabase.co',
     'supabase.com',
-    'supabase.in'
+    'supabase.in',
+    // Version check - always fetch fresh
+    'version.json',
+    'update-checker.js',
+    // OneSignal
+    'onesignal.com'
 ];
 
 // Install event - cache static assets
