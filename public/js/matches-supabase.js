@@ -1648,7 +1648,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
 
             if (!request) throw new Error('Match request not found');
 
-            // Create the match
+            // Create the match (without tournament_match_id - that's in tournament_matches table)
             const { data: match, error: matchError } = await supabase
                 .from('matches')
                 .insert({
@@ -1664,8 +1664,7 @@ async function handlePlayerConfirmation(requestId, approved, declineReason = nul
                     sport_id: request.sport_id,
                     match_mode: request.match_mode || 'best-of-5',
                     handicap_used: request.handicap_used || false,
-                    played_at: request.played_at || new Date().toISOString(),
-                    tournament_match_id: request.tournament_match_id
+                    played_at: request.played_at || new Date().toISOString()
                 })
                 .select()
                 .single();
