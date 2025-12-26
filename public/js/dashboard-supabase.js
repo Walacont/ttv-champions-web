@@ -22,6 +22,7 @@ import { initMatchMedia } from './match-media.js';
 import { initI18n, translatePage } from './i18n.js';
 import { initTournamentsUI } from './tournaments-ui-supabase.js';
 import { initCompetitionTabs } from './competition-tabs.js';
+import { loadPendingPlayerConfirmations, showMatchConfirmationBottomSheet } from './matches-supabase.js';
 
 // Extracted modules for better maintainability
 import {
@@ -390,6 +391,9 @@ async function initializeDashboard() {
 
     // Load match history (after module initialization)
     loadMatchHistory();
+
+    // Check for pending match confirmations (bottom sheet)
+    checkPendingMatchConfirmations(currentUser.id);
 
     // Load activity feed (shows matches from club + followed users)
     loadActivityFeed();
@@ -3472,6 +3476,23 @@ async function loadPendingRequests() {
     } catch (error) {
         console.error('Error loading pending requests:', error);
         container.innerHTML = '<p class="text-red-500 text-center py-4 text-sm">Fehler beim Laden</p>';
+    }
+}
+
+/**
+ * Check for pending match confirmations and show bottom sheet
+ */
+async function checkPendingMatchConfirmations(userId) {
+    try {
+        const pendingConfirmations = await loadPendingPlayerConfirmations(userId);
+        if (pendingConfirmations && pendingConfirmations.length > 0) {
+            // Small delay to ensure page is fully loaded
+            setTimeout(() => {
+                showMatchConfirmationBottomSheet(pendingConfirmations);
+            }, 1000);
+        }
+    } catch (error) {
+        console.error('[Dashboard] Error checking pending confirmations:', error);
     }
 }
 

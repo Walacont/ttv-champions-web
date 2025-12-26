@@ -1345,3 +1345,369 @@ export async function loadSavedPairings(supabaseClient, clubId) {
     // Return empty array as there's no dedicated pairings table
     return [];
 }
+
+/**
+ * Load pending match confirmations for current player
+ * Shows matches that need player B's confirmation
+ */
+export async function loadPendingPlayerConfirmations(userId) {
+    const supabase = getSupabase();
+
+    try {
+        const { data: requests, error } = await supabase
+            .from('match_requests')
+            .select(`
+                *,
+                player_a:profiles!match_requests_player_a_id_fkey(id, first_name, last_name, display_name, elo_rating),
+                player_b:profiles!match_requests_player_b_id_fkey(id, first_name, last_name, display_name, elo_rating),
+                sports(id, display_name),
+                created_by_profile:profiles!match_requests_created_by_fkey(id, first_name, last_name, display_name)
+            `)
+            .eq('status', 'pending_player')
+            .or(`player_b_id.eq.${userId}`)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log('[Matches] Loaded pending player confirmations:', requests?.length || 0);
+        return requests || [];
+    } catch (error) {
+        console.error('[Matches] Error loading pending confirmations:', error);
+        return [];
+    }
+}
+
+/**
+ * Show bottom sheet with pending match confirmations
+ */
+export function showMatchConfirmationBottomSheet(requests) {
+    if (!requests || requests.length === 0) return;
+
+    let currentIndex = 0;
+
+    const renderBottomSheet = (index) => {
+        const request = requests[index];
+
+        const playerA = request.player_a?.display_name ||
+                       `${request.player_a?.first_name || ''} ${request.player_a?.last_name || ''}`.trim() ||
+                       'Spieler A';
+        const playerB = request.player_b?.display_name ||
+                       `${request.player_b?.first_name || ''} ${request.player_b?.last_name || ''}`.trim() ||
+                       'Du';
+
+        const winnerId = request.winner_id;
+        const winnerName = winnerId === request.player_a_id ? playerA : playerB;
+        const setsA = request.player_a_sets_won || 0;
+        const setsB = request.player_b_sets_won || 0;
+
+        const setsDetails = request.sets && request.sets.length > 0
+            ? request.sets.map(s => `${s.playerA}:${s.playerB}`).join(', ')
+            : 'Keine Details';
+
+        const handicapText = request.handicap_used
+            ? '✓ Verwendet'
+            : '✗ Nicht verwendet';
+
+        const matchMode = request.match_mode || 'best-of-5';
+        const modeDisplay = matchMode === 'best-of-5' ? 'Best of 5' :
+                           matchMode === 'best-of-3' ? 'Best of 3' :
+                           matchMode === 'best-of-7' ? 'Best of 7' : matchMode;
+
+        const createdBy = request.created_by_profile?.display_name ||
+                         `${request.created_by_profile?.first_name || ''} ${request.created_by_profile?.last_name || ''}`.trim() ||
+                         'Unbekannt';
+
+        const createdAt = request.created_at ? new Date(request.created_at).toLocaleString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : 'Unbekannt';
+
+        const modalHTML = `
+            <div id="match-confirmation-bottomsheet" class="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 animate-fade-in" style="animation: fadeIn 0.2s ease-out;">
+                <div class="bg-white rounded-t-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto animate-slide-up" style="animation: slideUp 0.3s ease-out;">
+                    <div class="p-6">
+                        <!-- Header -->
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <span class="text-2xl">🏓</span>
+                                Match-Ergebnis bestätigen
+                            </h3>
+                            <button id="close-bottomsheet" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+                                ×
+                            </button>
+                        </div>
+
+                        ${requests.length > 1 ? `
+                            <div class="text-sm text-gray-500 text-center mb-4">
+                                ${index + 1} von ${requests.length} Einträgen
+                            </div>
+                        ` : ''}
+
+                        <!-- Match Info -->
+                        <div class="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-4 mb-4 border border-indigo-100">
+                            <div class="text-sm text-gray-600 mb-2">Spieler:</div>
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="text-center flex-1">
+                                    <div class="font-semibold text-gray-800">${playerA}</div>
+                                    <div class="text-xs text-gray-500">Elo: ${request.player_a?.elo_rating || 800}</div>
+                                </div>
+                                <div class="px-4">
+                                    <div class="text-2xl font-bold text-gray-700">${setsA} : ${setsB}</div>
+                                </div>
+                                <div class="text-center flex-1">
+                                    <div class="font-semibold text-gray-800">${playerB}</div>
+                                    <div class="text-xs text-gray-500">Elo: ${request.player_b?.elo_rating || 800}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-center gap-2 bg-white rounded-lg py-2 px-3">
+                                <span class="text-xl">🏆</span>
+                                <span class="font-semibold text-indigo-700">${winnerName} gewinnt</span>
+                            </div>
+                        </div>
+
+                        <!-- Match Details -->
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-start gap-3">
+                                <span class="text-gray-400">📊</span>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Sätze:</div>
+                                    <div class="text-sm text-gray-600">${setsDetails}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <span class="text-gray-400">⚖️</span>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Handicap:</div>
+                                    <div class="text-sm text-gray-600">${handicapText}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <span class="text-gray-400">🎮</span>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Modus:</div>
+                                    <div class="text-sm text-gray-600">${modeDisplay}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <span class="text-gray-400">📅</span>
+                                <div class="flex-1">
+                                    <div class="text-sm font-medium text-gray-700">Gespielt:</div>
+                                    <div class="text-sm text-gray-600">${createdAt}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-3 mb-4">
+                            <button id="confirm-accept" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
+                                <span class="text-xl">✓</span>
+                                <span>Bestätigen</span>
+                            </button>
+                            <button id="confirm-decline" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
+                                <span class="text-xl">✗</span>
+                                <span>Ablehnen</span>
+                            </button>
+                        </div>
+
+                        <!-- Navigation for multiple requests -->
+                        ${requests.length > 1 ? `
+                            <div class="flex items-center justify-center gap-4 pt-2">
+                                <button id="prev-request" class="text-indigo-600 hover:text-indigo-700 disabled:text-gray-300 disabled:cursor-not-allowed" ${index === 0 ? 'disabled' : ''}>
+                                    <i class="fas fa-chevron-left"></i> Vorherige
+                                </button>
+                                <button id="next-request" class="text-indigo-600 hover:text-indigo-700 disabled:text-gray-300 disabled:cursor-not-allowed" ${index === requests.length - 1 ? 'disabled' : ''}>
+                                    Nächste <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        ` : ''}
+
+                        <!-- Created By -->
+                        <div class="text-xs text-center text-gray-400 mt-4">
+                            Eingetragen von: ${createdBy}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { transform: translateY(100%); }
+                    to { transform: translateY(0); }
+                }
+            </style>
+        `;
+
+        return modalHTML;
+    };
+
+    // Insert bottom sheet into DOM
+    const existingSheet = document.getElementById('match-confirmation-bottomsheet');
+    if (existingSheet) {
+        existingSheet.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', renderBottomSheet(currentIndex));
+
+    // Setup event listeners
+    const setupListeners = () => {
+        const modal = document.getElementById('match-confirmation-bottomsheet');
+        const closeBtn = document.getElementById('close-bottomsheet');
+        const acceptBtn = document.getElementById('confirm-accept');
+        const declineBtn = document.getElementById('confirm-decline');
+        const prevBtn = document.getElementById('prev-request');
+        const nextBtn = document.getElementById('next-request');
+
+        const closeModal = () => {
+            modal?.remove();
+        };
+
+        closeBtn?.addEventListener('click', closeModal);
+        modal?.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        acceptBtn?.addEventListener('click', async () => {
+            await handlePlayerConfirmation(requests[currentIndex].id, true);
+            requests.splice(currentIndex, 1);
+            if (requests.length > 0) {
+                if (currentIndex >= requests.length) currentIndex = requests.length - 1;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            } else {
+                closeModal();
+            }
+        });
+
+        declineBtn?.addEventListener('click', async () => {
+            const reason = prompt('Warum möchtest du dieses Ergebnis ablehnen? (Optional)');
+            await handlePlayerConfirmation(requests[currentIndex].id, false, reason);
+            requests.splice(currentIndex, 1);
+            if (requests.length > 0) {
+                if (currentIndex >= requests.length) currentIndex = requests.length - 1;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            } else {
+                closeModal();
+            }
+        });
+
+        prevBtn?.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            }
+        });
+
+        nextBtn?.addEventListener('click', () => {
+            if (currentIndex < requests.length - 1) {
+                currentIndex++;
+                modal.outerHTML = renderBottomSheet(currentIndex);
+                setupListeners();
+            }
+        });
+    };
+
+    setupListeners();
+}
+
+/**
+ * Handle player confirmation (accept/decline)
+ */
+async function handlePlayerConfirmation(requestId, approved, declineReason = null) {
+    const supabase = getSupabase();
+
+    try {
+        if (approved) {
+            // Get the request details
+            const { data: request } = await supabase
+                .from('match_requests')
+                .select('*')
+                .eq('id', requestId)
+                .single();
+
+            if (!request) throw new Error('Match request not found');
+
+            // Create the match
+            const { data: match, error: matchError } = await supabase
+                .from('matches')
+                .insert({
+                    player_a_id: request.player_a_id,
+                    player_b_id: request.player_b_id,
+                    winner_id: request.winner_id,
+                    loser_id: request.winner_id === request.player_a_id ? request.player_b_id : request.player_a_id,
+                    player_a_sets_won: request.player_a_sets_won,
+                    player_b_sets_won: request.player_b_sets_won,
+                    sets: request.sets || [],
+                    club_id: request.club_id,
+                    created_by: request.created_by,
+                    sport_id: request.sport_id,
+                    match_mode: request.match_mode || 'best-of-5',
+                    handicap_used: request.handicap_used || false,
+                    played_at: request.played_at || new Date().toISOString(),
+                    tournament_match_id: request.tournament_match_id
+                })
+                .select()
+                .single();
+
+            if (matchError) throw matchError;
+
+            // Update request status
+            await supabase
+                .from('match_requests')
+                .update({ status: 'approved' })
+                .eq('id', requestId);
+
+            // If linked to tournament, update tournament match
+            if (request.tournament_match_id && match) {
+                const { recordTournamentMatchResult } = await import('./tournaments-supabase.js');
+                await recordTournamentMatchResult(request.tournament_match_id, match.id);
+            }
+
+            console.log('[Matches] Match confirmed and created');
+            showToast('Match bestätigt!', 'success');
+        } else {
+            // Decline the match
+            await supabase
+                .from('match_requests')
+                .update({
+                    status: 'rejected',
+                    decline_reason: declineReason
+                })
+                .eq('id', requestId);
+
+            console.log('[Matches] Match declined');
+            showToast('Match abgelehnt', 'info');
+        }
+    } catch (error) {
+        console.error('[Matches] Error handling confirmation:', error);
+        showToast('Fehler: ' + error.message, 'error');
+        throw error;
+    }
+}
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    const colors = {
+        info: 'bg-indigo-600',
+        success: 'bg-green-600',
+        error: 'bg-red-600'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-20 right-4 ${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg z-50`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
